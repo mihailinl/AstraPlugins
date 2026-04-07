@@ -126,8 +126,18 @@ fn build_typescript(dir: &Path) -> Result<()> {
     let dist_dir = dir.join("dist");
     fs::create_dir_all(&dist_dir)?;
 
-    let mut cmd = std::process::Command::new(bundler);
-    if bundler == "bun" {
+    // Use the project's own build script if available
+    let has_build_script = dir.join("package.json").exists()
+        && fs::read_to_string(dir.join("package.json"))
+            .map(|s| s.contains("\"build\""))
+            .unwrap_or(false);
+
+    let mut cmd;
+    if has_build_script {
+        cmd = std::process::Command::new(bundler);
+        cmd.args(["run", "build"]);
+    } else if bundler == "bun" {
+        cmd = std::process::Command::new(bundler);
         cmd.args([
             "build",
             "src/index.ts",
@@ -137,11 +147,13 @@ fn build_typescript(dir: &Path) -> Result<()> {
             "node",
         ]);
     } else {
+        cmd = std::process::Command::new(bundler);
         cmd.args([
             "esbuild",
             "src/index.ts",
             "--bundle",
             "--platform=node",
+            "--format=cjs",
             "--outfile=dist/index.js",
         ]);
     }

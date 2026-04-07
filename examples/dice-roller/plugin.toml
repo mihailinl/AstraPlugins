@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "./bin/dice-roller.exe"
+command = "./bin/dice_roller.exe"
 
 [capabilities]
 tools = true
