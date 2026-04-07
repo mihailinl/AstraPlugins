@@ -1,2 +1,0 @@
-cargo:rerun-if-changed=proto/plugin.proto
-cargo:rerun-if-changed=proto/

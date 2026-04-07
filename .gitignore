@@ -2,3 +2,8 @@
 Thumbs.db
 *.swp
 *.astraplugin
+target/
+node_modules/
+dist/
+__pycache__/
+*.pyc
