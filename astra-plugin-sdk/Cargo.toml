@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Rust SDK for building Astra plugins"
 license = "MIT"
-repository = "https://github.com/astra-assistant/astra-plugin-sdk"
+repository = "https://github.com/mihailinl/AstraPlugins"
 
 [dependencies]
 # gRPC

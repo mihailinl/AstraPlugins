@@ -8,9 +8,9 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "astra-plugin-sdk": "^0.1.0",
     "@grpc/grpc-js": "^1.10.0",
-    "@grpc/proto-loader": "^0.7.0"
+    "@grpc/proto-loader": "^0.7.0",
+    "astra-plugin-sdk": "^0.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.20.0",

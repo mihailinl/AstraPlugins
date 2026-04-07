@@ -5,9 +5,9 @@
     "": {
       "name": "json-tools",
       "dependencies": {
-        "@astra/plugin-sdk": "file:../../astra-plugin-sdk-ts",
         "@grpc/grpc-js": "^1.10.0",
         "@grpc/proto-loader": "^0.7.0",
+        "astra-plugin-sdk": "^0.1.0",
       },
       "devDependencies": {
         "esbuild": "^0.20.0",
@@ -17,8 +17,6 @@
     },
   },
   "packages": {
-    "@astra/plugin-sdk": ["@astra/plugin-sdk@file:../../astra-plugin-sdk-ts", { "dependencies": { "@grpc/grpc-js": "^1.10.0", "@grpc/proto-loader": "^0.7.0" }, "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.4.0" } }],
-
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.20.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-D+EBOJHXdNZcLJRBkhENNG8Wji2kgc9AZ9KiPr1JuZjsNtyHzrsfLRrY0tk2H2aoFu6RANO1y1iPPUCDYWkb5g=="],
 
     "@esbuild/android-arm": ["@esbuild/android-arm@0.20.2", "", { "os": "android", "cpu": "arm" }, "sha512-t98Ra6pw2VaDhqNWO2Oph2LXbz/EJcnLmKLGBJwEwXX/JAN83Fym1rU8l0JUWK6HkIbWONCSSatf4sf2NBRx/w=="],
@@ -102,6 +100,8 @@
     "ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
     "ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
+
+    "astra-plugin-sdk": ["astra-plugin-sdk@0.1.0", "", { "dependencies": { "@grpc/grpc-js": "^1.10.0", "@grpc/proto-loader": "^0.7.0" } }, "sha512-pEVkvBj2RAIPDdlzKiYvcLP6oUTPPIYsskD++m97xozSrn32Y4GGKCNxisIInLSrDp814r/OLz8sqsBpcvh5yQ=="],
 
     "cliui": ["cliui@8.0.1", "", { "dependencies": { "string-width": "^4.2.0", "strip-ansi": "^6.0.1", "wrap-ansi": "^7.0.0" } }, "sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ=="],
 
