@@ -1,7 +1,7 @@
 [plugin]
 id = "text-utils"
 name = "Text Utils"
-version = "0.1.0"
+version = "0.1.1"
 description = "Word count, case conversion, regex matching — with actions and triggers"
 author = "Astra Team"
 license = "MIT"

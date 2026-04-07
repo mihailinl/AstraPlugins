@@ -1,7 +1,7 @@
 [plugin]
 id = "dice-roller"
 name = "Dice Roller"
-version = "0.1.0"
+version = "0.1.1"
 description = "Roll dice, flip coins — with actions and triggers for the command editor"
 author = "Astra Team"
 license = "MIT"
