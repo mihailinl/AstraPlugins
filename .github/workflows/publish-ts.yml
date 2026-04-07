@@ -1,0 +1,35 @@
+name: Publish TypeScript SDK to npm
+
+on:
+  push:
+    tags:
+      - "ts-v*"  # e.g. ts-v0.1.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # For npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        working-directory: astra-plugin-sdk-ts
+        run: bun install
+
+      - name: Build
+        working-directory: astra-plugin-sdk-ts
+        run: bun run build
+
+      - name: Publish to npm
+        working-directory: astra-plugin-sdk-ts
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

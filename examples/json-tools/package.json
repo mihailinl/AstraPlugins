@@ -8,7 +8,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@astra/plugin-sdk": "file:../../astra-plugin-sdk-ts",
+    "astra-plugin-sdk": "^0.1.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   },

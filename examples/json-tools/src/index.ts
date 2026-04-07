@@ -1,5 +1,5 @@
-import { Plugin, Field } from "@astra/plugin-sdk";
-import type { ToolDef, ToolResult, ActionResult, ActionTypeDef, TriggerTypeDef } from "@astra/plugin-sdk";
+import { Plugin, Field } from "astra-plugin-sdk";
+import type { ToolDef, ToolResult, ActionResult, ActionTypeDef, TriggerTypeDef } from "astra-plugin-sdk";
 
 class JsonTools extends Plugin {
   private defaultIndent = 2;
