@@ -55,13 +55,53 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
     let mut zip = zip::ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-    // Always include plugin.toml
-    zip.start_file("plugin.toml", options)?;
-    zip.write_all(manifest_str.as_bytes())?;
+    // For Rust: read entry.command, resolve the binary, pack into bin/, rewrite manifest
+    // For others: include plugin.toml as-is
+    let entry_command = manifest
+        .get("entry")
+        .and_then(|e| e.get("command"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    match language.as_str() {
+        "rust" => {
+            // Resolve the binary from entry.command relative to plugin dir
+            let bin_path = dir.join(entry_command);
+            if !bin_path.exists() {
+                anyhow::bail!(
+                    "Binary not found at '{}' (from entry.command = '{}')",
+                    bin_path.display(),
+                    entry_command
+                );
+            }
+            let bin_name = bin_path.file_name().unwrap().to_string_lossy();
+            let archive_bin_path = format!("bin/{}", bin_name);
+
+            // Write modified plugin.toml with command pointing to bin/ in archive
+            let modified_manifest = manifest_str.replace(
+                &format!("command = \"{}\"", entry_command),
+                &format!("command = \"./bin/{}\"", bin_name),
+            );
+            zip.start_file("plugin.toml", options)?;
+            zip.write_all(modified_manifest.as_bytes())?;
+
+            // Pack the binary
+            let mut buf = Vec::new();
+            File::open(&bin_path)?.read_to_end(&mut buf)?;
+            zip.start_file(&archive_bin_path, options)?;
+            zip.write_all(&buf)?;
+            println!("  Added: {}", archive_bin_path);
+        }
+        _ => {
+            // Non-Rust: include plugin.toml unchanged
+            zip.start_file("plugin.toml", options)?;
+            zip.write_all(manifest_str.as_bytes())?;
+        }
+    }
 
     // Include files based on language
     match language.as_str() {
-        "rust" => add_rust_artifacts(&dir, &mut zip, options)?,
+        "rust" => {} // already handled above
         "typescript" | "ts" => add_typescript_artifacts(&dir, &mut zip, options)?,
         "python" | "py" => add_python_artifacts(&dir, &mut zip, options)?,
         _ => add_directory_recursive(&dir, &mut zip, options, &dir)?,
