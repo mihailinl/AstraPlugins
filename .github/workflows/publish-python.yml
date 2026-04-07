@@ -1,0 +1,31 @@
+name: Publish Python SDK to PyPI
+
+on:
+  push:
+    tags:
+      - "python-v*"  # e.g. python-v0.1.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # Required for trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build package
+        working-directory: astra-plugin-sdk-python
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: astra-plugin-sdk-python/dist/

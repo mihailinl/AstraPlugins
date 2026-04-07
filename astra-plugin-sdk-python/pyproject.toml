@@ -12,8 +12,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/astra-assistant/astra-plugin-sdk-python"
-Repository = "https://github.com/astra-assistant/astra-plugin-sdk-python"
+Homepage = "https://github.com/mihailinl/AstraPlugins"
+Repository = "https://github.com/mihailinl/AstraPlugins/tree/master/astra-plugin-sdk-python"
 
 [build-system]
 requires = ["setuptools>=68.0"]
