@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="http://astra-plugin.localhost/bridge/astra-bridge.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+
+    .cat-container {
+      position: absolute;
+      bottom: 40px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
+      pointer-events: auto;
+      transition: left 2s ease-in-out, bottom 2s ease-in-out, right 2s ease-in-out;
+    }
+
+    /* Speech bubble */
+    .bubble {
+      background: var(--color-surface, #1a1a1a);
+      color: var(--color-text, #e5e5e5);
+      border: 1px solid var(--color-border, rgba(255,255,255,0.15));
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-family: var(--font-sans, "Segoe UI", sans-serif);
+      max-width: 160px;
+      text-align: center;
+      position: relative;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bubble.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid var(--color-surface, #1a1a1a);
+    }
+
+    /* Cat made with CSS */
+    .cat {
+      width: 60px;
+      height: 50px;
+      position: relative;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* Body */
+    .cat-body {
+      width: 44px;
+      height: 32px;
+      background: #555;
+      border-radius: 50% 50% 45% 45%;
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Head */
+    .cat-head {
+      width: 34px;
+      height: 28px;
+      background: #555;
+      border-radius: 50% 50% 40% 40%;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Ears */
+    .cat-ear {
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 12px solid #555;
+      position: absolute;
+      top: -6px;
+    }
+    .cat-ear--left { left: 2px; transform: rotate(-15deg); }
+    .cat-ear--right { right: 2px; transform: rotate(15deg); }
+    .cat-ear-inner {
+      width: 0; height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 8px solid #d4a0a0;
+      position: absolute;
+      top: -3px;
+    }
+    .cat-ear--left .cat-ear-inner { left: 4px; }
+    .cat-ear--right .cat-ear-inner { right: 4px; }
+
+    /* Eyes */
+    .cat-eyes {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+    }
+    .cat-eye {
+      width: 6px; height: 7px;
+      background: #2dd;
+      border-radius: 50%;
+      position: relative;
+    }
+    .cat-eye::after {
+      content: "";
+      width: 3px; height: 5px;
+      background: #111;
+      border-radius: 50%;
+      position: absolute;
+      top: 1px; left: 1.5px;
+    }
+
+    /* Nose */
+    .cat-nose {
+      width: 4px; height: 3px;
+      background: #d4a0a0;
+      border-radius: 50%;
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Mouth */
+    .cat-mouth {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 4px;
+    }
+    .cat-mouth::before, .cat-mouth::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 6px; height: 4px;
+      border-bottom: 1.5px solid #888;
+      border-radius: 0 0 50% 50%;
+    }
+    .cat-mouth::before { left: 0; }
+    .cat-mouth::after { right: 0; }
+
+    /* Tail */
+    .cat-tail {
+      width: 30px;
+      height: 20px;
+      border: 3px solid #555;
+      border-color: transparent transparent #555 transparent;
+      border-radius: 0 0 50% 50%;
+      position: absolute;
+      bottom: 5px;
+      right: -12px;
+      animation: wag 2s ease-in-out infinite;
+      transform-origin: left center;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes wag {
+      0%, 100% { transform: rotate(-10deg); }
+      50% { transform: rotate(10deg); }
+    }
+
+    /* Blink animation */
+    @keyframes blink {
+      0%, 95%, 100% { transform: scaleY(1); }
+      97% { transform: scaleY(0.1); }
+    }
+    .cat-eye { animation: blink 4s infinite; }
+  </style>
+</head>
+<body>
+  <div class="cat-container" id="catContainer">
+    <div class="bubble" id="bubble"></div>
+    <div class="cat">
+      <div class="cat-head">
+        <div class="cat-ear cat-ear--left"><div class="cat-ear-inner"></div></div>
+        <div class="cat-ear cat-ear--right"><div class="cat-ear-inner"></div></div>
+        <div class="cat-eyes">
+          <div class="cat-eye"></div>
+          <div class="cat-eye"></div>
+        </div>
+        <div class="cat-nose"></div>
+        <div class="cat-mouth"></div>
+      </div>
+      <div class="cat-body"></div>
+      <div class="cat-tail"></div>
+    </div>
+  </div>
+
+  <script>
+    const bubble = document.getElementById("bubble");
+    const container = document.getElementById("catContainer");
+    let bubbleTimeout;
+
+    async function showMessage() {
+      try {
+        const result = await window.astra.callBackend("getRandomMessage", {});
+        if (result && result.message) {
+          bubble.textContent = result.message;
+          bubble.classList.add("visible");
+          clearTimeout(bubbleTimeout);
+          bubbleTimeout = setTimeout(() => {
+            bubble.classList.remove("visible");
+          }, 3500);
+        }
+      } catch (e) {
+        console.error("Failed to get message:", e);
+      }
+    }
+
+    // Show a message on click
+    container.addEventListener("click", showMessage);
+
+    // Move cat to random position
+    function moveCat() {
+      const maxX = window.innerWidth - 100;
+      const maxY = window.innerHeight - 120;
+      const x = 20 + Math.random() * (maxX - 40);
+      const y = 30 + Math.random() * (maxY - 60);
+      container.style.left = x + "px";
+      container.style.bottom = y + "px";
+      container.style.right = "auto";
+    }
+
+    // Move periodically (every 5-10 seconds)
+    function scheduleMove() {
+      const delay = 5000 + Math.random() * 5000;
+      setTimeout(() => {
+        moveCat();
+        scheduleMove();
+      }, delay);
+    }
+
+    // Show a message periodically (every 8-15 seconds)
+    function scheduleMessage() {
+      const delay = 8000 + Math.random() * 7000;
+      setTimeout(() => {
+        showMessage();
+        scheduleMessage();
+      }, delay);
+    }
+
+    // Initial message after 2 seconds, start moving
+    setTimeout(showMessage, 2000);
+    scheduleMessage();
+    setTimeout(scheduleMove, 3000);
+  </script>
+</body>
+</html>

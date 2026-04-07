@@ -1,0 +1,13 @@
+[plugin]
+id = "companion-cat"
+name = "Companion Cat"
+version = "0.1.0"
+description = "A cat that flies around the UI and says random things"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/companion.exe"
+
+[capabilities]
+ui_contributions = true

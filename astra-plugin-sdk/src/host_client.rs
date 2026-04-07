@@ -139,4 +139,16 @@ impl HostClient {
     pub async fn log_error(&mut self, msg: &str) -> Result<()> {
         self.log("error", msg).await
     }
+
+    /// Push a message to this plugin's UI iframes.
+    pub async fn push_to_ui(&mut self, event: &str, payload_json: &str) -> Result<()> {
+        self.client
+            .push_to_ui(proto::PluginUiPushRequest {
+                plugin_id: self.plugin_id.clone(),
+                event: event.to_string(),
+                payload_json: payload_json.to_string(),
+            })
+            .await?;
+        Ok(())
+    }
 }

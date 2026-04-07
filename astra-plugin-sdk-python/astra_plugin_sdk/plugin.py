@@ -162,9 +162,9 @@ class Plugin:
         trigger_types = await self.get_trigger_types()
         if trigger_types:
             caps.append("triggers")
-        panels = await self.get_ui_panels()
-        if panels:
-            caps.append("ui_panels")
+        ui_contribs = await self.get_ui_contributions()
+        if ui_contribs:
+            caps.append("ui_contributions")
         return caps
 
     # ── Capability methods (override in subclass) ──
@@ -246,9 +246,31 @@ class Plugin:
         """
         return list(self._decorated_triggers.values())
 
-    async def get_ui_panels(self) -> list[dict]:
-        """Return UI panel definitions."""
+    async def get_ui_contributions(self) -> list[dict]:
+        """Return UI contribution definitions (pages, effects, settings sections, CSS injections)."""
         return []
+
+    # Convenience factories for UI contributions
+    @staticmethod
+    def ui_page(id: str, label: str, url: str, *, icon_svg: str = "") -> dict:
+        return {"id": id, "slot": "page.custom", "label": label, "url": url, "icon_svg": icon_svg, "pointer_events": True}
+
+    @staticmethod
+    def ui_slot(slot: str, url: str, *, id: str = "", label: str = "", width: int = 0, height: int = 0) -> dict:
+        return {"id": id or slot, "slot": slot, "url": url, "label": label, "width": width, "height": height, "pointer_events": True}
+
+    @staticmethod
+    def ui_effect(url: str, *, id: str = "effect", audio: bool = False) -> dict:
+        props = {"audio": "true"} if audio else {}
+        return {"id": id, "slot": "background.behind", "url": url, "transparent": True, "pointer_events": False, "props": props}
+
+    @staticmethod
+    def ui_inject(css_target: str, position: str, url: str, *, id: str = "inject", width: int = 0, height: int = 0) -> dict:
+        return {"id": id, "css_target": css_target, "position": position, "url": url, "width": width, "height": height, "pointer_events": True}
+
+    @staticmethod
+    def ui_overlay(id: str, url: str, *, width: int = 200, height: int = 200) -> dict:
+        return {"id": id, "slot": "overlay.floating", "url": url, "transparent": True, "pointer_events": True, "width": width, "height": height}
 
     async def on_config_changed(self, config: dict):
         """Called when config changes."""
@@ -391,10 +413,10 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             types=[plugin_pb2.TriggerTypeDefinitionMsg(**t) for t in types]
         )
 
-    async def GetUiPanels(self, request, context):
-        panels = await self.plugin.get_ui_panels()
-        return plugin_pb2.PluginUiPanelsResponse(
-            panels=[plugin_pb2.PluginUiPanel(**p) for p in panels]
+    async def GetUiContributions(self, request, context):
+        contributions = await self.plugin.get_ui_contributions()
+        return plugin_pb2.PluginUiContributionsResponse(
+            contributions=[plugin_pb2.PluginUiContribution(**c) for c in contributions]
         )
 
     async def OnConfigChanged(self, request, context):

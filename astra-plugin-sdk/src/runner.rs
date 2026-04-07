@@ -166,8 +166,8 @@ async fn discover_capabilities<P: PluginCapability>(plugin: &P) -> Vec<String> {
     if !plugin.trigger_types().await.is_empty() {
         caps.push("triggers".into());
     }
-    if !plugin.ui_panels().await.is_empty() {
-        caps.push("ui_panels".into());
+    if !plugin.ui_contributions().await.is_empty() {
+        caps.push("ui_contributions".into());
     }
 
     caps
@@ -330,13 +330,25 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
 
     // ── UI ──
 
-    async fn get_ui_panels(
+    async fn get_ui_contributions(
         &self,
         _request: tonic::Request<proto::Empty>,
-    ) -> Result<tonic::Response<proto::PluginUiPanelsResponse>, tonic::Status> {
-        let panels = self.plugin.ui_panels().await;
-        Ok(tonic::Response::new(proto::PluginUiPanelsResponse {
-            panels,
+    ) -> Result<tonic::Response<proto::PluginUiContributionsResponse>, tonic::Status> {
+        let contributions = self.plugin.ui_contributions().await;
+        Ok(tonic::Response::new(proto::PluginUiContributionsResponse {
+            contributions,
+        }))
+    }
+
+    async fn call_from_ui(
+        &self,
+        request: tonic::Request<proto::PluginUiCallRequest>,
+    ) -> Result<tonic::Response<proto::PluginUiCallResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let result = self.plugin.handle_ui_call(&req.method, &req.params_json).await;
+        Ok(tonic::Response::new(proto::PluginUiCallResponse {
+            result_json: result.result_json,
+            error: result.error,
         }))
     }
 

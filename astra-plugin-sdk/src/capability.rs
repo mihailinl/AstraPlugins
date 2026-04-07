@@ -159,7 +159,59 @@ pub use proto::DropdownOptionMsg as DropdownOption;
 pub use proto::FieldVisibilityCondition as FieldCondition;
 pub use proto::ActionTypeDefinitionMsg as ActionTypeDef;
 pub use proto::TriggerTypeDefinitionMsg as TriggerTypeDef;
-pub use proto::PluginUiPanel as UiPanel;
+pub use proto::PluginUiContribution as UiContribution;
+
+/// Result of a UI→backend call.
+pub struct UiCallResult {
+    pub result_json: String,
+    pub error: String,
+}
+
+impl UiCallResult {
+    pub fn ok(json: impl Into<String>) -> Self {
+        Self { result_json: json.into(), error: String::new() }
+    }
+    pub fn err(msg: impl Into<String>) -> Self {
+        Self { result_json: String::new(), error: msg.into() }
+    }
+}
+
+// ── UiContribution builder methods ──
+
+impl proto::PluginUiContribution {
+    /// Create a custom page contribution (shows as a nav tab).
+    pub fn page(id: impl Into<String>, label: impl Into<String>, url: impl Into<String>) -> Self {
+        Self { id: id.into(), slot: "page.custom".into(), label: label.into(), url: url.into(), pointer_events: true, ..Default::default() }
+    }
+    /// Create a named slot contribution.
+    pub fn slot(slot: impl Into<String>, url: impl Into<String>) -> Self {
+        Self { slot: slot.into(), url: url.into(), pointer_events: true, ..Default::default() }
+    }
+    /// Create a background effect contribution (fullscreen, transparent, no pointer events).
+    pub fn effect(url: impl Into<String>) -> Self {
+        Self { slot: "background.behind".into(), url: url.into(), transparent: true, pointer_events: false, ..Default::default() }
+    }
+    /// Create a CSS selector injection contribution.
+    pub fn inject(css_target: impl Into<String>, position: impl Into<String>, url: impl Into<String>) -> Self {
+        Self { css_target: css_target.into(), position: position.into(), url: url.into(), pointer_events: true, ..Default::default() }
+    }
+    /// Create a floating overlay contribution.
+    pub fn overlay(id: impl Into<String>, url: impl Into<String>) -> Self {
+        Self { id: id.into(), slot: "overlay.floating".into(), url: url.into(), transparent: true, pointer_events: true, ..Default::default() }
+    }
+    pub fn with_id(mut self, id: impl Into<String>) -> Self { self.id = id.into(); self }
+    pub fn with_label(mut self, label: impl Into<String>) -> Self { self.label = label.into(); self }
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
+    pub fn with_size(mut self, width: i32, height: i32) -> Self { self.width = width; self.height = height; self }
+    pub fn transparent(mut self) -> Self { self.transparent = true; self }
+    pub fn no_pointer_events(mut self) -> Self { self.pointer_events = false; self }
+    pub fn with_z_index(mut self, z: i32) -> Self { self.z_index = z; self }
+    pub fn with_prop(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.props.insert(key.into(), value.into());
+        self
+    }
+    pub fn with_audio(self) -> Self { self.with_prop("audio", "true") }
+}
 
 // ── FieldDef builder methods ──
 
@@ -331,9 +383,17 @@ pub trait PluginCapability: Send + Sync + 'static {
 
     // ── UI ──
 
-    /// Return UI panel definitions.
-    async fn ui_panels(&self) -> Vec<UiPanel> {
+    /// Return UI contribution definitions (pages, effects, settings sections, injections).
+    async fn ui_contributions(&self) -> Vec<UiContribution> {
         vec![]
+    }
+
+    // ── UI Calls ──
+
+    /// Handle a call from this plugin's UI iframe.
+    /// Override this to implement UI→backend communication.
+    async fn handle_ui_call(&self, _method: &str, _params_json: &str) -> UiCallResult {
+        UiCallResult::err("No UI call handler implemented")
     }
 
     // ── Events ──

@@ -99,9 +99,15 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
         }
     }
 
+    // Include ui/ directory if it exists (for all languages)
+    let ui_dir = dir.join("ui");
+    if ui_dir.exists() {
+        add_directory_recursive(&ui_dir, &mut zip, options, &dir)?;
+    }
+
     // Include files based on language
     match language.as_str() {
-        "rust" => {} // already handled above
+        "rust" => {} // binary already handled above
         "typescript" | "ts" => add_typescript_artifacts(&dir, &mut zip, options)?,
         "python" | "py" => add_python_artifacts(&dir, &mut zip, options)?,
         _ => add_directory_recursive(&dir, &mut zip, options, &dir)?,

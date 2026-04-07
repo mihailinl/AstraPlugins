@@ -1848,6 +1848,15 @@ service PluginService {
 
     // Get logs from a plugin (last N lines)
     rpc GetPluginLogs(PluginLogsRequest) returns (PluginLogsResponse);
+
+    // Get all UI contributions from all running plugins
+    rpc GetAllUiContributions(Empty) returns (AllUiContributionsResponse);
+
+    // Get active theme contributions from plugins
+    rpc GetActiveThemes(Empty) returns (ActiveThemesResponse);
+
+    // Forward a UI call to a plugin's backend
+    rpc CallPluginFromUi(CallPluginFromUiRequest) returns (CallPluginFromUiResponse);
 }
 
 // ============ Plugin Host Service (daemon exposes, plugins call into) ============
@@ -1876,6 +1885,12 @@ service PluginHostService {
 
     // Set a variable in the daemon's variable context
     rpc SetVariable(PluginSetVariableRequest) returns (Empty);
+
+    // Set theme contribution (colors, wallpaper, shader)
+    rpc SetThemeContribution(PluginThemeContribution) returns (Empty);
+
+    // Push a message to this plugin's UI iframes
+    rpc PushToUi(PluginUiPushRequest) returns (Empty);
 }
 
 // ============ Plugin Capability Service (plugin exposes, daemon calls) ============
@@ -1906,7 +1921,8 @@ service PluginCapabilityService {
     rpc GetPluginTriggerTypes(Empty) returns (PluginTriggerTypesResponse);
 
     // ── UI ──
-    rpc GetUiPanels(Empty) returns (PluginUiPanelsResponse);
+    rpc GetUiContributions(Empty) returns (PluginUiContributionsResponse);
+    rpc CallFromUi(PluginUiCallRequest) returns (PluginUiCallResponse);
 
     // ── Lifecycle ──
     rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
@@ -2236,19 +2252,81 @@ message PluginTriggerTypesResponse {
     repeated TriggerTypeDefinitionMsg types = 1;
 }
 
-// ── UI ──
+// ── UI Contributions ──
 
-message PluginUiPanel {
+message PluginUiContribution {
     string id = 1;
-    string label = 2;
-    string page = 3;                     // "settings", "custom"
-    string section = 4;                  // For settings: "voice", "ai", etc.
-    string route = 5;                    // For custom pages: "/plugins/{id}/{panel}"
-    string url = 6;                      // URL to load in iframe (plugin serves this)
+    string slot = 2;                     // Named slot: "page.custom", "background.behind", etc.
+    string css_target = 3;               // CSS selector for injection fallback
+    string position = 4;                 // For CSS injection: "before"|"after"|"replace"|"prepend"|"append"
+    string url = 5;                      // Relative path in ui/ dir: "index.html"
+    string label = 6;                    // Display name (for pages, settings sections)
+    string icon_svg = 7;                 // SVG markup for nav tab icon
+    int32 width = 8;                     // 0 = fill container
+    int32 height = 9;
+    bool transparent = 10;               // Transparent iframe background (for effects)
+    bool pointer_events = 11;            // Whether iframe captures mouse events
+    int32 z_index = 12;                  // Layer ordering
+    map<string, string> props = 13;      // Extra properties (e.g., "audio": "true")
 }
 
-message PluginUiPanelsResponse {
-    repeated PluginUiPanel panels = 1;
+message PluginUiContributionsResponse {
+    repeated PluginUiContribution contributions = 1;
+}
+
+message PluginUiContributionWithMeta {
+    string plugin_id = 1;
+    string plugin_name = 2;
+    PluginUiContribution contribution = 3;
+}
+
+message AllUiContributionsResponse {
+    repeated PluginUiContributionWithMeta contributions = 1;
+}
+
+message PluginThemeContribution {
+    string plugin_id = 1;
+    string theme_name = 2;
+    string theme_description = 3;
+    map<string, string> css_variables = 4;
+    string wallpaper_path = 5;           // Relative to ui/ dir
+    string wallpaper_mode = 6;           // "cover", "contain", "tile"
+    float wallpaper_opacity = 7;         // 0.0–1.0
+    string fragment_shader = 8;          // GLSL replacement for Threads effect
+    string effect_config_json = 9;       // Uniforms/params for the shader
+}
+
+message ActiveThemesResponse {
+    repeated PluginThemeContribution themes = 1;
+}
+
+// ── UI Calls (bidirectional plugin UI ↔ backend communication) ──
+
+message PluginUiCallRequest {
+    string method = 1;
+    string params_json = 2;
+}
+
+message PluginUiCallResponse {
+    string result_json = 1;
+    string error = 2;
+}
+
+message PluginUiPushRequest {
+    string plugin_id = 1;
+    string event = 2;
+    string payload_json = 3;
+}
+
+message CallPluginFromUiRequest {
+    string plugin_id = 1;
+    string method = 2;
+    string params_json = 3;
+}
+
+message CallPluginFromUiResponse {
+    string result_json = 1;
+    string error = 2;
 }
 
 // ── Lifecycle ──

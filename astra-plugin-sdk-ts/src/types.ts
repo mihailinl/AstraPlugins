@@ -78,15 +78,51 @@ export interface TriggerTypeDef {
   fields: FieldDef[];
 }
 
-/** UI panel definition. */
-export interface UiPanel {
+/** UI contribution definition — targets a named slot or CSS selector. */
+export interface UiContribution {
   id: string;
-  label: string;
-  page: string;
-  section?: string;
-  route?: string;
-  url?: string;
+  slot?: string;
+  cssTarget?: string;
+  position?: string;
+  url: string;
+  label?: string;
+  iconSvg?: string;
+  width?: number;
+  height?: number;
+  transparent?: boolean;
+  pointerEvents?: boolean;
+  zIndex?: number;
+  props?: Record<string, string>;
 }
+
+/** @deprecated Use UiContribution instead */
+export type UiPanel = UiContribution;
+
+/** Builder for UI contributions. */
+export const UiContrib = {
+  /** Custom navigation page. */
+  page(id: string, label: string, url: string, opts?: { iconSvg?: string }): UiContribution {
+    return { id, slot: "page.custom", label, url, iconSvg: opts?.iconSvg, pointerEvents: true };
+  },
+  /** Named slot contribution. */
+  slot(slot: string, url: string, opts?: { id?: string; label?: string; width?: number; height?: number }): UiContribution {
+    return { id: opts?.id || slot, slot, url, label: opts?.label, width: opts?.width, height: opts?.height, pointerEvents: true };
+  },
+  /** Fullscreen background effect (transparent, no pointer events). */
+  effect(url: string, opts?: { audio?: boolean; id?: string }): UiContribution {
+    const props: Record<string, string> = {};
+    if (opts?.audio) props.audio = "true";
+    return { id: opts?.id || "effect", slot: "background.behind", url, transparent: true, pointerEvents: false, props };
+  },
+  /** CSS selector injection. */
+  inject(cssTarget: string, position: string, url: string, opts?: { id?: string; width?: number; height?: number }): UiContribution {
+    return { id: opts?.id || "inject", cssTarget, position, url, width: opts?.width, height: opts?.height, pointerEvents: true };
+  },
+  /** Floating overlay (companion, mini-app). */
+  overlay(id: string, url: string, opts?: { width?: number; height?: number }): UiContribution {
+    return { id, slot: "overlay.floating", url, transparent: true, pointerEvents: true, width: opts?.width || 200, height: opts?.height || 200 };
+  },
+};
 
 // ── Field builder ──
 

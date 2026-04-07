@@ -1,0 +1,14 @@
+C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\deps\serde-c5f9b007896961c1.d: C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\build\serde-61dd1a266867dcef\out/private.rs
+
+C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\deps\libserde-c5f9b007896961c1.rlib: C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\build\serde-61dd1a266867dcef\out/private.rs
+
+C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\deps\libserde-c5f9b007896961c1.rmeta: C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\build\serde-61dd1a266867dcef\out/private.rs
+
+C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\misha\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\misha\Github\AstraPlugins\examples\companion\target\release\build\serde-61dd1a266867dcef\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\misha\\Github\\AstraPlugins\\examples\\companion\\target\\release\\build\\serde-61dd1a266867dcef\\out

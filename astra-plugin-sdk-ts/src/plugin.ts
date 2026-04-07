@@ -14,7 +14,7 @@ import type {
   ActionResult,
   ActionTypeDef,
   TriggerTypeDef,
-  UiPanel,
+  UiContribution,
 } from "./types";
 
 const pluginProto = astraProto;
@@ -49,7 +49,7 @@ export abstract class Plugin {
       ExecuteAction: this.wrapHandler(this.handleExecuteAction.bind(this)),
       GetPluginActionTypes: this.wrapHandler(this.handleGetActionTypes.bind(this)),
       GetPluginTriggerTypes: this.wrapHandler(this.handleGetTriggerTypes.bind(this)),
-      GetUiPanels: this.wrapHandler(this.handleGetUiPanels.bind(this)),
+      GetUiContributions: this.wrapHandler(this.handleGetUiContributions.bind(this)),
       OnConfigChanged: this.wrapHandler(this.handleOnConfigChanged.bind(this)),
       OnActiveTriggers: this.wrapHandler(this.handleOnActiveTriggers.bind(this)),
       Shutdown: this.wrapHandler(this.handleShutdown.bind(this)),
@@ -168,7 +168,7 @@ export abstract class Plugin {
   async getTriggerTypes(): Promise<TriggerTypeDef[]> {
     return [];
   }
-  async getUiPanels(): Promise<UiPanel[]> {
+  async getUiContributions(): Promise<UiContribution[]> {
     return [];
   }
   async onConfigChanged(_config: Record<string, unknown>): Promise<void> {}
@@ -218,7 +218,7 @@ export abstract class Plugin {
     if (models.length > 0) caps.push("ai_provider");
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
     if ((await this.getTriggerTypes()).length > 0) caps.push("triggers");
-    if ((await this.getUiPanels()).length > 0) caps.push("ui_panels");
+    if ((await this.getUiContributions()).length > 0) caps.push("ui_contributions");
     return caps;
   }
 
@@ -315,9 +315,23 @@ export abstract class Plugin {
     return { types };
   }
 
-  private async handleGetUiPanels(_call: any) {
-    const panels = await this.getUiPanels();
-    return { panels };
+  private async handleGetUiContributions(_call: any) {
+    const contributions = await this.getUiContributions();
+    return { contributions: contributions.map(c => ({
+      id: c.id || "",
+      slot: c.slot || "",
+      cssTarget: c.cssTarget || "",
+      position: c.position || "",
+      url: c.url || "",
+      label: c.label || "",
+      iconSvg: c.iconSvg || "",
+      width: c.width || 0,
+      height: c.height || 0,
+      transparent: c.transparent || false,
+      pointerEvents: c.pointerEvents !== false,
+      zIndex: c.zIndex || 0,
+      props: c.props || {},
+    })) };
   }
 
   private async handleOnConfigChanged(call: any) {
