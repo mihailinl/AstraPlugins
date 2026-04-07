@@ -1,0 +1,2267 @@
+syntax = "proto3";
+package astra;
+
+// ============ Common Types ============
+
+message Empty {}
+
+message Timestamp {
+    int64 seconds = 1;
+    int32 nanos = 2;
+}
+
+// ============ Core Service ============
+
+service CoreService {
+    // Get current state of the core system
+    rpc GetState(Empty) returns (CoreStateResponse);
+
+    // Start the core system (voice pipeline, etc.)
+    rpc Start(Empty) returns (Empty);
+
+    // Stop the core system
+    rpc Stop(Empty) returns (Empty);
+
+    // Subscribe to real-time events
+    rpc SubscribeEvents(Empty) returns (stream AstraEvent);
+}
+
+message CoreStateResponse {
+    CoreState state = 1;
+    bool stt_ready = 2;
+    bool tts_ready = 3;
+    bool ai_ready = 4;
+    bool authenticated = 5;
+    bool needs_oobe = 6;
+    string version = 7;
+    string startup_status = 8;  // i18n key for current daemon startup phase
+}
+
+enum CoreState {
+    CORE_STATE_STOPPED = 0;
+    CORE_STATE_READY = 1;
+    CORE_STATE_LISTENING = 2;
+    CORE_STATE_PROCESSING = 3;
+    CORE_STATE_SPEAKING = 4;
+    CORE_STATE_ERROR = 5;
+}
+
+message AstraEvent {
+    Timestamp timestamp = 1;
+    oneof event {
+        StateChangedEvent state_changed = 2;
+        SpeechRecognizedEvent speech_recognized = 3;
+        ChatResponseEvent chat_response = 4;
+        AuthStatusEvent auth_status = 5;
+        TtsEvent tts_event = 6;
+        CommandExecutedEvent command_executed = 7;
+        ErrorEvent error = 8;
+        ChatMessageSyncEvent chat_message_sync = 9;
+        DaemonStatusEvent daemon_status = 10;
+        WidgetDataChangedEvent widget_data_changed = 11;
+        PluginStatusChangedEvent plugin_status_changed = 12;
+    }
+}
+
+// Event for synchronizing chat messages across clients
+message ChatMessageSyncEvent {
+    string id = 1;
+    string conversation_id = 2;
+    string role = 3;      // "user" or "assistant"
+    string content = 4;
+    int64 timestamp = 5;  // Unix timestamp in seconds
+    string source_id = 6;      // Client that originated this message
+    bool is_streaming = 7;     // Is this a streaming update?
+    bool is_complete = 8;      // Is streaming complete?
+}
+
+message StateChangedEvent {
+    CoreState previous_state = 1;
+    CoreState new_state = 2;
+}
+
+message SpeechRecognizedEvent {
+    string text = 1;
+    bool is_final = 2;
+    float confidence = 3;
+}
+
+message ChatResponseEvent {
+    oneof content {
+        string text_chunk = 1;
+        ToolExecutionEvent tool_execution = 2;
+        bool done = 3;
+    }
+}
+
+message ToolExecutionEvent {
+    string tool_name = 1;
+    string arguments = 2;  // JSON
+    string result = 3;     // JSON, empty if in progress
+    bool completed = 4;
+}
+
+message AuthStatusEvent {
+    bool authenticated = 1;
+    string user_id = 2;
+    string user_name = 3;
+    bool authorized = 4;
+    string subscription_tier = 5;
+}
+
+message TtsEvent {
+    oneof event {
+        bool started = 1;
+        bool stopped = 2;
+        float progress = 3;  // 0.0 to 1.0
+    }
+}
+
+message CommandExecutedEvent {
+    string command_id = 1;
+    string command_name = 2;
+    bool success = 3;
+    string error_message = 4;
+}
+
+message ErrorEvent {
+    string code = 1;
+    string message = 2;
+    string details = 3;
+}
+
+message DaemonStatusEvent {
+    string status = 1;    // i18n key (e.g. "daemon.status.restoringSession")
+    bool is_ready = 2;    // true when startup sequence is complete
+}
+
+message WidgetDataChangedEvent {
+    string widget_type = 1;  // "notes", "reminders", "calendar", "tasks"
+}
+
+message PluginStatusChangedEvent {
+    string plugin_id = 1;
+    string status = 2;       // "running", "stopped", "error", "starting", "disabled"
+    string error = 3;
+}
+
+// ============ Auth Service ============
+
+service AuthService {
+    // Get current authentication status
+    rpc GetStatus(Empty) returns (AuthStatusResponse);
+
+    // Start login flow (opens browser)
+    rpc StartLogin(Empty) returns (LoginResponse);
+
+    // Logout and clear tokens
+    rpc Logout(Empty) returns (Empty);
+
+    // Refresh access token
+    rpc RefreshToken(Empty) returns (RefreshTokenResponse);
+}
+
+message AuthStatusResponse {
+    bool authenticated = 1;
+    string user_id = 2;
+    string user_name = 3;
+    string email = 4;
+    int64 access_token_expires_at = 5;
+    int64 refresh_token_expires_at = 6;
+    bool authorized = 7;
+    string subscription_tier = 8;
+}
+
+message LoginResponse {
+    string login_url = 1;
+    string state = 2;
+}
+
+message RefreshTokenResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// ============ Chat Service ============
+
+service ChatService {
+    // Send a message and receive streaming response
+    rpc SendMessage(SendMessageRequest) returns (stream ChatStreamChunk);
+
+    // Stop the current AI generation
+    rpc StopGeneration(Empty) returns (Empty);
+
+    // Get chat history
+    rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+
+    // Clear chat history
+    rpc ClearHistory(ClearHistoryRequest) returns (Empty);
+
+    // Get all conversations
+    rpc ListConversations(Empty) returns (ListConversationsResponse);
+
+    // Create a new conversation
+    rpc CreateConversation(CreateConversationRequest) returns (Conversation);
+
+    // Delete a conversation
+    rpc DeleteConversation(DeleteConversationRequest) returns (Empty);
+
+    // Switch the active conversation
+    rpc SwitchConversation(SwitchConversationRequest) returns (Empty);
+}
+
+message ImageAttachment {
+    string mime_type = 1;   // e.g. "image/png", "image/jpeg"
+    bytes data = 2;         // Raw image bytes
+    string filename = 3;    // Original filename
+}
+
+message SendMessageRequest {
+    string text = 1;
+    string conversation_id = 2;
+    bool voice_enabled = 3;
+    repeated string attachments = 4;  // File paths (legacy)
+    string source_id = 5;             // Unique client identifier for sync filtering
+    repeated ImageAttachment images = 6;  // Inline image attachments
+}
+
+message ChatStreamChunk {
+    oneof chunk {
+        string text = 1;
+        ToolExecution tool = 2;
+        bool done = 3;
+        string error = 4;
+        string thinking = 6;    // Reasoning/thinking content delta
+        string voice = 7;       // TTS-optimized voice content delta
+    }
+    string message_id = 5;
+}
+
+message ToolExecution {
+    string name = 1;
+    string arguments = 2;  // JSON
+    string result = 3;     // JSON
+    bool completed = 4;
+}
+
+message GetHistoryRequest {
+    string conversation_id = 1;
+    int32 limit = 2;
+    int32 offset = 3;
+}
+
+message GetHistoryResponse {
+    repeated ChatMessage messages = 1;
+    int32 total_count = 2;
+}
+
+message ChatMessage {
+    string id = 1;
+    string conversation_id = 2;
+    MessageRole role = 3;
+    string content = 4;
+    repeated ToolCall tool_calls = 5;
+    Timestamp created_at = 6;
+    repeated ImageAttachment images = 7;  // Attached images
+    repeated string content_segments = 8; // Text segments split at tool call boundaries
+}
+
+enum MessageRole {
+    MESSAGE_ROLE_USER = 0;
+    MESSAGE_ROLE_ASSISTANT = 1;
+    MESSAGE_ROLE_SYSTEM = 2;
+    MESSAGE_ROLE_TOOL = 3;
+}
+
+message ToolCall {
+    string id = 1;
+    string name = 2;
+    string arguments = 3;
+    string result = 4;
+}
+
+message ClearHistoryRequest {
+    string conversation_id = 1;
+}
+
+message ListConversationsResponse {
+    repeated Conversation conversations = 1;
+}
+
+message Conversation {
+    string id = 1;
+    string title = 2;
+    Timestamp created_at = 3;
+    Timestamp updated_at = 4;
+    int32 message_count = 5;
+}
+
+message CreateConversationRequest {
+    string title = 1;
+}
+
+message DeleteConversationRequest {
+    string id = 1;
+}
+
+message SwitchConversationRequest {
+    string conversation_id = 1;
+}
+
+// ============ Voice Service ============
+
+service VoiceService {
+    // Start listening for speech
+    rpc StartListening(Empty) returns (Empty);
+
+    // Stop listening
+    rpc StopListening(Empty) returns (Empty);
+
+    // Get available microphones
+    rpc GetMicrophones(Empty) returns (MicrophoneListResponse);
+
+    // Set active microphone
+    rpc SetMicrophone(SetMicrophoneRequest) returns (Empty);
+
+    // Speak text using TTS
+    rpc Speak(SpeakRequest) returns (Empty);
+
+    // Stop current TTS playback
+    rpc StopSpeaking(Empty) returns (Empty);
+
+    // Get TTS voices
+    rpc GetVoices(Empty) returns (VoiceListResponse);
+
+    // Set active TTS voice
+    rpc SetVoice(SetVoiceRequest) returns (Empty);
+
+    // ===== Whisper Model Management =====
+
+    // Get all available Whisper models with download status
+    rpc GetWhisperModels(Empty) returns (WhisperModelsResponse);
+
+    // Start downloading a Whisper model (runs in background)
+    rpc DownloadWhisperModel(DownloadWhisperModelRequest) returns (Empty);
+
+    // Get current download progress (if any)
+    rpc GetDownloadProgress(Empty) returns (DownloadProgressResponse);
+
+    // Cancel an ongoing download
+    rpc CancelDownload(Empty) returns (Empty);
+
+    // Delete a downloaded model
+    rpc DeleteWhisperModel(DeleteWhisperModelRequest) returns (Empty);
+
+    // Search voices from a TTS provider
+    rpc SearchVoices(SearchVoicesRequest) returns (SearchVoicesResponse);
+
+    // Get available TTS providers and their capabilities
+    rpc GetTtsProviders(Empty) returns (TtsProvidersResponse);
+
+    // ===== Embedding Model Management =====
+
+    // Get all available embedding models with download status
+    rpc GetEmbeddingModels(Empty) returns (EmbeddingModelsResponse);
+
+    // Start downloading an embedding model (runs in background)
+    rpc DownloadEmbeddingModel(DownloadEmbeddingModelRequest) returns (Empty);
+
+    // Get current embedding download progress (if any)
+    rpc GetEmbeddingDownloadProgress(Empty) returns (DownloadProgressResponse);
+
+    // Cancel an ongoing embedding download
+    rpc CancelEmbeddingDownload(Empty) returns (Empty);
+
+    // Delete a downloaded embedding model
+    rpc DeleteEmbeddingModel(DeleteEmbeddingModelRequest) returns (Empty);
+
+    // ===== LLM Match Model Management =====
+
+    // Get all available LLM matching models with download status
+    rpc GetLlmMatchModels(Empty) returns (LlmMatchModelsResponse);
+
+    // Start downloading an LLM matching model (runs in background)
+    rpc DownloadLlmMatchModel(DownloadLlmMatchModelRequest) returns (Empty);
+
+    // Get current LLM match download progress (if any)
+    rpc GetLlmMatchDownloadProgress(Empty) returns (DownloadProgressResponse);
+
+    // Cancel an ongoing LLM match download
+    rpc CancelLlmMatchDownload(Empty) returns (Empty);
+
+    // Delete a downloaded LLM matching model
+    rpc DeleteLlmMatchModel(DeleteLlmMatchModelRequest) returns (Empty);
+}
+
+message MicrophoneListResponse {
+    repeated Microphone microphones = 1;
+    string active_id = 2;
+}
+
+message Microphone {
+    string id = 1;
+    string name = 2;
+    bool is_default = 3;
+}
+
+message SetMicrophoneRequest {
+    string microphone_id = 1;
+}
+
+message SpeakRequest {
+    string text = 1;
+    string voice_id = 2;  // Optional, uses default if empty
+    bool interrupt = 3;   // Stop current speech before starting
+}
+
+message VoiceListResponse {
+    repeated Voice voices = 1;
+    string active_id = 2;
+}
+
+message Voice {
+    string id = 1;
+    string name = 2;
+    string provider = 3;
+    string language = 4;
+    string gender = 5;
+}
+
+message SetVoiceRequest {
+    string voice_id = 1;
+}
+
+// Whisper model information
+message WhisperModelInfo {
+    string id = 1;              // e.g., "large-v3-turbo-q5_0"
+    string name = 2;            // e.g., "Large V3 Turbo Q5"
+    string base_model = 3;      // e.g., "large"
+    string language = 4;        // "" for multilingual, "en" for English-only
+    string quantization = 5;    // e.g., "q5_0", "q8_0", ""
+    uint64 size_bytes = 6;      // Size in bytes
+    string size_display = 7;    // e.g., "547 MB"
+    bool is_downloaded = 8;     // Whether model file exists locally
+    bool is_active = 9;         // Whether this is the currently selected model
+}
+
+message WhisperModelsResponse {
+    repeated WhisperModelInfo models = 1;
+    string active_model_id = 2;
+}
+
+message DownloadWhisperModelRequest {
+    string model_id = 1;
+}
+
+message DownloadProgressResponse {
+    bool is_downloading = 1;
+    string model_id = 2;           // Model being downloaded
+    string model_name = 3;         // Display name
+    uint64 downloaded_bytes = 4;
+    uint64 total_bytes = 5;
+    float percent = 6;             // 0.0 to 100.0
+    uint64 speed_bytes_per_sec = 7;
+    uint32 eta_seconds = 8;        // Estimated time remaining
+    string error = 9;              // Error message if failed
+}
+
+message DeleteWhisperModelRequest {
+    string model_id = 1;
+}
+
+// Embedding model information
+message EmbeddingModelInfoMsg {
+    string id = 1;
+    string name = 2;
+    string base_model = 3;
+    string languages = 4;
+    uint32 dimensions = 5;
+    uint64 size_bytes = 6;
+    string size_display = 7;
+    string tier = 8;
+    bool is_downloaded = 9;
+    bool is_active = 10;
+}
+
+message EmbeddingModelsResponse {
+    repeated EmbeddingModelInfoMsg models = 1;
+    string active_model_id = 2;
+}
+
+message DownloadEmbeddingModelRequest {
+    string model_id = 1;
+}
+
+message DeleteEmbeddingModelRequest {
+    string model_id = 1;
+}
+
+// LLM matching model information
+message LlmMatchModelInfoMsg {
+    string id = 1;
+    string name = 2;
+    string base_model = 3;
+    string languages = 4;
+    string quantization = 5;
+    uint64 size_bytes = 6;
+    string size_display = 7;
+    string tier = 8;
+    bool is_downloaded = 9;
+    bool is_active = 10;
+}
+
+message LlmMatchModelsResponse {
+    repeated LlmMatchModelInfoMsg models = 1;
+    string active_model_id = 2;
+}
+
+message DownloadLlmMatchModelRequest {
+    string model_id = 1;
+}
+
+message DeleteLlmMatchModelRequest {
+    string model_id = 1;
+}
+
+// ============ Command Service ============
+
+service CommandService {
+    // List all commands
+    rpc List(ListCommandsRequest) returns (CommandListResponse);
+
+    // Get a specific command
+    rpc Get(GetCommandRequest) returns (CommandDefinition);
+
+    // Create a new command
+    rpc Create(CreateCommandRequest) returns (CommandDefinition);
+
+    // Update an existing command
+    rpc Update(UpdateCommandRequest) returns (CommandDefinition);
+
+    // Delete a command
+    rpc Delete(DeleteCommandRequest) returns (Empty);
+
+    // Execute a command by ID
+    rpc Execute(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+
+    // Enable/disable a command
+    rpc SetEnabled(SetCommandEnabledRequest) returns (Empty);
+
+    // Get current cursor position (same coordinate system as mouse click execution).
+    // Used when recording click position for the "mouse_click" action.
+    rpc GetCursorPosition(Empty) returns (CursorPositionResponse);
+}
+
+message CursorPositionResponse {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message ListCommandsRequest {
+    bool include_disabled = 1;
+}
+
+message CommandListResponse {
+    repeated CommandDefinition commands = 1;
+}
+
+message GetCommandRequest {
+    string id = 1;
+}
+
+message CreateCommandRequest {
+    string name = 1;
+    repeated Trigger triggers = 2;
+    repeated Action actions = 3;
+    bool enabled = 4;
+    string description = 5;
+    repeated string tags = 6;
+    EditorMode editor_mode = 7;
+    optional WorkflowGraph workflow = 8;
+}
+
+message UpdateCommandRequest {
+    string id = 1;
+    optional string name = 2;
+    repeated Trigger triggers = 3;
+    repeated Action actions = 4;
+    optional bool enabled = 5;
+    optional string description = 6;
+    repeated string tags = 7;
+    optional EditorMode editor_mode = 8;
+    optional WorkflowGraph workflow = 9;
+}
+
+message DeleteCommandRequest {
+    string id = 1;
+}
+
+message ExecuteCommandRequest {
+    string id = 1;
+    map<string, string> variables = 2;  // Additional variables for execution
+    string entry_node_id = 3;           // Start from specific node (empty = auto-detect)
+}
+
+message ExecuteCommandResponse {
+    bool success = 1;
+    string error_message = 2;
+    repeated ActionResult action_results = 3;
+}
+
+message ActionResult {
+    int32 action_index = 1;
+    bool success = 2;
+    string output = 3;
+    string error = 4;
+    string node_id = 5;
+}
+
+message SetCommandEnabledRequest {
+    string id = 1;
+    bool enabled = 2;
+}
+
+message CommandDefinition {
+    string id = 1;
+    string name = 2;
+    repeated Trigger triggers = 3;
+    repeated Action actions = 4;
+    bool enabled = 5;
+    Timestamp created_at = 6;
+    Timestamp updated_at = 7;
+    string description = 8;
+    repeated string tags = 9;
+    // Workflow graph editor support
+    EditorMode editor_mode = 10;
+    optional WorkflowGraph workflow = 11;
+}
+
+// Generic trigger — type string + JSON config for plugin extensibility
+message Trigger {
+    string type = 1;          // e.g. "text", "hotkey", "event"
+    string config_json = 2;   // JSON-serialized config fields
+}
+
+// Generic action — type string + JSON config for plugin extensibility
+message Action {
+    string type = 1;          // e.g. "speak", "execute", "notify"
+    string config_json = 2;   // JSON-serialized config fields
+}
+
+// ===== Workflow Graph (node-based editor) =====
+
+// Editor mode: linear (legacy) or graph (node editor)
+enum EditorMode {
+    EDITOR_MODE_LINEAR = 0;
+    EDITOR_MODE_GRAPH = 1;
+}
+
+// A complete workflow graph (DAG of nodes and edges)
+message WorkflowGraph {
+    repeated GraphNode nodes = 1;
+    repeated GraphEdge edges = 2;
+}
+
+// A single node in the workflow graph
+message GraphNode {
+    string id = 1;              // UUID string
+    NodeType node_type = 2;
+    map<string, string> data = 3;  // Config fields as JSON-encoded string values
+    string label = 4;
+    // Visual position for the editor canvas
+    double position_x = 5;
+    double position_y = 6;
+}
+
+// Node types
+enum NodeType {
+    NODE_TYPE_START = 0;
+    NODE_TYPE_END = 1;
+    NODE_TYPE_ACTION = 2;
+    NODE_TYPE_CONDITION = 3;
+    NODE_TYPE_LOOP = 4;
+    NODE_TYPE_PARALLEL = 5;
+    NODE_TYPE_MERGE = 6;
+    NODE_TYPE_ERROR_HANDLER = 7;
+    NODE_TYPE_SUB_WORKFLOW = 8;
+    NODE_TYPE_TRIGGER = 9;
+    NODE_TYPE_STICKY_NOTE = 10;
+    NODE_TYPE_SWITCH = 11;
+    NODE_TYPE_DELAY = 12;
+    NODE_TYPE_FILTER = 13;
+}
+
+// An edge connecting two nodes
+message GraphEdge {
+    string id = 1;              // UUID string
+    string source_node = 2;     // Source node ID
+    string source_port = 3;     // Port name (e.g. "default", "true", "false")
+    string target_node = 4;     // Target node ID
+    string target_port = 5;     // Port name
+}
+
+// ============ Config Service ============
+
+service ConfigService {
+    // Get all settings
+    rpc GetSettings(Empty) returns (SettingsResponse);
+
+    // Update settings
+    rpc UpdateSettings(UpdateSettingsRequest) returns (Empty);
+
+    // Mark OOBE as complete
+    rpc CompleteOobe(Empty) returns (Empty);
+
+    // Reset settings to defaults
+    rpc ResetSettings(Empty) returns (Empty);
+
+    // Export settings to file
+    rpc ExportSettings(ExportSettingsRequest) returns (ExportSettingsResponse);
+
+    // Import settings from file
+    rpc ImportSettings(ImportSettingsRequest) returns (Empty);
+
+    // Get available AI models for a provider
+    rpc GetModels(GetModelsRequest) returns (GetModelsResponse);
+
+    // Get available AI providers and their capabilities
+    rpc GetAiProviders(Empty) returns (AiProvidersResponse);
+
+    // Get widget data (notes, reminders, calendar, tasks)
+    rpc GetWidgetData(WidgetDataRequest) returns (WidgetDataResponse);
+
+    // Save widget data
+    rpc SaveWidgetData(SaveWidgetDataRequest) returns (Empty);
+
+    // Get file indexer status
+    rpc GetIndexerStatus(Empty) returns (IndexerStatusResponse);
+}
+
+message IndexerStatusResponse {
+    string state = 1;           // "ready", "scanning", "starting", "error", "offline"
+    uint64 indexed_files = 2;
+    uint64 scanning_files = 3;  // Live count during scanning
+    uint64 uptime_seconds = 4;
+    repeated IndexerVolumeStatusMsg volumes = 5;
+}
+
+message IndexerVolumeStatusMsg {
+    string letter = 1;
+    string fs_type = 2;
+    uint64 total_files = 3;
+    int64 last_scan = 4;        // Unix timestamp, 0 if never scanned
+}
+
+message SettingsResponse {
+    GeneralSettings general = 1;
+    VoiceSettings voice = 2;
+    AiSettings ai = 3;
+    HotkeySettings hotkeys = 4;
+    AppearanceSettings appearance = 5;
+    NetworkSettings network = 6;
+    CompanionSettings companion = 7;
+    SemanticSettings semantic = 8;
+    WidgetVisibilitySettings widgets = 9;
+}
+
+message UpdateSettingsRequest {
+    optional GeneralSettings general = 1;
+    optional VoiceSettings voice = 2;
+    optional AiSettings ai = 3;
+    optional HotkeySettings hotkeys = 4;
+    optional AppearanceSettings appearance = 5;
+    optional NetworkSettings network = 6;
+    optional CompanionSettings companion = 7;
+    optional SemanticSettings semantic = 8;
+    optional WidgetVisibilitySettings widgets = 9;
+}
+
+message SemanticSettings {
+    bool enabled = 1;
+    string model_id = 2;
+    float threshold = 3;
+    string mode = 4;
+    string llm_model_id = 5;
+}
+
+message CompanionSettings {
+    map<string, string> settings = 1;
+    bool enabled = 2;
+}
+
+message NetworkSettings {
+    string bind_address = 1;  // 127.0.0.1 or 0.0.0.0
+    uint32 port = 2;          // gRPC port (default 32000)
+    bool allow_remote = 3;    // Allow remote connections
+}
+
+message GeneralSettings {
+    string language = 1;  // en, ru, uk
+    bool start_on_boot = 2;
+    bool start_minimized = 3;
+    bool oobe_completed = 4;
+    string ui_preference = 5;  // "winui" or "tauri"
+    string indexing_mode = 6;  // "none", "windows", "astra"
+    bool location_allowed = 7;
+    bool ai_memory_enabled = 8;
+    repeated string excluded_paths = 9;  // folders excluded from indexing
+}
+
+message VoiceSettings {
+    // STT settings
+    string stt_model = 1;       // tiny, base, small, medium, large
+    string stt_language = 2;    // Auto-detect if empty
+    float vad_threshold = 3;    // 0.0 to 1.0
+    int32 silence_duration_ms = 4;
+
+    // TTS settings
+    string tts_provider = 5;    // yandex, fishaudio
+    string tts_voice_id = 6;
+    float tts_speed = 7;        // 0.5 to 2.0
+    float tts_pitch = 8;        // 0.5 to 2.0
+
+    // Wake words (multiple supported)
+    repeated string wake_words = 14;
+    bool wake_word_enabled = 9;
+    float wake_word_sensitivity = 10;
+
+    // Audio
+    string microphone_id = 11;
+    float input_volume = 12;
+    float output_volume = 13;
+
+    // TTS enabled (chat voice toggle)
+    bool tts_enabled = 15;
+
+    // Auto-start listening on daemon startup
+    bool auto_start_listening = 16;
+
+    // Astra TTS voice ID (separate from tts_voice_id)
+    string astra_voice_id = 18;
+
+    // Brief TTS mode: AI writes <voice> summary instead of reading full response
+    bool tts_brief_response = 19;
+
+    reserved 17; // was tts_base_url (now hardcoded)
+}
+
+message AiSettings {
+    string provider = 1;        // astra, openai, claude, gemini, lmstudio
+    string model = 2;
+    string api_key = 3;         // Encrypted
+    string api_base_url = 4;    // For LM Studio or custom endpoints
+    float temperature = 5;
+    int32 max_tokens = 6;
+    string system_prompt = 7;
+    bool use_tools = 8;
+    bool use_thinking = 9;      // Enable reasoning/thinking output
+
+    reserved 10; // was search_base_url (now hardcoded)
+
+    int32 context_length = 11;  // Context window size in tokens (0 = unlimited)
+}
+
+message HotkeySettings {
+    HotkeyConfig push_to_talk = 1;
+    HotkeyConfig toggle_listen = 2;
+    HotkeyConfig stop_speaking = 3;
+    HotkeyConfig open_chat = 4;
+}
+
+message HotkeyConfig {
+    bool enabled = 1;
+    repeated string modifiers = 2;
+    string key = 3;
+}
+
+message AppearanceSettings {
+    string theme = 1;           // light, dark, system
+    float ui_scale = 2;
+    bool show_in_tray = 3;
+    bool minimize_to_tray = 4;
+    string windows_effect = 5;  // "none", "mica", "acrylic" (Windows 11)
+}
+
+message WidgetVisibilitySettings {
+    bool notes = 1;
+    bool reminders = 2;
+    bool calendar = 3;
+    bool tasks = 4;
+    bool currency = 5;
+}
+
+message ExportSettingsRequest {
+    string path = 1;
+    bool include_commands = 2;
+    bool include_history = 3;
+}
+
+message ExportSettingsResponse {
+    string path = 1;
+}
+
+message ImportSettingsRequest {
+    string path = 1;
+    bool merge_commands = 2;  // true = merge, false = replace
+}
+
+message GetModelsRequest {
+    string provider = 1;  // astra, openai, claude, gemini, lmstudio, custom
+}
+
+message GetModelsResponse {
+    repeated ModelInfo models = 1;
+}
+
+message ModelInfo {
+    string id = 1;    // Model identifier (e.g., "gpt-4.1-mini")
+    string name = 2;  // Display name (e.g., "GPT-4.1 Mini")
+}
+
+// ============ Media Service ============
+
+service MediaService {
+    // Get current media playback state
+    rpc GetMediaState(GetMediaStateRequest) returns (MediaState);
+
+    // Control media playback
+    rpc ControlMedia(ControlMediaRequest) returns (Empty);
+
+    // Subscribe to real-time media state updates
+    rpc SubscribeMediaState(SubscribeMediaStateRequest) returns (stream MediaState);
+
+    // Get all active media sessions
+    rpc GetMediaSessions(GetMediaSessionsRequest) returns (MediaSessionsResponse);
+}
+
+message MediaState {
+    string title = 1;
+    string artist = 2;
+    string album = 3;
+    string source_app = 4;
+    MediaPlaybackStatus status = 5;
+    bytes thumbnail = 6;
+    double position_seconds = 7;
+    double duration_seconds = 8;
+    string source_app_id = 9;
+    string session_id = 10;
+    bytes app_icon = 11;
+}
+
+enum MediaPlaybackStatus {
+    MEDIA_PLAYBACK_UNKNOWN = 0;
+    MEDIA_PLAYBACK_PLAYING = 1;
+    MEDIA_PLAYBACK_PAUSED = 2;
+    MEDIA_PLAYBACK_STOPPED = 3;
+}
+
+enum MediaControlAction {
+    MEDIA_CONTROL_PLAY = 0;
+    MEDIA_CONTROL_PAUSE = 1;
+    MEDIA_CONTROL_TOGGLE = 2;
+    MEDIA_CONTROL_NEXT = 3;
+    MEDIA_CONTROL_PREVIOUS = 4;
+    MEDIA_CONTROL_STOP = 5;
+    MEDIA_CONTROL_SEEK = 6;
+    MEDIA_CONTROL_ACTIVATE = 7;
+}
+
+message ControlMediaRequest {
+    MediaControlAction action = 1;
+    string session_id = 2;
+    double seek_position_seconds = 3;
+}
+
+message GetMediaStateRequest {
+    string session_id = 1;
+}
+
+message SubscribeMediaStateRequest {
+    string session_id = 1;
+}
+
+// Multi-session support
+message GetMediaSessionsRequest {}
+
+message MediaSessionInfo {
+    string session_id = 1;
+    string source_app = 2;
+    string source_app_id = 3;
+    bool is_current = 4;
+    bytes app_icon = 5;
+}
+
+message MediaSessionsResponse {
+    repeated MediaSessionInfo sessions = 1;
+}
+
+// ============ Registry Service ============
+
+service RegistryService {
+    // Get all action type definitions (field metadata for the UI)
+    rpc GetActionTypes(Empty) returns (ActionTypeDefinitionsResponse);
+
+    // Get all trigger type definitions (field metadata for the UI)
+    rpc GetTriggerTypes(Empty) returns (TriggerTypeDefinitionsResponse);
+}
+
+message ActionTypeDefinitionsResponse {
+    repeated ActionTypeDefinitionMsg action_types = 1;
+}
+
+message TriggerTypeDefinitionsResponse {
+    repeated TriggerTypeDefinitionMsg trigger_types = 1;
+}
+
+message ActionTypeDefinitionMsg {
+    string type = 1;          // e.g. "Speak", "Execute"
+    string label = 2;         // i18n key, e.g. "registry.action.speak"
+    string icon_svg = 3;      // SVG path data for the icon
+    repeated FieldDefinitionMsg fields = 4;
+    bool ai_available = 5;    // Whether AI can create/use this action type
+    string ai_description = 6; // Description for AI tool definition (used in create_command)
+    string ai_primary_field = 7; // Field ID that maps to the "value" param in AI create_command
+}
+
+message TriggerTypeDefinitionMsg {
+    string type = 1;          // e.g. "text", "hotkey", "event"
+    string label = 2;         // i18n key
+    string icon_svg = 3;      // SVG path data for the icon
+    repeated FieldDefinitionMsg fields = 4;
+}
+
+message FieldDefinitionMsg {
+    string id = 1;
+    string label = 2;          // i18n key
+    string field_type = 3;     // "text", "textarea", "number", "toggle", "dropdown", "keys", "file_picker", "hotkey_recorder"
+    string placeholder = 4;    // i18n key or literal
+    string default_value = 5;  // JSON-encoded default (string, number, bool, array)
+    double min = 6;
+    double max = 7;
+    double step = 8;
+    repeated DropdownOptionMsg options = 9;
+    bool has_min = 10;
+    bool has_max = 11;
+    bool has_step = 12;
+    // Field is only shown when ALL conditions are met (empty = always shown)
+    repeated FieldVisibilityCondition conditions = 13;
+    // Optional description/hint text shown below the field
+    string description = 14;
+    // Group name for collapsible sections (fields with same group render together)
+    string group = 15;
+    string group_label = 16;
+}
+
+// Condition for showing/hiding a field based on another field's value
+message FieldVisibilityCondition {
+    string field_id = 1;     // Which other field to check
+    string operator = 2;     // "equals", "not_equals", "is_true", "is_false", "not_empty"
+    string value = 3;        // Value to compare against (for equals/not_equals)
+}
+
+message DropdownOptionMsg {
+    string value = 1;
+    string label = 2;  // i18n key
+}
+
+// ============ Task Service ============
+
+service TaskService {
+    // Get all active background tasks
+    rpc GetTasks(Empty) returns (TaskListResponse);
+
+    // Cancel a specific background task
+    rpc CancelTask(CancelTaskRequest) returns (Empty);
+}
+
+message BackgroundTaskMsg {
+    string id = 1;
+    string task_type = 2;         // "download", "processing", "indexing"
+    string title = 3;             // e.g. "Large V3 Turbo Q5"
+    string description = 4;      // e.g. "Downloading whisper model..."
+    float progress = 5;          // 0.0–100.0 (-1 for indeterminate)
+    uint64 speed_bytes_per_sec = 6;
+    uint32 eta_seconds = 7;
+    string status = 8;           // "running", "completed", "failed", "cancelled"
+    string error = 9;
+    bool cancelable = 10;
+}
+
+message TaskListResponse {
+    repeated BackgroundTaskMsg tasks = 1;
+}
+
+message CancelTaskRequest {
+    string task_id = 1;
+}
+
+// ============ Monitor Service ============
+
+service MonitorService {
+    // Get current system stats (CPU, RAM, temperature)
+    rpc GetSystemStats(GetSystemStatsRequest) returns (SystemStats);
+
+    // Subscribe to real-time system stats updates
+    rpc SubscribeSystemStats(GetSystemStatsRequest) returns (stream SystemStats);
+}
+
+message GetSystemStatsRequest {
+    int32 interval_ms = 1;  // Update interval for streaming (default: 2000)
+}
+
+message SystemStats {
+    float cpu_usage = 1;        // 0-100 percentage
+    float ram_usage = 2;        // 0-100 percentage
+    float temperature = 3;      // Celsius (CPU temp, 0 if unavailable)
+    uint64 ram_total_mb = 4;
+    uint64 ram_used_mb = 5;
+    uint64 uptime_seconds = 6;  // System uptime
+    repeated TemperatureSensor temperatures = 7;
+    repeated FanSensor fans = 8;
+    repeated GpuStats gpus = 9;
+}
+
+message TemperatureSensor {
+    string id = 1;        // Stable identifier, e.g. "cpu_package", "cpu_core_0"
+    string label = 2;     // Human-readable, e.g. "CPU Package", "Core #0"
+    string category = 3;  // "cpu", "motherboard", "other"
+    float value = 4;      // Celsius
+}
+
+message FanSensor {
+    string id = 1;        // e.g. "cpu_fan", "gpu_fan_0"
+    string label = 2;     // e.g. "CPU Fan", "GPU Fan"
+    string category = 3;  // "cpu", "case", "gpu"
+    uint32 rpm = 4;
+}
+
+message GpuStats {
+    string id = 1;              // e.g. "gpu_0"
+    string name = 2;            // e.g. "NVIDIA GeForce RTX 4070"
+    float usage = 3;            // 0-100% (GPU core utilization)
+    float temperature = 4;      // Celsius
+    uint64 vram_total_mb = 5;
+    uint64 vram_used_mb = 6;
+    float vram_usage = 7;       // 0-100%
+    uint32 fan_rpm = 8;
+    uint32 fan_speed_percent = 9;
+    uint32 power_usage_mw = 10; // milliwatts
+    uint32 clock_mhz = 11;     // Core clock speed
+}
+
+// ============ Companion Service ============
+
+// Bidirectional communication between the daemon and a 3D desktop companion (Unity).
+// The companion connects as a gRPC client and subscribes to a server-streaming command feed.
+// TTS audio is routed to the companion for lipsync playback when connected.
+service CompanionService {
+    // Server-streaming: companion subscribes to receive commands from daemon.
+    rpc SubscribeCommands(CompanionSubscribeRequest) returns (stream CompanionCommand);
+
+    // Companion reports its current status
+    rpc ReportStatus(CompanionStatusReport) returns (Empty);
+
+    // Companion reports available blendshapes after model load
+    rpc ReportBlendshapes(CompanionBlendshapeReport) returns (Empty);
+
+    // Companion sends a command/event back to the daemon
+    rpc SendCommand(CompanionClientCommand) returns (CompanionCommandResponse);
+
+    // Query current companion status (called by UI clients)
+    rpc GetCompanionStatus(Empty) returns (CompanionStatusResponse);
+}
+
+message CompanionSubscribeRequest {
+    string companion_id = 1;
+    string companion_version = 2;
+}
+
+// Command pushed from daemon to companion via the stream
+message CompanionCommand {
+    string id = 1;
+    string command_type = 2;  // "load_model", "set_blendshape", "play_audio", etc.
+    oneof payload {
+        LoadModelPayload load_model = 3;
+        SetBlendshapePayload set_blendshape = 4;
+        SetAnimatorPayload set_animator = 5;
+        PlayAudioPayload play_audio = 6;
+        SetSettingsPayload set_settings = 7;
+        EmptyPayload empty_payload = 8;
+    }
+}
+
+message EmptyPayload {}
+
+message LoadModelPayload {
+    string path = 1;
+    bool use_default = 2;
+}
+
+message SetBlendshapePayload {
+    string name = 1;
+    float value = 2;
+}
+
+message SetAnimatorPayload {
+    map<string, string> parameters = 1;
+}
+
+message PlayAudioPayload {
+    string file_path = 1;
+}
+
+message SetSettingsPayload {
+    map<string, string> settings = 1;
+}
+
+message CompanionStatusReport {
+    string companion_id = 1;
+    CompanionConnectionState state = 2;
+    string model_name = 3;
+    string model_path = 4;
+    bool audio_playing = 5;
+}
+
+enum CompanionConnectionState {
+    COMPANION_DISCONNECTED = 0;
+    COMPANION_CONNECTED = 1;
+    COMPANION_LOADING = 2;
+    COMPANION_READY = 3;
+    COMPANION_SPEAKING = 4;
+    COMPANION_ERROR = 5;
+}
+
+message CompanionBlendshapeReport {
+    string companion_id = 1;
+    repeated string blendshape_names = 2;
+}
+
+// Command sent from companion back to daemon
+message CompanionClientCommand {
+    string companion_id = 1;
+    string command_type = 2;  // "audio_complete", "model_loaded"
+    map<string, string> data = 3;
+}
+
+message CompanionCommandResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message CompanionStatusResponse {
+    bool connected = 1;
+    string companion_id = 2;
+    CompanionConnectionState state = 3;
+    string model_name = 4;
+    string model_path = 5;
+    bool audio_playing = 6;
+    repeated string blendshape_names = 7;
+}
+
+// ===== Voice Search =====
+
+message SearchVoicesRequest {
+    string provider = 1;       // "fishaudio"
+    string query = 2;          // Search text
+    string language = 3;       // Language filter
+    int32 page_size = 4;       // Default 20
+    int32 page_number = 5;     // 0-based
+    string tag = 6;            // Tag filter
+    string sort_by = 7;        // "score", "task_count", "created_at"
+    string gender = 8;         // Gender filter
+    string category = 9;       // Category filter
+}
+
+message SearchVoicesResponse {
+    repeated VoiceSearchResult voices = 1;
+    int32 total_count = 2;
+}
+
+message VoiceSearchResult {
+    string id = 1;
+    string name = 2;
+    string provider = 3;
+    string description = 4;
+    repeated string languages = 5;
+    string preview_url = 6;
+    repeated string tags = 7;
+    string cover_image = 8;
+}
+
+// ===== TTS Provider Capabilities =====
+
+message TtsProviderInfo {
+    string id = 1;              // e.g. "fishaudio"
+    string name = 2;            // e.g. "Fish Audio"
+    bool supports_speed = 3;
+    bool supports_pitch = 4;
+    bool requires_subscription = 5;
+}
+
+message TtsProvidersResponse {
+    repeated TtsProviderInfo providers = 1;
+}
+
+// ===== AI Provider Capabilities =====
+
+message AiProviderInfo {
+    string id = 1;                    // e.g. "openai", "astra"
+    string name = 2;                  // e.g. "OpenAI", "Astra AI"
+    bool requires_subscription = 3;
+    string default_model = 4;         // e.g. "gpt-4o"
+    string default_api_base_url = 5;  // e.g. "https://api.openai.com"
+    bool show_api_key = 6;
+    bool show_api_base_url = 7;
+    string section_title_key = 8;     // i18n key, e.g. "ai.configOpenai"
+}
+
+message AiProvidersResponse {
+    repeated AiProviderInfo providers = 1;
+}
+
+// ============ MCP Service ============
+
+service McpService {
+    // List all configured MCP servers with status and tools
+    rpc ListServers(Empty) returns (McpServerListResponse);
+
+    // Add a new MCP server configuration
+    rpc AddServer(McpServerConfigMsg) returns (McpServerConfigMsg);
+
+    // Update an existing MCP server configuration
+    rpc UpdateServer(McpServerConfigMsg) returns (Empty);
+
+    // Remove an MCP server
+    rpc RemoveServer(McpServerIdRequest) returns (Empty);
+
+    // Start a specific MCP server
+    rpc StartServer(McpServerIdRequest) returns (Empty);
+
+    // Stop a specific MCP server
+    rpc StopServer(McpServerIdRequest) returns (Empty);
+
+    // Get tools for a specific server
+    rpc GetServerTools(McpServerIdRequest) returns (McpToolListResponse);
+
+    // Enable/disable a specific tool on a server
+    rpc SetToolEnabled(McpSetToolEnabledRequest) returns (Empty);
+
+    // Refresh tools from a running server
+    rpc RefreshServerTools(McpServerIdRequest) returns (McpToolListResponse);
+
+    // Catalog operations
+    rpc SearchCatalog(CatalogSearchRequest) returns (CatalogSearchResponse);
+    rpc GetCatalogServer(CatalogServerRequest) returns (CatalogServerMsg);
+    rpc InstallCatalogServer(InstallCatalogRequest) returns (McpServerConfigMsg);
+
+    // Runtime management
+    rpc CheckRuntimes(Empty) returns (RuntimeStatusListResponse);
+    rpc InstallRuntime(InstallRuntimeRequest) returns (InstallRuntimeResponse);
+}
+
+message McpServerConfigMsg {
+    string id = 1;
+    string name = 2;
+    string transport_json = 3;      // McpTransport serialized as JSON
+    bool enabled = 4;
+    bool auto_start = 5;
+    map<string, bool> tool_overrides = 6;
+    uint64 timeout_secs = 7;
+    string catalog_id = 8;          // Registry server name if installed from catalog
+    string catalog_version = 9;     // Version at time of install
+}
+
+message McpServerStatusMsg {
+    McpServerConfigMsg config = 1;
+    string status = 2;              // "stopped", "starting", "running", "error"
+    string error = 3;
+    repeated McpToolInfoMsg tools = 4;
+}
+
+message McpServerListResponse {
+    repeated McpServerStatusMsg servers = 1;
+}
+
+message McpServerIdRequest {
+    string server_id = 1;
+}
+
+message McpToolInfoMsg {
+    string name = 1;                // Original tool name
+    string description = 2;
+    string input_schema_json = 3;   // JSON Schema as string
+    bool enabled = 4;
+    string namespaced_name = 5;     // mcp__servername__toolname
+}
+
+message McpToolListResponse {
+    repeated McpToolInfoMsg tools = 1;
+}
+
+message McpSetToolEnabledRequest {
+    string server_id = 1;
+    string tool_name = 2;
+    bool enabled = 3;
+}
+
+// ---- MCP Catalog messages ----
+
+message CatalogSearchRequest {
+    string query = 1;           // Search term (empty = browse all)
+    string cursor = 2;          // Pagination cursor (empty = first page)
+    uint32 limit = 3;           // Results per page (default 50, max 96)
+}
+
+message CatalogSearchResponse {
+    repeated CatalogServerMsg servers = 1;
+    string next_cursor = 2;     // Empty if no more results
+    uint32 total_hint = 3;      // Approximate total (if registry provides)
+}
+
+message CatalogServerMsg {
+    string name = 1;                    // "namespace/server-name"
+    string version = 2;
+    string title = 3;                   // Display name (may be empty)
+    string description = 4;
+    string website_url = 5;
+    string icon_url = 6;
+    string repository_url = 7;
+    bool is_installed = 8;
+    string published_at = 9;
+    string updated_at = 10;
+    repeated CatalogPackageMsg packages = 11;
+    repeated CatalogRemoteMsg remotes = 12;
+}
+
+message CatalogPackageMsg {
+    string registry_type = 1;           // "npm", "pypi", "oci"
+    string identifier = 2;
+    string version = 3;
+    string transport = 4;               // "stdio", "streamable-http", "sse"
+    string runtime_hint = 5;            // "npx", "uvx", "docker" (may be empty)
+    repeated string runtime_arguments = 6;
+    repeated CatalogEnvVarMsg environment_variables = 7;
+}
+
+message CatalogEnvVarMsg {
+    string name = 1;
+    string description = 2;
+    bool is_secret = 3;
+    bool is_required = 4;
+    string default_value = 5;
+    repeated string choices = 6;
+}
+
+message CatalogRemoteMsg {
+    string transport_type = 1;          // "streamable-http" or "sse"
+    string url = 2;
+    repeated string headers = 3;
+}
+
+message CatalogServerRequest {
+    string name = 1;
+}
+
+message InstallCatalogRequest {
+    string server_name = 1;
+    uint32 package_index = 2;           // 0 = auto-select best
+    map<string, string> env_values = 3;
+    bool auto_start = 4;
+}
+
+// ---- MCP Runtime messages ----
+
+message RuntimeStatusMsg {
+    string id = 1;              // "nodejs", "python", etc.
+    string display_name = 2;    // "Node.js"
+    bool installed = 3;
+    string version = 4;         // "v20.11.1" or empty
+    string resolved_path = 5;   // full path or empty
+    string winget_id = 6;       // for install button
+    string download_url = 7;    // fallback manual download
+}
+
+message RuntimeStatusListResponse {
+    repeated RuntimeStatusMsg runtimes = 1;
+}
+
+message InstallRuntimeRequest {
+    string runtime_id = 1;      // "nodejs", "python", etc.
+}
+
+message InstallRuntimeResponse {
+    bool success = 1;
+    string message = 2;         // output or error text
+    string version = 3;         // newly detected version after install
+}
+
+// ============ Marketplace Service ============
+
+service MarketplaceService {
+    // Browse / search marketplace listings
+    rpc Browse(MarketplaceBrowseRequest) returns (MarketplaceBrowseResponse);
+
+    // Get featured / staff-pick listings
+    rpc GetFeatured(Empty) returns (MarketplaceBrowseResponse);
+
+    // Get single listing full details
+    rpc GetListing(MarketplaceGetListingRequest) returns (MarketplaceListingDetail);
+
+    // Install a marketplace command (download + create local command)
+    rpc Install(MarketplaceInstallRequest) returns (MarketplaceInstallResponse);
+
+    // Check for updates on installed marketplace commands
+    rpc CheckUpdates(Empty) returns (MarketplaceCheckUpdatesResponse);
+
+    // Update an installed marketplace command to latest version
+    rpc UpdateInstalled(MarketplaceUpdateInstalledRequest) returns (MarketplaceInstallResponse);
+
+    // Uninstall a marketplace command
+    rpc Uninstall(MarketplaceUninstallRequest) returns (Empty);
+
+    // Get all installed marketplace commands with status
+    rpc GetInstalled(Empty) returns (MarketplaceGetInstalledResponse);
+
+    // Publish a local command to the marketplace
+    rpc Publish(MarketplacePublishRequest) returns (MarketplaceListingDetail);
+
+    // Get current user's published listings
+    rpc GetMyListings(Empty) returns (MarketplaceBrowseResponse);
+
+    // Star or unstar a listing
+    rpc ToggleStar(MarketplaceToggleStarRequest) returns (MarketplaceToggleStarResponse);
+
+    // Submit or update a review
+    rpc SubmitReview(MarketplaceSubmitReviewRequest) returns (MarketplaceReview);
+
+    // Get reviews for a listing
+    rpc GetReviews(MarketplaceGetReviewsRequest) returns (MarketplaceGetReviewsResponse);
+
+    // Report a listing
+    rpc ReportListing(MarketplaceReportRequest) returns (Empty);
+}
+
+// --- Browse ---
+
+message MarketplaceBrowseRequest {
+    string query = 1;           // full-text search
+    string category = 2;       // filter by category
+    string sort = 3;           // popular, newest, top_rated, trending
+    int32 page = 4;            // 1-based
+    int32 page_size = 5;       // max 50
+    float min_rating = 6;      // minimum average rating
+}
+
+message MarketplaceBrowseResponse {
+    repeated MarketplaceListingSummary listings = 1;
+    int32 total = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+    int32 total_pages = 5;
+}
+
+message MarketplaceListingSummary {
+    string id = 1;
+    string author_id = 2;
+    string author_name = 3;
+    string title = 4;
+    string short_description = 5;
+    string category = 6;
+    repeated string tags = 7;
+    int32 version = 8;
+    string version_label = 9;
+    int32 download_count = 10;
+    int32 star_count = 11;
+    float rating_average = 12;
+    int32 rating_count = 13;
+    repeated string capabilities = 14;
+    string screenshot_thumbnail = 15;   // first screenshot or empty
+    bool featured = 16;
+    bool starred_by_me = 17;
+    bool installed = 18;
+    int32 installed_version = 19;       // 0 = not installed
+    Timestamp published_at = 20;
+    string status = 21;                 // draft, published, unlisted, removed
+}
+
+// --- Listing Detail ---
+
+message MarketplaceGetListingRequest {
+    string id = 1;
+}
+
+message MarketplaceListingDetail {
+    string id = 1;
+    string author_id = 2;
+    string author_name = 3;
+    string title = 4;
+    string short_description = 5;
+    string description = 6;
+    string category = 7;
+    repeated string tags = 8;
+    int32 version = 9;
+    string version_label = 10;
+    string changelog = 11;
+    string status = 12;
+    int32 download_count = 13;
+    int32 star_count = 14;
+    float rating_average = 15;
+    int32 rating_count = 16;
+    repeated string capabilities = 17;
+    repeated string screenshots = 18;
+    bool featured = 19;
+    bool starred_by_me = 20;
+    bool installed = 21;
+    int32 installed_version = 22;
+    Timestamp created_at = 23;
+    Timestamp updated_at = 24;
+    Timestamp published_at = 25;
+    string command_data_json = 26;
+}
+
+// --- Install / Uninstall ---
+
+message MarketplaceInstallRequest {
+    string listing_id = 1;
+}
+
+message MarketplaceInstallResponse {
+    string local_command_id = 1;
+    string listing_id = 2;
+    string title = 3;
+}
+
+message MarketplaceUpdateInstalledRequest {
+    string listing_id = 1;
+}
+
+message MarketplaceUninstallRequest {
+    string listing_id = 1;
+    bool delete_local_command = 2;
+}
+
+message MarketplaceGetInstalledResponse {
+    repeated MarketplaceInstalledCommand items = 1;
+}
+
+message MarketplaceInstalledCommand {
+    string listing_id = 1;
+    string local_command_id = 2;
+    string title = 3;
+    int32 installed_version = 4;
+    int32 latest_version = 5;
+    bool has_update = 6;
+}
+
+// --- Updates ---
+
+message MarketplaceCheckUpdatesResponse {
+    repeated MarketplaceUpdate updates = 1;
+}
+
+message MarketplaceUpdate {
+    string listing_id = 1;
+    string title = 2;
+    int32 installed_version = 3;
+    int32 latest_version = 4;
+    string latest_version_label = 5;
+    string changelog = 6;
+    string local_command_id = 7;
+}
+
+// --- Publish ---
+
+message MarketplacePublishRequest {
+    string local_command_id = 1;        // local command UUID to publish
+    string title = 2;
+    string short_description = 3;
+    string description = 4;
+    string category = 5;
+    repeated string tags = 6;
+    repeated string screenshots = 7;    // base64 PNGs
+    string listing_id = 8;             // empty = new, existing = update
+    string changelog = 9;
+    string status = 10;                // published or unlisted
+    string version_label = 11;
+}
+
+// --- Stars ---
+
+message MarketplaceToggleStarRequest {
+    string listing_id = 1;
+    bool star = 2;                     // true = star, false = unstar
+}
+
+message MarketplaceToggleStarResponse {
+    bool starred = 1;
+    int32 new_star_count = 2;
+}
+
+// --- Reviews ---
+
+message MarketplaceSubmitReviewRequest {
+    string listing_id = 1;
+    int32 rating = 2;                  // 1–5
+    string review_text = 3;
+}
+
+message MarketplaceReview {
+    string id = 1;
+    string user_id = 2;
+    string user_name = 3;
+    int32 rating = 4;
+    string review_text = 5;
+    Timestamp created_at = 6;
+}
+
+message MarketplaceGetReviewsRequest {
+    string listing_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message MarketplaceGetReviewsResponse {
+    repeated MarketplaceReview reviews = 1;
+    int32 total = 2;
+}
+
+// --- Reports ---
+
+message MarketplaceReportRequest {
+    string listing_id = 1;
+    string reason = 2;                 // spam, malicious, broken, inappropriate, copyright, other
+    string details = 3;
+}
+
+// ============ OOBE Service ============
+
+service OobeService {
+    // Discover installed applications (Start Menu, Steam, Epic Games Store)
+    rpc DiscoverApps(Empty) returns (DiscoverAppsResponse);
+    // Filter apps using AI to remove system utilities, keeping user-facing programs
+    rpc FilterApps(FilterAppsRequest) returns (stream OobeProgressEvent);
+    // Generate trigger phrases for apps (phonetic transliterations for non-English locales)
+    rpc GenerateTriggers(GenerateTriggersRequest) returns (stream OobeProgressEvent);
+}
+
+message OobeAppEntry {
+    string app_name = 1;
+    string exe_path = 2;
+}
+
+message DiscoverAppsResponse {
+    repeated OobeAppEntry apps = 1;
+}
+
+message FilterAppsRequest {
+    repeated OobeAppEntry apps = 1;
+}
+
+message GenerateTriggersRequest {
+    repeated OobeAppEntry apps = 1;
+    string locale = 2;
+}
+
+message OobeProgressEvent {
+    oneof event {
+        OobeBatchProgress batch_progress = 1;
+        FilterAppsResult filter_result = 2;
+        GenerateTriggersResult triggers_result = 3;
+        string error = 4;
+    }
+}
+
+message OobeBatchProgress {
+    int32 current_batch = 1;
+    int32 total_batches = 2;
+    string phase = 3;
+}
+
+message FilterAppsResult {
+    repeated OobeAppEntry apps = 1;
+}
+
+message GenerateTriggersResult {
+    map<string, TriggerPhrases> triggers = 1;
+}
+
+message TriggerPhrases {
+    repeated string phrases = 1;
+}
+
+// ===== Widget Data =====
+
+message WidgetDataRequest {
+    string widget_type = 1;  // "notes", "reminders", "calendar", "tasks"
+}
+
+message SaveWidgetDataRequest {
+    string widget_type = 1;
+    string data = 2;  // JSON string
+}
+
+message WidgetDataResponse {
+    string data = 1;  // JSON string
+}
+
+// ============ Plugin Service (UI-facing, daemon manages plugins) ============
+
+service PluginService {
+    // List all installed plugins with status
+    rpc ListPlugins(Empty) returns (PluginListResponse);
+
+    // Install a plugin from the registry
+    rpc InstallPlugin(InstallPluginRequest) returns (PluginStatusMsg);
+
+    // Uninstall a plugin
+    rpc UninstallPlugin(PluginIdRequest) returns (Empty);
+
+    // Enable/disable a plugin
+    rpc SetPluginEnabled(SetPluginEnabledRequest) returns (Empty);
+
+    // Start a stopped plugin
+    rpc StartPlugin(PluginIdRequest) returns (Empty);
+
+    // Stop a running plugin
+    rpc StopPlugin(PluginIdRequest) returns (Empty);
+
+    // Get plugin config schema + current values
+    rpc GetPluginConfig(PluginIdRequest) returns (PluginConfigResponse);
+
+    // Update plugin config
+    rpc UpdatePluginConfig(UpdatePluginConfigRequest) returns (Empty);
+
+    // Browse plugin registry
+    rpc BrowsePluginRegistry(PluginBrowseRequest) returns (PluginBrowseResponse);
+
+    // Check for updates on installed plugins
+    rpc CheckPluginUpdates(Empty) returns (PluginUpdatesResponse);
+
+    // Update a plugin to latest version
+    rpc UpdatePlugin(PluginIdRequest) returns (PluginStatusMsg);
+
+    // Sideload a plugin from local path (dev mode)
+    rpc SideloadPlugin(SideloadPluginRequest) returns (PluginStatusMsg);
+
+    // Import a plugin from a local .astraplugin ZIP file
+    rpc ImportPluginFile(ImportPluginFileRequest) returns (PluginStatusMsg);
+
+    // Get logs from a plugin (last N lines)
+    rpc GetPluginLogs(PluginLogsRequest) returns (PluginLogsResponse);
+}
+
+// ============ Plugin Host Service (daemon exposes, plugins call into) ============
+
+service PluginHostService {
+    // Plugin registration handshake
+    rpc Register(PluginRegisterRequest) returns (PluginRegisterResponse);
+
+    // Subscribe to daemon events (filtered)
+    rpc SubscribeEvents(PluginEventFilter) returns (stream PluginEventMsg);
+
+    // Send a chat message (for client plugins)
+    rpc SendChatMessage(PluginChatRequest) returns (stream PluginChatChunk);
+
+    // Fire a custom trigger (for trigger plugins)
+    rpc FireTrigger(PluginFireTriggerRequest) returns (Empty);
+
+    // Get plugin's own config
+    rpc GetPluginSelfConfig(PluginSelfIdRequest) returns (PluginSelfConfigResponse);
+
+    // Log a message (forwarded to daemon log buffer)
+    rpc PluginLog(PluginLogRequest) returns (Empty);
+
+    // Get daemon info (version, state, port)
+    rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
+
+    // Set a variable in the daemon's variable context
+    rpc SetVariable(PluginSetVariableRequest) returns (Empty);
+}
+
+// ============ Plugin Capability Service (plugin exposes, daemon calls) ============
+
+service PluginCapabilityService {
+    // ── Tools ──
+    rpc ListTools(Empty) returns (PluginToolListResponse);
+    rpc CallTool(PluginCallToolRequest) returns (PluginCallToolResponse);
+
+    // ── TTS ──
+    rpc TtsSynthesize(PluginTtsSynthesizeRequest) returns (PluginTtsSynthesizeResponse);
+    rpc TtsSynthesizeStream(PluginTtsSynthesizeRequest) returns (stream PluginAudioChunk);
+    rpc TtsListVoices(Empty) returns (PluginTtsVoicesResponse);
+
+    // ── STT ──
+    rpc SttProcess(stream PluginAudioChunk) returns (stream PluginSttEvent);
+    rpc SttGetLanguages(Empty) returns (PluginSttLanguagesResponse);
+
+    // ── AI Provider ──
+    rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
+    rpc AiGetModels(Empty) returns (PluginAiModelsResponse);
+
+    // ── Actions ──
+    rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
+    rpc GetPluginActionTypes(Empty) returns (PluginActionTypesResponse);
+
+    // ── Triggers ──
+    rpc GetPluginTriggerTypes(Empty) returns (PluginTriggerTypesResponse);
+
+    // ── UI ──
+    rpc GetUiPanels(Empty) returns (PluginUiPanelsResponse);
+
+    // ── Lifecycle ──
+    rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
+    rpc OnActiveTriggers(PluginActiveTriggersMsg) returns (Empty);
+    rpc Shutdown(Empty) returns (Empty);
+    rpc HealthCheck(Empty) returns (PluginHealthResponse);
+}
+
+// ============ Plugin Messages — Management (PluginService) ============
+
+message PluginStatusMsg {
+    string id = 1;
+    string name = 2;
+    string version = 3;
+    string description = 4;
+    string author = 5;
+    string status = 6;                   // "stopped", "starting", "running", "error", "disabled"
+    string error = 7;
+    repeated string capabilities = 8;    // ["tools", "tts", "ai_provider", ...]
+    bool enabled = 9;
+    bool has_config = 10;
+    bool has_update = 11;
+    string latest_version = 12;
+    string icon_url = 13;
+    string homepage = 14;
+}
+
+message PluginListResponse {
+    repeated PluginStatusMsg plugins = 1;
+}
+
+message PluginIdRequest {
+    string plugin_id = 1;
+}
+
+message SetPluginEnabledRequest {
+    string plugin_id = 1;
+    bool enabled = 2;
+}
+
+message InstallPluginRequest {
+    string plugin_id = 1;
+    bool auto_start = 2;
+}
+
+message PluginConfigResponse {
+    string plugin_id = 1;
+    string config_schema_json = 2;       // JSON Schema from manifest
+    string config_values_json = 3;       // Current config values as JSON
+    repeated FieldDefinitionMsg fields = 4;  // Pre-converted for UI rendering
+}
+
+message UpdatePluginConfigRequest {
+    string plugin_id = 1;
+    string config_json = 2;              // New config values as JSON
+}
+
+message PluginBrowseRequest {
+    string query = 1;
+    string capability_filter = 2;        // "tts", "tools", "ai_provider", etc.
+    string sort = 3;                     // "popular", "newest", "updated"
+    int32 page = 4;
+    int32 page_size = 5;
+}
+
+message PluginBrowseResponse {
+    repeated PluginRegistryEntry entries = 1;
+    int32 total = 2;
+}
+
+message PluginRegistryEntry {
+    string id = 1;
+    string name = 2;
+    string version = 3;
+    string description = 4;
+    string author = 5;
+    repeated string capabilities = 6;
+    string repository_url = 7;
+    string icon_url = 8;
+    int32 downloads = 9;
+    int32 stars = 10;
+    bool installed = 11;
+    string installed_version = 12;
+    string updated_at = 13;
+}
+
+message SideloadPluginRequest {
+    string path = 1;                     // Local directory path
+}
+
+message ImportPluginFileRequest {
+    string path = 1;                     // Local path to .astraplugin file
+    bool auto_start = 2;                 // Start after install (default true)
+}
+
+message PluginLogsRequest {
+    string plugin_id = 1;
+    int32 lines = 2;                     // Last N lines (default 100)
+}
+
+message PluginLogsResponse {
+    repeated string lines = 1;
+}
+
+message PluginUpdatesResponse {
+    repeated PluginUpdateInfo updates = 1;
+}
+
+message PluginUpdateInfo {
+    string plugin_id = 1;
+    string name = 2;
+    string installed_version = 3;
+    string latest_version = 4;
+    string changelog = 5;
+}
+
+// ============ Plugin Messages — Host (PluginHostService) ============
+
+message PluginRegisterRequest {
+    string plugin_id = 1;
+    uint32 port = 2;                     // Plugin's gRPC server port
+    repeated string capabilities = 3;
+}
+
+message PluginRegisterResponse {
+    bool success = 1;
+    string error = 2;
+    string config_json = 3;             // Plugin's current config
+    string daemon_version = 4;
+}
+
+message PluginEventFilter {
+    string plugin_id = 1;
+    repeated string event_types = 2;     // Empty = all events
+}
+
+message PluginEventMsg {
+    string event_type = 1;
+    string payload_json = 2;
+    int64 timestamp = 3;
+}
+
+message PluginChatRequest {
+    string text = 1;
+    string source_id = 2;               // Plugin ID as source
+    string conversation_id = 3;         // Empty = active conversation
+    bool voice_enabled = 4;
+}
+
+message PluginChatChunk {
+    oneof content {
+        string text = 1;
+        bool done = 2;
+        string error = 3;
+    }
+    string message_id = 4;
+}
+
+message PluginFireTriggerRequest {
+    string trigger_type = 1;             // e.g. "plugin__twitch__donation"
+    string payload_json = 2;             // Trigger-specific data as JSON
+}
+
+message PluginSelfIdRequest {
+    string plugin_id = 1;
+}
+
+message PluginSelfConfigResponse {
+    string config_json = 1;
+}
+
+message PluginLogRequest {
+    string plugin_id = 1;
+    string level = 2;                    // "debug", "info", "warn", "error"
+    string message = 3;
+}
+
+message PluginDaemonInfoResponse {
+    string version = 1;
+    string state = 2;
+    uint32 grpc_port = 3;
+}
+
+message PluginSetVariableRequest {
+    string plugin_id = 1;
+    string name = 2;
+    string value = 3;
+    string scope = 4;                    // "session" (default) or "persistent"
+}
+
+// ============ Plugin Messages — Capability (PluginCapabilityService) ============
+
+// ── Tools ──
+
+message PluginToolDef {
+    string name = 1;
+    string description = 2;
+    string parameters_json = 3;          // JSON Schema for parameters
+}
+
+message PluginToolListResponse {
+    repeated PluginToolDef tools = 1;
+}
+
+message PluginCallToolRequest {
+    string tool_name = 1;
+    string arguments_json = 2;
+}
+
+message PluginCallToolResponse {
+    bool success = 1;
+    string result = 2;
+    string error = 3;
+}
+
+// ── TTS ──
+
+message PluginTtsSynthesizeRequest {
+    string text = 1;
+    string voice_id = 2;
+    float speed = 3;
+    float pitch = 4;
+}
+
+message PluginTtsSynthesizeResponse {
+    bytes audio_data = 1;
+    string format = 2;                   // "mp3", "wav", "pcm", "ogg"
+    uint32 sample_rate = 3;
+    uint32 duration_ms = 4;
+}
+
+message PluginAudioChunk {
+    bytes data = 1;
+    bool is_last = 2;
+    uint32 sample_rate = 3;              // Only needed on first chunk
+}
+
+message PluginVoiceInfo {
+    string id = 1;
+    string name = 2;
+    string language = 3;
+    string gender = 4;                   // "male", "female", "neutral"
+    string preview_url = 5;
+}
+
+message PluginTtsVoicesResponse {
+    repeated PluginVoiceInfo voices = 1;
+}
+
+// ── STT ──
+
+message PluginSttEvent {
+    string text = 1;
+    bool is_final = 2;
+    float confidence = 3;
+    string language = 4;
+}
+
+message PluginSttLanguagesResponse {
+    repeated string languages = 1;
+}
+
+// ── AI Provider ──
+
+message PluginAiCompleteRequest {
+    repeated PluginAiMessage messages = 1;
+    repeated PluginToolDef tools = 2;
+    string system_prompt = 3;
+    float temperature = 4;
+    uint32 max_tokens = 5;
+    string model = 6;
+}
+
+message PluginAiMessage {
+    string role = 1;                     // "user", "assistant", "system", "tool"
+    string content = 2;
+    string tool_call_id = 3;
+    repeated PluginAiToolCall tool_calls = 4;
+}
+
+message PluginAiToolCall {
+    string id = 1;
+    string name = 2;
+    string arguments_json = 3;
+}
+
+message PluginAiStreamChunk {
+    oneof content {
+        string text_delta = 1;
+        PluginAiToolCall tool_call = 2;
+        string thinking_delta = 3;
+        bool done = 4;
+        string error = 5;
+    }
+}
+
+message PluginAiModelsResponse {
+    repeated PluginAiModelInfo models = 1;
+    string default_model = 2;
+}
+
+message PluginAiModelInfo {
+    string id = 1;
+    string name = 2;
+}
+
+// ── Actions ──
+
+message PluginExecuteActionRequest {
+    string action_type = 1;
+    string params_json = 2;
+}
+
+message PluginExecuteActionResponse {
+    bool success = 1;
+    string result = 2;
+    string error = 3;
+}
+
+message PluginActionTypesResponse {
+    repeated ActionTypeDefinitionMsg types = 1;
+}
+
+// ── Triggers ──
+
+message PluginTriggerTypesResponse {
+    repeated TriggerTypeDefinitionMsg types = 1;
+}
+
+// ── UI ──
+
+message PluginUiPanel {
+    string id = 1;
+    string label = 2;
+    string page = 3;                     // "settings", "custom"
+    string section = 4;                  // For settings: "voice", "ai", etc.
+    string route = 5;                    // For custom pages: "/plugins/{id}/{panel}"
+    string url = 6;                      // URL to load in iframe (plugin serves this)
+}
+
+message PluginUiPanelsResponse {
+    repeated PluginUiPanel panels = 1;
+}
+
+// ── Lifecycle ──
+
+message PluginConfigChangedMsg {
+    string config_json = 1;
+}
+
+message PluginActiveTriggersMsg {
+    repeated string trigger_types = 1;
+}
+
+message PluginHealthResponse {
+    bool healthy = 1;
+    string status = 2;
+}

@@ -1,0 +1,346 @@
+syntax = "proto3";
+package astra;
+
+// ============ Common Types ============
+
+message Empty {}
+
+// ============ Plugin Host Service (daemon exposes, plugins call into) ============
+
+service PluginHostService {
+    // Plugin registration handshake
+    rpc Register(PluginRegisterRequest) returns (PluginRegisterResponse);
+
+    // Subscribe to daemon events (filtered)
+    rpc SubscribeEvents(PluginEventFilter) returns (stream PluginEventMsg);
+
+    // Send a chat message (for client plugins)
+    rpc SendChatMessage(PluginChatRequest) returns (stream PluginChatChunk);
+
+    // Fire a custom trigger (for trigger plugins)
+    rpc FireTrigger(PluginFireTriggerRequest) returns (Empty);
+
+    // Get plugin's own config
+    rpc GetPluginSelfConfig(PluginSelfIdRequest) returns (PluginSelfConfigResponse);
+
+    // Log a message (forwarded to daemon log buffer)
+    rpc PluginLog(PluginLogRequest) returns (Empty);
+
+    // Get daemon info (version, state, port)
+    rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
+}
+
+// ============ Plugin Capability Service (plugin exposes, daemon calls) ============
+
+service PluginCapabilityService {
+    // -- Tools --
+    rpc ListTools(Empty) returns (PluginToolListResponse);
+    rpc CallTool(PluginCallToolRequest) returns (PluginCallToolResponse);
+
+    // -- TTS --
+    rpc TtsSynthesize(PluginTtsSynthesizeRequest) returns (PluginTtsSynthesizeResponse);
+    rpc TtsSynthesizeStream(PluginTtsSynthesizeRequest) returns (stream PluginAudioChunk);
+    rpc TtsListVoices(Empty) returns (PluginTtsVoicesResponse);
+
+    // -- STT --
+    rpc SttProcess(stream PluginAudioChunk) returns (stream PluginSttEvent);
+    rpc SttGetLanguages(Empty) returns (PluginSttLanguagesResponse);
+
+    // -- AI Provider --
+    rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
+    rpc AiGetModels(Empty) returns (PluginAiModelsResponse);
+
+    // -- Actions --
+    rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
+    rpc GetPluginActionTypes(Empty) returns (PluginActionTypesResponse);
+
+    // -- Triggers --
+    rpc GetPluginTriggerTypes(Empty) returns (PluginTriggerTypesResponse);
+
+    // -- UI --
+    rpc GetUiPanels(Empty) returns (PluginUiPanelsResponse);
+
+    // -- Lifecycle --
+    rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
+    rpc Shutdown(Empty) returns (Empty);
+    rpc HealthCheck(Empty) returns (PluginHealthResponse);
+}
+
+// ============ Host Messages ============
+
+message PluginRegisterRequest {
+    string plugin_id = 1;
+    uint32 port = 2;
+    repeated string capabilities = 3;
+}
+
+message PluginRegisterResponse {
+    bool success = 1;
+    string error = 2;
+    string config_json = 3;
+    string daemon_version = 4;
+}
+
+message PluginEventFilter {
+    string plugin_id = 1;
+    repeated string event_types = 2;
+}
+
+message PluginEventMsg {
+    string event_type = 1;
+    string payload_json = 2;
+    int64 timestamp = 3;
+}
+
+message PluginChatRequest {
+    string text = 1;
+    string source_id = 2;
+    string conversation_id = 3;
+    bool voice_enabled = 4;
+}
+
+message PluginChatChunk {
+    oneof content {
+        string text = 1;
+        bool done = 2;
+        string error = 3;
+    }
+    string message_id = 4;
+}
+
+message PluginFireTriggerRequest {
+    string trigger_type = 1;
+    string payload_json = 2;
+}
+
+message PluginSelfIdRequest {
+    string plugin_id = 1;
+}
+
+message PluginSelfConfigResponse {
+    string config_json = 1;
+}
+
+message PluginLogRequest {
+    string plugin_id = 1;
+    string level = 2;
+    string message = 3;
+}
+
+message PluginDaemonInfoResponse {
+    string version = 1;
+    string state = 2;
+    uint32 grpc_port = 3;
+}
+
+// ============ Capability Messages ============
+
+// -- Tools --
+
+message PluginToolDef {
+    string name = 1;
+    string description = 2;
+    string parameters_json = 3;
+}
+
+message PluginToolListResponse {
+    repeated PluginToolDef tools = 1;
+}
+
+message PluginCallToolRequest {
+    string tool_name = 1;
+    string arguments_json = 2;
+}
+
+message PluginCallToolResponse {
+    bool success = 1;
+    string result = 2;
+    string error = 3;
+}
+
+// -- TTS --
+
+message PluginTtsSynthesizeRequest {
+    string text = 1;
+    string voice_id = 2;
+    float speed = 3;
+    float pitch = 4;
+}
+
+message PluginTtsSynthesizeResponse {
+    bytes audio_data = 1;
+    string format = 2;
+    uint32 sample_rate = 3;
+    uint32 duration_ms = 4;
+}
+
+message PluginAudioChunk {
+    bytes data = 1;
+    bool is_last = 2;
+    uint32 sample_rate = 3;
+}
+
+message PluginVoiceInfo {
+    string id = 1;
+    string name = 2;
+    string language = 3;
+    string gender = 4;
+    string preview_url = 5;
+}
+
+message PluginTtsVoicesResponse {
+    repeated PluginVoiceInfo voices = 1;
+}
+
+// -- STT --
+
+message PluginSttEvent {
+    string text = 1;
+    bool is_final = 2;
+    float confidence = 3;
+    string language = 4;
+}
+
+message PluginSttLanguagesResponse {
+    repeated string languages = 1;
+}
+
+// -- AI Provider --
+
+message PluginAiCompleteRequest {
+    repeated PluginAiMessage messages = 1;
+    repeated PluginToolDef tools = 2;
+    string system_prompt = 3;
+    float temperature = 4;
+    uint32 max_tokens = 5;
+    string model = 6;
+}
+
+message PluginAiMessage {
+    string role = 1;
+    string content = 2;
+    string tool_call_id = 3;
+    repeated PluginAiToolCall tool_calls = 4;
+}
+
+message PluginAiToolCall {
+    string id = 1;
+    string name = 2;
+    string arguments_json = 3;
+}
+
+message PluginAiStreamChunk {
+    oneof content {
+        string text_delta = 1;
+        PluginAiToolCall tool_call = 2;
+        string thinking_delta = 3;
+        bool done = 4;
+        string error = 5;
+    }
+}
+
+message PluginAiModelsResponse {
+    repeated PluginAiModelInfo models = 1;
+    string default_model = 2;
+}
+
+message PluginAiModelInfo {
+    string id = 1;
+    string name = 2;
+}
+
+// -- Actions --
+
+message PluginExecuteActionRequest {
+    string action_type = 1;
+    string params_json = 2;
+}
+
+message PluginExecuteActionResponse {
+    bool success = 1;
+    string result = 2;
+    string error = 3;
+}
+
+message FieldDefinitionMsg {
+    string id = 1;
+    string label = 2;
+    string field_type = 3;
+    string placeholder = 4;
+    string default_value = 5;
+    double min = 6;
+    double max = 7;
+    double step = 8;
+    repeated DropdownOptionMsg options = 9;
+    bool has_min = 10;
+    bool has_max = 11;
+    bool has_step = 12;
+    repeated FieldVisibilityCondition conditions = 13;
+    string description = 14;
+    string group = 15;
+    string group_label = 16;
+}
+
+message DropdownOptionMsg {
+    string value = 1;
+    string label = 2;
+}
+
+message FieldVisibilityCondition {
+    string field_id = 1;
+    string operator = 2;
+    string value = 3;
+}
+
+message ActionTypeDefinitionMsg {
+    string type = 1;
+    string label = 2;
+    string icon_svg = 3;
+    repeated FieldDefinitionMsg fields = 4;
+    bool ai_available = 5;
+    string ai_description = 6;
+    string ai_primary_field = 7;
+}
+
+message PluginActionTypesResponse {
+    repeated ActionTypeDefinitionMsg types = 1;
+}
+
+// -- Triggers --
+
+message TriggerTypeDefinitionMsg {
+    string type = 1;
+    string label = 2;
+    string icon_svg = 3;
+    repeated FieldDefinitionMsg fields = 4;
+}
+
+message PluginTriggerTypesResponse {
+    repeated TriggerTypeDefinitionMsg types = 1;
+}
+
+// -- UI --
+
+message PluginUiPanel {
+    string id = 1;
+    string label = 2;
+    string page = 3;
+    string section = 4;
+    string route = 5;
+    string url = 6;
+}
+
+message PluginUiPanelsResponse {
+    repeated PluginUiPanel panels = 1;
+}
+
+// -- Lifecycle --
+
+message PluginConfigChangedMsg {
+    string config_json = 1;
+}
+
+message PluginHealthResponse {
+    bool healthy = 1;
+    string status = 2;
+}

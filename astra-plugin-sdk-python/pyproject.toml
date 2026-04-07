@@ -1,0 +1,23 @@
+[project]
+name = "astra-plugin-sdk"
+version = "0.1.0"
+description = "Python SDK for building Astra plugins"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "protobuf>=4.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/astra-assistant/astra-plugin-sdk-python"
+Repository = "https://github.com/astra-assistant/astra-plugin-sdk-python"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["astra_plugin_sdk*"]

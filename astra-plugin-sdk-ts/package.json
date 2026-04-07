@@ -1,0 +1,28 @@
+{
+  "name": "@astra/plugin-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for building Astra plugins",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "proto:gen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:src/generated --grpc_out=grpc_js:src/generated --plugin=protoc-gen-grpc=./node_modules/.bin/grpc_tools_node_protoc_plugin -I src src/plugin.proto"
+  },
+  "files": [
+    "dist/",
+    "src/plugin.proto"
+  ],
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/astra-assistant/astra-plugin-sdk-ts"
+  }
+}

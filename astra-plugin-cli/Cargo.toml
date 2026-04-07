@@ -1,0 +1,23 @@
+[package]
+name = "astra-plugin-cli"
+version = "0.1.0"
+edition = "2024"
+description = "CLI tool for developing Astra plugins"
+license = "MIT"
+repository = "https://github.com/astra-assistant/astra-plugins"
+
+[[bin]]
+name = "astra-plugin"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+anyhow = "1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+walkdir = "2"
+notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

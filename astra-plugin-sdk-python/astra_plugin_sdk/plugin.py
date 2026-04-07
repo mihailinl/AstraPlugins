@@ -1,0 +1,420 @@
+"""Base Plugin class — subclass this to build an Astra plugin."""
+
+import argparse
+import asyncio
+import json
+import signal
+import sys
+from concurrent import futures
+
+import grpc
+
+from astra_plugin_sdk.host_client import HostClient
+
+# Proto stubs will be generated at install time or pre-shipped.
+# For now, define the gRPC servicer interface manually.
+# Users run: python -m grpc_tools.protoc -I proto --python_out=. --grpc_python_out=. proto/plugin.proto
+# Or the SDK ships pre-generated stubs.
+
+try:
+    from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
+except ImportError:
+    plugin_pb2 = None
+    plugin_pb2_grpc = None
+
+
+class Plugin:
+    """Base class for Astra plugins.
+
+    Subclass this and override the capability methods you need::
+
+        class MyPlugin(Plugin):
+            async def list_tools(self):
+                return [{"name": "hello", "description": "Say hi", "parameters_json": "{}"}]
+
+            async def call_tool(self, name, arguments_json):
+                return {"success": True, "result": "Hello!"}
+
+        if __name__ == "__main__":
+            MyPlugin().run()
+    """
+
+    def __init__(self):
+        self.host: HostClient | None = None
+        self.config: dict = {}
+        self.active_triggers: set[str] = set()
+        self._server: grpc.aio.Server | None = None
+
+        # Auto-collect @tool / @action / @trigger decorated methods
+        self._decorated_tools: dict[str, tuple[dict, object]] = {}
+        self._decorated_actions: dict[str, tuple[dict, object]] = {}
+        self._decorated_triggers: dict[str, dict] = {}
+        for attr_name in dir(self):
+            try:
+                method = getattr(self, attr_name)
+            except Exception:
+                continue
+            if hasattr(method, "_astra_tool_meta"):
+                meta = method._astra_tool_meta
+                self._decorated_tools[meta["name"]] = (meta, method)
+            if hasattr(method, "_astra_action_meta"):
+                meta = method._astra_action_meta
+                self._decorated_actions[meta["type"]] = (meta, method)
+            if hasattr(method, "_astra_trigger_meta"):
+                meta = method._astra_trigger_meta
+                self._decorated_triggers[meta["type"]] = meta
+
+    def run(self):
+        """Parse CLI args, start gRPC server, register with daemon, serve until shutdown."""
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--daemon-addr", required=True, help="Daemon gRPC address")
+        parser.add_argument("--plugin-id", required=True, help="Plugin ID")
+        args = parser.parse_args()
+
+        asyncio.run(self._run_async(args.daemon_addr, args.plugin_id))
+
+    async def _run_async(self, daemon_addr: str, plugin_id: str):
+        if plugin_pb2_grpc is None:
+            print(
+                "ERROR: Proto stubs not generated. Run:\n"
+                "  python -m grpc_tools.protoc -I proto "
+                "--python_out=astra_plugin_sdk/proto "
+                "--grpc_python_out=astra_plugin_sdk/proto "
+                "proto/plugin.proto",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        # Start gRPC server on random port
+        self._server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=4))
+        servicer = _CapabilityServicer(self)
+        plugin_pb2_grpc.add_PluginCapabilityServiceServicer_to_server(servicer, self._server)
+
+        port = self._server.add_insecure_port("127.0.0.1:0")
+        await self._server.start()
+        print(f"Plugin gRPC server listening on port {port}")
+
+        # Connect to daemon and register
+        self.host = HostClient(daemon_addr, plugin_id)
+        await self.host.connect()
+
+        capabilities = await self._discover_capabilities()
+        print(f"Registering with capabilities: {capabilities}")
+
+        response = await self.host.register(port, capabilities)
+        if not response.success:
+            print(f"Registration failed: {response.error}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Registered successfully. Daemon version: {response.daemon_version}")
+
+        # Pass initial config
+        if response.config_json:
+            self.config = json.loads(response.config_json) if response.config_json != "{}" else {}
+            await self.on_config_changed(self.config)
+
+        # Start event subscription if plugin wants events
+        event_types = self.subscribed_events()
+        if event_types:
+            print(f"Subscribing to events: {event_types}")
+            asyncio.create_task(self._event_loop(event_types))
+
+        # Wait for shutdown
+        stop_event = asyncio.Event()
+
+        def _signal_handler():
+            stop_event.set()
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, _signal_handler)
+            except NotImplementedError:
+                # Windows doesn't support add_signal_handler
+                pass
+
+        try:
+            await stop_event.wait()
+        except KeyboardInterrupt:
+            pass
+
+        print("Shutting down...")
+        await self.on_shutdown()
+        await self._server.stop(grace=2)
+
+    async def _discover_capabilities(self) -> list[str]:
+        caps = []
+        tools = await self.list_tools()
+        if tools:
+            caps.append("tools")
+        voices = await self.tts_list_voices()
+        if voices:
+            caps.append("tts")
+        langs = await self.stt_get_languages()
+        if langs:
+            caps.append("stt")
+        models, _ = await self.ai_get_models()
+        if models:
+            caps.append("ai_provider")
+        action_types = await self.get_action_types()
+        if action_types:
+            caps.append("actions")
+        trigger_types = await self.get_trigger_types()
+        if trigger_types:
+            caps.append("triggers")
+        panels = await self.get_ui_panels()
+        if panels:
+            caps.append("ui_panels")
+        return caps
+
+    # ── Capability methods (override in subclass) ──
+
+    async def list_tools(self) -> list[dict]:
+        """Return tool definitions.
+
+        If you use ``@tool`` decorators, this is auto-populated.
+        Override to define tools manually (or call ``super()`` to merge both).
+        """
+        return [meta for meta, _ in self._decorated_tools.values()]
+
+    async def call_tool(self, name: str, arguments_json: str) -> dict:
+        """Execute a tool.
+
+        If you use ``@tool`` decorators, dispatch is automatic.
+        Override for manual routing.
+        """
+        entry = self._decorated_tools.get(name)
+        if entry is None:
+            return {"success": False, "result": "", "error": f"Unknown tool: {name}"}
+        _, handler = entry
+        try:
+            args = json.loads(arguments_json) if arguments_json else {}
+            result = await handler(**args) if asyncio.iscoroutinefunction(handler) else handler(**args)
+            if isinstance(result, dict):
+                return {"success": True, "result": json.dumps(result)}
+            return {"success": True, "result": str(result) if result is not None else ""}
+        except Exception as e:
+            return {"success": False, "result": "", "error": str(e)}
+
+    async def tts_synthesize(
+        self, text: str, voice_id: str, speed: float, pitch: float
+    ) -> dict:
+        """Synthesize TTS. Return {audio_data: bytes, format, sample_rate, duration_ms}."""
+        raise NotImplementedError
+
+    async def tts_list_voices(self) -> list[dict]:
+        """Return list of voices: [{id, name, language, gender, preview_url}]."""
+        return []
+
+    async def stt_get_languages(self) -> list[str]:
+        """Return supported STT languages."""
+        return []
+
+    async def ai_get_models(self) -> tuple[list[dict], str]:
+        """Return (models_list, default_model_id)."""
+        return [], ""
+
+    async def get_action_types(self) -> list[dict]:
+        """Return action type definitions.
+
+        Auto-populated from ``@action`` decorators. Override to define manually.
+        """
+        return [meta for meta, _ in self._decorated_actions.values()]
+
+    async def execute_action(self, action_type: str, params_json: str) -> dict:
+        """Execute an action.
+
+        Auto-dispatched to ``@action`` decorated methods.
+        """
+        entry = self._decorated_actions.get(action_type)
+        if entry is None:
+            return {"success": False, "result": "", "error": f"Unknown action: {action_type}"}
+        _, handler = entry
+        try:
+            params = json.loads(params_json) if params_json else {}
+            result = await handler(**params) if asyncio.iscoroutinefunction(handler) else handler(**params)
+            if isinstance(result, dict):
+                return {"success": True, "result": json.dumps(result)}
+            return {"success": True, "result": str(result) if result is not None else ""}
+        except Exception as e:
+            return {"success": False, "result": "", "error": str(e)}
+
+    async def get_trigger_types(self) -> list[dict]:
+        """Return trigger type definitions.
+
+        Auto-populated from ``@trigger`` decorators. Override to define manually.
+        """
+        return list(self._decorated_triggers.values())
+
+    async def get_ui_panels(self) -> list[dict]:
+        """Return UI panel definitions."""
+        return []
+
+    async def on_config_changed(self, config: dict):
+        """Called when config changes."""
+        pass
+
+    async def on_active_triggers(self, active_types: list[str]):
+        """Called when the set of active trigger types changes.
+
+        The base class automatically updates ``self.active_triggers``.
+        Override to add custom logic, but call ``super()`` to keep tracking.
+
+        Args:
+            active_types: Un-namespaced trigger types that have at least one
+                command listening. If a type is NOT in this list, skip firing it.
+        """
+        self.active_triggers = set(active_types)
+
+    async def on_shutdown(self):
+        """Called on shutdown."""
+        pass
+
+    async def health_check(self) -> tuple[bool, str]:
+        """Return (healthy, status_message)."""
+        return True, "ok"
+
+    # ── Convenience ──
+
+    async def log_info(self, msg: str):
+        """Log an info message to the daemon."""
+        if self.host:
+            await self.host.log("info", msg)
+
+    async def log_warn(self, msg: str):
+        """Log a warning message to the daemon."""
+        if self.host:
+            await self.host.log("warn", msg)
+
+    async def log_error(self, msg: str):
+        """Log an error message to the daemon."""
+        if self.host:
+            await self.host.log("error", msg)
+
+    async def fire_trigger(self, trigger_type: str, payload: dict | None = None):
+        """Fire a trigger with an optional dict payload (auto-serialized)."""
+        if self.host:
+            payload_json = json.dumps(payload) if payload else "{}"
+            await self.host.fire_trigger(trigger_type, payload_json)
+
+    # ── Events ──
+
+    def subscribed_events(self) -> list[str]:
+        """Return event types to subscribe to. Empty = no subscription.
+
+        Available event types: "chat_message_sync", "speech_recognized",
+        "command_triggered", "command_completed", "settings_changed",
+        "state_changed", "tts_started", "tts_completed", etc.
+        """
+        return []
+
+    async def on_event(self, event_type: str, payload: dict):
+        """Called when a subscribed event arrives from the daemon.
+
+        Args:
+            event_type: Event tag (e.g. "chat_message_sync").
+            payload: Parsed event payload dict.
+        """
+        pass
+
+    async def _event_loop(self, event_types: list[str]):
+        """Internal: subscribe to daemon events and dispatch to on_event()."""
+        try:
+            stream = await self.host.subscribe_events(event_types)
+            async for event in stream:
+                try:
+                    payload = json.loads(event.payload_json) if event.payload_json else {}
+                except json.JSONDecodeError:
+                    payload = {}
+                await self.on_event(event.event_type, payload)
+        except Exception as e:
+            print(f"Event subscription error: {e}")
+
+
+class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
+    """gRPC servicer that delegates to the Plugin instance."""
+
+    def __init__(self, plugin: Plugin):
+        self.plugin = plugin
+
+    async def ListTools(self, request, context):
+        tools = await self.plugin.list_tools()
+        return plugin_pb2.PluginToolListResponse(
+            tools=[plugin_pb2.PluginToolDef(**t) for t in tools]
+        )
+
+    async def CallTool(self, request, context):
+        result = await self.plugin.call_tool(request.tool_name, request.arguments_json)
+        return plugin_pb2.PluginCallToolResponse(**result)
+
+    async def TtsSynthesize(self, request, context):
+        try:
+            result = await self.plugin.tts_synthesize(
+                request.text, request.voice_id, request.speed, request.pitch
+            )
+            return plugin_pb2.PluginTtsSynthesizeResponse(**result)
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e))
+            return plugin_pb2.PluginTtsSynthesizeResponse()
+
+    async def TtsListVoices(self, request, context):
+        voices = await self.plugin.tts_list_voices()
+        return plugin_pb2.PluginTtsVoicesResponse(
+            voices=[plugin_pb2.PluginVoiceInfo(**v) for v in voices]
+        )
+
+    async def SttGetLanguages(self, request, context):
+        langs = await self.plugin.stt_get_languages()
+        return plugin_pb2.PluginSttLanguagesResponse(languages=langs)
+
+    async def AiGetModels(self, request, context):
+        models, default = await self.plugin.ai_get_models()
+        return plugin_pb2.PluginAiModelsResponse(
+            models=[plugin_pb2.PluginAiModelInfo(**m) for m in models],
+            default_model=default,
+        )
+
+    async def ExecuteAction(self, request, context):
+        result = await self.plugin.execute_action(request.action_type, request.params_json)
+        return plugin_pb2.PluginExecuteActionResponse(**result)
+
+    async def GetPluginActionTypes(self, request, context):
+        types = await self.plugin.get_action_types()
+        return plugin_pb2.PluginActionTypesResponse(
+            types=[plugin_pb2.ActionTypeDefinitionMsg(**t) for t in types]
+        )
+
+    async def GetPluginTriggerTypes(self, request, context):
+        types = await self.plugin.get_trigger_types()
+        return plugin_pb2.PluginTriggerTypesResponse(
+            types=[plugin_pb2.TriggerTypeDefinitionMsg(**t) for t in types]
+        )
+
+    async def GetUiPanels(self, request, context):
+        panels = await self.plugin.get_ui_panels()
+        return plugin_pb2.PluginUiPanelsResponse(
+            panels=[plugin_pb2.PluginUiPanel(**p) for p in panels]
+        )
+
+    async def OnConfigChanged(self, request, context):
+        config = json.loads(request.config_json) if request.config_json else {}
+        self.plugin.config = config
+        await self.plugin.on_config_changed(config)
+        return plugin_pb2.Empty()
+
+    async def OnActiveTriggers(self, request, context):
+        await self.plugin.on_active_triggers(list(request.trigger_types))
+        return plugin_pb2.Empty()
+
+    async def Shutdown(self, request, context):
+        await self.plugin.on_shutdown()
+        # Schedule server stop
+        asyncio.get_running_loop().call_later(0.1, lambda: asyncio.ensure_future(
+            self.plugin._server.stop(grace=1)
+        ))
+        return plugin_pb2.Empty()
+
+    async def HealthCheck(self, request, context):
+        healthy, status = await self.plugin.health_check()
+        return plugin_pb2.PluginHealthResponse(healthy=healthy, status=status)

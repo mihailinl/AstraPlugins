@@ -1,0 +1,29 @@
+[plugin]
+id = "dice-roller"
+name = "Dice Roller"
+version = "0.1.0"
+description = "Roll dice, flip coins — with actions and triggers for the command editor"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "./bin/dice-roller.exe"
+
+[capabilities]
+tools = true
+actions = true
+triggers = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "default_sides": {
+      "type": "number",
+      "default": 6,
+      "title": "Default Dice Sides"
+    }
+  }
+}
+"""

@@ -1,0 +1,20 @@
+{
+  "name": "json-tools",
+  "version": "0.1.0",
+  "description": "An Astra plugin",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@astra/plugin-sdk": "file:../../astra-plugin-sdk-ts",
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

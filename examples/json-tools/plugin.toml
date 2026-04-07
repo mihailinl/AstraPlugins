@@ -1,0 +1,31 @@
+[plugin]
+id = "json-tools"
+name = "JSON Tools"
+version = "0.1.0"
+description = "Format, query, and diff JSON — with actions and triggers"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "node"
+args = ["dist/index.js"]
+runtimes = ["node"]
+
+[capabilities]
+tools = true
+actions = true
+triggers = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "default_indent": {
+      "type": "number",
+      "default": 2,
+      "title": "Default Indent"
+    }
+  }
+}
+"""

@@ -1,0 +1,10 @@
+[project]
+name = "text_utils"
+version = "0.1.0"
+description = "An Astra plugin"
+requires-python = ">=3.10"
+dependencies = [
+    "astra-plugin-sdk",
+    "grpcio>=1.60.0",
+    "protobuf>=4.25.0",
+]

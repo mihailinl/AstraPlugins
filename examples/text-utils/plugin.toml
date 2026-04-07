@@ -1,0 +1,31 @@
+[plugin]
+id = "text-utils"
+name = "Text Utils"
+version = "0.1.0"
+description = "Word count, case conversion, regex matching — with actions and triggers"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "python"
+args = ["-m", "src.plugin"]
+runtimes = ["python"]
+
+[capabilities]
+tools = true
+actions = true
+triggers = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "max_text_length": {
+      "type": "number",
+      "default": 10000,
+      "title": "Max Text Length"
+    }
+  }
+}
+"""
