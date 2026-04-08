@@ -108,6 +108,10 @@
     }
   }
 
+  // Hide Threads animation while Bad Apple is active
+  var threadsEl = document.querySelector(".threads-container");
+  if (threadsEl) threadsEl.style.display = "none";
+
   init();
 
   // ── Cleanup ────────────────────────────────────────────────────
@@ -116,5 +120,8 @@
     if (renderer) renderer.destroy();
     if (style.parentNode) style.parentNode.removeChild(style);
     root.innerHTML = "";
+    // Restore Threads animation
+    var threads = document.querySelector(".threads-container");
+    if (threads) threads.style.display = "";
   };
 })();
