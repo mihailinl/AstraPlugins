@@ -95,7 +95,7 @@ export abstract class Plugin {
         console.log(`Registering with capabilities: ${capabilities.join(", ")}`);
 
         try {
-          const response = await this.host.register(port, capabilities);
+          const response = await this.host.register(port, capabilities, args.authToken);
           if (!response.success) {
             console.error(`Registration failed: ${response.error}`);
             process.exit(1);
@@ -194,19 +194,21 @@ export abstract class Plugin {
 
   // ── Internal ──
 
-  private parseArgs(): { daemonAddr: string; pluginId: string } {
+  private parseArgs(): { daemonAddr: string; pluginId: string; authToken: string } {
     const args = process.argv.slice(2);
     let daemonAddr = "";
     let pluginId = "";
+    let authToken = "";
     for (const arg of args) {
       if (arg.startsWith("--daemon-addr=")) daemonAddr = arg.split("=", 2)[1];
       if (arg.startsWith("--plugin-id=")) pluginId = arg.split("=", 2)[1];
+      if (arg.startsWith("--auth-token=")) authToken = arg.split("=", 2)[1];
     }
     if (!daemonAddr || !pluginId) {
       console.error("Usage: --daemon-addr=HOST:PORT --plugin-id=ID");
       process.exit(1);
     }
-    return { daemonAddr, pluginId };
+    return { daemonAddr, pluginId, authToken };
   }
 
   private async discoverCapabilities(): Promise<string[]> {

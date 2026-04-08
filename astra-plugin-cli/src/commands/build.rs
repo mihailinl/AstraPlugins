@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use base64::{Engine, engine::general_purpose};
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
@@ -124,6 +125,68 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
     }
 
     zip.finish()?;
+
+    // Sign the archive if a signing key is available
+    match super::keygen::load_signing_key() {
+        Ok(Some(signing_key)) => {
+            use ed25519_dalek::Signer;
+            use sha2::{Digest, Sha256};
+
+            // Read the finished ZIP and hash individual entries
+            // (must match daemon's verify_signature which hashes filename + content per entry)
+            let zip_bytes = fs::read(output_path)
+                .context("Failed to read built archive for signing")?;
+            let reader = std::io::Cursor::new(&zip_bytes);
+            let mut read_archive = zip::ZipArchive::new(reader)
+                .context("Failed to re-open archive for hashing")?;
+
+            let mut hasher = Sha256::new();
+            for i in 0..read_archive.len() {
+                let mut entry = read_archive.by_index(i)?;
+                let name = entry.name().to_string();
+                hasher.update(name.as_bytes());
+                let mut buf = Vec::new();
+                entry.read_to_end(&mut buf)?;
+                hasher.update(&buf);
+            }
+            let digest = hasher.finalize();
+
+            // Sign the hash
+            let signature = signing_key.sign(&digest);
+            let public_key = signing_key.verifying_key();
+
+            // Re-open the ZIP and add SIGNATURE + PUBKEY entries
+            let file = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(output_path)?;
+            let mut archive = zip::ZipWriter::new_append(file)
+                .context("Failed to open archive for signing")?;
+
+            let sig_b64 = general_purpose::STANDARD.encode(
+                signature.to_bytes(),
+            );
+            let pub_b64 = general_purpose::STANDARD.encode(
+                public_key.to_bytes(),
+            );
+
+            archive.start_file("SIGNATURE", options)?;
+            archive.write_all(sig_b64.as_bytes())?;
+
+            archive.start_file("PUBKEY", options)?;
+            archive.write_all(pub_b64.as_bytes())?;
+
+            archive.finish()?;
+            println!("  Signed with Ed25519 key");
+        }
+        Ok(None) => {
+            println!("  Warning: No signing key found. Plugin will be unsigned.");
+            println!("  Run 'astra-plugin keygen' to generate a signing keypair.");
+        }
+        Err(e) => {
+            println!("  Warning: Failed to load signing key: {}", e);
+        }
+    }
 
     let file_size = fs::metadata(output_path)?.len();
     println!(

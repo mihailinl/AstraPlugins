@@ -1,6 +1,6 @@
 [package]
 name = "astra-plugin-cli"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "MIT"
@@ -21,3 +21,8 @@ walkdir = "2"
 notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+sha2 = "0.10"
+rand = "0.8"
+base64 = "0.22"
+directories = "5"

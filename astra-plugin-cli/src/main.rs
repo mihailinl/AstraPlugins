@@ -61,6 +61,13 @@ enum Commands {
         #[arg(default_value = ".")]
         path: String,
     },
+
+    /// Generate an Ed25519 keypair for plugin signing
+    Keygen {
+        /// Overwrite existing keypair
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +93,9 @@ async fn main() -> Result<()> {
         }
         Commands::Validate { path } => {
             commands::validate::run(&path)?;
+        }
+        Commands::Keygen { force } => {
+            commands::keygen::run(force)?;
         }
     }
 

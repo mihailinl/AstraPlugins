@@ -13,7 +13,9 @@
   var astra = window.__astraPluginBridge && window.__astraPluginBridge["companion-cat"];
   if (!astra) { console.error("[companion-cat] Bridge not found"); return; }
 
-  var root = document.getElementById("astra-dom-plugin-companion-cat");
+  var root = (document.currentScript && document.currentScript.parentElement) ||
+    document.querySelector("[data-contribution-id='cat-overlay']") ||
+    document.querySelector("[data-plugin-id='companion-cat']");
   if (!root) { console.error("[companion-cat] Root container not found"); return; }
 
   // ── Inject CSS ──

@@ -29,7 +29,8 @@ export class HostClient {
   /** Register this plugin with the daemon. */
   register(
     port: number,
-    capabilities: string[]
+    capabilities: string[],
+    authToken: string = ""
   ): Promise<{
     success: boolean;
     error: string;
@@ -38,7 +39,7 @@ export class HostClient {
   }> {
     return new Promise((resolve, reject) => {
       this.client.Register(
-        { pluginId: this.pluginId, port, capabilities },
+        { pluginId: this.pluginId, port, capabilities, authToken },
         (err: grpc.ServiceError | null, response: any) => {
           if (err) reject(err);
           else resolve(response);

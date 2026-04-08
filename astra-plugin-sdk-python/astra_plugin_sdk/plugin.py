@@ -69,11 +69,12 @@ class Plugin:
         parser = argparse.ArgumentParser()
         parser.add_argument("--daemon-addr", required=True, help="Daemon gRPC address")
         parser.add_argument("--plugin-id", required=True, help="Plugin ID")
+        parser.add_argument("--auth-token", default="", help="Auth token for registration")
         args = parser.parse_args()
 
-        asyncio.run(self._run_async(args.daemon_addr, args.plugin_id))
+        asyncio.run(self._run_async(args.daemon_addr, args.plugin_id, args.auth_token))
 
-    async def _run_async(self, daemon_addr: str, plugin_id: str):
+    async def _run_async(self, daemon_addr: str, plugin_id: str, auth_token: str = ""):
         if plugin_pb2_grpc is None:
             print(
                 "ERROR: Proto stubs not generated. Run:\n"
@@ -101,7 +102,7 @@ class Plugin:
         capabilities = await self._discover_capabilities()
         print(f"Registering with capabilities: {capabilities}")
 
-        response = await self.host.register(port, capabilities)
+        response = await self.host.register(port, capabilities, auth_token)
         if not response.success:
             print(f"Registration failed: {response.error}", file=sys.stderr)
             sys.exit(1)

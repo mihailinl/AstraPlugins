@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from astra_plugin_sdk.proto import plugin_pb2 as plugin__pb2
+import plugin_pb2 as plugin__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__

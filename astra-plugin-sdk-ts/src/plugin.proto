@@ -73,6 +73,7 @@ message PluginRegisterRequest {
     string plugin_id = 1;
     uint32 port = 2;
     repeated string capabilities = 3;
+    string auth_token = 4;
 }
 
 message PluginRegisterResponse {

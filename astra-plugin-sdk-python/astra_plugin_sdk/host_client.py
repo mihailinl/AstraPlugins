@@ -20,7 +20,7 @@ class HostClient:
         self._stub = plugin_pb2_grpc.PluginHostServiceStub(self._channel)
 
     async def register(
-        self, port: int, capabilities: list[str]
+        self, port: int, capabilities: list[str], auth_token: str = ""
     ) -> plugin_pb2.PluginRegisterResponse:
         """Register this plugin with the daemon."""
         return await self._stub.Register(
@@ -28,6 +28,7 @@ class HostClient:
                 plugin_id=self.plugin_id,
                 port=port,
                 capabilities=capabilities,
+                auth_token=auth_token,
             )
         )
 

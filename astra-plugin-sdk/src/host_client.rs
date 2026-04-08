@@ -27,6 +27,7 @@ impl HostClient {
         &mut self,
         port: u16,
         capabilities: Vec<String>,
+        auth_token: String,
     ) -> Result<proto::PluginRegisterResponse> {
         let resp = self
             .client
@@ -34,6 +35,7 @@ impl HostClient {
                 plugin_id: self.plugin_id.clone(),
                 port: port as u32,
                 capabilities,
+                auth_token,
             })
             .await
             .context("Register RPC failed")?;
