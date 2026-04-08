@@ -1,0 +1,29 @@
+[plugin]
+id = "doom"
+name = "Doom"
+version = "0.1.0"
+description = "Play DOOM (1993 shareware) inside Astra via js-dos"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/doom.exe"
+
+[capabilities]
+ui_contributions = true
+dom_access = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "scale_mode": {
+      "type": "string",
+      "default": "fit",
+      "title": "Scale Mode",
+      "enum": ["fit", "stretch", "pixel-perfect"]
+    }
+  }
+}
+"""

@@ -1,0 +1,53 @@
+[plugin]
+id = "bad-apple"
+name = "Bad Apple"
+version = "0.1.0"
+description = "Bad Apple!! with ASCII, CRT, particle, and silhouette render modes"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/bad_apple.exe"
+
+[capabilities]
+ui_contributions = true
+dom_access = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "render_mode": {
+      "type": "string",
+      "default": "ascii",
+      "title": "Render Mode",
+      "enum": ["ascii", "crt", "particles", "silhouette"]
+    },
+    "opacity": {
+      "type": "number",
+      "default": 0.15,
+      "title": "Background Opacity",
+      "minimum": 0.05,
+      "maximum": 1.0
+    },
+    "charset": {
+      "type": "string",
+      "default": "blocks",
+      "title": "ASCII Character Set",
+      "enum": ["blocks", "braille", "classic", "katakana"]
+    },
+    "color": {
+      "type": "string",
+      "default": "mono",
+      "title": "Color Mode",
+      "enum": ["mono", "accent", "green", "amber"]
+    },
+    "loop": {
+      "type": "boolean",
+      "default": true,
+      "title": "Loop Playback"
+    }
+  }
+}
+"""
