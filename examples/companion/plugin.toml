@@ -11,3 +11,4 @@ command = "target/release/companion.exe"
 
 [capabilities]
 ui_contributions = true
+dom_access = true

@@ -24,8 +24,7 @@ const MESSAGES: &[&str] = &[
 impl PluginCapability for CompanionCat {
     async fn ui_contributions(&self) -> Vec<UiContribution> {
         vec![
-            UiContribution::overlay("cat-overlay", "cat.html")
-                .with_size(180, 220),
+            UiContribution::overlay("cat-overlay", "cat.js"),
         ]
     }
 
