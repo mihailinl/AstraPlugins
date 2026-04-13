@@ -37,6 +37,7 @@ export class HostClient {
     configJson: string;
     daemonVersion: string;
     clientSessionToken: string;
+    language: string;
   }> {
     return new Promise((resolve, reject) => {
       this.client.Register(
