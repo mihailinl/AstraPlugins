@@ -467,8 +467,8 @@ export abstract class Plugin {
       case "command_completed":
         await this.onCommandCompleted(payload as { commandId: string; commandName: string; success: boolean });
         break;
-      default:
-        await this.onEvent(eventType, payload);
     }
+    // Always call raw handler for backward compatibility
+    await this.onEvent(eventType, payload);
   }
 }

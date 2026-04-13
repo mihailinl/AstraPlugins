@@ -405,7 +405,7 @@ class Plugin:
         pass
 
     async def _dispatch_event(self, event_type: str, payload: dict):
-        """Internal: route events to typed handlers or fallback to on_event."""
+        """Internal: route events to typed handlers, then always call on_event for backward compat."""
         if event_type == "chat_message_sync":
             await self.on_chat_sync(payload)
         elif event_type == "state_changed":
@@ -414,8 +414,8 @@ class Plugin:
             await self.on_command_triggered(payload)
         elif event_type == "command_completed":
             await self.on_command_completed(payload)
-        else:
-            await self.on_event(event_type, payload)
+        # Always call raw handler for backward compatibility
+        await self.on_event(event_type, payload)
 
     async def _event_loop(self, event_types: list[str]):
         """Internal: subscribe to daemon events and dispatch to typed handlers."""

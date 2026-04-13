@@ -17,40 +17,34 @@ use crate::proto;
 use crate::proto::plugin_capability_service_server::PluginCapabilityServiceServer;
 
 /// Dispatch a daemon event to the appropriate typed handler on the plugin.
-/// Falls back to raw `on_event` for unrecognized event types.
+/// Also always calls `on_event()` for backward compatibility — plugins that
+/// override only `on_event()` continue to work even for recognized event types.
 async fn dispatch_event(plugin: &dyn PluginCapability, event: &proto::PluginEventMsg) {
     match event.event_type.as_str() {
         "chat_message_sync" => {
-            match serde_json::from_str::<events::ChatSyncEvent>(&event.payload_json) {
-                Ok(parsed) => plugin.on_chat_sync(parsed).await,
-                Err(e) => {
-                    tracing::warn!("Failed to parse chat_message_sync: {e}");
-                    plugin.on_event(&event.event_type, &event.payload_json).await;
-                }
+            if let Ok(parsed) = serde_json::from_str::<events::ChatSyncEvent>(&event.payload_json) {
+                plugin.on_chat_sync(parsed).await;
             }
         }
         "state_changed" => {
-            match serde_json::from_str::<events::StateChangedEvent>(&event.payload_json) {
-                Ok(parsed) => plugin.on_state_changed(parsed).await,
-                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            if let Ok(parsed) = serde_json::from_str::<events::StateChangedEvent>(&event.payload_json) {
+                plugin.on_state_changed(parsed).await;
             }
         }
         "command_triggered" => {
-            match serde_json::from_str::<events::CommandTriggeredEvent>(&event.payload_json) {
-                Ok(parsed) => plugin.on_command_triggered(parsed).await,
-                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            if let Ok(parsed) = serde_json::from_str::<events::CommandTriggeredEvent>(&event.payload_json) {
+                plugin.on_command_triggered(parsed).await;
             }
         }
         "command_completed" => {
-            match serde_json::from_str::<events::CommandCompletedEvent>(&event.payload_json) {
-                Ok(parsed) => plugin.on_command_completed(parsed).await,
-                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            if let Ok(parsed) = serde_json::from_str::<events::CommandCompletedEvent>(&event.payload_json) {
+                plugin.on_command_completed(parsed).await;
             }
         }
-        _ => {
-            plugin.on_event(&event.event_type, &event.payload_json).await;
-        }
+        _ => {}
     }
+    // Always call raw handler for backward compatibility
+    plugin.on_event(&event.event_type, &event.payload_json).await;
 }
 
 /// CLI arguments passed by the Astra daemon when spawning a plugin.
