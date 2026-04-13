@@ -62,12 +62,18 @@ class HostClient:
         """Get daemon info (version, state, port)."""
         return await self._stub.GetDaemonInfo(plugin_pb2.Empty())
 
-    async def subscribe_events(self, event_types: list[str] | None = None):
-        """Subscribe to daemon events. Returns an async iterator."""
+    async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
+        """Subscribe to daemon events. Returns an async iterator.
+
+        Args:
+            event_types: Event types to subscribe to. Empty = all.
+            exclude_source_id: Skip ChatMessageSync events from this source (server-side filtering).
+        """
         return self._stub.SubscribeEvents(
             plugin_pb2.PluginEventFilter(
                 plugin_id=self.plugin_id,
                 event_types=event_types or [],
+                exclude_source_id=exclude_source_id,
             )
         )
 

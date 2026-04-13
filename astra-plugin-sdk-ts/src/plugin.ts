@@ -20,6 +20,17 @@ import { DaemonClient } from "./daemon-client";
 
 const pluginProto = astraProto;
 
+/** Typed chat message sync event. */
+export interface ChatSyncEvent {
+  id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  source_id: string;
+  is_streaming: boolean;
+  is_complete: boolean;
+}
+
 export abstract class Plugin {
   /** Client for calling daemon services. Available after registration. */
   host: HostClient | null = null;
@@ -125,6 +136,14 @@ export abstract class Plugin {
             }
             await this.onConfigChanged(this.config);
           }
+
+          // Start event subscription
+          const eventTypes = this.subscribedEvents();
+          if (eventTypes.length > 0) {
+            const excludeSource = this.sourceId();
+            console.log(`Subscribing to events: ${eventTypes.join(", ")}${excludeSource ? ` (exclude: ${excludeSource})` : ""}`);
+            this.startEventLoop(eventTypes, excludeSource);
+          }
         } catch (e: any) {
           console.error("Registration failed:", e.message);
           process.exit(1);
@@ -200,6 +219,29 @@ export abstract class Plugin {
   async healthCheck(): Promise<{ healthy: boolean; status: string }> {
     return { healthy: true, status: "ok" };
   }
+
+  // ── Events ──
+
+  /** Source ID for this plugin. Events from this source are auto-filtered by daemon. */
+  sourceId(): string { return ""; }
+
+  /** Event types to subscribe to. Override to receive events. */
+  subscribedEvents(): string[] { return []; }
+
+  /** Raw event handler (fallback for untyped events). */
+  async onEvent(_eventType: string, _payload: Record<string, unknown>): Promise<void> {}
+
+  /** Called when a chat message sync event arrives (auto-filtered by sourceId). */
+  async onChatSync(_event: ChatSyncEvent): Promise<void> {}
+
+  /** Called when daemon state changes. */
+  async onStateChanged(_event: { previous: string; current: string }): Promise<void> {}
+
+  /** Called when a command is triggered. */
+  async onCommandTriggered(_event: { commandId: string; commandName: string; variables: Record<string, string> }): Promise<void> {}
+
+  /** Called when a command completes. */
+  async onCommandCompleted(_event: { commandId: string; commandName: string; success: boolean }): Promise<void> {}
 
   // ── Convenience methods ──
 
@@ -386,5 +428,47 @@ export abstract class Plugin {
   private async handleHealthCheck(_call: any) {
     const { healthy, status } = await this.healthCheck();
     return { healthy, status };
+  }
+
+  private startEventLoop(eventTypes: string[], excludeSourceId: string): void {
+    const connect = () => {
+      const stream = this.host!.subscribeEvents(eventTypes, excludeSourceId);
+      console.log("Event subscription active");
+      stream.on("data", async (event: any) => {
+        let payload: Record<string, unknown> = {};
+        try {
+          payload = event.payloadJson ? JSON.parse(event.payloadJson) : {};
+        } catch { /* ignore parse errors */ }
+        await this.dispatchEvent(event.eventType, payload);
+      });
+      stream.on("error", (err: Error) => {
+        console.warn(`Event stream error: ${err.message}, reconnecting...`);
+        setTimeout(connect, 2000);
+      });
+      stream.on("end", () => {
+        console.log("Event subscription ended, reconnecting...");
+        setTimeout(connect, 2000);
+      });
+    };
+    connect();
+  }
+
+  private async dispatchEvent(eventType: string, payload: Record<string, unknown>): Promise<void> {
+    switch (eventType) {
+      case "chat_message_sync":
+        await this.onChatSync(payload as unknown as ChatSyncEvent);
+        break;
+      case "state_changed":
+        await this.onStateChanged(payload as { previous: string; current: string });
+        break;
+      case "command_triggered":
+        await this.onCommandTriggered(payload as { commandId: string; commandName: string; variables: Record<string, string> });
+        break;
+      case "command_completed":
+        await this.onCommandCompleted(payload as { commandId: string; commandName: string; success: boolean });
+        break;
+      default:
+        await this.onEvent(eventType, payload);
+    }
   }
 }

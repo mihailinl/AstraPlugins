@@ -105,6 +105,15 @@ export class HostClient {
     });
   }
 
+  /** Subscribe to daemon events. Returns a gRPC readable stream. */
+  subscribeEvents(eventTypes: string[], excludeSourceId: string = ""): any {
+    return this.client.SubscribeEvents({
+      pluginId: this.pluginId,
+      eventTypes,
+      excludeSourceId,
+    });
+  }
+
   /** Get the plugin ID. */
   getPluginId(): string {
     return this.pluginId;

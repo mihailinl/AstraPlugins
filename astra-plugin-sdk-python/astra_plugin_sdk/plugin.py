@@ -354,6 +354,15 @@ class Plugin:
 
     # ── Events ──
 
+    def source_id(self) -> str:
+        """Source ID used by this plugin when sending chat messages.
+
+        Events from this source are automatically excluded by the daemon,
+        so the plugin never receives its own messages back.
+        Return empty string (default) for no exclusion.
+        """
+        return ""
+
     def subscribed_events(self) -> list[str]:
         """Return event types to subscribe to. Empty = no subscription.
 
@@ -364,7 +373,9 @@ class Plugin:
         return []
 
     async def on_event(self, event_type: str, payload: dict):
-        """Called when a subscribed event arrives from the daemon.
+        """Called when a subscribed event arrives from the daemon (raw fallback).
+
+        Prefer typed handlers like :meth:`on_chat_sync` for common event types.
 
         Args:
             event_type: Event tag (e.g. "chat_message_sync").
@@ -372,18 +383,57 @@ class Plugin:
         """
         pass
 
+    async def on_chat_sync(self, event: dict):
+        """Called when a chat message sync event arrives.
+
+        The daemon automatically filters by source_id if :meth:`source_id` is set.
+        ``event`` dict has: id, conversation_id, role, content, source_id,
+        is_streaming, is_complete.
+        """
+        pass
+
+    async def on_state_changed(self, event: dict):
+        """Called when daemon state changes. ``event`` has: previous, current."""
+        pass
+
+    async def on_command_triggered(self, event: dict):
+        """Called when a command is triggered. ``event`` has: command_id, command_name, variables."""
+        pass
+
+    async def on_command_completed(self, event: dict):
+        """Called when a command completes. ``event`` has: command_id, command_name, success."""
+        pass
+
+    async def _dispatch_event(self, event_type: str, payload: dict):
+        """Internal: route events to typed handlers or fallback to on_event."""
+        if event_type == "chat_message_sync":
+            await self.on_chat_sync(payload)
+        elif event_type == "state_changed":
+            await self.on_state_changed(payload)
+        elif event_type == "command_triggered":
+            await self.on_command_triggered(payload)
+        elif event_type == "command_completed":
+            await self.on_command_completed(payload)
+        else:
+            await self.on_event(event_type, payload)
+
     async def _event_loop(self, event_types: list[str]):
-        """Internal: subscribe to daemon events and dispatch to on_event()."""
-        try:
-            stream = await self.host.subscribe_events(event_types)
-            async for event in stream:
-                try:
-                    payload = json.loads(event.payload_json) if event.payload_json else {}
-                except json.JSONDecodeError:
-                    payload = {}
-                await self.on_event(event.event_type, payload)
-        except Exception as e:
-            print(f"Event subscription error: {e}")
+        """Internal: subscribe to daemon events and dispatch to typed handlers."""
+        exclude = self.source_id()
+        while True:
+            try:
+                stream = await self.host.subscribe_events(event_types, exclude_source_id=exclude)
+                print("Event subscription active")
+                async for event in stream:
+                    try:
+                        payload = json.loads(event.payload_json) if event.payload_json else {}
+                    except json.JSONDecodeError:
+                        payload = {}
+                    await self._dispatch_event(event.event_type, payload)
+                print("Event subscription stream ended, reconnecting...")
+            except Exception as e:
+                print(f"Event subscription error: {e}, retrying...")
+            await asyncio.sleep(2)
 
 
 class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
