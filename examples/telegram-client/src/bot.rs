@@ -113,12 +113,12 @@ async fn handle_message(
 
         match cmd {
             "/new" => {
-                if let Err(e) = commands::handle_new(telegram, state, args).await {
+                if let Err(e) = commands::handle_new(telegram, state, daemon, args).await {
                     warn!("/new error: {e}");
                 }
             }
             "/list" => {
-                if let Err(e) = commands::handle_list(telegram, state, daemon, chat_id).await {
+                if let Err(e) = commands::handle_list(telegram, state, daemon, thread_id).await {
                     warn!("/list error: {e}");
                 }
             }
@@ -249,7 +249,6 @@ async fn stream_response(
     use tokio_stream::StreamExt;
 
     let mut streaming_msg = StreamingMessage::new(telegram.clone(), thread_id);
-    streaming_msg.start().await?;
 
     let mut mapped = !initial_conv_id.is_empty();
 
@@ -279,11 +278,11 @@ async fn stream_response(
                 }
                 Chunk::Tool(tool_exec) => {
                     let tool_text = if tool_exec.completed {
-                        format!("\n[Tool: {} \u{2714}]\n", tool_exec.name)
+                        format!("[Tool: {} \u{2714}]\n", tool_exec.name)
                     } else {
-                        format!("\n[Using: {}...]\n", tool_exec.name)
+                        format!("[Using: {}...]\n", tool_exec.name)
                     };
-                    streaming_msg.append(&tool_text).await?;
+                    streaming_msg.append_tool(&tool_text).await?;
                 }
                 Chunk::Error(err) => {
                     streaming_msg.error(&err).await?;

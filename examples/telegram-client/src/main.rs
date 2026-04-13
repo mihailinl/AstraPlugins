@@ -102,22 +102,19 @@ impl PluginCapability for TelegramBotPlugin {
         self.start_bot().await;
     }
 
+    fn source_id(&self) -> &str {
+        types::SOURCE_ID
+    }
+
     fn subscribed_events(&self) -> Vec<String> {
         vec!["chat_message_sync".to_string()]
     }
 
-    async fn on_event(&self, event_type: &str, payload_json: &str) {
-        if event_type == "chat_message_sync" {
-            info!("Sync event received ({}B payload)", payload_json.len());
-            let tg = self.telegram.lock().await.clone();
-            if let Some(telegram) = tg {
-                if let Err(e) =
-                    sync::handle_sync_event(&telegram, &self.state, payload_json).await
-                {
-                    tracing::warn!("Sync event error: {e}");
-                }
-            } else {
-                tracing::warn!("Sync event arrived but Telegram not initialized");
+    async fn on_chat_sync(&self, event: ChatSyncEvent) {
+        let tg = self.telegram.lock().await.clone();
+        if let Some(telegram) = tg {
+            if let Err(e) = sync::handle_sync_event(&telegram, &self.state, &event).await {
+                tracing::warn!("Sync event error: {e}");
             }
         }
     }

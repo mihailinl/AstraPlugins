@@ -6,10 +6,11 @@ use tracing::info;
 use crate::telegram::TelegramApi;
 use crate::types::{SharedDaemon, SharedState};
 
-/// Handle the /new command — create a new forum topic for a fresh conversation.
+/// Handle the /new command — create a new forum topic and a matching Astra conversation.
 pub async fn handle_new(
     telegram: &Arc<TelegramApi>,
-    _state: &SharedState,
+    state: &SharedState,
+    daemon: &SharedDaemon,
     args: &str,
 ) -> Result<()> {
     let title = if args.is_empty() {
@@ -22,9 +23,9 @@ pub async fn handle_new(
         args.to_string()
     };
 
-    // Truncate title to 128 chars (Telegram limit)
+    // Truncate title to 128 bytes (Telegram limit)
     let title = if title.len() > 128 {
-        title[..128].to_string()
+        title[..title.floor_char_boundary(128)].to_string()
     } else {
         title
     };
@@ -32,8 +33,33 @@ pub async fn handle_new(
     let thread_id = telegram.create_topic(&title).await?;
     info!("Created topic '{title}' with thread_id={thread_id}");
 
+    // Create a matching conversation in the daemon with the same title
+    let conv_id = {
+        let mut d = daemon.lock().await;
+        if let Some(d) = d.as_mut() {
+            match d.create_conversation(&title).await {
+                Ok(conv) => {
+                    info!("Created conversation '{}' (id={})", title, conv.id);
+                    Some(conv.id)
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create conversation: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    };
+
+    // Map the topic to the conversation
+    if let Some(conv_id) = conv_id {
+        let mut state_w = state.write().await;
+        state_w.insert_mapping(conv_id, thread_id);
+    }
+
     telegram
-        .send_to_topic(thread_id, "Topic created. Send your first message to start a conversation.")
+        .send_to_topic(thread_id, "Topic created. Send your first message to start chatting.")
         .await?;
 
     Ok(())
@@ -44,7 +70,7 @@ pub async fn handle_list(
     telegram: &Arc<TelegramApi>,
     state: &SharedState,
     daemon: &SharedDaemon,
-    chat_id: i64,
+    thread_id: Option<i64>,
 ) -> Result<()> {
     let conversations = {
         let mut d = daemon.lock().await;
@@ -68,9 +94,12 @@ pub async fn handle_list(
     drop(state_r);
 
     if unlinked.is_empty() {
-        telegram
-            .send_message(chat_id, "All conversations are already linked to topics.")
-            .await?;
+        let text = "All conversations are already linked to topics.";
+        if let Some(tid) = thread_id {
+            telegram.send_to_topic(tid, text).await?;
+        } else {
+            telegram.send_message(telegram.chat_id(), text).await?;
+        }
         return Ok(());
     }
 
@@ -82,7 +111,7 @@ pub async fn handle_list(
             let label = if c.title.is_empty() {
                 format!("Untitled ({})", &c.id[..8.min(c.id.len())])
             } else if c.title.len() > 60 {
-                format!("{}...", &c.title[..57])
+                format!("{}...", &c.title[..c.title.floor_char_boundary(57)])
             } else {
                 c.title.clone()
             };
@@ -91,9 +120,15 @@ pub async fn handle_list(
         })
         .collect();
 
-    telegram
-        .send_inline_keyboard(chat_id, "Select a conversation to link:", buttons)
-        .await?;
+    if let Some(tid) = thread_id {
+        telegram
+            .send_inline_keyboard_to_topic(tid, "Select a conversation to link:", buttons)
+            .await?;
+    } else {
+        telegram
+            .send_inline_keyboard(telegram.chat_id(), "Select a conversation to link:", buttons)
+            .await?;
+    }
 
     Ok(())
 }
@@ -123,7 +158,7 @@ pub async fn handle_list_callback(
 
     // Truncate title for topic name
     let topic_title = if title.len() > 128 {
-        title[..128].to_string()
+        title[..title.floor_char_boundary(128)].to_string()
     } else {
         title.to_string()
     };
@@ -154,7 +189,7 @@ pub async fn handle_list_callback(
         for msg in &history.messages {
             let role_label = if msg.role == 0 { "You" } else { "Astra" };
             let content = if msg.content.len() > 500 {
-                format!("{}...", &msg.content[..497])
+                format!("{}...", &msg.content[..msg.content.floor_char_boundary(497)])
             } else {
                 msg.content.clone()
             };

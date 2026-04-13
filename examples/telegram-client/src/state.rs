@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -23,17 +22,9 @@ pub struct BotState {
     #[serde(skip)]
     pub active_streams: HashSet<String>,
 
-    /// Per-conversation state for streaming assistant messages from the Astra UI (transient)
+    /// Conversations currently being streamed from sync events (transient)
     #[serde(skip)]
-    pub sync_streaming: HashMap<String, SyncStreamState>,
-}
-
-/// Tracks an in-progress streaming message being forwarded from Astra UI to Telegram.
-#[derive(Debug, Clone)]
-pub struct SyncStreamState {
-    pub telegram_message_id: i32,
-    pub last_content: String,
-    pub last_edit: Instant,
+    pub sync_streaming: HashSet<String>,
 }
 
 impl BotState {
