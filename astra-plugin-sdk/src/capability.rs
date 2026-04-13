@@ -314,6 +314,26 @@ impl ActiveTriggers {
 /// the ones matching the capabilities declared in your `plugin.toml`.
 #[async_trait::async_trait]
 pub trait PluginCapability: Send + Sync + 'static {
+    // ── Client ──
+
+    /// Return true if this plugin acts as a full daemon client.
+    ///
+    /// Client plugins receive a session token during registration and get
+    /// a [`DaemonClient`](crate::DaemonClient) with access to all daemon APIs
+    /// (chat, voice, commands, media, etc.).
+    fn is_client(&self) -> bool {
+        false
+    }
+
+    /// Called after registration with a [`DaemonClient`](crate::DaemonClient)
+    /// (only for client-capable plugins where `is_client()` returns true).
+    ///
+    /// Store this reference to call daemon APIs from within your plugin.
+    async fn set_daemon_client(
+        &self,
+        _client: std::sync::Arc<tokio::sync::Mutex<crate::DaemonClient>>,
+    ) {
+    }
     // ── Tools ──
 
     /// Return the list of tools this plugin provides.
@@ -398,6 +418,12 @@ pub trait PluginCapability: Send + Sync + 'static {
 
     // ── Events ──
 
+    /// Source ID used by this plugin when sending chat messages.
+    /// Events from this source are automatically excluded by the daemon,
+    /// so the plugin never receives its own messages back.
+    /// Return empty string (default) for no exclusion.
+    fn source_id(&self) -> &str { "" }
+
     /// Return event types this plugin wants to subscribe to.
     /// Return empty vec (default) if no event subscription is needed.
     ///
@@ -409,10 +435,26 @@ pub trait PluginCapability: Send + Sync + 'static {
     }
 
     /// Called when a subscribed event arrives from the daemon.
+    /// This is the raw fallback — prefer typed handlers like
+    /// [`on_chat_sync`] for common event types.
     ///
     /// `event_type` is the event tag (e.g. "chat_message_sync").
     /// `payload_json` is the full event serialized as JSON.
     async fn on_event(&self, _event_type: &str, _payload_json: &str) {}
+
+    /// Called when a chat message sync event arrives.
+    /// The SDK automatically deserializes the event and filters by source_id.
+    /// Override this instead of manually parsing "chat_message_sync" in `on_event`.
+    async fn on_chat_sync(&self, _event: crate::events::ChatSyncEvent) {}
+
+    /// Called when daemon state changes (e.g. Ready → Listening).
+    async fn on_state_changed(&self, _event: crate::events::StateChangedEvent) {}
+
+    /// Called when a command is triggered.
+    async fn on_command_triggered(&self, _event: crate::events::CommandTriggeredEvent) {}
+
+    /// Called when a command completes execution.
+    async fn on_command_completed(&self, _event: crate::events::CommandCompletedEvent) {}
 
     // ── Lifecycle ──
 

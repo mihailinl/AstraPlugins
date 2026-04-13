@@ -11,9 +11,47 @@ use tonic::transport::Server;
 use tracing::info;
 
 use crate::capability::PluginCapability;
+use crate::events;
 use crate::host_client::HostClient;
 use crate::proto;
 use crate::proto::plugin_capability_service_server::PluginCapabilityServiceServer;
+
+/// Dispatch a daemon event to the appropriate typed handler on the plugin.
+/// Falls back to raw `on_event` for unrecognized event types.
+async fn dispatch_event(plugin: &dyn PluginCapability, event: &proto::PluginEventMsg) {
+    match event.event_type.as_str() {
+        "chat_message_sync" => {
+            match serde_json::from_str::<events::ChatSyncEvent>(&event.payload_json) {
+                Ok(parsed) => plugin.on_chat_sync(parsed).await,
+                Err(e) => {
+                    tracing::warn!("Failed to parse chat_message_sync: {e}");
+                    plugin.on_event(&event.event_type, &event.payload_json).await;
+                }
+            }
+        }
+        "state_changed" => {
+            match serde_json::from_str::<events::StateChangedEvent>(&event.payload_json) {
+                Ok(parsed) => plugin.on_state_changed(parsed).await,
+                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            }
+        }
+        "command_triggered" => {
+            match serde_json::from_str::<events::CommandTriggeredEvent>(&event.payload_json) {
+                Ok(parsed) => plugin.on_command_triggered(parsed).await,
+                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            }
+        }
+        "command_completed" => {
+            match serde_json::from_str::<events::CommandCompletedEvent>(&event.payload_json) {
+                Ok(parsed) => plugin.on_command_completed(parsed).await,
+                Err(_) => plugin.on_event(&event.event_type, &event.payload_json).await,
+            }
+        }
+        _ => {
+            plugin.on_event(&event.event_type, &event.payload_json).await;
+        }
+    }
+}
 
 /// CLI arguments passed by the Astra daemon when spawning a plugin.
 #[derive(Parser, Debug)]
@@ -84,6 +122,18 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
     let host = Arc::new(tokio::sync::Mutex::new(host));
     plugin.set_host(host.clone()).await;
 
+    // If plugin has client capability and received a session token, create DaemonClient
+    if !reg_response.client_session_token.is_empty() {
+        let daemon_client = crate::DaemonClient::connect(
+            &args.daemon_addr,
+            reg_response.client_session_token,
+        )
+        .await?;
+        let daemon_client = Arc::new(tokio::sync::Mutex::new(daemon_client));
+        plugin.set_daemon_client(daemon_client).await;
+        info!("DaemonClient connected (plugin has client capability)");
+    }
+
     // Pass initial config to the plugin
     if !reg_response.config_json.is_empty() {
         plugin.on_config_changed(&reg_response.config_json).await;
@@ -92,35 +142,39 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
     // Start event subscription if plugin wants events
     let event_types = plugin.subscribed_events();
     if !event_types.is_empty() {
-        info!("Subscribing to events: {:?}", event_types);
+        let exclude_source = plugin.source_id().to_string();
+        info!("Subscribing to events: {:?} (exclude_source: {:?})", event_types,
+            if exclude_source.is_empty() { "none" } else { &exclude_source });
         let plugin_for_events = plugin.clone();
         let host_for_events = host.clone();
         tokio::spawn(async move {
-            let stream = {
-                let mut h = host_for_events.lock().await;
-                h.subscribe_events(event_types).await
-            };
-            match stream {
-                Ok(mut stream) => {
-                    use tokio_stream::StreamExt;
-                    while let Some(msg) = stream.next().await {
-                        match msg {
-                            Ok(event) => {
-                                plugin_for_events
-                                    .on_event(&event.event_type, &event.payload_json)
-                                    .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!("Event stream error: {}", e);
-                                break;
+            loop {
+                let stream = {
+                    let mut h = host_for_events.lock().await;
+                    h.subscribe_events(event_types.clone(), exclude_source.clone()).await
+                };
+                match stream {
+                    Ok(mut stream) => {
+                        info!("Event subscription active");
+                        use tokio_stream::StreamExt;
+                        while let Some(msg) = stream.next().await {
+                            match msg {
+                                Ok(event) => {
+                                    dispatch_event(&*plugin_for_events, &event).await;
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Event stream error: {e}, will reconnect");
+                                    break;
+                                }
                             }
                         }
+                        info!("Event subscription stream ended, reconnecting...");
                     }
-                    info!("Event subscription stream ended");
+                    Err(e) => {
+                        tracing::warn!("Event subscription failed: {e}, retrying...");
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("Event subscription failed: {}", e);
-                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
         });
     }
@@ -172,6 +226,9 @@ async fn discover_capabilities<P: PluginCapability>(plugin: &P) -> Vec<String> {
     }
     if !plugin.ui_contributions().await.is_empty() {
         caps.push("ui_contributions".into());
+    }
+    if plugin.is_client() {
+        caps.push("client".into());
     }
 
     caps

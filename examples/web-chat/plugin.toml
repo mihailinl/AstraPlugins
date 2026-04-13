@@ -1,0 +1,13 @@
+[plugin]
+id = "web-chat"
+name = "Web Chat Client"
+version = "0.1.0"
+description = "Simple web-based chat client for testing multi-client sync"
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/web_chat.exe"
+
+[capabilities]
+client = true

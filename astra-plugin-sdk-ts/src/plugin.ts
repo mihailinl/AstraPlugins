@@ -16,12 +16,16 @@ import type {
   TriggerTypeDef,
   UiContribution,
 } from "./types";
+import { DaemonClient } from "./daemon-client";
 
 const pluginProto = astraProto;
 
 export abstract class Plugin {
   /** Client for calling daemon services. Available after registration. */
   host: HostClient | null = null;
+
+  /** Full daemon API client. Only available if `isClient()` returns true. */
+  daemon: DaemonClient | null = null;
 
   /** Current plugin config (populated after registration). */
   config: Record<string, unknown> = {};
@@ -104,6 +108,14 @@ export abstract class Plugin {
             `Registered successfully. Daemon version: ${response.daemonVersion}`
           );
 
+          // If plugin has client capability and received a session token, create DaemonClient
+          if (response.clientSessionToken) {
+            this.daemon = new DaemonClient(args.daemonAddr, response.clientSessionToken);
+            await this.daemon.connect();
+            await this.onDaemonClientReady(this.daemon);
+            console.log("DaemonClient connected (plugin has client capability)");
+          }
+
           // Pass initial config
           if (response.configJson) {
             try {
@@ -130,6 +142,16 @@ export abstract class Plugin {
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
   }
+
+  // ── Client capability ──
+
+  /** Override to return true if this plugin acts as a full daemon client. */
+  isClient(): boolean {
+    return false;
+  }
+
+  /** Called after registration with a DaemonClient (client plugins only). */
+  async onDaemonClientReady(_client: DaemonClient): Promise<void> {}
 
   // ── Capability methods (override in subclass) ──
 
@@ -221,6 +243,7 @@ export abstract class Plugin {
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
     if ((await this.getTriggerTypes()).length > 0) caps.push("triggers");
     if ((await this.getUiContributions()).length > 0) caps.push("ui_contributions");
+    if (this.isClient()) caps.push("client");
     return caps;
   }
 

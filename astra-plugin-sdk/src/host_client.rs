@@ -91,15 +91,18 @@ impl HostClient {
     }
 
     /// Subscribe to daemon events.
+    /// `exclude_source_id` — if non-empty, ChatMessageSync events from this source are filtered out server-side.
     pub async fn subscribe_events(
         &mut self,
         event_types: Vec<String>,
+        exclude_source_id: String,
     ) -> Result<tonic::Streaming<proto::PluginEventMsg>> {
         let resp = self
             .client
             .subscribe_events(proto::PluginEventFilter {
                 plugin_id: self.plugin_id.clone(),
                 event_types,
+                exclude_source_id,
             })
             .await
             .context("SubscribeEvents RPC failed")?;

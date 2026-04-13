@@ -41,6 +41,7 @@ class Plugin:
 
     def __init__(self):
         self.host: HostClient | None = None
+        self.daemon = None  # DaemonClient, set if plugin has "client" capability
         self.config: dict = {}
         self.active_triggers: set[str] = set()
         self._server: grpc.aio.Server | None = None
@@ -109,6 +110,14 @@ class Plugin:
 
         print(f"Registered successfully. Daemon version: {response.daemon_version}")
 
+        # If plugin has client capability and received a session token, create DaemonClient
+        if response.client_session_token:
+            from astra_plugin_sdk.daemon_client import DaemonClient
+            self.daemon = DaemonClient(daemon_addr, response.client_session_token)
+            await self.daemon.connect()
+            await self.on_daemon_client_ready(self.daemon)
+            print("DaemonClient connected (plugin has client capability)")
+
         # Pass initial config
         if response.config_json:
             self.config = json.loads(response.config_json) if response.config_json != "{}" else {}
@@ -166,7 +175,30 @@ class Plugin:
         ui_contribs = await self.get_ui_contributions()
         if ui_contribs:
             caps.append("ui_contributions")
+        if self.is_client():
+            caps.append("client")
         return caps
+
+    # ── Client capability ──
+
+    def is_client(self) -> bool:
+        """Override to return True if this plugin acts as a full daemon client.
+
+        Client plugins receive a session token during registration and get
+        a :class:`~astra_plugin_sdk.daemon_client.DaemonClient` with access
+        to all daemon APIs (chat, voice, commands, media, etc.).
+        """
+        return False
+
+    async def on_daemon_client_ready(self, client):
+        """Called after registration with a DaemonClient (client plugins only).
+
+        Override to store the client reference and start using daemon APIs.
+
+        Args:
+            client: A :class:`~astra_plugin_sdk.daemon_client.DaemonClient` instance.
+        """
+        pass
 
     # ── Capability methods (override in subclass) ──
 

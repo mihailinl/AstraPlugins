@@ -235,6 +235,7 @@ message ChatStreamChunk {
         string voice = 7;       // TTS-optimized voice content delta
     }
     string message_id = 5;
+    string conversation_id = 8;  // Which conversation this response belongs to
 }
 
 message ToolExecution {
@@ -2053,11 +2054,13 @@ message PluginRegisterResponse {
     string error = 2;
     string config_json = 3;             // Plugin's current config
     string daemon_version = 4;
+    string client_session_token = 5;    // Non-empty if plugin has "client" capability
 }
 
 message PluginEventFilter {
     string plugin_id = 1;
     repeated string event_types = 2;     // Empty = all events
+    string exclude_source_id = 3;        // Skip ChatMessageSync events from this source
 }
 
 message PluginEventMsg {

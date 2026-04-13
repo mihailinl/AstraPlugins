@@ -81,6 +81,7 @@ message PluginRegisterResponse {
     string error = 2;
     string config_json = 3;
     string daemon_version = 4;
+    string client_session_token = 5;
 }
 
 message PluginEventFilter {

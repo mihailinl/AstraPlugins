@@ -20,6 +20,7 @@
 
 export { Plugin } from "./plugin";
 export { HostClient } from "./host-client";
+export { DaemonClient } from "./daemon-client";
 export { Field } from "./types";
 export type {
   ToolDef,

@@ -235,6 +235,7 @@ message ChatStreamChunk {
         string voice = 7;       // TTS-optimized voice content delta
     }
     string message_id = 5;
+    string conversation_id = 8;  // Which conversation this response belongs to
 }
 
 message ToolExecution {
@@ -2028,6 +2029,7 @@ message PluginRegisterRequest {
     string plugin_id = 1;
     uint32 port = 2;                     // Plugin's gRPC server port
     repeated string capabilities = 3;
+    string auth_token = 4;               // Auth token for registration verification
 }
 
 message PluginRegisterResponse {
@@ -2035,6 +2037,7 @@ message PluginRegisterResponse {
     string error = 2;
     string config_json = 3;             // Plugin's current config
     string daemon_version = 4;
+    string client_session_token = 5;    // Non-empty if plugin has "client" capability
 }
 
 message PluginEventFilter {

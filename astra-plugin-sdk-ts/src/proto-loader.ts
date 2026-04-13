@@ -24,6 +24,8 @@ service PluginHostService {
     rpc GetPluginSelfConfig(PluginSelfIdRequest) returns (PluginSelfConfigResponse);
     rpc PluginLog(PluginLogRequest) returns (Empty);
     rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
+    rpc SetVariable(PluginSetVariableRequest) returns (Empty);
+    rpc PushToUi(PluginUiPushRequest) returns (Empty);
 }
 
 service PluginCapabilityService {
@@ -39,8 +41,10 @@ service PluginCapabilityService {
     rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
     rpc GetPluginActionTypes(Empty) returns (PluginActionTypesResponse);
     rpc GetPluginTriggerTypes(Empty) returns (PluginTriggerTypesResponse);
-    rpc GetUiPanels(Empty) returns (PluginUiPanelsResponse);
+    rpc GetUiContributions(Empty) returns (PluginUiContributionsResponse);
+    rpc CallFromUi(PluginUiCallRequest) returns (PluginUiCallResponse);
     rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
+    rpc OnActiveTriggers(PluginActiveTriggersMsg) returns (Empty);
     rpc Shutdown(Empty) returns (Empty);
     rpc HealthCheck(Empty) returns (PluginHealthResponse);
 }
@@ -49,6 +53,7 @@ message PluginRegisterRequest {
     string plugin_id = 1;
     uint32 port = 2;
     repeated string capabilities = 3;
+    string auth_token = 4;
 }
 
 message PluginRegisterResponse {
@@ -56,6 +61,7 @@ message PluginRegisterResponse {
     string error = 2;
     string config_json = 3;
     string daemon_version = 4;
+    string client_session_token = 5;
 }
 
 message PluginEventFilter {
@@ -282,17 +288,51 @@ message PluginTriggerTypesResponse {
     repeated TriggerTypeDefinitionMsg types = 1;
 }
 
-message PluginUiPanel {
+message PluginUiContribution {
     string id = 1;
-    string label = 2;
-    string page = 3;
-    string section = 4;
-    string route = 5;
-    string url = 6;
+    string slot = 2;
+    string css_target = 3;
+    string position = 4;
+    string url = 5;
+    string label = 6;
+    string icon_svg = 7;
+    int32 width = 8;
+    int32 height = 9;
+    bool transparent = 10;
+    bool pointer_events = 11;
+    int32 z_index = 12;
+    map<string, string> props = 13;
 }
 
-message PluginUiPanelsResponse {
-    repeated PluginUiPanel panels = 1;
+message PluginUiContributionsResponse {
+    repeated PluginUiContribution contributions = 1;
+}
+
+message PluginUiCallRequest {
+    string method = 1;
+    string params_json = 2;
+}
+
+message PluginUiCallResponse {
+    string result_json = 1;
+    string error = 2;
+}
+
+message PluginActiveTriggersMsg {
+    repeated string trigger_types = 1;
+}
+
+message PluginSetVariableRequest {
+    string plugin_id = 1;
+    string name = 2;
+    string value = 3;
+    string scope = 4;
+}
+
+message PluginUiPushRequest {
+    string plugin_id = 1;
+    string event = 2;
+    string payload_json = 3;
 }
 
 message PluginConfigChangedMsg {
