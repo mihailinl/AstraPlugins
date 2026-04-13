@@ -36,11 +36,13 @@ mod capability;
 mod daemon_client;
 pub mod events;
 mod host_client;
+pub mod i18n;
 mod runner;
 
 pub use capability::*;
 pub use daemon_client::DaemonClient;
 pub use host_client::HostClient;
+pub use i18n::I18n;
 pub use runner::run;
 
 /// Re-exports for convenience.
@@ -49,6 +51,7 @@ pub mod prelude {
     pub use crate::daemon_client::DaemonClient;
     pub use crate::events::ChatSyncEvent;
     pub use crate::host_client::HostClient;
+    pub use crate::i18n::I18n;
     pub use crate::run;
     pub use async_trait::async_trait;
 }

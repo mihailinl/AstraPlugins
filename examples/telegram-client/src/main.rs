@@ -14,12 +14,13 @@ use tracing::info;
 
 use state::BotState;
 use telegram::TelegramApi;
-use types::{BotConfig, SharedConfig, SharedDaemon};
+use types::{BotConfig, SharedConfig, SharedDaemon, SharedI18n};
 
 struct TelegramBotPlugin {
     daemon: SharedDaemon,
     config: SharedConfig,
     state: types::SharedState,
+    i18n: SharedI18n,
     telegram: Arc<Mutex<Option<Arc<TelegramApi>>>>,
     shutdown_tx: Arc<Mutex<Option<watch::Sender<bool>>>>,
     polling_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
@@ -32,6 +33,7 @@ impl TelegramBotPlugin {
             daemon: Arc::new(Mutex::new(None)),
             config: Arc::new(RwLock::new(BotConfig::default())),
             state: Arc::new(RwLock::new(state)),
+            i18n: Arc::new(I18n::load(std::path::Path::new("locales"))),
             telegram: Arc::new(Mutex::new(None)),
             shutdown_tx: Arc::new(Mutex::new(None)),
             polling_handle: Arc::new(Mutex::new(None)),
@@ -63,9 +65,10 @@ impl TelegramBotPlugin {
         let state = self.state.clone();
         let daemon = self.daemon.clone();
         let config = self.config.clone();
+        let i18n = self.i18n.clone();
 
         let handle = tokio::spawn(async move {
-            bot::run_polling_loop(tg, state, daemon, config, rx).await;
+            bot::run_polling_loop(tg, state, daemon, config, i18n, rx).await;
         });
         *self.polling_handle.lock().await = Some(handle);
 
@@ -117,6 +120,11 @@ impl PluginCapability for TelegramBotPlugin {
                 tracing::warn!("Sync event error: {e}");
             }
         }
+    }
+
+    async fn on_language_changed(&self, language: &str) {
+        self.i18n.set_language(language);
+        info!("Language changed to: {}", language);
     }
 
     async fn on_config_changed(&self, config_json: &str) {

@@ -7,7 +7,7 @@ use tracing::{info, warn};
 use crate::commands;
 use crate::streaming::StreamingMessage;
 use crate::telegram::TelegramApi;
-use crate::types::{SharedConfig, SharedDaemon, SharedState, SOURCE_ID};
+use crate::types::{SharedConfig, SharedDaemon, SharedI18n, SharedState, SOURCE_ID};
 
 /// Run the Telegram long-polling loop until shutdown.
 pub async fn run_polling_loop(
@@ -15,6 +15,7 @@ pub async fn run_polling_loop(
     state: SharedState,
     daemon: SharedDaemon,
     config: SharedConfig,
+    i18n: SharedI18n,
     mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
 ) {
     info!("Starting Telegram polling loop");
@@ -48,12 +49,13 @@ pub async fn run_polling_loop(
                         &state,
                         &daemon,
                         &config,
+                        &i18n,
                         &msg,
                     )
                     .await;
                 }
                 UpdateContent::CallbackQuery(cq) => {
-                    handle_callback(&telegram, &state, &daemon, &cq).await;
+                    handle_callback(&telegram, &state, &daemon, &i18n, &cq).await;
                 }
                 _ => {}
             }
@@ -66,6 +68,7 @@ async fn handle_message(
     state: &SharedState,
     daemon: &SharedDaemon,
     config: &SharedConfig,
+    i18n: &SharedI18n,
     msg: &frankenstein::types::Message,
 ) {
     let chat_id = msg.chat.id;
@@ -113,24 +116,18 @@ async fn handle_message(
 
         match cmd {
             "/new" => {
-                if let Err(e) = commands::handle_new(telegram, state, daemon, args).await {
+                if let Err(e) = commands::handle_new(telegram, state, daemon, i18n, args).await {
                     warn!("/new error: {e}");
                 }
             }
             "/list" => {
-                if let Err(e) = commands::handle_list(telegram, state, daemon, thread_id).await {
+                if let Err(e) = commands::handle_list(telegram, state, daemon, i18n, thread_id).await {
                     warn!("/list error: {e}");
                 }
             }
             "/start" => {
                 if let Err(e) = telegram
-                    .send_message(
-                        chat_id,
-                        "Astra Telegram Bot is active.\n\n\
-                         /new [title] — Create a new conversation topic\n\
-                         /list — Link an existing Astra conversation\n\n\
-                         Send any message in a topic to chat with Astra.",
-                    )
+                    .send_message(chat_id, &i18n.t("bot.start"))
                     .await
                 {
                     warn!("/start error: {e}");
@@ -308,6 +305,7 @@ async fn handle_callback(
     telegram: &Arc<TelegramApi>,
     state: &SharedState,
     daemon: &SharedDaemon,
+    i18n: &SharedI18n,
     cq: &frankenstein::types::CallbackQuery,
 ) {
     let Some(data) = cq.data.as_deref() else {
@@ -316,10 +314,10 @@ async fn handle_callback(
 
     if let Some(conv_id) = data.strip_prefix("link:") {
         if let Err(e) =
-            commands::handle_list_callback(telegram, state, daemon, &cq.id, conv_id).await
+            commands::handle_list_callback(telegram, state, daemon, i18n, &cq.id, conv_id).await
         {
             warn!("Callback error: {e}");
-            let _ = telegram.answer_callback(&cq.id, "Error linking conversation").await;
+            let _ = telegram.answer_callback(&cq.id, &i18n.t("bot.callback_error")).await;
         }
     }
 }

@@ -1,7 +1,7 @@
 [plugin]
 id = "companion-cat"
 name = "Companion Cat"
-version = "0.1.1"
+version = "0.1.4"
 description = "A cat that flies around the UI and says random things"
 author = "Astra Team"
 license = "MIT"

@@ -466,6 +466,10 @@ pub trait PluginCapability: Send + Sync + 'static {
     /// Called when the plugin's config changes.
     async fn on_config_changed(&self, _config_json: &str) {}
 
+    /// Called when the daemon's UI language changes.
+    /// Override this to update your plugin's locale (e.g., via `I18n::set_language`).
+    async fn on_language_changed(&self, _language: &str) {}
+
     /// Called when the set of active trigger types changes.
     /// `active_types` contains the un-namespaced trigger types that have
     /// at least one command listening. If a type is NOT in this list,

@@ -43,6 +43,7 @@ class Plugin:
         self.host: HostClient | None = None
         self.daemon = None  # DaemonClient, set if plugin has "client" capability
         self.config: dict = {}
+        self.language: str = "en"
         self.active_triggers: set[str] = set()
         self._server: grpc.aio.Server | None = None
 
@@ -117,6 +118,11 @@ class Plugin:
             await self.daemon.connect()
             await self.on_daemon_client_ready(self.daemon)
             print("DaemonClient connected (plugin has client capability)")
+
+        # Pass initial language
+        if response.language:
+            self.language = response.language
+            await self.on_language_changed(response.language)
 
         # Pass initial config
         if response.config_json:
@@ -307,6 +313,16 @@ class Plugin:
 
     async def on_config_changed(self, config: dict):
         """Called when config changes."""
+        pass
+
+    async def on_language_changed(self, language: str):
+        """Called when the daemon's UI language changes.
+
+        Override this to update your plugin's locale (e.g., via ``I18n.set_language``).
+
+        Args:
+            language: Language code (e.g. "en", "ru", "uk").
+        """
         pass
 
     async def on_active_triggers(self, active_types: list[str]):
@@ -510,6 +526,11 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
 
     async def OnActiveTriggers(self, request, context):
         await self.plugin.on_active_triggers(list(request.trigger_types))
+        return plugin_pb2.Empty()
+
+    async def OnLanguageChanged(self, request, context):
+        self.plugin.language = request.language
+        await self.plugin.on_language_changed(request.language)
         return plugin_pb2.Empty()
 
     async def Shutdown(self, request, context):

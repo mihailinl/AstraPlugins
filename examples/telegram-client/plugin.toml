@@ -19,13 +19,13 @@ schema = """
   "properties": {
     "bot_token": {
       "type": "string",
-      "title": "Bot Token",
-      "description": "Telegram Bot API token from @BotFather"
+      "title": "$config.bot_token.title",
+      "description": "$config.bot_token.description"
     },
     "allowed_usernames": {
       "type": "string",
-      "title": "Allowed Usernames",
-      "description": "Comma-separated Telegram usernames (without @) allowed to use the bot. Leave empty to allow all."
+      "title": "$config.allowed_usernames.title",
+      "description": "$config.allowed_usernames.description"
     }
   },
   "required": ["bot_token"]

@@ -1928,6 +1928,7 @@ service PluginCapabilityService {
     // ── Lifecycle ──
     rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
     rpc OnActiveTriggers(PluginActiveTriggersMsg) returns (Empty);
+    rpc OnLanguageChanged(LanguageChangedMsg) returns (Empty);
     rpc Shutdown(Empty) returns (Empty);
     rpc HealthCheck(Empty) returns (PluginHealthResponse);
 }
@@ -2055,6 +2056,7 @@ message PluginRegisterResponse {
     string config_json = 3;             // Plugin's current config
     string daemon_version = 4;
     string client_session_token = 5;    // Non-empty if plugin has "client" capability
+    string language = 6;                // Daemon UI language ("en", "ru", "uk", etc.)
 }
 
 message PluginEventFilter {
@@ -2108,6 +2110,7 @@ message PluginDaemonInfoResponse {
     string version = 1;
     string state = 2;
     uint32 grpc_port = 3;
+    string language = 4;                // Current daemon UI language
 }
 
 message PluginSetVariableRequest {
@@ -2341,6 +2344,10 @@ message PluginConfigChangedMsg {
 
 message PluginActiveTriggersMsg {
     repeated string trigger_types = 1;
+}
+
+message LanguageChangedMsg {
+    string language = 1;                // New language code ("en", "ru", "uk", etc.)
 }
 
 message PluginHealthResponse {

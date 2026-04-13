@@ -24,14 +24,12 @@
   style.textContent = `
     .cc-container {
       position: fixed;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
       cursor: pointer;
       user-select: none;
       pointer-events: auto;
       z-index: 10001;
+      width: 60px;
+      height: 50px;
     }
     .cc-bubble {
       background: var(--color-surface, #1a1a1a);
@@ -41,18 +39,20 @@
       padding: 6px 10px;
       font-size: 11px;
       font-family: var(--font-sans, "Segoe UI", sans-serif);
-      max-width: 160px;
+      max-width: 200px;
       text-align: center;
-      position: relative;
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      margin-bottom: 6px;
       opacity: 0;
-      transform: translateY(4px);
       transition: opacity 0.3s, transform 0.3s;
       pointer-events: none;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      word-wrap: break-word;
     }
-    .cc-bubble.visible { opacity: 1; transform: translateY(0); }
+    .cc-bubble.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
     .cc-bubble::after {
       content: "";
       position: absolute;
@@ -650,7 +650,8 @@
   afkTimer = setTimeout(startMischief, AFK_DELAY);
 
   // ── Cleanup ──
-  window.__astraPluginCleanup = window.__astraPluginCleanup || {};
+  // __astraPluginCleanup is set up by the DOM bridge as a non-writable window property.
+  // Register our cleanup function on the existing object (never reassign the property).
   window.__astraPluginCleanup["companion-cat"] = function () {
     // Restore any grabbed elements
     mischief.grabbed.forEach(function (g) {

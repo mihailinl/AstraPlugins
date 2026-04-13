@@ -35,3 +35,4 @@ impl BotConfig {
 pub type SharedDaemon = Arc<Mutex<Option<DaemonClient>>>;
 pub type SharedState = Arc<RwLock<BotState>>;
 pub type SharedConfig = Arc<RwLock<BotConfig>>;
+pub type SharedI18n = Arc<astra_plugin_sdk::I18n>;

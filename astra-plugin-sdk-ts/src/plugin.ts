@@ -41,6 +41,9 @@ export abstract class Plugin {
   /** Current plugin config (populated after registration). */
   config: Record<string, unknown> = {};
 
+  /** Current daemon UI language (e.g. "en", "ru", "uk"). */
+  language: string = "en";
+
   /** Set of active trigger types (auto-updated by daemon). */
   activeTriggers: Set<string> = new Set();
 
@@ -67,6 +70,7 @@ export abstract class Plugin {
       GetUiContributions: this.wrapHandler(this.handleGetUiContributions.bind(this)),
       OnConfigChanged: this.wrapHandler(this.handleOnConfigChanged.bind(this)),
       OnActiveTriggers: this.wrapHandler(this.handleOnActiveTriggers.bind(this)),
+      OnLanguageChanged: this.wrapHandler(this.handleOnLanguageChanged.bind(this)),
       Shutdown: this.wrapHandler(this.handleShutdown.bind(this)),
       HealthCheck: this.wrapHandler(this.handleHealthCheck.bind(this)),
       // Streaming RPCs — stubs
@@ -125,6 +129,12 @@ export abstract class Plugin {
             await this.daemon.connect();
             await this.onDaemonClientReady(this.daemon);
             console.log("DaemonClient connected (plugin has client capability)");
+          }
+
+          // Pass initial language
+          if (response.language) {
+            this.language = response.language;
+            await this.onLanguageChanged(response.language);
           }
 
           // Pass initial config
@@ -213,6 +223,8 @@ export abstract class Plugin {
     return [];
   }
   async onConfigChanged(_config: Record<string, unknown>): Promise<void> {}
+  /** Called when the daemon's UI language changes. Override to update locale. */
+  async onLanguageChanged(_language: string): Promise<void> {}
   /** Called when active trigger types change. Override for custom logic. */
   async onActiveTriggers(_activeTypes: string[]): Promise<void> {}
   async onShutdown(): Promise<void> {}
@@ -416,6 +428,13 @@ export abstract class Plugin {
     const types: string[] = call.request.triggerTypes || [];
     this.activeTriggers = new Set(types);
     await this.onActiveTriggers(types);
+    return {};
+  }
+
+  private async handleOnLanguageChanged(call: any) {
+    const language: string = call.request.language || "en";
+    this.language = language;
+    await this.onLanguageChanged(language);
     return {};
   }
 

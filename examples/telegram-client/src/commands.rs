@@ -4,13 +4,14 @@ use anyhow::Result;
 use tracing::info;
 
 use crate::telegram::TelegramApi;
-use crate::types::{SharedDaemon, SharedState};
+use crate::types::{SharedDaemon, SharedI18n, SharedState};
 
 /// Handle the /new command — create a new forum topic and a matching Astra conversation.
 pub async fn handle_new(
     telegram: &Arc<TelegramApi>,
     state: &SharedState,
     daemon: &SharedDaemon,
+    i18n: &SharedI18n,
     args: &str,
 ) -> Result<()> {
     let title = if args.is_empty() {
@@ -59,7 +60,7 @@ pub async fn handle_new(
     }
 
     telegram
-        .send_to_topic(thread_id, "Topic created. Send your first message to start chatting.")
+        .send_to_topic(thread_id, &i18n.t("bot.topic_created"))
         .await?;
 
     Ok(())
@@ -70,6 +71,7 @@ pub async fn handle_list(
     telegram: &Arc<TelegramApi>,
     state: &SharedState,
     daemon: &SharedDaemon,
+    i18n: &SharedI18n,
     thread_id: Option<i64>,
 ) -> Result<()> {
     let conversations = {
@@ -94,11 +96,11 @@ pub async fn handle_list(
     drop(state_r);
 
     if unlinked.is_empty() {
-        let text = "All conversations are already linked to topics.";
+        let text = i18n.t("bot.all_linked");
         if let Some(tid) = thread_id {
-            telegram.send_to_topic(tid, text).await?;
+            telegram.send_to_topic(tid, &text).await?;
         } else {
-            telegram.send_message(telegram.chat_id(), text).await?;
+            telegram.send_message(telegram.chat_id(), &text).await?;
         }
         return Ok(());
     }
@@ -120,13 +122,14 @@ pub async fn handle_list(
         })
         .collect();
 
+    let select_text = i18n.t("bot.select_conversation");
     if let Some(tid) = thread_id {
         telegram
-            .send_inline_keyboard_to_topic(tid, "Select a conversation to link:", buttons)
+            .send_inline_keyboard_to_topic(tid, &select_text, buttons)
             .await?;
     } else {
         telegram
-            .send_inline_keyboard(telegram.chat_id(), "Select a conversation to link:", buttons)
+            .send_inline_keyboard(telegram.chat_id(), &select_text, buttons)
             .await?;
     }
 
@@ -138,6 +141,7 @@ pub async fn handle_list_callback(
     telegram: &Arc<TelegramApi>,
     state: &SharedState,
     daemon: &SharedDaemon,
+    i18n: &SharedI18n,
     callback_query_id: &str,
     conversation_id: &str,
 ) -> Result<()> {
@@ -181,13 +185,13 @@ pub async fn handle_list_callback(
 
     if history.messages.is_empty() {
         telegram
-            .send_to_topic(thread_id, "Conversation linked. No messages yet.")
+            .send_to_topic(thread_id, &i18n.t("bot.no_messages"))
             .await?;
     } else {
         // Build history as a single message
         let mut history_text = String::new();
         for msg in &history.messages {
-            let role_label = if msg.role == 0 { "You" } else { "Astra" };
+            let role_label = if msg.role == 0 { i18n.t("bot.role.user") } else { i18n.t("bot.role.assistant") };
             let content = if msg.content.len() > 500 {
                 format!("{}...", &msg.content[..msg.content.floor_char_boundary(497)])
             } else {
@@ -204,7 +208,7 @@ pub async fn handle_list_callback(
 
             // Don't exceed Telegram message limit
             if history_text.len() > 3500 {
-                history_text.push_str("... (truncated)");
+                history_text.push_str(&i18n.t("bot.history_truncated"));
                 break;
             }
         }
@@ -216,7 +220,7 @@ pub async fn handle_list_callback(
 
     // Acknowledge callback
     telegram
-        .answer_callback(callback_query_id, "Conversation linked!")
+        .answer_callback(callback_query_id, &i18n.t("bot.linked"))
         .await?;
 
     info!("Linked conversation {conversation_id} to topic {thread_id}");

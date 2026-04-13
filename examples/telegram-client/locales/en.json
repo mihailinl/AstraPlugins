@@ -1,0 +1,16 @@
+{
+  "config.bot_token.title": "Bot Token",
+  "config.bot_token.description": "Telegram Bot API token from @BotFather",
+  "config.allowed_usernames.title": "Allowed Usernames",
+  "config.allowed_usernames.description": "Comma-separated Telegram usernames (without @) allowed to use the bot. Leave empty to allow all.",
+  "bot.start": "Astra Telegram Bot is active.\n\n/new [title] \u2014 Create a new conversation topic\n/list \u2014 Link an existing Astra conversation\n\nSend any message in a topic to chat with Astra.",
+  "bot.topic_created": "Topic created. Send your first message to start chatting.",
+  "bot.all_linked": "All conversations are already linked to topics.",
+  "bot.select_conversation": "Select a conversation to link:",
+  "bot.no_messages": "Conversation linked. No messages yet.",
+  "bot.linked": "Conversation linked!",
+  "bot.callback_error": "Error linking conversation",
+  "bot.role.user": "You",
+  "bot.role.assistant": "Astra",
+  "bot.history_truncated": "... (truncated)"
+}

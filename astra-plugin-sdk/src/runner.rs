@@ -133,6 +133,11 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         plugin.on_config_changed(&reg_response.config_json).await;
     }
 
+    // Pass initial language to the plugin
+    if !reg_response.language.is_empty() {
+        plugin.on_language_changed(&reg_response.language).await;
+    }
+
     // Start event subscription if plugin wants events
     let event_types = plugin.subscribed_events();
     if !event_types.is_empty() {
@@ -424,6 +429,15 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
         let types = request.into_inner().trigger_types;
         self.plugin.on_active_triggers(types).await;
+        Ok(tonic::Response::new(proto::Empty {}))
+    }
+
+    async fn on_language_changed(
+        &self,
+        request: tonic::Request<proto::LanguageChangedMsg>,
+    ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        let language = request.into_inner().language;
+        self.plugin.on_language_changed(&language).await;
         Ok(tonic::Response::new(proto::Empty {}))
     }
 

@@ -106,6 +106,12 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
         add_directory_recursive(&ui_dir, &mut zip, options, &dir)?;
     }
 
+    // Include locales/ directory if it exists (for plugin i18n)
+    let locales_dir = dir.join("locales");
+    if locales_dir.exists() {
+        add_directory_recursive(&locales_dir, &mut zip, options, &dir)?;
+    }
+
     // Include files based on language
     match language.as_str() {
         "rust" => {} // binary already handled above
