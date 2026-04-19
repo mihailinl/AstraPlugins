@@ -277,15 +277,8 @@ function sendMsg() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-
-  // Show user message immediately
-  const el = document.getElementById('messages');
-  const div = document.createElement('div');
-  div.className = 'msg user';
-  div.innerHTML = `<div class="meta">user</div><div class="bubble">${esc(text)}</div>`;
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
-
+  // No optimistic render — the UserMessage event comes back through the
+  // firehose and gets rendered like any other event.
   ws.send(JSON.stringify({ type: 'send_message', text, conversation_id: activeConvId }));
 }
 

@@ -123,13 +123,29 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         info!("DaemonClient connected (plugin has client capability)");
 
         // Firehose loop: on_conversation_event for every chat event.
+        // Fetch the conversation list first and subscribe with cursor=0 for
+        // each so plugins receive the full event history on startup in
+        // addition to live events. Plugins that want only live traffic can
+        // ignore history in their handler.
         let plugin_for_chat = plugin.clone();
         let dc_for_chat = daemon_client.clone();
         tokio::spawn(async move {
             loop {
+                let cursors: std::collections::HashMap<String, u64> = {
+                    let mut dc = dc_for_chat.lock().await;
+                    match dc.list_conversations().await {
+                        Ok(resp) => resp.conversations.iter()
+                            .map(|c| (c.id.clone(), 0u64))
+                            .collect(),
+                        Err(e) => {
+                            tracing::warn!("list_conversations failed: {e}");
+                            std::collections::HashMap::new()
+                        }
+                    }
+                };
                 let stream = {
                     let mut dc = dc_for_chat.lock().await;
-                    dc.subscribe_chat_events(std::collections::HashMap::new()).await
+                    dc.subscribe_chat_events(cursors).await
                 };
                 match stream {
                     Ok(mut stream) => {
