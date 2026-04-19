@@ -56,24 +56,47 @@ impl PluginCapability for WebChatPlugin {
 
     fn source_id(&self) -> &str { SOURCE_ID }
 
-    fn subscribed_events(&self) -> Vec<String> {
-        vec!["chat_message_sync".to_string()]
-    }
-
-    // Using typed handler — no manual JSON parsing, no source_id filtering needed
-    async fn on_chat_sync(&self, event: ChatSyncEvent) {
-        info!("Sync: role={} conv={} streaming={}", event.role, &event.conversation_id[..8.min(event.conversation_id.len())], event.is_streaming);
+    // Firehose: every chat event in every conversation is forwarded to the
+    // web client as a JSON message. Conversion is 1:1 — clients parse the
+    // tagged-union `event.kind` to decide rendering.
+    async fn on_conversation_event(
+        &self,
+        conv_id: &str,
+        event: &astra_plugin_sdk::proto::ConversationEventMsg,
+    ) {
+        use astra_plugin_sdk::proto::conversation_event_msg::Event;
+        let short_conv = &conv_id[..8.min(conv_id.len())];
+        let (kind, body) = match &event.event {
+            Some(Event::UserMessage(e)) => ("user_message", serde_json::json!({
+                "message_id": e.message_id, "content": e.content,
+            })),
+            Some(Event::AssistantStart(e)) => ("assistant_start", serde_json::json!({
+                "message_id": e.message_id,
+            })),
+            Some(Event::AssistantTextDelta(e)) => ("assistant_text_delta", serde_json::json!({
+                "message_id": e.message_id, "delta": e.delta,
+            })),
+            Some(Event::AssistantComplete(e)) => ("assistant_complete", serde_json::json!({
+                "message_id": e.message_id,
+            })),
+            Some(Event::ToolCallStart(e)) => ("tool_call_start", serde_json::json!({
+                "message_id": e.message_id, "call_id": e.call_id, "name": e.name, "arguments": e.arguments,
+            })),
+            Some(Event::ToolCallResult(e)) => ("tool_call_result", serde_json::json!({
+                "call_id": e.call_id, "output": e.output, "status": e.status,
+            })),
+            Some(Event::Error(e)) => ("error", serde_json::json!({
+                "message_id": e.message_id, "content": e.content,
+            })),
+            _ => return,
+        };
+        info!("Firehose: {} on conv={}", kind, short_conv);
         let wrapped = serde_json::json!({
-            "type": "sync",
-            "data": {
-                "id": event.id,
-                "conversation_id": event.conversation_id,
-                "role": event.role,
-                "content": event.content,
-                "source_id": event.source_id,
-                "is_streaming": event.is_streaming,
-                "is_complete": event.is_complete,
-            }
+            "type": "event",
+            "conversation_id": conv_id,
+            "seq": event.seq,
+            "kind": kind,
+            "body": body,
         });
         let _ = self.state.event_tx.send(wrapped.to_string());
     }

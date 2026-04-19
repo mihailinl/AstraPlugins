@@ -1,7 +1,6 @@
 mod bot;
 mod commands;
 mod state;
-mod streaming;
 mod sync;
 mod telegram;
 mod types;
@@ -24,6 +23,8 @@ struct TelegramBotPlugin {
     telegram: Arc<Mutex<Option<Arc<TelegramApi>>>>,
     shutdown_tx: Arc<Mutex<Option<watch::Sender<bool>>>>,
     polling_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// Firehose-side accumulator: in-flight assistant text per conversation.
+    firehose: sync::SharedFirehoseState,
 }
 
 impl TelegramBotPlugin {
@@ -37,6 +38,7 @@ impl TelegramBotPlugin {
             telegram: Arc::new(Mutex::new(None)),
             shutdown_tx: Arc::new(Mutex::new(None)),
             polling_handle: Arc::new(Mutex::new(None)),
+            firehose: sync::new_shared(),
         }
     }
 
@@ -109,15 +111,23 @@ impl PluginCapability for TelegramBotPlugin {
         types::SOURCE_ID
     }
 
-    fn subscribed_events(&self) -> Vec<String> {
-        vec!["chat_message_sync".to_string()]
-    }
-
-    async fn on_chat_sync(&self, event: ChatSyncEvent) {
+    async fn on_conversation_event(
+        &self,
+        conv_id: &str,
+        event: &astra_plugin_sdk::proto::ConversationEventMsg,
+    ) {
         let tg = self.telegram.lock().await.clone();
         if let Some(telegram) = tg {
-            if let Err(e) = sync::handle_sync_event(&telegram, &self.state, &event).await {
-                tracing::warn!("Sync event error: {e}");
+            if let Err(e) = sync::handle_firehose_event(
+                &telegram,
+                &self.state,
+                &self.firehose,
+                conv_id,
+                event,
+            )
+            .await
+            {
+                tracing::warn!("Firehose event error: {e}");
             }
         }
     }

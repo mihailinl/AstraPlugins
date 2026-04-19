@@ -87,55 +87,23 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
                         if !text.is_empty() {
                             let mut d = state.daemon.lock().await;
                             if let Some(ref mut dc) = *d {
-                                match dc.send_message_full(text, false, SOURCE_ID, conv_id).await {
-                                    Ok(mut stream) => {
-                                        drop(d); // release lock before streaming
-                                        while let Some(chunk) = tokio_stream::StreamExt::next(&mut stream).await {
-                                            match chunk {
-                                                Ok(c) => {
-                                                    let chunk_json = serde_json::json!({
-                                                        "type": "chunk",
-                                                        "data": {
-                                                            "message_id": c.message_id,
-                                                            "conversation_id": c.conversation_id,
-                                                            "chunk": format_chunk(&c),
-                                                        }
-                                                    });
-                                                    let _ = state.event_tx.send(chunk_json.to_string());
-                                                }
-                                                Err(e) => {
-                                                    let _ = state.event_tx.send(serde_json::json!({ "type": "error", "data": e.to_string() }).to_string());
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        let _ = state.event_tx.send(serde_json::json!({ "type": "done" }).to_string());
+                                match dc.submit_user_message(text, conv_id, false, SOURCE_ID).await {
+                                    Ok(resp) => {
+                                        // Response events arrive over the firehose;
+                                        // forward the resolved conv id to the client.
+                                        let ack = serde_json::json!({
+                                            "type": "submitted",
+                                            "conversation_id": resp.conversation_id,
+                                            "message_id": resp.message_id,
+                                            "seq": resp.seq,
+                                        });
+                                        let _ = state.event_tx.send(ack.to_string());
                                     }
                                     Err(e) => {
-                                        let _ = state.event_tx.send(serde_json::json!({ "type": "error", "data": e.to_string() }).to_string());
+                                        let _ = state.event_tx.send(
+                                            serde_json::json!({ "type": "error", "data": e.to_string() }).to_string()
+                                        );
                                     }
-                                }
-                            }
-                        }
-                    }
-                    "load_history" => {
-                        let conv_id = cmd.get("conversation_id").and_then(|v| v.as_str()).unwrap_or("");
-                        let mut d = state.daemon.lock().await;
-                        if let Some(ref mut dc) = *d {
-                            match dc.get_history(conv_id, 50, 0).await {
-                                Ok(resp) => {
-                                    let msgs: Vec<serde_json::Value> = resp.messages.iter().map(|m| {
-                                        serde_json::json!({
-                                            "id": m.id,
-                                            "role": if m.role == 0 { "user" } else { "assistant" },
-                                            "content": m.content,
-                                        })
-                                    }).collect();
-                                    let reply = serde_json::json!({ "type": "history", "data": msgs });
-                                    let _ = state.event_tx.send(reply.to_string());
-                                }
-                                Err(e) => {
-                                    let _ = state.event_tx.send(serde_json::json!({ "type": "error", "data": e.to_string() }).to_string());
                                 }
                             }
                         }
@@ -147,19 +115,6 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
     }
 
     tx_task.abort();
-}
-
-fn format_chunk(c: &astra_plugin_sdk::proto::ChatStreamChunk) -> serde_json::Value {
-    use astra_plugin_sdk::proto::chat_stream_chunk::Chunk;
-    match &c.chunk {
-        Some(Chunk::Text(t)) => serde_json::json!({ "kind": "text", "content": t }),
-        Some(Chunk::Thinking(t)) => serde_json::json!({ "kind": "thinking", "content": t }),
-        Some(Chunk::Tool(t)) => serde_json::json!({ "kind": "tool", "name": t.name, "completed": t.completed }),
-        Some(Chunk::Error(e)) => serde_json::json!({ "kind": "error", "content": e }),
-        Some(Chunk::Done(_)) => serde_json::json!({ "kind": "done" }),
-        Some(Chunk::Voice(v)) => serde_json::json!({ "kind": "voice", "content": v }),
-        None => serde_json::json!({ "kind": "empty" }),
-    }
 }
 
 const HTML_PAGE: &str = r#"<!DOCTYPE html>

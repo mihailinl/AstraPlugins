@@ -176,47 +176,14 @@ pub async fn handle_list_callback(
         state_w.insert_mapping(conversation_id.to_string(), thread_id);
     }
 
-    // Load and send conversation history
-    let history = {
-        let mut d = daemon.lock().await;
-        let d = d.as_mut().ok_or_else(|| anyhow::anyhow!("Daemon not connected"))?;
-        d.get_history(conversation_id, 100, 0).await?
-    };
-
-    if history.messages.is_empty() {
-        telegram
-            .send_to_topic(thread_id, &i18n.t("bot.no_messages"))
-            .await?;
-    } else {
-        // Build history as a single message
-        let mut history_text = String::new();
-        for msg in &history.messages {
-            let role_label = if msg.role == 0 { i18n.t("bot.role.user") } else { i18n.t("bot.role.assistant") };
-            let content = if msg.content.len() > 500 {
-                format!("{}...", &msg.content[..msg.content.floor_char_boundary(497)])
-            } else {
-                msg.content.clone()
-            };
-
-            if msg.role == 0 {
-                // User message — blockquote
-                history_text.push_str(&format!("<b>{role_label}:</b>\n<blockquote>{}</blockquote>\n\n", html_escape(&content)));
-            } else {
-                // Assistant message
-                history_text.push_str(&format!("<b>{role_label}:</b>\n{}\n\n", html_escape(&content)));
-            }
-
-            // Don't exceed Telegram message limit
-            if history_text.len() > 3500 {
-                history_text.push_str(&i18n.t("bot.history_truncated"));
-                break;
-            }
-        }
-
-        telegram
-            .send_html_to_topic(thread_id, &history_text)
-            .await?;
-    }
+    // Note: history replay for an existing conversation would require a
+    // one-shot event-log read that the plugin SDK does not yet expose. For now
+    // we just confirm the link — new events from this conversation will
+    // render into the topic via the firehose handler.
+    telegram
+        .send_to_topic(thread_id, &i18n.t("bot.linked"))
+        .await?;
+    let _ = daemon;
 
     // Acknowledge callback
     telegram
@@ -227,8 +194,3 @@ pub async fn handle_list_callback(
     Ok(())
 }
 
-fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-}

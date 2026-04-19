@@ -5,7 +5,6 @@ use frankenstein::updates::UpdateContent;
 use tracing::{info, warn};
 
 use crate::commands;
-use crate::streaming::StreamingMessage;
 use crate::telegram::TelegramApi;
 use crate::types::{SharedConfig, SharedDaemon, SharedI18n, SharedState, SOURCE_ID};
 
@@ -176,8 +175,10 @@ async fn forward_to_astra(
         state_w.active_streams.insert(active_key.clone());
     }
 
-    // Get streaming response from daemon
-    let stream = {
+    // Submit the user message to the daemon. Daemon drives the AI turn and
+    // emits every event back through the chat firehose — see sync.rs for the
+    // handler that renders them into this Telegram topic.
+    let resp = {
         let mut d = daemon.lock().await;
         let Some(d) = d.as_mut() else {
             warn!("Daemon not connected, can't forward message");
@@ -185,13 +186,10 @@ async fn forward_to_astra(
             state_w.active_streams.remove(&active_key);
             return;
         };
-        match d
-            .send_message_full(text, false, SOURCE_ID, &conv_id)
-            .await
-        {
-            Ok(s) => s,
+        match d.submit_user_message(text, &conv_id, false, SOURCE_ID).await {
+            Ok(r) => r,
             Err(e) => {
-                warn!("SendMessage error: {e}");
+                warn!("submit_user_message error: {e}");
                 let _ = telegram
                     .send_to_topic(thread_id, &format!("\u{274c} Error: {e}"))
                     .await;
@@ -202,104 +200,17 @@ async fn forward_to_astra(
         }
     };
 
-    // Spawn streaming task
-    let telegram = telegram.clone();
-    let state = state.clone();
-    let daemon_arc = daemon.clone();
-    let text_owned = text.to_string();
-    let _ = daemon_arc; // not needed in spawned task
-
-    tokio::spawn(async move {
-        let result = stream_response(
-            &telegram,
-            &state,
-            stream,
-            thread_id,
-            conv_id.to_string(),
-            active_key.clone(),
-        )
-        .await;
-
-        if let Err(e) = result {
-            warn!("Stream response error: {e}");
-            let _ = telegram
-                .send_to_topic(thread_id, &format!("\u{274c} Stream error: {e}"))
-                .await;
-        }
-
-        // Clean up active_streams
-        let mut state_w = state.write().await;
+    // If the daemon auto-created a new conversation, persist the topic mapping
+    // and release the active_streams marker so the firehose can render.
+    let mut state_w = state.write().await;
+    if conv_id.is_empty() && !resp.conversation_id.is_empty() {
+        state_w.insert_mapping(resp.conversation_id.clone(), thread_id);
         state_w.active_streams.remove(&active_key);
-        let _ = text_owned;
-    });
-}
-
-/// Consume the ChatStreamChunk stream and progressively edit the Telegram message.
-async fn stream_response(
-    telegram: &Arc<TelegramApi>,
-    state: &SharedState,
-    mut stream: tonic::Streaming<astra_plugin_sdk::proto::ChatStreamChunk>,
-    thread_id: i64,
-    initial_conv_id: String,
-    active_key: String,
-) -> Result<()> {
-    use tokio_stream::StreamExt;
-
-    let mut streaming_msg = StreamingMessage::new(telegram.clone(), thread_id);
-
-    let mut mapped = !initial_conv_id.is_empty();
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-
-        // If this is a new conversation, grab the conversation_id from the first chunk
-        if !mapped && !chunk.conversation_id.is_empty() {
-            let cid = chunk.conversation_id.clone();
-            let mut state_w = state.write().await;
-            state_w.insert_mapping(cid.clone(), thread_id);
-            // Update active_streams: remove pending key, add real conversation_id
-            state_w.active_streams.remove(&active_key);
-            state_w.active_streams.insert(cid);
-            mapped = true;
-        }
-
-        // Process chunk content
-        if let Some(content) = chunk.chunk {
-            use astra_plugin_sdk::proto::chat_stream_chunk::Chunk;
-            match content {
-                Chunk::Text(text) => {
-                    streaming_msg.append(&text).await?;
-                }
-                Chunk::Thinking(_) => {
-                    // Skip thinking content in Telegram
-                }
-                Chunk::Tool(tool_exec) => {
-                    let tool_text = if tool_exec.completed {
-                        format!("[Tool: {} \u{2714}]\n", tool_exec.name)
-                    } else {
-                        format!("[Using: {}...]\n", tool_exec.name)
-                    };
-                    streaming_msg.append_tool(&tool_text).await?;
-                }
-                Chunk::Error(err) => {
-                    streaming_msg.error(&err).await?;
-                    return Ok(());
-                }
-                Chunk::Done(_) => {
-                    streaming_msg.finalize().await?;
-                    return Ok(());
-                }
-                Chunk::Voice(_) => {
-                    // Skip voice-specific content
-                }
-            }
-        }
+    } else {
+        state_w.active_streams.remove(&active_key);
     }
-
-    // Stream ended without Done marker
-    streaming_msg.finalize().await?;
-    Ok(())
 }
+
 
 async fn handle_callback(
     telegram: &Arc<TelegramApi>,
