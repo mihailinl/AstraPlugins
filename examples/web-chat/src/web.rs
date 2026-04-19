@@ -198,77 +198,95 @@ function renderConversations(convs) {
   ).join('');
 }
 
+// Per-conversation projection: convId → { messages: [{role, id, text}], order }.
+// Events for ALL conversations arrive through the firehose from startup;
+// we keep state for every conv and render only the active one to DOM.
+const convState = {};
+
+function getOrInitConv(convId) {
+  if (!convState[convId]) {
+    convState[convId] = { messages: [], byId: {} };
+  }
+  return convState[convId];
+}
+
 function selectConv(id, title) {
   activeConvId = id;
   document.getElementById('header').textContent = title || 'Chat';
-  // Clear the rendered view; incoming firehose events for this conv will
-  // repopulate it. History backfill for already-seen events isn't wired yet.
-  document.getElementById('messages').innerHTML = '';
+  renderActiveConv();
   loadConversations();
 }
 
-// Accumulated text per assistant message, keyed by message_id.
-const assistantBuffers = {};
-
-function handleFirehoseEvent(msg) {
-  if (activeConvId && msg.conversation_id !== activeConvId) return;
-  switch (msg.kind) {
-    case 'user_message': {
-      appendMessage('user', msg.body.message_id, msg.body.content);
-      break;
-    }
-    case 'assistant_start': {
-      assistantBuffers[msg.body.message_id] = '';
-      appendMessage('assistant', msg.body.message_id, '');
-      break;
-    }
-    case 'assistant_text_delta': {
-      const id = msg.body.message_id;
-      assistantBuffers[id] = (assistantBuffers[id] || '') + msg.body.delta;
-      updateBubble(id, assistantBuffers[id]);
-      break;
-    }
-    case 'assistant_complete': {
-      delete assistantBuffers[msg.body.message_id];
-      break;
-    }
-    case 'tool_call_start': {
-      log('Tool: ' + msg.body.name + ' …');
-      break;
-    }
-    case 'tool_call_result': {
-      log('Tool: done (' + (msg.body.status || 'completed') + ')');
-      break;
-    }
-    case 'error': {
-      log('Daemon error: ' + (msg.body.content || ''));
-      break;
-    }
-  }
-}
-
-function appendMessage(role, id, content) {
+function renderActiveConv() {
   const el = document.getElementById('messages');
-  let existing = document.getElementById('m-' + id);
-  if (!existing) {
+  el.innerHTML = '';
+  if (!activeConvId) return;
+  const st = convState[activeConvId];
+  if (!st) return;
+  for (const m of st.messages) {
     const div = document.createElement('div');
-    div.className = 'msg ' + role;
-    div.id = 'm-' + id;
-    div.innerHTML = `<div class="meta">${role}</div><div class="bubble">${esc(content)}</div>`;
+    div.className = 'msg ' + m.role;
+    div.id = 'm-' + m.id;
+    div.innerHTML = `<div class="meta">${m.role}</div><div class="bubble">${esc(m.text)}</div>`;
     el.appendChild(div);
-  } else {
-    existing.querySelector('.bubble').textContent = content;
   }
   el.scrollTop = el.scrollHeight;
 }
 
-function updateBubble(id, text) {
-  const existing = document.getElementById('m-' + id);
-  if (existing) {
-    existing.querySelector('.bubble').textContent = text;
-    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+function upsertMessage(convId, role, id, text) {
+  const st = getOrInitConv(convId);
+  if (st.byId[id] !== undefined) {
+    st.messages[st.byId[id]].text = text;
   } else {
-    appendMessage('assistant', id, text);
+    st.byId[id] = st.messages.length;
+    st.messages.push({ role, id, text });
+  }
+  if (convId === activeConvId) {
+    const existing = document.getElementById('m-' + id);
+    if (existing) {
+      existing.querySelector('.bubble').textContent = text;
+      document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    } else {
+      const el = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      div.id = 'm-' + id;
+      div.innerHTML = `<div class="meta">${role}</div><div class="bubble">${esc(text)}</div>`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+}
+
+function handleFirehoseEvent(msg) {
+  const convId = msg.conversation_id;
+  if (!convId) return;
+  const st = getOrInitConv(convId);
+  switch (msg.kind) {
+    case 'user_message':
+      upsertMessage(convId, 'user', msg.body.message_id, msg.body.content);
+      break;
+    case 'assistant_start':
+      upsertMessage(convId, 'assistant', msg.body.message_id, '');
+      break;
+    case 'assistant_text_delta': {
+      const id = msg.body.message_id;
+      const existing = (st.byId[id] !== undefined) ? st.messages[st.byId[id]].text : '';
+      upsertMessage(convId, 'assistant', id, existing + msg.body.delta);
+      break;
+    }
+    case 'assistant_complete':
+      // Nothing to do — final text is already accumulated.
+      break;
+    case 'tool_call_start':
+      log('[' + convId.slice(0, 6) + '] Tool: ' + msg.body.name);
+      break;
+    case 'tool_call_result':
+      log('[' + convId.slice(0, 6) + '] Tool done: ' + (msg.body.status || 'completed'));
+      break;
+    case 'error':
+      log('Daemon error: ' + (msg.body.content || ''));
+      break;
   }
 }
 
