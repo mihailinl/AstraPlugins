@@ -19,7 +19,6 @@
  */
 
 export { Plugin } from "./plugin";
-export type { ChatSyncEvent } from "./plugin";
 export { HostClient } from "./host-client";
 export { DaemonClient } from "./daemon-client";
 export { I18n } from "./i18n";

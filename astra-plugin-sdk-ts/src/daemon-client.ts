@@ -333,66 +333,68 @@ export class DaemonClient {
     return this.coreClient.SubscribeEvents({}, this.metadata);
   }
 
-  // ===== Chat Service =====
+  // ===== Chat Service (event-sourcing API) =====
 
-  /** Send a message and receive streaming response. Returns a readable stream. */
-  sendMessage(
+  /** Submit a user message. Daemon auto-creates a conversation when
+   * `conversationId` is empty, drives the AI turn asynchronously, and emits
+   * every event through `subscribeChatEvents`. */
+  submitUserMessage(
     text: string,
     opts?: {
+      conversationId?: string;
       voiceEnabled?: boolean;
       sourceId?: string;
-      conversationId?: string;
     }
-  ): grpc.ClientReadableStream<any> {
-    return this.chatClient.SendMessage(
-      {
-        text,
-        voiceEnabled: opts?.voiceEnabled ?? false,
-        sourceId: opts?.sourceId ?? "",
-        conversationId: opts?.conversationId ?? "",
-      },
-      this.metadata
-    );
+  ): Promise<any> {
+    return this._unary(this.chatClient, "SubmitUserMessage", {
+      text,
+      conversationId: opts?.conversationId ?? "",
+      voiceEnabled: opts?.voiceEnabled ?? false,
+      sourceId: opts?.sourceId ?? "",
+    });
   }
 
-  /** Stop the current AI generation. */
+  /** Subscribe to the chat firehose — events from every conversation. */
+  subscribeChatEvents(
+    cursors: Record<string, number> = {}
+  ): grpc.ClientReadableStream<any> {
+    return this.chatClient.SubscribeEvents({ cursors }, this.metadata);
+  }
+
+  /** Stop AI generation. Empty `conversationId` cancels every active turn. */
   stopGeneration(conversationId: string = ""): Promise<void> {
     return this._unary(this.chatClient, "StopGeneration", { conversationId });
   }
 
-  /** Get chat history for a conversation. */
-  getHistory(
-    conversationId: string = "",
-    limit: number = 50,
-    offset: number = 0
-  ): Promise<any> {
-    return this._unary(this.chatClient, "GetHistory", {
-      conversationId,
-      limit,
-      offset,
+  /** Respond to a pending tool confirmation request. */
+  respondToConfirmation(
+    requestId: string,
+    allowed: boolean,
+    allowLikeThis: boolean = false
+  ): Promise<void> {
+    return this._unary(this.chatClient, "RespondToConfirmation", {
+      requestId,
+      allowed,
+      allowLikeThis,
     });
   }
 
-  /** Clear chat history for a conversation. */
-  clearHistory(conversationId: string = ""): Promise<void> {
-    return this._unary(this.chatClient, "ClearHistory", { conversationId });
-  }
-
-  /** List all conversations. */
   listConversations(): Promise<any> {
     return this._unary(this.chatClient, "ListConversations", {});
   }
 
-  /** Create a new conversation. */
   createConversation(title: string): Promise<any> {
     return this._unary(this.chatClient, "CreateConversation", { title });
   }
 
-  /** Delete a conversation. */
   deleteConversation(conversationId: string): Promise<void> {
     return this._unary(this.chatClient, "DeleteConversation", {
       id: conversationId,
     });
+  }
+
+  clearConversation(conversationId: string): Promise<void> {
+    return this._unary(this.chatClient, "ClearConversation", { conversationId });
   }
 
   // ===== Voice Service =====

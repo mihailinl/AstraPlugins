@@ -112,11 +112,14 @@ class Plugin:
         print(f"Registered successfully. Daemon version: {response.daemon_version}")
 
         # If plugin has client capability and received a session token, create DaemonClient
+        # and start the chat firehose so `on_conversation_event` fires for every
+        # chat event the daemon emits.
         if response.client_session_token:
             from astra_plugin_sdk.daemon_client import DaemonClient
             self.daemon = DaemonClient(daemon_addr, response.client_session_token)
             await self.daemon.connect()
             await self.on_daemon_client_ready(self.daemon)
+            asyncio.create_task(self._chat_firehose_loop(self.daemon))
             print("DaemonClient connected (plugin has client capability)")
 
         # Pass initial language
@@ -380,65 +383,52 @@ class Plugin:
         return ""
 
     def subscribed_events(self) -> list[str]:
-        """Return event types to subscribe to. Empty = no subscription.
-
-        Available event types: "chat_message_sync", "speech_recognized",
-        "command_triggered", "command_completed", "settings_changed",
-        "state_changed", "tts_started", "tts_completed", etc.
+        """Return daemon-level event types to subscribe to. Chat events are NOT
+        here — override :meth:`on_conversation_event` instead (fed by the
+        conversation-log firehose).
         """
         return []
 
     async def on_event(self, event_type: str, payload: dict):
-        """Called when a subscribed event arrives from the daemon (raw fallback).
-
-        Prefer typed handlers like :meth:`on_chat_sync` for common event types.
-
-        Args:
-            event_type: Event tag (e.g. "chat_message_sync").
-            payload: Parsed event payload dict.
+        """Raw daemon-event fallback. Prefer typed handlers like
+        :meth:`on_state_changed` / :meth:`on_command_triggered`.
         """
         pass
 
-    async def on_chat_sync(self, event: dict):
-        """Called when a chat message sync event arrives.
+    async def on_conversation_event(self, conv_id: str, event):
+        """Called for every chat event in every conversation — tool calls,
+        text deltas, user messages, errors, etc.
 
-        The daemon automatically filters by source_id if :meth:`source_id` is set.
-        ``event`` dict has: id, conversation_id, role, content, source_id,
-        is_streaming, is_complete.
+        ``conv_id`` is a UUID string. ``event`` is a ``ConversationEventMsg``
+        (protobuf). Use ``event.WhichOneof('event')`` to dispatch.
+
+        Only invoked for plugins with the ``client`` capability.
         """
         pass
 
     async def on_state_changed(self, event: dict):
-        """Called when daemon state changes. ``event`` has: previous, current."""
         pass
 
     async def on_command_triggered(self, event: dict):
-        """Called when a command is triggered. ``event`` has: command_id, command_name, variables."""
         pass
 
     async def on_command_completed(self, event: dict):
-        """Called when a command completes. ``event`` has: command_id, command_name, success."""
         pass
 
     async def _dispatch_event(self, event_type: str, payload: dict):
-        """Internal: route events to typed handlers, then always call on_event for backward compat."""
-        if event_type == "chat_message_sync":
-            await self.on_chat_sync(payload)
-        elif event_type == "state_changed":
+        if event_type == "state_changed":
             await self.on_state_changed(payload)
         elif event_type == "command_triggered":
             await self.on_command_triggered(payload)
         elif event_type == "command_completed":
             await self.on_command_completed(payload)
-        # Always call raw handler for backward compatibility
         await self.on_event(event_type, payload)
 
     async def _event_loop(self, event_types: list[str]):
-        """Internal: subscribe to daemon events and dispatch to typed handlers."""
-        exclude = self.source_id()
+        """Internal: subscribe to daemon host events and dispatch to typed handlers."""
         while True:
             try:
-                stream = await self.host.subscribe_events(event_types, exclude_source_id=exclude)
+                stream = await self.host.subscribe_events(event_types)
                 print("Event subscription active")
                 async for event in stream:
                     try:
@@ -449,6 +439,20 @@ class Plugin:
                 print("Event subscription stream ended, reconnecting...")
             except Exception as e:
                 print(f"Event subscription error: {e}, retrying...")
+            await asyncio.sleep(2)
+
+    async def _chat_firehose_loop(self, daemon_client):
+        """Internal: subscribe to the chat firehose and dispatch events."""
+        while True:
+            try:
+                stream = daemon_client.subscribe_chat_events({})
+                print("Chat firehose active")
+                async for fe in stream:
+                    if fe.HasField("event"):
+                        await self.on_conversation_event(fe.conversation_id, fe.event)
+                print("Chat firehose stream ended, reconnecting...")
+            except Exception as e:
+                print(f"Chat firehose error: {e}, retrying...")
             await asyncio.sleep(2)
 
 

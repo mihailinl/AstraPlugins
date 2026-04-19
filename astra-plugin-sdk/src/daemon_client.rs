@@ -123,80 +123,79 @@ impl DaemonClient {
         Ok(resp.into_inner())
     }
 
-    // ===== Chat Service =====
+    // ===== Chat Service (event-sourcing API) =====
 
-    /// Send a message and receive streaming response.
-    pub async fn send_message(
+    /// Submit a user message. The daemon appends it to the conversation log
+    /// and drives the AI turn asynchronously; every event reaches this and
+    /// every other client through `subscribe_chat_events`.
+    pub async fn submit_user_message(
         &mut self,
         text: &str,
-        voice_enabled: bool,
-    ) -> Result<tonic::Streaming<proto::ChatStreamChunk>> {
-        self.send_message_full(text, voice_enabled, "", "").await
-    }
-
-    /// Send a message with conversation and source IDs.
-    pub async fn send_message_full(
-        &mut self,
-        text: &str,
+        conversation_id: &str,
         voice_enabled: bool,
         source_id: &str,
-        conversation_id: &str,
-    ) -> Result<tonic::Streaming<proto::ChatStreamChunk>> {
+    ) -> Result<proto::SubmitUserMessageResponse> {
         let resp = self
             .chat
-            .send_message(proto::SendMessageRequest {
+            .submit_user_message(proto::SubmitUserMessageRequest {
                 text: text.to_string(),
                 conversation_id: conversation_id.to_string(),
                 voice_enabled,
-                attachments: Vec::new(),
                 source_id: source_id.to_string(),
                 images: Vec::new(),
+                attachments: Vec::new(),
             })
             .await?;
         Ok(resp.into_inner())
     }
 
-    /// Stop the current AI generation.
-    pub async fn stop_generation(&mut self) -> Result<()> {
-        self.chat.stop_generation(proto::Empty {}).await?;
-        Ok(())
-    }
-
-    /// Get chat history for a conversation.
-    pub async fn get_history(
+    /// Subscribe to the chat firehose — one stream for every conversation.
+    /// `cursors` maps conversation id → last seen seq so the daemon only
+    /// replays what you actually missed. Live events for every conv flow
+    /// through the same stream.
+    pub async fn subscribe_chat_events(
         &mut self,
-        conversation_id: &str,
-        limit: i32,
-        offset: i32,
-    ) -> Result<proto::GetHistoryResponse> {
+        cursors: HashMap<String, u64>,
+    ) -> Result<tonic::Streaming<proto::FirehoseEventMsg>> {
         let resp = self
             .chat
-            .get_history(proto::GetHistoryRequest {
-                conversation_id: conversation_id.to_string(),
-                limit,
-                offset,
-            })
+            .subscribe_events(proto::SubscribeEventsRequest { cursors })
             .await?;
         Ok(resp.into_inner())
     }
 
-    /// Clear chat history for a conversation.
-    pub async fn clear_history(&mut self, conversation_id: &str) -> Result<()> {
+    /// Stop AI generation. Empty `conversation_id` cancels every active turn.
+    pub async fn stop_generation(&mut self, conversation_id: &str) -> Result<()> {
         self.chat
-            .clear_history(proto::ClearHistoryRequest {
+            .stop_generation(proto::StopGenerationRequest {
                 conversation_id: conversation_id.to_string(),
             })
             .await?;
         Ok(())
     }
 
-    /// List all conversations.
+    /// Respond to a pending confirmation request (dangerous tool approval).
+    pub async fn respond_to_confirmation(
+        &mut self,
+        request_id: &str,
+        allowed: bool,
+        allow_like_this: bool,
+    ) -> Result<()> {
+        self.chat
+            .respond_to_confirmation(proto::ConfirmationResponse {
+                request_id: request_id.to_string(),
+                allowed,
+                allow_like_this,
+            })
+            .await?;
+        Ok(())
+    }
+
     pub async fn list_conversations(&mut self) -> Result<proto::ListConversationsResponse> {
         let resp = self.chat.list_conversations(proto::Empty {}).await?;
         Ok(resp.into_inner())
     }
 
-    /// Create a new conversation.
     pub async fn create_conversation(&mut self, title: &str) -> Result<proto::Conversation> {
         let resp = self
             .chat
@@ -207,11 +206,19 @@ impl DaemonClient {
         Ok(resp.into_inner())
     }
 
-    /// Delete a conversation.
     pub async fn delete_conversation(&mut self, conversation_id: &str) -> Result<()> {
         self.chat
             .delete_conversation(proto::DeleteConversationRequest {
                 id: conversation_id.to_string(),
+            })
+            .await?;
+        Ok(())
+    }
+
+    pub async fn clear_conversation(&mut self, conversation_id: &str) -> Result<()> {
+        self.chat
+            .clear_conversation(proto::ClearConversationRequest {
+                conversation_id: conversation_id.to_string(),
             })
             .await?;
         Ok(())

@@ -22,6 +22,9 @@ service CoreService {
     // Stop the core system
     rpc Stop(Empty) returns (Empty);
 
+    // Fully shut down the daemon process (graceful)
+    rpc Shutdown(Empty) returns (Empty);
+
     // Subscribe to real-time events
     rpc SubscribeEvents(Empty) returns (stream AstraEvent);
 }
@@ -46,33 +49,22 @@ enum CoreState {
     CORE_STATE_ERROR = 5;
 }
 
+// General daemon-level notifications. Chat-log events travel through
+// ChatService.SubscribeEvents (firehose), NOT through this stream.
 message AstraEvent {
     Timestamp timestamp = 1;
     oneof event {
         StateChangedEvent state_changed = 2;
         SpeechRecognizedEvent speech_recognized = 3;
-        ChatResponseEvent chat_response = 4;
         AuthStatusEvent auth_status = 5;
         TtsEvent tts_event = 6;
         CommandExecutedEvent command_executed = 7;
         ErrorEvent error = 8;
-        ChatMessageSyncEvent chat_message_sync = 9;
         DaemonStatusEvent daemon_status = 10;
         WidgetDataChangedEvent widget_data_changed = 11;
         PluginStatusChangedEvent plugin_status_changed = 12;
+        DaemonShuttingDownEvent daemon_shutting_down = 14;
     }
-}
-
-// Event for synchronizing chat messages across clients
-message ChatMessageSyncEvent {
-    string id = 1;
-    string conversation_id = 2;
-    string role = 3;      // "user" or "assistant"
-    string content = 4;
-    int64 timestamp = 5;  // Unix timestamp in seconds
-    string source_id = 6;      // Client that originated this message
-    bool is_streaming = 7;     // Is this a streaming update?
-    bool is_complete = 8;      // Is streaming complete?
 }
 
 message StateChangedEvent {
@@ -84,21 +76,6 @@ message SpeechRecognizedEvent {
     string text = 1;
     bool is_final = 2;
     float confidence = 3;
-}
-
-message ChatResponseEvent {
-    oneof content {
-        string text_chunk = 1;
-        ToolExecutionEvent tool_execution = 2;
-        bool done = 3;
-    }
-}
-
-message ToolExecutionEvent {
-    string tool_name = 1;
-    string arguments = 2;  // JSON
-    string result = 3;     // JSON, empty if in progress
-    bool completed = 4;
 }
 
 message AuthStatusEvent {
@@ -134,6 +111,9 @@ message DaemonStatusEvent {
     string status = 1;    // i18n key (e.g. "daemon.status.restoringSession")
     bool is_ready = 2;    // true when startup sequence is complete
 }
+
+// Emitted right before the daemon process exits, so connected UIs can close themselves.
+message DaemonShuttingDownEvent {}
 
 message WidgetDataChangedEvent {
     string widget_type = 1;  // "notes", "reminders", "calendar", "tasks"
@@ -184,104 +164,54 @@ message RefreshTokenResponse {
 
 // ============ Chat Service ============
 
+// The event-log-based chat service. No legacy streaming APIs.
 service ChatService {
-    // Send a message and receive streaming response
-    rpc SendMessage(SendMessageRequest) returns (stream ChatStreamChunk);
+    // Submit a user message. Daemon auto-creates a conversation if conversation_id
+    // is empty, appends a UserMessage event, and drives the AI turn asynchronously.
+    // All subsequent state — tool calls, text deltas, completion — arrives via
+    // SubscribeEvents on the shared firehose.
+    rpc SubmitUserMessage(SubmitUserMessageRequest) returns (SubmitUserMessageResponse);
 
-    // Stop the current AI generation
-    rpc StopGeneration(Empty) returns (Empty);
+    // Stop AI generation (scoped to conversation, or all if empty).
+    rpc StopGeneration(StopGenerationRequest) returns (Empty);
 
-    // Get chat history
-    rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+    // Respond to a dangerous action confirmation request.
+    rpc RespondToConfirmation(ConfirmationResponse) returns (Empty);
 
-    // Clear chat history
-    rpc ClearHistory(ClearHistoryRequest) returns (Empty);
-
-    // Get all conversations
+    // Conversation CRUD.
     rpc ListConversations(Empty) returns (ListConversationsResponse);
-
-    // Create a new conversation
     rpc CreateConversation(CreateConversationRequest) returns (Conversation);
-
-    // Delete a conversation
     rpc DeleteConversation(DeleteConversationRequest) returns (Empty);
+    rpc ClearConversation(ClearConversationRequest) returns (Empty);
 
-    // Switch the active conversation
-    rpc SwitchConversation(SwitchConversationRequest) returns (Empty);
+    // Server-style sync: one stream per client, firehose of events from every
+    // conversation. Client provides cursors to resume incrementally; backlog
+    // is delivered for listed conversations only.
+    rpc SubscribeEvents(SubscribeEventsRequest) returns (stream FirehoseEventMsg);
 }
 
 message ImageAttachment {
-    string mime_type = 1;   // e.g. "image/png", "image/jpeg"
-    bytes data = 2;         // Raw image bytes
-    string filename = 3;    // Original filename
+    string mime_type = 1;
+    bytes data = 2;
+    string filename = 3;
 }
 
-message SendMessageRequest {
-    string text = 1;
-    string conversation_id = 2;
-    bool voice_enabled = 3;
-    repeated string attachments = 4;  // File paths (legacy)
-    string source_id = 5;             // Unique client identifier for sync filtering
-    repeated ImageAttachment images = 6;  // Inline image attachments
+message ApprovalInfo {
+    string request_id = 1;
+    string danger_level = 2;
+    string description = 3;
+    string rule_description = 4;
+    int32 timeout_seconds = 5;
 }
 
-message ChatStreamChunk {
-    oneof chunk {
-        string text = 1;
-        ToolExecution tool = 2;
-        bool done = 3;
-        string error = 4;
-        string thinking = 6;    // Reasoning/thinking content delta
-        string voice = 7;       // TTS-optimized voice content delta
-    }
-    string message_id = 5;
-    string conversation_id = 8;  // Which conversation this response belongs to
+// User's response to a confirmation request.
+message ConfirmationResponse {
+    string request_id = 1;
+    bool allowed = 2;
+    bool allow_like_this = 3;
 }
 
-message ToolExecution {
-    string name = 1;
-    string arguments = 2;  // JSON
-    string result = 3;     // JSON
-    bool completed = 4;
-}
-
-message GetHistoryRequest {
-    string conversation_id = 1;
-    int32 limit = 2;
-    int32 offset = 3;
-}
-
-message GetHistoryResponse {
-    repeated ChatMessage messages = 1;
-    int32 total_count = 2;
-}
-
-message ChatMessage {
-    string id = 1;
-    string conversation_id = 2;
-    MessageRole role = 3;
-    string content = 4;
-    repeated ToolCall tool_calls = 5;
-    Timestamp created_at = 6;
-    repeated ImageAttachment images = 7;  // Attached images
-    repeated string content_segments = 8; // Text segments split at tool call boundaries
-}
-
-enum MessageRole {
-    MESSAGE_ROLE_USER = 0;
-    MESSAGE_ROLE_ASSISTANT = 1;
-    MESSAGE_ROLE_SYSTEM = 2;
-    MESSAGE_ROLE_TOOL = 3;
-}
-
-message ToolCall {
-    string id = 1;
-    string name = 2;
-    string arguments = 3;
-    string result = 4;
-}
-
-message ClearHistoryRequest {
+message ClearConversationRequest {
     string conversation_id = 1;
 }
 
@@ -305,8 +235,125 @@ message DeleteConversationRequest {
     string id = 1;
 }
 
-message SwitchConversationRequest {
+message StopGenerationRequest {
+    string conversation_id = 1;  // Empty = cancel all active generations
+}
+
+// ============ Event-sourcing (Chat) ============
+
+// Client-provided resume cursors: per-conversation last seen seq.
+// Backlog is delivered only for listed conversations (events with seq > cursor).
+// For conversations not in the map, only live events are delivered.
+message SubscribeEventsRequest {
+    map<string, uint64> cursors = 1;
+}
+
+// A single event carrying its conversation identifier.
+message FirehoseEventMsg {
     string conversation_id = 1;
+    ConversationEventMsg event = 2;
+}
+
+message SubmitUserMessageRequest {
+    string conversation_id = 1;  // "" = auto-create new conversation
+    string text = 2;
+    bool voice_enabled = 3;
+    string source_id = 4;        // client id (for display hints; dedup is by seq)
+    repeated ImageAttachment images = 5;
+    repeated string attachments = 6;
+}
+
+message SubmitUserMessageResponse {
+    string conversation_id = 1;
+    string message_id = 2;
+    uint64 seq = 3;  // seq of the UserMessage event that was appended
+}
+
+// One event from the conversation log.
+message ConversationEventMsg {
+    uint64 seq = 1;
+    Timestamp timestamp = 2;
+    string source_id = 3;
+    oneof event {
+        UserMessageEvt user_message = 10;
+        AssistantStartEvt assistant_start = 11;
+        AssistantTextDeltaEvt assistant_text_delta = 12;
+        AssistantThinkingDeltaEvt assistant_thinking_delta = 13;
+        ToolCallStartEvt tool_call_start = 14;
+        ToolConfirmationRequestedEvt tool_confirmation_requested = 15;
+        ToolConfirmationResolvedEvt tool_confirmation_resolved = 16;
+        ToolCallResultEvt tool_call_result = 17;
+        AssistantCompleteEvt assistant_complete = 18;
+        ErrorEvt error = 19;
+        VoiceDeltaEvt voice_delta = 20;
+        CommandOutputEvt command_output = 21;
+    }
+}
+
+message UserMessageEvt {
+    string message_id = 1;
+    string content = 2;
+    repeated ImageAttachment images = 3;
+    repeated string attachments = 4;
+}
+
+message AssistantStartEvt {
+    string message_id = 1;
+}
+
+message AssistantTextDeltaEvt {
+    string message_id = 1;
+    string delta = 2;
+}
+
+message AssistantThinkingDeltaEvt {
+    string message_id = 1;
+    string delta = 2;
+}
+
+message ToolCallStartEvt {
+    string message_id = 1;
+    string call_id = 2;
+    string name = 3;
+    string arguments = 4;
+}
+
+message ToolConfirmationRequestedEvt {
+    string call_id = 1;
+    string request_id = 2;
+    string danger_level = 3;
+    string description = 4;
+    string rule_description = 5;
+    uint32 timeout_seconds = 6;
+}
+
+message ToolConfirmationResolvedEvt {
+    string call_id = 1;
+    bool approved = 2;  // false = denied / timed out
+}
+
+message ToolCallResultEvt {
+    string call_id = 1;
+    string output = 2;
+    string status = 3;  // "completed" | "denied" | "timed_out"
+}
+
+message AssistantCompleteEvt {
+    string message_id = 1;
+}
+
+message ErrorEvt {
+    string message_id = 1;  // empty when not attached to a message
+    string content = 2;
+}
+
+message VoiceDeltaEvt {
+    string message_id = 1;
+    string delta = 2;
+}
+
+message CommandOutputEvt {
+    string content = 1;
 }
 
 // ============ Voice Service ============
@@ -392,6 +439,9 @@ service VoiceService {
 
     // Delete a downloaded LLM matching model
     rpc DeleteLlmMatchModel(DeleteLlmMatchModelRequest) returns (Empty);
+
+    // Set the conversation ID for voice processing (binds voice to UI's active conversation)
+    rpc SetVoiceConversation(SetVoiceConversationRequest) returns (Empty);
 }
 
 message MicrophoneListResponse {
@@ -522,6 +572,10 @@ message DownloadLlmMatchModelRequest {
 
 message DeleteLlmMatchModelRequest {
     string model_id = 1;
+}
+
+message SetVoiceConversationRequest {
+    string conversation_id = 1;  // UUID string; empty = auto-create on next utterance
 }
 
 // ============ Command Service ============
@@ -763,6 +817,7 @@ message SettingsResponse {
     CompanionSettings companion = 7;
     SemanticSettings semantic = 8;
     WidgetVisibilitySettings widgets = 9;
+    SafetySettings safety = 10;
 }
 
 message UpdateSettingsRequest {
@@ -775,6 +830,7 @@ message UpdateSettingsRequest {
     optional CompanionSettings companion = 7;
     optional SemanticSettings semantic = 8;
     optional WidgetVisibilitySettings widgets = 9;
+    optional SafetySettings safety = 10;
 }
 
 message SemanticSettings {
@@ -806,6 +862,11 @@ message GeneralSettings {
     bool location_allowed = 7;
     bool ai_memory_enabled = 8;
     repeated string excluded_paths = 9;  // folders excluded from indexing
+    string wind_speed_unit = 10;  // "kmh", "ms", "mph"
+    string temperature_unit = 11;  // "celsius", "fahrenheit"
+    string weather_location_name = 12;  // user-set city name, empty = auto
+    double weather_location_lat = 13;
+    double weather_location_lon = 14;
 }
 
 message VoiceSettings {
@@ -821,7 +882,8 @@ message VoiceSettings {
     float tts_speed = 7;        // 0.5 to 2.0
     float tts_pitch = 8;        // 0.5 to 2.0
 
-    // Wake words (multiple supported)
+    // Wake word settings
+    string wake_word_mode = 20;     // "astra" (OWW neural) or "custom" (text match)
     repeated string wake_words = 14;
     bool wake_word_enabled = 9;
     float wake_word_sensitivity = 10;
@@ -889,6 +951,14 @@ message WidgetVisibilitySettings {
     bool calendar = 3;
     bool tasks = 4;
     bool currency = 5;
+}
+
+message SafetySettings {
+    bool enabled = 1;                           // Master toggle (default true)
+    string default_level = 2;                   // "all", "critical_only", "none"
+    repeated string whitelisted_tools = 3;      // Tools that never need confirmation
+    repeated string blacklisted_tools = 4;      // Tools that always need confirmation
+    int32 confirmation_timeout_seconds = 5;     // Default 120
 }
 
 message ExportSettingsRequest {
@@ -1120,6 +1190,7 @@ message SystemStats {
     repeated TemperatureSensor temperatures = 7;
     repeated FanSensor fans = 8;
     repeated GpuStats gpus = 9;
+    repeated DiskInfo disks = 10;
 }
 
 message TemperatureSensor {
@@ -1148,6 +1219,17 @@ message GpuStats {
     uint32 fan_speed_percent = 9;
     uint32 power_usage_mw = 10; // milliwatts
     uint32 clock_mhz = 11;     // Core clock speed
+}
+
+message DiskInfo {
+    string id = 1;          // Stable slug, e.g. "c", "root"
+    string name = 2;        // Drive label or mount point
+    string mount_point = 3; // Full mount path, e.g. "C:\", "/"
+    uint64 total_mb = 4;
+    uint64 used_mb = 5;
+    float usage = 6;        // 0-100%
+    string kind = 7;        // "SSD", "HDD", "Unknown"
+    string file_system = 8; // "NTFS", "ext4", etc.
 }
 
 // ============ Companion Service ============
@@ -2285,6 +2367,7 @@ message PluginUiContributionWithMeta {
     string plugin_id = 1;
     string plugin_name = 2;
     PluginUiContribution contribution = 3;
+    bool dom_access = 4;
 }
 
 message AllUiContributionsResponse {
@@ -2353,4 +2436,29 @@ message LanguageChangedMsg {
 message PluginHealthResponse {
     bool healthy = 1;
     string status = 2;
+}
+
+// ============ Client Auth Service ============
+
+service ClientAuthService {
+    // Register as a main client (astraui). Returns a session token.
+    rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+
+    // Gracefully disconnect and release the main client slot.
+    rpc DisconnectClient(DisconnectClientRequest) returns (Empty);
+}
+
+message RegisterClientRequest {
+    string daemon_secret = 1;    // The secret read from daemon.token
+    string client_name = 2;      // Human-readable name (e.g. "astraui")
+}
+
+message RegisterClientResponse {
+    bool success = 1;
+    string session_token = 2;    // Use on all subsequent requests via x-session-token header
+    string error = 3;
+}
+
+message DisconnectClientRequest {
+    string session_token = 1;
 }

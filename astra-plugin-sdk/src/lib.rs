@@ -49,7 +49,7 @@ pub use runner::run;
 pub mod prelude {
     pub use crate::capability::*;
     pub use crate::daemon_client::DaemonClient;
-    pub use crate::events::ChatSyncEvent;
+    pub use crate::events::{StateChangedEvent, CommandTriggeredEvent, CommandCompletedEvent};
     pub use crate::host_client::HostClient;
     pub use crate::i18n::I18n;
     pub use crate::run;

@@ -418,34 +418,33 @@ pub trait PluginCapability: Send + Sync + 'static {
 
     // ── Events ──
 
-    /// Source ID used by this plugin when sending chat messages.
-    /// Events from this source are automatically excluded by the daemon,
-    /// so the plugin never receives its own messages back.
-    /// Return empty string (default) for no exclusion.
+    /// Source ID used by this plugin when sending chat messages. Kept for
+    /// display-hint purposes — the daemon no longer filters by source_id
+    /// (all clients see every event).
     fn source_id(&self) -> &str { "" }
 
-    /// Return event types this plugin wants to subscribe to.
-    /// Return empty vec (default) if no event subscription is needed.
-    ///
-    /// Available event types: "chat_message_sync", "speech_recognized",
-    /// "command_triggered", "command_completed", "settings_changed",
-    /// "state_changed", "tts_started", "tts_completed", etc.
+    /// Return daemon-level event types this plugin wants to subscribe to via
+    /// the host event bus. **Chat events do NOT come through this channel**
+    /// — implement `on_conversation_event` instead (fed by the firehose).
     fn subscribed_events(&self) -> Vec<String> {
         vec![]
     }
 
-    /// Called when a subscribed event arrives from the daemon.
-    /// This is the raw fallback — prefer typed handlers like
-    /// [`on_chat_sync`] for common event types.
-    ///
-    /// `event_type` is the event tag (e.g. "chat_message_sync").
-    /// `payload_json` is the full event serialized as JSON.
+    /// Raw daemon-event fallback. Prefer typed handlers like
+    /// [`on_state_changed`] / [`on_command_triggered`].
     async fn on_event(&self, _event_type: &str, _payload_json: &str) {}
 
-    /// Called when a chat message sync event arrives.
-    /// The SDK automatically deserializes the event and filters by source_id.
-    /// Override this instead of manually parsing "chat_message_sync" in `on_event`.
-    async fn on_chat_sync(&self, _event: crate::events::ChatSyncEvent) {}
+    /// Called for every chat event in every conversation — tool calls, text
+    /// deltas, user messages, errors. This is the single way plugins
+    /// observe the chat system. `conv_id` is a UUID string; the event is
+    /// already JSON-typed.
+    ///
+    /// Only enabled for plugins with the `client` capability.
+    async fn on_conversation_event(
+        &self,
+        _conv_id: &str,
+        _event: &crate::proto::ConversationEventMsg,
+    ) {}
 
     /// Called when daemon state changes (e.g. Ready → Listening).
     async fn on_state_changed(&self, _event: crate::events::StateChangedEvent) {}

@@ -17,15 +17,9 @@ use crate::proto;
 use crate::proto::plugin_capability_service_server::PluginCapabilityServiceServer;
 
 /// Dispatch a daemon event to the appropriate typed handler on the plugin.
-/// Also always calls `on_event()` for backward compatibility — plugins that
-/// override only `on_event()` continue to work even for recognized event types.
+/// Also always calls `on_event()` for the raw payload.
 async fn dispatch_event(plugin: &dyn PluginCapability, event: &proto::PluginEventMsg) {
     match event.event_type.as_str() {
-        "chat_message_sync" => {
-            if let Ok(parsed) = serde_json::from_str::<events::ChatSyncEvent>(&event.payload_json) {
-                plugin.on_chat_sync(parsed).await;
-            }
-        }
         "state_changed" => {
             if let Ok(parsed) = serde_json::from_str::<events::StateChangedEvent>(&event.payload_json) {
                 plugin.on_state_changed(parsed).await;
@@ -43,7 +37,6 @@ async fn dispatch_event(plugin: &dyn PluginCapability, event: &proto::PluginEven
         }
         _ => {}
     }
-    // Always call raw handler for backward compatibility
     plugin.on_event(&event.event_type, &event.payload_json).await;
 }
 
@@ -117,6 +110,8 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
     plugin.set_host(host.clone()).await;
 
     // If plugin has client capability and received a session token, create DaemonClient
+    // and start the chat firehose subscription so the plugin observes every
+    // conversation event the daemon emits.
     if !reg_response.client_session_token.is_empty() {
         let daemon_client = crate::DaemonClient::connect(
             &args.daemon_addr,
@@ -124,8 +119,46 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         )
         .await?;
         let daemon_client = Arc::new(tokio::sync::Mutex::new(daemon_client));
-        plugin.set_daemon_client(daemon_client).await;
+        plugin.set_daemon_client(daemon_client.clone()).await;
         info!("DaemonClient connected (plugin has client capability)");
+
+        // Firehose loop: on_conversation_event for every chat event.
+        let plugin_for_chat = plugin.clone();
+        let dc_for_chat = daemon_client.clone();
+        tokio::spawn(async move {
+            loop {
+                let stream = {
+                    let mut dc = dc_for_chat.lock().await;
+                    dc.subscribe_chat_events(std::collections::HashMap::new()).await
+                };
+                match stream {
+                    Ok(mut stream) => {
+                        info!("Chat firehose active");
+                        use tokio_stream::StreamExt;
+                        while let Some(msg) = stream.next().await {
+                            match msg {
+                                Ok(fe) => {
+                                    if let Some(event) = fe.event {
+                                        plugin_for_chat
+                                            .on_conversation_event(&fe.conversation_id, &event)
+                                            .await;
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Chat firehose error: {e}, will reconnect");
+                                    break;
+                                }
+                            }
+                        }
+                        info!("Chat firehose stream ended, reconnecting...");
+                    }
+                    Err(e) => {
+                        tracing::warn!("Chat firehose subscribe failed: {e}, retrying...");
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        });
     }
 
     // Pass initial config to the plugin
@@ -138,14 +171,14 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         plugin.on_language_changed(&reg_response.language).await;
     }
 
-    // Start event subscription if plugin wants events
+    // Start daemon-event subscription if plugin wants host-level events.
+    // Chat events are NOT here — they come via the firehose above.
     let event_types = plugin.subscribed_events();
     if !event_types.is_empty() {
-        let exclude_source = plugin.source_id().to_string();
-        info!("Subscribing to events: {:?} (exclude_source: {:?})", event_types,
-            if exclude_source.is_empty() { "none" } else { &exclude_source });
+        info!("Subscribing to daemon events: {:?}", event_types);
         let plugin_for_events = plugin.clone();
         let host_for_events = host.clone();
+        let exclude_source = String::new();
         tokio::spawn(async move {
             loop {
                 let stream = {

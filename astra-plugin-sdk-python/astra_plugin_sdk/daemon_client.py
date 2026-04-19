@@ -71,68 +71,79 @@ class DaemonClient:
             plugin_pb2.Empty(), metadata=self._metadata
         )
 
-    # ===== Chat Service =====
+    # ===== Chat Service (event-sourcing API) =====
 
-    async def send_message(
+    async def submit_user_message(
         self,
         text: str,
         *,
+        conversation_id: str = "",
         voice_enabled: bool = False,
         source_id: str = "",
-        conversation_id: str = "",
-    ):
-        """Send a message and receive streaming response. Returns an async iterator of ChatStreamChunk."""
-        return self._chat.SendMessage(
-            plugin_pb2.SendMessageRequest(
+    ) -> plugin_pb2.SubmitUserMessageResponse:
+        """Submit a user message. Daemon auto-creates a conversation if
+        ``conversation_id`` is empty, drives the AI turn asynchronously, and
+        emits events through ``subscribe_chat_events``."""
+        return await self._chat.SubmitUserMessage(
+            plugin_pb2.SubmitUserMessageRequest(
                 text=text,
+                conversation_id=conversation_id,
                 voice_enabled=voice_enabled,
                 source_id=source_id,
-                conversation_id=conversation_id,
             ),
             metadata=self._metadata,
         )
 
-    async def stop_generation(self):
-        """Stop the current AI generation."""
+    def subscribe_chat_events(self, cursors: dict[str, int] | None = None):
+        """Subscribe to the chat firehose — events from every conversation.
+        ``cursors`` maps conversation id → last seen seq; backlog is replayed
+        only for listed conversations, live events arrive for all.
+        Returns an async iterator of FirehoseEventMsg."""
+        return self._chat.SubscribeEvents(
+            plugin_pb2.SubscribeEventsRequest(cursors=cursors or {}),
+            metadata=self._metadata,
+        )
+
+    async def stop_generation(self, conversation_id: str = ""):
+        """Stop AI generation. Empty ``conversation_id`` cancels every active turn."""
         await self._chat.StopGeneration(
-            plugin_pb2.Empty(), metadata=self._metadata
-        )
-
-    async def get_history(
-        self, conversation_id: str = "", limit: int = 50, offset: int = 0
-    ) -> plugin_pb2.GetHistoryResponse:
-        """Get chat history for a conversation."""
-        return await self._chat.GetHistory(
-            plugin_pb2.GetHistoryRequest(
-                conversation_id=conversation_id, limit=limit, offset=offset
-            ),
+            plugin_pb2.StopGenerationRequest(conversation_id=conversation_id),
             metadata=self._metadata,
         )
 
-    async def clear_history(self, conversation_id: str = ""):
-        """Clear chat history for a conversation."""
-        await self._chat.ClearHistory(
-            plugin_pb2.ClearHistoryRequest(conversation_id=conversation_id),
+    async def respond_to_confirmation(
+        self, request_id: str, allowed: bool, allow_like_this: bool = False
+    ):
+        """Respond to a pending tool confirmation request."""
+        await self._chat.RespondToConfirmation(
+            plugin_pb2.ConfirmationResponse(
+                request_id=request_id,
+                allowed=allowed,
+                allow_like_this=allow_like_this,
+            ),
             metadata=self._metadata,
         )
 
     async def list_conversations(self) -> plugin_pb2.ListConversationsResponse:
-        """List all conversations."""
         return await self._chat.ListConversations(
             plugin_pb2.Empty(), metadata=self._metadata
         )
 
     async def create_conversation(self, title: str) -> plugin_pb2.Conversation:
-        """Create a new conversation."""
         return await self._chat.CreateConversation(
             plugin_pb2.CreateConversationRequest(title=title),
             metadata=self._metadata,
         )
 
     async def delete_conversation(self, conversation_id: str):
-        """Delete a conversation."""
         await self._chat.DeleteConversation(
             plugin_pb2.DeleteConversationRequest(id=conversation_id),
+            metadata=self._metadata,
+        )
+
+    async def clear_conversation(self, conversation_id: str):
+        await self._chat.ClearConversation(
+            plugin_pb2.ClearConversationRequest(conversation_id=conversation_id),
             metadata=self._metadata,
         )
 

@@ -20,17 +20,6 @@ import { DaemonClient } from "./daemon-client";
 
 const pluginProto = astraProto;
 
-/** Typed chat message sync event. */
-export interface ChatSyncEvent {
-  id: string;
-  conversation_id: string;
-  role: string;
-  content: string;
-  source_id: string;
-  is_streaming: boolean;
-  is_complete: boolean;
-}
-
 export abstract class Plugin {
   /** Client for calling daemon services. Available after registration. */
   host: HostClient | null = null;
@@ -124,10 +113,13 @@ export abstract class Plugin {
           );
 
           // If plugin has client capability and received a session token, create DaemonClient
+          // and attach to the chat firehose so `onConversationEvent` receives
+          // every chat event across every conversation.
           if (response.clientSessionToken) {
             this.daemon = new DaemonClient(args.daemonAddr, response.clientSessionToken);
             await this.daemon.connect();
             await this.onDaemonClientReady(this.daemon);
+            this.startChatFirehose();
             console.log("DaemonClient connected (plugin has client capability)");
           }
 
@@ -234,25 +226,25 @@ export abstract class Plugin {
 
   // ── Events ──
 
-  /** Source ID for this plugin. Events from this source are auto-filtered by daemon. */
+  /** Source id hint used by this plugin. Display-only now — daemon no longer filters. */
   sourceId(): string { return ""; }
 
-  /** Event types to subscribe to. Override to receive events. */
+  /** Daemon host event types to subscribe to. Chat events are NOT here —
+   * override `onConversationEvent` instead (fed by the chat firehose). */
   subscribedEvents(): string[] { return []; }
 
-  /** Raw event handler (fallback for untyped events). */
+  /** Raw event handler (fallback for untyped daemon events). */
   async onEvent(_eventType: string, _payload: Record<string, unknown>): Promise<void> {}
 
-  /** Called when a chat message sync event arrives (auto-filtered by sourceId). */
-  async onChatSync(_event: ChatSyncEvent): Promise<void> {}
+  /** Called for every chat event in every conversation — tool calls, text
+   * deltas, user messages, errors. Only fires for plugins with the `client`
+   * capability. `event` is a decoded `ConversationEventMsg`. */
+  async onConversationEvent(_convId: string, _event: Record<string, unknown>): Promise<void> {}
 
-  /** Called when daemon state changes. */
   async onStateChanged(_event: { previous: string; current: string }): Promise<void> {}
 
-  /** Called when a command is triggered. */
   async onCommandTriggered(_event: { commandId: string; commandName: string; variables: Record<string, string> }): Promise<void> {}
 
-  /** Called when a command completes. */
   async onCommandCompleted(_event: { commandId: string; commandName: string; success: boolean }): Promise<void> {}
 
   // ── Convenience methods ──
@@ -449,6 +441,35 @@ export abstract class Plugin {
     return { healthy, status };
   }
 
+  /** Attach to the chat firehose — runs for the lifetime of the plugin
+   *  process, auto-reconnecting on error. Events for every conversation are
+   *  dispatched to `onConversationEvent`. */
+  private startChatFirehose(): void {
+    const connect = () => {
+      if (!this.daemon) return;
+      const stream = this.daemon.subscribeChatEvents({});
+      console.log("Chat firehose active");
+      stream.on("data", async (fe: any) => {
+        try {
+          if (fe?.event) {
+            await this.onConversationEvent(fe.conversationId, fe.event);
+          }
+        } catch (e) {
+          console.warn(`onConversationEvent handler threw: ${e}`);
+        }
+      });
+      stream.on("error", (err: Error) => {
+        console.warn(`Chat firehose error: ${err.message}, reconnecting...`);
+        setTimeout(connect, 2000);
+      });
+      stream.on("end", () => {
+        console.log("Chat firehose ended, reconnecting...");
+        setTimeout(connect, 2000);
+      });
+    };
+    connect();
+  }
+
   private startEventLoop(eventTypes: string[], excludeSourceId: string): void {
     const connect = () => {
       const stream = this.host!.subscribeEvents(eventTypes, excludeSourceId);
@@ -474,9 +495,6 @@ export abstract class Plugin {
 
   private async dispatchEvent(eventType: string, payload: Record<string, unknown>): Promise<void> {
     switch (eventType) {
-      case "chat_message_sync":
-        await this.onChatSync(payload as unknown as ChatSyncEvent);
-        break;
       case "state_changed":
         await this.onStateChanged(payload as { previous: string; current: string });
         break;
@@ -487,7 +505,6 @@ export abstract class Plugin {
         await this.onCommandCompleted(payload as { commandId: string; commandName: string; success: boolean });
         break;
     }
-    // Always call raw handler for backward compatibility
     await this.onEvent(eventType, payload);
   }
 }
