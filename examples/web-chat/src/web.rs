@@ -179,10 +179,8 @@ function connect() {
     log('← ' + msg.type + (msg.data?.role ? ' role=' + msg.data.role : '') + (msg.data?.source_id ? ' src=' + msg.data.source_id : ''));
     switch(msg.type) {
       case 'conversations': renderConversations(msg.data); break;
-      case 'history': renderHistory(msg.data); break;
-      case 'sync': handleSync(msg.data); break;
-      case 'chunk': handleChunk(msg.data); break;
-      case 'done': finalizeDone(); break;
+      case 'event': handleFirehoseEvent(msg); break;
+      case 'submitted': /* daemon accepted the message; firehose will deliver the turn */ break;
       case 'error': log('ERROR: ' + msg.data); break;
     }
   };
@@ -203,68 +201,75 @@ function renderConversations(convs) {
 function selectConv(id, title) {
   activeConvId = id;
   document.getElementById('header').textContent = title || 'Chat';
+  // Clear the rendered view; incoming firehose events for this conv will
+  // repopulate it. History backfill for already-seen events isn't wired yet.
   document.getElementById('messages').innerHTML = '';
-  renderConversations([]); // will re-highlight after load
-  ws.send(JSON.stringify({ type: 'load_history', conversation_id: id }));
   loadConversations();
 }
 
-function renderHistory(msgs) {
-  const el = document.getElementById('messages');
-  el.innerHTML = msgs.map(m =>
-    `<div class="msg ${m.role}"><div class="meta">${m.role}</div><div class="bubble">${esc(m.content)}</div></div>`
-  ).join('');
-  el.scrollTop = el.scrollHeight;
+// Accumulated text per assistant message, keyed by message_id.
+const assistantBuffers = {};
+
+function handleFirehoseEvent(msg) {
+  if (activeConvId && msg.conversation_id !== activeConvId) return;
+  switch (msg.kind) {
+    case 'user_message': {
+      appendMessage('user', msg.body.message_id, msg.body.content);
+      break;
+    }
+    case 'assistant_start': {
+      assistantBuffers[msg.body.message_id] = '';
+      appendMessage('assistant', msg.body.message_id, '');
+      break;
+    }
+    case 'assistant_text_delta': {
+      const id = msg.body.message_id;
+      assistantBuffers[id] = (assistantBuffers[id] || '') + msg.body.delta;
+      updateBubble(id, assistantBuffers[id]);
+      break;
+    }
+    case 'assistant_complete': {
+      delete assistantBuffers[msg.body.message_id];
+      break;
+    }
+    case 'tool_call_start': {
+      log('Tool: ' + msg.body.name + ' …');
+      break;
+    }
+    case 'tool_call_result': {
+      log('Tool: done (' + (msg.body.status || 'completed') + ')');
+      break;
+    }
+    case 'error': {
+      log('Daemon error: ' + (msg.body.content || ''));
+      break;
+    }
+  }
 }
 
-function handleSync(data) {
-  // Only show for active conversation (or if no conversation selected)
-  if (activeConvId && data.conversation_id !== activeConvId) return;
-  if (data.source_id === sourceId) return; // skip own
-
+function appendMessage(role, id, content) {
   const el = document.getElementById('messages');
-  let existing = document.getElementById('sync-' + data.id);
-  if (existing) {
-    existing.querySelector('.bubble').textContent = data.content || '...';
-  } else {
+  let existing = document.getElementById('m-' + id);
+  if (!existing) {
     const div = document.createElement('div');
-    div.className = 'msg ' + data.role;
-    div.id = 'sync-' + data.id;
-    div.innerHTML = `<div class="meta">${data.role} <span class="sync-badge">SYNC</span></div><div class="bubble">${esc(data.content||'...')}</div>`;
+    div.className = 'msg ' + role;
+    div.id = 'm-' + id;
+    div.innerHTML = `<div class="meta">${role}</div><div class="bubble">${esc(content)}</div>`;
     el.appendChild(div);
+  } else {
+    existing.querySelector('.bubble').textContent = content;
   }
   el.scrollTop = el.scrollHeight;
 }
 
-function handleChunk(data) {
-  if (data.chunk.kind === 'text') {
-    streamingContent += data.chunk.content;
-    // Update conversation ID if auto-created
-    if (data.conversation_id && !activeConvId) {
-      activeConvId = data.conversation_id;
-      loadConversations();
-    }
-    const el = document.getElementById('messages');
-    let existing = document.getElementById('streaming');
-    if (existing) {
-      existing.querySelector('.bubble').textContent = streamingContent;
-    } else {
-      const div = document.createElement('div');
-      div.className = 'msg assistant';
-      div.id = 'streaming';
-      div.innerHTML = `<div class="meta">assistant</div><div class="bubble">${esc(streamingContent)}</div>`;
-      el.appendChild(div);
-    }
-    el.scrollTop = el.scrollHeight;
-  } else if (data.chunk.kind === 'tool') {
-    log('Tool: ' + data.chunk.name + (data.chunk.completed ? ' ✔' : ' ...'));
+function updateBubble(id, text) {
+  const existing = document.getElementById('m-' + id);
+  if (existing) {
+    existing.querySelector('.bubble').textContent = text;
+    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+  } else {
+    appendMessage('assistant', id, text);
   }
-}
-
-function finalizeDone() {
-  const el = document.getElementById('streaming');
-  if (el) el.id = '';
-  streamingContent = '';
 }
 
 function sendMsg() {
