@@ -1,5 +1,6 @@
 mod web;
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use astra_plugin_sdk::prelude::*;
@@ -7,16 +8,20 @@ use tokio::sync::Mutex;
 use tracing::info;
 
 const SOURCE_ID: &str = "web-chat-client";
+/// Max events kept in the replay buffer. Older events are dropped on insert;
+/// reconnecting browsers see only the tail, but for a daemon with ever-growing
+/// streams this keeps the plugin's memory footprint bounded.
+const HISTORY_CAP: usize = 10_000;
 
 type SharedDaemon = Arc<Mutex<Option<DaemonClient>>>;
 
 /// In-memory state shared between plugin + web server.
 ///
-/// `history` holds every JSON event the plugin has observed so far. WS clients
-/// connecting mid-flight replay it before switching to the live broadcast.
+/// `history` keeps the most recent `HISTORY_CAP` JSON events so WS clients
+/// connecting mid-flight can replay before switching to the live broadcast.
 pub struct AppState {
     pub daemon: SharedDaemon,
-    pub history: tokio::sync::RwLock<Vec<String>>,
+    pub history: tokio::sync::RwLock<VecDeque<String>>,
     pub event_tx: tokio::sync::broadcast::Sender<String>,
 }
 
@@ -31,7 +36,7 @@ impl WebChatPlugin {
         let (event_tx, _) = tokio::sync::broadcast::channel::<String>(1024);
         let state = Arc::new(AppState {
             daemon: daemon.clone(),
-            history: tokio::sync::RwLock::new(Vec::new()),
+            history: tokio::sync::RwLock::new(VecDeque::with_capacity(HISTORY_CAP)),
             event_tx,
         });
         Self { daemon, state }
@@ -104,7 +109,13 @@ impl PluginCapability for WebChatPlugin {
         });
         let serialized = wrapped.to_string();
         // Buffer for late-arriving WS clients; broadcast for already-connected ones.
-        self.state.history.write().await.push(serialized.clone());
+        {
+            let mut history = self.state.history.write().await;
+            if history.len() >= HISTORY_CAP {
+                history.pop_front();
+            }
+            history.push_back(serialized.clone());
+        }
         let _ = self.state.event_tx.send(serialized);
     }
 

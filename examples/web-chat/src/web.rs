@@ -40,8 +40,17 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
 
     let snapshot_state = state.clone();
     let tx_task = tokio::spawn(async move {
-        // 1. Replay every event observed so far (full history from plugin startup).
-        let snapshot: Vec<String> = snapshot_state.history.read().await.clone();
+        // 1. Replay every event in the bounded buffer (most recent HISTORY_CAP
+        //    entries). Older events are dropped — clients that reconnect late
+        //    into a long-running daemon only see the tail, which is fine for
+        //    keeping the plugin's memory footprint flat.
+        let snapshot: Vec<String> = snapshot_state
+            .history
+            .read()
+            .await
+            .iter()
+            .cloned()
+            .collect();
         tracing::info!("WS connected — replaying {} buffered events", snapshot.len());
         for item in snapshot {
             if ws_tx.send(Message::Text(item.into())).await.is_err() {
