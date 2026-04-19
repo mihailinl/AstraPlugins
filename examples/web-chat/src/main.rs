@@ -11,9 +11,12 @@ const SOURCE_ID: &str = "web-chat-client";
 type SharedDaemon = Arc<Mutex<Option<DaemonClient>>>;
 
 /// In-memory state shared between plugin + web server.
+///
+/// `history` holds every JSON event the plugin has observed so far. WS clients
+/// connecting mid-flight replay it before switching to the live broadcast.
 pub struct AppState {
     pub daemon: SharedDaemon,
-    /// Broadcast channel for sync events → WebSocket clients
+    pub history: tokio::sync::RwLock<Vec<String>>,
     pub event_tx: tokio::sync::broadcast::Sender<String>,
 }
 
@@ -25,9 +28,10 @@ struct WebChatPlugin {
 impl WebChatPlugin {
     fn new() -> Self {
         let daemon: SharedDaemon = Arc::new(Mutex::new(None));
-        let (event_tx, _) = tokio::sync::broadcast::channel::<String>(256);
+        let (event_tx, _) = tokio::sync::broadcast::channel::<String>(1024);
         let state = Arc::new(AppState {
             daemon: daemon.clone(),
+            history: tokio::sync::RwLock::new(Vec::new()),
             event_tx,
         });
         Self { daemon, state }
@@ -98,7 +102,10 @@ impl PluginCapability for WebChatPlugin {
             "kind": kind,
             "body": body,
         });
-        let _ = self.state.event_tx.send(wrapped.to_string());
+        let serialized = wrapped.to_string();
+        // Buffer for late-arriving WS clients; broadcast for already-connected ones.
+        self.state.history.write().await.push(serialized.clone());
+        let _ = self.state.event_tx.send(serialized);
     }
 
     async fn on_shutdown(&self) {

@@ -34,10 +34,21 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) ->
 
 async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
     let (mut ws_tx, mut ws_rx) = socket.split();
+    // Subscribe to live events BEFORE reading the snapshot so we don't miss
+    // anything that arrives between snapshot read and live subscription.
     let mut event_rx = state.event_tx.subscribe();
 
-    // Forward broadcast messages → WebSocket (messages already have their own "type" field)
+    let snapshot_state = state.clone();
     let tx_task = tokio::spawn(async move {
+        // 1. Replay every event observed so far (full history from plugin startup).
+        let snapshot: Vec<String> = snapshot_state.history.read().await.clone();
+        tracing::info!("WS connected — replaying {} buffered events", snapshot.len());
+        for item in snapshot {
+            if ws_tx.send(Message::Text(item.into())).await.is_err() {
+                return;
+            }
+        }
+        // 2. Stream live events. Client dedups by (conv_id, message_id).
         loop {
             match event_rx.recv().await {
                 Ok(json) => {
