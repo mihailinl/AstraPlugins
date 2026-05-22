@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from astra_plugin_sdk.proto import plugin_pb2 as plugin__pb2
+from astra_plugin_sdk.proto import plugin_pb2 as astra__plugin__sdk_dot_proto_dot_plugin__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in plugin_pb2_grpc.py depends on'
+        + ' but the generated code in astra_plugin_sdk/proto/plugin_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -38,23 +38,28 @@ class CoreServiceStub(object):
         """
         self.GetState = channel.unary_unary(
                 '/astra.CoreService/GetState',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.CoreStateResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CoreStateResponse.FromString,
                 _registered_method=True)
         self.Start = channel.unary_unary(
                 '/astra.CoreService/Start',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Stop = channel.unary_unary(
                 '/astra.CoreService/Stop',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.Shutdown = channel.unary_unary(
+                '/astra.CoreService/Shutdown',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.SubscribeEvents = channel.unary_stream(
                 '/astra.CoreService/SubscribeEvents',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.AstraEvent.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AstraEvent.FromString,
                 _registered_method=True)
 
 
@@ -84,6 +89,13 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Shutdown(self, request, context):
+        """Fully shut down the daemon process (graceful)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeEvents(self, request, context):
         """Subscribe to real-time events
         """
@@ -96,23 +108,28 @@ def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetState,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.CoreStateResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CoreStateResponse.SerializeToString,
             ),
             'Start': grpc.unary_unary_rpc_method_handler(
                     servicer.Start,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'Stop': grpc.unary_unary_rpc_method_handler(
                     servicer.Stop,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'Shutdown': grpc.unary_unary_rpc_method_handler(
+                    servicer.Shutdown,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'SubscribeEvents': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeEvents,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.AstraEvent.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AstraEvent.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -142,8 +159,8 @@ class CoreService(object):
             request,
             target,
             '/astra.CoreService/GetState',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.CoreStateResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CoreStateResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -169,8 +186,8 @@ class CoreService(object):
             request,
             target,
             '/astra.CoreService/Start',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -196,8 +213,35 @@ class CoreService(object):
             request,
             target,
             '/astra.CoreService/Stop',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Shutdown(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/Shutdown',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -223,8 +267,8 @@ class CoreService(object):
             request,
             target,
             '/astra.CoreService/SubscribeEvents',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.AstraEvent.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.AstraEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -249,23 +293,23 @@ class AuthServiceStub(object):
         """
         self.GetStatus = channel.unary_unary(
                 '/astra.AuthService/GetStatus',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.AuthStatusResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AuthStatusResponse.FromString,
                 _registered_method=True)
         self.StartLogin = channel.unary_unary(
                 '/astra.AuthService/StartLogin',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.LoginResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LoginResponse.FromString,
                 _registered_method=True)
         self.Logout = channel.unary_unary(
                 '/astra.AuthService/Logout',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.RefreshToken = channel.unary_unary(
                 '/astra.AuthService/RefreshToken',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.RefreshTokenResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RefreshTokenResponse.FromString,
                 _registered_method=True)
 
 
@@ -307,23 +351,23 @@ def add_AuthServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetStatus,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.AuthStatusResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AuthStatusResponse.SerializeToString,
             ),
             'StartLogin': grpc.unary_unary_rpc_method_handler(
                     servicer.StartLogin,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.LoginResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LoginResponse.SerializeToString,
             ),
             'Logout': grpc.unary_unary_rpc_method_handler(
                     servicer.Logout,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'RefreshToken': grpc.unary_unary_rpc_method_handler(
                     servicer.RefreshToken,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.RefreshTokenResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RefreshTokenResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -353,8 +397,8 @@ class AuthService(object):
             request,
             target,
             '/astra.AuthService/GetStatus',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.AuthStatusResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.AuthStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -380,8 +424,8 @@ class AuthService(object):
             request,
             target,
             '/astra.AuthService/StartLogin',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.LoginResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.LoginResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -407,8 +451,8 @@ class AuthService(object):
             request,
             target,
             '/astra.AuthService/Logout',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -434,8 +478,8 @@ class AuthService(object):
             request,
             target,
             '/astra.AuthService/RefreshToken',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.RefreshTokenResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.RefreshTokenResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -450,6 +494,7 @@ class AuthService(object):
 class ChatServiceStub(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
     def __init__(self, channel):
@@ -458,104 +503,107 @@ class ChatServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SendMessage = channel.unary_stream(
-                '/astra.ChatService/SendMessage',
-                request_serializer=plugin__pb2.SendMessageRequest.SerializeToString,
-                response_deserializer=plugin__pb2.ChatStreamChunk.FromString,
+        self.SubmitUserMessage = channel.unary_unary(
+                '/astra.ChatService/SubmitUserMessage',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageResponse.FromString,
                 _registered_method=True)
         self.StopGeneration = channel.unary_unary(
                 '/astra.ChatService/StopGeneration',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.StopGenerationRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
-        self.GetHistory = channel.unary_unary(
-                '/astra.ChatService/GetHistory',
-                request_serializer=plugin__pb2.GetHistoryRequest.SerializeToString,
-                response_deserializer=plugin__pb2.GetHistoryResponse.FromString,
-                _registered_method=True)
-        self.ClearHistory = channel.unary_unary(
-                '/astra.ChatService/ClearHistory',
-                request_serializer=plugin__pb2.ClearHistoryRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+        self.RespondToConfirmation = channel.unary_unary(
+                '/astra.ChatService/RespondToConfirmation',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ConfirmationResponse.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.ListConversations = channel.unary_unary(
                 '/astra.ChatService/ListConversations',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.ListConversationsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListConversationsResponse.FromString,
                 _registered_method=True)
         self.CreateConversation = channel.unary_unary(
                 '/astra.ChatService/CreateConversation',
-                request_serializer=plugin__pb2.CreateConversationRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Conversation.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateConversationRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Conversation.FromString,
                 _registered_method=True)
         self.DeleteConversation = channel.unary_unary(
                 '/astra.ChatService/DeleteConversation',
-                request_serializer=plugin__pb2.DeleteConversationRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteConversationRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
-        self.SwitchConversation = channel.unary_unary(
-                '/astra.ChatService/SwitchConversation',
-                request_serializer=plugin__pb2.SwitchConversationRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+        self.ClearConversation = channel.unary_unary(
+                '/astra.ChatService/ClearConversation',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ClearConversationRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SubscribeEvents = channel.unary_stream(
+                '/astra.ChatService/SubscribeEvents',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeEventsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.FirehoseEventMsg.FromString,
                 _registered_method=True)
 
 
 class ChatServiceServicer(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
-    def SendMessage(self, request, context):
-        """Send a message and receive streaming response
+    def SubmitUserMessage(self, request, context):
+        """Submit a user message. Daemon auto-creates a conversation if conversation_id
+        is empty, appends a UserMessage event, and drives the AI turn asynchronously.
+        All subsequent state — tool calls, text deltas, completion — arrives via
+        SubscribeEvents on the shared firehose.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def StopGeneration(self, request, context):
-        """Stop the current AI generation
+        """Stop AI generation (scoped to conversation, or all if empty).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetHistory(self, request, context):
-        """Get chat history
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ClearHistory(self, request, context):
-        """Clear chat history
+    def RespondToConfirmation(self, request, context):
+        """Respond to a dangerous action confirmation request.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListConversations(self, request, context):
-        """Get all conversations
+        """Conversation CRUD.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateConversation(self, request, context):
-        """Create a new conversation
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def DeleteConversation(self, request, context):
-        """Delete a conversation
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SwitchConversation(self, request, context):
-        """Switch the active conversation
+    def ClearConversation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeEvents(self, request, context):
+        """Server-style sync: one stream per client, firehose of events from every
+        conversation. Client provides cursors to resume incrementally; backlog
+        is delivered for listed conversations only.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -564,45 +612,45 @@ class ChatServiceServicer(object):
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SendMessage': grpc.unary_stream_rpc_method_handler(
-                    servicer.SendMessage,
-                    request_deserializer=plugin__pb2.SendMessageRequest.FromString,
-                    response_serializer=plugin__pb2.ChatStreamChunk.SerializeToString,
+            'SubmitUserMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitUserMessage,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageResponse.SerializeToString,
             ),
             'StopGeneration': grpc.unary_unary_rpc_method_handler(
                     servicer.StopGeneration,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.StopGenerationRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
-            'GetHistory': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetHistory,
-                    request_deserializer=plugin__pb2.GetHistoryRequest.FromString,
-                    response_serializer=plugin__pb2.GetHistoryResponse.SerializeToString,
-            ),
-            'ClearHistory': grpc.unary_unary_rpc_method_handler(
-                    servicer.ClearHistory,
-                    request_deserializer=plugin__pb2.ClearHistoryRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            'RespondToConfirmation': grpc.unary_unary_rpc_method_handler(
+                    servicer.RespondToConfirmation,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ConfirmationResponse.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'ListConversations': grpc.unary_unary_rpc_method_handler(
                     servicer.ListConversations,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.ListConversationsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListConversationsResponse.SerializeToString,
             ),
             'CreateConversation': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateConversation,
-                    request_deserializer=plugin__pb2.CreateConversationRequest.FromString,
-                    response_serializer=plugin__pb2.Conversation.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateConversationRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Conversation.SerializeToString,
             ),
             'DeleteConversation': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteConversation,
-                    request_deserializer=plugin__pb2.DeleteConversationRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteConversationRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
-            'SwitchConversation': grpc.unary_unary_rpc_method_handler(
-                    servicer.SwitchConversation,
-                    request_deserializer=plugin__pb2.SwitchConversationRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            'ClearConversation': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClearConversation,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ClearConversationRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'SubscribeEvents': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeEvents,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeEventsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.FirehoseEventMsg.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -615,10 +663,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
 class ChatService(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
     @staticmethod
-    def SendMessage(request,
+    def SubmitUserMessage(request,
             target,
             options=(),
             channel_credentials=None,
@@ -628,12 +677,12 @@ class ChatService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
+        return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/SendMessage',
-            plugin__pb2.SendMessageRequest.SerializeToString,
-            plugin__pb2.ChatStreamChunk.FromString,
+            '/astra.ChatService/SubmitUserMessage',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubmitUserMessageResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -659,8 +708,8 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/StopGeneration',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.StopGenerationRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -672,7 +721,7 @@ class ChatService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetHistory(request,
+    def RespondToConfirmation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -685,36 +734,9 @@ class ChatService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/GetHistory',
-            plugin__pb2.GetHistoryRequest.SerializeToString,
-            plugin__pb2.GetHistoryResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ClearHistory(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.ChatService/ClearHistory',
-            plugin__pb2.ClearHistoryRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            '/astra.ChatService/RespondToConfirmation',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ConfirmationResponse.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -740,8 +762,8 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/ListConversations',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.ListConversationsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListConversationsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -767,8 +789,8 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/CreateConversation',
-            plugin__pb2.CreateConversationRequest.SerializeToString,
-            plugin__pb2.Conversation.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateConversationRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Conversation.FromString,
             options,
             channel_credentials,
             insecure,
@@ -794,8 +816,8 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/DeleteConversation',
-            plugin__pb2.DeleteConversationRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteConversationRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -807,7 +829,7 @@ class ChatService(object):
             _registered_method=True)
 
     @staticmethod
-    def SwitchConversation(request,
+    def ClearConversation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -820,9 +842,36 @@ class ChatService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/SwitchConversation',
-            plugin__pb2.SwitchConversationRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            '/astra.ChatService/ClearConversation',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ClearConversationRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/astra.ChatService/SubscribeEvents',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeEventsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.FirehoseEventMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -847,128 +896,133 @@ class VoiceServiceStub(object):
         """
         self.StartListening = channel.unary_unary(
                 '/astra.VoiceService/StartListening',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StopListening = channel.unary_unary(
                 '/astra.VoiceService/StopListening',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetMicrophones = channel.unary_unary(
                 '/astra.VoiceService/GetMicrophones',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MicrophoneListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MicrophoneListResponse.FromString,
                 _registered_method=True)
         self.SetMicrophone = channel.unary_unary(
                 '/astra.VoiceService/SetMicrophone',
-                request_serializer=plugin__pb2.SetMicrophoneRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetMicrophoneRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Speak = channel.unary_unary(
                 '/astra.VoiceService/Speak',
-                request_serializer=plugin__pb2.SpeakRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SpeakRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StopSpeaking = channel.unary_unary(
                 '/astra.VoiceService/StopSpeaking',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetVoices = channel.unary_unary(
                 '/astra.VoiceService/GetVoices',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.VoiceListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.VoiceListResponse.FromString,
                 _registered_method=True)
         self.SetVoice = channel.unary_unary(
                 '/astra.VoiceService/SetVoice',
-                request_serializer=plugin__pb2.SetVoiceRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetWhisperModels = channel.unary_unary(
                 '/astra.VoiceService/GetWhisperModels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.WhisperModelsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WhisperModelsResponse.FromString,
                 _registered_method=True)
         self.DownloadWhisperModel = channel.unary_unary(
                 '/astra.VoiceService/DownloadWhisperModel',
-                request_serializer=plugin__pb2.DownloadWhisperModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadWhisperModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetDownloadProgress = channel.unary_unary(
                 '/astra.VoiceService/GetDownloadProgress',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
                 _registered_method=True)
         self.CancelDownload = channel.unary_unary(
                 '/astra.VoiceService/CancelDownload',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.DeleteWhisperModel = channel.unary_unary(
                 '/astra.VoiceService/DeleteWhisperModel',
-                request_serializer=plugin__pb2.DeleteWhisperModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteWhisperModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.SearchVoices = channel.unary_unary(
                 '/astra.VoiceService/SearchVoices',
-                request_serializer=plugin__pb2.SearchVoicesRequest.SerializeToString,
-                response_deserializer=plugin__pb2.SearchVoicesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesResponse.FromString,
                 _registered_method=True)
         self.GetTtsProviders = channel.unary_unary(
                 '/astra.VoiceService/GetTtsProviders',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.TtsProvidersResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TtsProvidersResponse.FromString,
                 _registered_method=True)
         self.GetEmbeddingModels = channel.unary_unary(
                 '/astra.VoiceService/GetEmbeddingModels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.EmbeddingModelsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.EmbeddingModelsResponse.FromString,
                 _registered_method=True)
         self.DownloadEmbeddingModel = channel.unary_unary(
                 '/astra.VoiceService/DownloadEmbeddingModel',
-                request_serializer=plugin__pb2.DownloadEmbeddingModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadEmbeddingModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetEmbeddingDownloadProgress = channel.unary_unary(
                 '/astra.VoiceService/GetEmbeddingDownloadProgress',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
                 _registered_method=True)
         self.CancelEmbeddingDownload = channel.unary_unary(
                 '/astra.VoiceService/CancelEmbeddingDownload',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.DeleteEmbeddingModel = channel.unary_unary(
                 '/astra.VoiceService/DeleteEmbeddingModel',
-                request_serializer=plugin__pb2.DeleteEmbeddingModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteEmbeddingModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetLlmMatchModels = channel.unary_unary(
                 '/astra.VoiceService/GetLlmMatchModels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.LlmMatchModelsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LlmMatchModelsResponse.FromString,
                 _registered_method=True)
         self.DownloadLlmMatchModel = channel.unary_unary(
                 '/astra.VoiceService/DownloadLlmMatchModel',
-                request_serializer=plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetLlmMatchDownloadProgress = channel.unary_unary(
                 '/astra.VoiceService/GetLlmMatchDownloadProgress',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
                 _registered_method=True)
         self.CancelLlmMatchDownload = channel.unary_unary(
                 '/astra.VoiceService/CancelLlmMatchDownload',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.DeleteLlmMatchModel = channel.unary_unary(
                 '/astra.VoiceService/DeleteLlmMatchModel',
-                request_serializer=plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetVoiceConversation = channel.unary_unary(
+                '/astra.VoiceService/SetVoiceConversation',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceConversationRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -1158,133 +1212,145 @@ class VoiceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetVoiceConversation(self, request, context):
+        """Set the conversation ID for voice processing (binds voice to UI's active conversation)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_VoiceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'StartListening': grpc.unary_unary_rpc_method_handler(
                     servicer.StartListening,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StopListening': grpc.unary_unary_rpc_method_handler(
                     servicer.StopListening,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetMicrophones': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMicrophones,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MicrophoneListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MicrophoneListResponse.SerializeToString,
             ),
             'SetMicrophone': grpc.unary_unary_rpc_method_handler(
                     servicer.SetMicrophone,
-                    request_deserializer=plugin__pb2.SetMicrophoneRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetMicrophoneRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'Speak': grpc.unary_unary_rpc_method_handler(
                     servicer.Speak,
-                    request_deserializer=plugin__pb2.SpeakRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SpeakRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StopSpeaking': grpc.unary_unary_rpc_method_handler(
                     servicer.StopSpeaking,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetVoices': grpc.unary_unary_rpc_method_handler(
                     servicer.GetVoices,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.VoiceListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.VoiceListResponse.SerializeToString,
             ),
             'SetVoice': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVoice,
-                    request_deserializer=plugin__pb2.SetVoiceRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetWhisperModels': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWhisperModels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.WhisperModelsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WhisperModelsResponse.SerializeToString,
             ),
             'DownloadWhisperModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DownloadWhisperModel,
-                    request_deserializer=plugin__pb2.DownloadWhisperModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadWhisperModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetDownloadProgress': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDownloadProgress,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.SerializeToString,
             ),
             'CancelDownload': grpc.unary_unary_rpc_method_handler(
                     servicer.CancelDownload,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'DeleteWhisperModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteWhisperModel,
-                    request_deserializer=plugin__pb2.DeleteWhisperModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteWhisperModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'SearchVoices': grpc.unary_unary_rpc_method_handler(
                     servicer.SearchVoices,
-                    request_deserializer=plugin__pb2.SearchVoicesRequest.FromString,
-                    response_serializer=plugin__pb2.SearchVoicesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesResponse.SerializeToString,
             ),
             'GetTtsProviders': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTtsProviders,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.TtsProvidersResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TtsProvidersResponse.SerializeToString,
             ),
             'GetEmbeddingModels': grpc.unary_unary_rpc_method_handler(
                     servicer.GetEmbeddingModels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.EmbeddingModelsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.EmbeddingModelsResponse.SerializeToString,
             ),
             'DownloadEmbeddingModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DownloadEmbeddingModel,
-                    request_deserializer=plugin__pb2.DownloadEmbeddingModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadEmbeddingModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetEmbeddingDownloadProgress': grpc.unary_unary_rpc_method_handler(
                     servicer.GetEmbeddingDownloadProgress,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.SerializeToString,
             ),
             'CancelEmbeddingDownload': grpc.unary_unary_rpc_method_handler(
                     servicer.CancelEmbeddingDownload,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'DeleteEmbeddingModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteEmbeddingModel,
-                    request_deserializer=plugin__pb2.DeleteEmbeddingModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteEmbeddingModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetLlmMatchModels': grpc.unary_unary_rpc_method_handler(
                     servicer.GetLlmMatchModels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.LlmMatchModelsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LlmMatchModelsResponse.SerializeToString,
             ),
             'DownloadLlmMatchModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DownloadLlmMatchModel,
-                    request_deserializer=plugin__pb2.DownloadLlmMatchModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadLlmMatchModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetLlmMatchDownloadProgress': grpc.unary_unary_rpc_method_handler(
                     servicer.GetLlmMatchDownloadProgress,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.SerializeToString,
             ),
             'CancelLlmMatchDownload': grpc.unary_unary_rpc_method_handler(
                     servicer.CancelLlmMatchDownload,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'DeleteLlmMatchModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteLlmMatchModel,
-                    request_deserializer=plugin__pb2.DeleteLlmMatchModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteLlmMatchModelRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetVoiceConversation': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetVoiceConversation,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceConversationRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1314,8 +1380,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/StartListening',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1341,8 +1407,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/StopListening',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1368,8 +1434,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetMicrophones',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MicrophoneListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MicrophoneListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1395,8 +1461,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/SetMicrophone',
-            plugin__pb2.SetMicrophoneRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetMicrophoneRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1422,8 +1488,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/Speak',
-            plugin__pb2.SpeakRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SpeakRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1449,8 +1515,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/StopSpeaking',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1476,8 +1542,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetVoices',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.VoiceListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.VoiceListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1503,8 +1569,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/SetVoice',
-            plugin__pb2.SetVoiceRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1530,8 +1596,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetWhisperModels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.WhisperModelsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.WhisperModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1557,8 +1623,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DownloadWhisperModel',
-            plugin__pb2.DownloadWhisperModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadWhisperModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1584,8 +1650,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetDownloadProgress',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DownloadProgressResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1611,8 +1677,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/CancelDownload',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1638,8 +1704,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DeleteWhisperModel',
-            plugin__pb2.DeleteWhisperModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteWhisperModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1665,8 +1731,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/SearchVoices',
-            plugin__pb2.SearchVoicesRequest.SerializeToString,
-            plugin__pb2.SearchVoicesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SearchVoicesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1692,8 +1758,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetTtsProviders',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.TtsProvidersResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.TtsProvidersResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1719,8 +1785,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetEmbeddingModels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.EmbeddingModelsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.EmbeddingModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1746,8 +1812,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DownloadEmbeddingModel',
-            plugin__pb2.DownloadEmbeddingModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadEmbeddingModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1773,8 +1839,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetEmbeddingDownloadProgress',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DownloadProgressResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1800,8 +1866,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/CancelEmbeddingDownload',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1827,8 +1893,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DeleteEmbeddingModel',
-            plugin__pb2.DeleteEmbeddingModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteEmbeddingModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1854,8 +1920,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetLlmMatchModels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.LlmMatchModelsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.LlmMatchModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1881,8 +1947,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DownloadLlmMatchModel',
-            plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1908,8 +1974,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/GetLlmMatchDownloadProgress',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DownloadProgressResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DownloadProgressResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1935,8 +2001,8 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/CancelLlmMatchDownload',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1962,8 +2028,35 @@ class VoiceService(object):
             request,
             target,
             '/astra.VoiceService/DeleteLlmMatchModel',
-            plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetVoiceConversation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetVoiceConversation',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetVoiceConversationRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1988,43 +2081,43 @@ class CommandServiceStub(object):
         """
         self.List = channel.unary_unary(
                 '/astra.CommandService/List',
-                request_serializer=plugin__pb2.ListCommandsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CommandListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListCommandsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandListResponse.FromString,
                 _registered_method=True)
         self.Get = channel.unary_unary(
                 '/astra.CommandService/Get',
-                request_serializer=plugin__pb2.GetCommandRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CommandDefinition.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetCommandRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
                 _registered_method=True)
         self.Create = channel.unary_unary(
                 '/astra.CommandService/Create',
-                request_serializer=plugin__pb2.CreateCommandRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CommandDefinition.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateCommandRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
                 _registered_method=True)
         self.Update = channel.unary_unary(
                 '/astra.CommandService/Update',
-                request_serializer=plugin__pb2.UpdateCommandRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CommandDefinition.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateCommandRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
                 _registered_method=True)
         self.Delete = channel.unary_unary(
                 '/astra.CommandService/Delete',
-                request_serializer=plugin__pb2.DeleteCommandRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteCommandRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Execute = channel.unary_unary(
                 '/astra.CommandService/Execute',
-                request_serializer=plugin__pb2.ExecuteCommandRequest.SerializeToString,
-                response_deserializer=plugin__pb2.ExecuteCommandResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandResponse.FromString,
                 _registered_method=True)
         self.SetEnabled = channel.unary_unary(
                 '/astra.CommandService/SetEnabled',
-                request_serializer=plugin__pb2.SetCommandEnabledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetCommandEnabledRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetCursorPosition = channel.unary_unary(
                 '/astra.CommandService/GetCursorPosition',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.CursorPositionResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CursorPositionResponse.FromString,
                 _registered_method=True)
 
 
@@ -2095,43 +2188,43 @@ def add_CommandServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'List': grpc.unary_unary_rpc_method_handler(
                     servicer.List,
-                    request_deserializer=plugin__pb2.ListCommandsRequest.FromString,
-                    response_serializer=plugin__pb2.CommandListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListCommandsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandListResponse.SerializeToString,
             ),
             'Get': grpc.unary_unary_rpc_method_handler(
                     servicer.Get,
-                    request_deserializer=plugin__pb2.GetCommandRequest.FromString,
-                    response_serializer=plugin__pb2.CommandDefinition.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetCommandRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.SerializeToString,
             ),
             'Create': grpc.unary_unary_rpc_method_handler(
                     servicer.Create,
-                    request_deserializer=plugin__pb2.CreateCommandRequest.FromString,
-                    response_serializer=plugin__pb2.CommandDefinition.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateCommandRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.SerializeToString,
             ),
             'Update': grpc.unary_unary_rpc_method_handler(
                     servicer.Update,
-                    request_deserializer=plugin__pb2.UpdateCommandRequest.FromString,
-                    response_serializer=plugin__pb2.CommandDefinition.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateCommandRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.SerializeToString,
             ),
             'Delete': grpc.unary_unary_rpc_method_handler(
                     servicer.Delete,
-                    request_deserializer=plugin__pb2.DeleteCommandRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteCommandRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'Execute': grpc.unary_unary_rpc_method_handler(
                     servicer.Execute,
-                    request_deserializer=plugin__pb2.ExecuteCommandRequest.FromString,
-                    response_serializer=plugin__pb2.ExecuteCommandResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandResponse.SerializeToString,
             ),
             'SetEnabled': grpc.unary_unary_rpc_method_handler(
                     servicer.SetEnabled,
-                    request_deserializer=plugin__pb2.SetCommandEnabledRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetCommandEnabledRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetCursorPosition': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCursorPosition,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.CursorPositionResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CursorPositionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2161,8 +2254,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/List',
-            plugin__pb2.ListCommandsRequest.SerializeToString,
-            plugin__pb2.CommandListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ListCommandsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2188,8 +2281,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/Get',
-            plugin__pb2.GetCommandRequest.SerializeToString,
-            plugin__pb2.CommandDefinition.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetCommandRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2215,8 +2308,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/Create',
-            plugin__pb2.CreateCommandRequest.SerializeToString,
-            plugin__pb2.CommandDefinition.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CreateCommandRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2242,8 +2335,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/Update',
-            plugin__pb2.UpdateCommandRequest.SerializeToString,
-            plugin__pb2.CommandDefinition.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateCommandRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CommandDefinition.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2269,8 +2362,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/Delete',
-            plugin__pb2.DeleteCommandRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DeleteCommandRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2296,8 +2389,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/Execute',
-            plugin__pb2.ExecuteCommandRequest.SerializeToString,
-            plugin__pb2.ExecuteCommandResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExecuteCommandResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2323,8 +2416,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/SetEnabled',
-            plugin__pb2.SetCommandEnabledRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetCommandEnabledRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2350,8 +2443,8 @@ class CommandService(object):
             request,
             target,
             '/astra.CommandService/GetCursorPosition',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.CursorPositionResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CursorPositionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2376,58 +2469,58 @@ class ConfigServiceStub(object):
         """
         self.GetSettings = channel.unary_unary(
                 '/astra.ConfigService/GetSettings',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.SettingsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SettingsResponse.FromString,
                 _registered_method=True)
         self.UpdateSettings = channel.unary_unary(
                 '/astra.ConfigService/UpdateSettings',
-                request_serializer=plugin__pb2.UpdateSettingsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateSettingsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.CompleteOobe = channel.unary_unary(
                 '/astra.ConfigService/CompleteOobe',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.ResetSettings = channel.unary_unary(
                 '/astra.ConfigService/ResetSettings',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.ExportSettings = channel.unary_unary(
                 '/astra.ConfigService/ExportSettings',
-                request_serializer=plugin__pb2.ExportSettingsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.ExportSettingsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsResponse.FromString,
                 _registered_method=True)
         self.ImportSettings = channel.unary_unary(
                 '/astra.ConfigService/ImportSettings',
-                request_serializer=plugin__pb2.ImportSettingsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportSettingsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetModels = channel.unary_unary(
                 '/astra.ConfigService/GetModels',
-                request_serializer=plugin__pb2.GetModelsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.GetModelsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsResponse.FromString,
                 _registered_method=True)
         self.GetAiProviders = channel.unary_unary(
                 '/astra.ConfigService/GetAiProviders',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.AiProvidersResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AiProvidersResponse.FromString,
                 _registered_method=True)
         self.GetWidgetData = channel.unary_unary(
                 '/astra.ConfigService/GetWidgetData',
-                request_serializer=plugin__pb2.WidgetDataRequest.SerializeToString,
-                response_deserializer=plugin__pb2.WidgetDataResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataResponse.FromString,
                 _registered_method=True)
         self.SaveWidgetData = channel.unary_unary(
                 '/astra.ConfigService/SaveWidgetData',
-                request_serializer=plugin__pb2.SaveWidgetDataRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SaveWidgetDataRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetIndexerStatus = channel.unary_unary(
                 '/astra.ConfigService/GetIndexerStatus',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.IndexerStatusResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.IndexerStatusResponse.FromString,
                 _registered_method=True)
 
 
@@ -2518,58 +2611,58 @@ def add_ConfigServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSettings,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.SettingsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SettingsResponse.SerializeToString,
             ),
             'UpdateSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateSettings,
-                    request_deserializer=plugin__pb2.UpdateSettingsRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateSettingsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'CompleteOobe': grpc.unary_unary_rpc_method_handler(
                     servicer.CompleteOobe,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'ResetSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.ResetSettings,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'ExportSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.ExportSettings,
-                    request_deserializer=plugin__pb2.ExportSettingsRequest.FromString,
-                    response_serializer=plugin__pb2.ExportSettingsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsResponse.SerializeToString,
             ),
             'ImportSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.ImportSettings,
-                    request_deserializer=plugin__pb2.ImportSettingsRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportSettingsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetModels': grpc.unary_unary_rpc_method_handler(
                     servicer.GetModels,
-                    request_deserializer=plugin__pb2.GetModelsRequest.FromString,
-                    response_serializer=plugin__pb2.GetModelsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsResponse.SerializeToString,
             ),
             'GetAiProviders': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAiProviders,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.AiProvidersResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AiProvidersResponse.SerializeToString,
             ),
             'GetWidgetData': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWidgetData,
-                    request_deserializer=plugin__pb2.WidgetDataRequest.FromString,
-                    response_serializer=plugin__pb2.WidgetDataResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataResponse.SerializeToString,
             ),
             'SaveWidgetData': grpc.unary_unary_rpc_method_handler(
                     servicer.SaveWidgetData,
-                    request_deserializer=plugin__pb2.SaveWidgetDataRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SaveWidgetDataRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetIndexerStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetIndexerStatus,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.IndexerStatusResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.IndexerStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2599,8 +2692,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/GetSettings',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.SettingsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SettingsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2626,8 +2719,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/UpdateSettings',
-            plugin__pb2.UpdateSettingsRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdateSettingsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2653,8 +2746,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/CompleteOobe',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2680,8 +2773,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/ResetSettings',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2707,8 +2800,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/ExportSettings',
-            plugin__pb2.ExportSettingsRequest.SerializeToString,
-            plugin__pb2.ExportSettingsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ExportSettingsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2734,8 +2827,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/ImportSettings',
-            plugin__pb2.ImportSettingsRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportSettingsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2761,8 +2854,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/GetModels',
-            plugin__pb2.GetModelsRequest.SerializeToString,
-            plugin__pb2.GetModelsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2788,8 +2881,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/GetAiProviders',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.AiProvidersResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.AiProvidersResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2815,8 +2908,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/GetWidgetData',
-            plugin__pb2.WidgetDataRequest.SerializeToString,
-            plugin__pb2.WidgetDataResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.WidgetDataResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2842,8 +2935,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/SaveWidgetData',
-            plugin__pb2.SaveWidgetDataRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SaveWidgetDataRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2869,8 +2962,8 @@ class ConfigService(object):
             request,
             target,
             '/astra.ConfigService/GetIndexerStatus',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.IndexerStatusResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.IndexerStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2895,23 +2988,23 @@ class MediaServiceStub(object):
         """
         self.GetMediaState = channel.unary_unary(
                 '/astra.MediaService/GetMediaState',
-                request_serializer=plugin__pb2.GetMediaStateRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MediaState.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaStateRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.FromString,
                 _registered_method=True)
         self.ControlMedia = channel.unary_unary(
                 '/astra.MediaService/ControlMedia',
-                request_serializer=plugin__pb2.ControlMediaRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ControlMediaRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.SubscribeMediaState = channel.unary_stream(
                 '/astra.MediaService/SubscribeMediaState',
-                request_serializer=plugin__pb2.SubscribeMediaStateRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MediaState.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeMediaStateRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.FromString,
                 _registered_method=True)
         self.GetMediaSessions = channel.unary_unary(
                 '/astra.MediaService/GetMediaSessions',
-                request_serializer=plugin__pb2.GetMediaSessionsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MediaSessionsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaSessionsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaSessionsResponse.FromString,
                 _registered_method=True)
 
 
@@ -2953,23 +3046,23 @@ def add_MediaServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetMediaState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMediaState,
-                    request_deserializer=plugin__pb2.GetMediaStateRequest.FromString,
-                    response_serializer=plugin__pb2.MediaState.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaStateRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.SerializeToString,
             ),
             'ControlMedia': grpc.unary_unary_rpc_method_handler(
                     servicer.ControlMedia,
-                    request_deserializer=plugin__pb2.ControlMediaRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ControlMediaRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'SubscribeMediaState': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeMediaState,
-                    request_deserializer=plugin__pb2.SubscribeMediaStateRequest.FromString,
-                    response_serializer=plugin__pb2.MediaState.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeMediaStateRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.SerializeToString,
             ),
             'GetMediaSessions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMediaSessions,
-                    request_deserializer=plugin__pb2.GetMediaSessionsRequest.FromString,
-                    response_serializer=plugin__pb2.MediaSessionsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaSessionsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaSessionsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2999,8 +3092,8 @@ class MediaService(object):
             request,
             target,
             '/astra.MediaService/GetMediaState',
-            plugin__pb2.GetMediaStateRequest.SerializeToString,
-            plugin__pb2.MediaState.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaStateRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3026,8 +3119,8 @@ class MediaService(object):
             request,
             target,
             '/astra.MediaService/ControlMedia',
-            plugin__pb2.ControlMediaRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ControlMediaRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3053,8 +3146,8 @@ class MediaService(object):
             request,
             target,
             '/astra.MediaService/SubscribeMediaState',
-            plugin__pb2.SubscribeMediaStateRequest.SerializeToString,
-            plugin__pb2.MediaState.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SubscribeMediaStateRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3080,8 +3173,8 @@ class MediaService(object):
             request,
             target,
             '/astra.MediaService/GetMediaSessions',
-            plugin__pb2.GetMediaSessionsRequest.SerializeToString,
-            plugin__pb2.MediaSessionsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetMediaSessionsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MediaSessionsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3106,13 +3199,13 @@ class RegistryServiceStub(object):
         """
         self.GetActionTypes = channel.unary_unary(
                 '/astra.RegistryService/GetActionTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.ActionTypeDefinitionsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActionTypeDefinitionsResponse.FromString,
                 _registered_method=True)
         self.GetTriggerTypes = channel.unary_unary(
                 '/astra.RegistryService/GetTriggerTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
                 _registered_method=True)
 
 
@@ -3140,13 +3233,13 @@ def add_RegistryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetActionTypes': grpc.unary_unary_rpc_method_handler(
                     servicer.GetActionTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.ActionTypeDefinitionsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActionTypeDefinitionsResponse.SerializeToString,
             ),
             'GetTriggerTypes': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTriggerTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.TriggerTypeDefinitionsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TriggerTypeDefinitionsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3176,8 +3269,8 @@ class RegistryService(object):
             request,
             target,
             '/astra.RegistryService/GetActionTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.ActionTypeDefinitionsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActionTypeDefinitionsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3203,8 +3296,8 @@ class RegistryService(object):
             request,
             target,
             '/astra.RegistryService/GetTriggerTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3229,13 +3322,13 @@ class TaskServiceStub(object):
         """
         self.GetTasks = channel.unary_unary(
                 '/astra.TaskService/GetTasks',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.TaskListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TaskListResponse.FromString,
                 _registered_method=True)
         self.CancelTask = channel.unary_unary(
                 '/astra.TaskService/CancelTask',
-                request_serializer=plugin__pb2.CancelTaskRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CancelTaskRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -3263,13 +3356,13 @@ def add_TaskServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetTasks': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTasks,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.TaskListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.TaskListResponse.SerializeToString,
             ),
             'CancelTask': grpc.unary_unary_rpc_method_handler(
                     servicer.CancelTask,
-                    request_deserializer=plugin__pb2.CancelTaskRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CancelTaskRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3299,8 +3392,8 @@ class TaskService(object):
             request,
             target,
             '/astra.TaskService/GetTasks',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.TaskListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.TaskListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3326,8 +3419,8 @@ class TaskService(object):
             request,
             target,
             '/astra.TaskService/CancelTask',
-            plugin__pb2.CancelTaskRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CancelTaskRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3352,13 +3445,13 @@ class MonitorServiceStub(object):
         """
         self.GetSystemStats = channel.unary_unary(
                 '/astra.MonitorService/GetSystemStats',
-                request_serializer=plugin__pb2.GetSystemStatsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.SystemStats.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.FromString,
                 _registered_method=True)
         self.SubscribeSystemStats = channel.unary_stream(
                 '/astra.MonitorService/SubscribeSystemStats',
-                request_serializer=plugin__pb2.GetSystemStatsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.SystemStats.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.FromString,
                 _registered_method=True)
 
 
@@ -3386,13 +3479,13 @@ def add_MonitorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetSystemStats': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSystemStats,
-                    request_deserializer=plugin__pb2.GetSystemStatsRequest.FromString,
-                    response_serializer=plugin__pb2.SystemStats.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.SerializeToString,
             ),
             'SubscribeSystemStats': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeSystemStats,
-                    request_deserializer=plugin__pb2.GetSystemStatsRequest.FromString,
-                    response_serializer=plugin__pb2.SystemStats.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3422,8 +3515,8 @@ class MonitorService(object):
             request,
             target,
             '/astra.MonitorService/GetSystemStats',
-            plugin__pb2.GetSystemStatsRequest.SerializeToString,
-            plugin__pb2.SystemStats.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3449,8 +3542,8 @@ class MonitorService(object):
             request,
             target,
             '/astra.MonitorService/SubscribeSystemStats',
-            plugin__pb2.GetSystemStatsRequest.SerializeToString,
-            plugin__pb2.SystemStats.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GetSystemStatsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SystemStats.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3478,28 +3571,28 @@ class CompanionServiceStub(object):
         """
         self.SubscribeCommands = channel.unary_stream(
                 '/astra.CompanionService/SubscribeCommands',
-                request_serializer=plugin__pb2.CompanionSubscribeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionCommand.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionSubscribeRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommand.FromString,
                 _registered_method=True)
         self.ReportStatus = channel.unary_unary(
                 '/astra.CompanionService/ReportStatus',
-                request_serializer=plugin__pb2.CompanionStatusReport.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusReport.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.ReportBlendshapes = channel.unary_unary(
                 '/astra.CompanionService/ReportBlendshapes',
-                request_serializer=plugin__pb2.CompanionBlendshapeReport.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionBlendshapeReport.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.SendCommand = channel.unary_unary(
                 '/astra.CompanionService/SendCommand',
-                request_serializer=plugin__pb2.CompanionClientCommand.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionCommandResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionClientCommand.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommandResponse.FromString,
                 _registered_method=True)
         self.GetCompanionStatus = channel.unary_unary(
                 '/astra.CompanionService/GetCompanionStatus',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionStatusResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusResponse.FromString,
                 _registered_method=True)
 
 
@@ -3551,28 +3644,28 @@ def add_CompanionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'SubscribeCommands': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeCommands,
-                    request_deserializer=plugin__pb2.CompanionSubscribeRequest.FromString,
-                    response_serializer=plugin__pb2.CompanionCommand.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionSubscribeRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommand.SerializeToString,
             ),
             'ReportStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.ReportStatus,
-                    request_deserializer=plugin__pb2.CompanionStatusReport.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusReport.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'ReportBlendshapes': grpc.unary_unary_rpc_method_handler(
                     servicer.ReportBlendshapes,
-                    request_deserializer=plugin__pb2.CompanionBlendshapeReport.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionBlendshapeReport.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'SendCommand': grpc.unary_unary_rpc_method_handler(
                     servicer.SendCommand,
-                    request_deserializer=plugin__pb2.CompanionClientCommand.FromString,
-                    response_serializer=plugin__pb2.CompanionCommandResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionClientCommand.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommandResponse.SerializeToString,
             ),
             'GetCompanionStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCompanionStatus,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.CompanionStatusResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3605,8 +3698,8 @@ class CompanionService(object):
             request,
             target,
             '/astra.CompanionService/SubscribeCommands',
-            plugin__pb2.CompanionSubscribeRequest.SerializeToString,
-            plugin__pb2.CompanionCommand.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionSubscribeRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommand.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3632,8 +3725,8 @@ class CompanionService(object):
             request,
             target,
             '/astra.CompanionService/ReportStatus',
-            plugin__pb2.CompanionStatusReport.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusReport.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3659,8 +3752,8 @@ class CompanionService(object):
             request,
             target,
             '/astra.CompanionService/ReportBlendshapes',
-            plugin__pb2.CompanionBlendshapeReport.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionBlendshapeReport.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3686,8 +3779,8 @@ class CompanionService(object):
             request,
             target,
             '/astra.CompanionService/SendCommand',
-            plugin__pb2.CompanionClientCommand.SerializeToString,
-            plugin__pb2.CompanionCommandResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionClientCommand.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionCommandResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3713,8 +3806,8 @@ class CompanionService(object):
             request,
             target,
             '/astra.CompanionService/GetCompanionStatus',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.CompanionStatusResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CompanionStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3739,73 +3832,73 @@ class McpServiceStub(object):
         """
         self.ListServers = channel.unary_unary(
                 '/astra.McpService/ListServers',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerListResponse.FromString,
                 _registered_method=True)
         self.AddServer = channel.unary_unary(
                 '/astra.McpService/AddServer',
-                request_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
                 _registered_method=True)
         self.UpdateServer = channel.unary_unary(
                 '/astra.McpService/UpdateServer',
-                request_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.RemoveServer = channel.unary_unary(
                 '/astra.McpService/RemoveServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StartServer = channel.unary_unary(
                 '/astra.McpService/StartServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StopServer = channel.unary_unary(
                 '/astra.McpService/StopServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetServerTools = channel.unary_unary(
                 '/astra.McpService/GetServerTools',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpToolListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.FromString,
                 _registered_method=True)
         self.SetToolEnabled = channel.unary_unary(
                 '/astra.McpService/SetToolEnabled',
-                request_serializer=plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.RefreshServerTools = channel.unary_unary(
                 '/astra.McpService/RefreshServerTools',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpToolListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.FromString,
                 _registered_method=True)
         self.SearchCatalog = channel.unary_unary(
                 '/astra.McpService/SearchCatalog',
-                request_serializer=plugin__pb2.CatalogSearchRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CatalogSearchResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchResponse.FromString,
                 _registered_method=True)
         self.GetCatalogServer = channel.unary_unary(
                 '/astra.McpService/GetCatalogServer',
-                request_serializer=plugin__pb2.CatalogServerRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CatalogServerMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerMsg.FromString,
                 _registered_method=True)
         self.InstallCatalogServer = channel.unary_unary(
                 '/astra.McpService/InstallCatalogServer',
-                request_serializer=plugin__pb2.InstallCatalogRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallCatalogRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
                 _registered_method=True)
         self.CheckRuntimes = channel.unary_unary(
                 '/astra.McpService/CheckRuntimes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.RuntimeStatusListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RuntimeStatusListResponse.FromString,
                 _registered_method=True)
         self.InstallRuntime = channel.unary_unary(
                 '/astra.McpService/InstallRuntime',
-                request_serializer=plugin__pb2.InstallRuntimeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.InstallRuntimeResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeResponse.FromString,
                 _registered_method=True)
 
 
@@ -3914,73 +4007,73 @@ def add_McpServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ListServers': grpc.unary_unary_rpc_method_handler(
                     servicer.ListServers,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.McpServerListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerListResponse.SerializeToString,
             ),
             'AddServer': grpc.unary_unary_rpc_method_handler(
                     servicer.AddServer,
-                    request_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                    response_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
             ),
             'UpdateServer': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateServer,
-                    request_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'RemoveServer': grpc.unary_unary_rpc_method_handler(
                     servicer.RemoveServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StartServer': grpc.unary_unary_rpc_method_handler(
                     servicer.StartServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StopServer': grpc.unary_unary_rpc_method_handler(
                     servicer.StopServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetServerTools': grpc.unary_unary_rpc_method_handler(
                     servicer.GetServerTools,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.McpToolListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.SerializeToString,
             ),
             'SetToolEnabled': grpc.unary_unary_rpc_method_handler(
                     servicer.SetToolEnabled,
-                    request_deserializer=plugin__pb2.McpSetToolEnabledRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpSetToolEnabledRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'RefreshServerTools': grpc.unary_unary_rpc_method_handler(
                     servicer.RefreshServerTools,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.McpToolListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.SerializeToString,
             ),
             'SearchCatalog': grpc.unary_unary_rpc_method_handler(
                     servicer.SearchCatalog,
-                    request_deserializer=plugin__pb2.CatalogSearchRequest.FromString,
-                    response_serializer=plugin__pb2.CatalogSearchResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchResponse.SerializeToString,
             ),
             'GetCatalogServer': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCatalogServer,
-                    request_deserializer=plugin__pb2.CatalogServerRequest.FromString,
-                    response_serializer=plugin__pb2.CatalogServerMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerMsg.SerializeToString,
             ),
             'InstallCatalogServer': grpc.unary_unary_rpc_method_handler(
                     servicer.InstallCatalogServer,
-                    request_deserializer=plugin__pb2.InstallCatalogRequest.FromString,
-                    response_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallCatalogRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
             ),
             'CheckRuntimes': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckRuntimes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.RuntimeStatusListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RuntimeStatusListResponse.SerializeToString,
             ),
             'InstallRuntime': grpc.unary_unary_rpc_method_handler(
                     servicer.InstallRuntime,
-                    request_deserializer=plugin__pb2.InstallRuntimeRequest.FromString,
-                    response_serializer=plugin__pb2.InstallRuntimeResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -4010,8 +4103,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/ListServers',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.McpServerListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4037,8 +4130,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/AddServer',
-            plugin__pb2.McpServerConfigMsg.SerializeToString,
-            plugin__pb2.McpServerConfigMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4064,8 +4157,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/UpdateServer',
-            plugin__pb2.McpServerConfigMsg.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4091,8 +4184,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/RemoveServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4118,8 +4211,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/StartServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4145,8 +4238,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/StopServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4172,8 +4265,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/GetServerTools',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.McpToolListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4199,8 +4292,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/SetToolEnabled',
-            plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4226,8 +4319,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/RefreshServerTools',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.McpToolListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpToolListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4253,8 +4346,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/SearchCatalog',
-            plugin__pb2.CatalogSearchRequest.SerializeToString,
-            plugin__pb2.CatalogSearchResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogSearchResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4280,8 +4373,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/GetCatalogServer',
-            plugin__pb2.CatalogServerRequest.SerializeToString,
-            plugin__pb2.CatalogServerMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CatalogServerMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4307,8 +4400,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/InstallCatalogServer',
-            plugin__pb2.InstallCatalogRequest.SerializeToString,
-            plugin__pb2.McpServerConfigMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallCatalogRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.McpServerConfigMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4334,8 +4427,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/CheckRuntimes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.RuntimeStatusListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.RuntimeStatusListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4361,8 +4454,8 @@ class McpService(object):
             request,
             target,
             '/astra.McpService/InstallRuntime',
-            plugin__pb2.InstallRuntimeRequest.SerializeToString,
-            plugin__pb2.InstallRuntimeResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallRuntimeResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4387,73 +4480,73 @@ class MarketplaceServiceStub(object):
         """
         self.Browse = channel.unary_unary(
                 '/astra.MarketplaceService/Browse',
-                request_serializer=plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
                 _registered_method=True)
         self.GetFeatured = channel.unary_unary(
                 '/astra.MarketplaceService/GetFeatured',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
                 _registered_method=True)
         self.GetListing = channel.unary_unary(
                 '/astra.MarketplaceService/GetListing',
-                request_serializer=plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceListingDetail.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.FromString,
                 _registered_method=True)
         self.Install = channel.unary_unary(
                 '/astra.MarketplaceService/Install',
-                request_serializer=plugin__pb2.MarketplaceInstallRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceInstallResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.FromString,
                 _registered_method=True)
         self.CheckUpdates = channel.unary_unary(
                 '/astra.MarketplaceService/CheckUpdates',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
                 _registered_method=True)
         self.UpdateInstalled = channel.unary_unary(
                 '/astra.MarketplaceService/UpdateInstalled',
-                request_serializer=plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceInstallResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.FromString,
                 _registered_method=True)
         self.Uninstall = channel.unary_unary(
                 '/astra.MarketplaceService/Uninstall',
-                request_serializer=plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetInstalled = channel.unary_unary(
                 '/astra.MarketplaceService/GetInstalled',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceGetInstalledResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetInstalledResponse.FromString,
                 _registered_method=True)
         self.Publish = channel.unary_unary(
                 '/astra.MarketplaceService/Publish',
-                request_serializer=plugin__pb2.MarketplacePublishRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceListingDetail.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplacePublishRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.FromString,
                 _registered_method=True)
         self.GetMyListings = channel.unary_unary(
                 '/astra.MarketplaceService/GetMyListings',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
                 _registered_method=True)
         self.ToggleStar = channel.unary_unary(
                 '/astra.MarketplaceService/ToggleStar',
-                request_serializer=plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceToggleStarResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarResponse.FromString,
                 _registered_method=True)
         self.SubmitReview = channel.unary_unary(
                 '/astra.MarketplaceService/SubmitReview',
-                request_serializer=plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceReview.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReview.FromString,
                 _registered_method=True)
         self.GetReviews = channel.unary_unary(
                 '/astra.MarketplaceService/GetReviews',
-                request_serializer=plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceGetReviewsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsResponse.FromString,
                 _registered_method=True)
         self.ReportListing = channel.unary_unary(
                 '/astra.MarketplaceService/ReportListing',
-                request_serializer=plugin__pb2.MarketplaceReportRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReportRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -4565,73 +4658,73 @@ def add_MarketplaceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Browse': grpc.unary_unary_rpc_method_handler(
                     servicer.Browse,
-                    request_deserializer=plugin__pb2.MarketplaceBrowseRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
             ),
             'GetFeatured': grpc.unary_unary_rpc_method_handler(
                     servicer.GetFeatured,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
             ),
             'GetListing': grpc.unary_unary_rpc_method_handler(
                     servicer.GetListing,
-                    request_deserializer=plugin__pb2.MarketplaceGetListingRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceListingDetail.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetListingRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.SerializeToString,
             ),
             'Install': grpc.unary_unary_rpc_method_handler(
                     servicer.Install,
-                    request_deserializer=plugin__pb2.MarketplaceInstallRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceInstallResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.SerializeToString,
             ),
             'CheckUpdates': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckUpdates,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceCheckUpdatesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceCheckUpdatesResponse.SerializeToString,
             ),
             'UpdateInstalled': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateInstalled,
-                    request_deserializer=plugin__pb2.MarketplaceUpdateInstalledRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceInstallResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUpdateInstalledRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.SerializeToString,
             ),
             'Uninstall': grpc.unary_unary_rpc_method_handler(
                     servicer.Uninstall,
-                    request_deserializer=plugin__pb2.MarketplaceUninstallRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUninstallRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetInstalled': grpc.unary_unary_rpc_method_handler(
                     servicer.GetInstalled,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceGetInstalledResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetInstalledResponse.SerializeToString,
             ),
             'Publish': grpc.unary_unary_rpc_method_handler(
                     servicer.Publish,
-                    request_deserializer=plugin__pb2.MarketplacePublishRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceListingDetail.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplacePublishRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.SerializeToString,
             ),
             'GetMyListings': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMyListings,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
             ),
             'ToggleStar': grpc.unary_unary_rpc_method_handler(
                     servicer.ToggleStar,
-                    request_deserializer=plugin__pb2.MarketplaceToggleStarRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceToggleStarResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarResponse.SerializeToString,
             ),
             'SubmitReview': grpc.unary_unary_rpc_method_handler(
                     servicer.SubmitReview,
-                    request_deserializer=plugin__pb2.MarketplaceSubmitReviewRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceReview.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceSubmitReviewRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReview.SerializeToString,
             ),
             'GetReviews': grpc.unary_unary_rpc_method_handler(
                     servicer.GetReviews,
-                    request_deserializer=plugin__pb2.MarketplaceGetReviewsRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceGetReviewsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsResponse.SerializeToString,
             ),
             'ReportListing': grpc.unary_unary_rpc_method_handler(
                     servicer.ReportListing,
-                    request_deserializer=plugin__pb2.MarketplaceReportRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReportRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -4661,8 +4754,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/Browse',
-            plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4688,8 +4781,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/GetFeatured',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4715,8 +4808,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/GetListing',
-            plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
-            plugin__pb2.MarketplaceListingDetail.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4742,8 +4835,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/Install',
-            plugin__pb2.MarketplaceInstallRequest.SerializeToString,
-            plugin__pb2.MarketplaceInstallResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4769,8 +4862,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/CheckUpdates',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4796,8 +4889,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/UpdateInstalled',
-            plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
-            plugin__pb2.MarketplaceInstallResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceInstallResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4823,8 +4916,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/Uninstall',
-            plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4850,8 +4943,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/GetInstalled',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceGetInstalledResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetInstalledResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4877,8 +4970,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/Publish',
-            plugin__pb2.MarketplacePublishRequest.SerializeToString,
-            plugin__pb2.MarketplaceListingDetail.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplacePublishRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceListingDetail.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4904,8 +4997,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/GetMyListings',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceBrowseResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4931,8 +5024,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/ToggleStar',
-            plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
-            plugin__pb2.MarketplaceToggleStarResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceToggleStarResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4958,8 +5051,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/SubmitReview',
-            plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
-            plugin__pb2.MarketplaceReview.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReview.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4985,8 +5078,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/GetReviews',
-            plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
-            plugin__pb2.MarketplaceGetReviewsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceGetReviewsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5012,8 +5105,8 @@ class MarketplaceService(object):
             request,
             target,
             '/astra.MarketplaceService/ReportListing',
-            plugin__pb2.MarketplaceReportRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.MarketplaceReportRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5038,18 +5131,18 @@ class OobeServiceStub(object):
         """
         self.DiscoverApps = channel.unary_unary(
                 '/astra.OobeService/DiscoverApps',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DiscoverAppsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DiscoverAppsResponse.FromString,
                 _registered_method=True)
         self.FilterApps = channel.unary_stream(
                 '/astra.OobeService/FilterApps',
-                request_serializer=plugin__pb2.FilterAppsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.OobeProgressEvent.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.FilterAppsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.FromString,
                 _registered_method=True)
         self.GenerateTriggers = channel.unary_stream(
                 '/astra.OobeService/GenerateTriggers',
-                request_serializer=plugin__pb2.GenerateTriggersRequest.SerializeToString,
-                response_deserializer=plugin__pb2.OobeProgressEvent.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GenerateTriggersRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.FromString,
                 _registered_method=True)
 
 
@@ -5084,18 +5177,18 @@ def add_OobeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'DiscoverApps': grpc.unary_unary_rpc_method_handler(
                     servicer.DiscoverApps,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DiscoverAppsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DiscoverAppsResponse.SerializeToString,
             ),
             'FilterApps': grpc.unary_stream_rpc_method_handler(
                     servicer.FilterApps,
-                    request_deserializer=plugin__pb2.FilterAppsRequest.FromString,
-                    response_serializer=plugin__pb2.OobeProgressEvent.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.FilterAppsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.SerializeToString,
             ),
             'GenerateTriggers': grpc.unary_stream_rpc_method_handler(
                     servicer.GenerateTriggers,
-                    request_deserializer=plugin__pb2.GenerateTriggersRequest.FromString,
-                    response_serializer=plugin__pb2.OobeProgressEvent.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.GenerateTriggersRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -5125,8 +5218,8 @@ class OobeService(object):
             request,
             target,
             '/astra.OobeService/DiscoverApps',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DiscoverAppsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DiscoverAppsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5152,8 +5245,8 @@ class OobeService(object):
             request,
             target,
             '/astra.OobeService/FilterApps',
-            plugin__pb2.FilterAppsRequest.SerializeToString,
-            plugin__pb2.OobeProgressEvent.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.FilterAppsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5179,8 +5272,8 @@ class OobeService(object):
             request,
             target,
             '/astra.OobeService/GenerateTriggers',
-            plugin__pb2.GenerateTriggersRequest.SerializeToString,
-            plugin__pb2.OobeProgressEvent.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.GenerateTriggersRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.OobeProgressEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5205,73 +5298,88 @@ class PluginServiceStub(object):
         """
         self.ListPlugins = channel.unary_unary(
                 '/astra.PluginService/ListPlugins',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginListResponse.FromString,
                 _registered_method=True)
         self.InstallPlugin = channel.unary_unary(
                 '/astra.PluginService/InstallPlugin',
-                request_serializer=plugin__pb2.InstallPluginRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallPluginRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
         self.UninstallPlugin = channel.unary_unary(
                 '/astra.PluginService/UninstallPlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.SetPluginEnabled = channel.unary_unary(
                 '/astra.PluginService/SetPluginEnabled',
-                request_serializer=plugin__pb2.SetPluginEnabledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetPluginEnabledRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StartPlugin = channel.unary_unary(
                 '/astra.PluginService/StartPlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.StopPlugin = channel.unary_unary(
                 '/astra.PluginService/StopPlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetPluginConfig = channel.unary_unary(
                 '/astra.PluginService/GetPluginConfig',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginConfigResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigResponse.FromString,
                 _registered_method=True)
         self.UpdatePluginConfig = channel.unary_unary(
                 '/astra.PluginService/UpdatePluginConfig',
-                request_serializer=plugin__pb2.UpdatePluginConfigRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdatePluginConfigRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.BrowsePluginRegistry = channel.unary_unary(
                 '/astra.PluginService/BrowsePluginRegistry',
-                request_serializer=plugin__pb2.PluginBrowseRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginBrowseResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseResponse.FromString,
                 _registered_method=True)
         self.CheckPluginUpdates = channel.unary_unary(
                 '/astra.PluginService/CheckPluginUpdates',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginUpdatesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUpdatesResponse.FromString,
                 _registered_method=True)
         self.UpdatePlugin = channel.unary_unary(
                 '/astra.PluginService/UpdatePlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
         self.SideloadPlugin = channel.unary_unary(
                 '/astra.PluginService/SideloadPlugin',
-                request_serializer=plugin__pb2.SideloadPluginRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SideloadPluginRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
         self.ImportPluginFile = channel.unary_unary(
                 '/astra.PluginService/ImportPluginFile',
-                request_serializer=plugin__pb2.ImportPluginFileRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportPluginFileRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
         self.GetPluginLogs = channel.unary_unary(
                 '/astra.PluginService/GetPluginLogs',
-                request_serializer=plugin__pb2.PluginLogsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginLogsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsResponse.FromString,
+                _registered_method=True)
+        self.GetAllUiContributions = channel.unary_unary(
+                '/astra.PluginService/GetAllUiContributions',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AllUiContributionsResponse.FromString,
+                _registered_method=True)
+        self.GetActiveThemes = channel.unary_unary(
+                '/astra.PluginService/GetActiveThemes',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActiveThemesResponse.FromString,
+                _registered_method=True)
+        self.CallPluginFromUi = channel.unary_unary(
+                '/astra.PluginService/CallPluginFromUi',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiResponse.FromString,
                 _registered_method=True)
 
 
@@ -5378,78 +5486,114 @@ class PluginServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetAllUiContributions(self, request, context):
+        """Get all UI contributions from all running plugins
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetActiveThemes(self, request, context):
+        """Get active theme contributions from plugins
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallPluginFromUi(self, request, context):
+        """Forward a UI call to a plugin's backend
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ListPlugins': grpc.unary_unary_rpc_method_handler(
                     servicer.ListPlugins,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginListResponse.SerializeToString,
             ),
             'InstallPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.InstallPlugin,
-                    request_deserializer=plugin__pb2.InstallPluginRequest.FromString,
-                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallPluginRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.SerializeToString,
             ),
             'UninstallPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.UninstallPlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'SetPluginEnabled': grpc.unary_unary_rpc_method_handler(
                     servicer.SetPluginEnabled,
-                    request_deserializer=plugin__pb2.SetPluginEnabledRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetPluginEnabledRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StartPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.StartPlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'StopPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.StopPlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetPluginConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginConfig,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.PluginConfigResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigResponse.SerializeToString,
             ),
             'UpdatePluginConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdatePluginConfig,
-                    request_deserializer=plugin__pb2.UpdatePluginConfigRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdatePluginConfigRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'BrowsePluginRegistry': grpc.unary_unary_rpc_method_handler(
                     servicer.BrowsePluginRegistry,
-                    request_deserializer=plugin__pb2.PluginBrowseRequest.FromString,
-                    response_serializer=plugin__pb2.PluginBrowseResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseResponse.SerializeToString,
             ),
             'CheckPluginUpdates': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckPluginUpdates,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginUpdatesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUpdatesResponse.SerializeToString,
             ),
             'UpdatePlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdatePlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.SerializeToString,
             ),
             'SideloadPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.SideloadPlugin,
-                    request_deserializer=plugin__pb2.SideloadPluginRequest.FromString,
-                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.SideloadPluginRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.SerializeToString,
             ),
             'ImportPluginFile': grpc.unary_unary_rpc_method_handler(
                     servicer.ImportPluginFile,
-                    request_deserializer=plugin__pb2.ImportPluginFileRequest.FromString,
-                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportPluginFileRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.SerializeToString,
             ),
             'GetPluginLogs': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginLogs,
-                    request_deserializer=plugin__pb2.PluginLogsRequest.FromString,
-                    response_serializer=plugin__pb2.PluginLogsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsResponse.SerializeToString,
+            ),
+            'GetAllUiContributions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAllUiContributions,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.AllUiContributionsResponse.SerializeToString,
+            ),
+            'GetActiveThemes': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetActiveThemes,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActiveThemesResponse.SerializeToString,
+            ),
+            'CallPluginFromUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallPluginFromUi,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -5479,8 +5623,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/ListPlugins',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5506,8 +5650,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/InstallPlugin',
-            plugin__pb2.InstallPluginRequest.SerializeToString,
-            plugin__pb2.PluginStatusMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.InstallPluginRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5533,8 +5677,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/UninstallPlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5560,8 +5704,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/SetPluginEnabled',
-            plugin__pb2.SetPluginEnabledRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SetPluginEnabledRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5587,8 +5731,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/StartPlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5614,8 +5758,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/StopPlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5641,8 +5785,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/GetPluginConfig',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.PluginConfigResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5668,8 +5812,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/UpdatePluginConfig',
-            plugin__pb2.UpdatePluginConfigRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.UpdatePluginConfigRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5695,8 +5839,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/BrowsePluginRegistry',
-            plugin__pb2.PluginBrowseRequest.SerializeToString,
-            plugin__pb2.PluginBrowseResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginBrowseResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5722,8 +5866,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/CheckPluginUpdates',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginUpdatesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUpdatesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5749,8 +5893,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/UpdatePlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.PluginStatusMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5776,8 +5920,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/SideloadPlugin',
-            plugin__pb2.SideloadPluginRequest.SerializeToString,
-            plugin__pb2.PluginStatusMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.SideloadPluginRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5803,8 +5947,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/ImportPluginFile',
-            plugin__pb2.ImportPluginFileRequest.SerializeToString,
-            plugin__pb2.PluginStatusMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ImportPluginFileRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginStatusMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5830,8 +5974,89 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/GetPluginLogs',
-            plugin__pb2.PluginLogsRequest.SerializeToString,
-            plugin__pb2.PluginLogsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAllUiContributions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/GetAllUiContributions',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.AllUiContributionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetActiveThemes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/GetActiveThemes',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.ActiveThemesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallPluginFromUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/CallPluginFromUi',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.CallPluginFromUiResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5856,43 +6081,53 @@ class PluginHostServiceStub(object):
         """
         self.Register = channel.unary_unary(
                 '/astra.PluginHostService/Register',
-                request_serializer=plugin__pb2.PluginRegisterRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginRegisterResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterResponse.FromString,
                 _registered_method=True)
         self.SubscribeEvents = channel.unary_stream(
                 '/astra.PluginHostService/SubscribeEvents',
-                request_serializer=plugin__pb2.PluginEventFilter.SerializeToString,
-                response_deserializer=plugin__pb2.PluginEventMsg.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventFilter.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventMsg.FromString,
                 _registered_method=True)
         self.SendChatMessage = channel.unary_stream(
                 '/astra.PluginHostService/SendChatMessage',
-                request_serializer=plugin__pb2.PluginChatRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginChatChunk.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatChunk.FromString,
                 _registered_method=True)
         self.FireTrigger = channel.unary_unary(
                 '/astra.PluginHostService/FireTrigger',
-                request_serializer=plugin__pb2.PluginFireTriggerRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginFireTriggerRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetPluginSelfConfig = channel.unary_unary(
                 '/astra.PluginHostService/GetPluginSelfConfig',
-                request_serializer=plugin__pb2.PluginSelfIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginSelfConfigResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfIdRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfConfigResponse.FromString,
                 _registered_method=True)
         self.PluginLog = channel.unary_unary(
                 '/astra.PluginHostService/PluginLog',
-                request_serializer=plugin__pb2.PluginLogRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.GetDaemonInfo = channel.unary_unary(
                 '/astra.PluginHostService/GetDaemonInfo',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginDaemonInfoResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginDaemonInfoResponse.FromString,
                 _registered_method=True)
         self.SetVariable = channel.unary_unary(
                 '/astra.PluginHostService/SetVariable',
-                request_serializer=plugin__pb2.PluginSetVariableRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSetVariableRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetThemeContribution = channel.unary_unary(
+                '/astra.PluginHostService/SetThemeContribution',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginThemeContribution.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.PushToUi = channel.unary_unary(
+                '/astra.PluginHostService/PushToUi',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiPushRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -5957,48 +6192,72 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetThemeContribution(self, request, context):
+        """Set theme contribution (colors, wallpaper, shader)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PushToUi(self, request, context):
+        """Push a message to this plugin's UI iframes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginHostServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Register': grpc.unary_unary_rpc_method_handler(
                     servicer.Register,
-                    request_deserializer=plugin__pb2.PluginRegisterRequest.FromString,
-                    response_serializer=plugin__pb2.PluginRegisterResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterResponse.SerializeToString,
             ),
             'SubscribeEvents': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeEvents,
-                    request_deserializer=plugin__pb2.PluginEventFilter.FromString,
-                    response_serializer=plugin__pb2.PluginEventMsg.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventFilter.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventMsg.SerializeToString,
             ),
             'SendChatMessage': grpc.unary_stream_rpc_method_handler(
                     servicer.SendChatMessage,
-                    request_deserializer=plugin__pb2.PluginChatRequest.FromString,
-                    response_serializer=plugin__pb2.PluginChatChunk.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatChunk.SerializeToString,
             ),
             'FireTrigger': grpc.unary_unary_rpc_method_handler(
                     servicer.FireTrigger,
-                    request_deserializer=plugin__pb2.PluginFireTriggerRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginFireTriggerRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetPluginSelfConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginSelfConfig,
-                    request_deserializer=plugin__pb2.PluginSelfIdRequest.FromString,
-                    response_serializer=plugin__pb2.PluginSelfConfigResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfIdRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfConfigResponse.SerializeToString,
             ),
             'PluginLog': grpc.unary_unary_rpc_method_handler(
                     servicer.PluginLog,
-                    request_deserializer=plugin__pb2.PluginLogRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'GetDaemonInfo': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDaemonInfo,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginDaemonInfoResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginDaemonInfoResponse.SerializeToString,
             ),
             'SetVariable': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVariable,
-                    request_deserializer=plugin__pb2.PluginSetVariableRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSetVariableRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetThemeContribution': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetThemeContribution,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginThemeContribution.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'PushToUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.PushToUi,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiPushRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -6028,8 +6287,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/Register',
-            plugin__pb2.PluginRegisterRequest.SerializeToString,
-            plugin__pb2.PluginRegisterResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginRegisterResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6055,8 +6314,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/SubscribeEvents',
-            plugin__pb2.PluginEventFilter.SerializeToString,
-            plugin__pb2.PluginEventMsg.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventFilter.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginEventMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6082,8 +6341,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/SendChatMessage',
-            plugin__pb2.PluginChatRequest.SerializeToString,
-            plugin__pb2.PluginChatChunk.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginChatChunk.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6109,8 +6368,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/FireTrigger',
-            plugin__pb2.PluginFireTriggerRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginFireTriggerRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6136,8 +6395,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/GetPluginSelfConfig',
-            plugin__pb2.PluginSelfIdRequest.SerializeToString,
-            plugin__pb2.PluginSelfConfigResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfIdRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSelfConfigResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6163,8 +6422,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/PluginLog',
-            plugin__pb2.PluginLogRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginLogRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6190,8 +6449,8 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/GetDaemonInfo',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginDaemonInfoResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginDaemonInfoResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6217,8 +6476,62 @@ class PluginHostService(object):
             request,
             target,
             '/astra.PluginHostService/SetVariable',
-            plugin__pb2.PluginSetVariableRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSetVariableRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetThemeContribution(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/SetThemeContribution',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginThemeContribution.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PushToUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/PushToUi',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiPushRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6243,83 +6556,98 @@ class PluginCapabilityServiceStub(object):
         """
         self.ListTools = channel.unary_unary(
                 '/astra.PluginCapabilityService/ListTools',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginToolListResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginToolListResponse.FromString,
                 _registered_method=True)
         self.CallTool = channel.unary_unary(
                 '/astra.PluginCapabilityService/CallTool',
-                request_serializer=plugin__pb2.PluginCallToolRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginCallToolResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolResponse.FromString,
                 _registered_method=True)
         self.TtsSynthesize = channel.unary_unary(
                 '/astra.PluginCapabilityService/TtsSynthesize',
-                request_serializer=plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginTtsSynthesizeResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeResponse.FromString,
                 _registered_method=True)
         self.TtsSynthesizeStream = channel.unary_stream(
                 '/astra.PluginCapabilityService/TtsSynthesizeStream',
-                request_serializer=plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginAudioChunk.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.FromString,
                 _registered_method=True)
         self.TtsListVoices = channel.unary_unary(
                 '/astra.PluginCapabilityService/TtsListVoices',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginTtsVoicesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsVoicesResponse.FromString,
                 _registered_method=True)
         self.SttProcess = channel.stream_stream(
                 '/astra.PluginCapabilityService/SttProcess',
-                request_serializer=plugin__pb2.PluginAudioChunk.SerializeToString,
-                response_deserializer=plugin__pb2.PluginSttEvent.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttEvent.FromString,
                 _registered_method=True)
         self.SttGetLanguages = channel.unary_unary(
                 '/astra.PluginCapabilityService/SttGetLanguages',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginSttLanguagesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttLanguagesResponse.FromString,
                 _registered_method=True)
         self.AiComplete = channel.unary_stream(
                 '/astra.PluginCapabilityService/AiComplete',
-                request_serializer=plugin__pb2.PluginAiCompleteRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginAiStreamChunk.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiCompleteRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiStreamChunk.FromString,
                 _registered_method=True)
         self.AiGetModels = channel.unary_unary(
                 '/astra.PluginCapabilityService/AiGetModels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginAiModelsResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiModelsResponse.FromString,
                 _registered_method=True)
         self.ExecuteAction = channel.unary_unary(
                 '/astra.PluginCapabilityService/ExecuteAction',
-                request_serializer=plugin__pb2.PluginExecuteActionRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginExecuteActionResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionResponse.FromString,
                 _registered_method=True)
         self.GetPluginActionTypes = channel.unary_unary(
                 '/astra.PluginCapabilityService/GetPluginActionTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginActionTypesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActionTypesResponse.FromString,
                 _registered_method=True)
         self.GetPluginTriggerTypes = channel.unary_unary(
                 '/astra.PluginCapabilityService/GetPluginTriggerTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginTriggerTypesResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTriggerTypesResponse.FromString,
                 _registered_method=True)
-        self.GetUiPanels = channel.unary_unary(
-                '/astra.PluginCapabilityService/GetUiPanels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginUiPanelsResponse.FromString,
+        self.GetUiContributions = channel.unary_unary(
+                '/astra.PluginCapabilityService/GetUiContributions',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiContributionsResponse.FromString,
+                _registered_method=True)
+        self.CallFromUi = channel.unary_unary(
+                '/astra.PluginCapabilityService/CallFromUi',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallResponse.FromString,
                 _registered_method=True)
         self.OnConfigChanged = channel.unary_unary(
                 '/astra.PluginCapabilityService/OnConfigChanged',
-                request_serializer=plugin__pb2.PluginConfigChangedMsg.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigChangedMsg.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.OnActiveTriggers = channel.unary_unary(
+                '/astra.PluginCapabilityService/OnActiveTriggers',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActiveTriggersMsg.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.OnLanguageChanged = channel.unary_unary(
+                '/astra.PluginCapabilityService/OnLanguageChanged',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LanguageChangedMsg.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Shutdown = channel.unary_unary(
                 '/astra.PluginCapabilityService/Shutdown',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.HealthCheck = channel.unary_unary(
                 '/astra.PluginCapabilityService/HealthCheck',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginHealthResponse.FromString,
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginHealthResponse.FromString,
                 _registered_method=True)
 
 
@@ -6406,9 +6734,15 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetUiPanels(self, request, context):
+    def GetUiContributions(self, request, context):
         """── UI ──
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallFromUi(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6416,6 +6750,18 @@ class PluginCapabilityServiceServicer(object):
     def OnConfigChanged(self, request, context):
         """── Lifecycle ──
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OnActiveTriggers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OnLanguageChanged(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6437,83 +6783,98 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ListTools': grpc.unary_unary_rpc_method_handler(
                     servicer.ListTools,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginToolListResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginToolListResponse.SerializeToString,
             ),
             'CallTool': grpc.unary_unary_rpc_method_handler(
                     servicer.CallTool,
-                    request_deserializer=plugin__pb2.PluginCallToolRequest.FromString,
-                    response_serializer=plugin__pb2.PluginCallToolResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolResponse.SerializeToString,
             ),
             'TtsSynthesize': grpc.unary_unary_rpc_method_handler(
                     servicer.TtsSynthesize,
-                    request_deserializer=plugin__pb2.PluginTtsSynthesizeRequest.FromString,
-                    response_serializer=plugin__pb2.PluginTtsSynthesizeResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeResponse.SerializeToString,
             ),
             'TtsSynthesizeStream': grpc.unary_stream_rpc_method_handler(
                     servicer.TtsSynthesizeStream,
-                    request_deserializer=plugin__pb2.PluginTtsSynthesizeRequest.FromString,
-                    response_serializer=plugin__pb2.PluginAudioChunk.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.SerializeToString,
             ),
             'TtsListVoices': grpc.unary_unary_rpc_method_handler(
                     servicer.TtsListVoices,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginTtsVoicesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsVoicesResponse.SerializeToString,
             ),
             'SttProcess': grpc.stream_stream_rpc_method_handler(
                     servicer.SttProcess,
-                    request_deserializer=plugin__pb2.PluginAudioChunk.FromString,
-                    response_serializer=plugin__pb2.PluginSttEvent.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttEvent.SerializeToString,
             ),
             'SttGetLanguages': grpc.unary_unary_rpc_method_handler(
                     servicer.SttGetLanguages,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginSttLanguagesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttLanguagesResponse.SerializeToString,
             ),
             'AiComplete': grpc.unary_stream_rpc_method_handler(
                     servicer.AiComplete,
-                    request_deserializer=plugin__pb2.PluginAiCompleteRequest.FromString,
-                    response_serializer=plugin__pb2.PluginAiStreamChunk.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiCompleteRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiStreamChunk.SerializeToString,
             ),
             'AiGetModels': grpc.unary_unary_rpc_method_handler(
                     servicer.AiGetModels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginAiModelsResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiModelsResponse.SerializeToString,
             ),
             'ExecuteAction': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteAction,
-                    request_deserializer=plugin__pb2.PluginExecuteActionRequest.FromString,
-                    response_serializer=plugin__pb2.PluginExecuteActionResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionResponse.SerializeToString,
             ),
             'GetPluginActionTypes': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginActionTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginActionTypesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActionTypesResponse.SerializeToString,
             ),
             'GetPluginTriggerTypes': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginTriggerTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginTriggerTypesResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTriggerTypesResponse.SerializeToString,
             ),
-            'GetUiPanels': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetUiPanels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginUiPanelsResponse.SerializeToString,
+            'GetUiContributions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetUiContributions,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiContributionsResponse.SerializeToString,
+            ),
+            'CallFromUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallFromUi,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallResponse.SerializeToString,
             ),
             'OnConfigChanged': grpc.unary_unary_rpc_method_handler(
                     servicer.OnConfigChanged,
-                    request_deserializer=plugin__pb2.PluginConfigChangedMsg.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigChangedMsg.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'OnActiveTriggers': grpc.unary_unary_rpc_method_handler(
+                    servicer.OnActiveTriggers,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActiveTriggersMsg.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+            'OnLanguageChanged': grpc.unary_unary_rpc_method_handler(
+                    servicer.OnLanguageChanged,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.LanguageChangedMsg.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'Shutdown': grpc.unary_unary_rpc_method_handler(
                     servicer.Shutdown,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
             ),
             'HealthCheck': grpc.unary_unary_rpc_method_handler(
                     servicer.HealthCheck,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginHealthResponse.SerializeToString,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginHealthResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -6543,8 +6904,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/ListTools',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginToolListResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginToolListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6570,8 +6931,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/CallTool',
-            plugin__pb2.PluginCallToolRequest.SerializeToString,
-            plugin__pb2.PluginCallToolResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginCallToolResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6597,8 +6958,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/TtsSynthesize',
-            plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
-            plugin__pb2.PluginTtsSynthesizeResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6624,8 +6985,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/TtsSynthesizeStream',
-            plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
-            plugin__pb2.PluginAudioChunk.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsSynthesizeRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6651,8 +7012,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/TtsListVoices',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginTtsVoicesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTtsVoicesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6678,8 +7039,8 @@ class PluginCapabilityService(object):
             request_iterator,
             target,
             '/astra.PluginCapabilityService/SttProcess',
-            plugin__pb2.PluginAudioChunk.SerializeToString,
-            plugin__pb2.PluginSttEvent.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAudioChunk.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6705,8 +7066,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/SttGetLanguages',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginSttLanguagesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginSttLanguagesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6732,8 +7093,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/AiComplete',
-            plugin__pb2.PluginAiCompleteRequest.SerializeToString,
-            plugin__pb2.PluginAiStreamChunk.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiCompleteRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiStreamChunk.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6759,8 +7120,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/AiGetModels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginAiModelsResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginAiModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6786,8 +7147,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/ExecuteAction',
-            plugin__pb2.PluginExecuteActionRequest.SerializeToString,
-            plugin__pb2.PluginExecuteActionResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginExecuteActionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6813,8 +7174,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/GetPluginActionTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginActionTypesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActionTypesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6840,8 +7201,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/GetPluginTriggerTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginTriggerTypesResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginTriggerTypesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6853,7 +7214,7 @@ class PluginCapabilityService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetUiPanels(request,
+    def GetUiContributions(request,
             target,
             options=(),
             channel_credentials=None,
@@ -6866,9 +7227,36 @@ class PluginCapabilityService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.PluginCapabilityService/GetUiPanels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginUiPanelsResponse.FromString,
+            '/astra.PluginCapabilityService/GetUiContributions',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiContributionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallFromUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/CallFromUi',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginUiCallResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6894,8 +7282,62 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/OnConfigChanged',
-            plugin__pb2.PluginConfigChangedMsg.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginConfigChangedMsg.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def OnActiveTriggers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/OnActiveTriggers',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginActiveTriggersMsg.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def OnLanguageChanged(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/OnLanguageChanged',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.LanguageChangedMsg.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6921,8 +7363,8 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/Shutdown',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6948,8 +7390,131 @@ class PluginCapabilityService(object):
             request,
             target,
             '/astra.PluginCapabilityService/HealthCheck',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginHealthResponse.FromString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.PluginHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class ClientAuthServiceStub(object):
+    """============ Client Auth Service ============
+
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.RegisterClient = channel.unary_unary(
+                '/astra.ClientAuthService/RegisterClient',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientResponse.FromString,
+                _registered_method=True)
+        self.DisconnectClient = channel.unary_unary(
+                '/astra.ClientAuthService/DisconnectClient',
+                request_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DisconnectClientRequest.SerializeToString,
+                response_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
+                _registered_method=True)
+
+
+class ClientAuthServiceServicer(object):
+    """============ Client Auth Service ============
+
+    """
+
+    def RegisterClient(self, request, context):
+        """Register as a main client (astraui). Returns a session token.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DisconnectClient(self, request, context):
+        """Gracefully disconnect and release the main client slot.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_ClientAuthServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'RegisterClient': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterClient,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientResponse.SerializeToString,
+            ),
+            'DisconnectClient': grpc.unary_unary_rpc_method_handler(
+                    servicer.DisconnectClient,
+                    request_deserializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.DisconnectClientRequest.FromString,
+                    response_serializer=astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'astra.ClientAuthService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('astra.ClientAuthService', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class ClientAuthService(object):
+    """============ Client Auth Service ============
+
+    """
+
+    @staticmethod
+    def RegisterClient(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ClientAuthService/RegisterClient',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.RegisterClientResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DisconnectClient(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ClientAuthService/DisconnectClient',
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.DisconnectClientRequest.SerializeToString,
+            astra__plugin__sdk_dot_proto_dot_plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
