@@ -101,6 +101,66 @@ impl From<AudioData> for proto::PluginTtsSynthesizeResponse {
     }
 }
 
+/// A speech-recognition result emitted on the `SttProcess` stream.
+///
+/// A non-streaming [`PluginCapability::stt_transcribe`] returns exactly one,
+/// normally built with [`SttEvent::transcript`].
+#[derive(Debug, Clone)]
+pub struct SttEvent {
+    pub text: String,
+    /// `true` for a complete transcription, `false` for an interim result.
+    pub is_final: bool,
+    /// Recognition confidence in `0.0..=1.0`.
+    pub confidence: f32,
+    /// Detected language code (e.g. `"en"`), or empty if unknown.
+    pub language: String,
+}
+
+impl SttEvent {
+    /// A complete transcription — `is_final = true`, `confidence = 1.0`.
+    pub fn transcript(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            is_final: true,
+            confidence: 1.0,
+            language: String::new(),
+        }
+    }
+
+    /// An interim/partial result — `is_final = false`, `confidence = 1.0`.
+    pub fn partial(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            is_final: false,
+            confidence: 1.0,
+            language: String::new(),
+        }
+    }
+
+    /// Set the recognition confidence (`0.0..=1.0`).
+    pub fn with_confidence(mut self, confidence: f32) -> Self {
+        self.confidence = confidence;
+        self
+    }
+
+    /// Set the detected language code.
+    pub fn with_language(mut self, language: impl Into<String>) -> Self {
+        self.language = language.into();
+        self
+    }
+}
+
+impl From<SttEvent> for proto::PluginSttEvent {
+    fn from(e: SttEvent) -> Self {
+        Self {
+            text: e.text,
+            is_final: e.is_final,
+            confidence: e.confidence,
+            language: e.language,
+        }
+    }
+}
+
 /// An AI model provided by the plugin.
 #[derive(Debug, Clone)]
 pub struct AiModelInfo {
@@ -365,6 +425,22 @@ pub trait PluginCapability: Send + Sync + 'static {
     }
 
     // ── STT ──
+
+    /// Transcribe a complete utterance to text (non-streaming).
+    ///
+    /// The SDK accumulates every `PluginAudioChunk` the daemon streams over
+    /// `SttProcess` and calls this once the final chunk arrives: `audio` is
+    /// the concatenated PCM payload, `sample_rate` its declared rate. Return
+    /// one [`SttEvent`] — usually via [`SttEvent::transcript`].
+    ///
+    /// Override this for an STT plugin; the default reports STT unsupported.
+    async fn stt_transcribe(
+        &self,
+        _audio: &[u8],
+        _sample_rate: u32,
+    ) -> anyhow::Result<SttEvent> {
+        anyhow::bail!("STT not implemented")
+    }
 
     /// Get supported STT languages.
     async fn stt_languages(&self) -> Vec<String> {

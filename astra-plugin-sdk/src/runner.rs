@@ -359,9 +359,34 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
 
     async fn stt_process(
         &self,
-        _request: tonic::Request<tonic::Streaming<proto::PluginAudioChunk>>,
+        request: tonic::Request<tonic::Streaming<proto::PluginAudioChunk>>,
     ) -> Result<tonic::Response<Self::SttProcessStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("STT not implemented"))
+        let mut inbound = request.into_inner();
+
+        // Accumulate the utterance. The daemon currently sends a single
+        // f32-LE PCM buffer flagged `is_last`, but a future caller may split
+        // it across chunks — drain until `is_last` or end-of-stream either way.
+        let mut audio: Vec<u8> = Vec::new();
+        let mut sample_rate: u32 = 0;
+        while let Some(chunk) = inbound.message().await? {
+            if sample_rate == 0 {
+                sample_rate = chunk.sample_rate;
+            }
+            audio.extend_from_slice(&chunk.data);
+            if chunk.is_last {
+                break;
+            }
+        }
+
+        // Non-streaming transcription: one `stt_transcribe` call, one event.
+        let event = self
+            .plugin
+            .stt_transcribe(&audio, sample_rate)
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+
+        let item: Result<proto::PluginSttEvent, tonic::Status> = Ok(event.into());
+        Ok(tonic::Response::new(Box::pin(tokio_stream::once(item))))
     }
 
     async fn stt_get_languages(
