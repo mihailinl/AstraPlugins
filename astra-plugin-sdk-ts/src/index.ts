@@ -28,6 +28,7 @@ export type {
   ToolResult,
   VoiceInfo,
   AudioData,
+  SttEvent,
   AiModelInfo,
   ActionResult,
   FieldDef,

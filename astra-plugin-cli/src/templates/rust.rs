@@ -83,6 +83,25 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         ));
     }
 
+    if capabilities.contains(&"stt") {
+        trait_methods.push_str(&format!(
+            r##"
+    async fn stt_languages(&self) -> Vec<String> {{
+        vec!["en".into()]
+    }}
+
+    async fn stt_transcribe(
+        &self,
+        _audio: &[u8],
+        _sample_rate: u32,
+    ) -> anyhow::Result<SttEvent> {{
+        // TODO: implement speech-to-text
+        anyhow::bail!("STT not yet implemented")
+    }}
+"##
+        ));
+    }
+
     if capabilities.contains(&"actions") {
         trait_methods.push_str(&format!(
             r##"

@@ -252,6 +252,20 @@ class Plugin:
         """Return supported STT languages."""
         return []
 
+    async def stt_transcribe(self, audio: bytes, sample_rate: int) -> str | dict:
+        """Transcribe a complete utterance to text (non-streaming).
+
+        The SDK accumulates every audio chunk the daemon streams over
+        ``SttProcess`` and calls this once the final chunk arrives:
+        ``audio`` is the concatenated PCM payload, ``sample_rate`` its
+        declared rate.
+
+        Return either the transcript string, or a dict
+        ``{text, is_final, confidence, language}`` for full control.
+        Override this for an STT plugin.
+        """
+        raise NotImplementedError
+
     async def ai_get_models(self) -> tuple[list[dict], str]:
         """Return (models_list, default_model_id)."""
         return [], ""
@@ -492,6 +506,40 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     async def SttGetLanguages(self, request, context):
         langs = await self.plugin.stt_get_languages()
         return plugin_pb2.PluginSttLanguagesResponse(languages=langs)
+
+    async def SttProcess(self, request_iterator, context):
+        # Accumulate the utterance. The daemon currently sends a single
+        # f32-LE PCM buffer flagged `is_last`, but a future caller may split
+        # it across chunks — drain until `is_last` or end-of-stream either way.
+        audio = bytearray()
+        sample_rate = 0
+        async for chunk in request_iterator:
+            if sample_rate == 0:
+                sample_rate = chunk.sample_rate
+            audio.extend(chunk.data)
+            if chunk.is_last:
+                break
+
+        # Non-streaming transcription: one `stt_transcribe` call, one event.
+        try:
+            result = await self.plugin.stt_transcribe(bytes(audio), sample_rate)
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "STT not implemented")
+            return
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return
+
+        if isinstance(result, str):
+            result = {"text": result}
+        yield plugin_pb2.PluginSttEvent(
+            text=result.get("text", ""),
+            is_final=result.get("is_final", True),
+            confidence=result.get("confidence", 1.0),
+            language=result.get("language", ""),
+        )
 
     async def AiGetModels(self, request, context):
         models, default = await self.plugin.ai_get_models()

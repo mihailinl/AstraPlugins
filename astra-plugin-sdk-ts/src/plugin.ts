@@ -10,6 +10,7 @@ import type {
   ToolResult,
   VoiceInfo,
   AudioData,
+  SttEvent,
   AiModelInfo,
   ActionResult,
   ActionTypeDef,
@@ -69,12 +70,7 @@ export abstract class Plugin {
           details: "Streaming TTS not implemented",
         });
       },
-      SttProcess: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "STT not implemented",
-        });
-      },
+      SttProcess: this.handleSttProcess.bind(this),
       AiComplete: (call: any) => {
         call.emit("error", {
           code: grpc.status.UNIMPLEMENTED,
@@ -195,6 +191,12 @@ export abstract class Plugin {
   }
   async sttGetLanguages(): Promise<string[]> {
     return [];
+  }
+  /** Transcribe a complete utterance to text (non-streaming). The SDK
+   * accumulates every audio chunk the daemon streams over `SttProcess` and
+   * calls this once the stream ends. Override for an STT plugin. */
+  async sttTranscribe(_audio: Buffer, _sampleRate: number): Promise<SttEvent> {
+    throw new Error("STT not implemented");
   }
   async aiGetModels(): Promise<{ models: AiModelInfo[]; defaultModel: string }> {
     return { models: [], defaultModel: "" };
@@ -356,6 +358,38 @@ export abstract class Plugin {
   private async handleSttGetLanguages(_call: any) {
     const languages = await this.sttGetLanguages();
     return { languages };
+  }
+
+  /** Bidi-streaming `SttProcess`: accumulate `PluginAudioChunk`s, then run
+   *  the non-streaming `sttTranscribe` and emit a single `PluginSttEvent`. */
+  private handleSttProcess(call: any): void {
+    const chunks: Buffer[] = [];
+    let sampleRate = 0;
+    let finished = false;
+    const finish = async () => {
+      if (finished) return;
+      finished = true;
+      try {
+        const ev = await this.sttTranscribe(Buffer.concat(chunks), sampleRate);
+        call.write({
+          text: ev.text,
+          isFinal: ev.isFinal ?? true,
+          confidence: ev.confidence ?? 1.0,
+          language: ev.language ?? "",
+        });
+        call.end();
+      } catch (e: any) {
+        call.emit("error", { code: grpc.status.INTERNAL, details: e.message });
+      }
+    };
+    call.on("data", (chunk: any) => {
+      if (sampleRate === 0 && chunk.sampleRate) sampleRate = chunk.sampleRate;
+      if (chunk.data && chunk.data.length) chunks.push(Buffer.from(chunk.data));
+      if (chunk.isLast) void finish();
+    });
+    call.on("end", () => {
+      void finish();
+    });
   }
 
   private async handleAiGetModels(_call: any) {
