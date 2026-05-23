@@ -442,6 +442,41 @@ pub trait PluginCapability: Send + Sync + 'static {
         anyhow::bail!("STT not implemented")
     }
 
+    /// Live-streaming STT: chunks arrive on `audio_rx` as the daemon
+    /// captures them from the microphone (f32-LE PCM, no per-chunk
+    /// sample-rate boundaries — they all share `sample_rate`); the closed
+    /// channel signals end-of-utterance. Emit `SttEvent`s on `events_tx`
+    /// as they become available: zero or more partials
+    /// (`SttEvent::partial`) while audio is flowing, then one final
+    /// (`SttEvent::transcript`) before returning.
+    ///
+    /// Override this for a true streaming backend (Vosk, Deepgram, an
+    /// echo-back plugin that plays each chunk live). The default
+    /// accumulates every byte and forwards to [`Self::stt_transcribe`] —
+    /// existing non-streaming plugins behave exactly as before, without
+    /// any code changes.
+    async fn stt_transcribe_stream(
+        &self,
+        mut audio_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+        events_tx: tokio::sync::mpsc::Sender<SttEvent>,
+        sample_rate: u32,
+    ) -> anyhow::Result<()> {
+        let mut buf: Vec<u8> = Vec::new();
+        while let Some(chunk) = audio_rx.recv().await {
+            buf.extend_from_slice(&chunk);
+        }
+        if buf.is_empty() {
+            return Ok(());
+        }
+        match self.stt_transcribe(&buf, sample_rate).await {
+            Ok(ev) => {
+                let _ = events_tx.send(ev).await;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get supported STT languages.
     async fn stt_languages(&self) -> Vec<String> {
         vec![]

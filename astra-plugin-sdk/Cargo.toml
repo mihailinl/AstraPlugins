@@ -1,6 +1,6 @@
 [package]
 name = "astra-plugin-sdk"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Rust SDK for building Astra plugins"
 license = "MIT"
@@ -14,6 +14,7 @@ prost = "0.13"
 # Async
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
+async-stream = "0.3"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
