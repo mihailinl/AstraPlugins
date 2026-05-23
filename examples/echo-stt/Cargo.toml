@@ -1,0 +1,14 @@
+[package]
+name = "echo_stt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+astra-plugin-sdk = { path = "../../astra-plugin-sdk" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+async-trait = "0.1"
+tracing = "0.1"
+rodio = { version = "0.20", default-features = false, features = ["wav"] }
+once_cell = "1"
+crossbeam-channel = "0.5"

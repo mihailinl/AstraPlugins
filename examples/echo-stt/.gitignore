@@ -1,0 +1,4 @@
+# Build artifacts
+*.astraplugin
+
+target/

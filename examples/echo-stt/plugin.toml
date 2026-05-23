@@ -1,0 +1,13 @@
+[plugin]
+id = "echo-stt"
+name = "Echo STT"
+version = "0.1.0"
+description = "Test STT plugin — plays the captured audio back through the plugin process's own audio device and returns a metadata transcript. Lets you verify end-to-end that the daemon is sending the right audio (your voice, your volume) to plugin STT providers."
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/echo_stt.exe"
+
+[capabilities]
+stt = true
