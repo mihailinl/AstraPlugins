@@ -1,0 +1,13 @@
+[plugin]
+id = "mock-stt"
+name = "Mock STT"
+version = "0.1.0"
+description = "Test STT plugin — returns a deterministic mock transcript describing the audio it received. For wiring tests, not for transcription."
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/mock_stt.exe"
+
+[capabilities]
+stt = true

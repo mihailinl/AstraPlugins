@@ -1,0 +1,13 @@
+[plugin]
+id = "tone-tts"
+name = "Tone TTS"
+version = "0.1.0"
+description = "Test TTS plugin — synthesizes a sine tone per word. For wiring tests, not for listening."
+author = "Astra Team"
+license = "MIT"
+
+[entry]
+command = "target/release/tone_tts.exe"
+
+[capabilities]
+tts = true

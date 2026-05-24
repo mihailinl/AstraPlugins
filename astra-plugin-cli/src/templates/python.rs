@@ -55,6 +55,19 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"stt") {
+        methods.push_str(
+            r#"
+    async def stt_get_languages(self):
+        return ["en"]
+
+    async def stt_transcribe(self, audio: bytes, sample_rate: int):
+        # TODO: implement speech-to-text
+        raise NotImplementedError("STT not yet implemented")
+"#,
+        );
+    }
+
     if capabilities.contains(&"actions") {
         methods.push_str(
             r#"

@@ -29,6 +29,17 @@ export interface AudioData {
   durationMs: number;
 }
 
+/** A speech-recognition result returned by `sttTranscribe`. */
+export interface SttEvent {
+  text: string;
+  /** `true` for a complete transcription, `false` for an interim result. */
+  isFinal?: boolean;
+  /** Recognition confidence in 0.0..=1.0. */
+  confidence?: number;
+  /** Detected language code (e.g. "en"), or empty if unknown. */
+  language?: string;
+}
+
 /** An AI model info. */
 export interface AiModelInfo {
   id: string;

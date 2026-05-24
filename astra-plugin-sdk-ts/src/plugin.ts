@@ -10,11 +10,13 @@ import type {
   ToolResult,
   VoiceInfo,
   AudioData,
+  SttEvent,
   AiModelInfo,
   ActionResult,
   ActionTypeDef,
   TriggerTypeDef,
   UiContribution,
+  FieldDef,
 } from "./types";
 import { DaemonClient } from "./daemon-client";
 
@@ -51,7 +53,9 @@ export abstract class Plugin {
       CallTool: this.wrapHandler(this.handleCallTool.bind(this)),
       TtsSynthesize: this.wrapHandler(this.handleTtsSynthesize.bind(this)),
       TtsListVoices: this.wrapHandler(this.handleTtsListVoices.bind(this)),
+      TtsGetConfigFields: this.wrapHandler(this.handleTtsGetConfigFields.bind(this)),
       SttGetLanguages: this.wrapHandler(this.handleSttGetLanguages.bind(this)),
+      SttGetConfigFields: this.wrapHandler(this.handleSttGetConfigFields.bind(this)),
       AiGetModels: this.wrapHandler(this.handleAiGetModels.bind(this)),
       ExecuteAction: this.wrapHandler(this.handleExecuteAction.bind(this)),
       GetPluginActionTypes: this.wrapHandler(this.handleGetActionTypes.bind(this)),
@@ -69,12 +73,7 @@ export abstract class Plugin {
           details: "Streaming TTS not implemented",
         });
       },
-      SttProcess: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "STT not implemented",
-        });
-      },
+      SttProcess: this.handleSttProcess.bind(this),
       AiComplete: (call: any) => {
         call.emit("error", {
           code: grpc.status.UNIMPLEMENTED,
@@ -195,6 +194,26 @@ export abstract class Plugin {
   }
   async sttGetLanguages(): Promise<string[]> {
     return [];
+  }
+  /** Declare TTS settings the daemon should render on the Voice page.
+   *
+   * Each `FieldDef` becomes one input rendered by the daemon's generic
+   * `DynamicField` component — no per-plugin frontend code. Use the
+   * exported `fields` builder (`fields.text(...).withDefault(...)`) for
+   * ergonomics. Return `[]` (the default) if the TTS provider has no
+   * extra settings. */
+  async ttsConfigFields(): Promise<FieldDef[]> {
+    return [];
+  }
+  /** Declare STT settings; same contract as `ttsConfigFields`. */
+  async sttConfigFields(): Promise<FieldDef[]> {
+    return [];
+  }
+  /** Transcribe a complete utterance to text (non-streaming). The SDK
+   * accumulates every audio chunk the daemon streams over `SttProcess` and
+   * calls this once the stream ends. Override for an STT plugin. */
+  async sttTranscribe(_audio: Buffer, _sampleRate: number): Promise<SttEvent> {
+    throw new Error("STT not implemented");
   }
   async aiGetModels(): Promise<{ models: AiModelInfo[]; defaultModel: string }> {
     return { models: [], defaultModel: "" };
@@ -356,6 +375,48 @@ export abstract class Plugin {
   private async handleSttGetLanguages(_call: any) {
     const languages = await this.sttGetLanguages();
     return { languages };
+  }
+
+  private async handleTtsGetConfigFields(_call: any) {
+    const config_fields = await this.ttsConfigFields();
+    return { config_fields };
+  }
+
+  private async handleSttGetConfigFields(_call: any) {
+    const config_fields = await this.sttConfigFields();
+    return { config_fields };
+  }
+
+  /** Bidi-streaming `SttProcess`: accumulate `PluginAudioChunk`s, then run
+   *  the non-streaming `sttTranscribe` and emit a single `PluginSttEvent`. */
+  private handleSttProcess(call: any): void {
+    const chunks: Buffer[] = [];
+    let sampleRate = 0;
+    let finished = false;
+    const finish = async () => {
+      if (finished) return;
+      finished = true;
+      try {
+        const ev = await this.sttTranscribe(Buffer.concat(chunks), sampleRate);
+        call.write({
+          text: ev.text,
+          isFinal: ev.isFinal ?? true,
+          confidence: ev.confidence ?? 1.0,
+          language: ev.language ?? "",
+        });
+        call.end();
+      } catch (e: any) {
+        call.emit("error", { code: grpc.status.INTERNAL, details: e.message });
+      }
+    };
+    call.on("data", (chunk: any) => {
+      if (sampleRate === 0 && chunk.sampleRate) sampleRate = chunk.sampleRate;
+      if (chunk.data && chunk.data.length) chunks.push(Buffer.from(chunk.data));
+      if (chunk.isLast) void finish();
+    });
+    call.on("end", () => {
+      void finish();
+    });
   }
 
   private async handleAiGetModels(_call: any) {

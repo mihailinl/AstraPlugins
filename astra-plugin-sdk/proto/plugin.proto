@@ -1987,10 +1987,18 @@ service PluginCapabilityService {
     rpc TtsSynthesize(PluginTtsSynthesizeRequest) returns (PluginTtsSynthesizeResponse);
     rpc TtsSynthesizeStream(PluginTtsSynthesizeRequest) returns (stream PluginAudioChunk);
     rpc TtsListVoices(Empty) returns (PluginTtsVoicesResponse);
+    // Data-driven config fields for the plugin's TTS provider — exposed in
+    // the daemon's ProviderDescriptor.config_fields and rendered by
+    // DynamicField on the Voice settings page. Returns an empty list if the
+    // plugin has no extra settings.
+    rpc TtsGetConfigFields(Empty) returns (PluginConfigFieldsResponse);
 
     // ── STT ──
     rpc SttProcess(stream PluginAudioChunk) returns (stream PluginSttEvent);
     rpc SttGetLanguages(Empty) returns (PluginSttLanguagesResponse);
+    // Data-driven config fields for the plugin's STT provider; same role
+    // as TtsGetConfigFields for STT settings.
+    rpc SttGetConfigFields(Empty) returns (PluginConfigFieldsResponse);
 
     // ── AI Provider ──
     rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
@@ -2272,6 +2280,13 @@ message PluginSttEvent {
 
 message PluginSttLanguagesResponse {
     repeated string languages = 1;
+}
+
+// Shared response for TtsGetConfigFields / SttGetConfigFields. The daemon
+// projects each entry into ProviderDescriptor.config_fields and serves the
+// list to the Voice page; DynamicField renders it without per-plugin code.
+message PluginConfigFieldsResponse {
+    repeated FieldDefinitionMsg config_fields = 1;
 }
 
 // ── AI Provider ──

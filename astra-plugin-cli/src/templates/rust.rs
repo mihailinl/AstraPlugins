@@ -9,7 +9,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-astra-plugin-sdk = {{ git = "https://github.com/astra-assistant/astra-plugin-sdk" }}
+# Released SDK — works once published to crates.io.
+astra-plugin-sdk = "0.5"
+# For development against an unreleased SDK, swap the line above for
+# one of these (use the real repo path, not the legacy placeholder):
+#   astra-plugin-sdk = {{ git = "https://github.com/mihailinl/AstraPlugins", branch = "main" }}
+#   astra-plugin-sdk = {{ path = "../../AstraPlugins/astra-plugin-sdk" }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
@@ -78,6 +83,25 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     ) -> anyhow::Result<AudioData> {{
         // TODO: implement TTS synthesis
         anyhow::bail!("TTS synthesis not yet implemented for: {{text}}")
+    }}
+"##
+        ));
+    }
+
+    if capabilities.contains(&"stt") {
+        trait_methods.push_str(&format!(
+            r##"
+    async fn stt_languages(&self) -> Vec<String> {{
+        vec!["en".into()]
+    }}
+
+    async fn stt_transcribe(
+        &self,
+        _audio: &[u8],
+        _sample_rate: u32,
+    ) -> anyhow::Result<SttEvent> {{
+        // TODO: implement speech-to-text
+        anyhow::bail!("STT not yet implemented")
     }}
 "##
         ));

@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from astra_plugin_sdk.proto import plugin_pb2 as plugin__pb2
+from . import plugin_pb2 as plugin__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
@@ -51,6 +51,11 @@ class CoreServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.Shutdown = channel.unary_unary(
+                '/astra.CoreService/Shutdown',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
         self.SubscribeEvents = channel.unary_stream(
                 '/astra.CoreService/SubscribeEvents',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -84,6 +89,13 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Shutdown(self, request, context):
+        """Fully shut down the daemon process (graceful)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeEvents(self, request, context):
         """Subscribe to real-time events
         """
@@ -106,6 +118,11 @@ def add_CoreServiceServicer_to_server(servicer, server):
             ),
             'Stop': grpc.unary_unary_rpc_method_handler(
                     servicer.Stop,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'Shutdown': grpc.unary_unary_rpc_method_handler(
+                    servicer.Shutdown,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
@@ -196,6 +213,33 @@ class CoreService(object):
             request,
             target,
             '/astra.CoreService/Stop',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Shutdown(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/Shutdown',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
@@ -450,6 +494,7 @@ class AuthService(object):
 class ChatServiceStub(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
     def __init__(self, channel):
@@ -458,24 +503,19 @@ class ChatServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SendMessage = channel.unary_stream(
-                '/astra.ChatService/SendMessage',
-                request_serializer=plugin__pb2.SendMessageRequest.SerializeToString,
-                response_deserializer=plugin__pb2.ChatStreamChunk.FromString,
+        self.SubmitUserMessage = channel.unary_unary(
+                '/astra.ChatService/SubmitUserMessage',
+                request_serializer=plugin__pb2.SubmitUserMessageRequest.SerializeToString,
+                response_deserializer=plugin__pb2.SubmitUserMessageResponse.FromString,
                 _registered_method=True)
         self.StopGeneration = channel.unary_unary(
                 '/astra.ChatService/StopGeneration',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
+                request_serializer=plugin__pb2.StopGenerationRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
-        self.GetHistory = channel.unary_unary(
-                '/astra.ChatService/GetHistory',
-                request_serializer=plugin__pb2.GetHistoryRequest.SerializeToString,
-                response_deserializer=plugin__pb2.GetHistoryResponse.FromString,
-                _registered_method=True)
-        self.ClearHistory = channel.unary_unary(
-                '/astra.ChatService/ClearHistory',
-                request_serializer=plugin__pb2.ClearHistoryRequest.SerializeToString,
+        self.RespondToConfirmation = channel.unary_unary(
+                '/astra.ChatService/RespondToConfirmation',
+                request_serializer=plugin__pb2.ConfirmationResponse.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.ListConversations = channel.unary_unary(
@@ -493,69 +533,77 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.DeleteConversationRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
-        self.SwitchConversation = channel.unary_unary(
-                '/astra.ChatService/SwitchConversation',
-                request_serializer=plugin__pb2.SwitchConversationRequest.SerializeToString,
+        self.ClearConversation = channel.unary_unary(
+                '/astra.ChatService/ClearConversation',
+                request_serializer=plugin__pb2.ClearConversationRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SubscribeEvents = channel.unary_stream(
+                '/astra.ChatService/SubscribeEvents',
+                request_serializer=plugin__pb2.SubscribeEventsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.FirehoseEventMsg.FromString,
                 _registered_method=True)
 
 
 class ChatServiceServicer(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
-    def SendMessage(self, request, context):
-        """Send a message and receive streaming response
+    def SubmitUserMessage(self, request, context):
+        """Submit a user message. Daemon auto-creates a conversation if conversation_id
+        is empty, appends a UserMessage event, and drives the AI turn asynchronously.
+        All subsequent state — tool calls, text deltas, completion — arrives via
+        SubscribeEvents on the shared firehose.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def StopGeneration(self, request, context):
-        """Stop the current AI generation
+        """Stop AI generation (scoped to conversation, or all if empty).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetHistory(self, request, context):
-        """Get chat history
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ClearHistory(self, request, context):
-        """Clear chat history
+    def RespondToConfirmation(self, request, context):
+        """Respond to a dangerous action confirmation request.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListConversations(self, request, context):
-        """Get all conversations
+        """Conversation CRUD.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateConversation(self, request, context):
-        """Create a new conversation
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def DeleteConversation(self, request, context):
-        """Delete a conversation
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SwitchConversation(self, request, context):
-        """Switch the active conversation
+    def ClearConversation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeEvents(self, request, context):
+        """Server-style sync: one stream per client, firehose of events from every
+        conversation. Client provides cursors to resume incrementally; backlog
+        is delivered for listed conversations only.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -564,24 +612,19 @@ class ChatServiceServicer(object):
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SendMessage': grpc.unary_stream_rpc_method_handler(
-                    servicer.SendMessage,
-                    request_deserializer=plugin__pb2.SendMessageRequest.FromString,
-                    response_serializer=plugin__pb2.ChatStreamChunk.SerializeToString,
+            'SubmitUserMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitUserMessage,
+                    request_deserializer=plugin__pb2.SubmitUserMessageRequest.FromString,
+                    response_serializer=plugin__pb2.SubmitUserMessageResponse.SerializeToString,
             ),
             'StopGeneration': grpc.unary_unary_rpc_method_handler(
                     servicer.StopGeneration,
-                    request_deserializer=plugin__pb2.Empty.FromString,
+                    request_deserializer=plugin__pb2.StopGenerationRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
-            'GetHistory': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetHistory,
-                    request_deserializer=plugin__pb2.GetHistoryRequest.FromString,
-                    response_serializer=plugin__pb2.GetHistoryResponse.SerializeToString,
-            ),
-            'ClearHistory': grpc.unary_unary_rpc_method_handler(
-                    servicer.ClearHistory,
-                    request_deserializer=plugin__pb2.ClearHistoryRequest.FromString,
+            'RespondToConfirmation': grpc.unary_unary_rpc_method_handler(
+                    servicer.RespondToConfirmation,
+                    request_deserializer=plugin__pb2.ConfirmationResponse.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
             'ListConversations': grpc.unary_unary_rpc_method_handler(
@@ -599,10 +642,15 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.DeleteConversationRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
-            'SwitchConversation': grpc.unary_unary_rpc_method_handler(
-                    servicer.SwitchConversation,
-                    request_deserializer=plugin__pb2.SwitchConversationRequest.FromString,
+            'ClearConversation': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClearConversation,
+                    request_deserializer=plugin__pb2.ClearConversationRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SubscribeEvents': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeEvents,
+                    request_deserializer=plugin__pb2.SubscribeEventsRequest.FromString,
+                    response_serializer=plugin__pb2.FirehoseEventMsg.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -615,10 +663,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
 class ChatService(object):
     """============ Chat Service ============
 
+    The event-log-based chat service. No legacy streaming APIs.
     """
 
     @staticmethod
-    def SendMessage(request,
+    def SubmitUserMessage(request,
             target,
             options=(),
             channel_credentials=None,
@@ -628,12 +677,12 @@ class ChatService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
+        return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/SendMessage',
-            plugin__pb2.SendMessageRequest.SerializeToString,
-            plugin__pb2.ChatStreamChunk.FromString,
+            '/astra.ChatService/SubmitUserMessage',
+            plugin__pb2.SubmitUserMessageRequest.SerializeToString,
+            plugin__pb2.SubmitUserMessageResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -659,7 +708,7 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/StopGeneration',
-            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.StopGenerationRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -672,7 +721,7 @@ class ChatService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetHistory(request,
+    def RespondToConfirmation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -685,35 +734,8 @@ class ChatService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/GetHistory',
-            plugin__pb2.GetHistoryRequest.SerializeToString,
-            plugin__pb2.GetHistoryResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ClearHistory(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.ChatService/ClearHistory',
-            plugin__pb2.ClearHistoryRequest.SerializeToString,
+            '/astra.ChatService/RespondToConfirmation',
+            plugin__pb2.ConfirmationResponse.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -807,7 +829,7 @@ class ChatService(object):
             _registered_method=True)
 
     @staticmethod
-    def SwitchConversation(request,
+    def ClearConversation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -820,9 +842,36 @@ class ChatService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.ChatService/SwitchConversation',
-            plugin__pb2.SwitchConversationRequest.SerializeToString,
+            '/astra.ChatService/ClearConversation',
+            plugin__pb2.ClearConversationRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/astra.ChatService/SubscribeEvents',
+            plugin__pb2.SubscribeEventsRequest.SerializeToString,
+            plugin__pb2.FirehoseEventMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -968,6 +1017,11 @@ class VoiceServiceStub(object):
         self.DeleteLlmMatchModel = channel.unary_unary(
                 '/astra.VoiceService/DeleteLlmMatchModel',
                 request_serializer=plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetVoiceConversation = channel.unary_unary(
+                '/astra.VoiceService/SetVoiceConversation',
+                request_serializer=plugin__pb2.SetVoiceConversationRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
@@ -1158,6 +1212,13 @@ class VoiceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetVoiceConversation(self, request, context):
+        """Set the conversation ID for voice processing (binds voice to UI's active conversation)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_VoiceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1284,6 +1345,11 @@ def add_VoiceServiceServicer_to_server(servicer, server):
             'DeleteLlmMatchModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteLlmMatchModel,
                     request_deserializer=plugin__pb2.DeleteLlmMatchModelRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetVoiceConversation': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetVoiceConversation,
+                    request_deserializer=plugin__pb2.SetVoiceConversationRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
@@ -1963,6 +2029,33 @@ class VoiceService(object):
             target,
             '/astra.VoiceService/DeleteLlmMatchModel',
             plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetVoiceConversation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetVoiceConversation',
+            plugin__pb2.SetVoiceConversationRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -5273,6 +5366,21 @@ class PluginServiceStub(object):
                 request_serializer=plugin__pb2.PluginLogsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginLogsResponse.FromString,
                 _registered_method=True)
+        self.GetAllUiContributions = channel.unary_unary(
+                '/astra.PluginService/GetAllUiContributions',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.AllUiContributionsResponse.FromString,
+                _registered_method=True)
+        self.GetActiveThemes = channel.unary_unary(
+                '/astra.PluginService/GetActiveThemes',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.ActiveThemesResponse.FromString,
+                _registered_method=True)
+        self.CallPluginFromUi = channel.unary_unary(
+                '/astra.PluginService/CallPluginFromUi',
+                request_serializer=plugin__pb2.CallPluginFromUiRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CallPluginFromUiResponse.FromString,
+                _registered_method=True)
 
 
 class PluginServiceServicer(object):
@@ -5378,6 +5486,27 @@ class PluginServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetAllUiContributions(self, request, context):
+        """Get all UI contributions from all running plugins
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetActiveThemes(self, request, context):
+        """Get active theme contributions from plugins
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallPluginFromUi(self, request, context):
+        """Forward a UI call to a plugin's backend
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -5450,6 +5579,21 @@ def add_PluginServiceServicer_to_server(servicer, server):
                     servicer.GetPluginLogs,
                     request_deserializer=plugin__pb2.PluginLogsRequest.FromString,
                     response_serializer=plugin__pb2.PluginLogsResponse.SerializeToString,
+            ),
+            'GetAllUiContributions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAllUiContributions,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.AllUiContributionsResponse.SerializeToString,
+            ),
+            'GetActiveThemes': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetActiveThemes,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.ActiveThemesResponse.SerializeToString,
+            ),
+            'CallPluginFromUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallPluginFromUi,
+                    request_deserializer=plugin__pb2.CallPluginFromUiRequest.FromString,
+                    response_serializer=plugin__pb2.CallPluginFromUiResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -5842,6 +5986,87 @@ class PluginService(object):
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def GetAllUiContributions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/GetAllUiContributions',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.AllUiContributionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetActiveThemes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/GetActiveThemes',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.ActiveThemesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallPluginFromUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/CallPluginFromUi',
+            plugin__pb2.CallPluginFromUiRequest.SerializeToString,
+            plugin__pb2.CallPluginFromUiResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class PluginHostServiceStub(object):
     """============ Plugin Host Service (daemon exposes, plugins call into) ============
@@ -5892,6 +6117,16 @@ class PluginHostServiceStub(object):
         self.SetVariable = channel.unary_unary(
                 '/astra.PluginHostService/SetVariable',
                 request_serializer=plugin__pb2.PluginSetVariableRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetThemeContribution = channel.unary_unary(
+                '/astra.PluginHostService/SetThemeContribution',
+                request_serializer=plugin__pb2.PluginThemeContribution.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.PushToUi = channel.unary_unary(
+                '/astra.PluginHostService/PushToUi',
+                request_serializer=plugin__pb2.PluginUiPushRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
@@ -5957,6 +6192,20 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetThemeContribution(self, request, context):
+        """Set theme contribution (colors, wallpaper, shader)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PushToUi(self, request, context):
+        """Push a message to this plugin's UI iframes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginHostServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -5998,6 +6247,16 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
             'SetVariable': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVariable,
                     request_deserializer=plugin__pb2.PluginSetVariableRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetThemeContribution': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetThemeContribution,
+                    request_deserializer=plugin__pb2.PluginThemeContribution.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'PushToUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.PushToUi,
+                    request_deserializer=plugin__pb2.PluginUiPushRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
@@ -6229,6 +6488,60 @@ class PluginHostService(object):
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def SetThemeContribution(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/SetThemeContribution',
+            plugin__pb2.PluginThemeContribution.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PushToUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/PushToUi',
+            plugin__pb2.PluginUiPushRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class PluginCapabilityServiceStub(object):
     """============ Plugin Capability Service (plugin exposes, daemon calls) ============
@@ -6266,6 +6579,11 @@ class PluginCapabilityServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginTtsVoicesResponse.FromString,
                 _registered_method=True)
+        self.TtsGetConfigFields = channel.unary_unary(
+                '/astra.PluginCapabilityService/TtsGetConfigFields',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.PluginConfigFieldsResponse.FromString,
+                _registered_method=True)
         self.SttProcess = channel.stream_stream(
                 '/astra.PluginCapabilityService/SttProcess',
                 request_serializer=plugin__pb2.PluginAudioChunk.SerializeToString,
@@ -6275,6 +6593,11 @@ class PluginCapabilityServiceStub(object):
                 '/astra.PluginCapabilityService/SttGetLanguages',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginSttLanguagesResponse.FromString,
+                _registered_method=True)
+        self.SttGetConfigFields = channel.unary_unary(
+                '/astra.PluginCapabilityService/SttGetConfigFields',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.PluginConfigFieldsResponse.FromString,
                 _registered_method=True)
         self.AiComplete = channel.unary_stream(
                 '/astra.PluginCapabilityService/AiComplete',
@@ -6301,14 +6624,29 @@ class PluginCapabilityServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginTriggerTypesResponse.FromString,
                 _registered_method=True)
-        self.GetUiPanels = channel.unary_unary(
-                '/astra.PluginCapabilityService/GetUiPanels',
+        self.GetUiContributions = channel.unary_unary(
+                '/astra.PluginCapabilityService/GetUiContributions',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.PluginUiPanelsResponse.FromString,
+                response_deserializer=plugin__pb2.PluginUiContributionsResponse.FromString,
+                _registered_method=True)
+        self.CallFromUi = channel.unary_unary(
+                '/astra.PluginCapabilityService/CallFromUi',
+                request_serializer=plugin__pb2.PluginUiCallRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginUiCallResponse.FromString,
                 _registered_method=True)
         self.OnConfigChanged = channel.unary_unary(
                 '/astra.PluginCapabilityService/OnConfigChanged',
                 request_serializer=plugin__pb2.PluginConfigChangedMsg.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.OnActiveTriggers = channel.unary_unary(
+                '/astra.PluginCapabilityService/OnActiveTriggers',
+                request_serializer=plugin__pb2.PluginActiveTriggersMsg.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.OnLanguageChanged = channel.unary_unary(
+                '/astra.PluginCapabilityService/OnLanguageChanged',
+                request_serializer=plugin__pb2.LanguageChangedMsg.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Shutdown = channel.unary_unary(
@@ -6360,6 +6698,16 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TtsGetConfigFields(self, request, context):
+        """Data-driven config fields for the plugin's TTS provider — exposed in
+        the daemon's ProviderDescriptor.config_fields and rendered by
+        DynamicField on the Voice settings page. Returns an empty list if the
+        plugin has no extra settings.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SttProcess(self, request_iterator, context):
         """── STT ──
         """
@@ -6369,6 +6717,14 @@ class PluginCapabilityServiceServicer(object):
 
     def SttGetLanguages(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SttGetConfigFields(self, request, context):
+        """Data-driven config fields for the plugin's STT provider; same role
+        as TtsGetConfigFields for STT settings.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6406,9 +6762,15 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetUiPanels(self, request, context):
+    def GetUiContributions(self, request, context):
         """── UI ──
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallFromUi(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6416,6 +6778,18 @@ class PluginCapabilityServiceServicer(object):
     def OnConfigChanged(self, request, context):
         """── Lifecycle ──
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OnActiveTriggers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OnLanguageChanged(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6460,6 +6834,11 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginTtsVoicesResponse.SerializeToString,
             ),
+            'TtsGetConfigFields': grpc.unary_unary_rpc_method_handler(
+                    servicer.TtsGetConfigFields,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.PluginConfigFieldsResponse.SerializeToString,
+            ),
             'SttProcess': grpc.stream_stream_rpc_method_handler(
                     servicer.SttProcess,
                     request_deserializer=plugin__pb2.PluginAudioChunk.FromString,
@@ -6469,6 +6848,11 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     servicer.SttGetLanguages,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginSttLanguagesResponse.SerializeToString,
+            ),
+            'SttGetConfigFields': grpc.unary_unary_rpc_method_handler(
+                    servicer.SttGetConfigFields,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.PluginConfigFieldsResponse.SerializeToString,
             ),
             'AiComplete': grpc.unary_stream_rpc_method_handler(
                     servicer.AiComplete,
@@ -6495,14 +6879,29 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginTriggerTypesResponse.SerializeToString,
             ),
-            'GetUiPanels': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetUiPanels,
+            'GetUiContributions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetUiContributions,
                     request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.PluginUiPanelsResponse.SerializeToString,
+                    response_serializer=plugin__pb2.PluginUiContributionsResponse.SerializeToString,
+            ),
+            'CallFromUi': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallFromUi,
+                    request_deserializer=plugin__pb2.PluginUiCallRequest.FromString,
+                    response_serializer=plugin__pb2.PluginUiCallResponse.SerializeToString,
             ),
             'OnConfigChanged': grpc.unary_unary_rpc_method_handler(
                     servicer.OnConfigChanged,
                     request_deserializer=plugin__pb2.PluginConfigChangedMsg.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'OnActiveTriggers': grpc.unary_unary_rpc_method_handler(
+                    servicer.OnActiveTriggers,
+                    request_deserializer=plugin__pb2.PluginActiveTriggersMsg.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'OnLanguageChanged': grpc.unary_unary_rpc_method_handler(
+                    servicer.OnLanguageChanged,
+                    request_deserializer=plugin__pb2.LanguageChangedMsg.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
             'Shutdown': grpc.unary_unary_rpc_method_handler(
@@ -6664,6 +7063,33 @@ class PluginCapabilityService(object):
             _registered_method=True)
 
     @staticmethod
+    def TtsGetConfigFields(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/TtsGetConfigFields',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.PluginConfigFieldsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SttProcess(request_iterator,
             target,
             options=(),
@@ -6707,6 +7133,33 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/SttGetLanguages',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginSttLanguagesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SttGetConfigFields(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/SttGetConfigFields',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.PluginConfigFieldsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6853,7 +7306,7 @@ class PluginCapabilityService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetUiPanels(request,
+    def GetUiContributions(request,
             target,
             options=(),
             channel_credentials=None,
@@ -6866,9 +7319,36 @@ class PluginCapabilityService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.PluginCapabilityService/GetUiPanels',
+            '/astra.PluginCapabilityService/GetUiContributions',
             plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.PluginUiPanelsResponse.FromString,
+            plugin__pb2.PluginUiContributionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallFromUi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/CallFromUi',
+            plugin__pb2.PluginUiCallRequest.SerializeToString,
+            plugin__pb2.PluginUiCallResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6895,6 +7375,60 @@ class PluginCapabilityService(object):
             target,
             '/astra.PluginCapabilityService/OnConfigChanged',
             plugin__pb2.PluginConfigChangedMsg.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def OnActiveTriggers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/OnActiveTriggers',
+            plugin__pb2.PluginActiveTriggersMsg.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def OnLanguageChanged(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/OnLanguageChanged',
+            plugin__pb2.LanguageChangedMsg.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -6950,6 +7484,129 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/HealthCheck',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class ClientAuthServiceStub(object):
+    """============ Client Auth Service ============
+
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.RegisterClient = channel.unary_unary(
+                '/astra.ClientAuthService/RegisterClient',
+                request_serializer=plugin__pb2.RegisterClientRequest.SerializeToString,
+                response_deserializer=plugin__pb2.RegisterClientResponse.FromString,
+                _registered_method=True)
+        self.DisconnectClient = channel.unary_unary(
+                '/astra.ClientAuthService/DisconnectClient',
+                request_serializer=plugin__pb2.DisconnectClientRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+
+
+class ClientAuthServiceServicer(object):
+    """============ Client Auth Service ============
+
+    """
+
+    def RegisterClient(self, request, context):
+        """Register as a main client (astraui). Returns a session token.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DisconnectClient(self, request, context):
+        """Gracefully disconnect and release the main client slot.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_ClientAuthServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'RegisterClient': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterClient,
+                    request_deserializer=plugin__pb2.RegisterClientRequest.FromString,
+                    response_serializer=plugin__pb2.RegisterClientResponse.SerializeToString,
+            ),
+            'DisconnectClient': grpc.unary_unary_rpc_method_handler(
+                    servicer.DisconnectClient,
+                    request_deserializer=plugin__pb2.DisconnectClientRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'astra.ClientAuthService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('astra.ClientAuthService', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class ClientAuthService(object):
+    """============ Client Auth Service ============
+
+    """
+
+    @staticmethod
+    def RegisterClient(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ClientAuthService/RegisterClient',
+            plugin__pb2.RegisterClientRequest.SerializeToString,
+            plugin__pb2.RegisterClientResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DisconnectClient(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ClientAuthService/DisconnectClient',
+            plugin__pb2.DisconnectClientRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

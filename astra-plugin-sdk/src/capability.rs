@@ -101,6 +101,66 @@ impl From<AudioData> for proto::PluginTtsSynthesizeResponse {
     }
 }
 
+/// A speech-recognition result emitted on the `SttProcess` stream.
+///
+/// A non-streaming [`PluginCapability::stt_transcribe`] returns exactly one,
+/// normally built with [`SttEvent::transcript`].
+#[derive(Debug, Clone)]
+pub struct SttEvent {
+    pub text: String,
+    /// `true` for a complete transcription, `false` for an interim result.
+    pub is_final: bool,
+    /// Recognition confidence in `0.0..=1.0`.
+    pub confidence: f32,
+    /// Detected language code (e.g. `"en"`), or empty if unknown.
+    pub language: String,
+}
+
+impl SttEvent {
+    /// A complete transcription — `is_final = true`, `confidence = 1.0`.
+    pub fn transcript(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            is_final: true,
+            confidence: 1.0,
+            language: String::new(),
+        }
+    }
+
+    /// An interim/partial result — `is_final = false`, `confidence = 1.0`.
+    pub fn partial(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            is_final: false,
+            confidence: 1.0,
+            language: String::new(),
+        }
+    }
+
+    /// Set the recognition confidence (`0.0..=1.0`).
+    pub fn with_confidence(mut self, confidence: f32) -> Self {
+        self.confidence = confidence;
+        self
+    }
+
+    /// Set the detected language code.
+    pub fn with_language(mut self, language: impl Into<String>) -> Self {
+        self.language = language.into();
+        self
+    }
+}
+
+impl From<SttEvent> for proto::PluginSttEvent {
+    fn from(e: SttEvent) -> Self {
+        Self {
+            text: e.text,
+            is_final: e.is_final,
+            confidence: e.confidence,
+            language: e.language,
+        }
+    }
+}
+
 /// An AI model provided by the plugin.
 #[derive(Debug, Clone)]
 pub struct AiModelInfo {
@@ -366,8 +426,81 @@ pub trait PluginCapability: Send + Sync + 'static {
 
     // ── STT ──
 
+    /// Transcribe a complete utterance to text (non-streaming).
+    ///
+    /// The SDK accumulates every `PluginAudioChunk` the daemon streams over
+    /// `SttProcess` and calls this once the final chunk arrives: `audio` is
+    /// the concatenated PCM payload, `sample_rate` its declared rate. Return
+    /// one [`SttEvent`] — usually via [`SttEvent::transcript`].
+    ///
+    /// Override this for an STT plugin; the default reports STT unsupported.
+    async fn stt_transcribe(
+        &self,
+        _audio: &[u8],
+        _sample_rate: u32,
+    ) -> anyhow::Result<SttEvent> {
+        anyhow::bail!("STT not implemented")
+    }
+
+    /// Live-streaming STT: chunks arrive on `audio_rx` as the daemon
+    /// captures them from the microphone (f32-LE PCM, no per-chunk
+    /// sample-rate boundaries — they all share `sample_rate`); the closed
+    /// channel signals end-of-utterance. Emit `SttEvent`s on `events_tx`
+    /// as they become available: zero or more partials
+    /// (`SttEvent::partial`) while audio is flowing, then one final
+    /// (`SttEvent::transcript`) before returning.
+    ///
+    /// Override this for a true streaming backend (Vosk, Deepgram, an
+    /// echo-back plugin that plays each chunk live). The default
+    /// accumulates every byte and forwards to [`Self::stt_transcribe`] —
+    /// existing non-streaming plugins behave exactly as before, without
+    /// any code changes.
+    async fn stt_transcribe_stream(
+        &self,
+        mut audio_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+        events_tx: tokio::sync::mpsc::Sender<SttEvent>,
+        sample_rate: u32,
+    ) -> anyhow::Result<()> {
+        let mut buf: Vec<u8> = Vec::new();
+        while let Some(chunk) = audio_rx.recv().await {
+            buf.extend_from_slice(&chunk);
+        }
+        if buf.is_empty() {
+            return Ok(());
+        }
+        match self.stt_transcribe(&buf, sample_rate).await {
+            Ok(ev) => {
+                let _ = events_tx.send(ev).await;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get supported STT languages.
     async fn stt_languages(&self) -> Vec<String> {
+        vec![]
+    }
+
+    /// Declare TTS settings the daemon should render on the Voice page.
+    ///
+    /// Each [`FieldDef`] becomes one input rendered by the daemon's
+    /// generic `DynamicField` component (the same one used by Commands
+    /// editor actions and triggers) — there is no per-plugin frontend
+    /// code. Use [`FieldDef::with_default`] / `with_placeholder` /
+    /// `with_description` for ergonomics.
+    ///
+    /// Return `vec![]` (the default) if the TTS provider has no extra
+    /// settings.
+    async fn tts_config_fields(&self) -> Vec<FieldDef> {
+        vec![]
+    }
+
+    /// Declare STT settings the daemon should render on the Voice page.
+    ///
+    /// Same contract as [`tts_config_fields`](Self::tts_config_fields)
+    /// for STT settings (language hint, decoding prompt, etc.).
+    async fn stt_config_fields(&self) -> Vec<FieldDef> {
         vec![]
     }
 

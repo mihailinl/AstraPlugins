@@ -252,6 +252,42 @@ class Plugin:
         """Return supported STT languages."""
         return []
 
+    async def tts_config_fields(self) -> list[dict]:
+        """Declare TTS settings the daemon should render on the Voice page.
+
+        Each entry becomes one input rendered by the daemon's generic
+        ``DynamicField`` component — there is no per-plugin frontend code.
+        Return ``[]`` (the default) if the TTS provider has no extra settings.
+
+        Field shape mirrors ``FieldDefinitionMsg`` (proto): keys ``id``,
+        ``label``, ``field_type`` (``text`` / ``number`` / ``toggle`` /
+        ``dropdown`` / ...), and optional ``placeholder``, ``default_value``,
+        ``min``, ``max``, ``step``, ``has_min``, ``has_max``, ``has_step``,
+        ``options`` ([{value, label}]), ``description``, ``group``.
+        """
+        return []
+
+    async def stt_config_fields(self) -> list[dict]:
+        """Declare STT settings the daemon should render on the Voice page.
+
+        Same contract as :meth:`tts_config_fields` for STT settings.
+        """
+        return []
+
+    async def stt_transcribe(self, audio: bytes, sample_rate: int) -> str | dict:
+        """Transcribe a complete utterance to text (non-streaming).
+
+        The SDK accumulates every audio chunk the daemon streams over
+        ``SttProcess`` and calls this once the final chunk arrives:
+        ``audio`` is the concatenated PCM payload, ``sample_rate`` its
+        declared rate.
+
+        Return either the transcript string, or a dict
+        ``{text, is_final, confidence, language}`` for full control.
+        Override this for an STT plugin.
+        """
+        raise NotImplementedError
+
     async def ai_get_models(self) -> tuple[list[dict], str]:
         """Return (models_list, default_model_id)."""
         return [], ""
@@ -456,6 +492,21 @@ class Plugin:
             await asyncio.sleep(2)
 
 
+def _field_dict_to_proto(d: dict):
+    """Convert a config-fields dict to ``FieldDefinitionMsg``.
+
+    Handles nested ``options`` / ``conditions`` arrays — protobuf's
+    ``**dict`` unpack does not auto-convert dicts to sub-messages, so the
+    nested entries are built explicitly.
+    """
+    options = [plugin_pb2.DropdownOptionMsg(**o) for o in d.get("options", []) or []]
+    conditions = [
+        plugin_pb2.FieldVisibilityCondition(**c) for c in d.get("conditions", []) or []
+    ]
+    flat = {k: v for k, v in d.items() if k not in ("options", "conditions")}
+    return plugin_pb2.FieldDefinitionMsg(**flat, options=options, conditions=conditions)
+
+
 class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     """gRPC servicer that delegates to the Plugin instance."""
 
@@ -492,6 +543,52 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     async def SttGetLanguages(self, request, context):
         langs = await self.plugin.stt_get_languages()
         return plugin_pb2.PluginSttLanguagesResponse(languages=langs)
+
+    async def TtsGetConfigFields(self, request, context):
+        fields = await self.plugin.tts_config_fields()
+        return plugin_pb2.PluginConfigFieldsResponse(
+            config_fields=[_field_dict_to_proto(f) for f in fields]
+        )
+
+    async def SttGetConfigFields(self, request, context):
+        fields = await self.plugin.stt_config_fields()
+        return plugin_pb2.PluginConfigFieldsResponse(
+            config_fields=[_field_dict_to_proto(f) for f in fields]
+        )
+
+    async def SttProcess(self, request_iterator, context):
+        # Accumulate the utterance. The daemon currently sends a single
+        # f32-LE PCM buffer flagged `is_last`, but a future caller may split
+        # it across chunks — drain until `is_last` or end-of-stream either way.
+        audio = bytearray()
+        sample_rate = 0
+        async for chunk in request_iterator:
+            if sample_rate == 0:
+                sample_rate = chunk.sample_rate
+            audio.extend(chunk.data)
+            if chunk.is_last:
+                break
+
+        # Non-streaming transcription: one `stt_transcribe` call, one event.
+        try:
+            result = await self.plugin.stt_transcribe(bytes(audio), sample_rate)
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "STT not implemented")
+            return
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return
+
+        if isinstance(result, str):
+            result = {"text": result}
+        yield plugin_pb2.PluginSttEvent(
+            text=result.get("text", ""),
+            is_final=result.get("is_final", True),
+            confidence=result.get("confidence", 1.0),
+            language=result.get("language", ""),
+        )
 
     async def AiGetModels(self, request, context):
         models, default = await self.plugin.ai_get_models()

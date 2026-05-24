@@ -359,9 +359,82 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
 
     async fn stt_process(
         &self,
-        _request: tonic::Request<tonic::Streaming<proto::PluginAudioChunk>>,
+        request: tonic::Request<tonic::Streaming<proto::PluginAudioChunk>>,
     ) -> Result<tonic::Response<Self::SttProcessStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("STT not implemented"))
+        let mut inbound = request.into_inner();
+
+        // Set up the streaming bridge: a channel of `Vec<u8>` chunks
+        // (f32 LE PCM, no sample-rate boundaries) flows from the inbound
+        // gRPC stream into the plugin, and `SttEvent`s flow back out into
+        // the outbound stream.
+        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+        let (events_tx, events_rx) =
+            tokio::sync::mpsc::channel::<crate::capability::SttEvent>(8);
+
+        // Peek the first chunk to learn the sample rate before spawning
+        // the plugin task — `stt_transcribe_stream` needs it up front.
+        let first = match inbound.message().await? {
+            Some(c) => c,
+            None => {
+                // Empty stream — nothing to transcribe.
+                let empty: Self::SttProcessStream =
+                    Box::pin(tokio_stream::empty());
+                return Ok(tonic::Response::new(empty));
+            }
+        };
+        let sample_rate = first.sample_rate;
+        let first_is_last = first.is_last;
+        if !first.data.is_empty() {
+            let _ = audio_tx.send(first.data).await;
+        }
+
+        // Inbound forwarder: pump every subsequent `PluginAudioChunk`'s
+        // `data` into the audio channel until `is_last` or end-of-stream,
+        // then drop the sender to signal end-of-utterance.
+        if !first_is_last {
+            let inbound_tx = audio_tx.clone();
+            tokio::spawn(async move {
+                while let Ok(Some(chunk)) = inbound.message().await {
+                    if !chunk.data.is_empty() {
+                        if inbound_tx.send(chunk.data).await.is_err() {
+                            break;
+                        }
+                    }
+                    if chunk.is_last {
+                        break;
+                    }
+                }
+                drop(inbound_tx);
+            });
+        }
+        drop(audio_tx);
+
+        // Plugin task: run `stt_transcribe_stream`. Default impl buffers
+        // and forwards to `stt_transcribe` — so a non-streaming plugin
+        // works without changes. A streaming-capable plugin (echo-stt,
+        // a future Vosk wrapper) overrides the hook and consumes chunks
+        // live.
+        let plugin = self.plugin.clone();
+        tokio::spawn(async move {
+            if let Err(e) = plugin
+                .stt_transcribe_stream(audio_rx, events_tx, sample_rate)
+                .await
+            {
+                tracing::warn!("stt_transcribe_stream failed: {}", e);
+            }
+        });
+
+        // Outbound forwarder: map every `SttEvent` to a proto event on
+        // the response stream. Closes when `events_tx` is dropped by the
+        // plugin task.
+        let out = async_stream::stream! {
+            let mut events_rx = events_rx;
+            while let Some(ev) = events_rx.recv().await {
+                let proto_ev: proto::PluginSttEvent = ev.into();
+                yield Ok::<proto::PluginSttEvent, tonic::Status>(proto_ev);
+            }
+        };
+        Ok(tonic::Response::new(Box::pin(out)))
     }
 
     async fn stt_get_languages(
@@ -371,6 +444,26 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         let langs = self.plugin.stt_languages().await;
         Ok(tonic::Response::new(proto::PluginSttLanguagesResponse {
             languages: langs,
+        }))
+    }
+
+    async fn tts_get_config_fields(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
+        let fields = self.plugin.tts_config_fields().await;
+        Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
+            config_fields: fields,
+        }))
+    }
+
+    async fn stt_get_config_fields(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
+        let fields = self.plugin.stt_config_fields().await;
+        Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
+            config_fields: fields,
         }))
     }
 

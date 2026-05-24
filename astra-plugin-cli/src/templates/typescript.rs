@@ -60,6 +60,21 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"stt") {
+        methods.push_str(
+            r#"
+  async sttGetLanguages() {
+    return ["en"];
+  }
+
+  async sttTranscribe(audio: Buffer, sampleRate: number) {
+    // TODO: implement speech-to-text
+    throw new Error("STT not yet implemented");
+  }
+"#,
+        );
+    }
+
     if capabilities.contains(&"actions") {
         methods.push_str(
             r#"
@@ -110,7 +125,7 @@ pub fn generate_package_json(name: &str) -> String {
     "dev": "tsx src/index.ts"
   }},
   "dependencies": {{
-    "@astra/plugin-sdk": "^0.1.0",
+    "@astra/plugin-sdk": "^0.3.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }},
