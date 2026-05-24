@@ -16,6 +16,7 @@ import type {
   ActionTypeDef,
   TriggerTypeDef,
   UiContribution,
+  FieldDef,
 } from "./types";
 import { DaemonClient } from "./daemon-client";
 
@@ -52,7 +53,9 @@ export abstract class Plugin {
       CallTool: this.wrapHandler(this.handleCallTool.bind(this)),
       TtsSynthesize: this.wrapHandler(this.handleTtsSynthesize.bind(this)),
       TtsListVoices: this.wrapHandler(this.handleTtsListVoices.bind(this)),
+      TtsGetConfigFields: this.wrapHandler(this.handleTtsGetConfigFields.bind(this)),
       SttGetLanguages: this.wrapHandler(this.handleSttGetLanguages.bind(this)),
+      SttGetConfigFields: this.wrapHandler(this.handleSttGetConfigFields.bind(this)),
       AiGetModels: this.wrapHandler(this.handleAiGetModels.bind(this)),
       ExecuteAction: this.wrapHandler(this.handleExecuteAction.bind(this)),
       GetPluginActionTypes: this.wrapHandler(this.handleGetActionTypes.bind(this)),
@@ -190,6 +193,20 @@ export abstract class Plugin {
     return [];
   }
   async sttGetLanguages(): Promise<string[]> {
+    return [];
+  }
+  /** Declare TTS settings the daemon should render on the Voice page.
+   *
+   * Each `FieldDef` becomes one input rendered by the daemon's generic
+   * `DynamicField` component — no per-plugin frontend code. Use the
+   * exported `fields` builder (`fields.text(...).withDefault(...)`) for
+   * ergonomics. Return `[]` (the default) if the TTS provider has no
+   * extra settings. */
+  async ttsConfigFields(): Promise<FieldDef[]> {
+    return [];
+  }
+  /** Declare STT settings; same contract as `ttsConfigFields`. */
+  async sttConfigFields(): Promise<FieldDef[]> {
     return [];
   }
   /** Transcribe a complete utterance to text (non-streaming). The SDK
@@ -358,6 +375,16 @@ export abstract class Plugin {
   private async handleSttGetLanguages(_call: any) {
     const languages = await this.sttGetLanguages();
     return { languages };
+  }
+
+  private async handleTtsGetConfigFields(_call: any) {
+    const config_fields = await this.ttsConfigFields();
+    return { config_fields };
+  }
+
+  private async handleSttGetConfigFields(_call: any) {
+    const config_fields = await this.sttConfigFields();
+    return { config_fields };
   }
 
   /** Bidi-streaming `SttProcess`: accumulate `PluginAudioChunk`s, then run

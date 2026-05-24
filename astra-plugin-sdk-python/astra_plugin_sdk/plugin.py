@@ -252,6 +252,28 @@ class Plugin:
         """Return supported STT languages."""
         return []
 
+    async def tts_config_fields(self) -> list[dict]:
+        """Declare TTS settings the daemon should render on the Voice page.
+
+        Each entry becomes one input rendered by the daemon's generic
+        ``DynamicField`` component — there is no per-plugin frontend code.
+        Return ``[]`` (the default) if the TTS provider has no extra settings.
+
+        Field shape mirrors ``FieldDefinitionMsg`` (proto): keys ``id``,
+        ``label``, ``field_type`` (``text`` / ``number`` / ``toggle`` /
+        ``dropdown`` / ...), and optional ``placeholder``, ``default_value``,
+        ``min``, ``max``, ``step``, ``has_min``, ``has_max``, ``has_step``,
+        ``options`` ([{value, label}]), ``description``, ``group``.
+        """
+        return []
+
+    async def stt_config_fields(self) -> list[dict]:
+        """Declare STT settings the daemon should render on the Voice page.
+
+        Same contract as :meth:`tts_config_fields` for STT settings.
+        """
+        return []
+
     async def stt_transcribe(self, audio: bytes, sample_rate: int) -> str | dict:
         """Transcribe a complete utterance to text (non-streaming).
 
@@ -470,6 +492,21 @@ class Plugin:
             await asyncio.sleep(2)
 
 
+def _field_dict_to_proto(d: dict):
+    """Convert a config-fields dict to ``FieldDefinitionMsg``.
+
+    Handles nested ``options`` / ``conditions`` arrays — protobuf's
+    ``**dict`` unpack does not auto-convert dicts to sub-messages, so the
+    nested entries are built explicitly.
+    """
+    options = [plugin_pb2.DropdownOptionMsg(**o) for o in d.get("options", []) or []]
+    conditions = [
+        plugin_pb2.FieldVisibilityCondition(**c) for c in d.get("conditions", []) or []
+    ]
+    flat = {k: v for k, v in d.items() if k not in ("options", "conditions")}
+    return plugin_pb2.FieldDefinitionMsg(**flat, options=options, conditions=conditions)
+
+
 class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     """gRPC servicer that delegates to the Plugin instance."""
 
@@ -506,6 +543,18 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     async def SttGetLanguages(self, request, context):
         langs = await self.plugin.stt_get_languages()
         return plugin_pb2.PluginSttLanguagesResponse(languages=langs)
+
+    async def TtsGetConfigFields(self, request, context):
+        fields = await self.plugin.tts_config_fields()
+        return plugin_pb2.PluginConfigFieldsResponse(
+            config_fields=[_field_dict_to_proto(f) for f in fields]
+        )
+
+    async def SttGetConfigFields(self, request, context):
+        fields = await self.plugin.stt_config_fields()
+        return plugin_pb2.PluginConfigFieldsResponse(
+            config_fields=[_field_dict_to_proto(f) for f in fields]
+        )
 
     async def SttProcess(self, request_iterator, context):
         # Accumulate the utterance. The daemon currently sends a single
