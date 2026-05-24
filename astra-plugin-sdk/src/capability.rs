@@ -482,6 +482,28 @@ pub trait PluginCapability: Send + Sync + 'static {
         vec![]
     }
 
+    /// Declare TTS settings the daemon should render on the Voice page.
+    ///
+    /// Each [`FieldDef`] becomes one input rendered by the daemon's
+    /// generic `DynamicField` component (the same one used by Commands
+    /// editor actions and triggers) — there is no per-plugin frontend
+    /// code. Use [`FieldDef::with_default`] / `with_placeholder` /
+    /// `with_description` for ergonomics.
+    ///
+    /// Return `vec![]` (the default) if the TTS provider has no extra
+    /// settings.
+    async fn tts_config_fields(&self) -> Vec<FieldDef> {
+        vec![]
+    }
+
+    /// Declare STT settings the daemon should render on the Voice page.
+    ///
+    /// Same contract as [`tts_config_fields`](Self::tts_config_fields)
+    /// for STT settings (language hint, decoding prompt, etc.).
+    async fn stt_config_fields(&self) -> Vec<FieldDef> {
+        vec![]
+    }
+
     // ── AI Provider ──
 
     /// Get available AI models.

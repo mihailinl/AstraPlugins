@@ -447,6 +447,26 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         }))
     }
 
+    async fn tts_get_config_fields(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
+        let fields = self.plugin.tts_config_fields().await;
+        Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
+            config_fields: fields,
+        }))
+    }
+
+    async fn stt_get_config_fields(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
+        let fields = self.plugin.stt_config_fields().await;
+        Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
+            config_fields: fields,
+        }))
+    }
+
     // ── AI Provider ──
 
     type AiCompleteStream = std::pin::Pin<

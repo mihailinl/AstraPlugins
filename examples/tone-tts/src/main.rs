@@ -91,6 +91,26 @@ impl PluginCapability for ToneTts {
         ]
     }
 
+    /// Demonstrates the data-driven Voice settings hook (4.2g-5): the
+    /// daemon fetches this list at plugin-register time, projects it into
+    /// `ProviderDescriptor.config_fields`, and the Voice page renders the
+    /// fields with its generic `DynamicField` component — no per-plugin
+    /// frontend code. The values land in
+    /// `voice.provider_configs.plugin__tone_tts.*` via the same generic
+    /// `SetSetting` path that Whisper's language dropdown uses.
+    async fn tts_config_fields(&self) -> Vec<FieldDef> {
+        vec![
+            FieldDef::number("tone_envelope", "Envelope shape")
+                .with_default("1.0")
+                .with_min(0.0)
+                .with_max(1.0)
+                .with_step(0.05)
+                .with_description("Half-sine envelope strength applied to each word"),
+            FieldDef::toggle("tone_debug_log", "Log each synthesis call")
+                .with_description("Emits an info-level log line per tts_synthesize"),
+        ]
+    }
+
     async fn tts_synthesize(
         &self,
         text: &str,
