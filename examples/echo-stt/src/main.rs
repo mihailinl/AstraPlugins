@@ -100,25 +100,45 @@ impl PluginCapability for EchoStt {
         Ok(SttEvent::transcript(text).with_language("en"))
     }
 
-    /// Streaming hook — daemon pushes mic chunks live. Each one is queued
-    /// to the persistent sink. End-of-utterance returns one final
-    /// metadata event for the chat.
+    /// Streaming hook — daemon pushes mic chunks live. Accumulated to
+    /// ~100 ms (1600 samples @ 16 kHz) per push to the rodio sink: 50
+    /// tiny `SamplesBuffer`s per second (one per 20 ms mic frame) made
+    /// rodio's per-Source transitions audible (high-pitch / AM-modulation
+    /// stutter); 10 batches per second plays cleanly. The 100 ms floor
+    /// is well under the VAD silence window the non-streaming path
+    /// imposed (500 ms), so the demo stays meaningfully real-time.
     async fn stt_transcribe_stream(
         &self,
         mut audio_rx: mpsc::Receiver<Vec<u8>>,
         events_tx: mpsc::Sender<SttEvent>,
         sample_rate: u32,
     ) -> anyhow::Result<()> {
+        let batch_target =
+            ((sample_rate as f32) * 0.1).round() as usize; // ~100 ms
         let mut total_samples: usize = 0;
+        let mut batch: Vec<f32> = Vec::with_capacity(batch_target);
         while let Some(chunk) = audio_rx.recv().await {
             if chunk.is_empty() {
                 continue;
             }
             let samples = samples_from_bytes(&chunk);
             total_samples += samples.len();
+            batch.extend_from_slice(&samples);
+            if batch.len() >= batch_target {
+                let to_send =
+                    std::mem::replace(&mut batch, Vec::with_capacity(batch_target));
+                let _ = AUDIO_TX.send(PlayJob {
+                    sample_rate,
+                    samples: to_send,
+                });
+            }
+        }
+        // Flush the tail so the last few hundred ms of the utterance
+        // actually reach the sink.
+        if !batch.is_empty() {
             let _ = AUDIO_TX.send(PlayJob {
                 sample_rate,
-                samples,
+                samples: batch,
             });
         }
         let duration_ms = (total_samples as u64 * 1000 / sample_rate.max(1) as u64) as u32;
