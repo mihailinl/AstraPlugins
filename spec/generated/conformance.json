@@ -1,0 +1,168 @@
+{
+  "$generated_by": "tools/parity/gen.py from spec/hooks.yaml — DO NOT EDIT",
+  "protocol": 1,
+  "contract": "Call each hook implied by the plugin's declared capabilities, in order. requirement=required must not answer UNIMPLEMENTED; requirement=optional may. phase=teardown runs last: Shutdown ends the process it is sent to.",
+  "hooks": [
+    {
+      "rpc": "ListTools",
+      "capability": "tools",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "CallTool",
+      "capability": "tools",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "TtsSynthesize",
+      "capability": "tts",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "TtsListVoices",
+      "capability": "tts",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "TtsGetConfigFields",
+      "capability": "tts",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "TtsActivate",
+      "capability": "tts",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttProcess",
+      "capability": "stt",
+      "requirement": "required",
+      "streaming": "bidi",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttGetLanguages",
+      "capability": "stt",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttGetConfigFields",
+      "capability": "stt",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttLoad",
+      "capability": "stt",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttUnload",
+      "capability": "stt",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "SttGetLoadState",
+      "capability": "stt",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "AiComplete",
+      "capability": "ai_provider",
+      "requirement": "required",
+      "streaming": "server",
+      "phase": "probe"
+    },
+    {
+      "rpc": "ExecuteAction",
+      "capability": "actions",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "GetPluginActionTypes",
+      "capability": "actions",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "GetPluginTriggerTypes",
+      "capability": "triggers",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "OnActiveTriggers",
+      "capability": "triggers",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "GetUiContributions",
+      "capability": "ui_contributions",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "CallFromUi",
+      "capability": "ui_contributions",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "OnConfigChanged",
+      "capability": "core",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "OnLanguageChanged",
+      "capability": "core",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "HealthCheck",
+      "capability": "core",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "Shutdown",
+      "capability": "core",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "teardown"
+    }
+  ]
+}

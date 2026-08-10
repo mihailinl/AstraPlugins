@@ -1,0 +1,639 @@
+# Cross-language hook parity — the one place a plugin hook is declared.
+#
+# The three SDKs drift, and nothing used to notice. Phase 0 found `CallFromUi`
+# missing in Python and unroutable in TS, three TS handlers silently dropped,
+# and hooks that exist in Rust and nowhere else. Every one of those was found by
+# a plugin author whose plugin did not work.
+#
+# This file is the answer: one row per hook, per-language status, and a checker
+# that fails CI the moment a row and the source disagree.
+#
+# WHAT COUNTS AS A HOOK
+#   The two plugin-facing services only:
+#     PluginCapabilityService  daemon -> plugin  (the plugin serves, daemon calls)
+#     PluginHostService        plugin -> daemon  (the daemon serves, plugin calls)
+#   `PluginService` is deliberately absent: the daemon serves it to the Astra UI
+#   and no plugin ever touches it, so an SDK has nothing to implement there.
+#
+# HOW TO CHANGE A HOOK
+#   1. Edit or add the row here.
+#   2. Run `python3 tools/parity/gen.py` (from the AstraPlugins repo root). It
+#      rewrites `docs/en/parity.md`, `docs/en/hooks/{rust,python,typescript}.md`
+#      and `spec/generated/conformance.json`.
+#   3. Run `python3 tools/parity/check.py`. It reads the three SDKs' sources and
+#      the proto, and fails on:
+#        R1  a hook is `stable` here but has no binding in that SDK's source
+#        R2  a binding exists in an SDK for an rpc with no row here
+#        R3  an rpc exists in `proto/plugin.proto` but in no row here
+#        R4  a `planned` row is past its `grace_until`
+#        R5  `daemon_calls` does not point at a live call site (needs an Astra
+#            checkout; skipped with a printed reason when there is none)
+#   Both run in CI. Step 2 without step 3 is how the spec becomes fiction.
+#
+# FORMAT — a deliberately tiny subset of YAML, so `tools/parity/spec.py` parses
+# it with no dependency (same reasoning as `spec/limits.yaml`): top-level
+# `key: scalar`, plus `hooks:` as a sequence of FLAT mappings. No nesting inside
+# a row, no multi-line scalars, no anchors. A `#` inside a value must be quoted.
+# `tools/parity/spec.py` cross-checks itself against PyYAML when PyYAML happens
+# to be importable, so the file stays real YAML.
+#
+# ROW FIELDS
+#   rpc           the method name, exactly as `proto/plugin.proto` spells it
+#   service       PluginCapabilityService | PluginHostService
+#   direction     "daemon->plugin" | "plugin->daemon"
+#   capability    the `[capabilities]` key in plugin.toml that owns this hook,
+#                 or `core` for hooks every plugin has regardless of capability.
+#                 Vocabulary from `astra-daemon/src/plugins/manifest.rs:110-141`.
+#   requirement   required — the capability does not work without this hook.
+#                 optional — the daemon carries on when the hook is absent.
+#   routing       live      — the daemon really calls it; `daemon_calls` proves it
+#                 unrouted  — declared in the proto, no daemon call site exists
+#                 deprecated— has a call site history but is being retired
+#   since         protocol version the hook first appeared in (the `// protocol:`
+#                 header of `proto/plugin.proto`)
+#   streaming     unary | server | client | bidi
+#   daemon_calls  `file:line` under astra-rs/astra-daemon/ where the daemon
+#                 invokes it (daemon->plugin) or serves it (plugin->daemon).
+#                 The literal `none` is the honest answer for an unrouted hook.
+#   summary       one line, what the hook is for
+#   note          optional, one line, something a reader would otherwise get wrong
+#   rust/python/typescript   stable | planned | n/a
+#     stable   the SDK has a real binding today. R1 verifies it.
+#     planned  committed, not shipped. Needs `<lang>_issue` and
+#              `<lang>_grace_until` (ISO date). R4 fails once the date passes.
+#     n/a      not implemented and not committed. Needs `<lang>_reason`.
+#              A registered handler that answers UNIMPLEMENTED is `n/a`, not
+#              `stable`: protocol-wise `Unimplemented` means "hook absent".
+
+protocol: 1
+proto: "proto/plugin.proto"
+astra_daemon_root: "astra-rs/astra-daemon"
+capabilities: "tools tts stt ai_provider client actions triggers ui_contributions event_handlers dom_access core"
+
+# `dom_access` owns no rpc — it is a flag the daemon copies onto a plugin's UI
+# contributions (`manager.rs:968`), not a hook. It is in the vocabulary above so
+# the checker can tell an unknown capability from a hookless one.
+
+hooks:
+  # ── PluginCapabilityService — tools ──
+  - rpc: ListTools
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tools
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:811"
+    summary: "The tool schemas this plugin offers the model, read once at startup."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: CallTool
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tools
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2300"
+    summary: "Run one tool call on behalf of the model and return its result."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — tts ──
+  - rpc: TtsSynthesize
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tts
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2590"
+    summary: "Synthesize one utterance and return the whole buffer."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: TtsSynthesizeStream
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tts
+    requirement: optional
+    routing: unrouted
+    since: 1
+    streaming: server
+    daemon_calls: none
+    summary: "Synthesize one utterance as a chunk stream, for first-audio latency."
+    note: "FINDING: no daemon call site exists in astra-rs. The Rust binding is dead code today."
+    rust: stable
+    python: "n/a"
+    python_reason: "Nothing calls it; implementing it would be dead code until the daemon routes it."
+    typescript: "n/a"
+    typescript_reason: "plugin.ts registers an entry that answers UNIMPLEMENTED, which is protocol-identical to absent."
+
+  - rpc: TtsListVoices
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tts
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2638"
+    summary: "The voices this provider exposes in the Voice settings picker."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: TtsGetConfigFields
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tts
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2878"
+    summary: "Extra TTS settings fields, rendered by DynamicField on the Voice page."
+    note: "Routed through the daemon's `optional_hook` helper (manager.rs:2878), so UNIMPLEMENTED means absent and a real fault is still a fault."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: TtsActivate
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: tts
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2670"
+    summary: "Deliver a licensed-voice content key for one-time machine-bound sealing."
+    note: "The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager.rs:2664 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  # ── PluginCapabilityService — stt ──
+  - rpc: SttProcess
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: required
+    routing: live
+    since: 1
+    streaming: bidi
+    daemon_calls: "src/plugins/manager.rs:2725"
+    summary: "Audio chunks in, transcript events out; carries both one-shot and streaming STT."
+    note: "Also driven live at manager.rs:2808. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: SttGetLanguages
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2846"
+    summary: "The language codes this recognizer accepts."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: SttGetConfigFields
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2903"
+    summary: "Extra STT settings fields, rendered by DynamicField on the Voice page."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: SttLoad
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2928"
+    summary: "Load the recognizer model, with the daemon-resolved path and GPU toggle."
+    note: "manager.rs:2918 routes it through `optional_hook`, which is why this is optional."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  - rpc: SttUnload
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:3003"
+    summary: "Drop the recognizer model so idle-unload actually frees VRAM."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  - rpc: SttGetLoadState
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: stt
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2957"
+    summary: "Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload."
+    note: "manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  # ── PluginCapabilityService — ai_provider ──
+  - rpc: AiComplete
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: ai_provider
+    requirement: required
+    routing: live
+    since: 1
+    streaming: server
+    daemon_calls: "src/plugins/capability_bridge.rs:157"
+    summary: "Stream a model completion; the only way a plugin can be an AI provider."
+    note: "FINDING: with Python and TS unbound, `ai_provider` is a Rust-only capability today."
+    rust: stable
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  - rpc: AiGetModels
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: ai_provider
+    requirement: optional
+    routing: deprecated
+    since: 1
+    streaming: unary
+    daemon_calls: none
+    summary: "List the models this provider can run."
+    note: "FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — actions ──
+  - rpc: ExecuteAction
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: actions
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2443"
+    summary: "Run one command-step action this plugin contributed."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: GetPluginActionTypes
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: actions
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:820"
+    summary: "The action types this plugin adds to the command editor, read at startup."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — triggers ──
+  - rpc: GetPluginTriggerTypes
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: triggers
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:829"
+    summary: "The trigger types this plugin adds to the command editor, read at startup."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: OnActiveTriggers
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: triggers
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:2533"
+    summary: "Which of this plugin's trigger types a command is currently listening for."
+    note: "manager.rs:2523 routes it through `optional_hook`."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — ui_contributions ──
+  - rpc: GetUiContributions
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: ui_contributions
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:838"
+    summary: "The pages, slots, overlays and effects this plugin renders in the Astra window."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: CallFromUi
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: ui_contributions
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:1019"
+    summary: "A method call from this plugin's own iframe into its backend."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — lifecycle (every plugin) ──
+  - rpc: OnConfigChanged
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:1195"
+    summary: "The user saved new settings; here is the whole config as JSON."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: OnLanguageChanged
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:1136"
+    summary: "The Astra UI language changed; re-render anything user-visible."
+    note: "manager.rs:1133 routes it through `optional_hook`."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: Shutdown
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: core
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/instance.rs:533"
+    summary: "Stop cleanly; the process group is killed after the grace period."
+    note: "Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: HealthCheck
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: core
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager.rs:1387"
+    summary: "Liveness probe, every 15 s."
+    note: "Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager.rs:1464)."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginHostService — bootstrap and lifecycle ──
+  - rpc: Register
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:302"
+    summary: "The handshake: prove the spawn token, receive the per-plugin session token."
+    note: "The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: GetPluginSelfConfig
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:844"
+    summary: "Read this plugin's own persisted settings."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: PluginLog
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:864"
+    summary: "Write a line into the daemon log buffer the plugin's log pane reads."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: GetDaemonInfo
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:898"
+    summary: "Daemon version, state and gRPC port."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: SetVariable
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:914"
+    summary: "Publish a variable that commands and other plugins can read."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginHostService — event_handlers ──
+  - rpc: SubscribeEvents
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: event_handlers
+    requirement: required
+    routing: live
+    since: 1
+    streaming: server
+    daemon_calls: "src/plugins/host_service.rs:451"
+    summary: "The filtered daemon event stream; the whole of the event_handlers capability."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginHostService — triggers ──
+  - rpc: FireTrigger
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: triggers
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:666"
+    summary: "Fire one of this plugin's trigger types and run whatever commands listen."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginHostService — client ──
+  - rpc: SendChatMessage
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: client
+    requirement: required
+    routing: live
+    since: 1
+    streaming: server
+    daemon_calls: "src/plugins/host_service.rs:536"
+    summary: "Send a chat message as this plugin and stream the assistant's reply back."
+    note: "FINDING: no SDK binds it in any language, so `client` is a capability nobody can implement. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs point authors at is permission_denied — this rpc is the only working path."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
+
+  # ── PluginHostService — ui_contributions ──
+  - rpc: PushToUi
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: ui_contributions
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:953"
+    summary: "Push an event into this plugin's own iframes — the return path for CallFromUi."
+    note: "FINDING: Python has CallFromUi but no PushToUi, so a Python UI plugin can be called and cannot answer asynchronously."
+    rust: stable
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: stable
+
+  - rpc: SetThemeContribution
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: ui_contributions
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:979"
+    summary: "Contribute colours, wallpaper and shader to the active Astra theme."
+    note: "FINDING: served by the daemon, bound by no SDK. Phase 4 classes it high-risk and refuses it below Tier 1, so the binding and the consent gate must land together."
+    rust: planned
+    rust_issue: "PRODUCTION_PLAN.md#5.4"
+    rust_grace_until: 2026-12-31
+    python: planned
+    python_issue: "PRODUCTION_PLAN.md#5.8"
+    python_grace_until: 2026-12-31
+    typescript: planned
+    typescript_issue: "PRODUCTION_PLAN.md#5.8"
+    typescript_grace_until: 2026-12-31
