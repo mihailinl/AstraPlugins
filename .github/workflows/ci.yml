@@ -397,42 +397,54 @@ jobs:
         if: env.MODE == 'full'
         run: python3 tools/parity/check.py --rules R5 --astra-dir _astra/astra-rs
 
-      # The capability vocabulary, compared with the ONLY authority — the
-      # daemon's `Capabilities` struct. The CLI carries a copy (validate.rs says
-      # so in a comment); `couplings` proves the copy is self-consistent with the
-      # rest of this repo, and this step proves it equals the original. That
-      # split is deliberate: the in-repo half must gate every PR, and only this
-      # half needs a private checkout.
-      - name: capability vocabulary == the daemon's
+      # `plugin.toml` has exactly one definition, and the CLI's copy of it is
+      # byte-identical to Astra's.
+      #
+      # This step used to compare two *forks* — a regex over the daemon's
+      # `pub struct Capabilities` against a regex over `CAPABILITY_NAMES` in
+      # astra-plugin-cli/src/commands/validate.rs. Task 3.7 deleted both forks:
+      # the types now live in the `astra-plugin-manifest` crate, the daemon's
+      # `plugins/manifest.rs` is a re-export of it, and this repo vendors the
+      # crate under astra-plugin-cli/vendor/. Comparing field names would now be
+      # comparing a file with itself.
+      #
+      # So the question changed, and the check has to change with it. Two things
+      # have to hold, and neither implies the other:
+      #
+      #   1. the vendored copy is the upstream crate, byte for byte — that is
+      #      tools/check-manifest-crate.sh, the equivalence test the vendoring
+      #      decision was conditional on (plan task 3.7: "vendor with a CI
+      #      equivalence test — but say which");
+      #   2. the daemon actually *uses* that crate. Without this, someone could
+      #      re-fork plugins/manifest.rs and (1) would stay green forever while
+      #      comparing the CLI against a crate nothing reads. That is the
+      #      original `ui_panels` failure with one more layer of indirection.
+      - name: one plugin.toml definition (vendored crate == Astra's)
+        if: env.MODE == 'full'
+        env:
+          ASTRA_REPO: ${{ github.workspace }}/_astra
+        run: bash tools/check-manifest-crate.sh
+
+      - name: the daemon parses plugin.toml with that crate
         if: env.MODE == 'full'
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import re, sys, pathlib
-          daemon = pathlib.Path("_astra/astra-rs/astra-daemon/src/plugins/manifest.rs").read_text()
-          m = re.search(r"pub struct Capabilities \{(.*?)\n\}", daemon, re.S)
-          if not m:
-              sys.exit("anchor lost: `pub struct Capabilities` not found in manifest.rs")
-          theirs = set(re.findall(r"pub (\w+): bool", m.group(1)))
-
-          cli = pathlib.Path("astra-plugin-cli/src/commands/validate.rs").read_text()
-          m = re.search(r"CAPABILITY_NAMES: &\[&str\] = &\[(.*?)\];", cli, re.S)
-          if not m:
-              sys.exit("anchor lost: CAPABILITY_NAMES not found in validate.rs")
-          ours = set(re.findall(r'"([a-z_]+)"', m.group(1)))
-
-          if ours != theirs:
-              print(f"FAIL daemon has: {sorted(theirs)}", file=sys.stderr)
-              print(f"     the CLI has: {sorted(ours)}", file=sys.stderr)
-              print(f"     only daemon: {sorted(theirs - ours)}", file=sys.stderr)
-              print(f"     only CLI:    {sorted(ours - theirs)}", file=sys.stderr)
-              print("     The daemon is the authority: a name it does not deserialize is",
+          import pathlib, sys
+          p = pathlib.Path("_astra/astra-rs/astra-daemon/src/plugins/manifest.rs")
+          text = p.read_text()
+          if "pub use astra_plugin_manifest::" not in text:
+              print("FAIL the daemon's plugins/manifest.rs no longer re-exports", file=sys.stderr)
+              print("     astra-plugin-manifest. Either it grew its own fork of the manifest",
                     file=sys.stderr)
-              print("     a capability the plugin does not have. (This is how `ui_panels`",
+              print("     types again — in which case check-manifest-crate.sh is now comparing",
                     file=sys.stderr)
-              print("     lived in the CLI for months while declaring nothing.)", file=sys.stderr)
+              print("     this repo against a crate the daemon does not read, and is green for",
+                    file=sys.stderr)
+              print("     no reason — or the delegation moved and this anchor needs updating.",
+                    file=sys.stderr)
               sys.exit(1)
-          print(f"ok   {len(ours)} capabilities, identical on both sides")
+          print("ok   the daemon delegates plugins/manifest.rs to astra-plugin-manifest")
           PY
 
       - name: refresh proto/ASTRA_PROTO.lock and fail if it moved
@@ -905,6 +917,20 @@ jobs:
           # Needed on every leg: the archive inspector below is Python.
           python-version: "3.12"
 
+      # The CLI's own suite, which nothing else in this workflow runs — so
+      # until now `astra-plugin-cli` was built on every leg and tested on none.
+      # It holds the bundle format's definition, the shared-vector suite
+      # (testdata/bundles, the same directory the daemon and the registry bot
+      # read), and the `new -> build -> verify` round trip. One leg per OS is
+      # what matters here: the format's Windows hazards — reserved device
+      # names, trailing dots, NTFS alternate data streams — are asserted from
+      # fixtures precisely because a Linux runner cannot discover them by
+      # running anything, and the matrix gives them a real Windows filesystem
+      # for free.
+      - name: cargo test (the CLI, including the shared bundle vectors)
+        if: matrix.lang == 'rust'
+        run: cargo test --manifest-path astra-plugin-cli/Cargo.toml --all-targets
+
       - name: build the CLI
         run: |
           set -euo pipefail
@@ -1236,6 +1262,29 @@ jobs:
       - name: C1 spec/limits.yaml codegen is current (SDK files only)
         run: node tools/gen-limits.mjs --check
 
+      # C1b — the shared bundle vectors. `testdata/bundles/` is one directory
+      # of frozen `.astraplugin` files with their expected verdicts and digests
+      # written down beside them, read by three implementations of one format:
+      # this repo's packer, the daemon's reader, and the registry bot. The
+      # copies in the other two repos are vendored by tools/vendor-testdata.sh
+      # and verified against SHA256SUMS by those repos' own suites at run time
+      # — so drift is caught there, on every test run, not only here.
+      #
+      # HALF, like C1: with no Astra or astra-registry checkout,
+      # `vendor-testdata.sh --check` reports both as skipped and verifies the
+      # canonical directory alone. That is still the check that matters most
+      # here, because everything downstream is a copy of it.
+      #
+      # `generate.mjs --check` is the other half: it regenerates into memory
+      # and fails if any golden would change. Without it, an edit to the
+      # generator leaves the committed bundles describing an older format while
+      # every digest in vectors.json still matches the stale bytes.
+      - name: C1b testdata/bundles is self-consistent and freshly generated
+        run: |
+          set -euo pipefail
+          node testdata/bundles/generate.mjs --check
+          bash tools/vendor-testdata.sh --check
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail
@@ -1323,11 +1372,24 @@ jobs:
           # Equality WITH the daemon needs the private Astra checkout and lives in
           # proto-upstream's full mode. This half must gate every PR, so it asks a
           # question answerable from this repo alone: does anything here use a
-          # capability name the CLI (which copies the daemon's list) would reject?
-          cli = read("astra-plugin-cli/src/commands/validate.rs")
-          vocab = set(re.findall(r'"([a-z_]+)"',
-                                 re.search(r"CAPABILITY_NAMES: &\[&str\] = &\[(.*?)\];",
-                                           cli, re.S).group(1)))
+          # capability name the daemon would reject?
+          #
+          # The vocabulary moved in task 3.7. It used to be a `CAPABILITY_NAMES`
+          # list in astra-plugin-cli/src/commands/validate.rs — a fork, which is
+          # how `ui_panels` got here. It now lives once, in the shared
+          # `astra-plugin-manifest` crate, vendored under astra-plugin-cli/vendor/
+          # and held byte-identical to Astra's copy by
+          # tools/check-manifest-crate.sh. Reading it there rather than from
+          # validate.rs is the point: this check must anchor on the definition,
+          # not on a restatement of it, or it goes green on the wrong file.
+          CAPS_RS = "astra-plugin-cli/vendor/astra-plugin-manifest/src/capabilities.rs"
+          m = re.search(r"CAPABILITY_NAMES: &\[&str\] = &\[(.*?)\];", read(CAPS_RS), re.S)
+          check(m is not None,
+                f"C5 the capability vocabulary is where it is expected ({CAPS_RS})",
+                "anchor lost: no `CAPABILITY_NAMES: &[&str] = &[...]` in that file. The list is "
+                "defined in Astra's astra-plugin-manifest crate and vendored here; if it moved, "
+                "re-point this check and tools/check-manifest-crate.sh's IDENTICAL list together.")
+          vocab = set(re.findall(r'"([a-z_]+)"', m.group(1))) if m else set()
           check(len(vocab) == 10, f"C5 the CLI knows {len(vocab)} capabilities", repr(sorted(vocab)))
 
           used: dict[str, set[str]] = {}
@@ -1368,6 +1430,11 @@ jobs:
               "astra-plugin-sdk-ts/README.md": "5.8 — the npm README's install line",
               "astra-plugin-cli/src/commands/validate.rs": "none — the rename table, correctly",
               "PRODUCTION_PLAN.md": "none — the plan quotes both as the bugs they are",
+              # Task 3.7's own account of why the shared manifest crate exists.
+              # Both name `ui_panels` as the defect they were written to prevent,
+              # which is exactly the use C6 is meant to allow.
+              "astra-plugin-cli/Cargo.toml": "none — why the vendored crate is a path dependency",
+              "tools/check-manifest-crate.sh": "none — the script header's worked example",
           }
           for lang in ("de", "en", "es", "ja", "ru", "uk", "zh-CN"):
               PENDING[f"docs/{lang}/cli.md"] = "Phase 6 — the docs rewrite"
@@ -1387,8 +1454,20 @@ jobs:
           # invisible to `git ls-files` — this loop would have gone red on the
           # first CI run after the commit that added it.)
           SELF = {".github/workflows/ci.yml", ".github/workflows/release-sdks.yml"}
+          # The vendored manifest crate is exempt by PREFIX, and deliberately not
+          # via PENDING. Every file under it is a byte-for-byte copy of Astra's
+          # astra-plugin-manifest, enforced by tools/check-manifest-crate.sh, so
+          # nothing here can be edited to clear a hit — the only way to change
+          # those files is to change them upstream and re-sync. A PENDING entry
+          # would also be a standing invitation to churn: PENDING's companion
+          # rule is "every exception is still needed", so each reword of a doc
+          # comment in another repository would land as a red build in this one.
+          # What C6 is actually protecting against — a stale name in *this*
+          # repo's own prose or code — is unaffected, and the crate's mentions of
+          # `ui_panels` are the historical record of the drift it ended.
+          VENDORED = "astra-plugin-cli/vendor/"
           for rel in tracked:
-              if rel in SELF:
+              if rel in SELF or rel.startswith(VENDORED):
                   continue
               p = ROOT / rel
               try:
@@ -1448,9 +1527,29 @@ jobs:
 
           # ── C10  no build output is tracked ────────────────────────────────
           # c811ca9 also deleted a committed telegram-client-0.1.0.zip.
+          #
+          # testdata/bundles/*.astraplugin is the one exception, and it is an
+          # exception to the *reason*, not merely to the rule. Those 27 archives
+          # are not output — nothing in this repo builds from them and no
+          # release contains them. They are frozen INPUT: the cross-repo test
+          # vectors (plan task 3.11), byte-identical copies of which the daemon
+          # and the registry check their own readers against, so that a digest
+          # or a rejection rule cannot change on one side alone. Regenerating
+          # them at CI time would defeat the entire point, since a packer bug
+          # would then be baked into the fixtures the packer is judged by.
+          #
+          # What keeps them honest is not this rule but two others that C10
+          # cannot do: `testdata/bundles/generate.mjs --check` (the C1b step in
+          # this job) proves they are exactly what the committed generator
+          # produces, and testdata/bundles/SHA256SUMS pins the bytes that all
+          # three repositories share. The exemption is a path prefix, so an
+          # `.astraplugin` committed anywhere else is still caught.
+          VECTORS = "testdata/bundles/"
           artifacts = [f for f in tracked
-                       if re.search(r"(^|/)(target|node_modules|__pycache__)/", f)
-                       or f.endswith((".exe", ".pyc", ".astraplugin", ".zip", ".crate", ".tgz"))]
+                       if not (f.startswith(VECTORS) and f.endswith(".astraplugin"))
+                       and (re.search(r"(^|/)(target|node_modules|__pycache__)/", f)
+                            or f.endswith((".exe", ".pyc", ".astraplugin", ".zip",
+                                           ".crate", ".tgz")))]
           check(not artifacts, "C10 no build artifacts are tracked", repr(artifacts))
 
           # ── C11  the CLI's SDK pins accept the SDKs in this tree ───────────
