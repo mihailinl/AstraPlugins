@@ -78,11 +78,30 @@ enum Commands {
         #[arg(long)]
         reproducible: bool,
 
-        /// Skip the retiring in-ZIP SIGNATURE/PUBKEY pair. What CI uses: the
-        /// release build job holds no secrets, and provenance comes from an
-        /// attestation over sha256(whole file).
-        #[arg(long)]
+        /// Deprecated no-op: `build` never signs. Kept because the pinned
+        /// release workflow passes it, and dropping the flag would break every
+        /// already-published author workflow. Removed with the format's
+        /// legacy pair.
+        #[arg(long, hide = true)]
         no_sign: bool,
+    },
+
+    /// Append the retiring in-ZIP SIGNATURE/PUBKEY pair to a built bundle.
+    ///
+    /// An optional second factor, not a trust signal: Astra checks the in-ZIP
+    /// pair against a pinned Astra publisher key, so a bundle signed with your
+    /// own key is untrusted exactly as an unsigned one is. What makes Astra
+    /// install a plugin is the registry record countersigning sha256(whole
+    /// file). Both this command and the format entries it writes are removed
+    /// in a future release.
+    Sign {
+        /// The .astraplugin to sign, in place.
+        file: String,
+
+        /// Read the Ed25519 seed from this path instead of
+        /// ~/.astra/plugin-keys/private.key. A path, never the key itself.
+        #[arg(long)]
+        key: Option<String>,
     },
 
     /// Verify a built .astraplugin bundle and print its digests
@@ -152,7 +171,45 @@ enum Commands {
         allow_downgrade: bool,
     },
 
-    /// Generate an Ed25519 keypair for plugin signing
+    /// Get a release listed: preflight it, or open a prefilled submission.
+    ///
+    /// Uploads nothing and holds no credential — the registry reads the
+    /// attested bundles off your GitHub Release and verifies every one of them
+    /// from scratch, so a submission carries only your repository and a tag.
+    Publish {
+        /// Path to plugin directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+
+        /// Run every check the registry runs that can be run locally, name the
+        /// ones only the registry can run, and stop.
+        #[arg(long)]
+        dry_run: bool,
+
+        /// A release ping for a plugin that is ALREADY listed — task 3.4's
+        /// manual escape hatch, for when the registry has not noticed a
+        /// release by itself. Without it, this opens a first listing request.
+        #[arg(long)]
+        notify: bool,
+
+        /// Source repository as `owner/name`. Default: the `origin` remote.
+        #[arg(long)]
+        repo: Option<String>,
+
+        /// Release tag. Default: the plugin's tag prefix plus its version.
+        #[arg(long)]
+        tag: Option<String>,
+
+        /// Print the URL and do not open a browser.
+        #[arg(long)]
+        print_url: bool,
+    },
+
+    /// Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses.
+    ///
+    /// You do not need one to publish: `build` does not read it, and Astra's
+    /// trust comes from the registry record over sha256(whole file), not from
+    /// any key you hold.
     Keygen {
         /// Overwrite existing keypair
         #[arg(long)]
@@ -198,6 +255,12 @@ async fn main() -> Result<()> {
                 no_sign,
             })?;
         }
+        Commands::Sign { file, key } => {
+            commands::sign::run(commands::sign::SignOptions {
+                file: &file,
+                key: key.as_deref(),
+            })?;
+        }
         Commands::Verify { file, json } => {
             commands::verify::run(&file, json)?;
         }
@@ -230,6 +293,23 @@ async fn main() -> Result<()> {
                 path: &path,
                 version: &version,
                 allow_downgrade,
+            })?;
+        }
+        Commands::Publish {
+            path,
+            dry_run,
+            notify,
+            repo,
+            tag,
+            print_url,
+        } => {
+            commands::publish::run(commands::publish::PublishOptions {
+                path: &path,
+                repo: repo.as_deref(),
+                tag: tag.as_deref(),
+                dry_run,
+                notify,
+                print_url,
             })?;
         }
         Commands::Keygen { force } => {

@@ -3,6 +3,8 @@ pub mod create;
 pub mod dev;
 pub mod init_ci;
 pub mod keygen;
+pub mod publish;
+pub mod sign;
 pub mod validate;
 pub mod verify;
 pub mod version;

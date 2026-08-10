@@ -111,7 +111,7 @@ Catches missing required fields, invalid SemVer, malformed config schemas. Run t
 astra-plugin build
 ```
 
-Produces `hello-world-0.1.0.astraplugin` — a ZIP archive containing the compiled binary, manifest, any UI assets, locales, and (if you have a signing key) an Ed25519 `SIGNATURE` entry.
+Produces `hello-world-0.1.0-<target>.astraplugin` — a ZIP archive containing the compiled binary, the manifest, any UI assets and locales, and a `MANIFEST.json` listing every file with its `sha256`.
 
 Output a specific path with `-o`:
 
@@ -119,15 +119,15 @@ Output a specific path with `-o`:
 astra-plugin build -o dist/hello-world.astraplugin
 ```
 
-## 6. (Optional) Generate a signing key
+The last line it prints is:
 
-```bash
-astra-plugin keygen
+```
+  Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
 
-Creates an Ed25519 keypair at `~/.astra/plugin-keys/{private,public}.key`. Every subsequent `astra-plugin build` automatically signs the archive. Share `public.key` with users who want to verify the bundle.
+That is not a step you forgot. There is no signing key in this flow, and there is nothing to generate, store or rotate: Astra verifies a plugin by checking `sha256` of the whole file against a registry record that countersigns it, backed by a GitHub build attestation. See [What establishes trust](publishing.md#what-establishes-trust).
 
-## 7. Install the plugin
+## 6. Install the plugin
 
 Drag the `.astraplugin` file into the Astra UI's Plugins page, or call the daemon's `SideloadPlugin` RPC. After installation the daemon restarts the plugin process with the correct credentials and it appears in the plugin list.
 
@@ -137,4 +137,4 @@ Drag the `.astraplugin` file into the Astra UI's Plugins page, or call the daemo
 - [Python SDK](sdk-python.md) — if you prefer `@tool` / `@action` decorators and auto-schema from type hints.
 - [TypeScript SDK](sdk-typescript.md) — class-based API with `@grpc/grpc-js`.
 - [Capabilities](capabilities.md) — full reference for tools, TTS, STT, AI provider, actions, triggers, UI contributions, event handlers, and client mode.
-- [Publishing](publishing.md) — signing, distribution, upgrade strategy.
+- [Publishing](publishing.md) — what establishes trust, distribution, upgrade strategy.

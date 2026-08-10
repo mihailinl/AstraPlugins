@@ -15,17 +15,22 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use base64::{Engine, engine::general_purpose};
 use walkdir::WalkDir;
 
 use crate::bundle::{
-    Bundle, BundleBuilder, LEGACY_PUBKEY_ENTRY, LEGACY_SIGNATURE_ENTRY, ManifestEntry,
-    ManifestMeta, ManifestPermission, PLUGIN_PROTOCOL_VERSION, PLUGIN_TOML_ENTRY, SCHEMA, Target,
+    Bundle, BundleBuilder, ManifestEntry, ManifestMeta, ManifestPermission,
+    PLUGIN_PROTOCOL_VERSION, PLUGIN_TOML_ENTRY, SCHEMA, Target,
 };
+
+/// Where `build` sends an author who wants to know what *does* establish trust.
+///
+/// A URL rather than a paragraph because the answer is longer than one line and
+/// changes as the registry does, and this string is printed on every single
+/// build — the one place an author reliably reads.
+const TRUST_DOC_URL: &str = "https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/publishing.md#what-establishes-trust";
 
 /// Where a packed binary lands inside the archive, and what `entry.command` is
 /// rewritten to point at.
@@ -52,9 +57,15 @@ pub struct BuildOptions<'a> {
     /// Assert determinism: refuse anything that would make the output depend
     /// on this machine rather than on the inputs.
     pub reproducible: bool,
-    /// Skip the legacy in-ZIP signature. CI uses this — the release workflow's
-    /// build job holds no secrets by design, and provenance comes from the
-    /// attestation over `sha256(whole file)`, not from a key on a runner.
+    /// **Accepted and ignored since 3.10.** `build` never signs, so `--no-sign`
+    /// asks for what already happens.
+    ///
+    /// The flag stays because `plugin-release.yml` passes it and every author
+    /// workflow pins that file by commit SHA — removing the flag would make
+    /// `astra-plugin build … --no-sign` fail with "unexpected argument" on
+    /// every already-published release workflow, which is a release outage for
+    /// people who changed nothing. It is hidden from `--help` and documented as
+    /// a no-op; it goes at [`crate::bundle::LEGACY_PAIR_SUNSET`], with the rest.
     pub no_sign: bool,
 }
 
@@ -82,6 +93,17 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         .and_then(|p| p.get("version"))
         .and_then(|v| v.as_str())
         .unwrap_or("0.0.0");
+
+    if opts.no_sign {
+        // Consumed rather than ignored in silence: the flag is passed by every
+        // release workflow generated before 3.10, and the people who maintain
+        // those workflows only ever see this build's output.
+        println!(
+            "  Note: --no-sign is accepted and ignored — `build` never signs. Drop it; it is \
+             removed in {}.",
+            crate::bundle::LEGACY_PAIR_SUNSET
+        );
+    }
 
     let language = detect_language(&dir);
     let target = resolve_target(opts.target, &language)?;
@@ -210,12 +232,6 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         println!("  Added: {} ({})", entry.path, entry.mode);
     }
 
-    if opts.no_sign {
-        println!("  Unsigned (--no-sign): provenance is the artifact digest below.");
-    } else {
-        sign_legacy(&output_path, opts.reproducible)?;
-    }
-
     // Round-trip. Everything this build asserted is now checked against the
     // bytes on disk, by the same code `astra-plugin verify` runs.
     let verified = Bundle::open(&output_path)
@@ -237,8 +253,35 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
             crate::bundle::REPRODUCIBLE_COMPRESSION_LEVEL
         );
     }
+    print_trust_note();
 
     Ok(())
+}
+
+/// What `build` says about trust, on every build, signed or not.
+///
+/// It used to say "Signed with Ed25519 key" whenever a key happened to sit in
+/// `~/.astra/plugin-keys/`, and that sentence claimed an outcome the key cannot
+/// deliver: the daemon pins *Astra's* publisher key, never the author's, so an
+/// author's signature was checked against nothing and proved nothing to anyone.
+/// An author who believes a local signature protects their users is worse off
+/// than one who knows it does not — the first ships with a false sense of a
+/// control they do not have.
+///
+/// So the copy states the true state of the artifact and where trust actually
+/// comes from. It is printed unconditionally: a build with a key on the machine
+/// produces the same bundle and the same message as a build without one, which
+/// is also what makes `--reproducible` mean the same thing on both.
+fn print_trust_note() {
+    println!("{}", trust_note());
+}
+
+/// The note as one string, so a test can read the sentence the author reads.
+fn trust_note() -> String {
+    format!(
+        "  Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.\n\
+         \x20 See {TRUST_DOC_URL}"
+    )
 }
 
 /// `--target`, or the language's natural target.
@@ -700,87 +743,6 @@ fn add_directory_recursive(target: &Path, builder: &mut BundleBuilder, base: &Pa
     Ok(())
 }
 
-/// Append the retiring in-ZIP `SIGNATURE`/`PUBKEY` pair.
-///
-/// Kept only so first-party bundles keep installing on daemons that predate v2
-/// verification. Its digest construction is ambiguous by design defect
-/// (`SHA256(name₀‖content₀‖…)`, no delimiters) and it is never the registry's
-/// authority — that is `sha256(whole file)` plus an attestation. It is appended
-/// last, after every manifested entry, because it is computed over them.
-fn sign_legacy(output_path: &Path, reproducible: bool) -> Result<()> {
-    let signing_key = match super::keygen::load_signing_key() {
-        Ok(Some(key)) => key,
-        Ok(None) => {
-            println!("  Warning: No signing key found. Plugin will be unsigned.");
-            println!("  Run 'astra-plugin keygen' to generate a signing keypair.");
-            return Ok(());
-        }
-        Err(e) => {
-            println!("  Warning: Failed to load signing key: {e}");
-            return Ok(());
-        }
-    };
-
-    if reproducible {
-        // Ed25519 is deterministic, so the bytes are reproducible *given the
-        // same key* — but a third party rebuilding this bundle does not have
-        // it, and a digest only they can reproduce is not a reproducible
-        // build. Say so rather than letting a green local check imply a
-        // property CI will not have.
-        println!(
-            "  Note: --reproducible with a signing key. The archive is byte-identical only to \
-             rebuilds using this same key; use --no-sign for a digest anyone can re-derive."
-        );
-    }
-
-    use ed25519_dalek::Signer;
-    use sha2::{Digest, Sha256};
-
-    let zip_bytes = fs::read(output_path).context("Failed to read built archive for signing")?;
-    let mut read_archive = zip::ZipArchive::new(std::io::Cursor::new(&zip_bytes))
-        .context("Failed to re-open archive for hashing")?;
-
-    let mut hasher = Sha256::new();
-    for i in 0..read_archive.len() {
-        let mut entry = read_archive.by_index(i)?;
-        let name = entry.name().to_string();
-        hasher.update(name.as_bytes());
-        let mut buf = Vec::new();
-        entry.read_to_end(&mut buf)?;
-        hasher.update(&buf);
-    }
-    let digest = hasher.finalize();
-
-    let signature = signing_key.sign(&digest);
-    let public_key = signing_key.verifying_key();
-
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(output_path)?;
-    let mut archive =
-        zip::ZipWriter::new_append(file).context("Failed to open archive for signing")?;
-    let options = BundleBuilder::legacy_signature_options();
-
-    archive.start_file(LEGACY_SIGNATURE_ENTRY, options)?;
-    archive.write_all(
-        general_purpose::STANDARD
-            .encode(signature.to_bytes())
-            .as_bytes(),
-    )?;
-
-    archive.start_file(LEGACY_PUBKEY_ENTRY, options)?;
-    archive.write_all(
-        general_purpose::STANDARD
-            .encode(public_key.to_bytes())
-            .as_bytes(),
-    )?;
-
-    archive.finish()?;
-    println!("  Signed with Ed25519 key (legacy in-ZIP pair)");
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -856,6 +818,54 @@ actions = true
     fn capabilities_are_the_true_ones_sorted() {
         let manifest: toml::Value = toml::from_str(BASE).unwrap();
         assert_eq!(declared_capabilities(&manifest), vec!["actions", "tools"]);
+    }
+
+    /// **3.10's acceptance criterion, as a test.** `build` never claims a trust
+    /// outcome it cannot deliver.
+    ///
+    /// The words are asserted rather than merely the absence of "Signed",
+    /// because the failure this guards against is a future edit that reaches
+    /// for a reassuring phrase — "verified", "trusted", "authentic" — over an
+    /// artifact that has none of those properties. The only positive claim the
+    /// note is allowed to make is about the *registry*.
+    #[test]
+    fn the_build_note_never_claims_a_trust_outcome() {
+        let note = trust_note();
+        assert!(note.contains("Unsigned."), "{note}");
+        assert!(
+            note.contains("Local keys are not a trust signal in Astra"),
+            "{note}"
+        );
+        assert!(note.contains("trust comes from the registry"), "{note}");
+        assert!(note.contains(TRUST_DOC_URL), "{note}");
+        for forbidden in [
+            "Signed with",
+            "signed with",
+            "verified",
+            "trusted",
+            "authentic",
+        ] {
+            assert!(
+                !note.contains(forbidden),
+                "the build note must not say {forbidden:?}: {note}"
+            );
+        }
+    }
+
+    /// `build` holds no reference to a signing key at all — not a call, not an
+    /// import. The 3.10 change is that signing *moved*, and a module that still
+    /// knew how to sign would be one careless `if` away from doing it again.
+    #[test]
+    fn build_does_not_link_the_signing_path() {
+        let src = include_str!("build.rs");
+        for forbidden in ["load_signing_key", "append_legacy_signature", "SIGNATURE"] {
+            // The test module names them; the code above it must not.
+            let code = src.split("#[cfg(test)]").next().unwrap();
+            assert!(
+                !code.contains(forbidden),
+                "build.rs must not reference {forbidden:?} outside its tests"
+            );
+        }
     }
 
     #[test]

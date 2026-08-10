@@ -151,13 +151,13 @@ pub fn run(path: &str, json: bool) -> Result<()> {
 /// what a third party re-derives from the file. A format is only worth its
 /// vectors if something still writes it.
 ///
-/// The signing leg is `build`'s auto-signature, which appends the retiring
-/// in-ZIP `SIGNATURE`/`PUBKEY` pair when a key exists in `~/.astra`. This test
-/// never creates one — a key material side effect in a unit test is a bad
-/// trade for coverage of a construction PRODUCTION_PLAN §3.10 deletes — so it
-/// runs the signed path only when the developer already has a key, and pins
-/// the unsigned path unconditionally. The pair's own structural rules (last
-/// two entries, in that order) are covered by the `ok-legacy-signed` vector.
+/// There is no signing leg here any more, and that is 3.10's point: `build`
+/// never appends the retiring in-ZIP pair, so a bundle's bytes no longer depend
+/// on whether a key happens to sit in the builder's `~/.astra`. The signed
+/// round trip moved to `commands::sign`, where it writes its key into a scratch
+/// directory rather than the developer's home; the pair's structural rules
+/// (last two entries, in that order) are also covered by the
+/// `ok-legacy-signed` vector.
 #[cfg(test)]
 mod roundtrip {
     use sha2::{Digest, Sha256};
@@ -178,7 +178,11 @@ mod roundtrip {
         let u32_at = |o: usize| {
             u32::from_le_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]]) as usize
         };
-        assert_eq!(&bytes[0..4], b"PK\x03\x04", "no local file header at offset 0");
+        assert_eq!(
+            &bytes[0..4],
+            b"PK\x03\x04",
+            "no local file header at offset 0"
+        );
         assert_eq!(u16_at(8), 0, "MANIFEST.json must be STORED");
         let name_len = u16_at(26);
         let extra_len = u16_at(28);
@@ -187,7 +191,7 @@ mod roundtrip {
         bytes[start..start + u32_at(18)].to_vec()
     }
 
-    fn build_and_verify(dir: &std::path::Path, name: &str, no_sign: bool) -> Bundle {
+    fn build_and_verify(dir: &std::path::Path, name: &str) -> Bundle {
         let project = dir.join(name);
         create::run(name, "python", &["tools"], &project.to_string_lossy())
             .expect("`astra-plugin new` must produce a buildable scaffold");
@@ -200,12 +204,14 @@ mod roundtrip {
             // Assert determinism while we are here: `--reproducible` packs a
             // second time and compares digests, so a build that depends on the
             // machine rather than on its inputs fails here rather than at the
-            // first person who tries to reproduce a published artifact. Only
-            // meaningful unsigned — a signed archive is reproducible only to
-            // rebuilds holding the same key, which is not a property anyone can
-            // check from the outside.
-            reproducible: no_sign,
-            no_sign,
+            // first person who tries to reproduce a published artifact.
+            //
+            // Unconditional since 3.10, and that is the point: `build` no
+            // longer signs, so its output no longer depends on whether a key
+            // exists in the builder's home directory, and every build is a
+            // build anyone can reproduce.
+            reproducible: true,
+            no_sign: false,
         })
         .expect("`astra-plugin build` must produce a bundle");
 
@@ -215,13 +221,20 @@ mod roundtrip {
     #[test]
     fn a_scaffold_builds_into_a_bundle_its_own_reader_accepts() {
         let tmp = tempdir();
-        let bundle = build_and_verify(&tmp, "roundtrip-plugin", true);
+        let bundle = build_and_verify(&tmp, "roundtrip-plugin");
 
         assert_eq!(bundle.manifest.plugin_id, "roundtrip-plugin");
         assert_eq!(bundle.manifest.schema, crate::bundle::SCHEMA);
-        assert!(!bundle.signed, "--no-sign must not append the legacy pair");
         assert!(
-            bundle.manifest.files.iter().any(|f| f.path == "plugin.toml"),
+            !bundle.signed,
+            "`build` must not append the legacy pair, whatever is in ~/.astra/plugin-keys"
+        );
+        assert!(
+            bundle
+                .manifest
+                .files
+                .iter()
+                .any(|f| f.path == "plugin.toml"),
             "every bundle carries plugin.toml"
         );
 
@@ -246,8 +259,12 @@ mod roundtrip {
         // Invariant 4, both directions, on a real scaffold rather than a
         // fixture: `Bundle::open` already enforced it, so this asserts the
         // *packer* had nothing to hide.
-        let listed: std::collections::BTreeSet<&str> =
-            bundle.manifest.files.iter().map(|f| f.path.as_str()).collect();
+        let listed: std::collections::BTreeSet<&str> = bundle
+            .manifest
+            .files
+            .iter()
+            .map(|f| f.path.as_str())
+            .collect();
         let present: std::collections::BTreeSet<&str> = bundle
             .entries
             .iter()
@@ -257,28 +274,39 @@ mod roundtrip {
         assert_eq!(listed, present);
     }
 
-    /// The same trip with signing left on. Skipped, loudly, when no key exists
-    /// — this test will not write one.
+    /// The build is byte-identical whether or not this machine has a signing
+    /// key — the property 3.10 bought by taking signing out of `build`.
+    ///
+    /// Before 3.10 this test could not have been written: the two builds below
+    /// would differ on a developer's laptop and agree on a bare CI runner, so
+    /// "reproducible" meant something different depending on who ran it. That
+    /// is precisely the failure an author discovers only when a reviewer cannot
+    /// re-derive a published digest.
     #[test]
-    fn the_signed_trip_still_verifies_where_a_key_already_exists() {
-        if !matches!(crate::commands::keygen::load_signing_key(), Ok(Some(_))) {
-            eprintln!(
-                "skipping the signed round trip: no ~/.astra/plugin-keys/private.key. The legacy \
-                 pair's structural rules are covered by the ok-legacy-signed vector, and \
-                 PRODUCTION_PLAN §3.10 retires this construction."
-            );
-            return;
-        }
+    fn the_build_is_the_same_bundle_with_or_without_a_key_on_the_machine() {
         let tmp = tempdir();
-        let bundle = build_and_verify(&tmp, "roundtrip-signed", false);
-        assert!(
-            bundle.signed,
-            "a build with a key present must append SIGNATURE/PUBKEY"
+        let first = build_and_verify(&tmp, "roundtrip-nokey");
+
+        // Same project, packed a second time to a different path.
+        let project = tmp.join("roundtrip-nokey");
+        let out = tmp.join("roundtrip-nokey-again.astraplugin");
+        build::run(build::BuildOptions {
+            path: &project.to_string_lossy(),
+            output: Some(&out.to_string_lossy()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        })
+        .unwrap();
+        let second = Bundle::open(&out).unwrap();
+
+        assert_eq!(
+            first.artifact_sha256, second.artifact_sha256,
+            "two builds of the same source must produce the same artifact digest"
         );
-        // `Bundle::open` enforces that the pair is the last two entries in
-        // order; reaching here means it was.
-        let names: Vec<&str> = bundle.entries.iter().map(|e| e.path.as_str()).collect();
-        assert_eq!(&names[names.len() - 2..], &["SIGNATURE", "PUBKEY"]);
+        assert!(!first.signed && !second.signed);
+        // The key that used to change this outcome is not even consulted.
+        let _ = crate::commands::keygen::load_signing_key();
     }
 
     /// A scratch directory that does not need the `tempfile` crate in this
@@ -413,7 +441,8 @@ mod vectors {
                     s(&v, "layer")
                 );
                 assert_eq!(
-                    want, "accept",
+                    want,
+                    "accept",
                     "vector `{name}` records expect.cli = `{want}`, but this CLI has no `{}` gate \
                      — see the divergence block in vectors.json",
                     s(&v, "layer")
@@ -480,7 +509,9 @@ mod vectors {
             if let Some(want) = v["manifest_digest"].as_str() {
                 let bytes = std::fs::read(&path).unwrap();
                 let manifest_bytes = manifest_from_local_header(&bytes).unwrap_or_else(|e| {
-                    panic!("vector `{name}` records a manifest digest but entry 0 is unreadable: {e:#}")
+                    panic!(
+                        "vector `{name}` records a manifest digest but entry 0 is unreadable: {e:#}"
+                    )
                 });
                 assert_eq!(
                     hex(&Sha256::digest(&manifest_bytes)),
@@ -497,7 +528,10 @@ mod vectors {
                 // digest must never equal the plain one, or a manifest digest
                 // and a `files[].sha256` are the same 64 characters and one
                 // verifies in the other's place.
-                assert_ne!(manifest_digest(&manifest_bytes), hex(&Sha256::digest(&manifest_bytes)));
+                assert_ne!(
+                    manifest_digest(&manifest_bytes),
+                    hex(&Sha256::digest(&manifest_bytes))
+                );
                 n += 1;
             }
         }
@@ -605,7 +639,10 @@ mod vectors {
             !bundle.manifest.permissions.is_empty(),
             "the ok-permissions vector must carry a non-empty permission map, or it pins nothing"
         );
-        assert_eq!(recompute(&bundle.manifest.permissions), bundle.manifest.permissions_hash);
+        assert_eq!(
+            recompute(&bundle.manifest.permissions),
+            bundle.manifest.permissions_hash
+        );
         assert_eq!(bundle.manifest.permissions_hash, s(ok, "permissions_hash"));
 
         // The adversarial case: `permissions` asks for `fire_trigger` while
@@ -621,7 +658,10 @@ mod vectors {
             .expect("recorded as accepted today — see divergence F5");
         let correct = recompute(&bundle.manifest.permissions);
         assert_eq!(correct, s(bad, "correct_permissions_hash"));
-        assert_eq!(bundle.manifest.permissions_hash, s(bad, "recorded_permissions_hash"));
+        assert_eq!(
+            bundle.manifest.permissions_hash,
+            s(bad, "recorded_permissions_hash")
+        );
         assert_ne!(
             correct, bundle.manifest.permissions_hash,
             "the permissions-hash-mismatch vector no longer mismatches"
@@ -636,7 +676,9 @@ mod vectors {
     #[test]
     fn recorded_divergences_still_diverge() {
         for v in vectors() {
-            let Some(d) = v.get("divergence") else { continue };
+            let Some(d) = v.get("divergence") else {
+                continue;
+            };
             let name = s(&v, "name");
             let want = v["expect"]["cli"].as_str().unwrap();
             let verdict = s(&v, "verdict");

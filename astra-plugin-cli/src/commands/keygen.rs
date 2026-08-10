@@ -10,8 +10,7 @@ use rand::rngs::OsRng;
 
 /// Get the plugin keys directory (~/.astra/plugin-keys/).
 fn keys_dir() -> Result<PathBuf> {
-    let home = directories::BaseDirs::new()
-        .context("Failed to determine home directory")?;
+    let home = directories::BaseDirs::new().context("Failed to determine home directory")?;
     let dir = home.home_dir().join(".astra").join("plugin-keys");
     Ok(dir)
 }
@@ -37,24 +36,30 @@ pub fn run(force: bool) -> Result<()> {
     let verifying_key = signing_key.verifying_key();
 
     // Save private key (raw 32 bytes, base64 encoded)
-    let private_b64 = general_purpose::STANDARD.encode(
-        signing_key.to_bytes(),
-    );
+    let private_b64 = general_purpose::STANDARD.encode(signing_key.to_bytes());
     write_secret_file(&private_path, &private_b64)
         .with_context(|| format!("Failed to write private key: {}", private_path.display()))?;
 
     // Save public key (raw 32 bytes, base64 encoded)
-    let public_b64 = general_purpose::STANDARD.encode(
-        verifying_key.to_bytes(),
-    );
+    let public_b64 = general_purpose::STANDARD.encode(verifying_key.to_bytes());
     fs::write(&public_path, &public_b64)
         .with_context(|| format!("Failed to write public key: {}", public_path.display()))?;
 
     println!("Generated Ed25519 keypair:");
     println!("  Private: {}", private_path.display());
     println!("  Public:  {}", public_path.display());
-    println!("\nPublic key (share this for verification):");
-    println!("  {}", public_b64);
+    println!("\nPublic key (base64):");
+    println!("  {public_b64}");
+    // The keypair is optional and does not gate publishing. Saying so here is
+    // the difference between an author who treats `keygen` as step one of
+    // shipping and one who knows it is a defence-in-depth extra: `build` does
+    // not read this key, and Astra installs a plugin on the strength of the
+    // registry record over sha256(whole file), not on any key the author holds.
+    println!(
+        "\nThis key is optional and is not what makes Astra trust a plugin. `astra-plugin build`\n\
+         does not use it; only `astra-plugin sign` does, and only as a second factor against a\n\
+         GitHub account takeover. You can publish without ever running this command."
+    );
 
     Ok(())
 }
@@ -125,7 +130,10 @@ fn restrict_to_owner_windows(path: &std::path::Path) {
     let user = match std::env::var("USERNAME") {
         Ok(u) if !u.is_empty() => u,
         _ => {
-            eprintln!("  Warning: USERNAME is unset; leaving inherited permissions on {}", path.display());
+            eprintln!(
+                "  Warning: USERNAME is unset; leaving inherited permissions on {}",
+                path.display()
+            );
             return;
         }
     };
@@ -146,21 +154,31 @@ fn restrict_to_owner_windows(path: &std::path::Path) {
     }
 }
 
-/// Load the signing key from disk. Returns None if not found.
+/// Load the signing key from the default location. `None` if there is none.
+///
+/// Since 3.10 the only caller is `astra-plugin sign`. `build` used to call it
+/// too, which is how a bundle's contents came to depend on whether a file
+/// existed in the builder's home directory.
 pub fn load_signing_key() -> Result<Option<SigningKey>> {
     let dir = keys_dir()?;
-    let private_path = dir.join("private.key");
+    load_signing_key_at(&dir.join("private.key"))
+}
 
+/// Load the seed from an explicit path — `astra-plugin sign --key`.
+///
+/// A path and not the key: a base64 seed passed as an argument is visible in
+/// `ps` to every user on the machine, is written to the shell history, and is
+/// echoed by CI log collectors. This crate offers no way to pass one inline.
+pub fn load_signing_key_at(private_path: &std::path::Path) -> Result<Option<SigningKey>> {
     if !private_path.exists() {
         return Ok(None);
     }
 
-    let b64 = fs::read_to_string(&private_path)
+    let b64 = fs::read_to_string(private_path)
         .with_context(|| format!("Failed to read private key: {}", private_path.display()))?;
-    let bytes = general_purpose::STANDARD.decode(
-        b64.trim(),
-    )
-    .context("Invalid base64 in private key file")?;
+    let bytes = general_purpose::STANDARD
+        .decode(b64.trim())
+        .context("Invalid base64 in private key file")?;
 
     let key_bytes: [u8; 32] = bytes
         .try_into()

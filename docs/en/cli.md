@@ -100,11 +100,42 @@ astra-plugin build [PATH] [-o <FILE>]
 ├── locales/                 # i18n JSON files (if present)
 ├── icon.png / icon.svg      # Optional branding
 ├── README.md / LICENSE      # Optional
-├── SIGNATURE                # Ed25519 signature (if keypair exists)
-└── PUBKEY                   # Signing public key (if keypair exists)
+├── SIGNATURE                # Only if you ran `astra-plugin sign` — retiring
+└── PUBKEY                   # Only if you ran `astra-plugin sign` — retiring
 ```
 
-If `~/.astra/plugin-keys/private.key` exists, the CLI **automatically signs** the archive on every build — no extra flag needed.
+### Trust
+
+`build` **never signs**, whatever is in `~/.astra/plugin-keys/`. Its last line says so:
+
+```
+  Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
+```
+
+That is the truth about the artifact and not a limitation to work around. A key you hold is checked against nothing on a user's machine; what Astra checks is `sha256` of the whole file against a registry record that countersigns it. See [What establishes trust](publishing.md#what-establishes-trust).
+
+The practical consequence for you: two builds of the same source produce the same bytes on any machine, so `--reproducible` is a property anyone can verify rather than one only you can.
+
+`--no-sign` is still accepted and does nothing — the pinned release workflow passes it, and dropping the flag would break every author workflow already published. It is removed with the legacy pair.
+
+## `astra-plugin sign`
+
+Append the retiring in-ZIP `SIGNATURE`/`PUBKEY` pair to a bundle `build` has already produced.
+
+```bash
+astra-plugin sign <FILE> [--key <PATH>]
+```
+
+| Argument / flag | Default | Description |
+| --- | --- | --- |
+| `FILE` | — | The `.astraplugin` to sign, in place. |
+| `--key` | `~/.astra/plugin-keys/private.key` | Path to the Ed25519 seed. A path, never the key itself. |
+
+**This is not a trust signal.** The daemon checks the pair against a pinned *Astra* publisher key, never against the `PUBKEY` in the archive, so a bundle signed with your own key is untrusted exactly as an unsigned one is. Its one genuine use is as a second factor against a GitHub account takeover — an attacker holding your GitHub session can forge a perfect attestation and cannot forge this. Read [Signing](publishing.md#signing) before using it, and skip it if you are unsure.
+
+Signing changes the file, so it changes the `sha256` the registry countersigns. Sign before you upload. Do not sign in CI: the build job holds no secrets by design.
+
+Both this command and the format entries it writes are removed in **astra-plugin 0.5.0 / Astra 0.4.0**.
 
 ## `astra-plugin validate`
 
@@ -127,7 +158,7 @@ Exits non-zero only on hard errors (unparseable TOML, missing required fields).
 
 ## `astra-plugin keygen`
 
-Generate an Ed25519 keypair used by `build` to sign archives.
+Generate the optional Ed25519 keypair `astra-plugin sign` uses. **You do not need one to publish** — `build` does not read it, and Astra's trust comes from the registry record, not from any key you hold.
 
 ```bash
 astra-plugin keygen [--force]
@@ -142,7 +173,7 @@ Output locations (created if missing):
 - `~/.astra/plugin-keys/private.key` — base64 Ed25519 private seed (keep secret).
 - `~/.astra/plugin-keys/public.key` — base64 Ed25519 public key (safe to share).
 
-Once a keypair exists, every `astra-plugin build` automatically appends a `SIGNATURE` entry (HMAC-like digest of each ZIP entry, signed with Ed25519) and a `PUBKEY` entry so consumers can verify authenticity.
+The private key is written 0600 inside a 0700 directory (owner-only DACL on Windows). Nothing reads it unless you run `astra-plugin sign` explicitly.
 
 ## Environment
 

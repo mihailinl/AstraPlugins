@@ -68,6 +68,18 @@ pub const PLUGIN_TOML_ENTRY: &str = "plugin.toml";
 pub const LEGACY_SIGNATURE_ENTRY: &str = "SIGNATURE";
 pub const LEGACY_PUBKEY_ENTRY: &str = "PUBKEY";
 
+/// The release in which the legacy pair leaves the format: `astra-plugin sign`
+/// is removed, [`append_legacy_signature`] and both constants above go with it,
+/// and `PUBKEY` stops being a name this format knows.
+///
+/// Named once, here, and quoted verbatim by every message that mentions the
+/// retirement, so the CLI cannot promise the author one date while the daemon
+/// plans another. Its counterpart on the daemon side is
+/// `plugins::trust::LEGACY_SIGNATURE_SUNSET`, and the two strings agree by
+/// review — there is no shared crate to make them agree by construction, which
+/// is exactly why they are single constants and not inlined prose.
+pub const LEGACY_PAIR_SUNSET: &str = "astra-plugin 0.5.0 / Astra 0.4.0";
+
 /// Archive entries that are deliberately absent from `MANIFEST.files`.
 ///
 /// `MANIFEST.json` cannot list its own digest, and the legacy pair is computed
@@ -768,6 +780,117 @@ impl BundleBuilder {
             .unix_permissions(0o644)
             .last_modified_time(fixed_mtime())
     }
+}
+
+// ---------------------------------------------------------------------------
+// The retiring in-ZIP pair
+// ---------------------------------------------------------------------------
+
+/// The legacy digest: `SHA256(name₀ ‖ content₀ ‖ name₁ ‖ content₁ ‖ …)` over
+/// every entry in ZIP index order, skipping the pair itself.
+///
+/// **This construction is broken and is reproduced here only to keep verifying
+/// bundles that already exist.** There are no delimiters, no length prefixes,
+/// no entry count and no domain separator, so entry `"ab"` with content `"c"`
+/// hashes identically to entry `"a"` with content `"bc"` — an attacker who
+/// controls two adjacent names can move bytes across the boundary and keep the
+/// signature valid. Invariant 2 (`sha256` of the whole file) is what replaced
+/// it, and it is a different number in a different place for that reason.
+///
+/// Do not reach for this to authenticate anything new. It exists so that
+/// [`append_legacy_signature`] and the daemon compute the same bytes until
+/// [`LEGACY_PAIR_SUNSET`].
+pub fn legacy_digest<R: Read + Seek>(archive: &mut zip::ZipArchive<R>) -> Result<[u8; 32]> {
+    let mut hasher = Sha256::new();
+    for i in 0..archive.len() {
+        let mut entry = archive
+            .by_index(i)
+            .with_context(|| format!("Failed to read archive entry {i}"))?;
+        let name = entry.name().to_string();
+        // The daemon skips the pair when it verifies, so the writer must skip it
+        // when it signs — otherwise re-signing an already-signed bundle would
+        // produce a signature over a message nothing ever checks.
+        if name == LEGACY_SIGNATURE_ENTRY || name == LEGACY_PUBKEY_ENTRY {
+            continue;
+        }
+        hasher.update(name.as_bytes());
+        let mut buf = Vec::new();
+        entry
+            .read_to_end(&mut buf)
+            .with_context(|| format!("Failed to read archive entry '{name}'"))?;
+        hasher.update(&buf);
+    }
+    Ok(hasher.finalize().into())
+}
+
+/// Append `SIGNATURE` + `PUBKEY` to a finished bundle, in that order, as the
+/// last two entries.
+///
+/// This is the whole of what `astra-plugin sign` does, and — since 3.10 — the
+/// only place in this CLI that writes the pair. `astra-plugin build` no longer
+/// calls it: a build that signed whenever a key happened to be on the machine
+/// made the archive's contents depend on the machine, and printed a sentence
+/// about trust that the key could not deliver.
+///
+/// Refuses a bundle that already carries the pair. Re-signing would mean
+/// rewriting entries that the existing signature covers, and appending a second
+/// pair would leave two `SIGNATURE` entries where the reader takes the first —
+/// both are ways of ending up with an archive whose signature answers a
+/// question about a different set of bytes.
+pub fn append_legacy_signature(
+    path: &Path,
+    signing_key: &ed25519_dalek::SigningKey,
+) -> Result<LegacySignature> {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    use ed25519_dalek::Signer;
+
+    let bytes = std::fs::read(path)
+        .with_context(|| format!("Failed to read {} for signing", path.display()))?;
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&bytes))
+        .with_context(|| format!("{} is not a readable ZIP archive", path.display()))?;
+
+    for name in [LEGACY_SIGNATURE_ENTRY, LEGACY_PUBKEY_ENTRY] {
+        if archive.by_name(name).is_ok() {
+            bail!(
+                "{} already carries a {name} entry. Rebuild it with `astra-plugin build` and sign \
+                 the fresh bundle; a bundle is signed once or not at all.",
+                path.display()
+            );
+        }
+    }
+
+    let digest = legacy_digest(&mut archive)?;
+    drop(archive);
+
+    let signature = signing_key.sign(&digest);
+    let public_key = signing_key.verifying_key();
+    let public_b64 = STANDARD.encode(public_key.to_bytes());
+
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .with_context(|| format!("Failed to open {} for appending", path.display()))?;
+    let mut writer = zip::ZipWriter::new_append(file)
+        .with_context(|| format!("Failed to append to {}", path.display()))?;
+    let options = BundleBuilder::legacy_signature_options();
+
+    writer.start_file(LEGACY_SIGNATURE_ENTRY, options)?;
+    writer.write_all(STANDARD.encode(signature.to_bytes()).as_bytes())?;
+    writer.start_file(LEGACY_PUBKEY_ENTRY, options)?;
+    writer.write_all(public_b64.as_bytes())?;
+    writer.finish()?;
+
+    Ok(LegacySignature {
+        public_key_b64: public_b64,
+    })
+}
+
+/// What [`append_legacy_signature`] wrote, for the caller to print.
+pub struct LegacySignature {
+    /// Base64 of the raw 32-byte Ed25519 public key, exactly as it now sits in
+    /// the archive's `PUBKEY` entry.
+    pub public_key_b64: String,
 }
 
 // ---------------------------------------------------------------------------
