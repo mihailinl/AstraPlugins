@@ -8,28 +8,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
+use crate::auth::{AuthChannel, SessionInterceptor};
 use crate::proto;
-
-// ── Auth interceptor ──
-
-#[derive(Clone)]
-struct SessionInterceptor {
-    token: String,
-}
-
-impl tonic::service::Interceptor for SessionInterceptor {
-    fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
-        if let Ok(val) = self.token.parse() {
-            req.metadata_mut().insert("x-session-token", val);
-        }
-        Ok(req)
-    }
-}
-
-type AuthChannel = InterceptedService<Channel, SessionInterceptor>;
 
 // ── DaemonClient ──
 
@@ -80,7 +62,7 @@ impl DaemonClient {
             .await
             .context("DaemonClient: failed to connect")?;
 
-        let interceptor = SessionInterceptor { token: session_token };
+        let interceptor = SessionInterceptor::new(session_token);
 
         Ok(Self {
             core: proto::core_service_client::CoreServiceClient::with_interceptor(

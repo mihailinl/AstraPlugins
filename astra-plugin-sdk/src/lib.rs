@@ -32,6 +32,7 @@ pub mod proto {
     tonic::include_proto!("astra");
 }
 
+mod auth;
 mod capability;
 mod daemon_client;
 pub mod events;
@@ -39,11 +40,12 @@ mod host_client;
 pub mod i18n;
 mod runner;
 
+pub use auth::CapabilityAuth;
 pub use capability::*;
 pub use daemon_client::DaemonClient;
 pub use host_client::HostClient;
 pub use i18n::I18n;
-pub use runner::run;
+pub use runner::{RunConfig, run, run_with};
 
 /// Re-exports for convenience.
 pub mod prelude {
@@ -52,6 +54,6 @@ pub mod prelude {
     pub use crate::events::{StateChangedEvent, CommandTriggeredEvent, CommandCompletedEvent};
     pub use crate::host_client::HostClient;
     pub use crate::i18n::I18n;
-    pub use crate::run;
+    pub use crate::{CapabilityAuth, RunConfig, run, run_with};
     pub use async_trait::async_trait;
 }

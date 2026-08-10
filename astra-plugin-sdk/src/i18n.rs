@@ -39,14 +39,12 @@ impl I18n {
         if let Ok(entries) = std::fs::read_dir(locales_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |e| e == "json") {
-                    if let Some(lang) = path.file_stem().and_then(|s| s.to_str()) {
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content) {
-                                locales.insert(lang.to_string(), map);
-                            }
-                        }
-                    }
+                if path.extension().is_some_and(|e| e == "json")
+                    && let Some(lang) = path.file_stem().and_then(|s| s.to_str())
+                    && let Ok(content) = std::fs::read_to_string(&path)
+                    && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content)
+                {
+                    locales.insert(lang.to_string(), map);
                 }
             }
         }

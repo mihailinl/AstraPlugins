@@ -1,15 +1,18 @@
 //! Plugin runner — handles CLI args, gRPC server setup, registration, and shutdown.
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use tokio::net::TcpListener;
 use tokio::signal;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tonic::transport::Server;
-use tracing::info;
+use tracing::{info, warn};
 
+use crate::auth::{CapabilityAuth, CapabilityInterceptor};
 use crate::capability::PluginCapability;
 use crate::events;
 use crate::host_client::HostClient;
@@ -57,23 +60,113 @@ struct Args {
     auth_token: String,
 }
 
+/// The flags the daemon spawns a plugin with. Everything else on the command
+/// line belongs to the plugin.
+const DAEMON_FLAGS: &[&str] = &["--daemon-addr", "--plugin-id", "--auth-token"];
+
+/// Keep only the daemon's own flags out of `argv`.
+///
+/// A plugin is a normal binary and may define its own CLI (`--verbose`, a
+/// subcommand, …). `Args::parse()` would abort the whole process on the first
+/// argument it does not know, so the SDK filters argv down to what it owns and
+/// silently leaves the rest to the plugin.
+fn daemon_args(argv: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut argv = argv.into_iter();
+    let mut out = vec![argv.next().unwrap_or_else(|| "astra-plugin".to_string())];
+
+    while let Some(arg) = argv.next() {
+        if let Some((flag, _)) = arg.split_once('=')
+            && DAEMON_FLAGS.contains(&flag)
+        {
+            out.push(arg);
+        } else if DAEMON_FLAGS.contains(&arg.as_str()) {
+            // `--flag value` — take the value with it, or the flag alone if the
+            // caller truncated it (clap reports the missing value).
+            out.push(arg);
+            if let Some(value) = argv.next() {
+                out.push(value);
+            }
+        }
+    }
+
+    out
+}
+
+/// Optional knobs for [`run_with`].
+///
+/// Constructed with `RunConfig::default()` and adjusted field by field; it is
+/// `#[non_exhaustive]` so new knobs are not breaking changes.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct RunConfig {
+    /// Install the SDK's `tracing_subscriber`. Leave `true` unless the plugin
+    /// installs its own — the SDK uses `try_init`, so a subscriber the plugin
+    /// set up first simply wins and this is a no-op.
+    pub init_tracing: bool,
+
+    /// Argv to parse instead of `std::env::args()`.
+    pub argv: Option<Vec<String>>,
+
+    /// Address the plugin's gRPC server binds. Port 0 means OS-assigned; the
+    /// bound port is what gets reported to the daemon at registration.
+    ///
+    /// SECURITY: loopback only. Loopback is not a boundary between processes of
+    /// the same user, so it is `capability_auth` — not this address — that keeps
+    /// another local process out of the plugin's tools.
+    pub bind_addr: SocketAddr,
+
+    /// How strictly the plugin's capability server checks that an inbound call
+    /// really came from the daemon that spawned it.
+    ///
+    /// See [`CapabilityAuth`]. The `ASTRA_PLUGIN_CAPABILITY_AUTH` environment
+    /// variable overrides whatever is set here, so an operator can enforce (or
+    /// disable) the check without rebuilding the plugin.
+    pub capability_auth: CapabilityAuth,
+}
+
+impl Default for RunConfig {
+    fn default() -> Self {
+        Self {
+            init_tracing: true,
+            argv: None,
+            bind_addr: SocketAddr::from(([127, 0, 0, 1], 0)),
+            capability_auth: CapabilityAuth::default(),
+        }
+    }
+}
+
 /// Run a plugin. Call this from your `main()`.
 ///
 /// This function:
-/// 1. Parses CLI args (`--daemon-addr`, `--plugin-id`)
-/// 2. Starts a gRPC server on an OS-assigned port
+/// 1. Parses CLI args (`--daemon-addr`, `--plugin-id`, `--auth-token`)
+/// 2. Starts a gRPC server on an OS-assigned loopback port
 /// 3. Registers with the daemon
-/// 4. Serves PluginCapabilityService until shutdown
+/// 4. Serves PluginCapabilityService until shutdown (Ctrl-C, `SIGTERM`, or the
+///    daemon's `Shutdown` RPC), then runs `on_shutdown()`
+///
+/// Returns `Err` if binding, registration or serving fails — propagate it out
+/// of `main` so the exit code is non-zero and the daemon sees the failure.
 pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
-        )
-        .init();
+    run_with(plugin, RunConfig::default()).await
+}
 
-    let args = Args::parse();
+/// [`run`] with explicit configuration.
+pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Result<()> {
+    if config.init_tracing {
+        // `try_init`, not `init`: a plugin that installed its own subscriber (or
+        // a second `run_with` in one process, as in tests) must not panic here.
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "info".into()),
+            )
+            .try_init();
+    }
+
+    let argv = config
+        .argv
+        .unwrap_or_else(|| std::env::args().collect::<Vec<_>>());
+    let args = Args::parse_from(daemon_args(argv));
     info!(
         "Starting plugin '{}', connecting to daemon at {}",
         args.plugin_id, args.daemon_addr
@@ -81,38 +174,48 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
 
     let plugin = Arc::new(plugin);
 
-    // Bind to OS-assigned port (port 0)
-    let listener = TcpListener::bind("127.0.0.1:0")
+    // Bind the capability server before registering — the daemon is told the
+    // port during Register and may call back immediately.
+    let listener = TcpListener::bind(config.bind_addr)
         .await
-        .context("Failed to bind to a local port")?;
+        .with_context(|| format!("Failed to bind {}", config.bind_addr))?;
     let local_addr: SocketAddr = listener.local_addr()?;
     let port = local_addr.port();
     info!("Plugin gRPC server listening on port {}", port);
 
-    // Connect to daemon and register
-    let mut host = HostClient::connect(&args.daemon_addr, args.plugin_id.clone()).await?;
+    // Connect to the daemon. `connect_bootstrap` can only Register; `register`
+    // consumes it and returns the client that carries the session token.
+    let bootstrap = HostClient::connect_bootstrap(&args.daemon_addr, args.plugin_id.clone()).await?;
 
     // Determine capabilities from the plugin implementation
     let capabilities = discover_capabilities(&*plugin).await;
     info!("Registering with capabilities: {:?}", capabilities);
 
-    let reg_response = host.register(port, capabilities, args.auth_token.clone()).await?;
-    if !reg_response.success {
-        anyhow::bail!("Registration failed: {}", reg_response.error);
-    }
+    let (host, reg_response) = bootstrap
+        .register(port, capabilities, args.auth_token.clone())
+        .await?;
     info!(
         "Registered successfully. Daemon version: {}",
         reg_response.daemon_version
     );
 
+    // Background loops (chat firehose, event subscription). Kept so shutdown
+    // stops them instead of leaving them running against a dead host client.
+    let mut background: Vec<JoinHandle<()>> = Vec::new();
+
     // Pass host client to the plugin so it can call daemon APIs
     let host = Arc::new(tokio::sync::Mutex::new(host));
     plugin.set_host(host.clone()).await;
 
-    // If plugin has client capability and received a session token, create DaemonClient
-    // and start the chat firehose subscription so the plugin observes every
-    // conversation event the daemon emits.
-    if !reg_response.client_session_token.is_empty() {
+    // If the plugin has the client capability, create a DaemonClient and start
+    // the chat firehose subscription so the plugin observes every conversation
+    // event the daemon emits.
+    //
+    // Gated on `is_client()`, not on the token being non-empty: the daemon now
+    // issues a session token to EVERY plugin (host_service.rs, SECURITY(B1))
+    // because every host RPC needs one, so an empty-token test no longer says
+    // anything about capability.
+    if plugin.is_client() && !reg_response.client_session_token.is_empty() {
         let daemon_client = crate::DaemonClient::connect(
             &args.daemon_addr,
             reg_response.client_session_token,
@@ -129,7 +232,7 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         // ignore history in their handler.
         let plugin_for_chat = plugin.clone();
         let dc_for_chat = daemon_client.clone();
-        tokio::spawn(async move {
+        background.push(tokio::spawn(async move {
             loop {
                 let cursors: std::collections::HashMap<String, u64> = {
                     let mut dc = dc_for_chat.lock().await;
@@ -174,7 +277,7 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
-        });
+        }));
     }
 
     // Pass initial config to the plugin
@@ -195,7 +298,7 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
         let plugin_for_events = plugin.clone();
         let host_for_events = host.clone();
         let exclude_source = String::new();
-        tokio::spawn(async move {
+        background.push(tokio::spawn(async move {
             loop {
                 let stream = {
                     let mut h = host_for_events.lock().await;
@@ -224,28 +327,148 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
-        });
+        }));
     }
 
-    // Build gRPC service
+    // Build gRPC service. The oneshot below is the single shutdown path:
+    // signals and the daemon's `Shutdown` RPC both fire it, tonic then stops
+    // accepting and drains in-flight requests (so `Shutdown` gets its reply),
+    // and `on_shutdown()` runs exactly once after the server is down.
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    let shutdown = ShutdownTrigger::new(shutdown_tx);
     let svc = CapabilityServiceImpl {
         plugin: plugin.clone(),
+        shutdown: shutdown.clone(),
     };
+
+    // SECURITY: the capability server is the daemon's way into this plugin's
+    // tools, config and shutdown, and loopback separates it from nothing — any
+    // process of the same user can dial the port. The guard demands the daemon
+    // hand back the spawn-time `--auth-token`, which only it and this process
+    // know. Staged: see `CapabilityAuth`.
+    let guard = CapabilityInterceptor::new(&args.auth_token, config.capability_auth.resolved());
+    if !guard.is_active() {
+        warn!(
+            "Capability server is unauthenticated — any local process can call this plugin. \
+             (No --auth-token was passed, or the check is switched off.)"
+        );
+    }
     let server = Server::builder()
-        .add_service(PluginCapabilityServiceServer::new(svc))
-        .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener));
+        .add_service(PluginCapabilityServiceServer::with_interceptor(svc, guard))
+        .serve_with_incoming_shutdown(
+            tokio_stream::wrappers::TcpListenerStream::new(listener),
+            async move {
+                // A dropped sender (no trigger ever fired) also means "stop".
+                let _ = shutdown_rx.await;
+            },
+        );
 
-    // Run server until Ctrl+C or process kill
-    let server_handle = tokio::spawn(server);
+    let mut server_handle = tokio::spawn(server);
 
-    // Wait for shutdown signal
-    signal::ctrl_c().await.ok();
-    info!("Shutdown signal received");
+    // Serve until the server finishes on its own (daemon `Shutdown`, or an
+    // error) or the process is asked to stop.
+    tokio::select! {
+        biased;
+        res = &mut server_handle => return finish(&*plugin, background, res).await,
+        _ = signal::ctrl_c() => info!("SIGINT received, shutting down"),
+        _ = terminate_signal() => info!("SIGTERM received, shutting down"),
+    }
 
+    shutdown.trigger();
+
+    // Graceful shutdown drains in-flight requests — including server-streaming
+    // ones (`stt_process`) that a busy plugin may hold open indefinitely. Give
+    // them a bounded grace period, then stop waiting: a process asked to
+    // terminate has to terminate.
+    let res = match tokio::time::timeout(SHUTDOWN_GRACE, &mut server_handle).await {
+        Ok(res) => res,
+        Err(_) => {
+            warn!(
+                "gRPC server still draining after {}s — forcing shutdown",
+                SHUTDOWN_GRACE.as_secs()
+            );
+            server_handle.abort();
+            server_handle.await
+        }
+    };
+    finish(&*plugin, background, res).await
+}
+
+/// How long a shutdown waits for in-flight RPCs before forcing the issue.
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Stop the background loops, run `on_shutdown()`, and turn the server's exit
+/// into this function's return value — a serve failure must surface as `Err`,
+/// not as a silent exit 0.
+async fn finish(
+    plugin: &dyn PluginCapability,
+    background: Vec<JoinHandle<()>>,
+    res: Result<Result<(), tonic::transport::Error>, tokio::task::JoinError>,
+) -> Result<()> {
+    for task in background {
+        task.abort();
+    }
     plugin.on_shutdown().await;
-    server_handle.abort();
 
-    Ok(())
+    match res {
+        Ok(Ok(())) => {
+            info!("Plugin shut down cleanly");
+            Ok(())
+        }
+        Ok(Err(e)) => Err(anyhow::Error::new(e).context("Plugin gRPC server failed")),
+        // Aborted after the grace period — a forced but intentional shutdown.
+        Err(e) if e.is_cancelled() => {
+            info!("Plugin shut down (server forcibly stopped)");
+            Ok(())
+        }
+        Err(e) => Err(anyhow::Error::new(e).context("Plugin gRPC server task failed")),
+    }
+}
+
+/// Resolves when the process receives `SIGTERM` — how the daemon (and every
+/// service manager) asks a child to stop. Never resolves on non-Unix.
+async fn terminate_signal() {
+    #[cfg(unix)]
+    {
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut sig) => {
+                sig.recv().await;
+            }
+            Err(e) => {
+                warn!("Cannot listen for SIGTERM: {e}");
+                std::future::pending::<()>().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        std::future::pending::<()>().await;
+    }
+}
+
+/// Fire-once shutdown trigger, shared by the signal handlers and the daemon's
+/// `Shutdown` RPC. The first caller closes the oneshot that
+/// `serve_with_incoming_shutdown` waits on; later calls are no-ops.
+#[derive(Clone)]
+struct ShutdownTrigger(Arc<Mutex<Option<oneshot::Sender<()>>>>);
+
+impl ShutdownTrigger {
+    fn new(tx: oneshot::Sender<()>) -> Self {
+        Self(Arc::new(Mutex::new(Some(tx))))
+    }
+
+    fn trigger(&self) {
+        // A poisoned lock only means some other task panicked while taking the
+        // sender; shutting down is still the right thing to do.
+        let taken = self
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        if let Some(tx) = taken {
+            let _ = tx.send(());
+        }
+    }
 }
 
 /// Discover which capabilities the plugin implements by probing methods.
@@ -286,6 +509,7 @@ async fn discover_capabilities<P: PluginCapability>(plugin: &P) -> Vec<String> {
 
 struct CapabilityServiceImpl<P: PluginCapability> {
     plugin: Arc<P>,
+    shutdown: ShutdownTrigger,
 }
 
 #[tonic::async_trait]
@@ -367,7 +591,14 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // (f32 LE PCM, no sample-rate boundaries) flows from the inbound
         // gRPC stream into the plugin, and `SttEvent`s flow back out into
         // the outbound stream.
-        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+        //
+        // Capacity MUST be 500 in lockstep with the daemon end
+        // (astra-daemon plugins/voice_capability.rs::open_session). The old 32
+        // was the silent bottleneck: the worst-case wake-seed dump (~8 s of
+        // 16 kHz audio in 1600-sample batches ≈ 80) plus live audio piling up
+        // overflowed it, so STT only ever saw the first fraction of an
+        // utterance. See CLAUDE.md "Streaming-STT plugin audio channel capacity".
+        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(500);
         let (events_tx, events_rx) =
             tokio::sync::mpsc::channel::<crate::capability::SttEvent>(8);
 
@@ -395,10 +626,8 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
             let inbound_tx = audio_tx.clone();
             tokio::spawn(async move {
                 while let Ok(Some(chunk)) = inbound.message().await {
-                    if !chunk.data.is_empty() {
-                        if inbound_tx.send(chunk.data).await.is_err() {
-                            break;
-                        }
+                    if !chunk.data.is_empty() && inbound_tx.send(chunk.data).await.is_err() {
+                        break;
                     }
                     if chunk.is_last {
                         break;
@@ -588,12 +817,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
         info!("Shutdown requested by daemon");
-        self.plugin.on_shutdown().await;
-        // Give a moment for the response to send, then exit
-        tokio::spawn(async {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            std::process::exit(0);
-        });
+        // Ask the server to stop and reply immediately. Graceful shutdown
+        // drains this request first, so the daemon gets its response; `run_with`
+        // then calls `on_shutdown()` once the server is down. (The old code slept
+        // 100 ms in a detached task and called `process::exit(0)`, which killed
+        // the process mid-`on_shutdown` whenever cleanup took longer than that.)
+        self.shutdown.trigger();
         Ok(tonic::Response::new(proto::Empty {}))
     }
 
@@ -606,5 +835,158 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
             healthy,
             status,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn keeps_daemon_flags_in_both_spellings() {
+        let out = daemon_args(argv(&[
+            "plugin",
+            "--daemon-addr",
+            "127.0.0.1:32000",
+            "--plugin-id=dice",
+            "--auth-token",
+            "secret",
+        ]));
+        assert_eq!(
+            out,
+            argv(&[
+                "plugin",
+                "--daemon-addr",
+                "127.0.0.1:32000",
+                "--plugin-id=dice",
+                "--auth-token",
+                "secret",
+            ])
+        );
+    }
+
+    #[test]
+    fn drops_flags_the_plugin_owns() {
+        // A plugin's own CLI must not make the SDK's parser abort the process.
+        let out = daemon_args(argv(&[
+            "plugin",
+            "--verbose",
+            "serve",
+            "--daemon-addr",
+            "127.0.0.1:32000",
+            "--config=/tmp/x.toml",
+            "--plugin-id",
+            "dice",
+        ]));
+        assert_eq!(
+            out,
+            argv(&[
+                "plugin",
+                "--daemon-addr",
+                "127.0.0.1:32000",
+                "--plugin-id",
+                "dice",
+            ])
+        );
+        Args::parse_from(out);
+    }
+
+    /// A plugin that overrides nothing — every `PluginCapability` method has a
+    /// default, so this serves the whole capability surface.
+    struct BarePlugin;
+    impl PluginCapability for BarePlugin {}
+
+    /// Bind a capability server guarded exactly as `run_with` binds it.
+    async fn serve_guarded(token: &str, mode: CapabilityAuth) -> String {
+        let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = oneshot::channel::<()>();
+        let svc = CapabilityServiceImpl {
+            plugin: Arc::new(BarePlugin),
+            shutdown: ShutdownTrigger::new(tx),
+        };
+        let guard = CapabilityInterceptor::new(token, mode);
+        tokio::spawn(
+            Server::builder()
+                .add_service(PluginCapabilityServiceServer::with_interceptor(svc, guard))
+                .serve_with_incoming_shutdown(
+                    tokio_stream::wrappers::TcpListenerStream::new(listener),
+                    async move {
+                        let _ = rx.await;
+                    },
+                ),
+        );
+        format!("http://{addr}")
+    }
+
+    /// `ListTools` against `addr`, optionally presenting `token`.
+    async fn list_tools(addr: &str, token: Option<&str>) -> Result<(), tonic::Code> {
+        let mut client =
+            proto::plugin_capability_service_client::PluginCapabilityServiceClient::connect(
+                addr.to_string(),
+            )
+            .await
+            .unwrap();
+        let mut req = tonic::Request::new(proto::Empty {});
+        if let Some(token) = token {
+            req.metadata_mut()
+                .insert("x-plugin-token", token.parse().unwrap());
+        }
+        client.list_tools(req).await.map(|_| ()).map_err(|e| e.code())
+    }
+
+    #[tokio::test]
+    async fn capability_server_rejects_a_wrong_token_over_the_wire() {
+        // The unit tests in `auth` cover the decision; this covers the wiring —
+        // that tonic really runs the interceptor for this service, so a local
+        // process that is not the daemon cannot reach the plugin's tools.
+        let addr = serve_guarded("s3cret", CapabilityAuth::Warn).await;
+        assert_eq!(list_tools(&addr, Some("s3cret")).await, Ok(()));
+        assert_eq!(list_tools(&addr, None).await, Ok(())); // accept-and-warn
+        assert_eq!(
+            list_tools(&addr, Some("wrong")).await,
+            Err(tonic::Code::Unauthenticated)
+        );
+    }
+
+    #[tokio::test]
+    async fn capability_server_can_require_the_token() {
+        let addr = serve_guarded("s3cret", CapabilityAuth::Require).await;
+        assert_eq!(
+            list_tools(&addr, None).await,
+            Err(tonic::Code::Unauthenticated)
+        );
+        assert_eq!(list_tools(&addr, Some("s3cret")).await, Ok(()));
+    }
+
+    #[tokio::test]
+    async fn capability_server_without_a_spawn_token_still_serves() {
+        // A plugin run standalone shares no secret with anyone; failing closed
+        // there would make it unrunnable rather than safe.
+        let addr = serve_guarded("", CapabilityAuth::Require).await;
+        assert_eq!(list_tools(&addr, None).await, Ok(()));
+    }
+
+    #[test]
+    fn parses_a_daemon_spawn_line() {
+        let args = Args::parse_from(daemon_args(argv(&[
+            "plugin",
+            "--daemon-addr",
+            "127.0.0.1:32000",
+            "--plugin-id",
+            "dice",
+            "--auth-token",
+            "tok",
+            "--my-own-flag",
+        ])));
+        assert_eq!(args.daemon_addr, "127.0.0.1:32000");
+        assert_eq!(args.plugin_id, "dice");
+        assert_eq!(args.auth_token, "tok");
     }
 }
