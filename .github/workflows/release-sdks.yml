@@ -1,0 +1,552 @@
+name: Release SDKs
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ONE tag releases all three SDKs. It replaces `publish-rust.yml`,
+# `publish-python.yml` and `publish-ts.yml`, which were three tags, three
+# workflows and zero gates: each one checked out, built and published, and none
+# of them ever asked whether the thing it was publishing agreed with anything
+# else. That is how 0.5.0 of the Rust SDK reached crates.io with a HostClient
+# that could not authenticate a single host RPC.
+#
+# ── THE TAG ────────────────────────────────────────────────────────────────
+#
+#   git tag sdk-v0.6.0 && git push origin sdk-v0.6.0
+#
+# `<semver>` is the RELEASE-TRAIN version, and the train's version is the Rust
+# SDK's. The three packages are NOT in lockstep — today they are 0.6.0 (Rust),
+# 0.5.0 (Python), 0.5.0 (TypeScript) — because they broke at different times and
+# forcing a shared number would mean publishing a Python release whose only
+# change is a version bump. The Rust crate is the reference because its version
+# has moved for every protocol-affecting change so far.
+#
+# So the version gate does NOT demand four equal numbers. It demands that every
+# version in the tree is the one its own package will be published under, and
+# that the tag names the train:
+#
+#   * tag semver           == astra-plugin-sdk/Cargo.toml version
+#   * pyproject version    == astra_plugin_sdk.__version__
+#   * each CHANGELOG's newest entry == that package's version
+#   * no package's version is already on its registry (that would be a silent
+#     no-op publish, or a failed one, depending on the registry)
+#
+# If you later decide the three should move in lockstep, add the equality here
+# and delete this paragraph — but decide it, do not let it happen.
+#
+# ── THE GATES, IN ORDER ────────────────────────────────────────────────────
+#
+#   1 versions      cheap, and the most common mistake
+#   2 protocol      PROTOCOL_VERSION == proto/PROTO_VERSION's `protocol`
+#   3 proto-drift   the checked-in protocol is the daemon's, verified upstream
+#   4 parity        R1-R4: the spec, the proto and the SDK sources agree
+#   5 ci            the whole matrix — 6 OS legs of SDK tests, the examples,
+#                   the scaffold round-trip, the couplings
+#   6 conformance   the hook list every SDK must answer
+#   7 publish       crates.io, PyPI, npm
+#
+# Each `needs:` the one before it, so a red gate stops the train rather than
+# racing it. 1-4 are seconds; putting them ahead of the matrix means a
+# mismatched version costs a minute, not twenty.
+#
+# ── THE FIRST RUN IS THE POINT ─────────────────────────────────────────────
+#
+# The registries are at 0.5.0 / 0.4.0 / 0.4.0. The tree is at 0.6.0 / 0.5.0 /
+# 0.5.0, and the CLI's scaffolds pin the tree's versions — so `astra-plugin new`
+# produces a project that CANNOT resolve its SDK until this workflow runs once.
+# Every gate above was checked against the tree as it stands (see the phase
+# report): `sdk-v0.6.0` passes all seven today. Nothing here blocks the release
+# that unblocks plugin authors.
+#
+# ── NO ARTIFACT HAND-OFF ───────────────────────────────────────────────────
+#
+# Deliberately no actions/upload-artifact between a build and a publish, matching
+# Astra's release.yml: that quota is account-wide and, when it fills, fails hard —
+# in astra-companion it turned 19 days of green compiles into red CI with nothing
+# shipped. Each publish job builds what it publishes, in one job.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+  # A dry run is the only way to exercise the gates before the tag exists, and a
+  # tag is not something you can take back.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to check the gates against, e.g. 0.6.0"
+        required: true
+      publish:
+        description: "Actually publish. Leave false to run gates only."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # NOT cancel-in-progress: a cancelled run between two registry pushes leaves
+  # the three SDKs at different versions, and no registry lets you take one back.
+  group: release-sdks
+  cancel-in-progress: false
+
+jobs:
+  # ══ GATE 1 ═════════════════════════════════════════════════════════════════
+  versions:
+    name: "gate 1: versions"
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      rust: ${{ steps.v.outputs.rust }}
+      python: ${{ steps.v.outputs.python }}
+      ts: ${{ steps.v.outputs.ts }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: the tag agrees with every manifest
+        id: v
+        env:
+          # `github.ref_name` is `sdk-v0.6.0` on a tag and the branch name on a
+          # dispatch, so the two entry points are normalised here rather than in
+          # four expressions further down.
+          RAW: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          DO_PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, re, sys, pathlib
+
+          raw = os.environ["RAW"]
+          version = raw[len("sdk-v"):] if raw.startswith("sdk-v") else raw
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
+              sys.exit(f"'{raw}' is not a `sdk-v<semver>` tag")
+
+          read = lambda p: pathlib.Path(p).read_text(encoding="utf-8")
+          rust = re.search(r'^version = "([^"]+)"', read("astra-plugin-sdk/Cargo.toml"), re.M).group(1)
+          pyproject = re.search(r'^version = "([^"]+)"',
+                                read("astra-plugin-sdk-python/pyproject.toml"), re.M).group(1)
+          dunder = re.search(r'__version__ = "([^"]+)"',
+                             read("astra-plugin-sdk-python/astra_plugin_sdk/__init__.py")).group(1)
+          ts = json.loads(read("astra-plugin-sdk-ts/package.json"))["version"]
+
+          fails = []
+          def check(ok, msg):
+              print(("ok   " if ok else "FAIL ") + msg)
+              if not ok:
+                  fails.append(msg)
+
+          check(version == rust,
+                f"the tag ({version}) is the Rust SDK's version ({rust})")
+          check(pyproject == dunder,
+                f"pyproject ({pyproject}) == __version__ ({dunder})")
+          for name, path, ver in (("rust", "astra-plugin-sdk/CHANGELOG.md", rust),
+                                  ("python", "astra-plugin-sdk-python/CHANGELOG.md", pyproject),
+                                  ("ts", "astra-plugin-sdk-ts/CHANGELOG.md", ts)):
+              top = re.search(r"^## \[([^\]]+)\]", read(path), re.M)
+              got = top.group(1) if top else "(none)"
+              check(got == ver, f"{name} CHANGELOG's newest entry is {ver} (found {got})")
+
+          if fails:
+              sys.exit(f"\n{len(fails)} version disagreement(s); nothing was published.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"version={version}\nrust={rust}\npython={pyproject}\nts={ts}\n")
+              fh.write(f"publish={os.environ['DO_PUBLISH'].lower()}\n")
+          print(f"\nreleasing: rust {rust}, python {pyproject}, ts {ts}")
+          PY
+
+      # A version already on a registry is not publishable, and finding that out
+      # after two of the three have gone up is the worst possible time. crates.io
+      # and npm reject a duplicate; PyPI rejects it too, and none of them allows
+      # a replacement — so this is the last moment the release can be abandoned
+      # cleanly.
+      - name: no package's version is already published
+        env:
+          RUST_V: ${{ steps.v.outputs.rust }}
+          PY_V: ${{ steps.v.outputs.python }}
+          TS_V: ${{ steps.v.outputs.ts }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, sys, urllib.error, urllib.request
+
+          UA = {"User-Agent": "AstraPlugins release CI (github.com/mihailinl/AstraPlugins)"}
+
+          def get(url):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url, headers=UA),
+                                              timeout=30) as r:
+                      return r.status, r.read()
+              except urllib.error.HTTPError as e:
+                  return e.code, b""
+
+          fails = []
+
+          # crates.io lists every version; a 404 means the crate itself is new.
+          status, body = get("https://crates.io/api/v1/crates/astra-plugin-sdk")
+          rust = os.environ["RUST_V"]
+          if status == 200:
+              published = {v["num"] for v in json.loads(body)["versions"]}
+              if rust in published:
+                  fails.append(f"crates.io already has astra-plugin-sdk {rust}")
+              else:
+                  print(f"ok   crates.io has {len(published)} version(s) of "
+                        f"astra-plugin-sdk; {rust} is not one of them")
+          elif status == 404:
+              print("ok   crates.io: the crate has never been published")
+          else:
+              fails.append(f"crates.io answered HTTP {status}; refusing to guess")
+
+          # PyPI and npm both answer per-version, so a 404 IS the answer.
+          for name, url, ver in (
+              ("PyPI", f"https://pypi.org/pypi/astra-plugin-sdk/{os.environ['PY_V']}/json",
+               os.environ["PY_V"]),
+              ("npm", f"https://registry.npmjs.org/astra-plugin-sdk/{os.environ['TS_V']}",
+               os.environ["TS_V"]),
+          ):
+              status, _ = get(url)
+              if status == 200:
+                  fails.append(f"{name} already has astra-plugin-sdk {ver}")
+              elif status == 404:
+                  print(f"ok   {name} does not have {ver}")
+              else:
+                  fails.append(f"{name} answered HTTP {status}; refusing to guess")
+
+          if fails:
+              print("\nA registry push cannot be undone or replaced, so this is the last",
+                    file=sys.stderr)
+              print("moment the release can be abandoned cleanly:\n", file=sys.stderr)
+              for f in fails:
+                  print("  FAIL " + f, file=sys.stderr)
+              sys.exit(1)
+          PY
+
+  # ══ GATE 2 ═════════════════════════════════════════════════════════════════
+  protocol:
+    name: "gate 2: PROTOCOL_VERSION == PROTO_VERSION"
+    needs: versions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # This is the number every plugin puts on the wire in
+      # PluginRegisterRequest, and the number the daemon compares against its
+      # floor. An SDK published with the wrong one negotiates a protocol nobody
+      # implements, and the failure lands on the author, at run time.
+      - name: the four declarations of the protocol integer agree
+        run: |
+          set -euo pipefail
+          pinned=$(sed -n 's/^protocol=//p' proto/PROTO_VERSION | head -n1)
+          rust=$(sed -n 's/.*PROTOCOL_VERSION: u32 = \([0-9]*\).*/\1/p' \
+                 astra-plugin-sdk/src/protocol.rs | head -n1)
+          py=$(sed -n 's/^PROTOCOL_VERSION = \([0-9]*\).*/\1/p' \
+               astra-plugin-sdk-python/astra_plugin_sdk/protocol.py | head -n1)
+          ts=$(sed -n 's/.*PROTOCOL_VERSION = \([0-9]*\).*/\1/p' \
+               astra-plugin-sdk-ts/src/protocol.ts | head -n1)
+          echo "PROTO_VERSION=$pinned rust=$rust python=$py ts=$ts"
+          if [ "$pinned" != "$rust" ] || [ "$pinned" != "$py" ] || [ "$pinned" != "$ts" ]; then
+            echo "FAIL the SDKs do not all speak protocol $pinned." >&2
+            exit 1
+          fi
+          echo "ok   protocol $pinned, in all four places"
+
+  # ══ GATE 3 ═════════════════════════════════════════════════════════════════
+  proto-drift:
+    name: "gate 3: proto drift"
+    needs: protocol
+    runs-on: ubuntu-24.04
+    env:
+      # Same hoist as ci.yml: the `secrets` context is unavailable in `if:`.
+      HAVE_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools/check-proto.sh
+        run: bash tools/check-proto.sh
+
+      # A RELEASE may not run in degraded mode. On a pull request from a fork
+      # that is an acceptable, stated limitation; here it would mean publishing
+      # an SDK whose protocol nobody compared with the daemon. If the token is
+      # missing, the release stops.
+      - name: this release must verify against upstream
+        run: |
+          set -euo pipefail
+          if [ "$HAVE_TOKEN" != yes ]; then
+            echo "FAIL ASTRA_REPO_TOKEN is not set for this run." >&2
+            echo "     ci.yml degrades to the ASTRA_PROTO.lock check on forks; a" >&2
+            echo "     release does not get that concession — it would publish a" >&2
+            echo "     protocol nobody had compared with the daemon." >&2
+            exit 1
+          fi
+
+      # Same `ref` as ci.yml's proto-upstream, and for the same reason: the
+      # slicer lands on Astra's feat/plugin-production before it reaches main,
+      # and a checkout pinned to main gives this gate a tree with no slicer in
+      # it. `vars.ASTRA_REF` overrides during that window; delete the variable
+      # once the branch has merged.
+      - uses: actions/checkout@v4
+        with:
+          repository: mihailinl/Astra
+          ref: ${{ vars.ASTRA_REF || 'main' }}
+          token: ${{ secrets.ASTRA_REPO_TOKEN }}
+          path: _astra
+          fetch-depth: 1
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ github.token }}
+
+      # `cargo: manifest path … does not exist` names a path and no cause. On a
+      # release that is the difference between "point ASTRA_REF at the branch"
+      # and half an hour of reading a stack of workflow files.
+      - name: the Astra checkout carries the slicer
+        # SECURITY: through `env`, never interpolated into the script — see the
+        # same step in ci.yml.
+        env:
+          ASTRA_REF: ${{ vars.ASTRA_REF || 'main' }}
+        run: |
+          set -euo pipefail
+          ref="$ASTRA_REF"
+          for p in astra-rs/tools/proto-slice/Cargo.toml \
+                   astra-rs/astra-proto/plugin-surface.toml \
+                   astra-rs/astra-proto/src/astra.proto; do
+            [ -f "_astra/$p" ] || {
+              echo "FAIL mihailinl/Astra@$ref has no $p" >&2
+              echo "     This gate regenerates proto/plugin.proto from Astra's astra.proto." >&2
+              echo "     Set the repository variable ASTRA_REF to the branch carrying" >&2
+              echo "     astra-rs/tools/proto-slice, and delete it once that has merged." >&2
+              exit 1
+            }
+          done
+          echo "ok   Astra@$ref carries the slicer and its surface file"
+
+      - name: the checked-in protocol is the daemon's
+        run: |
+          set -euo pipefail
+          cargo run --quiet \
+            --manifest-path _astra/astra-rs/tools/proto-slice/Cargo.toml \
+            -- --stdout > /tmp/upstream-plugin.proto
+          if ! cmp -s /tmp/upstream-plugin.proto proto/plugin.proto; then
+            echo "FAIL proto/plugin.proto is not what the daemon's proto slices to." >&2
+            diff -u proto/plugin.proto /tmp/upstream-plugin.proto | head -60 >&2 || true
+            exit 1
+          fi
+          echo "ok   proto/plugin.proto == the regenerated slice"
+
+      - name: parity R5 (daemon_calls provenance)
+        run: python3 tools/parity/check.py --rules R5 --astra-dir _astra/astra-rs
+
+  # ══ GATE 4 ═════════════════════════════════════════════════════════════════
+  parity:
+    name: "gate 4: parity"
+    needs: proto-drift
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/parity/gen.py --check
+      - run: python tools/parity/check.py --rules R1,R2,R3,R4
+
+  # ══ GATE 5 ═════════════════════════════════════════════════════════════════
+  # The whole matrix, by calling ci.yml rather than restating it. A release must
+  # not be able to run a weaker CI than a pull request does, and the only way to
+  # guarantee that is for there to be one file.
+  ci:
+    name: "gate 5"
+    needs: parity
+    uses: ./.github/workflows/ci.yml
+    secrets:
+      ASTRA_REPO_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
+
+  # ══ GATE 6 ═════════════════════════════════════════════════════════════════
+  conformance:
+    name: "gate 6: conformance"
+    needs: ci
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ github.token }}
+
+      # spec/generated/conformance.json is the list of hooks a plugin must
+      # answer, derived from spec/hooks.yaml. Two things are true about it today
+      # and both are stated rather than papered over:
+      #
+      #   * the list itself is checkable, and is checked here — it must be
+      #     current, non-empty, and every `required` hook must have a binding in
+      #     every SDK the spec calls `stable` (which is parity R1, run again
+      #     because a release is worth two seconds).
+      #   * the RUNTIME harness that calls each hook against a live plugin is
+      #     `astra-plugin test`, which is Phase 5 and does not exist. So this
+      #     gate proves the CONTRACT is consistent, not that three plugins
+      #     answered it.
+      #
+      # The second bullet is why the last step exists: the moment the CLI grows
+      # a `test` subcommand, this job goes red and says to wire it. A placeholder
+      # that cannot notice it has been superseded is how a conformance gate turns
+      # into a rubber stamp.
+      - name: the conformance list is current and non-empty
+        run: |
+          set -euo pipefail
+          python tools/parity/gen.py --check
+          python - <<'PY'
+          import json, sys, pathlib
+          spec = json.loads(pathlib.Path("spec/generated/conformance.json").read_text())
+          hooks = spec["hooks"]
+          if not hooks:
+              sys.exit("conformance.json lists no hooks")
+          required = [h for h in hooks if h["requirement"] == "required"]
+          if not required:
+              sys.exit("conformance.json lists no REQUIRED hook — the contract is empty")
+          print(f"ok   {len(hooks)} hooks, {len(required)} required, protocol {spec['protocol']}")
+          PY
+
+      - name: every stable hook has a binding (parity R1)
+        run: python tools/parity/check.py --rules R1
+
+      - name: "`astra-plugin test` does not exist yet — fail when it does"
+        run: |
+          set -euo pipefail
+          cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
+          if ./astra-plugin-cli/target/release/astra-plugin help test >/dev/null 2>&1; then
+            cat >&2 <<'MSG'
+          FAIL `astra-plugin test` exists now.
+
+          This gate has been checking the conformance SPEC because the runtime
+          harness did not exist. It does. Replace this step with a real run:
+          scaffold one plugin per language, start it, and call every hook in
+          spec/generated/conformance.json — that is the check this gate was
+          always a stand-in for.
+          MSG
+            exit 1
+          fi
+          echo 'ok   no `astra-plugin test` yet; the spec-level gate is still the honest one'
+
+  # ══ GATE 7: PUBLISH ════════════════════════════════════════════════════════
+  #
+  # Three jobs, not one, so a registry outage on npm does not roll back a crate
+  # that is already up (nothing can). They run in parallel: by this point every
+  # gate has passed and the only remaining failure mode is the registry itself.
+
+  publish-rust:
+    name: "publish crates.io"
+    needs: [versions, conformance]
+    if: needs.versions.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ github.token }}
+      - name: cargo publish
+        working-directory: astra-plugin-sdk
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  publish-python:
+    name: "publish PyPI"
+    needs: [versions, conformance]
+    if: needs.versions.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      id-token: write # trusted publishing (OIDC); no long-lived PyPI token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check build
+      - name: build sdist + wheel
+        run: python -m build --outdir dist astra-plugin-sdk-python
+      # The vendored proto is the reason this package can regenerate its stubs;
+      # a wheel without it is a package whose documentation lies. Checked here
+      # too, on the exact artifact about to be uploaded.
+      - name: the artifacts carry the proto
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import glob, sys, tarfile, zipfile
+          want = "astra_plugin_sdk/proto/plugin.proto"
+          whl = glob.glob("dist/*.whl")[0]
+          assert want in zipfile.ZipFile(whl).namelist(), f"{want} missing from {whl}"
+          sdist = glob.glob("dist/*.tar.gz")[0]
+          names = tarfile.open(sdist).getnames()
+          assert any(n.endswith(want) for n in names), f"{want} missing from {sdist}"
+          print(f"ok   {whl} and {sdist} both carry the proto")
+          PY
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  publish-ts:
+    name: "publish npm"
+    needs: [versions, conformance]
+    if: needs.versions.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      id-token: write # npm provenance
+    defaults:
+      run:
+        working-directory: astra-plugin-sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+      # bun for the install (the committed lockfile is bun's), npm for the
+      # publish (provenance attestation is an npm feature).
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: npm publish --provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # One place to look for "did the release go out", and the job branch protection
+  # or a notification can watch.
+  released:
+    name: released
+    if: always() && needs.versions.outputs.publish == 'true'
+    needs: [versions, publish-rust, publish-python, publish-ts]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: summary
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          VERSION: ${{ needs.versions.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          rows = {k: v["result"] for k, v in needs.items() if k.startswith("publish-")}
+          lines = [f"### Release `sdk-v{os.environ['VERSION']}`", ""]
+          lines += [f"* `{k}` — **{v}**" for k, v in sorted(rows.items())]
+          bad = [k for k, v in rows.items() if v != "success"]
+          if bad:
+              lines += ["", "One registry did not receive its package. A registry push"
+                            " cannot be undone, so DO NOT retag: fix the failure and"
+                            " re-run only the failed job."]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+              fh.write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          sys.exit(1 if bad else 0)
+          PY

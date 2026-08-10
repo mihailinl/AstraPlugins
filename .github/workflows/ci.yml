@@ -1,0 +1,1546 @@
+name: CI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE single CI workflow for AstraPlugins. One file, one owner.
+#
+# Everything Phase 1 built lands here: this is the file that keeps it true.
+# Three SDKs, one CLI, eleven examples and one protocol drifted apart for months
+# because nothing compared them. Every job below exists because a specific bug
+# shipped, and each one names it. When you add a job, name the bug.
+#
+# ── WHAT EACH PHASE 0 BLOCKER IS CAUGHT BY ─────────────────────────────────
+#
+#   dde9de7 HostClient never attached `x-session-token`  -> couplings (C7) +
+#           (daemon-side, the real oracle) Astra's `cargo test -p astra-daemon`
+#           integration canary from task 0.2, which lives in the other repo.
+#   dde9de7 on_shutdown() never ran; serve failure exited 0; the capability
+#           server served anyone                               -> sdk-rust tests
+#           (runner::tests::capability_server_*, which drive a real server over
+#           the wire), and the same three cases in Python and TypeScript
+#   4822352 Python HostClient sent no token; CallFromUi missing -> couplings (C7),
+#           parity (R1: `stable` in the spec, no binding in the SDK)
+#   4822352 Python stdout block-buffered, so the supervisor reaped the plugin
+#                                                          -> couplings (C8)
+#   6bb5395 two hand-maintained proto STRINGS inline in the TS SDK, and a third
+#           stale plugin.proto file                        -> proto-vendored
+#           (check-proto.sh rule 4 for the file, couplings C9 for the strings)
+#   6bb5395 grpc-js silently dropped handlers absent from the descriptor
+#                                                          -> sdk-ts (contract.test.mjs)
+#   51e6fc7 `astra-plugin new` scaffolded a project that did not build
+#                                                          -> scaffold-roundtrip
+#   51e6fc7 the CLI's forked capability vocabulary drifted from the daemon's
+#                                                          -> couplings (C5) for the
+#           in-repo half, proto-upstream (full mode) for equality WITH the daemon
+#   51e6fc7 the scaffold shipped `@astra/plugin-sdk`, a scope that does not exist
+#                                                          -> scaffold-roundtrip (S5)
+#           + couplings (C6 ratchet)
+#   c811ca9 nine examples pinned `target/release/<name>.exe`, unrunnable on Linux
+#                                                          -> examples-rust (E2)
+#   c811ca9 three vendored proto copies + a committed .zip build artifact
+#                                                          -> proto-vendored (the
+#           absent-list) + couplings (C11)
+#   1.2     the 12 proto mismatches between SDK and daemon  -> proto-upstream
+#   1.6     the 500-vs-32 STT channel capacity              -> couplings (C1) for
+#           the spec-vs-SDK half, proto-upstream full mode ("C1 (full)") for the
+#           spec-vs-DAEMON half. Both halves are needed: C1 runs without an Astra
+#           checkout, so the generator skips the daemon block; and the daemon's
+#           own `assert!` compares its constants against the generated mirror
+#           beside them, which a regeneration moves in lockstep. Neither one
+#           alone can see a spec edit that never reached the daemon.
+#   1.7     hooks one SDK has and another does not          -> parity
+#
+# ── WHAT THIS WORKFLOW CANNOT CATCH ────────────────────────────────────────
+#
+# Nothing here runs a daemon. A plugin that registers, is spawned and answers a
+# real RPC is proved by Astra's own integration test (task 0.2) and, from
+# Phase 5, by `astra-plugin test` — see the `conformance` job in
+# release-sdks.yml, which fails the moment that command exists and is not wired.
+# Do not let anything below grow into a pretend end-to-end test.
+#
+# Three Phase 0 blockers have NO job here, and saying which is the point:
+#
+#   4822352 the Python DaemonClient was gated on the token alone, and since
+#           SECURITY(B1) the daemon issues a token to EVERY plugin — so the
+#           check was trivially true and a trigger-only plugin opened a client
+#           it has no permission to use. A condition that is present and wrong
+#           is invisible to every gate in this file. Only a daemon-side test of
+#           what a non-client plugin may reach catches it.
+#   51e6fc7 `astra-plugin dev` never passed --auth-token, so the documented dev
+#           loop could not work at all. It now drives a running daemon, which is
+#           exactly what CI does not have.
+#   51e6fc7 `keygen` wrote key material with whatever the umask allowed. File
+#           modes on a key nothing here generates.
+#
+# Do not close these by inventing a grep. Close them where the behaviour is:
+# a daemon-side test, and Phase 5's harness.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [master, main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+  # release-sdks.yml gates the publish on this whole matrix by calling it, so
+  # the release cannot run a weaker CI than a PR does.
+  workflow_call:
+    secrets:
+      ASTRA_REPO_TOKEN:
+        description: >-
+          Read-only token for the private Astra repo. Absent on forks and on
+          pull requests from them; `proto-upstream` then runs in degraded mode
+          and says so instead of reporting a check it did not perform.
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Safe to cancel: this workflow publishes nothing. release-sdks.yml deliberately
+  # does not do this.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  # Every SDK build compiles the proto with tonic-build.
+  PROTOC_VERSION: "27.x"
+
+jobs:
+  # ══ PROTO ══════════════════════════════════════════════════════════════════
+
+  proto-vendored:
+    name: proto (vendored copies)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The enforcement half of tools/sync-proto.sh: canonical file present and
+      # banner intact, PROTO_VERSION pinning its protocol integer and sha256,
+      # both packaging copies byte-identical, and no plugin.proto anywhere else.
+      - name: tools/check-proto.sh
+        run: bash tools/check-proto.sh
+
+      # check-proto.sh's rule 4 already fails on ANY unexpected plugin.proto, so
+      # a resurrected copy is caught by name. This step exists for the copies
+      # whose deletion it cannot see — the committed build artifact — and to
+      # spell the six paths out, because "the file is gone" is the assertion
+      # somebody will otherwise delete along with the file.
+      - name: the copies Phase 0 deleted are still gone
+        run: |
+          set -euo pipefail
+          gone=(
+            astra-plugin-cli/proto/plugin.proto
+            astra-plugin-sdk-ts/src/plugin.proto
+            examples/dice-roller/proto/plugin.proto
+            examples/json-tools/proto/plugin.proto
+            examples/text-utils/proto/plugin.proto
+            examples/telegram-client/telegram-client-0.1.0.zip
+          )
+          bad=0
+          for p in "${gone[@]}"; do
+            if [ -e "$p" ]; then
+              echo "FAIL $p is back. It was deleted in Phase 0 (c811ca9 / 51e6fc7)." >&2
+              echo "     The CLI ships no protocol file, the TS SDK generates its" >&2
+              echo "     descriptor from proto/plugin.proto, examples depend on an SDK," >&2
+              echo "     and build outputs are not source." >&2
+              bad=1
+            else
+              echo "ok   $p is absent"
+            fi
+          done
+          exit $bad
+
+      # The TypeScript SDK is the one consumer that vendors no .proto: it
+      # generates src/generated/descriptor.json from the canonical file and
+      # records the hash it used. If that hash is not PROTO_VERSION's, the TS
+      # SDK is speaking a protocol nothing else in the repo has.
+      - name: the TS descriptor was generated from THIS proto
+        run: |
+          set -euo pipefail
+          pinned=$(sed -n 's/^sha256=//p' proto/PROTO_VERSION | head -n1)
+          recorded=$(sed -n 's/.*PROTO_SHA256 = "\([0-9a-f]*\)".*/\1/p' \
+                     astra-plugin-sdk-ts/src/generated/index.ts | head -n1)
+          if [ "$pinned" != "$recorded" ]; then
+            echo "FAIL proto/PROTO_VERSION pins   $pinned" >&2
+            echo "     generated/index.ts records $recorded" >&2
+            echo "     Regenerate: (cd astra-plugin-sdk-ts && bun run generate)" >&2
+            exit 1
+          fi
+          echo "ok   descriptor generated from ${pinned:0:12}…"
+
+  proto-upstream:
+    name: proto (upstream drift)
+    runs-on: ubuntu-24.04
+    env:
+      # THE SECRETS CONTEXT IS NOT AVAILABLE IN A JOB- OR STEP-LEVEL `if:`.
+      # GitHub rejects the workflow at parse time for `if: secrets.X != ''`.
+      # A job-level `env:` hoist is the only supported shape, and every step
+      # below branches on this string, never on `secrets` directly.
+      HAVE_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: which mode this job is running in
+        run: |
+          set -euo pipefail
+          if [ "$HAVE_TOKEN" = yes ]; then
+            echo "MODE=full"    >> "$GITHUB_ENV"
+            echo "### proto-upstream: **full** — regenerating from the Astra checkout" \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "MODE=degraded" >> "$GITHUB_ENV"
+            {
+              echo "### proto-upstream: **DEGRADED — upstream drift was NOT checked**"
+              echo
+              echo "\`ASTRA_REPO_TOKEN\` is unset. Astra is a private repository, so this"
+              echo "run cannot see it — which is the normal state for a pull request from"
+              echo "a fork, where GitHub withholds secrets by design."
+              echo
+              echo "What ran instead: \`proto/ASTRA_PROTO.lock\` was verified against the"
+              echo "checked-in protocol. That proves the protocol has not moved since a"
+              echo "trusted run last compared it with the daemon. It proves nothing about"
+              echo "the daemon as it stands today."
+              echo
+              echo "**The daemon's \`spec/limits.yaml\` mirror was NOT checked either.** The"
+              echo "\`couplings\` job runs \`gen-limits.mjs --check\` with no Astra checkout, so"
+              echo "it verifies the three SDK files and skips the daemon block; the daemon's"
+              echo "own \`assert!\` only compares its constants with the mirror beside them, and"
+              echo "a regeneration moves both. A spec edit that never reached the daemon is"
+              echo "green everywhere until a full-mode run says otherwise."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── degraded mode ────────────────────────────────────────────────────
+      #
+      # proto/ASTRA_PROTO.lock is written by a full-mode run and committed by a
+      # maintainer. It records (a) the sha256 of proto/plugin.proto and (b) the
+      # sha256 of the astra.proto it was cut from, as of the last time the two
+      # repos were actually compared. Verifying it here means: nobody has
+      # changed the protocol since that comparison. A PR that DOES change the
+      # protocol fails this job with a message saying a maintainer must re-run
+      # it — which is correct, and much better than a green tick over an
+      # unverified protocol change.
+      - name: verify proto/ASTRA_PROTO.lock (degraded mode)
+        if: env.MODE == 'degraded'
+        run: |
+          set -euo pipefail
+          lock=proto/ASTRA_PROTO.lock
+          [ -f "$lock" ] || { echo "FAIL $lock is missing." >&2; exit 1; }
+
+          get() { sed -n "s/^$1=//p" "$lock" | head -n1; }
+          want_plugin=$(get plugin_proto_sha256)
+          want_astra=$(get astra_proto_sha256)
+          want_protocol=$(get protocol)
+
+          have_plugin=$(sha256sum proto/plugin.proto | cut -d' ' -f1)
+          have_astra=$(sed -n 's|^// source-sha256: *||p' proto/plugin.proto | head -n1)
+          have_protocol=$(sed -n 's|^// protocol: *||p' proto/plugin.proto | head -n1)
+
+          bad=0
+          check() {
+            if [ "$2" != "$3" ]; then
+              echo "FAIL $1: lock says $2, tree says $3" >&2; bad=1
+            else
+              echo "ok   $1 $3"
+            fi
+          }
+          check "protocol"            "$want_protocol" "$have_protocol"
+          check "plugin.proto sha256" "$want_plugin"   "$have_plugin"
+          check "astra.proto sha256"  "$want_astra"    "$have_astra"
+
+          if [ $bad -ne 0 ]; then
+            cat >&2 <<'MSG'
+
+          This change moves the protocol, and this run cannot verify it against
+          the daemon (no ASTRA_REPO_TOKEN — a fork, most likely). A maintainer
+          must run this job with the token, which regenerates the slice from
+          astra.proto and rewrites proto/ASTRA_PROTO.lock.
+
+          Do NOT hand-edit the lock to make this pass. Its whole value is that
+          the hashes in it were once produced by a run that could see upstream.
+          MSG
+            exit 1
+          fi
+          echo
+          echo "NOTE: upstream was NOT contacted. This is the degraded check."
+
+      # ── full mode ────────────────────────────────────────────────────────
+      #
+      # `ref` is a repository variable, not a hard-coded branch. The slicer
+      # (`astra-rs/tools/proto-slice`) and the surface file it reads land in
+      # Astra on `feat/plugin-production` and reach `main` only when that merges
+      # — so between the two events, a checkout pinned to `main` gives this job
+      # a tree with no slicer in it. Set `vars.ASTRA_REF` to the branch during
+      # that window and DELETE the variable once it is on main; the default is
+      # `main`, which is where this must end up.
+      - name: checkout Astra
+        if: env.MODE == 'full'
+        uses: actions/checkout@v4
+        with:
+          repository: mihailinl/Astra
+          ref: ${{ vars.ASTRA_REF || 'main' }}
+          token: ${{ secrets.ASTRA_REPO_TOKEN }}
+          path: _astra
+          # The slicer reads astra.proto and plugin-surface.toml only; no history
+          # is needed and the repo is large.
+          fetch-depth: 1
+
+      # A missing slicer must not surface as `cargo: manifest path … does not
+      # exist`. That error names a path and no cause, and the cause here is
+      # always the same one: this Astra ref predates the slicer.
+      - name: the Astra checkout carries the slicer
+        if: env.MODE == 'full'
+        # SECURITY: the ref reaches the shell through `env`, never through `${{ }}`
+        # interpolated into the script. A repository variable is maintainer-set,
+        # but a value containing a quote would still be pasted straight into the
+        # command line, and "it is only a maintainer" is how that class of bug
+        # gets written everywhere.
+        env:
+          ASTRA_REF: ${{ vars.ASTRA_REF || 'main' }}
+        run: |
+          set -euo pipefail
+          ref="$ASTRA_REF"
+          for p in astra-rs/tools/proto-slice/Cargo.toml \
+                   astra-rs/astra-proto/plugin-surface.toml \
+                   astra-rs/astra-proto/src/astra.proto; do
+            [ -f "_astra/$p" ] || {
+              echo "FAIL Astra@$ref has no $p" >&2
+              cat >&2 <<MSG
+
+          proto/plugin.proto is CUT from Astra's astra.proto by
+          astra-rs/tools/proto-slice, using astra-proto/plugin-surface.toml as
+          the list of what crosses the boundary. This job regenerates that slice
+          and diffs it, so both files must exist in the Astra ref it checks out.
+
+          Checked out: mihailinl/Astra@$ref
+          If the slicer is not on that branch yet, set the repository variable
+          ASTRA_REF to the branch carrying it (today: feat/plugin-production),
+          and delete the variable once it has merged to main.
+          MSG
+              exit 1
+            }
+          done
+          echo "ok   Astra@$ref carries the slicer and its surface file"
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: env.MODE == 'full'
+      - uses: arduino/setup-protoc@v3
+        if: env.MODE == 'full'
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      # For gen-limits.mjs below. Pinned rather than trusting whatever node the
+      # runner image happens to ship.
+      - uses: actions/setup-node@v4
+        if: env.MODE == 'full'
+        with:
+          node-version: "20"
+      - uses: Swatinem/rust-cache@v2
+        if: env.MODE == 'full'
+        with:
+          workspaces: _astra/astra-rs/tools/proto-slice
+          key: proto-slice
+
+      # `--stdout` regenerates the slice in memory and prints it, so this
+      # compares the daemon's proto AS IT IS TODAY against our checked-in copy —
+      # not against whatever Astra last committed to its own generated/ dir.
+      # Keeping Astra's committed copy current is Astra's CI's job.
+      - name: regenerate the slice and diff it against proto/plugin.proto
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          cargo run --quiet \
+            --manifest-path _astra/astra-rs/tools/proto-slice/Cargo.toml \
+            -- --stdout > /tmp/upstream-plugin.proto
+          if ! cmp -s /tmp/upstream-plugin.proto proto/plugin.proto; then
+            echo "FAIL proto/plugin.proto is not what the daemon's proto slices to." >&2
+            diff -u proto/plugin.proto /tmp/upstream-plugin.proto | head -60 >&2 || true
+            cat >&2 <<'MSG'
+
+          Fix in the Astra repo, never here:
+              cargo run --manifest-path astra-rs/tools/proto-slice/Cargo.toml
+          then copy astra-proto/generated/plugin.proto to AstraPlugins/proto/plugin.proto
+          and run tools/sync-proto.sh.
+          MSG
+            exit 1
+          fi
+          echo "ok   proto/plugin.proto is byte-identical to the regenerated slice"
+
+      # C1 with the other half attached. The `couplings` job runs
+      # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the
+      # three SDK files against spec/limits.yaml and prints "daemon block:
+      # skipped" — the daemon is simply not in the comparison. The daemon's own
+      # `const _: () = assert!(…)` compares its constants against the generated
+      # mirror in the same file, and a regeneration moves both together, so a
+      # mirror left behind by a spec edit compiles green on both sides.
+      #
+      # Which means the spec -> daemon coupling — the one the STT channel bug
+      # (500 daemon / 32 SDK) was about — was checked by nothing at all until
+      # this step. It is the only job with both trees, so it is the only place
+      # the check can live.
+      - name: C1 (full) spec/limits.yaml == the daemon's mirror
+        if: env.MODE == 'full'
+        env:
+          ASTRA_RS_DIR: _astra/astra-rs
+        run: |
+          set -euo pipefail
+          node tools/gen-limits.mjs --check
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
+          ### limits: **full** — the daemon's generated mirror was compared with `spec/limits.yaml`
+          MSG
+
+      # R5 is the one parity rule that needs an Astra checkout: it asserts each
+      # hook row's `daemon_calls` file:line really is where the daemon calls it.
+      # The `parity` job skips it, loudly. This is where it runs.
+      - name: parity R5 (daemon_calls provenance)
+        if: env.MODE == 'full'
+        run: python3 tools/parity/check.py --rules R5 --astra-dir _astra/astra-rs
+
+      # The capability vocabulary, compared with the ONLY authority — the
+      # daemon's `Capabilities` struct. The CLI carries a copy (validate.rs says
+      # so in a comment); `couplings` proves the copy is self-consistent with the
+      # rest of this repo, and this step proves it equals the original. That
+      # split is deliberate: the in-repo half must gate every PR, and only this
+      # half needs a private checkout.
+      - name: capability vocabulary == the daemon's
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, sys, pathlib
+          daemon = pathlib.Path("_astra/astra-rs/astra-daemon/src/plugins/manifest.rs").read_text()
+          m = re.search(r"pub struct Capabilities \{(.*?)\n\}", daemon, re.S)
+          if not m:
+              sys.exit("anchor lost: `pub struct Capabilities` not found in manifest.rs")
+          theirs = set(re.findall(r"pub (\w+): bool", m.group(1)))
+
+          cli = pathlib.Path("astra-plugin-cli/src/commands/validate.rs").read_text()
+          m = re.search(r"CAPABILITY_NAMES: &\[&str\] = &\[(.*?)\];", cli, re.S)
+          if not m:
+              sys.exit("anchor lost: CAPABILITY_NAMES not found in validate.rs")
+          ours = set(re.findall(r'"([a-z_]+)"', m.group(1)))
+
+          if ours != theirs:
+              print(f"FAIL daemon has: {sorted(theirs)}", file=sys.stderr)
+              print(f"     the CLI has: {sorted(ours)}", file=sys.stderr)
+              print(f"     only daemon: {sorted(theirs - ours)}", file=sys.stderr)
+              print(f"     only CLI:    {sorted(ours - theirs)}", file=sys.stderr)
+              print("     The daemon is the authority: a name it does not deserialize is",
+                    file=sys.stderr)
+              print("     a capability the plugin does not have. (This is how `ui_panels`",
+                    file=sys.stderr)
+              print("     lived in the CLI for months while declaring nothing.)", file=sys.stderr)
+              sys.exit(1)
+          print(f"ok   {len(ours)} capabilities, identical on both sides")
+          PY
+
+      - name: refresh proto/ASTRA_PROTO.lock and fail if it moved
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          protocol=$(sed -n 's|^// protocol: *||p' proto/plugin.proto | head -n1)
+          astra_sha=$(sed -n 's|^// source-sha256: *||p' proto/plugin.proto | head -n1)
+          plugin_sha=$(sha256sum proto/plugin.proto | cut -d' ' -f1)
+          # Cross-check the header against the file it claims to come from, so a
+          # hand-edited header cannot launder a protocol change through the lock.
+          real_astra_sha=$(sha256sum _astra/astra-rs/astra-proto/src/astra.proto | cut -d' ' -f1)
+          if [ "$astra_sha" != "$real_astra_sha" ]; then
+            echo "FAIL proto/plugin.proto's source-sha256 header says $astra_sha" >&2
+            echo "     but astra.proto hashes to                      $real_astra_sha" >&2
+            exit 1
+          fi
+          cat > /tmp/ASTRA_PROTO.lock <<EOF
+          # The upstream protocol, pinned by a run that could see it.
+          #
+          # GENERATED by .github/workflows/ci.yml (proto-upstream, full mode) — DO NOT EDIT.
+          #
+          # Written only by a run holding ASTRA_REPO_TOKEN, which regenerated the slice
+          # from Astra's astra.proto and found it byte-identical to proto/plugin.proto.
+          # Runs WITHOUT that token (every fork PR) verify these three values instead,
+          # and say plainly that they did not contact upstream.
+          #
+          #   protocol             the \`// protocol: N\` header of proto/plugin.proto
+          #   plugin_proto_sha256  sha256 of proto/plugin.proto
+          #   astra_proto_sha256   sha256 of astra-rs/astra-proto/src/astra.proto it was cut from
+          #
+          protocol=$protocol
+          plugin_proto_sha256=$plugin_sha
+          astra_proto_sha256=$astra_sha
+          EOF
+          if ! cmp -s /tmp/ASTRA_PROTO.lock proto/ASTRA_PROTO.lock; then
+            echo "FAIL proto/ASTRA_PROTO.lock is stale. Commit this:" >&2
+            echo >&2
+            cat /tmp/ASTRA_PROTO.lock >&2
+            exit 1
+          fi
+          echo "ok   proto/ASTRA_PROTO.lock is current"
+
+  # ══ SDKs ═══════════════════════════════════════════════════════════════════
+
+  sdk-rust:
+    name: sdk-rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: astra-plugin-sdk
+          key: sdk-rust-${{ matrix.os }}
+
+      # A test job that runs zero tests is worse than no job: it is a green tick
+      # over nothing. `cargo test` exits 0 on an empty suite, so count first.
+      # (The count is deliberately over the source, not over cargo's output: a
+      # test that fails to COMPILE must fail the build, not vanish from a tally.)
+      - name: there is at least one test to run
+        run: |
+          set -euo pipefail
+          n=$(grep -rE '^\s*#\[(tokio::)?test\]' astra-plugin-sdk/src | wc -l | tr -d ' ')
+          echo "found $n #[test]/#[tokio::test] attributes in astra-plugin-sdk/src"
+          if [ "$n" -lt 1 ]; then
+            echo 'FAIL astra-plugin-sdk has no tests, so `cargo test` proves nothing.' >&2
+            exit 1
+          fi
+
+      - name: cargo test
+        run: cargo test --manifest-path astra-plugin-sdk/Cargo.toml --all-targets
+
+      - name: cargo test --doc
+        run: cargo test --manifest-path astra-plugin-sdk/Cargo.toml --doc
+
+      - name: cargo clippy
+        run: cargo clippy --manifest-path astra-plugin-sdk/Cargo.toml --all-targets
+
+      # `cargo package` refuses files outside the crate root, which is the entire
+      # reason astra-plugin-sdk/proto/plugin.proto exists as a copy. If the copy
+      # is not in the packaged file list, build.rs cannot compile the protocol
+      # from a published .crate and every `cargo add astra-plugin-sdk` fails at
+      # the first build — a failure that only ever shows up after publishing.
+      - name: the packaged crate carries its proto
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          set -euo pipefail
+          cd astra-plugin-sdk
+          cargo package --list --allow-dirty > /tmp/crate-files.txt
+          if ! grep -qx 'proto/plugin.proto' /tmp/crate-files.txt; then
+            echo "FAIL proto/plugin.proto is not in the packaged crate:" >&2
+            cat /tmp/crate-files.txt >&2
+            exit 1
+          fi
+          echo "ok   proto/plugin.proto ships inside the .crate"
+
+  sdk-python:
+    name: sdk-python (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # 3.10 is the floor pyproject.toml declares; test the floor, not the
+          # runner's default, or `requires-python` is a wish.
+          python-version: "3.10"
+
+      - name: install the SDK
+        run: python -m pip install --disable-pip-version-check ./astra-plugin-sdk-python
+
+      - name: there is at least one test to run
+        run: |
+          set -euo pipefail
+          n=$(ls astra-plugin-sdk-python/tests/test_*.py | wc -l | tr -d ' ')
+          echo "found $n test module(s)"
+          [ "$n" -ge 1 ] || { echo "FAIL no tests" >&2; exit 1; }
+
+      # unittest, not pytest: the suite is written for `python -m unittest` (its
+      # docstrings say so) and adding a test-runner dependency to a job whose
+      # point is that the package installs cleanly would be self-defeating.
+      - name: python -m unittest discover
+        working-directory: astra-plugin-sdk-python
+        run: python -m unittest discover -s tests -v
+
+      # Same contract as the Rust crate: setuptools packages data from inside the
+      # package directory only, so astra_plugin_sdk/proto/plugin.proto is the copy
+      # that must reach the wheel. Without it the regeneration path documented in
+      # proto/__init__.py has no input.
+      - name: the built wheel carries its proto
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check build
+          python -m build --wheel --outdir /tmp/wheels astra-plugin-sdk-python
+          whl=$(ls /tmp/wheels/*.whl)
+          if ! python -c "import zipfile,sys; sys.exit(0 if 'astra_plugin_sdk/proto/plugin.proto' in zipfile.ZipFile(sys.argv[1]).namelist() else 1)" "$whl"; then
+            echo "FAIL astra_plugin_sdk/proto/plugin.proto is not in $whl" >&2
+            python -c "import zipfile,sys; print('\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))" "$whl" >&2
+            exit 1
+          fi
+          echo "ok   the proto ships inside the wheel"
+
+  sdk-ts:
+    name: sdk-ts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    defaults:
+      run:
+        shell: bash
+        working-directory: astra-plugin-sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # --frozen-lockfile is the point of committing bun.lock (task 1.10): a
+      # dependency that resolved differently for CI than for the author is how a
+      # published SDK carries a transitive it was never built against.
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+      # Snapshot BEFORE anything runs the generator. `pretest` regenerates
+      # src/generated/, so a check placed after it would compare the generator
+      # with itself and call a stale committed descriptor current.
+      - name: snapshot the committed src/generated
+        # `rm -rf` first: on a fresh runner the destination is absent and `cp -R`
+        # creates it, but if it already exists (anyone running this step twice
+        # locally) `cp -R` nests a copy INSIDE it and the diff below compares
+        # the wrong trees.
+        run: rm -rf /tmp/generated.committed && cp -R src/generated /tmp/generated.committed
+
+      # `pretest` regenerates the descriptor and runs tsc, so this covers the
+      # generator, the type-checker and the suite. contract.test.mjs is the
+      # canary for 6bb5395: grpc-js silently DROPS a handler whose method is
+      # absent from the descriptor, which is how three hooks were registered and
+      # never called.
+      - name: bun run test
+        run: bun run test
+
+      # Two properties in one diff, against the snapshot taken before anything
+      # ran the generator:
+      #   current      what is committed is what proto/plugin.proto produces
+      #   deterministic two runs (pretest's, and this one) agree byte for byte
+      # Comparing against the snapshot rather than `git diff` keeps this true on
+      # a dirty tree, which is how it can be run by hand before pushing.
+      - name: src/generated is current and reproducible
+        run: |
+          set -euo pipefail
+          bun run generate
+          if ! diff -r /tmp/generated.committed src/generated; then
+            echo "FAIL src/generated/ is not what proto/plugin.proto generates." >&2
+            echo "     Regenerate and commit: (cd astra-plugin-sdk-ts && bun run generate)" >&2
+            exit 1
+          fi
+          echo "ok   src/generated regenerates byte-identically"
+
+      # What npm would actually publish. `dist/generated/descriptor.json` is
+      # load-bearing at runtime (proto-loader.ts imports it); a tsconfig change
+      # that stopped emitting it would produce a package that installs and then
+      # throws on first use.
+      - name: the packed tarball is the package we think it is
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          set -euo pipefail
+          bun run build
+          bun pm pack --destination /tmp/tgz
+          tgz=$(ls /tmp/tgz/*.tgz)
+          list=$(tar tzf "$tgz")
+          bad=0
+          for want in package/dist/index.js package/dist/index.d.ts \
+                      package/dist/generated/descriptor.json; do
+            grep -qx "$want" <<<"$list" || { echo "FAIL $want missing from the tarball" >&2; bad=1; }
+          done
+          # One protocol, and the TS SDK is not one of the two consumers that
+          # vendor it. A .proto in this tarball means the deleted copy is back.
+          if grep -q '\.proto$' <<<"$list"; then
+            echo "FAIL the tarball contains a .proto:" >&2
+            grep '\.proto$' <<<"$list" >&2
+            bad=1
+          fi
+          [ $bad -eq 0 ] && echo "ok   $(wc -l <<<"$list") files, descriptor included, no proto"
+          exit $bad
+
+  # ══ EXAMPLES ═══════════════════════════════════════════════════════════════
+
+  examples-rust:
+    name: examples-rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Nine crates that all depend on the same SDK and the same tokio/tonic
+      # tree. Without a shared target dir each one pays a cold build of the
+      # whole graph; with it, the first example warms the other eight.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/_target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: astra-plugin-sdk
+          key: examples-${{ matrix.os }}
+      - uses: actions/setup-python@v5
+        with:
+          # For the manifest check below. windows-2022 preinstalls a Python far
+          # older than `tomllib` (3.11+), so pin one rather than inherit one.
+          python-version: "3.12"
+
+      # Verified against the examples' real dependency graphs, not guessed:
+      #   examples/echo-stt      -> rodio 0.19 -> cpal -> alsa-sys   (libasound2-dev)
+      #   examples/telegram-client -> reqwest 0.12 default-tls -> openssl-sys
+      #                                                          (libssl-dev, pkg-config)
+      # Both are unix-only edges: native-tls uses schannel on Windows and rodio
+      # uses WASAPI, so windows-2022 needs nothing installed here.
+      - name: "apt: pkg-config libasound2-dev libssl-dev"
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libssl-dev
+
+      - name: build every Rust example
+        run: |
+          set -euo pipefail
+          for m in examples/*/Cargo.toml; do
+            echo "::group::$m"
+            cargo build --release --manifest-path "$m"
+            echo "::endgroup::"
+          done
+
+      # E2 — the c811ca9 canary. Nine examples pinned `target/release/<name>.exe`
+      # and no example declared a [platform] section, so the daemon on Linux
+      # tried to spawn a file that cannot exist. The examples are the de-facto
+      # documentation of what a manifest looks like, so it propagated into every
+      # plugin written by copying one.
+      #
+      # The assertion is not "no .exe in the string" — it is that entry.command
+      # RESOLVES to a file cargo actually produced, on THIS OS, allowing only the
+      # EXE_SUFFIX fallback the daemon itself implements. A manifest that names a
+      # real file on exactly one of the two platforms fails on the other.
+      - name: every example's entry.command resolves to a built binary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, pathlib, sys, tomllib
+          target = pathlib.Path(os.environ["CARGO_TARGET_DIR"])
+          bad = []
+          for manifest in sorted(pathlib.Path("examples").glob("*/plugin.toml")):
+              if not (manifest.parent / "Cargo.toml").exists():
+                  continue
+              man = tomllib.loads(manifest.read_text(encoding="utf-8"))
+              cmd = man.get("entry", {}).get("command", "")
+              if not cmd.startswith("target/"):
+                  bad.append(f"{manifest}: entry.command={cmd!r} does not name a cargo output")
+                  continue
+              # Checked BEFORE resolving, so the message is the useful one on
+              # Linux too — where a `.exe` command fails by not existing, and
+              # "resolves to nothing" would send the author hunting for a build
+              # problem they do not have.
+              if cmd.endswith(".exe"):
+                  bad.append(f"{manifest}: entry.command={cmd!r} is Windows-only. "
+                             f"Extensionless is correct on both platforms; the daemon "
+                             f"appends EXE_SUFFIX when it has to.")
+                  continue
+              # CARGO_TARGET_DIR moved the output; resolve against the real one.
+              rel = cmd[len("target/"):]
+              cands = [target / rel, target / (rel + ".exe")]
+              if not any(c.is_file() for c in cands):
+                  bad.append(f"{manifest}: entry.command={cmd!r} resolves to nothing "
+                             f"(tried {', '.join(str(c) for c in cands)})")
+                  continue
+              print(f"ok   {manifest.parent.name}: {cmd}")
+          if bad:
+              print("\n".join("FAIL " + b for b in bad), file=sys.stderr)
+              sys.exit(1)
+          PY
+
+  examples-node-python:
+    name: examples-node-python
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # Both examples depend on an SDK version that is not published yet
+      # (json-tools asks for ^0.1.1, text-utils for any). Building them against
+      # the registry would test a stale SDK or fail outright, so they are built
+      # against the SDKs in THIS tree — which is also the only way this job can
+      # catch an SDK change that breaks an example. See the same note in
+      # scaffold-roundtrip for the general problem.
+      - name: pack the in-repo SDKs
+        run: |
+          set -euo pipefail
+          (cd astra-plugin-sdk-ts && bun install --frozen-lockfile && bun run build \
+             && bun pm pack --destination /tmp/tgz)
+          echo "SDK_TGZ=$(ls /tmp/tgz/*.tgz)" >> "$GITHUB_ENV"
+          python -m pip install --disable-pip-version-check build
+          python -m build --wheel --outdir /tmp/wheels astra-plugin-sdk-python
+
+      - name: examples/json-tools (TypeScript)
+        working-directory: examples/json-tools
+        run: |
+          set -euo pipefail
+          # `overrides` redirects resolution without touching the declared
+          # dependency range, so the manifest under test stays the author's.
+          # This edits the checkout, which is disposable and never committed.
+          node -e '
+            const fs = require("fs");
+            const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            p.overrides = { "astra-plugin-sdk": "file:" + process.env.SDK_TGZ };
+            fs.writeFileSync("package.json", JSON.stringify(p, null, 2));
+          '
+          bun install
+          bunx tsc --noEmit
+          bun run build
+          test -f dist/index.js
+          echo "ok   json-tools type-checks and bundles against the in-repo SDK"
+
+      - name: examples/text-utils (Python)
+        run: |
+          set -euo pipefail
+          # Install the wheel BY PATH, not by name off a --find-links dir.
+          # `--no-index` would also cut off grpcio/protobuf, which are real
+          # dependencies this flat dir does not contain, and pip fails with
+          # "No matching distribution found for grpcio" before it ever reaches
+          # the example. Naming the file is a stronger guarantee than
+          # --find-links anyway: there is exactly one candidate and it is ours.
+          python -m pip install --disable-pip-version-check /tmp/wheels/astra_plugin_sdk-*.whl
+          # ...and prove it, so a published SDK that shadows the local build
+          # cannot make this job green with the wrong code under test.
+          python - <<'PY'
+          import pathlib, sys, astra_plugin_sdk
+          want = {}
+          init = pathlib.Path("astra-plugin-sdk-python/astra_plugin_sdk/__init__.py")
+          exec(next(l for l in init.read_text().splitlines()
+                    if l.startswith("__version__")), want)
+          if astra_plugin_sdk.__version__ != want["__version__"]:
+              sys.exit(f"FAIL the installed SDK is {astra_plugin_sdk.__version__}, "
+                       f"but this tree is {want['__version__']} — the example is "
+                       "being tested against the wrong SDK.")
+          print(f"ok   the in-repo SDK {astra_plugin_sdk.__version__} is what is installed")
+          PY
+          cd examples/text-utils/src
+          # Importing, not just compiling: the SDK's @tool/@action/@trigger
+          # decorators run at import time, so this exercises the registration
+          # surface a syntax check would sail past.
+          PYTHONPATH=. python -c "import plugin; print('ok   text-utils imports against the in-repo SDK')"
+
+  # ══ THE AUTHOR'S FIRST FIVE MINUTES ════════════════════════════════════════
+
+  scaffold-roundtrip:
+    name: scaffold ${{ matrix.lang }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+        lang: [rust, python, typescript]
+    defaults:
+      run:
+        shell: bash
+    env:
+      # NOT `/tmp`. Under git-bash on windows-2022 that is an MSYS mount which
+      # bash understands and Python does not — `pathlib.Path("/tmp/x")` resolves
+      # to `C:\tmp\x`, a directory nothing wrote to, and the archive inspector
+      # below "finds no archive" on every Windows leg. RUNNER_TEMP is a native
+      # path on both runners; each step normalises its backslashes once, because
+      # bash, TOML and JSON all read a backslash as an escape.
+      WORK: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: astra-plugin-cli
+          key: scaffold-${{ matrix.os }}
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.lang == 'typescript'
+      - uses: actions/setup-node@v4
+        if: matrix.lang == 'typescript'
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          # Needed on every leg: the archive inspector below is Python.
+          python-version: "3.12"
+
+      - name: build the CLI
+        run: |
+          set -euo pipefail
+          cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
+          echo "$GITHUB_WORKSPACE/astra-plugin-cli/target/release" >> "$GITHUB_PATH"
+
+      # ── THE UNPUBLISHED-SDK PROBLEM ────────────────────────────────────────
+      #
+      # A scaffold pins a RELEASED SDK: `astra-plugin-sdk = "0.6"` (crates.io),
+      # `astra-plugin-sdk>=0.5,<0.6` (PyPI), `"astra-plugin-sdk": "^0.5.0"` (npm).
+      # None of those versions is published yet — the registries are at 0.5.0 /
+      # 0.4.0 / 0.4.0 — so a fresh scaffold does not build for anyone until
+      # release-sdks.yml runs for the first time. That is a real fact about this
+      # repo today, not a CI artefact, and it is exactly what an author hits.
+      #
+      # So each leg redirects resolution to the SDK in this tree while LEAVING
+      # THE DECLARED RANGE ALONE. That matters: if the template's pin stops
+      # matching the SDK it will be published from, resolution fails here, in CI,
+      # instead of in an author's terminal after the release.
+      #
+      #   rust   `[patch.crates-io]` appended to the scaffold's Cargo.toml.
+      #          Cargo still evaluates `= "0.6"` against the patched package.
+      #   python a locally built wheel on `--find-links`, so pip resolves
+      #          `>=0.5,<0.6` against the real local version. NOT `--no-index`:
+      #          that would also cut off grpcio/protobuf, which the scaffold
+      #          genuinely needs and this flat dir does not hold. The step
+      #          asserts afterwards that the SDK pip settled on is this tree's,
+      #          which is what --no-index was reaching for and is still true
+      #          after the SDKs are published.
+      #   ts     `overrides` in package.json pointing at a `bun pm pack` tarball.
+      #
+      # Delete all of this once the SDKs are published and the pins resolve from
+      # the registries — and when you do, keep a job that installs the scaffold's
+      # deps from the REAL registries, because that is the thing being promised.
+      # ───────────────────────────────────────────────────────────────────────
+
+      - name: scaffold, build, package
+        env:
+          LANG_UNDER_TEST: ${{ matrix.lang }}
+        run: |
+          set -euo pipefail
+          # Both are backslash paths on Windows; TOML and JSON read a backslash
+          # as an escape, so normalise once, here.
+          ws="${GITHUB_WORKSPACE//\\//}"
+          work="${WORK//\\//}"
+          mkdir -p "$work/rt" && cd "$work/rt"
+
+          case "$LANG_UNDER_TEST" in
+            rust)
+              astra-plugin new demo-plugin --lang rust --capabilities tools
+              cd demo-plugin
+              cat >> Cargo.toml <<EOF
+
+          [patch.crates-io]
+          astra-plugin-sdk = { path = "$ws/astra-plugin-sdk" }
+          EOF
+              cargo build --release
+              ;;
+            python)
+              python -m pip install --disable-pip-version-check build
+              python -m build --wheel --outdir "$work/wheels" "$ws/astra-plugin-sdk-python"
+              astra-plugin new demo-plugin --lang python --capabilities tools
+              cd demo-plugin
+              python -m pip install --disable-pip-version-check \
+                --find-links "$work/wheels" -r requirements.txt
+              # The scaffold's declared range must have resolved to THIS tree's
+              # SDK, not to whatever the registry happens to carry — otherwise
+              # the leg proves nothing about the SDK it is meant to gate.
+              python - "$ws" <<'PY'
+          import pathlib, sys, astra_plugin_sdk
+          want = {}
+          init = pathlib.Path(sys.argv[1], "astra-plugin-sdk-python",
+                              "astra_plugin_sdk", "__init__.py")
+          exec(next(l for l in init.read_text(encoding="utf-8").splitlines()
+                    if l.startswith("__version__")), want)
+          if astra_plugin_sdk.__version__ != want["__version__"]:
+              sys.exit(f"FAIL the scaffold's pin resolved to SDK "
+                       f"{astra_plugin_sdk.__version__}, but this tree is "
+                       f"{want['__version__']}.")
+          print(f"ok   the scaffold's pin resolved to the in-repo SDK "
+                f"{astra_plugin_sdk.__version__}")
+          PY
+              # Syntax-check without writing __pycache__ into the project: the
+              # packer walks src/ and would pack the .pyc.
+              python -c "
+          import pathlib, sys
+          for p in sorted(pathlib.Path('src').rglob('*.py')):
+              compile(p.read_text(encoding='utf-8'), str(p), 'exec')
+              print('compiled', p)
+          "
+              ;;
+            typescript)
+              (cd "$ws/astra-plugin-sdk-ts" && bun install --frozen-lockfile \
+                 && bun run build && bun pm pack --destination "$work/tgz")
+              tgz=$(ls "$work"/tgz/*.tgz)
+              astra-plugin new demo-plugin --lang ts --capabilities tools
+              cd demo-plugin
+              node -e '
+                const fs = require("fs");
+                const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+                p.overrides = { "astra-plugin-sdk": "file:" + process.argv[1] };
+                fs.writeFileSync("package.json", JSON.stringify(p, null, 2));
+              ' "$tgz"
+              bun install
+              ;;
+          esac
+
+          astra-plugin check . --strict
+          astra-plugin build .
+          ls -l ./*.astraplugin
+
+      # S5 — the scaffolded npm dependency is the unscoped name. `@astra/plugin-sdk`
+      # was scaffolded for a scope that was never registered, so every generated
+      # TypeScript project 404'd on install. Checked on the GENERATED file, which
+      # is the only place it matters.
+      - name: the generated manifest names the published packages
+        if: matrix.lang == 'typescript'
+        run: |
+          set -euo pipefail
+          work="${WORK//\\//}"
+          dep=$(node -e 'const p=require(process.argv[1]);
+                         console.log(Object.keys(p.dependencies).join(" "))' \
+                "$work/rt/demo-plugin/package.json")
+          echo "dependencies: $dep"
+          case "$dep" in
+            *@astra/plugin-sdk*)
+              echo "FAIL the scaffold depends on @astra/plugin-sdk, a scope that does not exist." >&2
+              exit 1 ;;
+          esac
+          grep -q '"astra-plugin-sdk"' "$work/rt/demo-plugin/package.json"
+
+      # ── THE ARCHIVE INSPECTOR ──────────────────────────────────────────────
+      #
+      # The .astraplugin is what reaches a user. Four properties, and the daemon
+      # or the registry depends on each:
+      #
+      #   manifest  entry.command inside the archive points INTO the archive.
+      #             The packer rewrites it; a string-replace used to no-op on any
+      #             manifest whose quoting differed, shipping a bundle that told
+      #             the daemon to run the author's target/ directory.
+      #   exec      the bin entry carries mode 0o755 IN THE ZIP. Not on the
+      #             builder's disk — in the central directory, which is the only
+      #             copy the extractor on the other machine can read. A bundle
+      #             packed on Windows must still be executable on Linux.
+      #   mtime     every entry is 1980-01-01, so two builds of the same input
+      #             hash the same and the registry can promise reproducibility.
+      #   order     namelist() == sorted(namelist()).
+      #
+      # `order` FAILS TODAY, on purpose: deterministic ordering is task 2.2 and
+      # the packer still writes plugin.toml, then bin/, then README.md. It is
+      # listed in ARCHIVE_PENDING, which means the inspector runs it, reports it
+      # as an expected failure — and FAILS THE JOB IF IT STARTS PASSING, so the
+      # day 2.2 lands, CI tells you to delete the line instead of letting a
+      # pending exception outlive the work it was waiting for.
+      - name: inspect the archive
+        env:
+          LANG_UNDER_TEST: ${{ matrix.lang }}
+          ARCHIVE_PENDING: order
+        run: |
+          set -euo pipefail
+          work="${WORK//\\//}"
+          python - "$work/rt/demo-plugin" <<'PY'
+          import os, pathlib, sys, tomllib, zipfile
+
+          proj = pathlib.Path(sys.argv[1])
+          lang = os.environ["LANG_UNDER_TEST"]
+          pending = {p for p in os.environ.get("ARCHIVE_PENDING", "").split(",") if p}
+
+          archives = sorted(proj.glob("*.astraplugin"))
+          if len(archives) != 1:
+              sys.exit(f"expected exactly one .astraplugin, found {archives}")
+          z = zipfile.ZipFile(archives[0])
+          names = z.namelist()
+          print(f"archive: {archives[0].name}")
+          for i in z.infolist():
+              print(f"  {i.filename:44} mode={(i.external_attr >> 16) & 0o7777:04o} "
+                    f"mtime={i.date_time}")
+
+          results = {}
+
+          # ── manifest ──────────────────────────────────────────────────────
+          problems = []
+          if "plugin.toml" not in names:
+              problems.append("no plugin.toml in the archive")
+          else:
+              man = tomllib.loads(z.read("plugin.toml").decode("utf-8"))
+              src = tomllib.loads((proj / "plugin.toml").read_text(encoding="utf-8"))
+              entry = man.get("entry", {})
+              cmd, args = entry.get("command", ""), entry.get("args", [])
+              if lang == "rust":
+                  # The source manifest points at the author's target/ dir; the
+                  # packed one must point into the archive. Assert BOTH, so a
+                  # rewrite that no-ops (the old string-replace did, on any
+                  # manifest whose quoting differed) cannot pass by accident.
+                  before = src.get("entry", {}).get("command", "")
+                  if not before.startswith("target/"):
+                      problems.append(f"the scaffold's entry.command is {before!r}; this check "
+                                      f"assumes it names a cargo output before packing")
+                  if not cmd.startswith("./bin/"):
+                      problems.append(f"entry.command is {cmd!r}, expected ./bin/<binary> — "
+                                      f"the packer did not rewrite it")
+                  elif cmd[2:] not in names:
+                      problems.append(f"entry.command {cmd!r} points at nothing in the archive")
+              else:
+                  # Interpreted plugins keep their interpreter as entry.command
+                  # and name the code in args; nothing is rewritten, but the code
+                  # they name has to be in the bundle.
+                  if entry != src.get("entry", {}):
+                      problems.append(f"entry was rewritten for a {lang} plugin: "
+                                      f"{src.get('entry')} -> {entry}")
+                  if "-m" in args:                       # python -m package.module
+                      want = args[args.index("-m") + 1].replace(".", "/") + ".py"
+                  elif args:                             # node dist/index.js
+                      want = args[0]
+                  else:
+                      want, _ = None, problems.append(f"entry.args is empty for {lang}")
+                  if want and want not in names:
+                      problems.append(f"entry names {want!r}, which is not in the archive")
+              if src["plugin"]["id"] != man["plugin"]["id"]:
+                  problems.append("the rewrite changed plugin.id")
+          results["manifest"] = problems
+
+          # ── exec bit, in the archive ──────────────────────────────────────
+          problems = []
+          bins = [i for i in z.infolist() if i.filename.startswith("bin/")]
+          if lang == "rust":
+              if not bins:
+                  problems.append("no bin/ entry in a Rust bundle")
+              for i in bins:
+                  mode = (i.external_attr >> 16) & 0o7777
+                  if not mode & 0o111:
+                      problems.append(f"{i.filename} is mode {mode:04o} in the archive — "
+                                      f"not executable after extraction")
+                  # create_system 3 == Unix; the mode bits are only read from a
+                  # Unix-host entry, so a DOS-host entry has no mode at all.
+                  if i.create_system != 3:
+                      problems.append(f"{i.filename} was written with host system "
+                                      f"{i.create_system}, so its mode bits are ignored "
+                                      f"on extraction")
+          elif bins:
+              problems.append(f"unexpected bin/ entries in a {lang} bundle: "
+                              f"{[i.filename for i in bins]}")
+          results["exec"] = problems
+
+          # ── mtimes ────────────────────────────────────────────────────────
+          EPOCH = (1980, 1, 1, 0, 0, 0)
+          results["mtime"] = [f"{i.filename}: mtime {i.date_time}, expected {EPOCH}"
+                              for i in z.infolist() if i.date_time != EPOCH]
+
+          # ── order ─────────────────────────────────────────────────────────
+          results["order"] = ([] if names == sorted(names)
+                              else [f"entries are not sorted: {names} != {sorted(names)}"])
+
+          # ── verdict ───────────────────────────────────────────────────────
+          failed = False
+          for check, problems in results.items():
+              if check in pending:
+                  if problems:
+                      print(f"xfail {check}: pending (see ARCHIVE_PENDING in ci.yml)")
+                      for p in problems:
+                          print(f"      {p}")
+                  else:
+                      print(f"FAIL  {check}: listed in ARCHIVE_PENDING but it PASSES now.",
+                            file=sys.stderr)
+                      print("      The work it was waiting for has landed. Delete it from",
+                            file=sys.stderr)
+                      print("      ARCHIVE_PENDING in .github/workflows/ci.yml.", file=sys.stderr)
+                      failed = True
+              elif problems:
+                  for p in problems:
+                      print(f"FAIL  {check}: {p}", file=sys.stderr)
+                  failed = True
+              else:
+                  print(f"ok    {check}")
+          sys.exit(1 if failed else 0)
+          PY
+
+  # ══ THE SPECS ══════════════════════════════════════════════════════════════
+
+  parity:
+    name: parity (R1-R4)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # gen.py reads ONLY spec/hooks.yaml, so --check is a meaningful gate on the
+      # checked-in docs being a pure function of the spec.
+      - name: the generated parity docs are current
+        run: python tools/parity/gen.py --check
+
+      # R1  spec says `stable`, the SDK has no binding (R1b: `n/a` and bound)
+      # R2  an SDK binds an rpc with no spec row, or in the wrong direction
+      # R3  the proto declares a plugin-facing rpc no row mentions (R3b/R3c)
+      # R4  a `planned` row is past its grace_until
+      #
+      # R5 is deliberately absent: it asserts each row's daemon_calls file:line
+      # against the Astra checkout this repo does not have. It runs in
+      # proto-upstream's full mode. Listing the rules explicitly (rather than
+      # running everything and tolerating R5's skip) keeps a silent skip from
+      # ever being mistaken for a pass.
+      - name: the spec and the SDK sources agree
+        run: python tools/parity/check.py --rules R1,R2,R3,R4
+
+  couplings:
+    name: couplings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # C1 — the shared numeric limits. The motivating bug: the streaming-STT
+      # audio channel was 500 in the daemon and 32 in the Rust SDK, and the
+      # mismatch silently truncated every utterance. The daemon's half of this
+      # is a const_assert! next to its own constants; this is the SDK half.
+      #
+      # HALF, literally: with no Astra checkout the generator prints "daemon
+      # block: skipped" and this step passes on the three SDK files alone. The
+      # spec -> daemon comparison needs both trees and runs in proto-upstream's
+      # full mode ("C1 (full)"). Do not read a green tick here as "the daemon
+      # agrees with spec/limits.yaml" — it cannot see the daemon.
+      - name: C1 spec/limits.yaml codegen is current (SDK files only)
+        run: node tools/gen-limits.mjs --check
+
+      - name: C2-C11 the couplings nothing else checks
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, re, subprocess, sys, tomllib
+
+          ROOT = pathlib.Path(".")
+          fails: list[str] = []
+          def check(ok, msg, detail=""):
+              print(("ok   " if ok else "FAIL ") + msg)
+              if not ok:
+                  fails.append(msg + (("\n       " + detail) if detail else ""))
+
+          read = lambda p: (ROOT / p).read_text(encoding="utf-8")
+
+          # ── C2  PROTOCOL_VERSION is one number, in four places ─────────────
+          proto_version = int(re.search(r"^protocol=(\d+)$", read("proto/PROTO_VERSION"),
+                                        re.M).group(1))
+          versions = {
+              "rust":   int(re.search(r"PROTOCOL_VERSION: u32 = (\d+)",
+                                      read("astra-plugin-sdk/src/protocol.rs")).group(1)),
+              "python": int(re.search(r"^PROTOCOL_VERSION = (\d+)",
+                                      read("astra-plugin-sdk-python/astra_plugin_sdk/protocol.py"),
+                                      re.M).group(1)),
+              "ts":     int(re.search(r"PROTOCOL_VERSION = (\d+)",
+                                      read("astra-plugin-sdk-ts/src/protocol.ts")).group(1)),
+          }
+          check(len(set(versions.values())) == 1,
+                "C2 all three SDKs report the same PROTOCOL_VERSION", repr(versions))
+          check(all(v == proto_version for v in versions.values()),
+                f"C2 PROTOCOL_VERSION == proto/PROTO_VERSION ({proto_version})", repr(versions))
+
+          # ── C2b  the floor is ONE decision, not three ──────────────────────
+          # MIN_SUPPORTED_DAEMON_PROTOCOL decides which shipped Astras a plugin
+          # built on these SDKs will talk to at all. Three copies of that
+          # decision, in three languages, published on three registries: if one
+          # is raised and the others are not, the same plugin logic is usable in
+          # Python and dead in Rust, and the author has no way to see why. There
+          # is no proto/PROTO_VERSION line to anchor it to — the floor is a
+          # policy, not a wire fact — so the only available check is that the
+          # three agree with each other. Raise it in all three or in none.
+          floors = {
+              "rust":   int(re.search(r"MIN_SUPPORTED_DAEMON_PROTOCOL: u32 = (\d+)",
+                                      read("astra-plugin-sdk/src/protocol.rs")).group(1)),
+              "python": int(re.search(r"^MIN_SUPPORTED_DAEMON_PROTOCOL = (\d+)",
+                                      read("astra-plugin-sdk-python/astra_plugin_sdk/protocol.py"),
+                                      re.M).group(1)),
+              "ts":     int(re.search(r"MIN_SUPPORTED_DAEMON_PROTOCOL = (\d+)",
+                                      read("astra-plugin-sdk-ts/src/protocol.ts")).group(1)),
+          }
+          check(len(set(floors.values())) == 1,
+                "C2b all three SDKs accept the same oldest daemon", repr(floors))
+          check(all(v <= proto_version for v in floors.values()),
+                f"C2b the floor is not above the protocol the SDKs speak ({proto_version})",
+                repr(floors))
+
+          # ── C3  the TS descriptor's provenance ─────────────────────────────
+          pinned = re.search(r"^sha256=([0-9a-f]+)$", read("proto/PROTO_VERSION"), re.M).group(1)
+          recorded = re.search(r'PROTO_SHA256 = "([0-9a-f]+)"',
+                               read("astra-plugin-sdk-ts/src/generated/index.ts")).group(1)
+          check(pinned == recorded, "C3 the TS descriptor records PROTO_VERSION's sha256",
+                f"{pinned} != {recorded}")
+
+          # ── C4  a package's version, everywhere it is written ──────────────
+          py_pyproject = re.search(r'^version = "([^"]+)"',
+                                   read("astra-plugin-sdk-python/pyproject.toml"), re.M).group(1)
+          py_dunder = re.search(r'__version__ = "([^"]+)"',
+                                read("astra-plugin-sdk-python/astra_plugin_sdk/__init__.py")).group(1)
+          check(py_pyproject == py_dunder,
+                "C4 pyproject version == __version__",
+                f"pyproject {py_pyproject} != __version__ {py_dunder}")
+
+          rust_v = re.search(r'^version = "([^"]+)"',
+                             read("astra-plugin-sdk/Cargo.toml"), re.M).group(1)
+          ts_v = json.loads(read("astra-plugin-sdk-ts/package.json"))["version"]
+          for name, path, ver in (("rust", "astra-plugin-sdk/CHANGELOG.md", rust_v),
+                                  ("python", "astra-plugin-sdk-python/CHANGELOG.md", py_pyproject),
+                                  ("ts", "astra-plugin-sdk-ts/CHANGELOG.md", ts_v)):
+              top = re.search(r"^## \[([^\]]+)\]", read(path), re.M)
+              check(top is not None and top.group(1) == ver,
+                    f"C4 {name} CHANGELOG's newest entry is {ver}",
+                    f"newest entry is {top.group(1) if top else '(none)'}")
+
+          # ── C5  the capability vocabulary, inside this repo ────────────────
+          # Equality WITH the daemon needs the private Astra checkout and lives in
+          # proto-upstream's full mode. This half must gate every PR, so it asks a
+          # question answerable from this repo alone: does anything here use a
+          # capability name the CLI (which copies the daemon's list) would reject?
+          cli = read("astra-plugin-cli/src/commands/validate.rs")
+          vocab = set(re.findall(r'"([a-z_]+)"',
+                                 re.search(r"CAPABILITY_NAMES: &\[&str\] = &\[(.*?)\];",
+                                           cli, re.S).group(1)))
+          check(len(vocab) == 10, f"C5 the CLI knows {len(vocab)} capabilities", repr(sorted(vocab)))
+
+          used: dict[str, set[str]] = {}
+          for m in sorted(ROOT.glob("examples/*/plugin.toml")):
+              caps = tomllib.loads(m.read_text(encoding="utf-8")).get("capabilities", {})
+              for k in caps:
+                  used.setdefault(k, set()).add(str(m))
+          unknown = {k: v for k, v in used.items() if k not in vocab}
+          check(not unknown, "C5 every example declares only real capabilities", repr(unknown))
+
+          # `core` is the spec's own bucket for hooks no capability gates
+          # (Register, HealthCheck, Shutdown); it is not a manifest key.
+          spec_caps = set(re.findall(r"^\s+capability:\s*(\S+)", read("spec/hooks.yaml"), re.M))
+          stray = spec_caps - vocab - {"core"}
+          check(not stray, "C5 spec/hooks.yaml uses only real capabilities", repr(sorted(stray)))
+
+          # ── C6  strings that outlived what they named ──────────────────────
+          # A dated exception list, not a mute. Every entry must STILL MATCH: fix
+          # the file and this check tells you to delete the line, so an exception
+          # cannot outlive the thing it was waiting for.
+          PATTERNS = {
+              "@astra/plugin-sdk":
+                  "the npm scope that was never registered; the package is `astra-plugin-sdk`",
+              "ui_panels":
+                  "a capability the daemon has never had; it is `ui_contributions`",
+              "publish-rust.yml": "deleted by task 1.10; the release train is release-sdks.yml",
+              "publish-python.yml": "deleted by task 1.10; the release train is release-sdks.yml",
+              "publish-ts.yml": "deleted by task 1.10; the release train is release-sdks.yml",
+          }
+          # path -> reason. Keep these keyed to the task that removes them.
+          PENDING = {
+              # Task 5.8 ("fix the four places that say @astra/plugin-sdk") and the
+              # Phase 6 docs rewrite own every line below. None of them is code:
+              # the scaffold's real dependency name is asserted, on the generated
+              # file, by scaffold-roundtrip S5.
+              "astra-plugin-cli/src/templates/typescript.rs": "5.8 — a comment explaining the bug",
+              "astra-plugin-sdk-ts/src/index.ts": "5.8 — the module docstring's example import",
+              "astra-plugin-sdk-ts/README.md": "5.8 — the npm README's install line",
+              "astra-plugin-cli/src/commands/validate.rs": "none — the rename table, correctly",
+              "PRODUCTION_PLAN.md": "none — the plan quotes both as the bugs they are",
+          }
+          for lang in ("de", "en", "es", "ja", "ru", "uk", "zh-CN"):
+              PENDING[f"docs/{lang}/cli.md"] = "Phase 6 — the docs rewrite"
+              PENDING[f"docs/{lang}/sdk-typescript.md"] = "Phase 6 — the docs rewrite"
+
+          tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+          hits: dict[str, list[str]] = {}
+          # The workflow directory is exempt, and NOT via PENDING. This file
+          # defines PATTERNS, so it names all three by construction; and
+          # release-sdks.yml's header names the three workflows it replaced,
+          # which is the provenance note that makes the replacement reviewable.
+          # A PENDING entry would be wrong for both: C6's "every pending
+          # exception is still needed" rule exists so an exception dies with the
+          # thing it waited for, and neither of these is waiting for anything.
+          # (Until the Phase 1 commit, release-sdks.yml was untracked and so
+          # invisible to `git ls-files` — this loop would have gone red on the
+          # first CI run after the commit that added it.)
+          SELF = {".github/workflows/ci.yml", ".github/workflows/release-sdks.yml"}
+          for rel in tracked:
+              if rel in SELF:
+                  continue
+              p = ROOT / rel
+              try:
+                  text = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+                  continue
+              for pat in PATTERNS:
+                  if pat in text:
+                      hits.setdefault(rel, []).append(pat)
+          unexpected = {k: v for k, v in hits.items() if k not in PENDING}
+          check(not unexpected, "C6 no stale name outside the pending list",
+                "\n       ".join(f"{k}: {v} — {PATTERNS[v[0]]}" for k, v in unexpected.items()))
+          stale_pending = sorted(set(PENDING) - set(hits))
+          check(not stale_pending,
+                "C6 every pending exception is still needed",
+                "these files are clean now; delete their PENDING entries in ci.yml:\n       "
+                + "\n       ".join(stale_pending))
+
+          # ── C7  every host client attaches the session token ───────────────
+          # dde9de7: the daemon has required x-session-token on every
+          # PluginHostService RPC except Register since SECURITY(B1), and a
+          # comment in host_service.rs said "the plugin SDK's HostClient
+          # interceptor" attaches it. That interceptor was never written, in any
+          # language, so fire_trigger/log/get_config/set_variable/push_to_ui all
+          # failed unauthenticated. A grep is a weak oracle for a strong
+          # requirement — the real one is Astra's integration test (task 0.2) —
+          # but it costs nothing and it would have been red for months.
+          for name, path in (("rust", "astra-plugin-sdk/src/auth.rs"),
+                             ("python", "astra-plugin-sdk-python/astra_plugin_sdk/host_client.py"),
+                             ("ts", "astra-plugin-sdk-ts/src/host-client.ts")):
+              check("x-session-token" in read(path),
+                    f"C7 the {name} host client names x-session-token", path)
+
+          # ── C8  the Python SDK unblocks stdout ─────────────────────────────
+          # 4822352: stdout was block-buffered, so the daemon's supervisor — which
+          # reads stdout to learn the plugin is alive — saw nothing and reaped the
+          # process at plugin_start_timeout_secs.
+          check("line_buffering" in read("astra-plugin-sdk-python/astra_plugin_sdk/plugin.py"),
+                "C8 the Python SDK reconfigures stdout to line buffering")
+
+          # ── C9  no protocol text outside a .proto ──────────────────────────
+          # 6bb5395: two hand-maintained proto STRINGS lived inline in
+          # proto-loader.ts and daemon-client.ts, were written to os.tmpdir() and
+          # loaded from there. check-proto.sh finds stray FILES; nothing found
+          # these, and one of them still described a ChatService that had been
+          # migrated away, so every TS client plugin threw during registration.
+          inline = []
+          for pat in ("*.ts", "*.py", "*.rs", "*.mjs", "*.js"):
+              for p in ROOT.glob(f"astra-plugin-sdk*/**/{pat}"):
+                  if any(part in {"node_modules", "dist", "target", "build", ".venv"}
+                         for part in p.parts):
+                      continue
+                  t = p.read_text(encoding="utf-8", errors="ignore")
+                  if 'syntax = "proto3"' in t or "syntax = 'proto3'" in t:
+                      inline.append(str(p))
+          check(not inline, "C9 no inline proto source in any SDK", repr(inline))
+
+          # ── C10  no build output is tracked ────────────────────────────────
+          # c811ca9 also deleted a committed telegram-client-0.1.0.zip.
+          artifacts = [f for f in tracked
+                       if re.search(r"(^|/)(target|node_modules|__pycache__)/", f)
+                       or f.endswith((".exe", ".pyc", ".astraplugin", ".zip", ".crate", ".tgz"))]
+          check(not artifacts, "C10 no build artifacts are tracked", repr(artifacts))
+
+          # ── C11  the CLI's SDK pins accept the SDKs in this tree ───────────
+          # The templates pin released versions. Until release-sdks.yml has run,
+          # none of those versions exists on a registry — but the pin must at
+          # least be satisfiable BY WHAT WILL BE PUBLISHED, or the first release
+          # ships a scaffold that cannot resolve. scaffold-roundtrip proves the
+          # build; this proves the arithmetic, and names the file to edit.
+          def cargo_caret(req: str, v: tuple[int, int, int]) -> bool:
+              parts = [int(x) for x in req.split(".")]
+              lo = tuple(parts + [0] * (3 - len(parts)))
+              if lo[0]:
+                  hi = (lo[0] + 1, 0, 0)
+              elif lo[1]:
+                  hi = (0, lo[1] + 1, 0)
+              else:
+                  hi = (0, 0, lo[2] + 1)
+              return lo <= v < hi
+          def npm_caret(req: str, v: tuple[int, int, int]) -> bool:
+              return cargo_caret(req.lstrip("^"), v)
+          def pep_range(req: str, v: tuple[int, int, int]) -> bool:
+              for clause in req.split(","):
+                  op, num = re.match(r"(>=|<=|==|<|>)([\d.]+)", clause.strip()).groups()
+                  b = tuple([int(x) for x in num.split(".")] + [0, 0])[:3]
+                  if not {">=": v >= b, "<=": v <= b, "==": v == b,
+                          "<": v < b, ">": v > b}[op]:
+                      return False
+              return True
+
+          tup = lambda s: tuple(int(x) for x in s.split("-")[0].split(".")[:3])
+          for name, tmpl, pat, ver, sat in (
+              ("rust", "astra-plugin-cli/src/templates/rust.rs",
+               r'astra-plugin-sdk = "([^"]+)"', rust_v, cargo_caret),
+              ("python", "astra-plugin-cli/src/templates/python.rs",
+               r'"?astra-plugin-sdk(>=[^"\n,]+(?:,<[^"\n]+)?)"?', py_pyproject, pep_range),
+              ("ts", "astra-plugin-cli/src/templates/typescript.rs",
+               r'"astra-plugin-sdk": "([^"]+)"', ts_v, npm_caret),
+          ):
+              m = re.search(pat, read(tmpl))
+              check(m is not None, f"C11 the {name} template still declares an SDK pin", tmpl)
+              if m:
+                  req = m.group(1)
+                  check(sat(req, tup(ver)),
+                        f"C11 the {name} scaffold's pin {req!r} accepts {ver}",
+                        f"edit {tmpl}, or the SDK version")
+
+          print()
+          if fails:
+              print(f"{len(fails)} coupling(s) broken:\n", file=sys.stderr)
+              for f in fails:
+                  print("  " + f, file=sys.stderr)
+              sys.exit(1)
+          print("couplings: all checks pass.")
+          PY
+
+  # ══ THE ONE REQUIRED CHECK ═════════════════════════════════════════════════
+  #
+  # Branch protection cannot require a matrix job without naming every leg, and
+  # a leg added tomorrow would silently not be required. This job depends on all
+  # of them, so protecting `ci` is enough — and a job that is SKIPPED (which
+  # GitHub counts as neither success nor failure) fails it too.
+  ci:
+    name: ci
+    if: always()
+    needs:
+      - proto-vendored
+      - proto-upstream
+      - sdk-rust
+      - sdk-python
+      - sdk-ts
+      - examples-rust
+      - examples-node-python
+      - scaffold-roundtrip
+      - parity
+      - couplings
+    runs-on: ubuntu-24.04
+    steps:
+      - name: every job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$NEEDS"
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          bad = {k: v["result"] for k, v in needs.items() if v["result"] != "success"}
+          if bad:
+              for k, v in bad.items():
+                  print(f"FAIL {k}: {v}", file=sys.stderr)
+              sys.exit(1)
+          print(f"ok   {len(needs)} jobs succeeded")
+          PY
