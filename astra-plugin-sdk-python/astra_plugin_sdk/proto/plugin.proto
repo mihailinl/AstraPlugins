@@ -1,3 +1,20 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// GENERATED FILE — DO NOT EDIT.
+//
+// The plugin-facing slice of astra-rs/astra-proto/src/astra.proto, cut by
+// astra-rs/tools/proto-slice from the allowlist in
+// astra-rs/astra-proto/plugin-surface.toml.
+//
+// Edit astra.proto or the surface list, then regenerate:
+//
+//     cargo run --manifest-path astra-rs/tools/proto-slice/Cargo.toml
+//
+// Output: astra-rs/astra-proto/generated/plugin.proto
+//
+// protocol: 1
+// source-sha256: 3d844247f5a4ae12a16ee4454a3f1ba05c2bea6c71abe326695abca0f128b592
+// ─────────────────────────────────────────────────────────────────────────────
+
 syntax = "proto3";
 package astra;
 
@@ -25,8 +42,25 @@ service CoreService {
     // Fully shut down the daemon process (graceful)
     rpc Shutdown(Empty) returns (Empty);
 
+    // Shut down exactly as Shutdown does, then start a fresh daemon in this
+    // one's place — with an environment re-read from the OS, which is what an
+    // MCP runtime installed into a stale PATH is waiting for.
+    rpc Restart(Empty) returns (Empty);
+
     // Subscribe to real-time events
     rpc SubscribeEvents(Empty) returns (stream AstraEvent);
+
+    // Bring the main desktop UI to the foreground: focus/restore it if it's
+    // already running, or launch it if it isn't. The ONE entry point for
+    // "open the app window" — the tray's "Open Astra" item and the overlay's
+    // return-to-GUI side action both route through it.
+    rpc ShowMainWindow(Empty) returns (Empty);
+
+    // Toggle the always-on-top overlay window (same effect as the global
+    // overlay hotkey). Respawns the overlay process if it died and fires
+    // regardless of whether the overlay hotkey is enabled — used by the guided
+    // tutorial to demonstrate the overlay on demand.
+    rpc ToggleOverlay(Empty) returns (Empty);
 }
 
 message CoreStateResponse {
@@ -53,6 +87,7 @@ enum CoreState {
 // ChatService.SubscribeEvents (firehose), NOT through this stream.
 message AstraEvent {
     Timestamp timestamp = 1;
+
     oneof event {
         StateChangedEvent state_changed = 2;
         SpeechRecognizedEvent speech_recognized = 3;
@@ -64,7 +99,62 @@ message AstraEvent {
         WidgetDataChangedEvent widget_data_changed = 11;
         PluginStatusChangedEvent plugin_status_changed = 12;
         DaemonShuttingDownEvent daemon_shutting_down = 14;
+        OverlayToggleEvent overlay_toggle = 15;
+        OverlaySelectionAttachEvent overlay_selection_attach = 16;
+        ClientControlRequestEvent client_control_request = 17;
+        NotificationEvent notification = 18;
+        CommandsChangedEvent commands_changed = 19;
+        VoiceProvidersChangedEvent voice_providers_changed = 20;
+        SettingsChangedEvent settings_changed = 21;
+        HotkeyBindingsChangedEvent hotkey_bindings_changed = 22;
+        ReminderFiredEvent reminder_fired = 23;
+        ReminderResolvedEvent reminder_resolved = 24;
+        LockStateChangedEvent lock_state_changed = 25;
     }
+}
+
+// The app passcode was armed, disarmed, entered or reset. This is the ONE push
+// channel for the lock: it rides the ordinary event stream (which stays
+// reachable while locked, filtered — see CoreService.SubscribeEvents) so every
+// window flips to (or away from) the lock screen at the same moment, whichever
+// one the user pressed the lock button in.
+message LockStateChangedEvent {
+    bool locked = 1;
+    bool passcode_set = 2;
+}
+
+// User-visible notification surfaced as a toast in the UI (and/or OS
+// notification, depending on the consumer). `level` is one of:
+// "info", "success", "warning", "error".
+message NotificationEvent {
+    string title = 1;
+    string message = 2;
+    string level = 3;
+
+    // When true the UI must NOT auto-dismiss the toast — it stays until the user
+    // closes it manually (fired reminders). Defaults to false.
+    bool persistent = 4;
+}
+
+// A reminder reached its deadline. Unlike the generic NotificationEvent this
+// carries the stable reminder id, allowing every UI window to expose the same
+// snooze/disable actions and address the reminder without matching its text.
+message ReminderFiredEvent {
+    string reminder_id = 1;
+    string text = 2;
+    string time = 3;
+    bool daily = 4;
+    string occurrence_id = 5;
+}
+
+// Published after a reminder action is applied from either an in-app toast or
+// a native OS notification. Every UI window dismisses its matching toast.
+message ReminderResolvedEvent {
+    string reminder_id = 1;
+    string action = 2;  // "snooze" | "disable"
+    string occurrence_id = 3;
+    bool applied = 4;
+    string snooze_until = 5;  // empty unless a snooze was applied
 }
 
 message StateChangedEvent {
@@ -101,6 +191,33 @@ message CommandExecutedEvent {
     string error_message = 4;
 }
 
+// Emitted when commands are created, updated, or deleted. Tells clients to
+// refresh anything derived from the command list (the slash-command catalog,
+// command pickers). Empty by design — the client refetches; the event is the
+// nudge, not the payload.
+message CommandsChangedEvent {}
+
+// Emitted when the voice-provider registry changes — a plugin TTS/STT
+// (un)registered, or a built-in's descriptor mutated. Tells the Voice page
+// to refetch GetTtsProviders / GetSttProviders so dropdowns reflect what
+// is actually available right now (no daemon restart needed). Empty by
+// design — registry is the source of truth.
+message VoiceProvidersChangedEvent {}
+
+// Emitted when the global-hotkey bindings change — a re-register, the portal's
+// ShortcutsChanged signal, or the user rebinding a key in the compositor's
+// settings. Tells the UI to refetch GetHotkeyBindings so it shows the ACTUAL
+// binding (anti-desync). Empty by design — the native lib is the source of truth.
+message HotkeyBindingsChangedEvent {}
+
+// Emitted when settings change. `changed_paths` carries dotted field paths
+// ("voice.tts_enabled", "appearance.theme") so each UI surface reacts only
+// to what it cares about (filter by prefix). This is the ONE channel for
+// "a setting changed → the UI knows" — no per-window event bus.
+message SettingsChangedEvent {
+    repeated string changed_paths = 1;
+}
+
 message ErrorEvent {
     string code = 1;
     string message = 2;
@@ -108,12 +225,36 @@ message ErrorEvent {
 }
 
 message DaemonStatusEvent {
-    string status = 1;    // i18n key (e.g. "daemon.status.restoringSession")
-    bool is_ready = 2;    // true when startup sequence is complete
+    string status = 1;  // i18n key (e.g. "daemon.status.restoringSession")
+    bool is_ready = 2;  // true when startup sequence is complete
 }
 
 // Emitted right before the daemon process exits, so connected UIs can close themselves.
 message DaemonShuttingDownEvent {}
+
+// Emitted when the user presses the global overlay-toggle hotkey.
+// `selected_text` carries any text the user had highlighted in the focused
+// app at the moment the hotkey fired (captured via UIAutomation, best-effort).
+message OverlayToggleEvent {
+    string selected_text = 1;
+    bool has_selection = 2;
+
+    // True when the user wants to switch UI modes (gui ↔ overlay) — e.g.
+    // a double-tap of the global hotkey. False for a plain single-tap
+    // that should just hide/show the overlay window without changing
+    // which page (OverlayPage vs AppInner) the UI is rendering.
+    bool mode_switch = 3;
+}
+
+// Emitted shortly after an OverlayToggleEvent once selection capture
+// (UIA + clipboard fallback) has finished. The toggle event itself is
+// published immediately to keep show/hide instant; this follow-up
+// attaches whatever text the user had highlighted to the now-open
+// overlay without blocking the visibility flip.
+message OverlaySelectionAttachEvent {
+    string selected_text = 1;
+    bool has_selection = 2;
+}
 
 message WidgetDataChangedEvent {
     string widget_type = 1;  // "notes", "reminders", "calendar", "tasks"
@@ -121,45 +262,18 @@ message WidgetDataChangedEvent {
 
 message PluginStatusChangedEvent {
     string plugin_id = 1;
-    string status = 2;       // "running", "stopped", "error", "starting", "disabled"
+    string status = 2;  // "running", "stopped", "error", "starting", "disabled"
     string error = 3;
 }
 
-// ============ Auth Service ============
-
-service AuthService {
-    // Get current authentication status
-    rpc GetStatus(Empty) returns (AuthStatusResponse);
-
-    // Start login flow (opens browser)
-    rpc StartLogin(Empty) returns (LoginResponse);
-
-    // Logout and clear tokens
-    rpc Logout(Empty) returns (Empty);
-
-    // Refresh access token
-    rpc RefreshToken(Empty) returns (RefreshTokenResponse);
-}
-
-message AuthStatusResponse {
-    bool authenticated = 1;
-    string user_id = 2;
-    string user_name = 3;
-    string email = 4;
-    int64 access_token_expires_at = 5;
-    int64 refresh_token_expires_at = 6;
-    bool authorized = 7;
-    string subscription_tier = 8;
-}
-
-message LoginResponse {
-    string login_url = 1;
-    string state = 2;
-}
-
-message RefreshTokenResponse {
-    bool success = 1;
-    string error_message = 2;
+// Asks the UI client to perform a window-level operation that the daemon
+// cannot do directly (the overlay window lives in the Tauri process).
+// `request_id` correlates the optional ack reply (ClientControlService).
+message ClientControlRequestEvent {
+    string request_id = 1;
+    string kind = 2;  // "hide_overlay" | "restore_overlay"
+    bool ack_required = 3;
+    uint32 timeout_ms = 4;
 }
 
 // ============ Chat Service ============
@@ -180,14 +294,54 @@ service ChatService {
 
     // Conversation CRUD.
     rpc ListConversations(Empty) returns (ListConversationsResponse);
+
     rpc CreateConversation(CreateConversationRequest) returns (Conversation);
+
     rpc DeleteConversation(DeleteConversationRequest) returns (Empty);
+
     rpc ClearConversation(ClearConversationRequest) returns (Empty);
 
     // Server-style sync: one stream per client, firehose of events from every
     // conversation. Client provides cursors to resume incrementally; backlog
     // is delivered for listed conversations only.
     rpc SubscribeEvents(SubscribeEventsRequest) returns (stream FirehoseEventMsg);
+
+    // One-shot backlog fetch for a single conversation. Used when a client
+    // switches to a "cold" conversation (one not in its localStorage) and
+    // needs to backfill history without re-subscribing the firehose.
+    rpc FetchConversationBacklog(FetchBacklogRequest) returns (FetchBacklogResponse);
+
+    // Regenerate an assistant response: drop the addressed AssistantStart and
+    // every event after it, emit a Truncate event in the firehose, then run a
+    // fresh AI turn against the remaining UserMessage. Idempotent if the
+    // assistant_message_id no longer exists.
+    rpc RegenerateAssistantMessage(RegenerateAssistantMessageRequest) returns (RegenerateAssistantMessageResponse);
+
+    // Edit a previously sent user message: drop the addressed UserMessage and
+    // every event after it, emit Truncate, append a new UserMessage with the
+    // replacement text/images, and start an AI turn.
+    rpc EditUserMessage(EditUserMessageRequest) returns (EditUserMessageResponse);
+
+    // Pin (or clear) this conversation's reasoning effort. A standing choice,
+    // not a per-message one — which is why it is its own RPC rather than a
+    // field on SubmitUserMessageRequest: the user must be able to change it
+    // without sending a message, and Regenerate/Edit must replay under it.
+    rpc SetConversationReasoning(SetConversationReasoningRequest) returns (SetConversationReasoningResponse);
+}
+
+message SetConversationReasoningRequest {
+    string conversation_id = 1;
+
+    // "" clears the pin (inherit the global setting). An unrecognised value is
+    // refused rather than coerced, so a typed `/think ultra` can be answered
+    // with the model's real options instead of silently doing something else.
+    string reasoning_effort = 2;
+}
+
+message SetConversationReasoningResponse {
+    // What was actually stored — echoed back so a client never has to guess
+    // whether its value survived.
+    string reasoning_effort = 1;
 }
 
 message ImageAttachment {
@@ -196,12 +350,27 @@ message ImageAttachment {
     string filename = 3;
 }
 
-message ApprovalInfo {
-    string request_id = 1;
-    string danger_level = 2;
-    string description = 3;
-    string rule_description = 4;
-    int32 timeout_seconds = 5;
+// Document attachment carried over the wire. Raw bytes flow from the
+// frontend; the daemon parses to text via DocumentRegistry on receipt.
+// `extracted_text` and `meta_*` fields are populated only on the read path
+// (UserMessageEvt) — submit requests carry just the bytes.
+message DocumentAttachment {
+    string mime_type = 1;
+    bytes data = 2;
+    string filename = 3;
+
+    // Populated only on UserMessageEvt (read path). Empty on submit/edit.
+    string extracted_text = 4;
+    uint32 meta_page_count = 5;
+    repeated string meta_sheet_names = 6;
+    uint32 meta_line_count = 7;
+    bool meta_truncated = 8;
+
+    // Original file size in bytes (always populated on UserMessageEvt;
+    // ignored on submit/edit where `data.len()` is authoritative). Keeps
+    // the chip's size label honest after raw `data` is stripped from the
+    // firehose payload.
+    uint64 size_bytes = 9;
 }
 
 // User's response to a confirmation request.
@@ -219,16 +388,54 @@ message ListConversationsResponse {
     repeated Conversation conversations = 1;
 }
 
+// Logical client a conversation belongs to. Allows multiple front-ends
+// (main UI, overlay, plugins) to share the daemon while keeping their
+// conversation lists distinguishable.
+enum ConversationClient {
+    CONVERSATION_CLIENT_MAIN = 0;
+    CONVERSATION_CLIENT_OVERLAY = 1;
+    CONVERSATION_CLIENT_PLUGIN = 2;
+}
+
 message Conversation {
     string id = 1;
     string title = 2;
     Timestamp created_at = 3;
     Timestamp updated_at = 4;
     int32 message_count = 5;
+    ConversationClient client = 6;
+    string client_label = 7;  // free-form sub-label (e.g. plugin name)
+
+    // Chat scope this conversation is pinned to (see SubmitUserMessageRequest).
+    // Empty = the ordinary, full-capability assistant. A scoped thread belongs
+    // to the surface that opened it (e.g. the command editor's builder chat),
+    // so a general history list should hide it.
+    string scope_id = 8;
+
+    // Reasoning effort pinned to this chat; "" = inherit the global setting.
+    //
+    // It lives on the CONVERSATION, not on a message, for the same reason
+    // scope_id does: RegenerateAssistantMessage and EditUserMessage carry no
+    // per-turn fields, so a turn-scoped effort would silently drop back to the
+    // global default the moment the user re-rolled the answer they liked.
+    string reasoning_effort = 9;
 }
 
 message CreateConversationRequest {
     string title = 1;
+    ConversationClient client = 2;
+    string client_label = 3;
+
+    // Pin the new conversation to a chat scope (see SubmitUserMessageRequest).
+    // Set it here rather than waiting for the first message so a thread a
+    // scoped surface opened is never briefly listed in the general history —
+    // including when its first message fails and never arrives.
+    string scope_id = 4;
+
+    // Pin the reasoning effort at birth, for the same reason: a client that
+    // picked a level in an empty chat must not race the conversation into
+    // existence and have its FIRST message run at the inherited level.
+    string reasoning_effort = 5;
 }
 
 message DeleteConversationRequest {
@@ -254,13 +461,41 @@ message FirehoseEventMsg {
     ConversationEventMsg event = 2;
 }
 
+// One-shot backlog request: read every event with seq > from_seq.
+// `from_seq = 0` returns the full conversation history.
+message FetchBacklogRequest {
+    string conversation_id = 1;
+    uint64 from_seq = 2;
+}
+
+message FetchBacklogResponse {
+    repeated ConversationEventMsg events = 1;
+}
+
 message SubmitUserMessageRequest {
     string conversation_id = 1;  // "" = auto-create new conversation
     string text = 2;
     bool voice_enabled = 3;
-    string source_id = 4;        // client id (for display hints; dedup is by seq)
+    string source_id = 4;  // client id (for display hints; dedup is by seq)
     repeated ImageAttachment images = 5;
     repeated string attachments = 6;
+    repeated DocumentAttachment documents = 7;
+
+    // Chat scope: a deliberately narrower assistant than the main chat. The id
+    // selects a daemon-side descriptor (`ai::chat_scope`) that pins the tool
+    // catalogue, the system prompt and whether the turn may match a voice
+    // command at all. Empty = the ordinary assistant.
+    //
+    // The scope is PINNED ON THE CONVERSATION the first time it is sent (and
+    // refreshed on every later submit), so Regenerate / Edit — which carry no
+    // scope of their own — replay under the same rules.
+    string scope_id = 8;
+
+    // Free-form context the scope's prompt renders (e.g. the command the
+    // editor chat was opened on: `command_id` / `command_name`). Forward-
+    // compatible: adding a key needs no proto change, only a scope that reads
+    // it. Replaces the stored context wholesale on every submit.
+    map<string, string> scope_context = 9;
 }
 
 message SubmitUserMessageResponse {
@@ -269,11 +504,45 @@ message SubmitUserMessageResponse {
     uint64 seq = 3;  // seq of the UserMessage event that was appended
 }
 
+// Re-roll an assistant response. The daemon truncates the log at the
+// AssistantStart of `assistant_message_id`, emits a Truncate firehose event,
+// and starts a fresh AI turn against the most recent UserMessage in the log.
+message RegenerateAssistantMessageRequest {
+    string conversation_id = 1;
+    string assistant_message_id = 2;
+    bool voice_enabled = 3;
+    string source_id = 4;
+}
+
+message RegenerateAssistantMessageResponse {
+    uint64 truncated_to_seq = 1;  // last surviving seq before AI turn started
+}
+
+// Edit a previous UserMessage: truncate the log at that user message,
+// emit Truncate, then append a new UserMessage with the replacement
+// content and run an AI turn.
+message EditUserMessageRequest {
+    string conversation_id = 1;
+    string user_message_id = 2;
+    string new_text = 3;
+    repeated ImageAttachment images = 4;
+    bool voice_enabled = 5;
+    string source_id = 6;
+    repeated DocumentAttachment documents = 7;
+}
+
+message EditUserMessageResponse {
+    uint64 truncated_to_seq = 1;
+    string new_message_id = 2;
+    uint64 new_message_seq = 3;
+}
+
 // One event from the conversation log.
 message ConversationEventMsg {
     uint64 seq = 1;
     Timestamp timestamp = 2;
     string source_id = 3;
+
     oneof event {
         UserMessageEvt user_message = 10;
         AssistantStartEvt assistant_start = 11;
@@ -287,7 +556,23 @@ message ConversationEventMsg {
         ErrorEvt error = 19;
         VoiceDeltaEvt voice_delta = 20;
         CommandOutputEvt command_output = 21;
+        TruncateEvt truncate = 22;
+        CommandSuggestedEvt command_suggested = 23;
+        CommandSuggestionResolvedEvt command_suggestion_resolved = 24;
+        PlanUpdatedEvt plan_updated = 25;
+        SubagentActivityEvt subagent_activity = 26;
+        CommandExecutedEvt command_executed = 27;
     }
+}
+
+// Marks every event with seq > after_seq as removed from the conversation.
+// Used by Regenerate / Edit to roll back the tail before producing a new
+// turn. Subscribers apply this to drop UI messages whose source events are
+// gone. The Truncate event itself has its own seq (one greater than the
+// highest pre-existing event) so subscribers' standard seq-monotonic dedup
+// still works.
+message TruncateEvt {
+    uint64 after_seq = 1;
 }
 
 message UserMessageEvt {
@@ -295,6 +580,7 @@ message UserMessageEvt {
     string content = 2;
     repeated ImageAttachment images = 3;
     repeated string attachments = 4;
+    repeated DocumentAttachment documents = 5;
 }
 
 message AssistantStartEvt {
@@ -356,6 +642,92 @@ message CommandOutputEvt {
     string content = 1;
 }
 
+// A command from the user's own list matched the turn and ran without display
+// output of its own, so this line is the whole reply.
+//
+// `text` is the sentence the daemon already rendered in the user's language —
+// clients display it verbatim rather than re-localizing, so the line on screen
+// and the line replayed to the model cannot drift. `command_id` is what turns
+// it into a link into the command editor: the name in the sentence is not
+// enough to find the command again.
+message CommandExecutedEvt {
+    string message_id = 1;
+    string command_id = 2;
+    string command_name = 3;
+    string text = 4;
+}
+
+// Daemon proposed saving (or extending) a command based on an AI turn's
+// effect trace. Carries the full UI payload — the chat-projection reducer
+// renders the card from this alone, with no broker round-trip.
+message CommandSuggestedEvt {
+    string suggestion_id = 1;
+    string message_id = 2;  // anchor bubble for inline card
+    string proposed_name = 3;
+    repeated string proposed_triggers = 4;
+    repeated string actions_preview = 5;
+    string decision_kind = 6;  // "create_new" | "add_trigger"
+    string target_command_id = 7;  // set only for add_trigger
+    bool flag_review = 8;
+}
+
+// A suggestion was resolved (user accepted / dismissed, or the broker
+// auto-promoted from voice). Carries enough state for the reducer to
+// flip the card on the anchored bubble without a broker round-trip.
+message CommandSuggestionResolvedEvt {
+    string suggestion_id = 1;
+    bool saved = 2;
+    string saved_command_id = 3;  // empty when saved=false
+    string saved_name = 4;  // name the command was saved under; empty when saved=false
+}
+
+// The assistant rewrote its working plan for a multi-step task.
+//
+// Carries the WHOLE checklist every time — a plan replaces its predecessor
+// rather than patching it, so a client that joined late or replayed from the
+// log reconstructs the current plan from this one event. Not anchored to a
+// message: a plan outlives the turn that wrote it.
+message PlanUpdatedEvt {
+    string explanation = 1;
+    repeated PlanStepMsg steps = 2;
+}
+
+// One step of a NESTED model run (`run_agent`), reported so the user can watch
+// a subagent work without its output entering the conversation.
+//
+// Deliberately NOT a ToolCallStart with a marker: the cross-turn history
+// rebuild turns those back into the assistant message's `tool_calls` and their
+// `tool_result` messages, and a subagent's inner call_id was never in the
+// parent model's tool_calls array — replaying it is the
+// "No tool call found for function call output with call_id ..." rejection.
+// This variant falls into that reducer's `_ => {}` and cannot corrupt it.
+//
+// Tool ARGUMENTS are absent on purpose: the point of delegating is that the
+// parent's log does not grow with the subagent's work. `phase` is a string and
+// not an enum for the same reason PlanStepMsg.status is — it keeps the whole
+// block on the Electron shell's generic pass-through.
+message SubagentActivityEvt {
+    string parent_call_id = 1;  // the parent's own run_agent call
+    string agent_id = 2;  // which profile is running
+    string phase = 3;  // "started" | "tool" | "awaiting_confirmation" | "finished"
+    string tool = 4;  // for phase=tool / awaiting_confirmation
+    string call_id = 5;  // the subagent's own call id (awaiting_confirmation)
+    uint32 iterations = 6;
+    uint32 max_iterations = 7;
+    string stop = 8;  // for phase=finished
+    uint32 report_bytes = 9;
+    bool truncated = 10;
+}
+
+// One line of a plan. `status` is the wire spelling of
+// `astra_core::ai::PlanStepStatus`: "pending" | "in_progress" | "completed".
+// A string and not an enum so the Electron shell's generic pass-through
+// carries it without a value map, exactly as the tool-call statuses do.
+message PlanStepMsg {
+    string step = 1;
+    string status = 2;
+}
+
 // ============ Voice Service ============
 
 service VoiceService {
@@ -370,6 +742,12 @@ service VoiceService {
 
     // Set active microphone
     rpc SetMicrophone(SetMicrophoneRequest) returns (Empty);
+
+    // Get available audio output devices (speakers, headphones, etc.)
+    rpc GetOutputDevices(Empty) returns (OutputDeviceListResponse);
+
+    // Set active audio output device
+    rpc SetOutputDevice(SetOutputDeviceRequest) returns (Empty);
 
     // Speak text using TTS
     rpc Speak(SpeakRequest) returns (Empty);
@@ -406,7 +784,48 @@ service VoiceService {
     // Get available TTS providers and their capabilities
     rpc GetTtsProviders(Empty) returns (TtsProvidersResponse);
 
-    // ===== Embedding Model Management =====
+    // Get available STT providers and their capabilities (built-in Whisper +
+    // any STT-capable plugin currently registered in the voice registry).
+    rpc GetSttProviders(Empty) returns (SttProvidersResponse);
+
+    // ===== Supertonic (local TTS) Model Management =====
+
+    // Check whether Supertonic model files are downloaded and ready.
+    rpc GetSupertonicStatus(Empty) returns (SupertonicStatusResponse);
+
+    // Start downloading Supertonic model files (~267 MB, background).
+    rpc DownloadSupertonicModels(Empty) returns (Empty);
+
+    // Current download progress (mirrors DownloadProgressResponse shape).
+    rpc GetSupertonicDownloadProgress(Empty) returns (DownloadProgressResponse);
+
+    // Cancel an in-flight Supertonic download.
+    rpc CancelSupertonicDownload(Empty) returns (Empty);
+
+    // Delete Supertonic model files from disk.
+    rpc DeleteSupertonicModels(Empty) returns (Empty);
+
+    // List Supertonic voices: the 10 bundled presets (F1–M5) plus any
+    // user-imported custom voice-style files. Built-in and custom are the same
+    // shape so the UI renders them uniformly.
+    rpc ListSupertonicVoices(Empty) returns (ListSupertonicVoicesResponse);
+
+    // Import a custom Supertonic voice from a voice-style JSON file. The daemon
+    // validates the schema, assigns a unique id and persists it.
+    rpc ImportSupertonicVoice(ImportSupertonicVoiceRequest) returns (SupertonicVoice);
+
+    // Delete a user-imported custom Supertonic voice (built-in presets are
+    // rejected).
+    rpc DeleteSupertonicVoice(DeleteSupertonicVoiceRequest) returns (Empty);
+
+    // Activate the licensed Astra voice (the vox sidecar): download the
+    // encrypted container if absent, fetch the per-entitlement CEK from astra-api
+    // over the account Bearer JWT, and hand it to the sidecar to seal
+    // machine-bound. One-time; synthesis is offline forever after. Requires
+    // sign-in; the entitlement is enforced server-side at the CEK route.
+    rpc ActivateVoxVoice(Empty) returns (VoxActivationResponse);
+
+    // ===== Embedding Model Management (used by AI memory hybrid retrieval) =====
 
     // Get all available embedding models with download status
     rpc GetEmbeddingModels(Empty) returns (EmbeddingModelsResponse);
@@ -423,25 +842,13 @@ service VoiceService {
     // Delete a downloaded embedding model
     rpc DeleteEmbeddingModel(DeleteEmbeddingModelRequest) returns (Empty);
 
-    // ===== LLM Match Model Management =====
-
-    // Get all available LLM matching models with download status
-    rpc GetLlmMatchModels(Empty) returns (LlmMatchModelsResponse);
-
-    // Start downloading an LLM matching model (runs in background)
-    rpc DownloadLlmMatchModel(DownloadLlmMatchModelRequest) returns (Empty);
-
-    // Get current LLM match download progress (if any)
-    rpc GetLlmMatchDownloadProgress(Empty) returns (DownloadProgressResponse);
-
-    // Cancel an ongoing LLM match download
-    rpc CancelLlmMatchDownload(Empty) returns (Empty);
-
-    // Delete a downloaded LLM matching model
-    rpc DeleteLlmMatchModel(DeleteLlmMatchModelRequest) returns (Empty);
-
     // Set the conversation ID for voice processing (binds voice to UI's active conversation)
     rpc SetVoiceConversation(SetVoiceConversationRequest) returns (Empty);
+
+    // Set images to attach to the next voice utterance. Passing an empty list
+    // clears the buffer. Drained by the voice bridge on the next utterance so
+    // it mirrors the text-chat flow where attachments clear on send.
+    rpc SetVoicePendingImages(SetVoicePendingImagesRequest) returns (Empty);
 }
 
 message MicrophoneListResponse {
@@ -459,10 +866,25 @@ message SetMicrophoneRequest {
     string microphone_id = 1;
 }
 
+message OutputDeviceListResponse {
+    repeated OutputDevice devices = 1;
+    string active_id = 2;
+}
+
+message OutputDevice {
+    string id = 1;
+    string name = 2;
+    bool is_default = 3;
+}
+
+message SetOutputDeviceRequest {
+    string output_device_id = 1;
+}
+
 message SpeakRequest {
     string text = 1;
     string voice_id = 2;  // Optional, uses default if empty
-    bool interrupt = 3;   // Stop current speech before starting
+    bool interrupt = 3;  // Stop current speech before starting
 }
 
 message VoiceListResponse {
@@ -476,6 +898,12 @@ message Voice {
     string provider = 3;
     string language = 4;
     string gender = 5;
+
+    // i18n key for `name`, set ONLY for voices the daemon hardcodes (the
+    // built-in "astra" voices); EMPTY when `name` is real data. Same contract
+    // as `VoiceSearchResult.name_key` — render `name_key ? t(name_key) : name`
+    // — so the two voice RPCs cannot name one voice two different ways.
+    string name_key = 6;
 }
 
 message SetVoiceRequest {
@@ -484,15 +912,21 @@ message SetVoiceRequest {
 
 // Whisper model information
 message WhisperModelInfo {
-    string id = 1;              // e.g., "large-v3-turbo-q5_0"
-    string name = 2;            // e.g., "Large V3 Turbo Q5"
-    string base_model = 3;      // e.g., "large"
-    string language = 4;        // "" for multilingual, "en" for English-only
-    string quantization = 5;    // e.g., "q5_0", "q8_0", ""
-    uint64 size_bytes = 6;      // Size in bytes
-    string size_display = 7;    // e.g., "547 MB"
-    bool is_downloaded = 8;     // Whether model file exists locally
-    bool is_active = 9;         // Whether this is the currently selected model
+    string id = 1;  // e.g., "large-v3-turbo-q5_0"
+    string name = 2;  // e.g., "Large V3 Turbo Q5"
+    string base_model = 3;  // e.g., "large"
+    string language = 4;  // "" for multilingual, "en" for English-only
+    string quantization = 5;  // e.g., "q5_0", "q8_0", ""
+    uint64 size_bytes = 6;  // Size in bytes
+    string size_display = 7;  // e.g., "547 MB"
+    bool is_downloaded = 8;  // Whether model file exists locally
+    bool is_active = 9;  // Whether this is the currently selected model
+
+    // The one model we steer users to (best speed/quality balance). Declared
+    // beside the model definition in astra-core so the UI stops recovering it
+    // by substring-matching `name` — renaming the model silently broke the
+    // sort order, the badge and OOBE's one-click download box.
+    bool recommended = 10;
 }
 
 message WhisperModelsResponse {
@@ -506,14 +940,14 @@ message DownloadWhisperModelRequest {
 
 message DownloadProgressResponse {
     bool is_downloading = 1;
-    string model_id = 2;           // Model being downloaded
-    string model_name = 3;         // Display name
+    string model_id = 2;  // Model being downloaded
+    string model_name = 3;  // Display name
     uint64 downloaded_bytes = 4;
     uint64 total_bytes = 5;
-    float percent = 6;             // 0.0 to 100.0
+    float percent = 6;  // 0.0 to 100.0
     uint64 speed_bytes_per_sec = 7;
-    uint32 eta_seconds = 8;        // Estimated time remaining
-    string error = 9;              // Error message if failed
+    uint32 eta_seconds = 8;  // Estimated time remaining
+    string error = 9;  // Error message if failed
 }
 
 message DeleteWhisperModelRequest {
@@ -547,35 +981,12 @@ message DeleteEmbeddingModelRequest {
     string model_id = 1;
 }
 
-// LLM matching model information
-message LlmMatchModelInfoMsg {
-    string id = 1;
-    string name = 2;
-    string base_model = 3;
-    string languages = 4;
-    string quantization = 5;
-    uint64 size_bytes = 6;
-    string size_display = 7;
-    string tier = 8;
-    bool is_downloaded = 9;
-    bool is_active = 10;
-}
-
-message LlmMatchModelsResponse {
-    repeated LlmMatchModelInfoMsg models = 1;
-    string active_model_id = 2;
-}
-
-message DownloadLlmMatchModelRequest {
-    string model_id = 1;
-}
-
-message DeleteLlmMatchModelRequest {
-    string model_id = 1;
-}
-
 message SetVoiceConversationRequest {
     string conversation_id = 1;  // UUID string; empty = auto-create on next utterance
+}
+
+message SetVoicePendingImagesRequest {
+    repeated ImageAttachment images = 1;
 }
 
 // ============ Command Service ============
@@ -605,6 +1016,56 @@ service CommandService {
     // Get current cursor position (same coordinate system as mouse click execution).
     // Used when recording click position for the "mouse_click" action.
     rpc GetCursorPosition(Empty) returns (CursorPositionResponse);
+
+    // ===== Command groups (folders) =====
+
+    // List all command groups (sorted by order)
+    rpc ListGroups(Empty) returns (CommandGroupListResponse);
+
+    // Create a new group
+    rpc CreateGroup(CreateGroupRequest) returns (CommandGroup);
+
+    // Update a group (rename / collapse / reorder)
+    rpc UpdateGroup(UpdateGroupRequest) returns (CommandGroup);
+
+    // Delete a group AND all commands inside it
+    rpc DeleteGroup(DeleteGroupRequest) returns (Empty);
+
+    // Move a command into a group (empty group_id = ungroup)
+    rpc MoveCommandToGroup(MoveCommandToGroupRequest) returns (CommandDefinition);
+}
+
+message CommandGroup {
+    string id = 1;
+    string name = 2;
+    int32 order = 3;
+    bool collapsed = 4;
+    Timestamp created_at = 5;
+    Timestamp updated_at = 6;
+}
+
+message CommandGroupListResponse {
+    repeated CommandGroup groups = 1;
+}
+
+message CreateGroupRequest {
+    string name = 1;
+}
+
+message UpdateGroupRequest {
+    string id = 1;
+    optional string name = 2;
+    optional bool collapsed = 3;
+    optional int32 order = 4;
+}
+
+message DeleteGroupRequest {
+    string id = 1;
+}
+
+message MoveCommandToGroupRequest {
+    string command_id = 1;
+    string group_id = 2;  // empty = ungroup
 }
 
 message CursorPositionResponse {
@@ -633,6 +1094,9 @@ message CreateCommandRequest {
     repeated string tags = 6;
     EditorMode editor_mode = 7;
     optional WorkflowGraph workflow = 8;
+    optional CommandExecutionOverride execution = 9;
+    bool slash_enabled = 10;
+    string slash_description = 11;
 }
 
 message UpdateCommandRequest {
@@ -645,6 +1109,9 @@ message UpdateCommandRequest {
     repeated string tags = 7;
     optional EditorMode editor_mode = 8;
     optional WorkflowGraph workflow = 9;
+    optional CommandExecutionOverride execution = 10;
+    optional bool slash_enabled = 11;
+    optional string slash_description = 12;
 }
 
 message DeleteCommandRequest {
@@ -654,7 +1121,7 @@ message DeleteCommandRequest {
 message ExecuteCommandRequest {
     string id = 1;
     map<string, string> variables = 2;  // Additional variables for execution
-    string entry_node_id = 3;           // Start from specific node (empty = auto-detect)
+    string entry_node_id = 3;  // Start from specific node (empty = auto-detect)
 }
 
 message ExecuteCommandResponse {
@@ -686,21 +1153,49 @@ message CommandDefinition {
     Timestamp updated_at = 7;
     string description = 8;
     repeated string tags = 9;
+
     // Workflow graph editor support
     EditorMode editor_mode = 10;
     optional WorkflowGraph workflow = 11;
+
+    // Group (folder) this command belongs to (empty = ungrouped)
+    optional string group_id = 12;
+
+    // Per-command override of the global execution budget (absent/all-unset =
+    // inherit the global limits).
+    optional CommandExecutionOverride execution = 13;
+
+    // Whether this command is reachable from chat as a `/name` slash command
+    // (opt-in, default false).
+    bool slash_enabled = 14;
+
+    // One-line label shown next to `/name` in the chat slash menu. Empty = the
+    // slash registry falls back to `description`. Kept separate from
+    // `description` because that one drives semantic/voice matching.
+    string slash_description = 15;
+}
+
+// Per-command override of the global CommandExecutionSettings. Mirrors
+// `astra-core::command::CommandExecutionOverride`. Each field is presence-gated
+// (proto3 `optional`): absent = inherit the global default; present carries the
+// same sentinels as the global (0 ceiling → engine default; 0 timeout → no
+// wall-clock deadline).
+message CommandExecutionOverride {
+    optional uint64 max_steps = 1;
+    optional uint64 max_loop_iterations = 2;
+    optional uint64 timeout_seconds = 3;
 }
 
 // Generic trigger — type string + JSON config for plugin extensibility
 message Trigger {
-    string type = 1;          // e.g. "text", "hotkey", "event"
-    string config_json = 2;   // JSON-serialized config fields
+    string type = 1;  // e.g. "text", "hotkey", "event"
+    string config_json = 2;  // JSON-serialized config fields
 }
 
 // Generic action — type string + JSON config for plugin extensibility
 message Action {
-    string type = 1;          // e.g. "speak", "execute", "notify"
-    string config_json = 2;   // JSON-serialized config fields
+    string type = 1;  // e.g. "speak", "execute", "notify"
+    string config_json = 2;  // JSON-serialized config fields
 }
 
 // ===== Workflow Graph (node-based editor) =====
@@ -719,10 +1214,11 @@ message WorkflowGraph {
 
 // A single node in the workflow graph
 message GraphNode {
-    string id = 1;              // UUID string
+    string id = 1;  // UUID string
     NodeType node_type = 2;
     map<string, string> data = 3;  // Config fields as JSON-encoded string values
     string label = 4;
+
     // Visual position for the editor canvas
     double position_x = 5;
     double position_y = 6;
@@ -748,21 +1244,66 @@ enum NodeType {
 
 // An edge connecting two nodes
 message GraphEdge {
-    string id = 1;              // UUID string
-    string source_node = 2;     // Source node ID
-    string source_port = 3;     // Port name (e.g. "default", "true", "false")
-    string target_node = 4;     // Target node ID
-    string target_port = 5;     // Port name
+    string id = 1;  // UUID string
+    string source_node = 2;  // Source node ID
+    string source_port = 3;  // Port name (e.g. "default", "true", "false")
+    string target_node = 4;  // Target node ID
+    string target_port = 5;  // Port name
 }
 
 // ============ Config Service ============
+
+// One global-hotkey binding as the native backend actually has it.
+message HotkeyBinding {
+    string id = 1;  // "astra.overlay" | "astra.ptt" | "astra.command.<uuid>"
+    string combo = 2;  // the actual trigger (compositor's); empty if unbound
+    string status = 3;  // "bound" | "needs_binding" | "needs_compositor_bind" | "unsupported"
+    string description = 4;  // human label (command name / "Overlay" / "Push-to-talk")
+
+    // Portal manual-bind model (Hyprland/wlroots) only: the exact config line to
+    // add to bind a key to this id (e.g. `hl.bind("CTRL+ALT+P", …)` on Lua, or
+    // `bind = CTRL ALT, P, global, …` on legacy). Empty otherwise.
+    string bind_hint = 5;
+}
+
+// Portal manual-bind (Hyprland) compositor-config state for the UI. On the
+// dialog model (KDE) / owned backends these are all empty/false.
+message HotkeyCompositorInfo {
+    string model = 1;  // "dialog" | "manual" | "none"
+    string parser = 2;  // "lua" | "legacy" | "unknown"
+    string managed_file = 3;  // the Astra-owned binds file Astra (re)writes
+    string include_target = 4;  // the user config file the one-time include goes in
+    bool include_present = 5;  // is the include line already active?
+    bool needs_setup = 6;  // manual && !include_present && have shortcuts
+}
+
+message GetHotkeyBindingsResponse {
+    string provider = 1;  // "windows" | "x11" | "portal" | "none"
+    repeated HotkeyBinding bindings = 2;
+    HotkeyCompositorInfo compositor = 3;
+}
+
+message ConfigureHotkeyRequest {
+    string id = 1;
+}
+
+message ConfigureHotkeyResponse {
+    // true if a compositor config UI was opened (portal); false on owned /
+    // unsupported backends (the UI falls back to its in-app recorder).
+    bool opened = 1;
+}
 
 service ConfigService {
     // Get all settings
     rpc GetSettings(Empty) returns (SettingsResponse);
 
-    // Update settings
+    // Update settings (bulk — whole sections; used by OOBE / import)
     rpc UpdateSettings(UpdateSettingsRequest) returns (Empty);
+
+    // Set a single setting by dotted path (e.g. "voice.tts_provider").
+    // The UI sends exactly one change; the daemon emits a granular
+    // SettingsChanged event carrying just that path.
+    rpc SetSetting(SetSettingRequest) returns (Empty);
 
     // Mark OOBE as complete
     rpc CompleteOobe(Empty) returns (Empty);
@@ -782,29 +1323,201 @@ service ConfigService {
     // Get available AI providers and their capabilities
     rpc GetAiProviders(Empty) returns (AiProvidersResponse);
 
+    // Probe an AI provider's connectivity/credentials with a one-shot
+    // completion, using the supplied (not-yet-saved) provider/key/model/base
+    // URL. Reports whether it works and, on failure, why.
+    rpc TestAiProvider(TestAiProviderRequest) returns (TestAiProviderResponse);
+
     // Get widget data (notes, reminders, calendar, tasks)
     rpc GetWidgetData(WidgetDataRequest) returns (WidgetDataResponse);
 
     // Save widget data
-    rpc SaveWidgetData(SaveWidgetDataRequest) returns (Empty);
+    rpc SaveWidgetData(SaveWidgetDataRequest) returns (WidgetDataResponse);
+
+    // Apply an action from a fired reminder toast. The daemon owns the state
+    // transition so native and in-app notifications cannot drift.
+    rpc ActOnReminder(ReminderActionRequest) returns (Empty);
+
+    // Overlay widget-grid registry — the data-driven descriptor list the
+    // Settings UI renders its condensed enable-list from (so adding a widget
+    // needs no frontend change). Sourced from `astra_core::widgets`.
+    rpc GetWidgetDescriptors(Empty) returns (WidgetDescriptorsResponse);
 
     // Get file indexer status
     rpc GetIndexerStatus(Empty) returns (IndexerStatusResponse);
+
+    // Global-hotkey bindings as the native backend actually has them — the
+    // single source of truth for the UI (anti-desync). `provider` tells the UI
+    // whether to show its in-app recorder (owned: windows/x11) or a "Configure"
+    // button (portal), or an "unsupported" notice.
+    rpc GetHotkeyBindings(Empty) returns (GetHotkeyBindingsResponse);
+
+    // Open the compositor's config UI for a shortcut (Wayland GlobalShortcuts
+    // portal). `opened=false` on owned backends — the UI uses its in-app
+    // recorder there.
+    rpc ConfigureHotkey(ConfigureHotkeyRequest) returns (ConfigureHotkeyResponse);
+
+    // Current weather for lat/lon (MET Norway)
+    rpc GetCurrentWeather(WeatherRequest) returns (CurrentWeatherResponse);
+
+    // 7-day weather forecast for lat/lon (MET Norway)
+    rpc GetWeatherForecast(WeatherRequest) returns (WeatherForecastResponse);
+
+    // Detect user location via IP geolocation
+    rpc DetectLocation(Empty) returns (DetectedLocationResponse);
+
+    // Exchange rate from→to (open.er-api.com) for the currency widget.
+    rpc GetCurrencyRate(CurrencyRateRequest) returns (CurrencyRateResponse);
+
+    // Historical from→to rate series over the past `days` (Frankfurter/ECB,
+    // local rate-log fallback) for the currency widget's history chart.
+    rpc GetCurrencySeries(CurrencySeriesRequest) returns (CurrencySeriesResponse);
+
+    // Live crypto price crypto→fiat (Kraken spot × USD→fiat cross-rate) for the
+    // crypto widget.
+    rpc GetCryptoRate(CryptoRateRequest) returns (CryptoRateResponse);
+
+    // Historical crypto→fiat price series over the past `days` (Kraken daily
+    // OHLC × USD→fiat) for the crypto widget's history chart.
+    rpc GetCryptoSeries(CryptoSeriesRequest) returns (CryptoSeriesResponse);
+
+    // Browsers installed on this machine — the option list for the
+    // `general.browser` setting (and the same detection the OpenUrl action's
+    // dropdown is built from). Empty list = no detection on this platform, so
+    // the UI hides the picker and every link keeps going to the OS default.
+    rpc ListBrowsers(Empty) returns (ListBrowsersResponse);
+}
+
+// One installed browser. `id` is what `general.browser` (and an OpenUrl
+// action's `browser` field) stores; `label` is the OS-reported display name —
+// already localized, NOT an i18n key.
+message BrowserInfo {
+    string id = 1;
+    string label = 2;
+}
+
+message ListBrowsersResponse {
+    repeated BrowserInfo browsers = 1;
+}
+
+message CurrencyRateRequest {
+    string from = 1;
+    string to = 2;
+}
+
+message CurrencySeriesRequest {
+    string from = 1;
+    string to = 2;
+    int32 days = 3;  // window length in days (e.g. 7, 30, 90)
+}
+
+message CurrencySeriesPoint {
+    string date = 1;  // YYYY-MM-DD (ECB business day)
+    double rate = 2;  // from→to rate that day
+}
+
+message CurrencySeriesResponse {
+    string from = 1;
+    string to = 2;
+    int32 days = 3;
+
+    // Ascending by date. Empty/short when no ECB history exists for the pair
+    // (only the local rate log is available — e.g. RUB/UAH/KZT/BYN).
+    repeated CurrencySeriesPoint points = 4;
+
+    // The subset of {from, to} the ECB dataset does NOT cover, so no real price
+    // history can ever be charted for them (e.g. ["RUB"]). The UI shows a
+    // "<currency> doesn't support price history" message instead of an empty
+    // chart. Empty when both sides are ECB-covered.
+    repeated string unsupported_currencies = 5;
+}
+
+message CurrencyRateResponse {
+    double rate = 1;
+    string from = 2;
+    string to = 3;
+
+    // Percentage change over the past 7 days (e.g. -1.23). Absent when no
+    // historical data is available for the pair.
+    optional double week_change = 4;
+}
+
+message CryptoRateRequest {
+    string from = 1;  // crypto code (e.g. "BTC")
+    string to = 2;  // fiat quote code (e.g. "USD", "RUB")
+}
+
+message CryptoSeriesRequest {
+    string from = 1;
+    string to = 2;
+    int32 days = 3;  // window length in days (e.g. 7, 30, 90)
+}
+
+message CryptoSeriesPoint {
+    string date = 1;  // YYYY-MM-DD (UTC daily candle)
+    double rate = 2;  // crypto→fiat price that day
+}
+
+message CryptoSeriesResponse {
+    string from = 1;
+    string to = 2;
+    int32 days = 3;
+
+    // Ascending by date. Empty when the coin isn't listed on the exchange.
+    repeated CryptoSeriesPoint points = 4;
+
+    // The subset of {from} with no chartable history (e.g. an unsupported coin).
+    // Empty in the normal case — crypto history is available for any listed coin.
+    repeated string unsupported_currencies = 5;
+}
+
+message CryptoRateResponse {
+    double rate = 1;
+    string from = 2;
+    string to = 3;
+
+    // Percentage change of the crypto's USD price over the past 7 days. Absent
+    // when no historical data is available.
+    optional double week_change = 4;
 }
 
 message IndexerStatusResponse {
-    string state = 1;           // "ready", "scanning", "starting", "error", "offline"
+    string state = 1;  // "ready", "scanning", "starting", "error", "offline"
     uint64 indexed_files = 2;
     uint64 scanning_files = 3;  // Live count during scanning
     uint64 uptime_seconds = 4;
     repeated IndexerVolumeStatusMsg volumes = 5;
+
+    // Where the running scan is. Absent unless state == "scanning".
+    optional IndexerScanProgressMsg progress = 6;
 }
 
 message IndexerVolumeStatusMsg {
     string letter = 1;
     string fs_type = 2;
     uint64 total_files = 3;
-    int64 last_scan = 4;        // Unix timestamp, 0 if never scanned
+    int64 last_scan = 4;  // Unix timestamp, 0 if never scanned
+    bool online = 5;  // Attached and monitored; false = indexed but detached
+}
+
+// Live position of a running index scan.
+//
+// A full MFT scan spends minutes in phases that produce no files at all
+// (reading the MFT, writing rows, building the FTS index). Reporting only a
+// file count makes those phases look like a hang, so each phase reports its own
+// done/total and the client renders the phase it is in.
+message IndexerScanProgressMsg {
+    string volume = 1;  // "C:"
+    uint32 volume_index = 2;  // 1-based position within this scan run
+    uint32 volume_count = 3;  // volumes this run will scan
+
+    // Stable phase id: "opening" | "reading_mft" | "collecting" | "filtering"
+    // | "writing" | "building_fts" | "building_indexes". Clients localize it.
+    string phase = 4;
+    uint64 done = 5;  // units completed in the current phase
+    uint64 total = 6;  // units the phase will process; 0 = indeterminate
+    uint64 files_found = 7;  // files collected so far in this run
+    uint64 elapsed_seconds = 8;  // since the run started
 }
 
 message SettingsResponse {
@@ -818,6 +1531,61 @@ message SettingsResponse {
     SemanticSettings semantic = 8;
     WidgetVisibilitySettings widgets = 9;
     SafetySettings safety = 10;
+    ToolSearchSettings tool_search = 11;
+    OverlayWidgetsSettings overlay_widgets = 12;
+    CommandExecutionSettings command_execution = 13;
+    DiscordSettings discord = 14;
+    ProjectSettings projects = 15;
+    SkillsSettings skills = 16;
+    MailSettings mail = 17;
+    OptimizeSettings optimize = 18;
+}
+
+// Inbox-widget preferences that are not per-mailbox. The mailboxes themselves
+// live behind MailService — they carry an encrypted credential and have no
+// business in the settings the user exports.
+message MailSettings {
+    // Keep opened messages on disk so re-opening one costs no network.
+    // Turning it off deletes what is already stored.
+    bool cache_bodies = 1;
+}
+
+// PC-optimization settings. Deliberately absent from UpdateSettingsRequest:
+// every field is written one at a time through SetSetting, which is the
+// cheapest shape for a section whose only editor already works one control at
+// a time. `rule_states` is a sparse override map — a rule absent from it uses
+// its own `default_enabled`, so shipping a new rule needs no write to any
+// existing user's settings.
+message OptimizeSettings {
+    bool enabled = 1;
+    string risk_tier = 2;  // "safe" | "moderate" | "aggressive"
+    map<string, bool> rule_states = 3;
+    map<string, RuleConfigMsg> rule_configs = 4;
+    uint32 overview_ttl_minutes = 5;
+    bool confirm_before_apply = 6;
+}
+
+// One rule's option bag. A nested `map<string, map<...>>` is not expressible in
+// proto3, so the inner map gets a named message.
+message RuleConfigMsg {
+    map<string, string> values = 1;
+}
+
+// Agent Skills settings. `skill_states` is a sparse opt-OUT map: a name absent
+// from it is ENABLED, so a skill installed by `npx skills` works at once
+// instead of waiting to be switched on.
+message SkillsSettings {
+    bool enabled = 1;
+    map<string, bool> skill_states = 2;
+    repeated string extra_dirs = 3;
+}
+
+message SetSettingRequest {
+    // Dotted path into Settings, e.g. "voice.tts_provider", "appearance.theme".
+    string path = 1;
+
+    // The new value as a JSON literal: "\"supertonic\"", "true", "0.8".
+    string value_json = 2;
 }
 
 message UpdateSettingsRequest {
@@ -831,14 +1599,65 @@ message UpdateSettingsRequest {
     optional SemanticSettings semantic = 8;
     optional WidgetVisibilitySettings widgets = 9;
     optional SafetySettings safety = 10;
+    optional ToolSearchSettings tool_search = 11;
 }
 
-message SemanticSettings {
+// Tool Search (deferred-tool catalog) subsystem settings. Mirrors
+// `astra-core::config::ToolSearchSettings`.
+message ToolSearchSettings {
     bool enabled = 1;
-    string model_id = 2;
-    float threshold = 3;
-    string mode = 4;
-    string llm_model_id = 5;
+    string mode = 2;  // "tools" | "code"
+    uint32 default_search_limit = 3;
+    uint32 max_search_limit = 4;
+    uint64 script_deadline_ms = 5;
+    uint64 script_memory_mb = 6;
+}
+
+// Command / workflow execution limits. Mirrors
+// `astra-core::config::CommandExecutionSettings`. Sentinels: a 0 ceiling
+// falls back to the engine default (never "unlimited"); timeout_seconds = 0
+// means no wall-clock deadline. Read-only over gRPC for now — the UI writes
+// each field via the granular SetSetting path (`command_execution.<field>`).
+message CommandExecutionSettings {
+    uint64 max_steps = 1;
+    uint64 max_loop_iterations = 2;
+    uint64 timeout_seconds = 3;
+}
+
+// Mirrors `astra-core::config::DiscordSettings`. Read-only over gRPC — the UI
+// writes `discord.enabled` via the granular SetSetting path. The presence
+// payload itself is static and daemon-owned (see astra-daemon/src/discord/),
+// so there is deliberately nothing else to configure here.
+message DiscordSettings {
+    bool enabled = 1;
+}
+
+// Mirrors `astra-core::config::ProjectSettings` — the project folders the user
+// pinned in the chat composer, and which one the assistant currently works in.
+// Read-only over gRPC: the UI writes the WHOLE section through the granular
+// SetSetting path ("projects"), because adding a folder and activating it is one
+// user action and splitting it could publish an active_id the list lacks.
+message ProjectSettings {
+    repeated ProjectEntry items = 1;
+    string active_id = 2;  // empty = no working folder pinned
+}
+
+message ProjectEntry {
+    string id = 1;
+    string name = 2;  // display name; defaults to the folder's own name
+    string path = 3;  // absolute path to the folder
+}
+
+// All fields optional so partial read-modify-write from the UI works.
+// The AI-memory master switch lives in `general.ai_memory_enabled` — this
+// message only carries command-match (fuzzy fallback) settings plus the
+// embedding `model_id` (loaded automatically when memory is enabled).
+message SemanticSettings {
+    optional bool enabled = 1;  // command-match fuzzy/phonetic fallback
+    optional string model_id = 2;  // memory embedding model id
+    optional float threshold = 3;  // fuzzy-match threshold (command match)
+    reserved 4, 5, 6;
+    reserved "mode", "llm_model_id", "memory_enabled";
 }
 
 message CompanionSettings {
@@ -848,8 +1667,8 @@ message CompanionSettings {
 
 message NetworkSettings {
     string bind_address = 1;  // 127.0.0.1 or 0.0.0.0
-    uint32 port = 2;          // gRPC port (default 32000)
-    bool allow_remote = 3;    // Allow remote connections
+    uint32 port = 2;  // gRPC port (default 32000)
+    bool allow_remote = 3;  // Allow remote connections
 }
 
 message GeneralSettings {
@@ -864,26 +1683,56 @@ message GeneralSettings {
     repeated string excluded_paths = 9;  // folders excluded from indexing
     string wind_speed_unit = 10;  // "kmh", "ms", "mph"
     string temperature_unit = 11;  // "celsius", "fahrenheit"
-    string weather_location_name = 12;  // user-set city name, empty = auto
-    double weather_location_lat = 13;
-    double weather_location_lon = 14;
+
+    // Pinned weather location. All three are `optional` for presence semantics,
+    // for the same reason as `prefer_discrete_gpu` below and with the same twist
+    // as `browser`: "" is the *chosen* value for `weather_location_name` (auto),
+    // and 0.0 is a real coordinate, so no sentinel guard can express "absent".
+    // Without presence, a partial UpdateSettings that omits them — OOBE
+    // completion does exactly this — reset a pinned city to auto and its
+    // coordinates to (0, 0).
+    optional string weather_location_name = 12;  // user-set city name, empty = auto
+    optional double weather_location_lat = 13;
+    optional double weather_location_lon = 14;
+    string currency_from = 15;  // currency widget base code (e.g. "USD")
+    string currency_to = 16;  // currency widget quote code (e.g. "EUR")
+
+    // Prefer the discrete GPU for the desktop UI (hybrid laptops). `optional`
+    // for presence semantics: an absent field on a partial UpdateSettings (e.g.
+    // OOBE) must NOT clobber the persisted value (the default is true, so a
+    // proto3 plain bool would silently reset it to false). See the guarded apply
+    // in config.rs and the `if !x.is_empty()` string guards next to it.
+    optional bool prefer_discrete_gpu = 17;
+    string crypto_from = 18;  // crypto widget base code (e.g. "BTC")
+    string crypto_to = 19;  // crypto widget quote fiat code (e.g. "USD")
+
+    // Browser every link opens in — a browser id from ListBrowsers, or ""
+    // meaning the OS default. `optional` for presence semantics: "" is a real,
+    // selectable choice here (the OS default), so the plain-string `if
+    // !x.is_empty()` guard used by its neighbours cannot express it — without
+    // presence, picking "System default" could never be saved back.
+    optional string browser = 20;
 }
 
 message VoiceSettings {
     // STT settings
-    string stt_model = 1;       // tiny, base, small, medium, large
-    string stt_language = 2;    // Auto-detect if empty
-    float vad_threshold = 3;    // 0.0 to 1.0
+    string stt_model = 1;  // tiny, base, small, medium, large
+    string stt_language = 2;  // Auto-detect if empty
+    float vad_threshold = 3;  // 0.0 to 1.0
     int32 silence_duration_ms = 4;
 
+    // STT provider id (e.g. "whisper", "plugin__echo_stt"); empty = default.
+    // Field 22 keeps existing numbers stable; see reserved 17 below.
+    string stt_provider = 22;
+
     // TTS settings
-    string tts_provider = 5;    // yandex, fishaudio
+    string tts_provider = 5;  // yandex, fishaudio
     string tts_voice_id = 6;
-    float tts_speed = 7;        // 0.5 to 2.0
-    float tts_pitch = 8;        // 0.5 to 2.0
+    float tts_speed = 7;  // 0.5 to 2.0
+    float tts_pitch = 8;  // 0.5 to 2.0
 
     // Wake word settings
-    string wake_word_mode = 20;     // "astra" (OWW neural) or "custom" (text match)
+    string wake_word_mode = 20;  // "astra" (OWW neural) or "custom" (text match)
     repeated string wake_words = 14;
     bool wake_word_enabled = 9;
     float wake_word_sensitivity = 10;
@@ -905,30 +1754,95 @@ message VoiceSettings {
     // Brief TTS mode: AI writes <voice> summary instead of reading full response
     bool tts_brief_response = 19;
 
-    reserved 17; // was tts_base_url (now hardcoded)
+    // Audio output device ID (empty = system default)
+    string output_device_id = 21;
+
+    // Generic per-provider settings bag (Wave 4.2g) serialised as JSON:
+    // `{"<provider_id>":{"<field_id>":<value>,...},...}`. Wire form is a
+    // string (not a proto map<>) because the inner values are arbitrary
+    // JsonValue. Read-only on update: the daemon ignores it on
+    // UpdateSettings — writes happen point-wise via SetSetting with a
+    // path like `voice.provider_configs.<provider>.<field>`.
+    string provider_configs_json = 23;
+
+    // Schmitt-trigger rearm threshold for the WakewordGate. After a fire,
+    // the gate refuses to re-fire until two consecutive scores below this
+    // value are seen. Default 0.25.
+    float wake_word_rearm_threshold = 24;
+
+    // Extra silence (ms) past `silence_duration_ms` the WakewordGate
+    // waits before closing the STT input once Triggered. Default 700
+    // (total 1.2s post-wake silence-to-close).
+    int32 triggered_silence_extra_ms = 25;
+
+    // Plateau confirmation: how many of the last 10 detector scores must
+    // exceed `wake_word_sensitivity` before the gate fires. Default 7.
+    // (Field 26 used to be `wake_word_min_fire_chunks`, a consecutive-chunk
+    // counter of the same wire type; renamed when the gate moved to the
+    // reference app's N-of-10 plateau logic. Wire-compatible: an old client
+    // sending 2 here now asks for a much twitchier trigger, which the
+    // daemon clamps into 1..=10 but otherwise honours.)
+    int32 wake_word_patience_hits = 26;
+
+    // Audio ducking: dim the system volume while listening / speaking. Off by default.
+    bool audio_ducking_enabled = 27;
+
+    // Background volume level (percent, 0-100) while ducking is active. Default 25.
+    int32 audio_ducking_level = 28;
+    reserved 17;  // was tts_base_url (now hardcoded)
 }
 
 message AiSettings {
-    string provider = 1;        // astra, openai, claude, gemini, lmstudio
+    string provider = 1;  // astra, openai, claude, gemini, lmstudio
     string model = 2;
-    string api_key = 3;         // Encrypted
-    string api_base_url = 4;    // For LM Studio or custom endpoints
+    string api_key = 3;  // Encrypted
+    string api_base_url = 4;  // For LM Studio or custom endpoints
     float temperature = 5;
     int32 max_tokens = 6;
     string system_prompt = 7;
     bool use_tools = 8;
-    bool use_thinking = 9;      // Enable reasoning/thinking output
-
-    reserved 10; // was search_base_url (now hardcoded)
-
+    reserved 9;  // was use_thinking — replaced by the reasoning_effort scale below
+    reserved "use_thinking";
+    reserved 10;  // was search_base_url (now hardcoded)
     int32 context_length = 11;  // Context window size in tokens (0 = unlimited)
+
+    // How hard the model should think: "" (auto — send no parameter) | "off" |
+    // "low" | "medium" | "high" | "max". A string rather than an enum because
+    // the rung set is open: a new level must not force a proto regen plus an
+    // exhaustive match in three shells, and an unknown value from a newer
+    // client degrades to "auto" instead of arriving silently zeroed.
+    string reasoning_effort = 12;
+
+    // Whether the reasoning is shown: "" (default) | "off" | "collapsed" |
+    // "expanded". A SEPARATE axis from the effort — the boolean these two
+    // replace conflated "think less" with "show me less".
+    string show_reasoning = 13;
+
+    // Provider round-trips one turn may take before the assistant is made to
+    // answer (0 = unlimited). The LAST round is always served with tool calling
+    // off, so reaching this produces a real answer rather than an error.
+    uint32 max_tool_rounds = 14;
+
+    // Wall clock for one turn, in seconds (0 = unlimited). Distinct from the
+    // per-round inactivity timeout, which is settings-file only: a turn can be
+    // perfectly active for an hour and still be a runaway.
+    uint64 turn_deadline_secs = 15;
+
+    // Model a delegated sub-agent (`run_agent`) uses. Empty = the chat's own
+    // model. ONLY the model changes — provider, key and base URL stay the main
+    // ones, so this opens no second credential path.
+    string subagent_model = 16;
 }
 
 message HotkeySettings {
     HotkeyConfig push_to_talk = 1;
-    HotkeyConfig toggle_listen = 2;
-    HotkeyConfig stop_speaking = 3;
-    HotkeyConfig open_chat = 4;
+    HotkeyConfig overlay = 5;
+
+    // 2 (toggle_listen), 3 (stop_speaking), 4 (open_chat) removed — they were
+    // never registered with any hotkey backend (silent no-ops duplicating PTT /
+    // the Stop button / the overlay toggle). Reserved so the numbers aren't reused.
+    reserved 2, 3, 4;
+    reserved "toggle_listen", "stop_speaking", "open_chat";
 }
 
 message HotkeyConfig {
@@ -938,11 +1852,25 @@ message HotkeyConfig {
 }
 
 message AppearanceSettings {
-    string theme = 1;           // light, dark, system
+    string theme = 1;  // light, dark, system
     float ui_scale = 2;
     bool show_in_tray = 3;
     bool minimize_to_tray = 4;
     string windows_effect = 5;  // "none", "mica", "acrylic" (Windows 11)
+
+    // Command-editor graph edges: "rounded" or "angular". `optional` for
+    // presence semantics, like `browser` above: every OTHER writer of this
+    // section (the Settings page's theme/tray toggles, OOBE's appearance step)
+    // sends a whole AppearanceSettings built from its own state and knows
+    // nothing about this field, so without presence each of those writes would
+    // reset the user's pick to the proto default "".
+    optional string workflow_edge_style = 6;
+
+    // Who draws the window frame: "astra" (our own title bar) or "system".
+    // `optional` for the same presence reason as the field above — the other
+    // writers of this section know nothing about it and would otherwise reset
+    // it to "" on every unrelated appearance write.
+    optional string window_decorations = 7;
 }
 
 message WidgetVisibilitySettings {
@@ -951,14 +1879,57 @@ message WidgetVisibilitySettings {
     bool calendar = 3;
     bool tasks = 4;
     bool currency = 5;
+    bool crypto = 6;
+}
+
+// Overlay widget-grid settings — mirrors `astra_core::config::OverlayWidgetsSettings`.
+// Distinct from WidgetVisibilitySettings (main-GUI + AI-tool gating): this is the
+// overlay's burger-menu grid with its own master switch + saved tile layout.
+message OverlayWidgetsSettings {
+    bool enabled = 1;  // master switch
+    map<string, bool> widgets = 2;  // per-id enable; missing = descriptor default
+    repeated OverlayTilePlacement layout = 3;  // saved tile positions (incl. control tiles)
+}
+
+// One tile's saved grid position. Size is derived from the widget registry.
+message OverlayTilePlacement {
+    string id = 1;
+    uint32 col = 2;
+    uint32 row = 3;
+}
+
+// One overlay widget descriptor (from `astra_core::widgets::widget_registry`).
+message WidgetDescriptorMsg {
+    string id = 1;
+    string display_key = 2;
+    string icon = 3;
+    uint32 w = 4;  // default tile width in grid cells
+    uint32 h = 5;  // default tile height in grid cells
+    string kind = 6;  // "control" | "data" | "fetch" | "stream"
+    bool editable = 7;  // supports CRUD popups
+    bool user_toggleable = 8;  // shown in the Settings enable-list
+    bool default_enabled = 9;  // enabled when the settings map has no entry
+}
+
+message WidgetDescriptorsResponse {
+    repeated WidgetDescriptorMsg descriptors = 1;
 }
 
 message SafetySettings {
-    bool enabled = 1;                           // Master toggle (default true)
-    string default_level = 2;                   // "all", "critical_only", "none"
-    repeated string whitelisted_tools = 3;      // Tools that never need confirmation
-    repeated string blacklisted_tools = 4;      // Tools that always need confirmation
-    int32 confirmation_timeout_seconds = 5;     // Default 120
+    bool enabled = 1;  // Master toggle (default true)
+    string default_level = 2;  // "all", "critical_only", "none"
+    repeated string whitelisted_tools = 3;  // Tools that never need confirmation
+    repeated string blacklisted_tools = 4;  // Tools that always need confirmation
+    int32 confirmation_timeout_seconds = 5;  // Default 120
+
+    // SECURITY(B3): install plugins NOT signed by a pinned Astra publisher key
+    // ("Developer Mode"). Default false — an untrusted plugin is a native
+    // subprocess with the user's full privileges, i.e. RCE.
+    // `optional` is load-bearing: proto3 scalars have no presence, so without
+    // it any client that saves one unrelated safety field while omitting this
+    // one would silently switch the opt-in back off. UpdateSettings maps it
+    // ONLY when present.
+    optional bool allow_unsigned_plugins = 6;
 }
 
 message ExportSettingsRequest {
@@ -977,7 +1948,8 @@ message ImportSettingsRequest {
 }
 
 message GetModelsRequest {
-    string provider = 1;  // astra, openai, claude, gemini, lmstudio, custom
+    string provider = 1;  // astra, openai, claude, gemini, ollama, lmstudio, custom
+    string api_base_url = 2;  // current unsaved UI value; empty -> provider default
 }
 
 message GetModelsResponse {
@@ -985,8 +1957,46 @@ message GetModelsResponse {
 }
 
 message ModelInfo {
-    string id = 1;    // Model identifier (e.g., "gpt-4.1-mini")
+    string id = 1;  // Model identifier (e.g., "gpt-4.1-mini")
     string name = 2;  // Display name (e.g., "GPT-4.1 Mini")
+
+    // Reasoning rungs this model accepts, ASCENDING. Empty = the model has no
+    // reasoning control and no picker should be shown for it. The client
+    // resolves `model.reasoning_levels`, falling back to the provider's list
+    // (AiProviderInfo) for a model typed into the free-solo combobox or served
+    // by a discovery endpoint that knows nothing about it.
+    repeated ReasoningLevelOption reasoning_levels = 3;
+
+    // The rung that applies when no parameter is sent, for rendering
+    // "Inherited: …". Never put on the wire to a provider.
+    string reasoning_default = 4;
+}
+
+// One selectable reasoning rung, ready to render.
+//
+// `label` is ALREADY-RESOLVED display text, not an i18n key: a provider must be
+// able to call `max` "Maximum" and a binary model must be able to label its one
+// active rung "on", and a frontend constant table could express neither without
+// becoming a second source of truth against the daemon's capability descriptor.
+// Same contract as SlashCommandDefinition.description.
+message ReasoningLevelOption {
+    string id = 1;  // canonical: "off" | "low" | "medium" | "high" | "max"
+    string label = 2;  // display text, already localized
+    bool recommended = 3;  // the model's own default rung
+}
+
+message TestAiProviderRequest {
+    string provider = 1;  // astra, openai, claude, gemini, grok, openrouter, lmstudio, custom, plugin__*
+    string api_key = 2;  // may be empty or a masked "abcd...wxyz" placeholder → daemon falls back to the saved key
+    string model = 3;  // empty → provider's default model
+    string api_base_url = 4;  // empty → provider's default base URL
+}
+
+message TestAiProviderResponse {
+    bool ok = 1;  // true = the provider answered the probe
+    string error = 2;  // technical reason on failure (empty when ok)
+    string model = 3;  // the model that was probed
+    uint32 latency_ms = 4;  // round-trip time of the probe
 }
 
 // ============ Media Service ============
@@ -1003,6 +2013,19 @@ service MediaService {
 
     // Get all active media sessions
     rpc GetMediaSessions(GetMediaSessionsRequest) returns (MediaSessionsResponse);
+
+    // Capture a PNG screenshot of the requested monitor (0 = primary).
+    rpc CaptureScreen(CaptureScreenRequest) returns (CaptureScreenResponse);
+}
+
+message CaptureScreenRequest {
+    int32 monitor_index = 1;
+}
+
+message CaptureScreenResponse {
+    bytes png_bytes = 1;
+    int32 width = 2;
+    int32 height = 3;
 }
 
 message MediaState {
@@ -1017,6 +2040,22 @@ message MediaState {
     string source_app_id = 9;
     string session_id = 10;
     bytes app_icon = 11;
+
+    // Capability flags from the OS media session (GSMTC Controls). Regular
+    // single videos (e.g. a standalone YouTube video) expose no next/previous
+    // track controls, so the UI greys those buttons out instead of showing a
+    // dead control. `can_seek` mirrors IsPlaybackPositionEnabled.
+    bool can_next = 12;
+    bool can_previous = 13;
+    bool can_seek = 14;
+
+    // A link back to THIS track, for saving it and getting to it later — empty
+    // when the source cannot say. It is what the player published (MPRIS
+    // `xesam:url`), rewritten to the scheme the desktop registers to the app
+    // where one is derivable, so following it opens Spotify rather than a web
+    // page about the track. Empty on Windows: GSMTC's media properties carry
+    // title/artist/album/thumbnail and no URL of any kind.
+    string track_url = 15;
 }
 
 enum MediaPlaybackStatus {
@@ -1066,46 +2105,40 @@ message MediaSessionsResponse {
     repeated MediaSessionInfo sessions = 1;
 }
 
-// ============ Registry Service ============
-
-service RegistryService {
-    // Get all action type definitions (field metadata for the UI)
-    rpc GetActionTypes(Empty) returns (ActionTypeDefinitionsResponse);
-
-    // Get all trigger type definitions (field metadata for the UI)
-    rpc GetTriggerTypes(Empty) returns (TriggerTypeDefinitionsResponse);
-}
-
-message ActionTypeDefinitionsResponse {
-    repeated ActionTypeDefinitionMsg action_types = 1;
-}
-
-message TriggerTypeDefinitionsResponse {
-    repeated TriggerTypeDefinitionMsg trigger_types = 1;
-}
-
 message ActionTypeDefinitionMsg {
-    string type = 1;          // e.g. "Speak", "Execute"
-    string label = 2;         // i18n key, e.g. "registry.action.speak"
-    string icon_svg = 3;      // SVG path data for the icon
+    string type = 1;  // e.g. "Speak", "Execute"
+    string label = 2;  // i18n key, e.g. "registry.action.speak"
+    string icon_svg = 3;  // SVG path data for the icon
     repeated FieldDefinitionMsg fields = 4;
-    bool ai_available = 5;    // Whether AI can create/use this action type
-    string ai_description = 6; // Description for AI tool definition (used in create_command)
-    string ai_primary_field = 7; // Field ID that maps to the "value" param in AI create_command
+    bool ai_available = 5;  // Whether AI can create/use this action type
+    string ai_description = 6;  // Description for AI tool definition (used in create_command)
+    string ai_primary_field = 7;  // Field ID that maps to the "value" param in AI create_command
+
+    // OSes this action can run on ("windows" | "linux" | "macos"). Empty =
+    // all platforms. Derived from astra_core::command::supported_platforms.
+    repeated string platforms = 8;
+
+    // Unfinished action: still SERVED (a command that already contains one must
+    // render with its fields), but NOT offered in the editor's add-node menus.
+    // Distinct from `platforms`, which hides an action the CURRENT OS cannot
+    // run — those stay addable from the palette's "unavailable" expander,
+    // because authoring a command for another machine is legitimate. `hidden`
+    // means nobody should be able to add it anywhere yet.
+    bool hidden = 9;
 }
 
 message TriggerTypeDefinitionMsg {
-    string type = 1;          // e.g. "text", "hotkey", "event"
-    string label = 2;         // i18n key
-    string icon_svg = 3;      // SVG path data for the icon
+    string type = 1;  // e.g. "text", "hotkey", "event"
+    string label = 2;  // i18n key
+    string icon_svg = 3;  // SVG path data for the icon
     repeated FieldDefinitionMsg fields = 4;
 }
 
 message FieldDefinitionMsg {
     string id = 1;
-    string label = 2;          // i18n key
-    string field_type = 3;     // "text", "textarea", "number", "toggle", "dropdown", "keys", "file_picker", "hotkey_recorder"
-    string placeholder = 4;    // i18n key or literal
+    string label = 2;  // i18n key
+    string field_type = 3;  // "text", "textarea", "number", "toggle", "dropdown", "keys", "file_picker", "hotkey_recorder", "slider"
+    string placeholder = 4;  // i18n key or literal
     string default_value = 5;  // JSON-encoded default (string, number, bool, array)
     double min = 6;
     double max = 7;
@@ -1114,56 +2147,32 @@ message FieldDefinitionMsg {
     bool has_min = 10;
     bool has_max = 11;
     bool has_step = 12;
+
     // Field is only shown when ALL conditions are met (empty = always shown)
     repeated FieldVisibilityCondition conditions = 13;
+
     // Optional description/hint text shown below the field
     string description = 14;
+
     // Group name for collapsible sections (fields with same group render together)
     string group = 15;
     string group_label = 16;
+
+    // Dotted settings path the field reads/writes (e.g. "voice.stt_language").
+    // Empty = UI uses the convention "voice.provider_configs.<provider_id>.<field_id>".
+    string storage_path = 17;
 }
 
 // Condition for showing/hiding a field based on another field's value
 message FieldVisibilityCondition {
-    string field_id = 1;     // Which other field to check
-    string operator = 2;     // "equals", "not_equals", "is_true", "is_false", "not_empty"
-    string value = 3;        // Value to compare against (for equals/not_equals)
+    string field_id = 1;  // Which other field to check
+    string operator = 2;  // "equals", "not_equals", "is_true", "is_false", "not_empty"
+    string value = 3;  // Value to compare against (for equals/not_equals)
 }
 
 message DropdownOptionMsg {
     string value = 1;
     string label = 2;  // i18n key
-}
-
-// ============ Task Service ============
-
-service TaskService {
-    // Get all active background tasks
-    rpc GetTasks(Empty) returns (TaskListResponse);
-
-    // Cancel a specific background task
-    rpc CancelTask(CancelTaskRequest) returns (Empty);
-}
-
-message BackgroundTaskMsg {
-    string id = 1;
-    string task_type = 2;         // "download", "processing", "indexing"
-    string title = 3;             // e.g. "Large V3 Turbo Q5"
-    string description = 4;      // e.g. "Downloading whisper model..."
-    float progress = 5;          // 0.0–100.0 (-1 for indeterminate)
-    uint64 speed_bytes_per_sec = 6;
-    uint32 eta_seconds = 7;
-    string status = 8;           // "running", "completed", "failed", "cancelled"
-    string error = 9;
-    bool cancelable = 10;
-}
-
-message TaskListResponse {
-    repeated BackgroundTaskMsg tasks = 1;
-}
-
-message CancelTaskRequest {
-    string task_id = 1;
 }
 
 // ============ Monitor Service ============
@@ -1174,6 +2183,71 @@ service MonitorService {
 
     // Subscribe to real-time system stats updates
     rpc SubscribeSystemStats(GetSystemStatsRequest) returns (stream SystemStats);
+
+    // Subscribe to Tool Search observability events (debug feed for the
+    // deferred-tool catalog). Filter by session_id to scope to one chat;
+    // pass empty to receive events for every session.
+    rpc SubscribeToolSearchEvents(ToolSearchSubscribeRequest) returns (stream ToolSearchEventMsg);
+}
+
+message ToolSearchSubscribeRequest {
+    // Optional chat session id to filter on. Empty = receive all sessions.
+    string session_id = 1;
+}
+
+// One Tool Search observability event. Mirrors the AstraEvent variants
+// produced by the daemon's `tool_search` subsystem — kept as a oneof so
+// the wire schema can grow new event kinds without forcing every
+// client to re-decode.
+message ToolSearchEventMsg {
+    string session_id = 1;
+    int64 timestamp_ms = 2;
+
+    oneof kind {
+        ToolSearchQueryEvent query = 3;
+        ToolSearchDescribeEvent describe = 4;
+        ToolSearchCallEvent call = 5;
+        ToolSearchScriptEvent script = 6;
+        ToolSearchCompactionEvent compaction = 7;
+    }
+}
+
+message ToolSearchQueryEvent {
+    string query = 1;
+    repeated string results = 2;  // top-N catalog ids
+    uint32 top_score = 3;
+    uint64 duration_us = 4;
+}
+
+message ToolSearchDescribeEvent {
+    string tool_id = 1;
+    uint64 bytes = 2;
+}
+
+message ToolSearchCallEvent {
+    string tool_id = 1;
+    string resolved_name = 2;
+    string args_preview = 3;  // first 200 chars
+    bool success = 4;
+    uint64 duration_ms = 5;
+    string error = 6;  // empty when success
+}
+
+message ToolSearchScriptEvent {
+    string script_preview = 1;  // first 500 chars
+    uint64 script_bytes = 2;
+    uint64 bridge_calls = 3;
+    string result_preview = 4;
+    uint64 duration_ms = 5;
+    string sandbox_error = 6;  // empty on success
+}
+
+message ToolSearchCompactionEvent {
+    uint64 visible = 1;
+    uint64 deferred = 2;
+    uint64 bytes_before = 3;
+    uint64 bytes_after = 4;
+    uint32 savings_percent = 5;
 }
 
 message GetSystemStatsRequest {
@@ -1181,9 +2255,9 @@ message GetSystemStatsRequest {
 }
 
 message SystemStats {
-    float cpu_usage = 1;        // 0-100 percentage
-    float ram_usage = 2;        // 0-100 percentage
-    float temperature = 3;      // Celsius (CPU temp, 0 if unavailable)
+    float cpu_usage = 1;  // 0-100 percentage
+    float ram_usage = 2;  // 0-100 percentage
+    float temperature = 3;  // Celsius (CPU temp, 0 if unavailable)
     uint64 ram_total_mb = 4;
     uint64 ram_used_mb = 5;
     uint64 uptime_seconds = 6;  // System uptime
@@ -1194,165 +2268,61 @@ message SystemStats {
 }
 
 message TemperatureSensor {
-    string id = 1;        // Stable identifier, e.g. "cpu_package", "cpu_core_0"
-    string label = 2;     // Human-readable, e.g. "CPU Package", "Core #0"
+    string id = 1;  // Stable identifier, e.g. "cpu_package", "cpu_core_0"
+    string label = 2;  // Human-readable, e.g. "CPU Package", "Core #0"
     string category = 3;  // "cpu", "motherboard", "other"
-    float value = 4;      // Celsius
+    float value = 4;  // Celsius
 }
 
 message FanSensor {
-    string id = 1;        // e.g. "cpu_fan", "gpu_fan_0"
-    string label = 2;     // e.g. "CPU Fan", "GPU Fan"
+    string id = 1;  // e.g. "cpu_fan", "gpu_fan_0"
+    string label = 2;  // e.g. "CPU Fan", "GPU Fan"
     string category = 3;  // "cpu", "case", "gpu"
     uint32 rpm = 4;
 }
 
 message GpuStats {
-    string id = 1;              // e.g. "gpu_0"
-    string name = 2;            // e.g. "NVIDIA GeForce RTX 4070"
-    float usage = 3;            // 0-100% (GPU core utilization)
-    float temperature = 4;      // Celsius
+    string id = 1;  // e.g. "gpu_0"
+    string name = 2;  // e.g. "NVIDIA GeForce RTX 4070"
+    float usage = 3;  // 0-100% (GPU core utilization)
+    float temperature = 4;  // Celsius
     uint64 vram_total_mb = 5;
     uint64 vram_used_mb = 6;
-    float vram_usage = 7;       // 0-100%
+    float vram_usage = 7;  // 0-100%
     uint32 fan_rpm = 8;
     uint32 fan_speed_percent = 9;
-    uint32 power_usage_mw = 10; // milliwatts
-    uint32 clock_mhz = 11;     // Core clock speed
+    uint32 power_usage_mw = 10;  // milliwatts
+    uint32 clock_mhz = 11;  // Core clock speed
 }
 
 message DiskInfo {
-    string id = 1;          // Stable slug, e.g. "c", "root"
-    string name = 2;        // Drive label or mount point
-    string mount_point = 3; // Full mount path, e.g. "C:\", "/"
+    string id = 1;  // Stable slug, e.g. "c", "root"
+    string name = 2;  // Drive label or mount point
+    string mount_point = 3;  // Full mount path, e.g. "C:\", "/"
     uint64 total_mb = 4;
     uint64 used_mb = 5;
-    float usage = 6;        // 0-100%
-    string kind = 7;        // "SSD", "HDD", "Unknown"
-    string file_system = 8; // "NTFS", "ext4", etc.
-}
+    float usage = 6;  // 0-100%
+    string kind = 7;  // "SSD", "HDD", "Unknown"
+    string file_system = 8;  // "NTFS", "ext4", etc.
 
-// ============ Companion Service ============
-
-// Bidirectional communication between the daemon and a 3D desktop companion (Unity).
-// The companion connects as a gRPC client and subscribes to a server-streaming command feed.
-// TTS audio is routed to the companion for lipsync playback when connected.
-service CompanionService {
-    // Server-streaming: companion subscribes to receive commands from daemon.
-    rpc SubscribeCommands(CompanionSubscribeRequest) returns (stream CompanionCommand);
-
-    // Companion reports its current status
-    rpc ReportStatus(CompanionStatusReport) returns (Empty);
-
-    // Companion reports available blendshapes after model load
-    rpc ReportBlendshapes(CompanionBlendshapeReport) returns (Empty);
-
-    // Companion sends a command/event back to the daemon
-    rpc SendCommand(CompanionClientCommand) returns (CompanionCommandResponse);
-
-    // Query current companion status (called by UI clients)
-    rpc GetCompanionStatus(Empty) returns (CompanionStatusResponse);
-}
-
-message CompanionSubscribeRequest {
-    string companion_id = 1;
-    string companion_version = 2;
-}
-
-// Command pushed from daemon to companion via the stream
-message CompanionCommand {
-    string id = 1;
-    string command_type = 2;  // "load_model", "set_blendshape", "play_audio", etc.
-    oneof payload {
-        LoadModelPayload load_model = 3;
-        SetBlendshapePayload set_blendshape = 4;
-        SetAnimatorPayload set_animator = 5;
-        PlayAudioPayload play_audio = 6;
-        SetSettingsPayload set_settings = 7;
-        EmptyPayload empty_payload = 8;
-    }
-}
-
-message EmptyPayload {}
-
-message LoadModelPayload {
-    string path = 1;
-    bool use_default = 2;
-}
-
-message SetBlendshapePayload {
-    string name = 1;
-    float value = 2;
-}
-
-message SetAnimatorPayload {
-    map<string, string> parameters = 1;
-}
-
-message PlayAudioPayload {
-    string file_path = 1;
-}
-
-message SetSettingsPayload {
-    map<string, string> settings = 1;
-}
-
-message CompanionStatusReport {
-    string companion_id = 1;
-    CompanionConnectionState state = 2;
-    string model_name = 3;
-    string model_path = 4;
-    bool audio_playing = 5;
-}
-
-enum CompanionConnectionState {
-    COMPANION_DISCONNECTED = 0;
-    COMPANION_CONNECTED = 1;
-    COMPANION_LOADING = 2;
-    COMPANION_READY = 3;
-    COMPANION_SPEAKING = 4;
-    COMPANION_ERROR = 5;
-}
-
-message CompanionBlendshapeReport {
-    string companion_id = 1;
-    repeated string blendshape_names = 2;
-}
-
-// Command sent from companion back to daemon
-message CompanionClientCommand {
-    string companion_id = 1;
-    string command_type = 2;  // "audio_complete", "model_loaded"
-    map<string, string> data = 3;
-}
-
-message CompanionCommandResponse {
-    bool success = 1;
-    string error_message = 2;
-}
-
-message CompanionStatusResponse {
-    bool connected = 1;
-    string companion_id = 2;
-    CompanionConnectionState state = 3;
-    string model_name = 4;
-    string model_path = 5;
-    bool audio_playing = 6;
-    repeated string blendshape_names = 7;
+    // Room actually available to the user. NOT `total_mb - used_mb`: reserved
+    // blocks a filesystem never hands out live in that gap, so a client
+    // deriving free space would over-promise what a cleanup can give back.
+    uint64 free_mb = 9;
 }
 
 // ===== Voice Search =====
 
 message SearchVoicesRequest {
-    string provider = 1;       // "fishaudio"
-    string query = 2;          // Search text
-    string language = 3;       // Language filter
-    int32 page_size = 4;       // Default 20
-    int32 page_number = 5;     // 0-based
-    string tag = 6;            // Tag filter
-    string sort_by = 7;        // "score", "task_count", "created_at"
-    string gender = 8;         // Gender filter
-    string category = 9;       // Category filter
+    string provider = 1;  // "fishaudio"
+    string query = 2;  // Search text
+    string language = 3;  // Language filter
+    int32 page_size = 4;  // Default 20
+    int32 page_number = 5;  // 0-based
+    string tag = 6;  // Tag filter
+    string sort_by = 7;  // "score", "task_count", "created_at"
+    string gender = 8;  // Gender filter
+    string category = 9;  // Category filter
 }
 
 message SearchVoicesResponse {
@@ -1369,507 +2339,195 @@ message VoiceSearchResult {
     string preview_url = 6;
     repeated string tags = 7;
     string cover_image = 8;
+
+    // i18n keys for the two display strings above, set ONLY for voices the
+    // daemon hardcodes (the built-in "astra" voices). They are EMPTY whenever
+    // `name`/`description` are real data — a Fish Audio catalogue entry, a
+    // plugin's own voice list — because there is nothing to translate.
+    //
+    // A consumer renders `name_key ? t(name_key) : name`. `name`/`description`
+    // stay populated either way so a consumer with no catalogue (the TUI, a log
+    // line, an older UI) still shows English rather than a raw key. The daemon
+    // cannot translate these itself: `astra_core::i18n` embeds only en/ru/uk
+    // while the UI ships ten locales.
+    string name_key = 9;
+    string description_key = 10;
 }
 
 // ===== TTS Provider Capabilities =====
 
 message TtsProviderInfo {
-    string id = 1;              // e.g. "fishaudio"
-    string name = 2;            // e.g. "Fish Audio"
+    string id = 1;  // e.g. "fishaudio"
+    string name = 2;  // e.g. "Fish Audio"
     bool supports_speed = 3;
     bool supports_pitch = 4;
     bool requires_subscription = 5;
+    bool is_local = 6;  // Runs on-device (no network)
+    bool requires_download = 7;  // Needs model files downloaded first
+
+    // Declarative per-provider settings the UI renders via DynamicField.
+    // Empty = no extra knobs beyond voice selection.
+    repeated FieldDefinitionMsg config_fields = 8;
+
+    // Which daemon-side model catalog this provider consumes ("" = none).
+    // Mirror of `SttProviderInfo.model_manager`. "supertonic" → the UI shows
+    // the Supertonic bundle download panel + voice picker for this provider.
+    // Data-driven so the built-in Vox sidecar (`plugin__astra_vox`) and the
+    // in-process `supertonic` provider both get it with zero frontend id
+    // checks (the `ttsProvider === "supertonic"` literal is retired in favour
+    // of `model_manager === "supertonic"`, matching the STT whisper browser).
+    string model_manager = 9;
+
+    // How the UI lists this provider's voices: "static" (fixed dropdown/cards),
+    // "searchable" (on-demand search box), or "none" (no selectable voice).
+    // Mirror of `astra_core::voice::VoiceListing`. Data-driven so the search
+    // box shows for ANY searchable provider (fishaudio today, a future
+    // elevenlabs tomorrow) with zero per-provider id checks — retires the
+    // `ttsProvider === "fishaudio"` literal. Empty ("") is treated as "static".
+    string voice_listing = 10;
+
+    // Lifecycle (loading / ready / stopped / error) for plugin-provided
+    // providers is NOT carried here: plugin status is a universal
+    // concern (AI providers, actions, tools — not just voice). UI joins
+    // this list with `PluginService.ListPlugins` on the `plugin__<id>`
+    // prefix to render a spinner or error chip per entry.
+    // Host-capability availability, resolved daemon-side at the serving site
+    // (2e-C, design §6.1):
+    //   "available"   — usable here.
+    //   "gpu_missing" — the HARDWARE cannot run it (no compute-capable adapter).
+    //                   UI greys it out and blocks selection; the user cannot fix
+    //                   this from inside the app.
+    //   "gpu_policy"  — the hardware is fine but the user's own
+    //                   `require_discrete_gpu` setting forbids it. UI shows the
+    //                   reason but keeps it SELECTABLE: the setting that caused
+    //                   this is one of the provider's own config fields, which the
+    //                   Voice page renders only while the provider is selected, so
+    //                   blocking selection would trap the user with no way back.
+    //   "gpu_unknown" — no probe result yet; UI stays optimistic.
+    //   "needs_activation" — the host CAN run it, but the one-time licensed-voice
+    //                   activation has not happened here (no container, or no
+    //                   machine-bound key). Ranked AFTER the GPU verdicts on purpose:
+    //                   never ask someone to buy an entitlement and download ~396 MB
+    //                   on a machine that would refuse afterwards.
+    // In every non-"available" case the provider still refuses at synth with
+    // FAILED_PRECONDITION, so the UI verdict is a courtesy, never the enforcement.
+    // Empty ("") is treated as "available" (old daemons / providers with no gate).
+    string availability = 11;
+
+    // Is the one-time licensed-voice activation complete on THIS machine?
+    //
+    // Deliberately its own field rather than `availability == "available"`, because
+    // those are two independent facts and collapsing them was a real defect: on any
+    // machine whose GPU probe returned nothing the verdict is `gpu_unknown` REGARDLESS
+    // of activation, so a user who had already paid, downloaded and activated was shown
+    // the "Activate Astra voice" button again on the next launch — inviting a redundant
+    // ~396 MB re-download. False for every provider that has nothing to activate.
+    bool activated = 12;
 }
 
 message TtsProvidersResponse {
     repeated TtsProviderInfo providers = 1;
 }
 
+message SttProviderInfo {
+    string id = 1;  // e.g. "whisper", "plugin__echo_stt"
+    string name = 2;  // e.g. "Whisper (local)"
+    bool is_local = 3;  // Runs on-device
+    bool requires_download = 4;  // Needs model files downloaded first
+
+    // Declarative per-provider settings the UI renders via DynamicField.
+    // For Whisper: language picker, VAD sensitivity, silence duration.
+    repeated FieldDefinitionMsg config_fields = 5;
+
+    // Which daemon-side model catalog this provider consumes ("" = none).
+    // "whisper" → the UI shows the whisper GGML model browser for this
+    // provider (download / activate / delete). Data-driven so the sidecar
+    // (`plugin__astra_stt`) and any future model-backed provider get the
+    // picker with zero frontend id checks.
+    string model_manager = 6;  // No `status` field — see `TtsProviderInfo` rationale.
+}
+
+message SttProvidersResponse {
+    repeated SttProviderInfo providers = 1;
+}
+
+// ===== Supertonic local TTS model status =====
+
+message SupertonicStatusResponse {
+    bool is_ready = 1;  // All required files exist and validated
+    bool is_downloading = 2;  // Background download in progress
+    uint64 bytes_done = 3;
+    uint64 bytes_total = 4;
+    float percent = 5;
+    string current_file = 6;  // e.g. "vector_estimator.onnx"
+    string error = 7;
+}
+
+// Result of ActivateVoxVoice — which STARTS activation rather than performing it.
+//
+// The container is ~396 MB and every client channel carries a 180 s deadline, so a
+// blocking call failed the button on any connection slower than ~2.2 MB/s while the
+// download carried on invisibly behind it. Now the fast, refusable half runs inside the
+// call (signed in? engine running? entitled?) and the download + seal run in a background
+// task the client follows.
+//
+//   activated == true                  -> already usable on this machine; nothing started
+//   task_id  != ""                     -> activation is running; poll GetTasks for the
+//                                         phase, percentage, speed and cancel button
+//   error    != ""                     -> refused before anything was spent, with a
+//                                         human-readable reason (not signed in, no
+//                                         entitlement, engine cannot start, offline)
+message VoxActivationResponse {
+    bool activated = 1;
+    string error = 2;
+
+    // The background task carrying activation. Empty when `activated` or `error`.
+    string task_id = 3;
+}
+
+// One selectable Supertonic voice — a bundled preset or a user-imported one.
+message SupertonicVoice {
+    string id = 1;  // Synthesis key: "F1".."M5" or "custom_<uuid>"
+    string name = 2;  // Display name
+    string gender = 3;  // "female" | "male" | "custom"
+    bool is_custom = 4;  // User-imported (deletable) vs bundled preset
+}
+
+message ListSupertonicVoicesResponse {
+    repeated SupertonicVoice voices = 1;
+}
+
+message ImportSupertonicVoiceRequest {
+    string name = 1;  // Display name (defaults to "Custom voice" if empty)
+    string gender = 2;  // "female" | "male" | anything else → "custom"
+    string json_content = 3;  // Raw voice-style JSON ({ style_ttl, style_dp })
+}
+
+message DeleteSupertonicVoiceRequest {
+    string voice_id = 1;  // Must be a custom id; presets are rejected
+}
+
 // ===== AI Provider Capabilities =====
 
 message AiProviderInfo {
-    string id = 1;                    // e.g. "openai", "astra"
-    string name = 2;                  // e.g. "OpenAI", "Astra AI"
+    string id = 1;  // e.g. "openai", "astra"
+    string name = 2;  // e.g. "OpenAI", "Astra AI"
     bool requires_subscription = 3;
-    string default_model = 4;         // e.g. "gpt-4o"
+    string default_model = 4;  // e.g. "gpt-4o"
     string default_api_base_url = 5;  // e.g. "https://api.openai.com"
     bool show_api_key = 6;
     bool show_api_base_url = 7;
-    string section_title_key = 8;     // i18n key, e.g. "ai.configOpenai"
+    string section_title_key = 8;  // i18n key, e.g. "ai.configOpenai"
+    bool supports_model_discovery = 9;  // GET <api_base_url>/v1/models
+
+    // The rungs this provider's endpoint SCHEMA can express — the floor a
+    // client falls back to when the selected model is in no catalogue (the
+    // model combobox is free-solo, and discovery endpoints return id+name only).
+    repeated ReasoningLevelOption reasoning_levels = 10;
 }
 
 message AiProvidersResponse {
     repeated AiProviderInfo providers = 1;
-}
-
-// ============ MCP Service ============
-
-service McpService {
-    // List all configured MCP servers with status and tools
-    rpc ListServers(Empty) returns (McpServerListResponse);
-
-    // Add a new MCP server configuration
-    rpc AddServer(McpServerConfigMsg) returns (McpServerConfigMsg);
-
-    // Update an existing MCP server configuration
-    rpc UpdateServer(McpServerConfigMsg) returns (Empty);
-
-    // Remove an MCP server
-    rpc RemoveServer(McpServerIdRequest) returns (Empty);
-
-    // Start a specific MCP server
-    rpc StartServer(McpServerIdRequest) returns (Empty);
-
-    // Stop a specific MCP server
-    rpc StopServer(McpServerIdRequest) returns (Empty);
-
-    // Get tools for a specific server
-    rpc GetServerTools(McpServerIdRequest) returns (McpToolListResponse);
-
-    // Enable/disable a specific tool on a server
-    rpc SetToolEnabled(McpSetToolEnabledRequest) returns (Empty);
-
-    // Refresh tools from a running server
-    rpc RefreshServerTools(McpServerIdRequest) returns (McpToolListResponse);
-
-    // Catalog operations
-    rpc SearchCatalog(CatalogSearchRequest) returns (CatalogSearchResponse);
-    rpc GetCatalogServer(CatalogServerRequest) returns (CatalogServerMsg);
-    rpc InstallCatalogServer(InstallCatalogRequest) returns (McpServerConfigMsg);
-
-    // Runtime management
-    rpc CheckRuntimes(Empty) returns (RuntimeStatusListResponse);
-    rpc InstallRuntime(InstallRuntimeRequest) returns (InstallRuntimeResponse);
-}
-
-message McpServerConfigMsg {
-    string id = 1;
-    string name = 2;
-    string transport_json = 3;      // McpTransport serialized as JSON
-    bool enabled = 4;
-    bool auto_start = 5;
-    map<string, bool> tool_overrides = 6;
-    uint64 timeout_secs = 7;
-    string catalog_id = 8;          // Registry server name if installed from catalog
-    string catalog_version = 9;     // Version at time of install
-}
-
-message McpServerStatusMsg {
-    McpServerConfigMsg config = 1;
-    string status = 2;              // "stopped", "starting", "running", "error"
-    string error = 3;
-    repeated McpToolInfoMsg tools = 4;
-}
-
-message McpServerListResponse {
-    repeated McpServerStatusMsg servers = 1;
-}
-
-message McpServerIdRequest {
-    string server_id = 1;
-}
-
-message McpToolInfoMsg {
-    string name = 1;                // Original tool name
-    string description = 2;
-    string input_schema_json = 3;   // JSON Schema as string
-    bool enabled = 4;
-    string namespaced_name = 5;     // mcp__servername__toolname
-}
-
-message McpToolListResponse {
-    repeated McpToolInfoMsg tools = 1;
-}
-
-message McpSetToolEnabledRequest {
-    string server_id = 1;
-    string tool_name = 2;
-    bool enabled = 3;
-}
-
-// ---- MCP Catalog messages ----
-
-message CatalogSearchRequest {
-    string query = 1;           // Search term (empty = browse all)
-    string cursor = 2;          // Pagination cursor (empty = first page)
-    uint32 limit = 3;           // Results per page (default 50, max 96)
-}
-
-message CatalogSearchResponse {
-    repeated CatalogServerMsg servers = 1;
-    string next_cursor = 2;     // Empty if no more results
-    uint32 total_hint = 3;      // Approximate total (if registry provides)
-}
-
-message CatalogServerMsg {
-    string name = 1;                    // "namespace/server-name"
-    string version = 2;
-    string title = 3;                   // Display name (may be empty)
-    string description = 4;
-    string website_url = 5;
-    string icon_url = 6;
-    string repository_url = 7;
-    bool is_installed = 8;
-    string published_at = 9;
-    string updated_at = 10;
-    repeated CatalogPackageMsg packages = 11;
-    repeated CatalogRemoteMsg remotes = 12;
-}
-
-message CatalogPackageMsg {
-    string registry_type = 1;           // "npm", "pypi", "oci"
-    string identifier = 2;
-    string version = 3;
-    string transport = 4;               // "stdio", "streamable-http", "sse"
-    string runtime_hint = 5;            // "npx", "uvx", "docker" (may be empty)
-    repeated string runtime_arguments = 6;
-    repeated CatalogEnvVarMsg environment_variables = 7;
-}
-
-message CatalogEnvVarMsg {
-    string name = 1;
-    string description = 2;
-    bool is_secret = 3;
-    bool is_required = 4;
-    string default_value = 5;
-    repeated string choices = 6;
-}
-
-message CatalogRemoteMsg {
-    string transport_type = 1;          // "streamable-http" or "sse"
-    string url = 2;
-    repeated string headers = 3;
-}
-
-message CatalogServerRequest {
-    string name = 1;
-}
-
-message InstallCatalogRequest {
-    string server_name = 1;
-    uint32 package_index = 2;           // 0 = auto-select best
-    map<string, string> env_values = 3;
-    bool auto_start = 4;
-}
-
-// ---- MCP Runtime messages ----
-
-message RuntimeStatusMsg {
-    string id = 1;              // "nodejs", "python", etc.
-    string display_name = 2;    // "Node.js"
-    bool installed = 3;
-    string version = 4;         // "v20.11.1" or empty
-    string resolved_path = 5;   // full path or empty
-    string winget_id = 6;       // for install button
-    string download_url = 7;    // fallback manual download
-}
-
-message RuntimeStatusListResponse {
-    repeated RuntimeStatusMsg runtimes = 1;
-}
-
-message InstallRuntimeRequest {
-    string runtime_id = 1;      // "nodejs", "python", etc.
-}
-
-message InstallRuntimeResponse {
-    bool success = 1;
-    string message = 2;         // output or error text
-    string version = 3;         // newly detected version after install
-}
-
-// ============ Marketplace Service ============
-
-service MarketplaceService {
-    // Browse / search marketplace listings
-    rpc Browse(MarketplaceBrowseRequest) returns (MarketplaceBrowseResponse);
-
-    // Get featured / staff-pick listings
-    rpc GetFeatured(Empty) returns (MarketplaceBrowseResponse);
-
-    // Get single listing full details
-    rpc GetListing(MarketplaceGetListingRequest) returns (MarketplaceListingDetail);
-
-    // Install a marketplace command (download + create local command)
-    rpc Install(MarketplaceInstallRequest) returns (MarketplaceInstallResponse);
-
-    // Check for updates on installed marketplace commands
-    rpc CheckUpdates(Empty) returns (MarketplaceCheckUpdatesResponse);
-
-    // Update an installed marketplace command to latest version
-    rpc UpdateInstalled(MarketplaceUpdateInstalledRequest) returns (MarketplaceInstallResponse);
-
-    // Uninstall a marketplace command
-    rpc Uninstall(MarketplaceUninstallRequest) returns (Empty);
-
-    // Get all installed marketplace commands with status
-    rpc GetInstalled(Empty) returns (MarketplaceGetInstalledResponse);
-
-    // Publish a local command to the marketplace
-    rpc Publish(MarketplacePublishRequest) returns (MarketplaceListingDetail);
-
-    // Get current user's published listings
-    rpc GetMyListings(Empty) returns (MarketplaceBrowseResponse);
-
-    // Star or unstar a listing
-    rpc ToggleStar(MarketplaceToggleStarRequest) returns (MarketplaceToggleStarResponse);
-
-    // Submit or update a review
-    rpc SubmitReview(MarketplaceSubmitReviewRequest) returns (MarketplaceReview);
-
-    // Get reviews for a listing
-    rpc GetReviews(MarketplaceGetReviewsRequest) returns (MarketplaceGetReviewsResponse);
-
-    // Report a listing
-    rpc ReportListing(MarketplaceReportRequest) returns (Empty);
-}
-
-// --- Browse ---
-
-message MarketplaceBrowseRequest {
-    string query = 1;           // full-text search
-    string category = 2;       // filter by category
-    string sort = 3;           // popular, newest, top_rated, trending
-    int32 page = 4;            // 1-based
-    int32 page_size = 5;       // max 50
-    float min_rating = 6;      // minimum average rating
-}
-
-message MarketplaceBrowseResponse {
-    repeated MarketplaceListingSummary listings = 1;
-    int32 total = 2;
-    int32 page = 3;
-    int32 page_size = 4;
-    int32 total_pages = 5;
-}
-
-message MarketplaceListingSummary {
-    string id = 1;
-    string author_id = 2;
-    string author_name = 3;
-    string title = 4;
-    string short_description = 5;
-    string category = 6;
-    repeated string tags = 7;
-    int32 version = 8;
-    string version_label = 9;
-    int32 download_count = 10;
-    int32 star_count = 11;
-    float rating_average = 12;
-    int32 rating_count = 13;
-    repeated string capabilities = 14;
-    string screenshot_thumbnail = 15;   // first screenshot or empty
-    bool featured = 16;
-    bool starred_by_me = 17;
-    bool installed = 18;
-    int32 installed_version = 19;       // 0 = not installed
-    Timestamp published_at = 20;
-    string status = 21;                 // draft, published, unlisted, removed
-}
-
-// --- Listing Detail ---
-
-message MarketplaceGetListingRequest {
-    string id = 1;
-}
-
-message MarketplaceListingDetail {
-    string id = 1;
-    string author_id = 2;
-    string author_name = 3;
-    string title = 4;
-    string short_description = 5;
-    string description = 6;
-    string category = 7;
-    repeated string tags = 8;
-    int32 version = 9;
-    string version_label = 10;
-    string changelog = 11;
-    string status = 12;
-    int32 download_count = 13;
-    int32 star_count = 14;
-    float rating_average = 15;
-    int32 rating_count = 16;
-    repeated string capabilities = 17;
-    repeated string screenshots = 18;
-    bool featured = 19;
-    bool starred_by_me = 20;
-    bool installed = 21;
-    int32 installed_version = 22;
-    Timestamp created_at = 23;
-    Timestamp updated_at = 24;
-    Timestamp published_at = 25;
-    string command_data_json = 26;
-}
-
-// --- Install / Uninstall ---
-
-message MarketplaceInstallRequest {
-    string listing_id = 1;
-}
-
-message MarketplaceInstallResponse {
-    string local_command_id = 1;
-    string listing_id = 2;
-    string title = 3;
-}
-
-message MarketplaceUpdateInstalledRequest {
-    string listing_id = 1;
-}
-
-message MarketplaceUninstallRequest {
-    string listing_id = 1;
-    bool delete_local_command = 2;
-}
-
-message MarketplaceGetInstalledResponse {
-    repeated MarketplaceInstalledCommand items = 1;
-}
-
-message MarketplaceInstalledCommand {
-    string listing_id = 1;
-    string local_command_id = 2;
-    string title = 3;
-    int32 installed_version = 4;
-    int32 latest_version = 5;
-    bool has_update = 6;
-}
-
-// --- Updates ---
-
-message MarketplaceCheckUpdatesResponse {
-    repeated MarketplaceUpdate updates = 1;
-}
-
-message MarketplaceUpdate {
-    string listing_id = 1;
-    string title = 2;
-    int32 installed_version = 3;
-    int32 latest_version = 4;
-    string latest_version_label = 5;
-    string changelog = 6;
-    string local_command_id = 7;
-}
-
-// --- Publish ---
-
-message MarketplacePublishRequest {
-    string local_command_id = 1;        // local command UUID to publish
-    string title = 2;
-    string short_description = 3;
-    string description = 4;
-    string category = 5;
-    repeated string tags = 6;
-    repeated string screenshots = 7;    // base64 PNGs
-    string listing_id = 8;             // empty = new, existing = update
-    string changelog = 9;
-    string status = 10;                // published or unlisted
-    string version_label = 11;
-}
-
-// --- Stars ---
-
-message MarketplaceToggleStarRequest {
-    string listing_id = 1;
-    bool star = 2;                     // true = star, false = unstar
-}
-
-message MarketplaceToggleStarResponse {
-    bool starred = 1;
-    int32 new_star_count = 2;
-}
-
-// --- Reviews ---
-
-message MarketplaceSubmitReviewRequest {
-    string listing_id = 1;
-    int32 rating = 2;                  // 1–5
-    string review_text = 3;
-}
-
-message MarketplaceReview {
-    string id = 1;
-    string user_id = 2;
-    string user_name = 3;
-    int32 rating = 4;
-    string review_text = 5;
-    Timestamp created_at = 6;
-}
-
-message MarketplaceGetReviewsRequest {
-    string listing_id = 1;
-    int32 page = 2;
-    int32 page_size = 3;
-}
-
-message MarketplaceGetReviewsResponse {
-    repeated MarketplaceReview reviews = 1;
-    int32 total = 2;
-}
-
-// --- Reports ---
-
-message MarketplaceReportRequest {
-    string listing_id = 1;
-    string reason = 2;                 // spam, malicious, broken, inappropriate, copyright, other
-    string details = 3;
-}
-
-// ============ OOBE Service ============
-
-service OobeService {
-    // Discover installed applications (Start Menu, Steam, Epic Games Store)
-    rpc DiscoverApps(Empty) returns (DiscoverAppsResponse);
-    // Filter apps using AI to remove system utilities, keeping user-facing programs
-    rpc FilterApps(FilterAppsRequest) returns (stream OobeProgressEvent);
-    // Generate trigger phrases for apps (phonetic transliterations for non-English locales)
-    rpc GenerateTriggers(GenerateTriggersRequest) returns (stream OobeProgressEvent);
-}
-
-message OobeAppEntry {
-    string app_name = 1;
-    string exe_path = 2;
-}
-
-message DiscoverAppsResponse {
-    repeated OobeAppEntry apps = 1;
-}
-
-message FilterAppsRequest {
-    repeated OobeAppEntry apps = 1;
-}
-
-message GenerateTriggersRequest {
-    repeated OobeAppEntry apps = 1;
-    string locale = 2;
-}
-
-message OobeProgressEvent {
-    oneof event {
-        OobeBatchProgress batch_progress = 1;
-        FilterAppsResult filter_result = 2;
-        GenerateTriggersResult triggers_result = 3;
-        string error = 4;
-    }
-}
-
-message OobeBatchProgress {
-    int32 current_batch = 1;
-    int32 total_batches = 2;
-    string phase = 3;
-}
-
-message FilterAppsResult {
-    repeated OobeAppEntry apps = 1;
-}
-
-message GenerateTriggersResult {
-    map<string, TriggerPhrases> triggers = 1;
-}
-
-message TriggerPhrases {
-    repeated string phrases = 1;
 }
 
 // ===== Widget Data =====
@@ -1881,10 +2539,62 @@ message WidgetDataRequest {
 message SaveWidgetDataRequest {
     string widget_type = 1;
     string data = 2;  // JSON string
+
+    // Client's last loaded/saved snapshot. When present, the daemon performs
+    // an atomic three-way merge against current storage instead of blindly
+    // replacing a document that may have changed meanwhile.
+    string base_data = 3;
+}
+
+message ReminderActionRequest {
+    string reminder_id = 1;
+    string action = 2;  // "snooze" | "disable"
+    string occurrence_id = 3;
 }
 
 message WidgetDataResponse {
     string data = 1;  // JSON string
+}
+
+// ===== Weather =====
+
+message WeatherRequest {
+    double lat = 1;
+    double lon = 2;
+}
+
+message CurrentWeatherResponse {
+    double temperature = 1;  // Celsius
+    string symbol_code = 2;  // MET Norway symbol code
+    double wind_speed = 3;  // m/s
+    double wind_from_direction = 4;  // degrees 0-360
+    double relative_humidity = 5;  // percent 0-100
+    double ultraviolet_index = 6;
+}
+
+message DayForecastEntry {
+    string date = 1;  // YYYY-MM-DD
+    double temp_min = 2;  // Celsius
+    double temp_max = 3;  // Celsius
+    string symbol_code = 4;
+}
+
+message HourlyForecastEntry {
+    string time = 1;  // ISO-8601 UTC, e.g. "2026-06-25T14:00:00Z"
+    double temperature = 2;  // Celsius
+    string symbol_code = 3;  // MET Norway symbol code
+    double precipitation_mm = 4;  // expected precipitation next hour (mm), 0 if unknown
+}
+
+message WeatherForecastResponse {
+    repeated DayForecastEntry days = 1;
+    repeated HourlyForecastEntry hours = 2;  // next ~24h, hourly resolution
+}
+
+message DetectedLocationResponse {
+    double lat = 1;
+    double lon = 2;
+    string city = 3;
 }
 
 // ============ Plugin Service (UI-facing, daemon manages plugins) ============
@@ -1981,31 +2691,68 @@ service PluginHostService {
 service PluginCapabilityService {
     // ── Tools ──
     rpc ListTools(Empty) returns (PluginToolListResponse);
+
     rpc CallTool(PluginCallToolRequest) returns (PluginCallToolResponse);
 
     // ── TTS ──
     rpc TtsSynthesize(PluginTtsSynthesizeRequest) returns (PluginTtsSynthesizeResponse);
+
     rpc TtsSynthesizeStream(PluginTtsSynthesizeRequest) returns (stream PluginAudioChunk);
+
     rpc TtsListVoices(Empty) returns (PluginTtsVoicesResponse);
+
     // Data-driven config fields for the plugin's TTS provider — exposed in
     // the daemon's ProviderDescriptor.config_fields and rendered by
     // DynamicField on the Voice settings page. Returns an empty list if the
     // plugin has no extra settings.
     rpc TtsGetConfigFields(Empty) returns (PluginConfigFieldsResponse);
 
+    // Deliver a licensed-voice content key (CEK) for one-time, machine-bound
+    // activation. The sidecar seals it under its own machine key into a local
+    // keybox and is offline forever after (see astra-vox-sidecar). A TTS provider
+    // with no protected voice returns UNIMPLEMENTED and the daemon treats it as
+    // "no activation needed" (fail-safe). Accepts a secret, emits none.
+    rpc TtsActivate(PluginTtsActivateRequest) returns (PluginTtsActivateResponse);
+
     // ── STT ──
     rpc SttProcess(stream PluginAudioChunk) returns (stream PluginSttEvent);
+
     rpc SttGetLanguages(Empty) returns (PluginSttLanguagesResponse);
+
     // Data-driven config fields for the plugin's STT provider; same role
     // as TtsGetConfigFields for STT settings.
     rpc SttGetConfigFields(Empty) returns (PluginConfigFieldsResponse);
 
+    // STT model lifecycle — lets the daemon drive load/unload so idle-unload
+    // actually frees VRAM (was a no-op: plugins inherited LoadState::NotNeeded).
+    // A plugin that has no loadable model simply returns UNIMPLEMENTED and the
+    // daemon treats it as NotNeeded (unchanged, fail-safe). `SttLoadRequest`
+    // also carries the daemon-resolved model path + GPU toggle (the whisper
+    // sidecar's model selection + GPU→CPU degraded-retry knob).
+    rpc SttLoad(SttLoadRequest) returns (Empty);
+
+    rpc SttUnload(Empty) returns (Empty);
+
+    rpc SttGetLoadState(Empty) returns (SttLoadStateResponse);
+
     // ── AI Provider ──
     rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
-    rpc AiGetModels(Empty) returns (PluginAiModelsResponse);
+
+    // DEPRECATED — the daemon has no call site and no way to surface the answer.
+    // `all_ai_providers` builds every plugin `AiProviderInfo` with
+    // `supports_model_discovery: false` and an empty `default_model`, so the model
+    // picker never asks a plugin what it can run; a plugin that implements this
+    // does work nothing reads. Kept declared (dropping it would break the two
+    // sidecars' generated trait impls, and an SDK that dials it should keep
+    // getting UNIMPLEMENTED rather than a transport error), but no SDK should grow
+    // a hook for it. Remove once model discovery is either wired or abandoned.
+    rpc AiGetModels(Empty) returns (PluginAiModelsResponse) {
+        option deprecated = true;
+    }
 
     // ── Actions ──
     rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
+
     rpc GetPluginActionTypes(Empty) returns (PluginActionTypesResponse);
 
     // ── Triggers ──
@@ -2013,13 +2760,18 @@ service PluginCapabilityService {
 
     // ── UI ──
     rpc GetUiContributions(Empty) returns (PluginUiContributionsResponse);
+
     rpc CallFromUi(PluginUiCallRequest) returns (PluginUiCallResponse);
 
     // ── Lifecycle ──
     rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
+
     rpc OnActiveTriggers(PluginActiveTriggersMsg) returns (Empty);
+
     rpc OnLanguageChanged(LanguageChangedMsg) returns (Empty);
+
     rpc Shutdown(Empty) returns (Empty);
+
     rpc HealthCheck(Empty) returns (PluginHealthResponse);
 }
 
@@ -2031,15 +2783,25 @@ message PluginStatusMsg {
     string version = 3;
     string description = 4;
     string author = 5;
-    string status = 6;                   // "stopped", "starting", "running", "error", "disabled"
+    string status = 6;  // "stopped", "starting", "running", "error", "disabled"
     string error = 7;
-    repeated string capabilities = 8;    // ["tools", "tts", "ai_provider", ...]
+    repeated string capabilities = 8;  // ["tools", "tts", "ai_provider", ...]
     bool enabled = 9;
     bool has_config = 10;
     bool has_update = 11;
     string latest_version = 12;
     string icon_url = 13;
     string homepage = 14;
+
+    // First-party built-in sidecar (whisper STT today) — supervised exactly like a
+    // plugin, but NOT user-managed: the Plugins grid hides it, and the mutating
+    // plugin RPCs refuse it. It stays in this feed on purpose: `list_plugins` is the
+    // ONE status source behind the Voice page's provider badges, so filtering it out
+    // server-side would lose the crash indicator for the sidecar.
+    // Named for identity, not policy: a field dropped on a bridge defaults to
+    // `false` → shown (fail-safe), whereas a `managed` flag would default to hiding
+    // every plugin.
+    bool builtin = 15;
 }
 
 message PluginListResponse {
@@ -2062,20 +2824,20 @@ message InstallPluginRequest {
 
 message PluginConfigResponse {
     string plugin_id = 1;
-    string config_schema_json = 2;       // JSON Schema from manifest
-    string config_values_json = 3;       // Current config values as JSON
+    string config_schema_json = 2;  // JSON Schema from manifest
+    string config_values_json = 3;  // Current config values as JSON
     repeated FieldDefinitionMsg fields = 4;  // Pre-converted for UI rendering
 }
 
 message UpdatePluginConfigRequest {
     string plugin_id = 1;
-    string config_json = 2;              // New config values as JSON
+    string config_json = 2;  // New config values as JSON
 }
 
 message PluginBrowseRequest {
     string query = 1;
-    string capability_filter = 2;        // "tts", "tools", "ai_provider", etc.
-    string sort = 3;                     // "popular", "newest", "updated"
+    string capability_filter = 2;  // "tts", "tools", "ai_provider", etc.
+    string sort = 3;  // "popular", "newest", "updated"
     int32 page = 4;
     int32 page_size = 5;
 }
@@ -2102,17 +2864,17 @@ message PluginRegistryEntry {
 }
 
 message SideloadPluginRequest {
-    string path = 1;                     // Local directory path
+    string path = 1;  // Local directory path
 }
 
 message ImportPluginFileRequest {
-    string path = 1;                     // Local path to .astraplugin file
-    bool auto_start = 2;                 // Start after install (default true)
+    string path = 1;  // Local path to .astraplugin file
+    bool auto_start = 2;  // Start after install (default true)
 }
 
 message PluginLogsRequest {
     string plugin_id = 1;
-    int32 lines = 2;                     // Last N lines (default 100)
+    int32 lines = 2;  // Last N lines (default 100)
 }
 
 message PluginLogsResponse {
@@ -2133,26 +2895,88 @@ message PluginUpdateInfo {
 
 // ============ Plugin Messages — Host (PluginHostService) ============
 
+// Why a plugin registration was refused, in a form an SDK can act on rather
+// than merely print. `PluginRegisterResponse.error` stays the human string;
+// this is the machine-readable half, so an SDK can exit with a specific code
+// and one specific sentence instead of registering "successfully" and then
+// dying at the first RPC the other side does not have.
+enum PluginErrorCode {
+    PLUGIN_ERROR_UNSPECIFIED = 0;
+
+    // The plugin speaks a wire protocol older than this daemon's floor
+    // (`PluginRegisterResponse.min_supported_protocol`). The fix is always
+    // "rebuild against a newer SDK"; `hint` says so, with the numbers.
+    PLUGIN_ERROR_PROTOCOL_TOO_OLD = 1;
+
+    // The spawn-time `auth_token` was missing or did not match.
+    PLUGIN_ERROR_AUTH = 2;
+
+    // The daemon knows no such plugin id, or it is not in a registerable state.
+    PLUGIN_ERROR_UNKNOWN_PLUGIN = 3;
+}
+
+// Structured failure detail for a registration the daemon refused.
+message PluginError {
+    PluginErrorCode code = 1;
+    string message = 2;  // What went wrong. One sentence.
+    string hint = 3;  // What to DO about it. One sentence.
+}
+
 message PluginRegisterRequest {
     string plugin_id = 1;
-    uint32 port = 2;                     // Plugin's gRPC server port
+    uint32 port = 2;  // Plugin's gRPC server port
     repeated string capabilities = 3;
-    string auth_token = 4;               // Auth token for registration verification
+    string auth_token = 4;  // Auth token for registration verification
+
+    // The GPU tier the plugin's process actually sees (`GpuTier::as_str()` wire
+    // form: "none" / "fp32_shared" / "fp16_shared" / "fp32_discrete" /
+    // "fp16_discrete"). Sent by the vox sidecar (2e-C, design §6.1) so a LIVE
+    // tier supersedes the daemon's cached boot probe. Empty ("") = not
+    // reported (every other plugin, incl. the STT sidecar) — the daemon
+    // ignores it.
+    string gpu_tier = 5;
+
+    // ── Protocol handshake ──
+    // The wire-protocol generation this plugin was built against — the integer
+    // in `astra-proto/plugin-surface.toml` and in every SDK's
+    // `PROTOCOL_VERSION`. 0 = the plugin did not say, i.e. an SDK from before
+    // the handshake existed; the daemon treats that as "older than 1".
+    uint32 protocol_version = 6;
+
+    // Which SDK, and which release of it, for support triage. Free-form:
+    // "astra-plugin-sdk-rust" / "-python" / "-ts", plus that package's own
+    // semver. Never used to gate anything — `protocol_version` is the contract.
+    string sdk_name = 7;
+    string sdk_version = 8;
 }
 
 message PluginRegisterResponse {
     bool success = 1;
     string error = 2;
-    string config_json = 3;             // Plugin's current config
+    string config_json = 3;  // Plugin's current config
     string daemon_version = 4;
-    string client_session_token = 5;    // Non-empty if plugin has "client" capability
-    string language = 6;                // Daemon UI language ("en", "ru", "uk", etc.)
+    string client_session_token = 5;  // Non-empty if plugin has "client" capability
+    string language = 6;  // Daemon UI language ("en", "ru", "uk", etc.)
+
+    // ── Protocol handshake ──
+    // The protocol generation this daemon speaks, and the OLDEST it still
+    // accepts. Both are sent on refusals too, which is the whole point: a
+    // plugin refused for being too old learns exactly which number it has to
+    // reach. An SDK whose own floor is above `protocol_version` refuses to
+    // serve this daemon (it would be the SDK, not the daemon, that starts
+    // calling RPCs the other side lacks).
+    uint32 protocol_version = 7;
+    uint32 min_supported_protocol = 8;
+
+    // Set whenever `success` is false. `error` remains the human string for
+    // SDKs that predate this field.
+    PluginError error_detail = 9;
 }
 
 message PluginEventFilter {
     string plugin_id = 1;
-    repeated string event_types = 2;     // Empty = all events
-    string exclude_source_id = 3;        // Skip ChatMessageSync events from this source
+    repeated string event_types = 2;  // Empty = all events
+    string exclude_source_id = 3;  // Skip ChatMessageSync events from this source
 }
 
 message PluginEventMsg {
@@ -2163,8 +2987,8 @@ message PluginEventMsg {
 
 message PluginChatRequest {
     string text = 1;
-    string source_id = 2;               // Plugin ID as source
-    string conversation_id = 3;         // Empty = active conversation
+    string source_id = 2;  // Plugin ID as source
+    string conversation_id = 3;  // Empty = active conversation
     bool voice_enabled = 4;
 }
 
@@ -2178,8 +3002,8 @@ message PluginChatChunk {
 }
 
 message PluginFireTriggerRequest {
-    string trigger_type = 1;             // e.g. "plugin__twitch__donation"
-    string payload_json = 2;             // Trigger-specific data as JSON
+    string trigger_type = 1;  // e.g. "plugin__twitch__donation"
+    string payload_json = 2;  // Trigger-specific data as JSON
 }
 
 message PluginSelfIdRequest {
@@ -2192,7 +3016,7 @@ message PluginSelfConfigResponse {
 
 message PluginLogRequest {
     string plugin_id = 1;
-    string level = 2;                    // "debug", "info", "warn", "error"
+    string level = 2;  // "debug", "info", "warn", "error"
     string message = 3;
 }
 
@@ -2200,14 +3024,14 @@ message PluginDaemonInfoResponse {
     string version = 1;
     string state = 2;
     uint32 grpc_port = 3;
-    string language = 4;                // Current daemon UI language
+    string language = 4;  // Current daemon UI language
 }
 
 message PluginSetVariableRequest {
     string plugin_id = 1;
     string name = 2;
     string value = 3;
-    string scope = 4;                    // "session" (default) or "persistent"
+    string scope = 4;  // "session" (default) or "persistent"
 }
 
 // ============ Plugin Messages — Capability (PluginCapabilityService) ============
@@ -2217,7 +3041,7 @@ message PluginSetVariableRequest {
 message PluginToolDef {
     string name = 1;
     string description = 2;
-    string parameters_json = 3;          // JSON Schema for parameters
+    string parameters_json = 3;  // JSON Schema for parameters
 }
 
 message PluginToolListResponse {
@@ -2246,7 +3070,7 @@ message PluginTtsSynthesizeRequest {
 
 message PluginTtsSynthesizeResponse {
     bytes audio_data = 1;
-    string format = 2;                   // "mp3", "wav", "pcm", "ogg"
+    string format = 2;  // "mp3", "wav", "pcm", "ogg"
     uint32 sample_rate = 3;
     uint32 duration_ms = 4;
 }
@@ -2254,19 +3078,41 @@ message PluginTtsSynthesizeResponse {
 message PluginAudioChunk {
     bytes data = 1;
     bool is_last = 2;
-    uint32 sample_rate = 3;              // Only needed on first chunk
+    uint32 sample_rate = 3;  // Only needed on first chunk
+
+    // STT-only, first chunk only: per-utterance decoding options for the
+    // `SttProcess` request stream (language hint + wake-word bias). The TTS
+    // reuse of this message (`TtsSynthesizeStream` response) never sets it.
+    SttTranscribeOptions options = 4;
 }
 
 message PluginVoiceInfo {
     string id = 1;
     string name = 2;
     string language = 3;
-    string gender = 4;                   // "male", "female", "neutral"
+    string gender = 4;  // "male", "female", "neutral"
     string preview_url = 5;
 }
 
 message PluginTtsVoicesResponse {
     repeated PluginVoiceInfo voices = 1;
+}
+
+message PluginTtsActivateRequest {
+    // The raw content-encryption key (32 bytes for astra-vox). The sidecar
+    // machine-binds and seals it into its keybox; it is never persisted in the
+    // clear. Delivered over the loopback daemon↔sidecar channel.
+    bytes cek = 1;
+
+    // Which protected voice this key activates — reserved for the N-voice future.
+    // The Astra sidecar serves a single voice and ignores it today.
+    string voice_id = 2;
+}
+
+message PluginTtsActivateResponse {
+    // Intentionally empty: activation is a fast seal-only step (the engine loads
+    // lazily on the first synth). Kept as a distinct message so a future
+    // activation status can be added without a wire break.
 }
 
 // ── STT ──
@@ -2280,6 +3126,36 @@ message PluginSttEvent {
 
 message PluginSttLanguagesResponse {
     repeated string languages = 1;
+}
+
+// Per-utterance decoding options carried on the first `PluginAudioChunk` of an
+// `SttProcess` stream. Generic across STT plugins; a plugin ignores fields it
+// has no notion of (mirrors `astra_core::voice::TranscribeOptions`).
+message SttTranscribeOptions {
+    string language = 1;  // "" = auto-detect
+    string initial_prompt = 2;  // decoding bias, e.g. wake-word spellings
+}
+
+// Load request for `SttLoad`. The daemon resolves the concrete model (from its
+// GGML catalog + download manager, which stay daemon-side) and passes the
+// absolute path plus the GPU toggle; a plugin managing its own models ignores
+// `model_path`.
+message SttLoadRequest {
+    string model_path = 1;  // daemon-resolved absolute path ("" = provider default)
+    bool use_gpu = 2;  // false = CPU-only (GPU→CPU degraded retry)
+}
+
+// Response for `SttGetLoadState` — mirrors `astra_core::voice::LoadState`.
+message SttLoadStateResponse {
+    enum State {
+        NOT_NEEDED = 0;  // no local model (default / UNIMPLEMENTED fallback)
+        UNLOADED = 1;
+        LOADING = 2;
+        READY = 3;
+        FAILED = 4;
+    }
+    State state = 1;
+    string detail = 2;  // human-readable cause when FAILED
 }
 
 // Shared response for TtsGetConfigFields / SttGetConfigFields. The daemon
@@ -2298,10 +3174,22 @@ message PluginAiCompleteRequest {
     float temperature = 4;
     uint32 max_tokens = 5;
     string model = 6;
+
+    // "" (not specified) | "auto" | "off" | "low" | "medium" | "high" | "max".
+    // A string, not an enum: an enum would force every plugin SDK to regenerate
+    // for a new rung, and an unrecognised enum value arrives silently zeroed —
+    // i.e. as the first variant — making "this plugin is old" indistinguishable
+    // from "the user chose auto". "" stays distinct from "auto".
+    string reasoning_effort = 7;
+
+    // Whether the user wants to see the reasoning. The response half of this
+    // (PluginAiStreamChunk.thinking_delta) has always existed; only the request
+    // half was never wired.
+    bool show_reasoning = 8;
 }
 
 message PluginAiMessage {
-    string role = 1;                     // "user", "assistant", "system", "tool"
+    string role = 1;  // "user", "assistant", "system", "tool"
     string content = 2;
     string tool_call_id = 3;
     repeated PluginAiToolCall tool_calls = 4;
@@ -2360,18 +3248,18 @@ message PluginTriggerTypesResponse {
 
 message PluginUiContribution {
     string id = 1;
-    string slot = 2;                     // Named slot: "page.custom", "background.behind", etc.
-    string css_target = 3;               // CSS selector for injection fallback
-    string position = 4;                 // For CSS injection: "before"|"after"|"replace"|"prepend"|"append"
-    string url = 5;                      // Relative path in ui/ dir: "index.html"
-    string label = 6;                    // Display name (for pages, settings sections)
-    string icon_svg = 7;                 // SVG markup for nav tab icon
-    int32 width = 8;                     // 0 = fill container
+    string slot = 2;  // Named slot: "page.custom", "background.behind", etc.
+    string css_target = 3;  // CSS selector for injection fallback
+    string position = 4;  // For CSS injection: "before"|"after"|"replace"|"prepend"|"append"
+    string url = 5;  // Relative path in ui/ dir: "index.html"
+    string label = 6;  // Display name (for pages, settings sections)
+    string icon_svg = 7;  // SVG markup for nav tab icon
+    int32 width = 8;  // 0 = fill container
     int32 height = 9;
-    bool transparent = 10;               // Transparent iframe background (for effects)
-    bool pointer_events = 11;            // Whether iframe captures mouse events
-    int32 z_index = 12;                  // Layer ordering
-    map<string, string> props = 13;      // Extra properties (e.g., "audio": "true")
+    bool transparent = 10;  // Transparent iframe background (for effects)
+    bool pointer_events = 11;  // Whether iframe captures mouse events
+    int32 z_index = 12;  // Layer ordering
+    map<string, string> props = 13;  // Extra properties (e.g., "audio": "true")
 }
 
 message PluginUiContributionsResponse {
@@ -2394,11 +3282,11 @@ message PluginThemeContribution {
     string theme_name = 2;
     string theme_description = 3;
     map<string, string> css_variables = 4;
-    string wallpaper_path = 5;           // Relative to ui/ dir
-    string wallpaper_mode = 6;           // "cover", "contain", "tile"
-    float wallpaper_opacity = 7;         // 0.0–1.0
-    string fragment_shader = 8;          // GLSL replacement for Threads effect
-    string effect_config_json = 9;       // Uniforms/params for the shader
+    string wallpaper_path = 5;  // Relative to ui/ dir
+    string wallpaper_mode = 6;  // "cover", "contain", "tile"
+    float wallpaper_opacity = 7;  // 0.0–1.0
+    string fragment_shader = 8;  // GLSL replacement for Threads effect
+    string effect_config_json = 9;  // Uniforms/params for the shader
 }
 
 message ActiveThemesResponse {
@@ -2445,35 +3333,10 @@ message PluginActiveTriggersMsg {
 }
 
 message LanguageChangedMsg {
-    string language = 1;                // New language code ("en", "ru", "uk", etc.)
+    string language = 1;  // New language code ("en", "ru", "uk", etc.)
 }
 
 message PluginHealthResponse {
     bool healthy = 1;
     string status = 2;
-}
-
-// ============ Client Auth Service ============
-
-service ClientAuthService {
-    // Register as a main client (astraui). Returns a session token.
-    rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
-
-    // Gracefully disconnect and release the main client slot.
-    rpc DisconnectClient(DisconnectClientRequest) returns (Empty);
-}
-
-message RegisterClientRequest {
-    string daemon_secret = 1;    // The secret read from daemon.token
-    string client_name = 2;      // Human-readable name (e.g. "astraui")
-}
-
-message RegisterClientResponse {
-    bool success = 1;
-    string session_token = 2;    // Use on all subsequent requests via x-session-token header
-    string error = 3;
-}
-
-message DisconnectClientRequest {
-    string session_token = 1;
 }

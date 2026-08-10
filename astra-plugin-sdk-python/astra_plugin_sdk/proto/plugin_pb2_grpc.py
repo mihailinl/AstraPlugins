@@ -56,10 +56,25 @@ class CoreServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.Restart = channel.unary_unary(
+                '/astra.CoreService/Restart',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
         self.SubscribeEvents = channel.unary_stream(
                 '/astra.CoreService/SubscribeEvents',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.AstraEvent.FromString,
+                _registered_method=True)
+        self.ShowMainWindow = channel.unary_unary(
+                '/astra.CoreService/ShowMainWindow',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.ToggleOverlay = channel.unary_unary(
+                '/astra.CoreService/ToggleOverlay',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -96,8 +111,37 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Restart(self, request, context):
+        """Shut down exactly as Shutdown does, then start a fresh daemon in this
+        one's place — with an environment re-read from the OS, which is what an
+        MCP runtime installed into a stale PATH is waiting for.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeEvents(self, request, context):
         """Subscribe to real-time events
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ShowMainWindow(self, request, context):
+        """Bring the main desktop UI to the foreground: focus/restore it if it's
+        already running, or launch it if it isn't. The ONE entry point for
+        "open the app window" — the tray's "Open Astra" item and the overlay's
+        return-to-GUI side action both route through it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ToggleOverlay(self, request, context):
+        """Toggle the always-on-top overlay window (same effect as the global
+        overlay hotkey). Respawns the overlay process if it died and fires
+        regardless of whether the overlay hotkey is enabled — used by the guided
+        tutorial to demonstrate the overlay on demand.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -126,10 +170,25 @@ def add_CoreServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
+            'Restart': grpc.unary_unary_rpc_method_handler(
+                    servicer.Restart,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
             'SubscribeEvents': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeEvents,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.AstraEvent.SerializeToString,
+            ),
+            'ShowMainWindow': grpc.unary_unary_rpc_method_handler(
+                    servicer.ShowMainWindow,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'ToggleOverlay': grpc.unary_unary_rpc_method_handler(
+                    servicer.ToggleOverlay,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -253,6 +312,33 @@ class CoreService(object):
             _registered_method=True)
 
     @staticmethod
+    def Restart(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/Restart',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SubscribeEvents(request,
             target,
             options=(),
@@ -279,111 +365,8 @@ class CoreService(object):
             metadata,
             _registered_method=True)
 
-
-class AuthServiceStub(object):
-    """============ Auth Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.GetStatus = channel.unary_unary(
-                '/astra.AuthService/GetStatus',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.AuthStatusResponse.FromString,
-                _registered_method=True)
-        self.StartLogin = channel.unary_unary(
-                '/astra.AuthService/StartLogin',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.LoginResponse.FromString,
-                _registered_method=True)
-        self.Logout = channel.unary_unary(
-                '/astra.AuthService/Logout',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.RefreshToken = channel.unary_unary(
-                '/astra.AuthService/RefreshToken',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.RefreshTokenResponse.FromString,
-                _registered_method=True)
-
-
-class AuthServiceServicer(object):
-    """============ Auth Service ============
-
-    """
-
-    def GetStatus(self, request, context):
-        """Get current authentication status
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StartLogin(self, request, context):
-        """Start login flow (opens browser)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Logout(self, request, context):
-        """Logout and clear tokens
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RefreshToken(self, request, context):
-        """Refresh access token
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_AuthServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'GetStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetStatus,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.AuthStatusResponse.SerializeToString,
-            ),
-            'StartLogin': grpc.unary_unary_rpc_method_handler(
-                    servicer.StartLogin,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.LoginResponse.SerializeToString,
-            ),
-            'Logout': grpc.unary_unary_rpc_method_handler(
-                    servicer.Logout,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'RefreshToken': grpc.unary_unary_rpc_method_handler(
-                    servicer.RefreshToken,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.RefreshTokenResponse.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.AuthService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.AuthService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class AuthService(object):
-    """============ Auth Service ============
-
-    """
-
     @staticmethod
-    def GetStatus(request,
+    def ShowMainWindow(request,
             target,
             options=(),
             channel_credentials=None,
@@ -396,61 +379,7 @@ class AuthService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.AuthService/GetStatus',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.AuthStatusResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StartLogin(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.AuthService/StartLogin',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.LoginResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def Logout(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.AuthService/Logout',
+            '/astra.CoreService/ShowMainWindow',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
@@ -464,7 +393,7 @@ class AuthService(object):
             _registered_method=True)
 
     @staticmethod
-    def RefreshToken(request,
+    def ToggleOverlay(request,
             target,
             options=(),
             channel_credentials=None,
@@ -477,9 +406,9 @@ class AuthService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.AuthService/RefreshToken',
+            '/astra.CoreService/ToggleOverlay',
             plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.RefreshTokenResponse.FromString,
+            plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -542,6 +471,26 @@ class ChatServiceStub(object):
                 '/astra.ChatService/SubscribeEvents',
                 request_serializer=plugin__pb2.SubscribeEventsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.FirehoseEventMsg.FromString,
+                _registered_method=True)
+        self.FetchConversationBacklog = channel.unary_unary(
+                '/astra.ChatService/FetchConversationBacklog',
+                request_serializer=plugin__pb2.FetchBacklogRequest.SerializeToString,
+                response_deserializer=plugin__pb2.FetchBacklogResponse.FromString,
+                _registered_method=True)
+        self.RegenerateAssistantMessage = channel.unary_unary(
+                '/astra.ChatService/RegenerateAssistantMessage',
+                request_serializer=plugin__pb2.RegenerateAssistantMessageRequest.SerializeToString,
+                response_deserializer=plugin__pb2.RegenerateAssistantMessageResponse.FromString,
+                _registered_method=True)
+        self.EditUserMessage = channel.unary_unary(
+                '/astra.ChatService/EditUserMessage',
+                request_serializer=plugin__pb2.EditUserMessageRequest.SerializeToString,
+                response_deserializer=plugin__pb2.EditUserMessageResponse.FromString,
+                _registered_method=True)
+        self.SetConversationReasoning = channel.unary_unary(
+                '/astra.ChatService/SetConversationReasoning',
+                request_serializer=plugin__pb2.SetConversationReasoningRequest.SerializeToString,
+                response_deserializer=plugin__pb2.SetConversationReasoningResponse.FromString,
                 _registered_method=True)
 
 
@@ -609,6 +558,44 @@ class ChatServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FetchConversationBacklog(self, request, context):
+        """One-shot backlog fetch for a single conversation. Used when a client
+        switches to a "cold" conversation (one not in its localStorage) and
+        needs to backfill history without re-subscribing the firehose.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RegenerateAssistantMessage(self, request, context):
+        """Regenerate an assistant response: drop the addressed AssistantStart and
+        every event after it, emit a Truncate event in the firehose, then run a
+        fresh AI turn against the remaining UserMessage. Idempotent if the
+        assistant_message_id no longer exists.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EditUserMessage(self, request, context):
+        """Edit a previously sent user message: drop the addressed UserMessage and
+        every event after it, emit Truncate, append a new UserMessage with the
+        replacement text/images, and start an AI turn.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetConversationReasoning(self, request, context):
+        """Pin (or clear) this conversation's reasoning effort. A standing choice,
+        not a per-message one — which is why it is its own RPC rather than a
+        field on SubmitUserMessageRequest: the user must be able to change it
+        without sending a message, and Regenerate/Edit must replay under it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -651,6 +638,26 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.SubscribeEvents,
                     request_deserializer=plugin__pb2.SubscribeEventsRequest.FromString,
                     response_serializer=plugin__pb2.FirehoseEventMsg.SerializeToString,
+            ),
+            'FetchConversationBacklog': grpc.unary_unary_rpc_method_handler(
+                    servicer.FetchConversationBacklog,
+                    request_deserializer=plugin__pb2.FetchBacklogRequest.FromString,
+                    response_serializer=plugin__pb2.FetchBacklogResponse.SerializeToString,
+            ),
+            'RegenerateAssistantMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegenerateAssistantMessage,
+                    request_deserializer=plugin__pb2.RegenerateAssistantMessageRequest.FromString,
+                    response_serializer=plugin__pb2.RegenerateAssistantMessageResponse.SerializeToString,
+            ),
+            'EditUserMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.EditUserMessage,
+                    request_deserializer=plugin__pb2.EditUserMessageRequest.FromString,
+                    response_serializer=plugin__pb2.EditUserMessageResponse.SerializeToString,
+            ),
+            'SetConversationReasoning': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetConversationReasoning,
+                    request_deserializer=plugin__pb2.SetConversationReasoningRequest.FromString,
+                    response_serializer=plugin__pb2.SetConversationReasoningResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -882,6 +889,114 @@ class ChatService(object):
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def FetchConversationBacklog(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/FetchConversationBacklog',
+            plugin__pb2.FetchBacklogRequest.SerializeToString,
+            plugin__pb2.FetchBacklogResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegenerateAssistantMessage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/RegenerateAssistantMessage',
+            plugin__pb2.RegenerateAssistantMessageRequest.SerializeToString,
+            plugin__pb2.RegenerateAssistantMessageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def EditUserMessage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/EditUserMessage',
+            plugin__pb2.EditUserMessageRequest.SerializeToString,
+            plugin__pb2.EditUserMessageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetConversationReasoning(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/SetConversationReasoning',
+            plugin__pb2.SetConversationReasoningRequest.SerializeToString,
+            plugin__pb2.SetConversationReasoningResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class VoiceServiceStub(object):
     """============ Voice Service ============
@@ -912,6 +1027,16 @@ class VoiceServiceStub(object):
         self.SetMicrophone = channel.unary_unary(
                 '/astra.VoiceService/SetMicrophone',
                 request_serializer=plugin__pb2.SetMicrophoneRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GetOutputDevices = channel.unary_unary(
+                '/astra.VoiceService/GetOutputDevices',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.OutputDeviceListResponse.FromString,
+                _registered_method=True)
+        self.SetOutputDevice = channel.unary_unary(
+                '/astra.VoiceService/SetOutputDevice',
+                request_serializer=plugin__pb2.SetOutputDeviceRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.Speak = channel.unary_unary(
@@ -969,6 +1094,56 @@ class VoiceServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.TtsProvidersResponse.FromString,
                 _registered_method=True)
+        self.GetSttProviders = channel.unary_unary(
+                '/astra.VoiceService/GetSttProviders',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.SttProvidersResponse.FromString,
+                _registered_method=True)
+        self.GetSupertonicStatus = channel.unary_unary(
+                '/astra.VoiceService/GetSupertonicStatus',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.SupertonicStatusResponse.FromString,
+                _registered_method=True)
+        self.DownloadSupertonicModels = channel.unary_unary(
+                '/astra.VoiceService/DownloadSupertonicModels',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GetSupertonicDownloadProgress = channel.unary_unary(
+                '/astra.VoiceService/GetSupertonicDownloadProgress',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
+                _registered_method=True)
+        self.CancelSupertonicDownload = channel.unary_unary(
+                '/astra.VoiceService/CancelSupertonicDownload',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.DeleteSupertonicModels = channel.unary_unary(
+                '/astra.VoiceService/DeleteSupertonicModels',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.ListSupertonicVoices = channel.unary_unary(
+                '/astra.VoiceService/ListSupertonicVoices',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.ListSupertonicVoicesResponse.FromString,
+                _registered_method=True)
+        self.ImportSupertonicVoice = channel.unary_unary(
+                '/astra.VoiceService/ImportSupertonicVoice',
+                request_serializer=plugin__pb2.ImportSupertonicVoiceRequest.SerializeToString,
+                response_deserializer=plugin__pb2.SupertonicVoice.FromString,
+                _registered_method=True)
+        self.DeleteSupertonicVoice = channel.unary_unary(
+                '/astra.VoiceService/DeleteSupertonicVoice',
+                request_serializer=plugin__pb2.DeleteSupertonicVoiceRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.ActivateVoxVoice = channel.unary_unary(
+                '/astra.VoiceService/ActivateVoxVoice',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.VoxActivationResponse.FromString,
+                _registered_method=True)
         self.GetEmbeddingModels = channel.unary_unary(
                 '/astra.VoiceService/GetEmbeddingModels',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -994,34 +1169,14 @@ class VoiceServiceStub(object):
                 request_serializer=plugin__pb2.DeleteEmbeddingModelRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
-        self.GetLlmMatchModels = channel.unary_unary(
-                '/astra.VoiceService/GetLlmMatchModels',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.LlmMatchModelsResponse.FromString,
-                _registered_method=True)
-        self.DownloadLlmMatchModel = channel.unary_unary(
-                '/astra.VoiceService/DownloadLlmMatchModel',
-                request_serializer=plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.GetLlmMatchDownloadProgress = channel.unary_unary(
-                '/astra.VoiceService/GetLlmMatchDownloadProgress',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
-                _registered_method=True)
-        self.CancelLlmMatchDownload = channel.unary_unary(
-                '/astra.VoiceService/CancelLlmMatchDownload',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.DeleteLlmMatchModel = channel.unary_unary(
-                '/astra.VoiceService/DeleteLlmMatchModel',
-                request_serializer=plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
         self.SetVoiceConversation = channel.unary_unary(
                 '/astra.VoiceService/SetVoiceConversation',
                 request_serializer=plugin__pb2.SetVoiceConversationRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetVoicePendingImages = channel.unary_unary(
+                '/astra.VoiceService/SetVoicePendingImages',
+                request_serializer=plugin__pb2.SetVoicePendingImagesRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
 
@@ -1054,6 +1209,20 @@ class VoiceServiceServicer(object):
 
     def SetMicrophone(self, request, context):
         """Set active microphone
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOutputDevices(self, request, context):
+        """Get available audio output devices (speakers, headphones, etc.)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetOutputDevice(self, request, context):
+        """Set active audio output device
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1138,8 +1307,89 @@ class VoiceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetSttProviders(self, request, context):
+        """Get available STT providers and their capabilities (built-in Whisper +
+        any STT-capable plugin currently registered in the voice registry).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSupertonicStatus(self, request, context):
+        """===== Supertonic (local TTS) Model Management =====
+
+        Check whether Supertonic model files are downloaded and ready.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DownloadSupertonicModels(self, request, context):
+        """Start downloading Supertonic model files (~267 MB, background).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSupertonicDownloadProgress(self, request, context):
+        """Current download progress (mirrors DownloadProgressResponse shape).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelSupertonicDownload(self, request, context):
+        """Cancel an in-flight Supertonic download.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteSupertonicModels(self, request, context):
+        """Delete Supertonic model files from disk.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListSupertonicVoices(self, request, context):
+        """List Supertonic voices: the 10 bundled presets (F1–M5) plus any
+        user-imported custom voice-style files. Built-in and custom are the same
+        shape so the UI renders them uniformly.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportSupertonicVoice(self, request, context):
+        """Import a custom Supertonic voice from a voice-style JSON file. The daemon
+        validates the schema, assigns a unique id and persists it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteSupertonicVoice(self, request, context):
+        """Delete a user-imported custom Supertonic voice (built-in presets are
+        rejected).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ActivateVoxVoice(self, request, context):
+        """Activate the licensed Astra voice (the vox sidecar): download the
+        encrypted container if absent, fetch the per-entitlement CEK from astra-api
+        over the account Bearer JWT, and hand it to the sidecar to seal
+        machine-bound. One-time; synthesis is offline forever after. Requires
+        sign-in; the entitlement is enforced server-side at the CEK route.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetEmbeddingModels(self, request, context):
-        """===== Embedding Model Management =====
+        """===== Embedding Model Management (used by AI memory hybrid retrieval) =====
 
         Get all available embedding models with download status
         """
@@ -1175,45 +1425,17 @@ class VoiceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetLlmMatchModels(self, request, context):
-        """===== LLM Match Model Management =====
-
-        Get all available LLM matching models with download status
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DownloadLlmMatchModel(self, request, context):
-        """Start downloading an LLM matching model (runs in background)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetLlmMatchDownloadProgress(self, request, context):
-        """Get current LLM match download progress (if any)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CancelLlmMatchDownload(self, request, context):
-        """Cancel an ongoing LLM match download
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DeleteLlmMatchModel(self, request, context):
-        """Delete a downloaded LLM matching model
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def SetVoiceConversation(self, request, context):
         """Set the conversation ID for voice processing (binds voice to UI's active conversation)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetVoicePendingImages(self, request, context):
+        """Set images to attach to the next voice utterance. Passing an empty list
+        clears the buffer. Drained by the voice bridge on the next utterance so
+        it mirrors the text-chat flow where attachments clear on send.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1240,6 +1462,16 @@ def add_VoiceServiceServicer_to_server(servicer, server):
             'SetMicrophone': grpc.unary_unary_rpc_method_handler(
                     servicer.SetMicrophone,
                     request_deserializer=plugin__pb2.SetMicrophoneRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'GetOutputDevices': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetOutputDevices,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.OutputDeviceListResponse.SerializeToString,
+            ),
+            'SetOutputDevice': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetOutputDevice,
+                    request_deserializer=plugin__pb2.SetOutputDeviceRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
             'Speak': grpc.unary_unary_rpc_method_handler(
@@ -1297,6 +1529,56 @@ def add_VoiceServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.TtsProvidersResponse.SerializeToString,
             ),
+            'GetSttProviders': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSttProviders,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.SttProvidersResponse.SerializeToString,
+            ),
+            'GetSupertonicStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSupertonicStatus,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.SupertonicStatusResponse.SerializeToString,
+            ),
+            'DownloadSupertonicModels': grpc.unary_unary_rpc_method_handler(
+                    servicer.DownloadSupertonicModels,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'GetSupertonicDownloadProgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSupertonicDownloadProgress,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
+            ),
+            'CancelSupertonicDownload': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelSupertonicDownload,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'DeleteSupertonicModels': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteSupertonicModels,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'ListSupertonicVoices': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListSupertonicVoices,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.ListSupertonicVoicesResponse.SerializeToString,
+            ),
+            'ImportSupertonicVoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportSupertonicVoice,
+                    request_deserializer=plugin__pb2.ImportSupertonicVoiceRequest.FromString,
+                    response_serializer=plugin__pb2.SupertonicVoice.SerializeToString,
+            ),
+            'DeleteSupertonicVoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteSupertonicVoice,
+                    request_deserializer=plugin__pb2.DeleteSupertonicVoiceRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'ActivateVoxVoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.ActivateVoxVoice,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.VoxActivationResponse.SerializeToString,
+            ),
             'GetEmbeddingModels': grpc.unary_unary_rpc_method_handler(
                     servicer.GetEmbeddingModels,
                     request_deserializer=plugin__pb2.Empty.FromString,
@@ -1322,34 +1604,14 @@ def add_VoiceServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.DeleteEmbeddingModelRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
-            'GetLlmMatchModels': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetLlmMatchModels,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.LlmMatchModelsResponse.SerializeToString,
-            ),
-            'DownloadLlmMatchModel': grpc.unary_unary_rpc_method_handler(
-                    servicer.DownloadLlmMatchModel,
-                    request_deserializer=plugin__pb2.DownloadLlmMatchModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'GetLlmMatchDownloadProgress': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetLlmMatchDownloadProgress,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
-            ),
-            'CancelLlmMatchDownload': grpc.unary_unary_rpc_method_handler(
-                    servicer.CancelLlmMatchDownload,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'DeleteLlmMatchModel': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteLlmMatchModel,
-                    request_deserializer=plugin__pb2.DeleteLlmMatchModelRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
             'SetVoiceConversation': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVoiceConversation,
                     request_deserializer=plugin__pb2.SetVoiceConversationRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetVoicePendingImages': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetVoicePendingImages,
+                    request_deserializer=plugin__pb2.SetVoicePendingImagesRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
@@ -1462,6 +1724,60 @@ class VoiceService(object):
             target,
             '/astra.VoiceService/SetMicrophone',
             plugin__pb2.SetMicrophoneRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOutputDevices(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetOutputDevices',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.OutputDeviceListResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetOutputDevice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetOutputDevice',
+            plugin__pb2.SetOutputDeviceRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -1771,6 +2087,276 @@ class VoiceService(object):
             _registered_method=True)
 
     @staticmethod
+    def GetSttProviders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetSttProviders',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.SttProvidersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSupertonicStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetSupertonicStatus',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.SupertonicStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DownloadSupertonicModels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/DownloadSupertonicModels',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSupertonicDownloadProgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetSupertonicDownloadProgress',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.DownloadProgressResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CancelSupertonicDownload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/CancelSupertonicDownload',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteSupertonicModels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/DeleteSupertonicModels',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListSupertonicVoices(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/ListSupertonicVoices',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.ListSupertonicVoicesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportSupertonicVoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/ImportSupertonicVoice',
+            plugin__pb2.ImportSupertonicVoiceRequest.SerializeToString,
+            plugin__pb2.SupertonicVoice.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteSupertonicVoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/DeleteSupertonicVoice',
+            plugin__pb2.DeleteSupertonicVoiceRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ActivateVoxVoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/ActivateVoxVoice',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.VoxActivationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetEmbeddingModels(request,
             target,
             options=(),
@@ -1906,141 +2492,6 @@ class VoiceService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetLlmMatchModels(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.VoiceService/GetLlmMatchModels',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.LlmMatchModelsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DownloadLlmMatchModel(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.VoiceService/DownloadLlmMatchModel',
-            plugin__pb2.DownloadLlmMatchModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetLlmMatchDownloadProgress(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.VoiceService/GetLlmMatchDownloadProgress',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DownloadProgressResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CancelLlmMatchDownload(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.VoiceService/CancelLlmMatchDownload',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DeleteLlmMatchModel(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.VoiceService/DeleteLlmMatchModel',
-            plugin__pb2.DeleteLlmMatchModelRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
     def SetVoiceConversation(request,
             target,
             options=(),
@@ -2056,6 +2507,33 @@ class VoiceService(object):
             target,
             '/astra.VoiceService/SetVoiceConversation',
             plugin__pb2.SetVoiceConversationRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetVoicePendingImages(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetVoicePendingImages',
+            plugin__pb2.SetVoicePendingImagesRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -2118,6 +2596,31 @@ class CommandServiceStub(object):
                 '/astra.CommandService/GetCursorPosition',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.CursorPositionResponse.FromString,
+                _registered_method=True)
+        self.ListGroups = channel.unary_unary(
+                '/astra.CommandService/ListGroups',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.CommandGroupListResponse.FromString,
+                _registered_method=True)
+        self.CreateGroup = channel.unary_unary(
+                '/astra.CommandService/CreateGroup',
+                request_serializer=plugin__pb2.CreateGroupRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CommandGroup.FromString,
+                _registered_method=True)
+        self.UpdateGroup = channel.unary_unary(
+                '/astra.CommandService/UpdateGroup',
+                request_serializer=plugin__pb2.UpdateGroupRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CommandGroup.FromString,
+                _registered_method=True)
+        self.DeleteGroup = channel.unary_unary(
+                '/astra.CommandService/DeleteGroup',
+                request_serializer=plugin__pb2.DeleteGroupRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.MoveCommandToGroup = channel.unary_unary(
+                '/astra.CommandService/MoveCommandToGroup',
+                request_serializer=plugin__pb2.MoveCommandToGroupRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CommandDefinition.FromString,
                 _registered_method=True)
 
 
@@ -2183,6 +2686,43 @@ class CommandServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListGroups(self, request, context):
+        """===== Command groups (folders) =====
+
+        List all command groups (sorted by order)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateGroup(self, request, context):
+        """Create a new group
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateGroup(self, request, context):
+        """Update a group (rename / collapse / reorder)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteGroup(self, request, context):
+        """Delete a group AND all commands inside it
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MoveCommandToGroup(self, request, context):
+        """Move a command into a group (empty group_id = ungroup)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CommandServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -2225,6 +2765,31 @@ def add_CommandServiceServicer_to_server(servicer, server):
                     servicer.GetCursorPosition,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.CursorPositionResponse.SerializeToString,
+            ),
+            'ListGroups': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListGroups,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.CommandGroupListResponse.SerializeToString,
+            ),
+            'CreateGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateGroup,
+                    request_deserializer=plugin__pb2.CreateGroupRequest.FromString,
+                    response_serializer=plugin__pb2.CommandGroup.SerializeToString,
+            ),
+            'UpdateGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateGroup,
+                    request_deserializer=plugin__pb2.UpdateGroupRequest.FromString,
+                    response_serializer=plugin__pb2.CommandGroup.SerializeToString,
+            ),
+            'DeleteGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteGroup,
+                    request_deserializer=plugin__pb2.DeleteGroupRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'MoveCommandToGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.MoveCommandToGroup,
+                    request_deserializer=plugin__pb2.MoveCommandToGroupRequest.FromString,
+                    response_serializer=plugin__pb2.CommandDefinition.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2455,11 +3020,144 @@ class CommandService(object):
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def ListGroups(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/ListGroups',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.CommandGroupListResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/CreateGroup',
+            plugin__pb2.CreateGroupRequest.SerializeToString,
+            plugin__pb2.CommandGroup.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/UpdateGroup',
+            plugin__pb2.UpdateGroupRequest.SerializeToString,
+            plugin__pb2.CommandGroup.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/DeleteGroup',
+            plugin__pb2.DeleteGroupRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MoveCommandToGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/MoveCommandToGroup',
+            plugin__pb2.MoveCommandToGroupRequest.SerializeToString,
+            plugin__pb2.CommandDefinition.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class ConfigServiceStub(object):
-    """============ Config Service ============
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -2475,6 +3173,11 @@ class ConfigServiceStub(object):
         self.UpdateSettings = channel.unary_unary(
                 '/astra.ConfigService/UpdateSettings',
                 request_serializer=plugin__pb2.UpdateSettingsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SetSetting = channel.unary_unary(
+                '/astra.ConfigService/SetSetting',
+                request_serializer=plugin__pb2.SetSettingRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
         self.CompleteOobe = channel.unary_unary(
@@ -2507,6 +3210,11 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.AiProvidersResponse.FromString,
                 _registered_method=True)
+        self.TestAiProvider = channel.unary_unary(
+                '/astra.ConfigService/TestAiProvider',
+                request_serializer=plugin__pb2.TestAiProviderRequest.SerializeToString,
+                response_deserializer=plugin__pb2.TestAiProviderResponse.FromString,
+                _registered_method=True)
         self.GetWidgetData = channel.unary_unary(
                 '/astra.ConfigService/GetWidgetData',
                 request_serializer=plugin__pb2.WidgetDataRequest.SerializeToString,
@@ -2515,19 +3223,77 @@ class ConfigServiceStub(object):
         self.SaveWidgetData = channel.unary_unary(
                 '/astra.ConfigService/SaveWidgetData',
                 request_serializer=plugin__pb2.SaveWidgetDataRequest.SerializeToString,
+                response_deserializer=plugin__pb2.WidgetDataResponse.FromString,
+                _registered_method=True)
+        self.ActOnReminder = channel.unary_unary(
+                '/astra.ConfigService/ActOnReminder',
+                request_serializer=plugin__pb2.ReminderActionRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GetWidgetDescriptors = channel.unary_unary(
+                '/astra.ConfigService/GetWidgetDescriptors',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.WidgetDescriptorsResponse.FromString,
                 _registered_method=True)
         self.GetIndexerStatus = channel.unary_unary(
                 '/astra.ConfigService/GetIndexerStatus',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.IndexerStatusResponse.FromString,
                 _registered_method=True)
+        self.GetHotkeyBindings = channel.unary_unary(
+                '/astra.ConfigService/GetHotkeyBindings',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.GetHotkeyBindingsResponse.FromString,
+                _registered_method=True)
+        self.ConfigureHotkey = channel.unary_unary(
+                '/astra.ConfigService/ConfigureHotkey',
+                request_serializer=plugin__pb2.ConfigureHotkeyRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ConfigureHotkeyResponse.FromString,
+                _registered_method=True)
+        self.GetCurrentWeather = channel.unary_unary(
+                '/astra.ConfigService/GetCurrentWeather',
+                request_serializer=plugin__pb2.WeatherRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CurrentWeatherResponse.FromString,
+                _registered_method=True)
+        self.GetWeatherForecast = channel.unary_unary(
+                '/astra.ConfigService/GetWeatherForecast',
+                request_serializer=plugin__pb2.WeatherRequest.SerializeToString,
+                response_deserializer=plugin__pb2.WeatherForecastResponse.FromString,
+                _registered_method=True)
+        self.DetectLocation = channel.unary_unary(
+                '/astra.ConfigService/DetectLocation',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.DetectedLocationResponse.FromString,
+                _registered_method=True)
+        self.GetCurrencyRate = channel.unary_unary(
+                '/astra.ConfigService/GetCurrencyRate',
+                request_serializer=plugin__pb2.CurrencyRateRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CurrencyRateResponse.FromString,
+                _registered_method=True)
+        self.GetCurrencySeries = channel.unary_unary(
+                '/astra.ConfigService/GetCurrencySeries',
+                request_serializer=plugin__pb2.CurrencySeriesRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CurrencySeriesResponse.FromString,
+                _registered_method=True)
+        self.GetCryptoRate = channel.unary_unary(
+                '/astra.ConfigService/GetCryptoRate',
+                request_serializer=plugin__pb2.CryptoRateRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CryptoRateResponse.FromString,
+                _registered_method=True)
+        self.GetCryptoSeries = channel.unary_unary(
+                '/astra.ConfigService/GetCryptoSeries',
+                request_serializer=plugin__pb2.CryptoSeriesRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CryptoSeriesResponse.FromString,
+                _registered_method=True)
+        self.ListBrowsers = channel.unary_unary(
+                '/astra.ConfigService/ListBrowsers',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.ListBrowsersResponse.FromString,
+                _registered_method=True)
 
 
 class ConfigServiceServicer(object):
-    """============ Config Service ============
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def GetSettings(self, request, context):
         """Get all settings
@@ -2537,7 +3303,16 @@ class ConfigServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UpdateSettings(self, request, context):
-        """Update settings
+        """Update settings (bulk — whole sections; used by OOBE / import)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetSetting(self, request, context):
+        """Set a single setting by dotted path (e.g. "voice.tts_provider").
+        The UI sends exactly one change; the daemon emits a granular
+        SettingsChanged event carrying just that path.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2585,6 +3360,15 @@ class ConfigServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TestAiProvider(self, request, context):
+        """Probe an AI provider's connectivity/credentials with a one-shot
+        completion, using the supplied (not-yet-saved) provider/key/model/base
+        URL. Reports whether it works and, on failure, why.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetWidgetData(self, request, context):
         """Get widget data (notes, reminders, calendar, tasks)
         """
@@ -2599,8 +3383,106 @@ class ConfigServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ActOnReminder(self, request, context):
+        """Apply an action from a fired reminder toast. The daemon owns the state
+        transition so native and in-app notifications cannot drift.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWidgetDescriptors(self, request, context):
+        """Overlay widget-grid registry — the data-driven descriptor list the
+        Settings UI renders its condensed enable-list from (so adding a widget
+        needs no frontend change). Sourced from `astra_core::widgets`.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetIndexerStatus(self, request, context):
         """Get file indexer status
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetHotkeyBindings(self, request, context):
+        """Global-hotkey bindings as the native backend actually has them — the
+        single source of truth for the UI (anti-desync). `provider` tells the UI
+        whether to show its in-app recorder (owned: windows/x11) or a "Configure"
+        button (portal), or an "unsupported" notice.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ConfigureHotkey(self, request, context):
+        """Open the compositor's config UI for a shortcut (Wayland GlobalShortcuts
+        portal). `opened=false` on owned backends — the UI uses its in-app
+        recorder there.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCurrentWeather(self, request, context):
+        """Current weather for lat/lon (MET Norway)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWeatherForecast(self, request, context):
+        """7-day weather forecast for lat/lon (MET Norway)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DetectLocation(self, request, context):
+        """Detect user location via IP geolocation
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCurrencyRate(self, request, context):
+        """Exchange rate from→to (open.er-api.com) for the currency widget.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCurrencySeries(self, request, context):
+        """Historical from→to rate series over the past `days` (Frankfurter/ECB,
+        local rate-log fallback) for the currency widget's history chart.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCryptoRate(self, request, context):
+        """Live crypto price crypto→fiat (Kraken spot × USD→fiat cross-rate) for the
+        crypto widget.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCryptoSeries(self, request, context):
+        """Historical crypto→fiat price series over the past `days` (Kraken daily
+        OHLC × USD→fiat) for the crypto widget's history chart.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListBrowsers(self, request, context):
+        """Browsers installed on this machine — the option list for the
+        `general.browser` setting (and the same detection the OpenUrl action's
+        dropdown is built from). Empty list = no detection on this platform, so
+        the UI hides the picker and every link keeps going to the OS default.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2617,6 +3499,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
             'UpdateSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateSettings,
                     request_deserializer=plugin__pb2.UpdateSettingsRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetSetting': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetSetting,
+                    request_deserializer=plugin__pb2.SetSettingRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
             'CompleteOobe': grpc.unary_unary_rpc_method_handler(
@@ -2649,6 +3536,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.AiProvidersResponse.SerializeToString,
             ),
+            'TestAiProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.TestAiProvider,
+                    request_deserializer=plugin__pb2.TestAiProviderRequest.FromString,
+                    response_serializer=plugin__pb2.TestAiProviderResponse.SerializeToString,
+            ),
             'GetWidgetData': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWidgetData,
                     request_deserializer=plugin__pb2.WidgetDataRequest.FromString,
@@ -2657,12 +3549,72 @@ def add_ConfigServiceServicer_to_server(servicer, server):
             'SaveWidgetData': grpc.unary_unary_rpc_method_handler(
                     servicer.SaveWidgetData,
                     request_deserializer=plugin__pb2.SaveWidgetDataRequest.FromString,
+                    response_serializer=plugin__pb2.WidgetDataResponse.SerializeToString,
+            ),
+            'ActOnReminder': grpc.unary_unary_rpc_method_handler(
+                    servicer.ActOnReminder,
+                    request_deserializer=plugin__pb2.ReminderActionRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'GetWidgetDescriptors': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWidgetDescriptors,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.WidgetDescriptorsResponse.SerializeToString,
             ),
             'GetIndexerStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetIndexerStatus,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.IndexerStatusResponse.SerializeToString,
+            ),
+            'GetHotkeyBindings': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetHotkeyBindings,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.GetHotkeyBindingsResponse.SerializeToString,
+            ),
+            'ConfigureHotkey': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfigureHotkey,
+                    request_deserializer=plugin__pb2.ConfigureHotkeyRequest.FromString,
+                    response_serializer=plugin__pb2.ConfigureHotkeyResponse.SerializeToString,
+            ),
+            'GetCurrentWeather': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCurrentWeather,
+                    request_deserializer=plugin__pb2.WeatherRequest.FromString,
+                    response_serializer=plugin__pb2.CurrentWeatherResponse.SerializeToString,
+            ),
+            'GetWeatherForecast': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWeatherForecast,
+                    request_deserializer=plugin__pb2.WeatherRequest.FromString,
+                    response_serializer=plugin__pb2.WeatherForecastResponse.SerializeToString,
+            ),
+            'DetectLocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.DetectLocation,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.DetectedLocationResponse.SerializeToString,
+            ),
+            'GetCurrencyRate': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCurrencyRate,
+                    request_deserializer=plugin__pb2.CurrencyRateRequest.FromString,
+                    response_serializer=plugin__pb2.CurrencyRateResponse.SerializeToString,
+            ),
+            'GetCurrencySeries': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCurrencySeries,
+                    request_deserializer=plugin__pb2.CurrencySeriesRequest.FromString,
+                    response_serializer=plugin__pb2.CurrencySeriesResponse.SerializeToString,
+            ),
+            'GetCryptoRate': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCryptoRate,
+                    request_deserializer=plugin__pb2.CryptoRateRequest.FromString,
+                    response_serializer=plugin__pb2.CryptoRateResponse.SerializeToString,
+            ),
+            'GetCryptoSeries': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCryptoSeries,
+                    request_deserializer=plugin__pb2.CryptoSeriesRequest.FromString,
+                    response_serializer=plugin__pb2.CryptoSeriesResponse.SerializeToString,
+            ),
+            'ListBrowsers': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListBrowsers,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.ListBrowsersResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2673,9 +3625,7 @@ def add_ConfigServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class ConfigService(object):
-    """============ Config Service ============
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
     def GetSettings(request,
@@ -2720,6 +3670,33 @@ class ConfigService(object):
             target,
             '/astra.ConfigService/UpdateSettings',
             plugin__pb2.UpdateSettingsRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetSetting(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/SetSetting',
+            plugin__pb2.SetSettingRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -2894,6 +3871,33 @@ class ConfigService(object):
             _registered_method=True)
 
     @staticmethod
+    def TestAiProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/TestAiProvider',
+            plugin__pb2.TestAiProviderRequest.SerializeToString,
+            plugin__pb2.TestAiProviderResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetWidgetData(request,
             target,
             options=(),
@@ -2936,7 +3940,61 @@ class ConfigService(object):
             target,
             '/astra.ConfigService/SaveWidgetData',
             plugin__pb2.SaveWidgetDataRequest.SerializeToString,
+            plugin__pb2.WidgetDataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ActOnReminder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/ActOnReminder',
+            plugin__pb2.ReminderActionRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWidgetDescriptors(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetWidgetDescriptors',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.WidgetDescriptorsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2964,6 +4022,276 @@ class ConfigService(object):
             '/astra.ConfigService/GetIndexerStatus',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.IndexerStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetHotkeyBindings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetHotkeyBindings',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.GetHotkeyBindingsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ConfigureHotkey(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/ConfigureHotkey',
+            plugin__pb2.ConfigureHotkeyRequest.SerializeToString,
+            plugin__pb2.ConfigureHotkeyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCurrentWeather(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetCurrentWeather',
+            plugin__pb2.WeatherRequest.SerializeToString,
+            plugin__pb2.CurrentWeatherResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWeatherForecast(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetWeatherForecast',
+            plugin__pb2.WeatherRequest.SerializeToString,
+            plugin__pb2.WeatherForecastResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DetectLocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/DetectLocation',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.DetectedLocationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCurrencyRate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetCurrencyRate',
+            plugin__pb2.CurrencyRateRequest.SerializeToString,
+            plugin__pb2.CurrencyRateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCurrencySeries(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetCurrencySeries',
+            plugin__pb2.CurrencySeriesRequest.SerializeToString,
+            plugin__pb2.CurrencySeriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCryptoRate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetCryptoRate',
+            plugin__pb2.CryptoRateRequest.SerializeToString,
+            plugin__pb2.CryptoRateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCryptoSeries(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetCryptoSeries',
+            plugin__pb2.CryptoSeriesRequest.SerializeToString,
+            plugin__pb2.CryptoSeriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListBrowsers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/ListBrowsers',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.ListBrowsersResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3006,6 +4334,11 @@ class MediaServiceStub(object):
                 request_serializer=plugin__pb2.GetMediaSessionsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.MediaSessionsResponse.FromString,
                 _registered_method=True)
+        self.CaptureScreen = channel.unary_unary(
+                '/astra.MediaService/CaptureScreen',
+                request_serializer=plugin__pb2.CaptureScreenRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CaptureScreenResponse.FromString,
+                _registered_method=True)
 
 
 class MediaServiceServicer(object):
@@ -3041,6 +4374,13 @@ class MediaServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CaptureScreen(self, request, context):
+        """Capture a PNG screenshot of the requested monitor (0 = primary).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MediaServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -3063,6 +4403,11 @@ def add_MediaServiceServicer_to_server(servicer, server):
                     servicer.GetMediaSessions,
                     request_deserializer=plugin__pb2.GetMediaSessionsRequest.FromString,
                     response_serializer=plugin__pb2.MediaSessionsResponse.SerializeToString,
+            ),
+            'CaptureScreen': grpc.unary_unary_rpc_method_handler(
+                    servicer.CaptureScreen,
+                    request_deserializer=plugin__pb2.CaptureScreenRequest.FromString,
+                    response_serializer=plugin__pb2.CaptureScreenResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3185,77 +4530,8 @@ class MediaService(object):
             metadata,
             _registered_method=True)
 
-
-class RegistryServiceStub(object):
-    """============ Registry Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.GetActionTypes = channel.unary_unary(
-                '/astra.RegistryService/GetActionTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.ActionTypeDefinitionsResponse.FromString,
-                _registered_method=True)
-        self.GetTriggerTypes = channel.unary_unary(
-                '/astra.RegistryService/GetTriggerTypes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
-                _registered_method=True)
-
-
-class RegistryServiceServicer(object):
-    """============ Registry Service ============
-
-    """
-
-    def GetActionTypes(self, request, context):
-        """Get all action type definitions (field metadata for the UI)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetTriggerTypes(self, request, context):
-        """Get all trigger type definitions (field metadata for the UI)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_RegistryServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'GetActionTypes': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetActionTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.ActionTypeDefinitionsResponse.SerializeToString,
-            ),
-            'GetTriggerTypes': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetTriggerTypes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.TriggerTypeDefinitionsResponse.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.RegistryService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.RegistryService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class RegistryService(object):
-    """============ Registry Service ============
-
-    """
-
     @staticmethod
-    def GetActionTypes(request,
+    def CaptureScreen(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3268,159 +4544,9 @@ class RegistryService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/astra.RegistryService/GetActionTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.ActionTypeDefinitionsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetTriggerTypes(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.RegistryService/GetTriggerTypes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.TriggerTypeDefinitionsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class TaskServiceStub(object):
-    """============ Task Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.GetTasks = channel.unary_unary(
-                '/astra.TaskService/GetTasks',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.TaskListResponse.FromString,
-                _registered_method=True)
-        self.CancelTask = channel.unary_unary(
-                '/astra.TaskService/CancelTask',
-                request_serializer=plugin__pb2.CancelTaskRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-
-
-class TaskServiceServicer(object):
-    """============ Task Service ============
-
-    """
-
-    def GetTasks(self, request, context):
-        """Get all active background tasks
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CancelTask(self, request, context):
-        """Cancel a specific background task
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_TaskServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'GetTasks': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetTasks,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.TaskListResponse.SerializeToString,
-            ),
-            'CancelTask': grpc.unary_unary_rpc_method_handler(
-                    servicer.CancelTask,
-                    request_deserializer=plugin__pb2.CancelTaskRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.TaskService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.TaskService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class TaskService(object):
-    """============ Task Service ============
-
-    """
-
-    @staticmethod
-    def GetTasks(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.TaskService/GetTasks',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.TaskListResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CancelTask(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.TaskService/CancelTask',
-            plugin__pb2.CancelTaskRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            '/astra.MediaService/CaptureScreen',
+            plugin__pb2.CaptureScreenRequest.SerializeToString,
+            plugin__pb2.CaptureScreenResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3453,6 +4579,11 @@ class MonitorServiceStub(object):
                 request_serializer=plugin__pb2.GetSystemStatsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.SystemStats.FromString,
                 _registered_method=True)
+        self.SubscribeToolSearchEvents = channel.unary_stream(
+                '/astra.MonitorService/SubscribeToolSearchEvents',
+                request_serializer=plugin__pb2.ToolSearchSubscribeRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ToolSearchEventMsg.FromString,
+                _registered_method=True)
 
 
 class MonitorServiceServicer(object):
@@ -3474,6 +4605,15 @@ class MonitorServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubscribeToolSearchEvents(self, request, context):
+        """Subscribe to Tool Search observability events (debug feed for the
+        deferred-tool catalog). Filter by session_id to scope to one chat;
+        pass empty to receive events for every session.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MonitorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -3486,6 +4626,11 @@ def add_MonitorServiceServicer_to_server(servicer, server):
                     servicer.SubscribeSystemStats,
                     request_deserializer=plugin__pb2.GetSystemStatsRequest.FromString,
                     response_serializer=plugin__pb2.SystemStats.SerializeToString,
+            ),
+            'SubscribeToolSearchEvents': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeToolSearchEvents,
+                    request_deserializer=plugin__pb2.ToolSearchSubscribeRequest.FromString,
+                    response_serializer=plugin__pb2.ToolSearchEventMsg.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3554,137 +4699,8 @@ class MonitorService(object):
             metadata,
             _registered_method=True)
 
-
-class CompanionServiceStub(object):
-    """============ Companion Service ============
-
-    Bidirectional communication between the daemon and a 3D desktop companion (Unity).
-    The companion connects as a gRPC client and subscribes to a server-streaming command feed.
-    TTS audio is routed to the companion for lipsync playback when connected.
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.SubscribeCommands = channel.unary_stream(
-                '/astra.CompanionService/SubscribeCommands',
-                request_serializer=plugin__pb2.CompanionSubscribeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionCommand.FromString,
-                _registered_method=True)
-        self.ReportStatus = channel.unary_unary(
-                '/astra.CompanionService/ReportStatus',
-                request_serializer=plugin__pb2.CompanionStatusReport.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.ReportBlendshapes = channel.unary_unary(
-                '/astra.CompanionService/ReportBlendshapes',
-                request_serializer=plugin__pb2.CompanionBlendshapeReport.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.SendCommand = channel.unary_unary(
-                '/astra.CompanionService/SendCommand',
-                request_serializer=plugin__pb2.CompanionClientCommand.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionCommandResponse.FromString,
-                _registered_method=True)
-        self.GetCompanionStatus = channel.unary_unary(
-                '/astra.CompanionService/GetCompanionStatus',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.CompanionStatusResponse.FromString,
-                _registered_method=True)
-
-
-class CompanionServiceServicer(object):
-    """============ Companion Service ============
-
-    Bidirectional communication between the daemon and a 3D desktop companion (Unity).
-    The companion connects as a gRPC client and subscribes to a server-streaming command feed.
-    TTS audio is routed to the companion for lipsync playback when connected.
-    """
-
-    def SubscribeCommands(self, request, context):
-        """Server-streaming: companion subscribes to receive commands from daemon.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ReportStatus(self, request, context):
-        """Companion reports its current status
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ReportBlendshapes(self, request, context):
-        """Companion reports available blendshapes after model load
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def SendCommand(self, request, context):
-        """Companion sends a command/event back to the daemon
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetCompanionStatus(self, request, context):
-        """Query current companion status (called by UI clients)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_CompanionServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'SubscribeCommands': grpc.unary_stream_rpc_method_handler(
-                    servicer.SubscribeCommands,
-                    request_deserializer=plugin__pb2.CompanionSubscribeRequest.FromString,
-                    response_serializer=plugin__pb2.CompanionCommand.SerializeToString,
-            ),
-            'ReportStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReportStatus,
-                    request_deserializer=plugin__pb2.CompanionStatusReport.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'ReportBlendshapes': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReportBlendshapes,
-                    request_deserializer=plugin__pb2.CompanionBlendshapeReport.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'SendCommand': grpc.unary_unary_rpc_method_handler(
-                    servicer.SendCommand,
-                    request_deserializer=plugin__pb2.CompanionClientCommand.FromString,
-                    response_serializer=plugin__pb2.CompanionCommandResponse.SerializeToString,
-            ),
-            'GetCompanionStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetCompanionStatus,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.CompanionStatusResponse.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.CompanionService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.CompanionService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class CompanionService(object):
-    """============ Companion Service ============
-
-    Bidirectional communication between the daemon and a 3D desktop companion (Unity).
-    The companion connects as a gRPC client and subscribes to a server-streaming command feed.
-    TTS audio is routed to the companion for lipsync playback when connected.
-    """
-
     @staticmethod
-    def SubscribeCommands(request,
+    def SubscribeToolSearchEvents(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3697,1583 +4713,9 @@ class CompanionService(object):
         return grpc.experimental.unary_stream(
             request,
             target,
-            '/astra.CompanionService/SubscribeCommands',
-            plugin__pb2.CompanionSubscribeRequest.SerializeToString,
-            plugin__pb2.CompanionCommand.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ReportStatus(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.CompanionService/ReportStatus',
-            plugin__pb2.CompanionStatusReport.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ReportBlendshapes(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.CompanionService/ReportBlendshapes',
-            plugin__pb2.CompanionBlendshapeReport.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SendCommand(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.CompanionService/SendCommand',
-            plugin__pb2.CompanionClientCommand.SerializeToString,
-            plugin__pb2.CompanionCommandResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetCompanionStatus(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.CompanionService/GetCompanionStatus',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.CompanionStatusResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class McpServiceStub(object):
-    """============ MCP Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.ListServers = channel.unary_unary(
-                '/astra.McpService/ListServers',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerListResponse.FromString,
-                _registered_method=True)
-        self.AddServer = channel.unary_unary(
-                '/astra.McpService/AddServer',
-                request_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                _registered_method=True)
-        self.UpdateServer = channel.unary_unary(
-                '/astra.McpService/UpdateServer',
-                request_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.RemoveServer = channel.unary_unary(
-                '/astra.McpService/RemoveServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.StartServer = channel.unary_unary(
-                '/astra.McpService/StartServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.StopServer = channel.unary_unary(
-                '/astra.McpService/StopServer',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.GetServerTools = channel.unary_unary(
-                '/astra.McpService/GetServerTools',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpToolListResponse.FromString,
-                _registered_method=True)
-        self.SetToolEnabled = channel.unary_unary(
-                '/astra.McpService/SetToolEnabled',
-                request_serializer=plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.RefreshServerTools = channel.unary_unary(
-                '/astra.McpService/RefreshServerTools',
-                request_serializer=plugin__pb2.McpServerIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpToolListResponse.FromString,
-                _registered_method=True)
-        self.SearchCatalog = channel.unary_unary(
-                '/astra.McpService/SearchCatalog',
-                request_serializer=plugin__pb2.CatalogSearchRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CatalogSearchResponse.FromString,
-                _registered_method=True)
-        self.GetCatalogServer = channel.unary_unary(
-                '/astra.McpService/GetCatalogServer',
-                request_serializer=plugin__pb2.CatalogServerRequest.SerializeToString,
-                response_deserializer=plugin__pb2.CatalogServerMsg.FromString,
-                _registered_method=True)
-        self.InstallCatalogServer = channel.unary_unary(
-                '/astra.McpService/InstallCatalogServer',
-                request_serializer=plugin__pb2.InstallCatalogRequest.SerializeToString,
-                response_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                _registered_method=True)
-        self.CheckRuntimes = channel.unary_unary(
-                '/astra.McpService/CheckRuntimes',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.RuntimeStatusListResponse.FromString,
-                _registered_method=True)
-        self.InstallRuntime = channel.unary_unary(
-                '/astra.McpService/InstallRuntime',
-                request_serializer=plugin__pb2.InstallRuntimeRequest.SerializeToString,
-                response_deserializer=plugin__pb2.InstallRuntimeResponse.FromString,
-                _registered_method=True)
-
-
-class McpServiceServicer(object):
-    """============ MCP Service ============
-
-    """
-
-    def ListServers(self, request, context):
-        """List all configured MCP servers with status and tools
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def AddServer(self, request, context):
-        """Add a new MCP server configuration
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def UpdateServer(self, request, context):
-        """Update an existing MCP server configuration
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RemoveServer(self, request, context):
-        """Remove an MCP server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StartServer(self, request, context):
-        """Start a specific MCP server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StopServer(self, request, context):
-        """Stop a specific MCP server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetServerTools(self, request, context):
-        """Get tools for a specific server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def SetToolEnabled(self, request, context):
-        """Enable/disable a specific tool on a server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RefreshServerTools(self, request, context):
-        """Refresh tools from a running server
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def SearchCatalog(self, request, context):
-        """Catalog operations
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetCatalogServer(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def InstallCatalogServer(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CheckRuntimes(self, request, context):
-        """Runtime management
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def InstallRuntime(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_McpServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'ListServers': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListServers,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.McpServerListResponse.SerializeToString,
-            ),
-            'AddServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.AddServer,
-                    request_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                    response_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-            ),
-            'UpdateServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdateServer,
-                    request_deserializer=plugin__pb2.McpServerConfigMsg.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'RemoveServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.RemoveServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'StartServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.StartServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'StopServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.StopServer,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'GetServerTools': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetServerTools,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.McpToolListResponse.SerializeToString,
-            ),
-            'SetToolEnabled': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetToolEnabled,
-                    request_deserializer=plugin__pb2.McpSetToolEnabledRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'RefreshServerTools': grpc.unary_unary_rpc_method_handler(
-                    servicer.RefreshServerTools,
-                    request_deserializer=plugin__pb2.McpServerIdRequest.FromString,
-                    response_serializer=plugin__pb2.McpToolListResponse.SerializeToString,
-            ),
-            'SearchCatalog': grpc.unary_unary_rpc_method_handler(
-                    servicer.SearchCatalog,
-                    request_deserializer=plugin__pb2.CatalogSearchRequest.FromString,
-                    response_serializer=plugin__pb2.CatalogSearchResponse.SerializeToString,
-            ),
-            'GetCatalogServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetCatalogServer,
-                    request_deserializer=plugin__pb2.CatalogServerRequest.FromString,
-                    response_serializer=plugin__pb2.CatalogServerMsg.SerializeToString,
-            ),
-            'InstallCatalogServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.InstallCatalogServer,
-                    request_deserializer=plugin__pb2.InstallCatalogRequest.FromString,
-                    response_serializer=plugin__pb2.McpServerConfigMsg.SerializeToString,
-            ),
-            'CheckRuntimes': grpc.unary_unary_rpc_method_handler(
-                    servicer.CheckRuntimes,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.RuntimeStatusListResponse.SerializeToString,
-            ),
-            'InstallRuntime': grpc.unary_unary_rpc_method_handler(
-                    servicer.InstallRuntime,
-                    request_deserializer=plugin__pb2.InstallRuntimeRequest.FromString,
-                    response_serializer=plugin__pb2.InstallRuntimeResponse.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.McpService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.McpService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class McpService(object):
-    """============ MCP Service ============
-
-    """
-
-    @staticmethod
-    def ListServers(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/ListServers',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.McpServerListResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def AddServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/AddServer',
-            plugin__pb2.McpServerConfigMsg.SerializeToString,
-            plugin__pb2.McpServerConfigMsg.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpdateServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/UpdateServer',
-            plugin__pb2.McpServerConfigMsg.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def RemoveServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/RemoveServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StartServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/StartServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StopServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/StopServer',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetServerTools(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/GetServerTools',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.McpToolListResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SetToolEnabled(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/SetToolEnabled',
-            plugin__pb2.McpSetToolEnabledRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def RefreshServerTools(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/RefreshServerTools',
-            plugin__pb2.McpServerIdRequest.SerializeToString,
-            plugin__pb2.McpToolListResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SearchCatalog(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/SearchCatalog',
-            plugin__pb2.CatalogSearchRequest.SerializeToString,
-            plugin__pb2.CatalogSearchResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetCatalogServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/GetCatalogServer',
-            plugin__pb2.CatalogServerRequest.SerializeToString,
-            plugin__pb2.CatalogServerMsg.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def InstallCatalogServer(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/InstallCatalogServer',
-            plugin__pb2.InstallCatalogRequest.SerializeToString,
-            plugin__pb2.McpServerConfigMsg.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CheckRuntimes(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/CheckRuntimes',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.RuntimeStatusListResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def InstallRuntime(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.McpService/InstallRuntime',
-            plugin__pb2.InstallRuntimeRequest.SerializeToString,
-            plugin__pb2.InstallRuntimeResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class MarketplaceServiceStub(object):
-    """============ Marketplace Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.Browse = channel.unary_unary(
-                '/astra.MarketplaceService/Browse',
-                request_serializer=plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
-                _registered_method=True)
-        self.GetFeatured = channel.unary_unary(
-                '/astra.MarketplaceService/GetFeatured',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
-                _registered_method=True)
-        self.GetListing = channel.unary_unary(
-                '/astra.MarketplaceService/GetListing',
-                request_serializer=plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceListingDetail.FromString,
-                _registered_method=True)
-        self.Install = channel.unary_unary(
-                '/astra.MarketplaceService/Install',
-                request_serializer=plugin__pb2.MarketplaceInstallRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceInstallResponse.FromString,
-                _registered_method=True)
-        self.CheckUpdates = channel.unary_unary(
-                '/astra.MarketplaceService/CheckUpdates',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
-                _registered_method=True)
-        self.UpdateInstalled = channel.unary_unary(
-                '/astra.MarketplaceService/UpdateInstalled',
-                request_serializer=plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceInstallResponse.FromString,
-                _registered_method=True)
-        self.Uninstall = channel.unary_unary(
-                '/astra.MarketplaceService/Uninstall',
-                request_serializer=plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-        self.GetInstalled = channel.unary_unary(
-                '/astra.MarketplaceService/GetInstalled',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceGetInstalledResponse.FromString,
-                _registered_method=True)
-        self.Publish = channel.unary_unary(
-                '/astra.MarketplaceService/Publish',
-                request_serializer=plugin__pb2.MarketplacePublishRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceListingDetail.FromString,
-                _registered_method=True)
-        self.GetMyListings = channel.unary_unary(
-                '/astra.MarketplaceService/GetMyListings',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceBrowseResponse.FromString,
-                _registered_method=True)
-        self.ToggleStar = channel.unary_unary(
-                '/astra.MarketplaceService/ToggleStar',
-                request_serializer=plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceToggleStarResponse.FromString,
-                _registered_method=True)
-        self.SubmitReview = channel.unary_unary(
-                '/astra.MarketplaceService/SubmitReview',
-                request_serializer=plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceReview.FromString,
-                _registered_method=True)
-        self.GetReviews = channel.unary_unary(
-                '/astra.MarketplaceService/GetReviews',
-                request_serializer=plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.MarketplaceGetReviewsResponse.FromString,
-                _registered_method=True)
-        self.ReportListing = channel.unary_unary(
-                '/astra.MarketplaceService/ReportListing',
-                request_serializer=plugin__pb2.MarketplaceReportRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-
-
-class MarketplaceServiceServicer(object):
-    """============ Marketplace Service ============
-
-    """
-
-    def Browse(self, request, context):
-        """Browse / search marketplace listings
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetFeatured(self, request, context):
-        """Get featured / staff-pick listings
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetListing(self, request, context):
-        """Get single listing full details
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Install(self, request, context):
-        """Install a marketplace command (download + create local command)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CheckUpdates(self, request, context):
-        """Check for updates on installed marketplace commands
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def UpdateInstalled(self, request, context):
-        """Update an installed marketplace command to latest version
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Uninstall(self, request, context):
-        """Uninstall a marketplace command
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetInstalled(self, request, context):
-        """Get all installed marketplace commands with status
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Publish(self, request, context):
-        """Publish a local command to the marketplace
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetMyListings(self, request, context):
-        """Get current user's published listings
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ToggleStar(self, request, context):
-        """Star or unstar a listing
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def SubmitReview(self, request, context):
-        """Submit or update a review
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetReviews(self, request, context):
-        """Get reviews for a listing
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ReportListing(self, request, context):
-        """Report a listing
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_MarketplaceServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'Browse': grpc.unary_unary_rpc_method_handler(
-                    servicer.Browse,
-                    request_deserializer=plugin__pb2.MarketplaceBrowseRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
-            ),
-            'GetFeatured': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetFeatured,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
-            ),
-            'GetListing': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetListing,
-                    request_deserializer=plugin__pb2.MarketplaceGetListingRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceListingDetail.SerializeToString,
-            ),
-            'Install': grpc.unary_unary_rpc_method_handler(
-                    servicer.Install,
-                    request_deserializer=plugin__pb2.MarketplaceInstallRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceInstallResponse.SerializeToString,
-            ),
-            'CheckUpdates': grpc.unary_unary_rpc_method_handler(
-                    servicer.CheckUpdates,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceCheckUpdatesResponse.SerializeToString,
-            ),
-            'UpdateInstalled': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdateInstalled,
-                    request_deserializer=plugin__pb2.MarketplaceUpdateInstalledRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceInstallResponse.SerializeToString,
-            ),
-            'Uninstall': grpc.unary_unary_rpc_method_handler(
-                    servicer.Uninstall,
-                    request_deserializer=plugin__pb2.MarketplaceUninstallRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-            'GetInstalled': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetInstalled,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceGetInstalledResponse.SerializeToString,
-            ),
-            'Publish': grpc.unary_unary_rpc_method_handler(
-                    servicer.Publish,
-                    request_deserializer=plugin__pb2.MarketplacePublishRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceListingDetail.SerializeToString,
-            ),
-            'GetMyListings': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetMyListings,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.MarketplaceBrowseResponse.SerializeToString,
-            ),
-            'ToggleStar': grpc.unary_unary_rpc_method_handler(
-                    servicer.ToggleStar,
-                    request_deserializer=plugin__pb2.MarketplaceToggleStarRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceToggleStarResponse.SerializeToString,
-            ),
-            'SubmitReview': grpc.unary_unary_rpc_method_handler(
-                    servicer.SubmitReview,
-                    request_deserializer=plugin__pb2.MarketplaceSubmitReviewRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceReview.SerializeToString,
-            ),
-            'GetReviews': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetReviews,
-                    request_deserializer=plugin__pb2.MarketplaceGetReviewsRequest.FromString,
-                    response_serializer=plugin__pb2.MarketplaceGetReviewsResponse.SerializeToString,
-            ),
-            'ReportListing': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReportListing,
-                    request_deserializer=plugin__pb2.MarketplaceReportRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.MarketplaceService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.MarketplaceService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class MarketplaceService(object):
-    """============ Marketplace Service ============
-
-    """
-
-    @staticmethod
-    def Browse(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/Browse',
-            plugin__pb2.MarketplaceBrowseRequest.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetFeatured(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/GetFeatured',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetListing(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/GetListing',
-            plugin__pb2.MarketplaceGetListingRequest.SerializeToString,
-            plugin__pb2.MarketplaceListingDetail.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def Install(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/Install',
-            plugin__pb2.MarketplaceInstallRequest.SerializeToString,
-            plugin__pb2.MarketplaceInstallResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CheckUpdates(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/CheckUpdates',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceCheckUpdatesResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpdateInstalled(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/UpdateInstalled',
-            plugin__pb2.MarketplaceUpdateInstalledRequest.SerializeToString,
-            plugin__pb2.MarketplaceInstallResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def Uninstall(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/Uninstall',
-            plugin__pb2.MarketplaceUninstallRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetInstalled(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/GetInstalled',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceGetInstalledResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def Publish(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/Publish',
-            plugin__pb2.MarketplacePublishRequest.SerializeToString,
-            plugin__pb2.MarketplaceListingDetail.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetMyListings(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/GetMyListings',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.MarketplaceBrowseResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ToggleStar(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/ToggleStar',
-            plugin__pb2.MarketplaceToggleStarRequest.SerializeToString,
-            plugin__pb2.MarketplaceToggleStarResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SubmitReview(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/SubmitReview',
-            plugin__pb2.MarketplaceSubmitReviewRequest.SerializeToString,
-            plugin__pb2.MarketplaceReview.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetReviews(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/GetReviews',
-            plugin__pb2.MarketplaceGetReviewsRequest.SerializeToString,
-            plugin__pb2.MarketplaceGetReviewsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ReportListing(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.MarketplaceService/ReportListing',
-            plugin__pb2.MarketplaceReportRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class OobeServiceStub(object):
-    """============ OOBE Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.DiscoverApps = channel.unary_unary(
-                '/astra.OobeService/DiscoverApps',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
-                response_deserializer=plugin__pb2.DiscoverAppsResponse.FromString,
-                _registered_method=True)
-        self.FilterApps = channel.unary_stream(
-                '/astra.OobeService/FilterApps',
-                request_serializer=plugin__pb2.FilterAppsRequest.SerializeToString,
-                response_deserializer=plugin__pb2.OobeProgressEvent.FromString,
-                _registered_method=True)
-        self.GenerateTriggers = channel.unary_stream(
-                '/astra.OobeService/GenerateTriggers',
-                request_serializer=plugin__pb2.GenerateTriggersRequest.SerializeToString,
-                response_deserializer=plugin__pb2.OobeProgressEvent.FromString,
-                _registered_method=True)
-
-
-class OobeServiceServicer(object):
-    """============ OOBE Service ============
-
-    """
-
-    def DiscoverApps(self, request, context):
-        """Discover installed applications (Start Menu, Steam, Epic Games Store)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def FilterApps(self, request, context):
-        """Filter apps using AI to remove system utilities, keeping user-facing programs
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GenerateTriggers(self, request, context):
-        """Generate trigger phrases for apps (phonetic transliterations for non-English locales)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_OobeServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'DiscoverApps': grpc.unary_unary_rpc_method_handler(
-                    servicer.DiscoverApps,
-                    request_deserializer=plugin__pb2.Empty.FromString,
-                    response_serializer=plugin__pb2.DiscoverAppsResponse.SerializeToString,
-            ),
-            'FilterApps': grpc.unary_stream_rpc_method_handler(
-                    servicer.FilterApps,
-                    request_deserializer=plugin__pb2.FilterAppsRequest.FromString,
-                    response_serializer=plugin__pb2.OobeProgressEvent.SerializeToString,
-            ),
-            'GenerateTriggers': grpc.unary_stream_rpc_method_handler(
-                    servicer.GenerateTriggers,
-                    request_deserializer=plugin__pb2.GenerateTriggersRequest.FromString,
-                    response_serializer=plugin__pb2.OobeProgressEvent.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.OobeService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.OobeService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class OobeService(object):
-    """============ OOBE Service ============
-
-    """
-
-    @staticmethod
-    def DiscoverApps(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.OobeService/DiscoverApps',
-            plugin__pb2.Empty.SerializeToString,
-            plugin__pb2.DiscoverAppsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def FilterApps(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/astra.OobeService/FilterApps',
-            plugin__pb2.FilterAppsRequest.SerializeToString,
-            plugin__pb2.OobeProgressEvent.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GenerateTriggers(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/astra.OobeService/GenerateTriggers',
-            plugin__pb2.GenerateTriggersRequest.SerializeToString,
-            plugin__pb2.OobeProgressEvent.FromString,
+            '/astra.MonitorService/SubscribeToolSearchEvents',
+            plugin__pb2.ToolSearchSubscribeRequest.SerializeToString,
+            plugin__pb2.ToolSearchEventMsg.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6584,6 +6026,11 @@ class PluginCapabilityServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginConfigFieldsResponse.FromString,
                 _registered_method=True)
+        self.TtsActivate = channel.unary_unary(
+                '/astra.PluginCapabilityService/TtsActivate',
+                request_serializer=plugin__pb2.PluginTtsActivateRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginTtsActivateResponse.FromString,
+                _registered_method=True)
         self.SttProcess = channel.stream_stream(
                 '/astra.PluginCapabilityService/SttProcess',
                 request_serializer=plugin__pb2.PluginAudioChunk.SerializeToString,
@@ -6598,6 +6045,21 @@ class PluginCapabilityServiceStub(object):
                 '/astra.PluginCapabilityService/SttGetConfigFields',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginConfigFieldsResponse.FromString,
+                _registered_method=True)
+        self.SttLoad = channel.unary_unary(
+                '/astra.PluginCapabilityService/SttLoad',
+                request_serializer=plugin__pb2.SttLoadRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SttUnload = channel.unary_unary(
+                '/astra.PluginCapabilityService/SttUnload',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SttGetLoadState = channel.unary_unary(
+                '/astra.PluginCapabilityService/SttGetLoadState',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.SttLoadStateResponse.FromString,
                 _registered_method=True)
         self.AiComplete = channel.unary_stream(
                 '/astra.PluginCapabilityService/AiComplete',
@@ -6708,6 +6170,17 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TtsActivate(self, request, context):
+        """Deliver a licensed-voice content key (CEK) for one-time, machine-bound
+        activation. The sidecar seals it under its own machine key into a local
+        keybox and is offline forever after (see astra-vox-sidecar). A TTS provider
+        with no protected voice returns UNIMPLEMENTED and the daemon treats it as
+        "no activation needed" (fail-safe). Accepts a secret, emits none.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SttProcess(self, request_iterator, context):
         """── STT ──
         """
@@ -6729,6 +6202,30 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SttLoad(self, request, context):
+        """STT model lifecycle — lets the daemon drive load/unload so idle-unload
+        actually frees VRAM (was a no-op: plugins inherited LoadState::NotNeeded).
+        A plugin that has no loadable model simply returns UNIMPLEMENTED and the
+        daemon treats it as NotNeeded (unchanged, fail-safe). `SttLoadRequest`
+        also carries the daemon-resolved model path + GPU toggle (the whisper
+        sidecar's model selection + GPU→CPU degraded-retry knob).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SttUnload(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SttGetLoadState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AiComplete(self, request, context):
         """── AI Provider ──
         """
@@ -6737,7 +6234,15 @@ class PluginCapabilityServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AiGetModels(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """DEPRECATED — the daemon has no call site and no way to surface the answer.
+        `all_ai_providers` builds every plugin `AiProviderInfo` with
+        `supports_model_discovery: false` and an empty `default_model`, so the model
+        picker never asks a plugin what it can run; a plugin that implements this
+        does work nothing reads. Kept declared (dropping it would break the two
+        sidecars' generated trait impls, and an SDK that dials it should keep
+        getting UNIMPLEMENTED rather than a transport error), but no SDK should grow
+        a hook for it. Remove once model discovery is either wired or abandoned.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -6839,6 +6344,11 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginConfigFieldsResponse.SerializeToString,
             ),
+            'TtsActivate': grpc.unary_unary_rpc_method_handler(
+                    servicer.TtsActivate,
+                    request_deserializer=plugin__pb2.PluginTtsActivateRequest.FromString,
+                    response_serializer=plugin__pb2.PluginTtsActivateResponse.SerializeToString,
+            ),
             'SttProcess': grpc.stream_stream_rpc_method_handler(
                     servicer.SttProcess,
                     request_deserializer=plugin__pb2.PluginAudioChunk.FromString,
@@ -6853,6 +6363,21 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     servicer.SttGetConfigFields,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginConfigFieldsResponse.SerializeToString,
+            ),
+            'SttLoad': grpc.unary_unary_rpc_method_handler(
+                    servicer.SttLoad,
+                    request_deserializer=plugin__pb2.SttLoadRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SttUnload': grpc.unary_unary_rpc_method_handler(
+                    servicer.SttUnload,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SttGetLoadState': grpc.unary_unary_rpc_method_handler(
+                    servicer.SttGetLoadState,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.SttLoadStateResponse.SerializeToString,
             ),
             'AiComplete': grpc.unary_stream_rpc_method_handler(
                     servicer.AiComplete,
@@ -7090,6 +6615,33 @@ class PluginCapabilityService(object):
             _registered_method=True)
 
     @staticmethod
+    def TtsActivate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/TtsActivate',
+            plugin__pb2.PluginTtsActivateRequest.SerializeToString,
+            plugin__pb2.PluginTtsActivateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SttProcess(request_iterator,
             target,
             options=(),
@@ -7160,6 +6712,87 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/SttGetConfigFields',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginConfigFieldsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SttLoad(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/SttLoad',
+            plugin__pb2.SttLoadRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SttUnload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/SttUnload',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SttGetLoadState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/SttGetLoadState',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.SttLoadStateResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -7484,129 +7117,6 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/HealthCheck',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginHealthResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class ClientAuthServiceStub(object):
-    """============ Client Auth Service ============
-
-    """
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.RegisterClient = channel.unary_unary(
-                '/astra.ClientAuthService/RegisterClient',
-                request_serializer=plugin__pb2.RegisterClientRequest.SerializeToString,
-                response_deserializer=plugin__pb2.RegisterClientResponse.FromString,
-                _registered_method=True)
-        self.DisconnectClient = channel.unary_unary(
-                '/astra.ClientAuthService/DisconnectClient',
-                request_serializer=plugin__pb2.DisconnectClientRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
-                _registered_method=True)
-
-
-class ClientAuthServiceServicer(object):
-    """============ Client Auth Service ============
-
-    """
-
-    def RegisterClient(self, request, context):
-        """Register as a main client (astraui). Returns a session token.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DisconnectClient(self, request, context):
-        """Gracefully disconnect and release the main client slot.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_ClientAuthServiceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'RegisterClient': grpc.unary_unary_rpc_method_handler(
-                    servicer.RegisterClient,
-                    request_deserializer=plugin__pb2.RegisterClientRequest.FromString,
-                    response_serializer=plugin__pb2.RegisterClientResponse.SerializeToString,
-            ),
-            'DisconnectClient': grpc.unary_unary_rpc_method_handler(
-                    servicer.DisconnectClient,
-                    request_deserializer=plugin__pb2.DisconnectClientRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'astra.ClientAuthService', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('astra.ClientAuthService', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class ClientAuthService(object):
-    """============ Client Auth Service ============
-
-    """
-
-    @staticmethod
-    def RegisterClient(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.ClientAuthService/RegisterClient',
-            plugin__pb2.RegisterClientRequest.SerializeToString,
-            plugin__pb2.RegisterClientResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DisconnectClient(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/astra.ClientAuthService/DisconnectClient',
-            plugin__pb2.DisconnectClientRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
