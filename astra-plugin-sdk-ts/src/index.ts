@@ -19,10 +19,11 @@
  */
 
 export { Plugin } from "./plugin";
-export { HostClient } from "./host-client";
+export { HostClient, RegistrationError } from "./host-client";
+export type { RegisterResponse, DaemonInfo } from "./host-client";
 export { DaemonClient } from "./daemon-client";
 export { I18n } from "./i18n";
-export { Field } from "./types";
+export { Field, UiContrib } from "./types";
 export type {
   ToolDef,
   ToolResult,
@@ -34,5 +35,9 @@ export type {
   FieldDef,
   ActionTypeDef,
   TriggerTypeDef,
+  UiContribution,
+  UiCallResult,
   UiPanel,
 } from "./types";
+export { ProtoContractError } from "./service-contract";
+export { PROTO_SHA256, PROTO_SOURCE, SERVICE_METHODS } from "./generated";

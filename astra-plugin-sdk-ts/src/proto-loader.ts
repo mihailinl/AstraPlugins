@@ -1,370 +1,67 @@
 /**
- * Shared proto loader — embeds the proto definition as a string so it works
- * in both development and bundled (Bun/esbuild) contexts without filesystem
- * access to the .proto file.
+ * Loads the Astra protocol from the descriptor generated at build time by
+ * `tools/gen-descriptor.mjs` out of the repo's canonical `proto/plugin.proto`.
+ *
+ * There is no `.proto` text in this package's source and nothing is written to
+ * disk at import time. The previous implementation embedded the protocol as an
+ * inline template string, wrote it to `os.tmpdir()` and loaded it back — which
+ * both drifted from the real proto and made the SDK unusable anywhere the temp
+ * directory is read-only.
  */
 
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import { descriptor, PROTO_PACKAGE, PROTO_SOURCE } from "./generated";
+import { ProtoContractError } from "./service-contract";
 
-// Embed the proto definition inline so bundlers don't need fs access
-const PROTO_CONTENT = `syntax = "proto3";
-package astra;
-
-message Empty {}
-
-service PluginHostService {
-    rpc Register(PluginRegisterRequest) returns (PluginRegisterResponse);
-    rpc SubscribeEvents(PluginEventFilter) returns (stream PluginEventMsg);
-    rpc SendChatMessage(PluginChatRequest) returns (stream PluginChatChunk);
-    rpc FireTrigger(PluginFireTriggerRequest) returns (Empty);
-    rpc GetPluginSelfConfig(PluginSelfIdRequest) returns (PluginSelfConfigResponse);
-    rpc PluginLog(PluginLogRequest) returns (Empty);
-    rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
-    rpc SetVariable(PluginSetVariableRequest) returns (Empty);
-    rpc PushToUi(PluginUiPushRequest) returns (Empty);
-}
-
-service PluginCapabilityService {
-    rpc ListTools(Empty) returns (PluginToolListResponse);
-    rpc CallTool(PluginCallToolRequest) returns (PluginCallToolResponse);
-    rpc TtsSynthesize(PluginTtsSynthesizeRequest) returns (PluginTtsSynthesizeResponse);
-    rpc TtsSynthesizeStream(PluginTtsSynthesizeRequest) returns (stream PluginAudioChunk);
-    rpc TtsListVoices(Empty) returns (PluginTtsVoicesResponse);
-    rpc SttProcess(stream PluginAudioChunk) returns (stream PluginSttEvent);
-    rpc SttGetLanguages(Empty) returns (PluginSttLanguagesResponse);
-    rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
-    rpc AiGetModels(Empty) returns (PluginAiModelsResponse);
-    rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
-    rpc GetPluginActionTypes(Empty) returns (PluginActionTypesResponse);
-    rpc GetPluginTriggerTypes(Empty) returns (PluginTriggerTypesResponse);
-    rpc GetUiContributions(Empty) returns (PluginUiContributionsResponse);
-    rpc CallFromUi(PluginUiCallRequest) returns (PluginUiCallResponse);
-    rpc OnConfigChanged(PluginConfigChangedMsg) returns (Empty);
-    rpc OnActiveTriggers(PluginActiveTriggersMsg) returns (Empty);
-    rpc Shutdown(Empty) returns (Empty);
-    rpc HealthCheck(Empty) returns (PluginHealthResponse);
-}
-
-message PluginRegisterRequest {
-    string plugin_id = 1;
-    uint32 port = 2;
-    repeated string capabilities = 3;
-    string auth_token = 4;
-}
-
-message PluginRegisterResponse {
-    bool success = 1;
-    string error = 2;
-    string config_json = 3;
-    string daemon_version = 4;
-    string client_session_token = 5;
-}
-
-message PluginEventFilter {
-    string plugin_id = 1;
-    repeated string event_types = 2;
-}
-
-message PluginEventMsg {
-    string event_type = 1;
-    string payload_json = 2;
-    int64 timestamp = 3;
-}
-
-message PluginChatRequest {
-    string text = 1;
-    string source_id = 2;
-    string conversation_id = 3;
-    bool voice_enabled = 4;
-}
-
-message PluginChatChunk {
-    oneof content {
-        string text = 1;
-        bool done = 2;
-        string error = 3;
-    }
-    string message_id = 4;
-}
-
-message PluginFireTriggerRequest {
-    string trigger_type = 1;
-    string payload_json = 2;
-}
-
-message PluginSelfIdRequest {
-    string plugin_id = 1;
-}
-
-message PluginSelfConfigResponse {
-    string config_json = 1;
-}
-
-message PluginLogRequest {
-    string plugin_id = 1;
-    string level = 2;
-    string message = 3;
-}
-
-message PluginDaemonInfoResponse {
-    string version = 1;
-    string state = 2;
-    uint32 grpc_port = 3;
-}
-
-message PluginToolDef {
-    string name = 1;
-    string description = 2;
-    string parameters_json = 3;
-}
-
-message PluginToolListResponse {
-    repeated PluginToolDef tools = 1;
-}
-
-message PluginCallToolRequest {
-    string tool_name = 1;
-    string arguments_json = 2;
-}
-
-message PluginCallToolResponse {
-    bool success = 1;
-    string result = 2;
-    string error = 3;
-}
-
-message PluginTtsSynthesizeRequest {
-    string text = 1;
-    string voice_id = 2;
-    float speed = 3;
-    float pitch = 4;
-}
-
-message PluginTtsSynthesizeResponse {
-    bytes audio_data = 1;
-    string format = 2;
-    uint32 sample_rate = 3;
-    uint32 duration_ms = 4;
-}
-
-message PluginAudioChunk {
-    bytes data = 1;
-    bool is_last = 2;
-    uint32 sample_rate = 3;
-}
-
-message PluginVoiceInfo {
-    string id = 1;
-    string name = 2;
-    string language = 3;
-    string gender = 4;
-    string preview_url = 5;
-}
-
-message PluginTtsVoicesResponse {
-    repeated PluginVoiceInfo voices = 1;
-}
-
-message PluginSttEvent {
-    string text = 1;
-    bool is_final = 2;
-    float confidence = 3;
-    string language = 4;
-}
-
-message PluginSttLanguagesResponse {
-    repeated string languages = 1;
-}
-
-message PluginAiCompleteRequest {
-    repeated PluginAiMessage messages = 1;
-    repeated PluginToolDef tools = 2;
-    string system_prompt = 3;
-    float temperature = 4;
-    uint32 max_tokens = 5;
-    string model = 6;
-}
-
-message PluginAiMessage {
-    string role = 1;
-    string content = 2;
-    string tool_call_id = 3;
-    repeated PluginAiToolCall tool_calls = 4;
-}
-
-message PluginAiToolCall {
-    string id = 1;
-    string name = 2;
-    string arguments_json = 3;
-}
-
-message PluginAiStreamChunk {
-    oneof content {
-        string text_delta = 1;
-        PluginAiToolCall tool_call = 2;
-        string thinking_delta = 3;
-        bool done = 4;
-        string error = 5;
-    }
-}
-
-message PluginAiModelsResponse {
-    repeated PluginAiModelInfo models = 1;
-    string default_model = 2;
-}
-
-message PluginAiModelInfo {
-    string id = 1;
-    string name = 2;
-}
-
-message PluginExecuteActionRequest {
-    string action_type = 1;
-    string params_json = 2;
-}
-
-message PluginExecuteActionResponse {
-    bool success = 1;
-    string result = 2;
-    string error = 3;
-}
-
-message FieldDefinitionMsg {
-    string id = 1;
-    string label = 2;
-    string field_type = 3;
-    string placeholder = 4;
-    string default_value = 5;
-    double min = 6;
-    double max = 7;
-    double step = 8;
-    repeated DropdownOptionMsg options = 9;
-    bool has_min = 10;
-    bool has_max = 11;
-    bool has_step = 12;
-    repeated FieldVisibilityCondition conditions = 13;
-    string description = 14;
-    string group = 15;
-    string group_label = 16;
-}
-
-message DropdownOptionMsg {
-    string value = 1;
-    string label = 2;
-}
-
-message FieldVisibilityCondition {
-    string field_id = 1;
-    string operator = 2;
-    string value = 3;
-}
-
-message ActionTypeDefinitionMsg {
-    string type = 1;
-    string label = 2;
-    string icon_svg = 3;
-    repeated FieldDefinitionMsg fields = 4;
-    bool ai_available = 5;
-    string ai_description = 6;
-    string ai_primary_field = 7;
-}
-
-message PluginActionTypesResponse {
-    repeated ActionTypeDefinitionMsg types = 1;
-}
-
-message TriggerTypeDefinitionMsg {
-    string type = 1;
-    string label = 2;
-    string icon_svg = 3;
-    repeated FieldDefinitionMsg fields = 4;
-}
-
-message PluginTriggerTypesResponse {
-    repeated TriggerTypeDefinitionMsg types = 1;
-}
-
-message PluginUiContribution {
-    string id = 1;
-    string slot = 2;
-    string css_target = 3;
-    string position = 4;
-    string url = 5;
-    string label = 6;
-    string icon_svg = 7;
-    int32 width = 8;
-    int32 height = 9;
-    bool transparent = 10;
-    bool pointer_events = 11;
-    int32 z_index = 12;
-    map<string, string> props = 13;
-}
-
-message PluginUiContributionsResponse {
-    repeated PluginUiContribution contributions = 1;
-}
-
-message PluginUiCallRequest {
-    string method = 1;
-    string params_json = 2;
-}
-
-message PluginUiCallResponse {
-    string result_json = 1;
-    string error = 2;
-}
-
-message PluginActiveTriggersMsg {
-    repeated string trigger_types = 1;
-}
-
-message PluginSetVariableRequest {
-    string plugin_id = 1;
-    string name = 2;
-    string value = 3;
-    string scope = 4;
-}
-
-message PluginUiPushRequest {
-    string plugin_id = 1;
-    string event = 2;
-    string payload_json = 3;
-}
-
-message PluginConfigChangedMsg {
-    string config_json = 1;
-}
-
-message PluginHealthResponse {
-    bool healthy = 1;
-    string status = 2;
-}
-`;
-
-// Write proto to a temp file and load it — works in both dev and bundled contexts
-const tmpProtoPath = path.join(os.tmpdir(), `astra-plugin-${process.pid}.proto`);
-fs.writeFileSync(tmpProtoPath, PROTO_CONTENT);
-
-const packageDefinition = protoLoader.loadSync(tmpProtoPath, {
+/**
+ * Field naming on the wire objects. `keepCase: false` means every message field
+ * is lowerCamelCase in TypeScript (`config_fields` -> `configFields`); all three
+ * SDKs' handlers depend on this.
+ */
+const LOAD_OPTIONS: protoLoader.Options = {
   keepCase: false,
   longs: String,
   enums: String,
   defaults: true,
   oneofs: true,
-});
+};
 
-// Clean up temp file
-try {
-  fs.unlinkSync(tmpProtoPath);
-} catch {
-  // Ignore cleanup errors
+const packageDefinition = protoLoader.fromJSON(
+  descriptor as unknown as Parameters<typeof protoLoader.fromJSON>[0],
+  LOAD_OPTIONS
+);
+
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as unknown as Record<
+  string,
+  Record<string, unknown>
+>;
+
+const pkg = protoDescriptor[PROTO_PACKAGE];
+if (!pkg) {
+  throw new ProtoContractError(
+    `generated descriptor has no \`${PROTO_PACKAGE}\` package — regenerate it with \`npm run generate\``
+  );
 }
 
-const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
+/** Every service declared by `proto/plugin.proto`, under `package astra`. */
+export const astraProto = pkg as Record<string, grpc.ServiceClientConstructor>;
 
-// Package is "astra" (not "astra.plugin")
-export const astraProto = protoDescriptor.astra;
+/**
+ * Look up a service constructor by name.
+ *
+ * @throws {ProtoContractError} naming the service and the source proto, rather
+ *   than letting `new undefined(...)` surface as a bare `TypeError`.
+ */
+export function service(name: string): grpc.ServiceClientConstructor {
+  const ctor = astraProto[name];
+  if (typeof ctor !== "function") {
+    throw new ProtoContractError(
+      `${PROTO_SOURCE} declares no \`service ${name}\` under package \`${PROTO_PACKAGE}\`. ` +
+        `Regenerate the descriptor with \`npm run generate\`.`
+    );
+  }
+  return ctor;
+}
+
+export { packageDefinition };

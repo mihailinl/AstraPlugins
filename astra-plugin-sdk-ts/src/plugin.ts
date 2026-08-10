@@ -4,7 +4,9 @@
 
 import * as grpc from "@grpc/grpc-js";
 import { HostClient } from "./host-client";
-import { astraProto } from "./proto-loader";
+import { service } from "./proto-loader";
+import { addServiceChecked, type HandlerMap } from "./service-contract";
+import { capabilityAuthMode, guardHandlers } from "./capability-auth";
 import type {
   ToolDef,
   ToolResult,
@@ -16,11 +18,10 @@ import type {
   ActionTypeDef,
   TriggerTypeDef,
   UiContribution,
+  UiCallResult,
   FieldDef,
 } from "./types";
 import { DaemonClient } from "./daemon-client";
-
-const pluginProto = astraProto;
 
 export abstract class Plugin {
   /** Client for calling daemon services. Available after registration. */
@@ -47,40 +48,31 @@ export abstract class Plugin {
     const server = new grpc.Server();
     this.server = server;
 
-    // Add PluginCapabilityService
-    server.addService(pluginProto.PluginCapabilityService.service, {
-      ListTools: this.wrapHandler(this.handleListTools.bind(this)),
-      CallTool: this.wrapHandler(this.handleCallTool.bind(this)),
-      TtsSynthesize: this.wrapHandler(this.handleTtsSynthesize.bind(this)),
-      TtsListVoices: this.wrapHandler(this.handleTtsListVoices.bind(this)),
-      TtsGetConfigFields: this.wrapHandler(this.handleTtsGetConfigFields.bind(this)),
-      SttGetLanguages: this.wrapHandler(this.handleSttGetLanguages.bind(this)),
-      SttGetConfigFields: this.wrapHandler(this.handleSttGetConfigFields.bind(this)),
-      AiGetModels: this.wrapHandler(this.handleAiGetModels.bind(this)),
-      ExecuteAction: this.wrapHandler(this.handleExecuteAction.bind(this)),
-      GetPluginActionTypes: this.wrapHandler(this.handleGetActionTypes.bind(this)),
-      GetPluginTriggerTypes: this.wrapHandler(this.handleGetTriggerTypes.bind(this)),
-      GetUiContributions: this.wrapHandler(this.handleGetUiContributions.bind(this)),
-      OnConfigChanged: this.wrapHandler(this.handleOnConfigChanged.bind(this)),
-      OnActiveTriggers: this.wrapHandler(this.handleOnActiveTriggers.bind(this)),
-      OnLanguageChanged: this.wrapHandler(this.handleOnLanguageChanged.bind(this)),
-      Shutdown: this.wrapHandler(this.handleShutdown.bind(this)),
-      HealthCheck: this.wrapHandler(this.handleHealthCheck.bind(this)),
-      // Streaming RPCs — stubs
-      TtsSynthesizeStream: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "Streaming TTS not implemented",
-        });
-      },
-      SttProcess: this.handleSttProcess.bind(this),
-      AiComplete: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "AI provider not implemented",
-        });
-      },
-    });
+    // SECURITY: the capability server is the daemon's way into this plugin's
+    // tools, config and shutdown, and loopback separates it from nothing — any
+    // process of the same user can dial the port. The guard demands the daemon
+    // hand back the spawn-time `--auth-token`, which only it and this process
+    // know. Staged; see `capability-auth.ts`.
+    const mode = capabilityAuthMode();
+    if (!args.authToken || mode === "off") {
+      console.warn(
+        "Capability server is unauthenticated — any local process can call this plugin. " +
+          "(No --auth-token was passed, or the check is switched off.)"
+      );
+    }
+
+    // Every `PluginCapabilityService` method must have a handler and every
+    // handler must name a real method — `addServiceChecked` throws a
+    // `ProtoContractError` here rather than letting grpc-js drop a misspelled
+    // handler or answer a missing one with UNIMPLEMENTED at runtime. The guard
+    // wraps handlers, never adds or removes keys, so it runs before the check
+    // and the check still sees the real handler map.
+    addServiceChecked(
+      server,
+      "PluginCapabilityService",
+      service("PluginCapabilityService").service,
+      guardHandlers(this.capabilityHandlers(), args.authToken, mode)
+    );
 
     // Bind to random port
     server.bindAsync(
@@ -94,27 +86,30 @@ export abstract class Plugin {
 
         console.log(`Plugin gRPC server listening on port ${port}`);
 
-        // Connect to daemon and register
-        this.host = new HostClient(args.daemonAddr, args.pluginId);
-        await this.host.connect();
-
         const capabilities = await this.discoverCapabilities();
         console.log(`Registering with capabilities: ${capabilities.join(", ")}`);
 
         try {
-          const response = await this.host.register(port, capabilities, args.authToken);
-          if (!response.success) {
-            console.error(`Registration failed: ${response.error}`);
-            process.exit(1);
-          }
+          // `HostClient.register` performs the one unauthenticated bootstrap
+          // call and hands back a client already carrying `x-session-token`.
+          const { host, response } = await HostClient.register({
+            daemonAddr: args.daemonAddr,
+            pluginId: args.pluginId,
+            port,
+            capabilities,
+            authToken: args.authToken,
+          });
+          this.host = host;
           console.log(
             `Registered successfully. Daemon version: ${response.daemonVersion}`
           );
 
-          // If plugin has client capability and received a session token, create DaemonClient
-          // and attach to the chat firehose so `onConversationEvent` receives
-          // every chat event across every conversation.
-          if (response.clientSessionToken) {
+          // The daemon issues a session token to EVERY plugin (it gates the host
+          // RPCs, not just the daemon API), so the token alone no longer means
+          // "client capability" — gate on `isClient()` instead. Attach to the chat
+          // firehose so `onConversationEvent` receives every chat event across
+          // every conversation.
+          if (this.isClient()) {
             this.daemon = new DaemonClient(args.daemonAddr, response.clientSessionToken);
             await this.daemon.connect();
             await this.onDaemonClientReady(this.daemon);
@@ -233,6 +228,20 @@ export abstract class Plugin {
   async getUiContributions(): Promise<UiContribution[]> {
     return [];
   }
+  /** Handle a call from this plugin's UI iframe (`CallFromUi`).
+   *
+   * Override this to implement UI→backend communication. `paramsJson` is the
+   * raw JSON the iframe sent. Return either:
+   *
+   * - a `UiCallResult` (`{ resultJson, error }`) — used verbatim;
+   * - a string — used as `resultJson` as-is;
+   * - any other value — auto-serialized into `resultJson`;
+   * - `null`/`undefined` — an empty success.
+   *
+   * A thrown error is reported in the response's `error` field. */
+  async handleUiCall(method: string, _paramsJson: string): Promise<unknown> {
+    return { error: `No UI call handler implemented (method: ${method})` };
+  }
   async onConfigChanged(_config: Record<string, unknown>): Promise<void> {}
   /** Called when the daemon's UI language changes. Override to update locale. */
   async onLanguageChanged(_language: string): Promise<void> {}
@@ -278,6 +287,10 @@ export abstract class Plugin {
   async fireTrigger(triggerType: string, payload?: Record<string, unknown>): Promise<void> {
     if (this.host) await this.host.fireTrigger(triggerType, payload ? JSON.stringify(payload) : "{}");
   }
+  /** Push an event to this plugin's UI contributions (the reverse of `handleUiCall`). */
+  async pushToUi(event: string, payload?: Record<string, unknown>): Promise<void> {
+    if (this.host) await this.host.pushToUi(event, payload ? JSON.stringify(payload) : "{}");
+  }
 
   // ── Internal ──
 
@@ -310,6 +323,47 @@ export abstract class Plugin {
     if ((await this.getUiContributions()).length > 0) caps.push("ui_contributions");
     if (this.isClient()) caps.push("client");
     return caps;
+  }
+
+  /**
+   * The complete `PluginCapabilityService` handler map — one entry per method
+   * the proto declares, checked against the descriptor by `addServiceChecked`.
+   */
+  private capabilityHandlers(): HandlerMap {
+    return {
+      ListTools: this.wrapHandler(this.handleListTools.bind(this)),
+      CallTool: this.wrapHandler(this.handleCallTool.bind(this)),
+      TtsSynthesize: this.wrapHandler(this.handleTtsSynthesize.bind(this)),
+      TtsListVoices: this.wrapHandler(this.handleTtsListVoices.bind(this)),
+      TtsGetConfigFields: this.wrapHandler(this.handleTtsGetConfigFields.bind(this)),
+      SttGetLanguages: this.wrapHandler(this.handleSttGetLanguages.bind(this)),
+      SttGetConfigFields: this.wrapHandler(this.handleSttGetConfigFields.bind(this)),
+      AiGetModels: this.wrapHandler(this.handleAiGetModels.bind(this)),
+      ExecuteAction: this.wrapHandler(this.handleExecuteAction.bind(this)),
+      GetPluginActionTypes: this.wrapHandler(this.handleGetActionTypes.bind(this)),
+      GetPluginTriggerTypes: this.wrapHandler(this.handleGetTriggerTypes.bind(this)),
+      GetUiContributions: this.wrapHandler(this.handleGetUiContributions.bind(this)),
+      CallFromUi: this.wrapHandler(this.handleCallFromUi.bind(this)),
+      OnConfigChanged: this.wrapHandler(this.handleOnConfigChanged.bind(this)),
+      OnActiveTriggers: this.wrapHandler(this.handleOnActiveTriggers.bind(this)),
+      OnLanguageChanged: this.wrapHandler(this.handleOnLanguageChanged.bind(this)),
+      Shutdown: this.wrapHandler(this.handleShutdown.bind(this)),
+      HealthCheck: this.wrapHandler(this.handleHealthCheck.bind(this)),
+      // Streaming RPCs — stubs
+      TtsSynthesizeStream: (call: any) => {
+        call.emit("error", {
+          code: grpc.status.UNIMPLEMENTED,
+          details: "Streaming TTS not implemented",
+        });
+      },
+      SttProcess: this.handleSttProcess.bind(this),
+      AiComplete: (call: any) => {
+        call.emit("error", {
+          code: grpc.status.UNIMPLEMENTED,
+          details: "AI provider not implemented",
+        });
+      },
+    } as unknown as HandlerMap;
   }
 
   private wrapHandler(handler: (call: any) => Promise<any>) {
@@ -377,14 +431,16 @@ export abstract class Plugin {
     return { languages };
   }
 
+  // `PluginConfigFieldsResponse.config_fields` is loaded with `keepCase: false`,
+  // so the wire object's key is `configFields`. A `config_fields` key is silently
+  // dropped by protobufjs and the daemon sees an empty field list.
+
   private async handleTtsGetConfigFields(_call: any) {
-    const config_fields = await this.ttsConfigFields();
-    return { config_fields };
+    return { configFields: await this.ttsConfigFields() };
   }
 
   private async handleSttGetConfigFields(_call: any) {
-    const config_fields = await this.sttConfigFields();
-    return { config_fields };
+    return { configFields: await this.sttConfigFields() };
   }
 
   /** Bidi-streaming `SttProcess`: accumulate `PluginAudioChunk`s, then run
@@ -464,6 +520,33 @@ export abstract class Plugin {
       zIndex: c.zIndex || 0,
       props: c.props || {},
     })) };
+  }
+
+  private async handleCallFromUi(call: any) {
+    const method: string = call.request.method ?? "";
+    const paramsJson: string = call.request.paramsJson ?? "";
+
+    let result: unknown;
+    try {
+      result = await this.handleUiCall(method, paramsJson);
+    } catch (e: any) {
+      return { resultJson: "", error: String(e?.message ?? e) };
+    }
+
+    if (result === null || result === undefined) return { resultJson: "", error: "" };
+    if (typeof result === "string") return { resultJson: result, error: "" };
+    if (typeof result === "object" && ("resultJson" in result || "error" in result)) {
+      const r = result as UiCallResult;
+      return { resultJson: r.resultJson ?? "", error: r.error ?? "" };
+    }
+    try {
+      return { resultJson: JSON.stringify(result), error: "" };
+    } catch (e: any) {
+      return {
+        resultJson: "",
+        error: `handleUiCall returned a non-serializable result: ${e.message}`,
+      };
+    }
   }
 
   private async handleOnConfigChanged(call: any) {

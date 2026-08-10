@@ -63,6 +63,11 @@ export interface FieldDef {
   min?: number;
   max?: number;
   step?: number;
+  /** Whether `min` is meaningful. proto3 cannot tell an unset `double` from 0,
+   * so the daemon reads these flags, not the values. `Field.number` sets them. */
+  hasMin?: boolean;
+  hasMax?: boolean;
+  hasStep?: boolean;
   options?: { value: string; label: string }[];
   conditions?: { fieldId: string; operator: string; value: string }[];
   description?: string;
@@ -108,6 +113,14 @@ export interface UiContribution {
 
 /** @deprecated Use UiContribution instead */
 export type UiPanel = UiContribution;
+
+/** Explicit answer to a `CallFromUi` request — mirrors `PluginUiCallResponse`. */
+export interface UiCallResult {
+  /** JSON handed back to the iframe. */
+  resultJson?: string;
+  /** Non-empty means the call failed. */
+  error?: string;
+}
 
 /** Builder for UI contributions. */
 export const UiContrib = {
@@ -155,7 +168,14 @@ export const Field = {
     return { id, label, fieldType: "dropdown", options, defaultValue: opts.default, description: opts.description, conditions: opts.conditions };
   },
   number(id: string, label: string, opts?: { min?: number; max?: number; step?: number; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
-    return { id, label, fieldType: "number", min: opts?.min, max: opts?.max, step: opts?.step, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions };
+    return {
+      id, label, fieldType: "number",
+      min: opts?.min, max: opts?.max, step: opts?.step,
+      // Without these the daemon reads every bound as "unset" and renders an
+      // unbounded input, because proto3 sends an absent double as 0.0.
+      hasMin: opts?.min !== undefined, hasMax: opts?.max !== undefined, hasStep: opts?.step !== undefined,
+      defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions,
+    };
   },
   toggle(id: string, label: string, opts?: { default?: boolean; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
     return { id, label, fieldType: "toggle", defaultValue: opts?.default ? "true" : "false", description: opts?.description, conditions: opts?.conditions };

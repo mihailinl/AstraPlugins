@@ -1,11 +1,16 @@
 {
   "name": "astra-plugin-sdk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "TypeScript SDK for building Astra plugins",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "generate": "node tools/gen-descriptor.mjs",
+    "prebuild": "node tools/gen-descriptor.mjs",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tools/contract.test.mjs",
+    "pretest": "node tools/gen-descriptor.mjs && tsc"
   },
   "files": [
     "dist/",
@@ -17,7 +22,8 @@
   },
   "devDependencies": {
     "typescript": "^5.4.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "protobufjs": "^7.2.5"
   },
   "license": "MIT",
   "repository": {

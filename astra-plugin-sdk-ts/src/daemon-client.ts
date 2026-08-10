@@ -5,6 +5,14 @@
  * The daemon issues a session token during registration, and this client
  * injects it as `x-session-token` metadata on every gRPC request.
  *
+ * Every stub is built from the descriptor generated out of the repo's canonical
+ * `proto/plugin.proto` (see `proto-loader.ts`). It used to be built from a
+ * second inline copy of the protocol that predated the chat event-sourcing
+ * migration, so `SubmitUserMessage`, `SubscribeEvents`, `RespondToConfirmation`
+ * and `ClearConversation` were `undefined` on the stub and every call threw a
+ * bare `TypeError`. `connect()` now asserts up front that each stub really
+ * exposes the methods this class calls.
+ *
  * @example
  * ```ts
  * class MyBot extends Plugin {
@@ -19,306 +27,90 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import { service } from "./proto-loader";
+import { assertClientContract } from "./service-contract";
 
-// Embedded proto for daemon services the DaemonClient needs.
-// Kept separate from the plugin proto (proto-loader.ts) for clarity.
-const DAEMON_PROTO_CONTENT = `syntax = "proto3";
-package astra;
+/** Metadata header the daemon's auth interceptor reads. */
+const SESSION_TOKEN_HEADER = "x-session-token";
 
-message Empty {}
+/** Methods this class calls, per service. Checked against the descriptor in `connect()`. */
+const REQUIRED_METHODS: Record<string, readonly string[]> = {
+  CoreService: ["GetState", "SubscribeEvents"],
+  ChatService: [
+    "SubmitUserMessage",
+    "SubscribeEvents",
+    "StopGeneration",
+    "RespondToConfirmation",
+    "ListConversations",
+    "CreateConversation",
+    "DeleteConversation",
+    "ClearConversation",
+  ],
+  VoiceService: ["Speak", "StopSpeaking", "StartListening", "StopListening"],
+  CommandService: ["List", "Execute"],
+  ConfigService: ["GetSettings"],
+  MediaService: ["GetMediaState", "ControlMedia", "GetMediaSessions"],
+  MonitorService: ["GetSystemStats"],
+};
 
-message Timestamp {
-    int64 seconds = 1;
-    int32 nanos = 2;
-}
-
-// ============ Core Service ============
-
-service CoreService {
-    rpc GetState(Empty) returns (CoreStateResponse);
-    rpc Start(Empty) returns (Empty);
-    rpc Stop(Empty) returns (Empty);
-    rpc SubscribeEvents(Empty) returns (stream AstraEvent);
-}
-
-message CoreStateResponse {
-    int32 state = 1;
-    bool stt_ready = 2;
-    bool tts_ready = 3;
-    bool ai_ready = 4;
-    bool authenticated = 5;
-    bool needs_oobe = 6;
-    string version = 7;
-    string startup_status = 8;
-}
-
-message AstraEvent {
-    Timestamp timestamp = 1;
-}
-
-// ============ Chat Service ============
-
-service ChatService {
-    rpc SendMessage(SendMessageRequest) returns (stream ChatStreamChunk);
-    rpc StopGeneration(StopGenerationRequest) returns (Empty);
-    rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
-    rpc ClearHistory(ClearHistoryRequest) returns (Empty);
-    rpc ListConversations(Empty) returns (ListConversationsResponse);
-    rpc CreateConversation(CreateConversationRequest) returns (Conversation);
-    rpc DeleteConversation(DeleteConversationRequest) returns (Empty);
-}
-
-message SendMessageRequest {
-    string text = 1;
-    string conversation_id = 2;
-    bool voice_enabled = 3;
-    repeated string attachments = 4;
-    string source_id = 5;
-}
-
-message StopGenerationRequest {
-    string conversation_id = 1;
-}
-
-message ChatStreamChunk {
-    oneof chunk {
-        string text = 1;
-        ToolExecution tool = 2;
-        bool done = 3;
-        string error = 4;
-        string thinking = 6;
-        string voice = 7;
-    }
-    string message_id = 5;
-    string conversation_id = 8;
-}
-
-message ToolExecution {
-    string name = 1;
-    string arguments = 2;
-    string result = 3;
-    bool completed = 4;
-}
-
-message GetHistoryRequest {
-    string conversation_id = 1;
-    int32 limit = 2;
-    int32 offset = 3;
-}
-
-message GetHistoryResponse {
-    repeated ChatMessage messages = 1;
-    int32 total_count = 2;
-}
-
-message ChatMessage {
-    string id = 1;
-    string conversation_id = 2;
-    int32 role = 3;
-    string content = 4;
-    Timestamp created_at = 6;
-}
-
-message ClearHistoryRequest {
-    string conversation_id = 1;
-}
-
-message ListConversationsResponse {
-    repeated Conversation conversations = 1;
-}
-
-message Conversation {
-    string id = 1;
-    string title = 2;
-    Timestamp created_at = 3;
-    Timestamp updated_at = 4;
-    int32 message_count = 5;
-}
-
-message CreateConversationRequest {
-    string title = 1;
-}
-
-message DeleteConversationRequest {
-    string id = 1;
-}
-
-// ============ Voice Service ============
-
-service VoiceService {
-    rpc StartListening(Empty) returns (Empty);
-    rpc StopListening(Empty) returns (Empty);
-    rpc Speak(SpeakRequest) returns (Empty);
-    rpc StopSpeaking(Empty) returns (Empty);
-}
-
-message SpeakRequest {
-    string text = 1;
-    string voice_id = 2;
-    bool interrupt = 3;
-}
-
-// ============ Command Service ============
-
-service CommandService {
-    rpc List(ListCommandsRequest) returns (CommandListResponse);
-    rpc Execute(ExecuteCommandRequest) returns (ExecuteCommandResponse);
-}
-
-message ListCommandsRequest {
-    bool include_disabled = 1;
-}
-
-message CommandListResponse {
-    repeated CommandDefinition commands = 1;
-}
-
-message CommandDefinition {
-    string id = 1;
-    string name = 2;
-    bool enabled = 5;
-    string description = 8;
-    repeated string tags = 9;
-}
-
-message ExecuteCommandRequest {
-    string id = 1;
-    map<string, string> variables = 2;
-    string entry_node_id = 3;
-}
-
-message ExecuteCommandResponse {
-    bool success = 1;
-    string output = 2;
-    string error = 3;
-}
-
-// ============ Config Service ============
-
-service ConfigService {
-    rpc GetSettings(Empty) returns (SettingsResponse);
-}
-
-message SettingsResponse {
-    string settings_json = 1;
-}
-
-// ============ Media Service ============
-
-service MediaService {
-    rpc GetMediaState(GetMediaStateRequest) returns (MediaState);
-    rpc ControlMedia(ControlMediaRequest) returns (Empty);
-    rpc GetMediaSessions(GetMediaSessionsRequest) returns (GetMediaSessionsResponse);
-}
-
-message GetMediaStateRequest {
-    string session_id = 1;
-}
-
-message MediaState {
-    string title = 1;
-    string artist = 2;
-    string album = 3;
-    int32 playback_status = 4;
-    double position_seconds = 5;
-    double duration_seconds = 6;
-    bytes thumbnail = 7;
-    string session_id = 8;
-}
-
-message ControlMediaRequest {
-    int32 action = 1;
-    string session_id = 2;
-    double seek_position_seconds = 3;
-}
-
-message GetMediaSessionsRequest {}
-
-message MediaSessionInfo {
-    string session_id = 1;
-    string source = 2;
-    string title = 3;
-    string artist = 4;
-}
-
-message GetMediaSessionsResponse {
-    repeated MediaSessionInfo sessions = 1;
-}
-
-// ============ Monitor Service ============
-
-service MonitorService {
-    rpc GetSystemStats(GetSystemStatsRequest) returns (SystemStats);
-}
-
-message GetSystemStatsRequest {
-    int32 interval_ms = 1;
-}
-
-message SystemStats {
-    double cpu_usage = 1;
-    double memory_used_gb = 2;
-    double memory_total_gb = 3;
-}
-`;
-
-// Load the daemon proto
-function loadDaemonProto(): any {
-  const tmpPath = path.join(os.tmpdir(), `astra-daemon-${process.pid}.proto`);
-  fs.writeFileSync(tmpPath, DAEMON_PROTO_CONTENT);
-
-  const packageDefinition = protoLoader.loadSync(tmpPath, {
-    keepCase: false,
-    longs: String,
-    enums: String,
-    defaults: true,
-    oneofs: true,
-  });
-
-  try {
-    fs.unlinkSync(tmpPath);
-  } catch {
-    // Ignore cleanup errors
-  }
-
-  const descriptor = grpc.loadPackageDefinition(packageDefinition) as any;
-  return descriptor.astra;
-}
+type Stub = grpc.Client & Record<string, Function>;
 
 export class DaemonClient {
   private metadata: grpc.Metadata;
-  private coreClient: any;
-  private chatClient: any;
-  private voiceClient: any;
-  private commandClient: any;
-  private configClient: any;
-  private mediaClient: any;
-  private monitorClient: any;
+  private coreClient!: Stub;
+  private chatClient!: Stub;
+  private voiceClient!: Stub;
+  private commandClient!: Stub;
+  private configClient!: Stub;
+  private mediaClient!: Stub;
+  private monitorClient!: Stub;
 
   constructor(
     private daemonAddr: string,
     sessionToken: string
   ) {
+    if (!sessionToken) {
+      throw new Error(
+        "DaemonClient requires the client_session_token from PluginRegisterResponse; " +
+          "without it every daemon RPC is rejected as `unauthenticated`."
+      );
+    }
     this.metadata = new grpc.Metadata();
-    this.metadata.set("x-session-token", sessionToken);
+    this.metadata.set(SESSION_TOKEN_HEADER, sessionToken);
   }
 
   /** Connect to the daemon and create service clients. */
   async connect(): Promise<void> {
-    const proto = loadDaemonProto();
     const creds = grpc.credentials.createInsecure();
+    const stubs: Record<string, Stub> = {};
+    for (const name of Object.keys(REQUIRED_METHODS)) {
+      const stub = new (service(name))(this.daemonAddr, creds) as Stub;
+      assertClientContract(name, stub, REQUIRED_METHODS[name]);
+      stubs[name] = stub;
+    }
 
-    this.coreClient = new proto.CoreService(this.daemonAddr, creds);
-    this.chatClient = new proto.ChatService(this.daemonAddr, creds);
-    this.voiceClient = new proto.VoiceService(this.daemonAddr, creds);
-    this.commandClient = new proto.CommandService(this.daemonAddr, creds);
-    this.configClient = new proto.ConfigService(this.daemonAddr, creds);
-    this.mediaClient = new proto.MediaService(this.daemonAddr, creds);
-    this.monitorClient = new proto.MonitorService(this.daemonAddr, creds);
+    this.coreClient = stubs.CoreService;
+    this.chatClient = stubs.ChatService;
+    this.voiceClient = stubs.VoiceService;
+    this.commandClient = stubs.CommandService;
+    this.configClient = stubs.ConfigService;
+    this.mediaClient = stubs.MediaService;
+    this.monitorClient = stubs.MonitorService;
+  }
+
+  /** Close every underlying channel. */
+  close(): void {
+    for (const stub of [
+      this.coreClient,
+      this.chatClient,
+      this.voiceClient,
+      this.commandClient,
+      this.configClient,
+      this.mediaClient,
+      this.monitorClient,
+    ]) {
+      stub?.close();
+    }
   }
 
   // ===== Core Service =====
@@ -483,7 +275,7 @@ export class DaemonClient {
 
   // ===== Internal =====
 
-  private _unary(client: any, method: string, request: any): Promise<any> {
+  private _unary(client: Stub, method: string, request: any): Promise<any> {
     return new Promise((resolve, reject) => {
       client[method](
         request,
