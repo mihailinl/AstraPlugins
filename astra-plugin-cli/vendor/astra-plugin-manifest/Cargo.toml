@@ -1,0 +1,38 @@
+# VENDORED COPY. The source of truth is
+# `Astra/astra-rs/astra-plugin-manifest/`; `src/` and `README.md` here are
+# byte-identical to it and `tools/check-manifest-crate.sh` fails when they are
+# not. Edit upstream, then run `tools/check-manifest-crate.sh --sync`.
+#
+# This file is the ONE thing that legitimately differs, because this copy is not
+# in Astra's cargo workspace: versions are spelled out instead of inherited, and
+# `astra-host` is declared-but-empty (see [features]). The check script compares
+# the two files on their dependency NAMES, so a dependency added upstream and
+# forgotten here is still a CI failure.
+[package]
+name = "astra-plugin-manifest"
+version = "0.1.0"
+edition = "2024"
+authors = ["Astra Team"]
+license = "MIT"
+description = "The `plugin.toml` manifest: one definition, shared by the daemon, the CLI and the registry bot"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+toml = "0.8"
+semver = "1"
+
+[features]
+# Declared so `#[cfg(feature = "astra-host")]` in the shared sources is a known
+# cfg here rather than an `unexpected_cfgs` warning — and EMPTY, because
+# `astra-plugin` is not an Astra. The daemon's copy enables it by default and it
+# pulls `astra_core::VERSION`; in this copy there is no astra-core to point at,
+# and enabling it is a compile error rather than a silently wrong answer.
+#
+# What that means for `plugin.min_astra_version`: `astra-plugin check` validates
+# its SYNTAX (an unparseable value is a constraint that constrains nothing) but
+# never refuses a plugin for targeting a newer daemon than the CLI's own build.
+default = []
+astra-host = []
