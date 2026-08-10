@@ -2,12 +2,16 @@
 
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use base64::{Engine, engine::general_purpose};
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
+
+/// Where a packed binary lands inside the archive, and what `entry.command` is
+/// rewritten to point at.
+const ARCHIVE_BIN_DIR: &str = "bin";
 
 pub fn run(path: &str, output: Option<&str>) -> Result<()> {
     let dir = Path::new(path).canonicalize().context("Invalid path")?;
@@ -43,61 +47,51 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
     println!("Building plugin '{plugin_id}' v{version} ({language})...");
 
     // Language-specific pre-build step
-    match language.as_str() {
-        "rust" => build_rust(&dir)?,
-        "typescript" | "ts" => build_typescript(&dir)?,
-        "python" | "py" => build_python(&dir)?,
-        _ => println!("  No build step for language '{language}'"),
-    }
+    build_for_language(&dir, &language)?;
 
-    // Create ZIP archive
-    let file = File::create(output_path)
-        .with_context(|| format!("Failed to create {}", output_path.display()))?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-
-    // For Rust: read entry.command, resolve the binary, pack into bin/, rewrite manifest
-    // For others: include plugin.toml as-is
     let entry_command = manifest
         .get("entry")
         .and_then(|e| e.get("command"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    match language.as_str() {
-        "rust" => {
-            // Resolve the binary from entry.command relative to plugin dir
-            let bin_path = dir.join(entry_command);
-            if !bin_path.exists() {
-                anyhow::bail!(
-                    "Binary not found at '{}' (from entry.command = '{}')",
-                    bin_path.display(),
-                    entry_command
-                );
-            }
-            let bin_name = bin_path.file_name().unwrap().to_string_lossy();
-            let archive_bin_path = format!("bin/{}", bin_name);
+    // Everything that can fail is resolved BEFORE the output file is created:
+    // a missing binary or an unparseable manifest must not leave a truncated
+    // .astraplugin on disk for the author to mistake for a build.
+    let rust_binary = if language == "rust" {
+        Some(resolve_rust_binary(&dir, entry_command)?)
+    } else {
+        None
+    };
 
-            // Write modified plugin.toml with command pointing to bin/ in archive
-            let modified_manifest = manifest_str.replace(
-                &format!("command = \"{}\"", entry_command),
-                &format!("command = \"./bin/{}\"", bin_name),
-            );
-            zip.start_file("plugin.toml", options)?;
-            zip.write_all(modified_manifest.as_bytes())?;
+    // For Rust the binary moves into `bin/` inside the archive, so the manifest
+    // the daemon reads must point there instead of at the author's target dir.
+    let packed_manifest = match &rust_binary {
+        Some(bin) => {
+            let bin_name = bin
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .context("Resolved Rust binary has no file name")?;
+            rewrite_entry_command(&manifest_str, &format!("./{ARCHIVE_BIN_DIR}/{bin_name}"))?
+        }
+        None => manifest_str.clone(),
+    };
 
-            // Pack the binary
-            let mut buf = Vec::new();
-            File::open(&bin_path)?.read_to_end(&mut buf)?;
-            zip.start_file(&archive_bin_path, options)?;
-            zip.write_all(&buf)?;
-            println!("  Added: {}", archive_bin_path);
-        }
-        _ => {
-            // Non-Rust: include plugin.toml unchanged
-            zip.start_file("plugin.toml", options)?;
-            zip.write_all(manifest_str.as_bytes())?;
-        }
+    // Create ZIP archive
+    if let Some(parent) = output_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create output directory {}", parent.display()))?;
+    }
+    let file = File::create(output_path)
+        .with_context(|| format!("Failed to create {}", output_path.display()))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    zip.start_file("plugin.toml", options)?;
+    zip.write_all(packed_manifest.as_bytes())?;
+
+    if let Some(bin) = &rust_binary {
+        add_rust_artifacts(bin, &mut zip, options)?;
     }
 
     // Include ui/ directory if it exists (for all languages)
@@ -204,7 +198,28 @@ pub fn run(path: &str, output: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn detect_language(dir: &Path) -> String {
+/// Run the language's build step for a plugin directory.
+///
+/// Shared with `astra-plugin dev`, which rebuilds on every file change and must
+/// use exactly the same command `build` would.
+pub fn build_project(dir: &Path) -> Result<()> {
+    let language = detect_language(dir);
+    build_for_language(dir, &language)
+}
+
+fn build_for_language(dir: &Path, language: &str) -> Result<()> {
+    match language {
+        "rust" => build_rust(dir),
+        "typescript" | "ts" => build_typescript(dir),
+        "python" | "py" => build_python(dir),
+        _ => {
+            println!("  No build step for language '{language}'");
+            Ok(())
+        }
+    }
+}
+
+pub fn detect_language(dir: &Path) -> String {
     if dir.join("Cargo.toml").exists() {
         "rust".into()
     } else if dir.join("package.json").exists() {
@@ -306,33 +321,159 @@ fn which_exists(cmd: &str) -> bool {
         .is_ok()
 }
 
-fn add_rust_artifacts(
-    dir: &Path,
-    zip: &mut zip::ZipWriter<File>,
-    options: SimpleFileOptions,
-) -> Result<()> {
-    // Include the release binary from target/release/
-    let target_dir = dir.join("target").join("release");
-    if target_dir.exists() {
-        let bin_dir_name = "bin";
-        for entry in fs::read_dir(&target_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let name = path.file_name().unwrap().to_string_lossy();
-                // Include executables (no extension on Linux, .exe on Windows)
-                let is_exe = name.ends_with(".exe")
-                    || (!name.contains('.') && is_executable_unix(&path));
-                if is_exe {
-                    let mut buf = Vec::new();
-                    File::open(&path)?.read_to_end(&mut buf)?;
-                    zip.start_file(format!("{bin_dir_name}/{name}"), options)?;
-                    zip.write_all(&buf)?;
-                    println!("  Added: {bin_dir_name}/{name}");
-                }
+/// Locate the release binary cargo actually produced for this plugin.
+///
+/// `cargo metadata` is the authority: it knows the real `target-dir` (which
+/// `CARGO_TARGET_DIR`, `build.target-dir` or a parent workspace can move) and
+/// the real bin-target names (which cargo mangles hyphen→underscore). A plugin
+/// whose binary is not where cargo puts it declares `entry.command`; that is
+/// treated as an override and wins whenever it resolves to a real file.
+fn resolve_rust_binary(dir: &Path, entry_command: &str) -> Result<PathBuf> {
+    let from_cargo = cargo_release_binary(dir);
+
+    // The override: `entry.command` relative to the plugin directory. On
+    // Windows a manifest written on Linux says `target/release/foo`, so try the
+    // executable suffix too rather than failing on a portable manifest.
+    if !entry_command.is_empty() {
+        let declared = dir.join(entry_command);
+        if declared.is_file() {
+            return Ok(declared);
+        }
+        let suffix = std::env::consts::EXE_SUFFIX;
+        if !suffix.is_empty() {
+            let with_suffix = dir.join(format!("{entry_command}{suffix}"));
+            if with_suffix.is_file() {
+                return Ok(with_suffix);
             }
         }
     }
+
+    match from_cargo {
+        Ok(path) if path.is_file() => Ok(path),
+        Ok(path) => anyhow::bail!(
+            "No plugin binary found.\n  cargo would produce: {}\n  entry.command says:  {}\n\
+             Run `cargo build --release` first.",
+            path.display(),
+            if entry_command.is_empty() {
+                "(not set)".to_string()
+            } else {
+                dir.join(entry_command).display().to_string()
+            }
+        ),
+        Err(e) => Err(e.context(
+            "Could not work out which binary this plugin builds. Set `entry.command` in \
+             plugin.toml to the path of the built binary, relative to the plugin directory.",
+        )),
+    }
+}
+
+/// Ask cargo where the release binary for this package lands.
+fn cargo_release_binary(dir: &Path) -> Result<PathBuf> {
+    let output = std::process::Command::new("cargo")
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .current_dir(dir)
+        .output()
+        .context("Failed to run `cargo metadata`")?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "`cargo metadata` failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).context("`cargo metadata` returned invalid JSON")?;
+
+    let target_dir = metadata
+        .get("target_directory")
+        .and_then(|v| v.as_str())
+        .context("`cargo metadata` has no target_directory")?;
+
+    let packages = metadata
+        .get("packages")
+        .and_then(|v| v.as_array())
+        .context("`cargo metadata` has no packages")?;
+
+    // `--no-deps` limits this to the workspace, but a plugin living inside a
+    // workspace still sees its siblings — prefer the package rooted at `dir`.
+    let mut bins: Vec<String> = Vec::new();
+    let mut own_bins: Vec<String> = Vec::new();
+    for package in packages {
+        let is_own = package
+            .get("manifest_path")
+            .and_then(|v| v.as_str())
+            .map(|p| Path::new(p).parent() == Some(dir))
+            .unwrap_or(false);
+        let targets = package.get("targets").and_then(|v| v.as_array());
+        for target in targets.into_iter().flatten() {
+            let is_bin = target
+                .get("kind")
+                .and_then(|v| v.as_array())
+                .map(|kinds| kinds.iter().any(|k| k.as_str() == Some("bin")))
+                .unwrap_or(false);
+            if !is_bin {
+                continue;
+            }
+            if let Some(name) = target.get("name").and_then(|v| v.as_str()) {
+                if is_own {
+                    own_bins.push(name.to_string());
+                }
+                bins.push(name.to_string());
+            }
+        }
+    }
+
+    let candidates = if own_bins.is_empty() { bins } else { own_bins };
+    let name = match candidates.len() {
+        0 => anyhow::bail!("This cargo package defines no [[bin]] target"),
+        1 => candidates.into_iter().next().unwrap(),
+        _ => anyhow::bail!(
+            "This cargo package defines several binaries ({}). Set `entry.command` in \
+             plugin.toml to pick one.",
+            candidates.join(", ")
+        ),
+    };
+
+    Ok(Path::new(target_dir)
+        .join("release")
+        .join(format!("{name}{}", std::env::consts::EXE_SUFFIX)))
+}
+
+/// Rewrite `entry.command` in a plugin.toml, preserving everything else.
+///
+/// A textual `replace` used to do this; it silently no-oped on any manifest
+/// whose spacing or quoting differed from the template's, shipping an archive
+/// whose command pointed at the author's `target/` directory.
+fn rewrite_entry_command(manifest_str: &str, command: &str) -> Result<String> {
+    let mut doc: toml_edit::DocumentMut = manifest_str
+        .parse()
+        .context("Failed to parse plugin.toml for rewriting")?;
+    doc["entry"]["command"] = toml_edit::value(command);
+    Ok(doc.to_string())
+}
+
+/// Pack the resolved release binary into `bin/` inside the archive.
+fn add_rust_artifacts(
+    binary: &Path,
+    zip: &mut zip::ZipWriter<File>,
+    options: SimpleFileOptions,
+) -> Result<()> {
+    let name = binary
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .context("Resolved Rust binary has no file name")?;
+    let archive_path = format!("{ARCHIVE_BIN_DIR}/{name}");
+
+    let mut buf = Vec::new();
+    File::open(binary)
+        .with_context(|| format!("Failed to open {}", binary.display()))?
+        .read_to_end(&mut buf)?;
+
+    // The extractor on the other end has to be able to exec this; a ZIP entry
+    // written with the default mode comes out 0644 on Unix.
+    zip.start_file(&archive_path, options.unix_permissions(0o755))?;
+    zip.write_all(&buf)?;
+    println!("  Added: {archive_path}");
     Ok(())
 }
 
@@ -402,19 +543,4 @@ fn add_directory_recursive(
         }
     }
     Ok(())
-}
-
-#[cfg(unix)]
-fn is_executable_unix(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    if let Ok(meta) = path.metadata() {
-        meta.permissions().mode() & 0o111 != 0
-    } else {
-        false
-    }
-}
-
-#[cfg(not(unix))]
-fn is_executable_unix(_path: &Path) -> bool {
-    false
 }

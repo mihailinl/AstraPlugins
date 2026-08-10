@@ -1,6 +1,7 @@
 //! `astra-plugin` CLI — create, develop, build, and validate Astra plugins.
 
 mod commands;
+mod daemon;
 mod templates;
 
 use anyhow::Result;
@@ -16,7 +17,8 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Create a new plugin project from a template
-    Create {
+    #[command(alias = "create")]
+    New {
         /// Plugin name (lowercase, hyphens allowed)
         name: String,
 
@@ -24,8 +26,9 @@ enum Commands {
         #[arg(short, long, default_value = "rust")]
         lang: String,
 
-        /// Capabilities (comma-separated: tools,tts,stt,ai_provider,actions,triggers,client)
-        #[arg(short, long, default_value = "tools")]
+        /// Capabilities (comma-separated: tools, tts, stt, ai_provider, client,
+        /// actions, triggers, ui_contributions, event_handlers, dom_access)
+        #[arg(short, long, alias = "caps", default_value = "tools")]
         capabilities: String,
 
         /// Output directory (default: ./<name>)
@@ -33,15 +36,21 @@ enum Commands {
         output: Option<String>,
     },
 
-    /// Start a plugin in dev mode (sideload + hot-reload)
+    /// Start a plugin in dev mode (sideload into the running Astra + hot-reload)
     Dev {
         /// Path to plugin directory (default: current directory)
         #[arg(default_value = ".")]
         path: String,
 
-        /// Daemon gRPC address
-        #[arg(long, default_value = "127.0.0.1:50051")]
-        daemon_addr: String,
+        /// Daemon gRPC address. Defaults to the port the running daemon wrote
+        /// to <config>/daemon.port, else 127.0.0.1:32000.
+        #[arg(long)]
+        daemon_addr: Option<String>,
+
+        /// Spawn the plugin process directly instead of asking the daemon to.
+        /// The plugin cannot register with Astra this way — see the note it prints.
+        #[arg(long)]
+        standalone: bool,
     },
 
     /// Build a plugin into a distributable .astraplugin archive
@@ -55,11 +64,16 @@ enum Commands {
         output: Option<String>,
     },
 
-    /// Validate a plugin manifest and config schema
-    Validate {
+    /// Check a plugin manifest and config schema
+    #[command(alias = "validate")]
+    Check {
         /// Path to plugin directory (default: current directory)
         #[arg(default_value = ".")]
         path: String,
+
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
     },
 
     /// Generate an Ed25519 keypair for plugin signing
@@ -75,7 +89,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Create {
+        Commands::New {
             name,
             lang,
             capabilities,
@@ -85,14 +99,18 @@ async fn main() -> Result<()> {
             let out_dir = output.unwrap_or_else(|| name.clone());
             commands::create::run(&name, &lang, &caps, &out_dir)?;
         }
-        Commands::Dev { path, daemon_addr } => {
-            commands::dev::run(&path, &daemon_addr).await?;
+        Commands::Dev {
+            path,
+            daemon_addr,
+            standalone,
+        } => {
+            commands::dev::run(&path, daemon_addr.as_deref(), standalone).await?;
         }
         Commands::Build { path, output } => {
             commands::build::run(&path, output.as_deref())?;
         }
-        Commands::Validate { path } => {
-            commands::validate::run(&path)?;
+        Commands::Check { path, strict } => {
+            commands::validate::run(&path, strict)?;
         }
         Commands::Keygen { force } => {
             commands::keygen::run(force)?;

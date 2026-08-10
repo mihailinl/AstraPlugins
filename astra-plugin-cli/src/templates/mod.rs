@@ -4,9 +4,6 @@ pub mod python;
 pub mod rust;
 pub mod typescript;
 
-/// The plugin.proto file shipped with every scaffolded project.
-pub const PLUGIN_PROTO: &str = include_str!("../../proto/plugin.proto");
-
 /// Generate a `plugin.toml` manifest.
 pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> String {
     let caps_toml: Vec<String> = capabilities
@@ -15,10 +12,20 @@ pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> Strin
         .collect();
 
     let (command, args, runtimes) = match lang {
-        "rust" => (format!("./bin/{name}"), String::new(), String::new()),
+        // Where `cargo build --release` actually puts it, with cargo's
+        // hyphen→underscore crate-name mangling. `./bin/<name>` used to be
+        // scaffolded here; cargo never produces that path, so every freshly
+        // created Rust plugin failed `astra-plugin build` on every OS.
+        // `astra-plugin build` rewrites this to `./bin/<binary>` inside the
+        // archive, and resolves the real path from `cargo metadata` anyway.
+        "rust" => (
+            format!("target/release/{}", name.replace('-', "_")),
+            String::new(),
+            String::new(),
+        ),
         "python" | "py" => (
             "python".into(),
-            format!("args = [\"-m\", \"src.plugin\"]"),
+            "args = [\"-m\", \"src.plugin\"]".into(),
             "runtimes = [\"python\"]".into(),
         ),
         "typescript" | "ts" => (

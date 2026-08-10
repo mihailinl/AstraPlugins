@@ -1,6 +1,9 @@
 [package]
 name = "astra-plugin-cli"
-version = "0.1.3"
+# 0.2.0, not 0.1.4: `validate` became `check`, `create` became `new`, and `dev`
+# stopped self-spawning the plugin in favour of driving the daemon. Every one of
+# those breaks a script written against 0.1.x.
+version = "0.2.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "MIT"
@@ -15,14 +18,25 @@ clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
+# Manifest rewriting during `build` is a surgical edit of one key, not a
+# reserialize: a plugin.toml round-tripped through `toml::Value` loses the
+# author's comments, ordering and formatting.
+toml_edit = "0.22"
 anyhow = "1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 walkdir = "2"
 notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# `dev` drives a running daemon over gRPC (PluginService + ClientAuthService).
+# Hand-rolled messages in src/daemon.rs — see the module docs for why there is
+# no .proto and no codegen in this crate.
+tonic = "0.12"
+prost = "0.13"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 sha2 = "0.10"
 rand = "0.8"
 base64 = "0.22"
-directories = "5"
+# Version-locked to the daemon (Astra/astra-rs/Cargo.toml): both sides must
+# resolve `<config>` to the same directory or `--daemon-addr` autodetection
+# reads a file nobody writes.
+directories = "6"

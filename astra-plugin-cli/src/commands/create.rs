@@ -21,21 +21,8 @@ pub fn run(name: &str, lang: &str, capabilities: &[&str], out_dir: &str) -> Resu
         anyhow::bail!("Supported languages: rust, python (py), typescript (ts)");
     }
 
-    let valid_caps = [
-        "tools",
-        "tts",
-        "stt",
-        "ai_provider",
-        "actions",
-        "triggers",
-        "client",
-        "event_handlers",
-        "ui_panels",
-    ];
     for cap in capabilities {
-        if !valid_caps.contains(cap) {
-            anyhow::bail!("Unknown capability '{cap}'. Valid: {}", valid_caps.join(", "));
-        }
+        super::validate::check_capability_name(cap)?;
     }
 
     let out_path = Path::new(out_dir);
@@ -50,10 +37,8 @@ pub fn run(name: &str, lang: &str, capabilities: &[&str], out_dir: &str) -> Resu
     let manifest = templates::generate_manifest(name, &lang, capabilities);
     fs::write(out_path.join("plugin.toml"), manifest)?;
 
-    // Copy proto file
-    let proto_dir = out_path.join("proto");
-    fs::create_dir_all(&proto_dir)?;
-    fs::write(proto_dir.join("plugin.proto"), templates::PLUGIN_PROTO)?;
+    // No proto is scaffolded: the SDKs own the protocol and ship their own
+    // generated stubs. A copy in the author's project could only ever drift.
 
     // Generate language-specific files
     match lang.as_str() {
@@ -79,7 +64,8 @@ pub fn run(name: &str, lang: &str, capabilities: &[&str], out_dir: &str) -> Resu
     match lang.as_str() {
         "rust" => {
             println!("  cd {out_dir}");
-            println!("  cargo build");
+            // --release, because that is where entry.command points.
+            println!("  cargo build --release");
             println!("  astra-plugin dev .");
         }
         "python" | "py" => {

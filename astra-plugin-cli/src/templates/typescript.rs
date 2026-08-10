@@ -103,7 +103,7 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     }
 
     format!(
-        r#"import {{ Plugin }} from "@astra/plugin-sdk";
+        r#"import {{ Plugin }} from "astra-plugin-sdk";
 
 class {class_name} extends Plugin {{
 {methods}}}
@@ -114,6 +114,11 @@ new {class_name}().run();
 }
 
 pub fn generate_package_json(name: &str) -> String {
+    // The published npm name is unscoped: `astra-plugin-sdk-ts/package.json`
+    // declares `"name": "astra-plugin-sdk"` and `.github/workflows/publish-ts.yml`
+    // runs a plain `npm publish` from that directory. `@astra/plugin-sdk` was
+    // scaffolded here for a scope that was never registered, so every generated
+    // TypeScript project 404'd on `npm install`.
     format!(
         r#"{{
   "name": "{name}",
@@ -125,7 +130,7 @@ pub fn generate_package_json(name: &str) -> String {
     "dev": "tsx src/index.ts"
   }},
   "dependencies": {{
-    "@astra/plugin-sdk": "^0.3.0",
+    "astra-plugin-sdk": "^0.5.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }},

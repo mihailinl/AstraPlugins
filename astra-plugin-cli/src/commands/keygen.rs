@@ -29,7 +29,7 @@ pub fn run(force: bool) -> Result<()> {
         return Ok(());
     }
 
-    fs::create_dir_all(&dir)
+    ensure_private_dir(&dir)
         .with_context(|| format!("Failed to create keys directory: {}", dir.display()))?;
 
     // Generate Ed25519 keypair
@@ -40,7 +40,7 @@ pub fn run(force: bool) -> Result<()> {
     let private_b64 = general_purpose::STANDARD.encode(
         signing_key.to_bytes(),
     );
-    fs::write(&private_path, &private_b64)
+    write_secret_file(&private_path, &private_b64)
         .with_context(|| format!("Failed to write private key: {}", private_path.display()))?;
 
     // Save public key (raw 32 bytes, base64 encoded)
@@ -57,6 +57,93 @@ pub fn run(force: bool) -> Result<()> {
     println!("  {}", public_b64);
 
     Ok(())
+}
+
+/// Create a directory and make it owner-only.
+///
+/// SECURITY(key-at-rest): the directory holds the plugin signing seed. A
+/// world-readable (0755, the default umask result) directory lets any other
+/// local user list and read it. 0700 keeps the tree owner-only.
+fn ensure_private_dir(dir: &std::path::Path) -> std::io::Result<()> {
+    fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+    }
+    #[cfg(windows)]
+    {
+        restrict_to_owner_windows(dir);
+    }
+    Ok(())
+}
+
+/// Write a file containing a secret with owner-only permissions.
+///
+/// SECURITY(key-at-rest): this is the Ed25519 seed the docs call secret —
+/// whoever reads it can sign a bundle as this author. `fs::write` used to leave
+/// it at the process umask default, which is 0644 on a stock Linux install.
+/// Mirrors `write_secret_file` in the daemon (`Astra/.../astra-daemon/src/main.rs`):
+/// create at 0600 and re-assert, because the mode on `OpenOptions` applies only
+/// to a freshly-created file and `--force` overwrites an existing one.
+fn write_secret_file(path: &std::path::Path, contents: &str) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        f.write_all(contents.as_bytes())?;
+        f.flush()?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        fs::write(path, contents)?;
+        #[cfg(windows)]
+        restrict_to_owner_windows(path);
+        Ok(())
+    }
+}
+
+/// Replace a path's inherited ACL with an owner-only DACL.
+///
+/// SECURITY(key-at-rest): the Unix mode has no Windows equivalent — a file
+/// under the user profile inherits whatever the profile grants, which on a
+/// domain-joined or multi-admin machine is not always the owner alone.
+/// `icacls /inheritance:r /grant:r <user>:F` is the same edit the platform's
+/// own tooling makes, and keeps this crate free of a `windows-sys` dependency
+/// for one call. Best-effort: a failure is reported, not fatal, because the
+/// default profile ACL is already owner-only on a stock install.
+#[cfg(windows)]
+fn restrict_to_owner_windows(path: &std::path::Path) {
+    let user = match std::env::var("USERNAME") {
+        Ok(u) if !u.is_empty() => u,
+        _ => {
+            eprintln!("  Warning: USERNAME is unset; leaving inherited permissions on {}", path.display());
+            return;
+        }
+    };
+    let result = std::process::Command::new("icacls")
+        .arg(path)
+        .arg("/inheritance:r")
+        .arg("/grant:r")
+        .arg(format!("{user}:F"))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+    match result {
+        Ok(status) if status.success() => {}
+        _ => eprintln!(
+            "  Warning: could not restrict permissions on {} — check it is readable only by you",
+            path.display()
+        ),
+    }
 }
 
 /// Load the signing key from disk. Returns None if not found.
