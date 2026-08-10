@@ -38,6 +38,8 @@ mod daemon_client;
 pub mod events;
 mod host_client;
 pub mod i18n;
+pub mod limits;
+pub mod protocol;
 mod runner;
 
 pub use auth::CapabilityAuth;
@@ -45,6 +47,7 @@ pub use capability::*;
 pub use daemon_client::DaemonClient;
 pub use host_client::HostClient;
 pub use i18n::I18n;
+pub use protocol::{EXIT_PROTOCOL_INCOMPATIBLE, MIN_SUPPORTED_DAEMON_PROTOCOL, PROTOCOL_VERSION};
 pub use runner::{RunConfig, run, run_with};
 
 /// Re-exports for convenience.

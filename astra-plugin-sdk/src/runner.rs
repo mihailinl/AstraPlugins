@@ -191,12 +191,27 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     let capabilities = discover_capabilities(&*plugin).await;
     info!("Registering with capabilities: {:?}", capabilities);
 
-    let (host, reg_response) = bootstrap
+    let (host, reg_response) = match bootstrap
         .register(port, capabilities, args.auth_token.clone())
-        .await?;
+        .await
+    {
+        Ok(pair) => pair,
+        Err(e) => {
+            // A protocol mismatch is not a fault to retry, log a backtrace for,
+            // or bury in a `Result` the caller turns into "plugin exited 1". It
+            // is one fact with one fix. Say it on stderr — where the daemon
+            // captures plugin output and the user reads it in the plugin's log
+            // pane — and leave with EX_CONFIG.
+            if let Some(mismatch) = e.downcast_ref::<crate::protocol::ProtocolMismatch>() {
+                eprintln!("{mismatch}");
+                std::process::exit(crate::protocol::EXIT_PROTOCOL_INCOMPATIBLE);
+            }
+            return Err(e);
+        }
+    };
     info!(
-        "Registered successfully. Daemon version: {}",
-        reg_response.daemon_version
+        "Registered successfully. Daemon version: {}, protocol: {} (accepts {}+)",
+        reg_response.daemon_version, reg_response.protocol_version, reg_response.min_supported_protocol
     );
 
     // Background loops (chat firehose, event subscription). Kept so shutdown
@@ -592,13 +607,16 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // gRPC stream into the plugin, and `SttEvent`s flow back out into
         // the outbound stream.
         //
-        // Capacity MUST be 500 in lockstep with the daemon end
-        // (astra-daemon plugins/voice_capability.rs::open_session). The old 32
-        // was the silent bottleneck: the worst-case wake-seed dump (~8 s of
+        // Capacity comes from `spec/limits.yaml`, which the daemon's end of
+        // this bridge asserts against at compile time — the two channels are in
+        // series, so the smaller one is the real capacity. The old hardcoded 32
+        // was that silent bottleneck: the worst-case wake-seed dump (~8 s of
         // 16 kHz audio in 1600-sample batches ≈ 80) plus live audio piling up
         // overflowed it, so STT only ever saw the first fraction of an
-        // utterance. See CLAUDE.md "Streaming-STT plugin audio channel capacity".
-        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(500);
+        // utterance — while both files carried a comment promising lockstep.
+        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(
+            crate::limits::STT_AUDIO_CHANNEL_CAPACITY as usize,
+        );
         let (events_tx, events_rx) =
             tokio::sync::mpsc::channel::<crate::capability::SttEvent>(8);
 
@@ -694,6 +712,57 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
             config_fields: fields,
         }))
+    }
+
+    // ── Hooks this SDK does not surface yet ──
+    //
+    // `UNIMPLEMENTED` is the protocol's word for "this plugin does not have that
+    // hook" — the daemon's `optional_hook` reads it as absence, not as a fault
+    // (see `astra-daemon/src/plugins/manager.rs`). These four exist on the
+    // daemon side but have no `PluginCapability` method behind them yet, so the
+    // honest answer is the one the contract already defines. When the trait
+    // grows the methods, these bodies dispatch to them and NOTHING else has to
+    // change — not the protocol integer, not the daemon.
+    //
+    // Answering anything else here would be worse than not answering: a plugin
+    // that returned an empty `SttLoadStateResponse` would tell the daemon's
+    // idle-unload timer that a model it never loaded is not resident, which is
+    // true by accident and false as soon as the hook is real.
+
+    async fn tts_activate(
+        &self,
+        _request: tonic::Request<proto::PluginTtsActivateRequest>,
+    ) -> Result<tonic::Response<proto::PluginTtsActivateResponse>, tonic::Status> {
+        Err(tonic::Status::unimplemented(
+            "this plugin has no protected voice to activate",
+        ))
+    }
+
+    async fn stt_load(
+        &self,
+        _request: tonic::Request<proto::SttLoadRequest>,
+    ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        Err(tonic::Status::unimplemented(
+            "this plugin has no explicit STT model lifecycle",
+        ))
+    }
+
+    async fn stt_unload(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        Err(tonic::Status::unimplemented(
+            "this plugin has no explicit STT model lifecycle",
+        ))
+    }
+
+    async fn stt_get_load_state(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::SttLoadStateResponse>, tonic::Status> {
+        Err(tonic::Status::unimplemented(
+            "this plugin has no explicit STT model lifecycle",
+        ))
     }
 
     // ── AI Provider ──

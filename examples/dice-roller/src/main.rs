@@ -176,6 +176,15 @@ impl PluginCapability for DiceRoller {
             ai_available: true,
             ai_description: "Roll dice and store the result in a variable".into(),
             ai_primary_field: "dice_notation".into(),
+            // Rolling dice is arithmetic — nothing here is OS-specific, so leave
+            // `platforms` empty (which the daemon reads as "every platform")
+            // rather than listing the three and having to remember a fourth.
+            platforms: vec![],
+            // The action is finished: offer it in the command editor's add-node
+            // menus. Set this while an action is still half-built and the daemon
+            // keeps serving it to commands that already use it, but stops
+            // offering it to new ones.
+            hidden: false,
         }]
     }
 

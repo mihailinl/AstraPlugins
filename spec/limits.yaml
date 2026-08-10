@@ -1,0 +1,60 @@
+# Cross-repo numeric limits — the one place a shared magic number is declared.
+#
+# These are the numbers that MUST be identical in the Astra daemon and in the
+# plugin SDKs, where nothing in either type system connects the two ends. The
+# motivating bug: the streaming-STT audio channel was 500 in the daemon and 32
+# in the Rust SDK, and the mismatch silently truncated every utterance to its
+# first fraction. The coupling was documented in a prose comment on both sides,
+# which is exactly the kind of contract that rots.
+#
+# HOW TO CHANGE A LIMIT
+#   1. Edit the value here.
+#   2. Run `node tools/gen-limits.mjs` (from the AstraPlugins repo root). It
+#      rewrites the generated constants in all three SDKs, and — when it can
+#      find an Astra checkout (`$ASTRA_RS_DIR`, else `../Astra/astra-rs`) — the
+#      generated block in `astra-daemon/src/plugins/voice_capability.rs`.
+#   3. Build the daemon. The `const _: () = assert!(…)` next to that block
+#      fails until the daemon's own constants are moved to the new value too.
+#   Step 3 is the point: the spec cannot drift from the daemon in silence.
+#
+# FORMAT — deliberately a tiny subset of YAML, so the generator needs no
+# dependency and no parser surprises: one `key: <non-negative integer>` per
+# line, no nesting, no quotes. `#` comment lines directly above a key become
+# that constant's doc comment in every language. Underscore digit separators
+# (`10_000`) are allowed.
+
+# Capacity of the audio channel that carries streaming-STT chunks from the
+# daemon's voice pipeline into the plugin process, in chunks.
+#
+# It bounds TWO channels in series and both must be this value: the daemon's
+# (`SttSession` -> `SttProcess` bridge) and the SDK's (inbound gRPC stream ->
+# the plugin's `stt_transcribe_stream` hook). The smaller of the two is the
+# real capacity, which is how a 32-slot SDK channel silently capped a 500-slot
+# daemon one. 500 is ~10 s of audio: the worst-case wake-word seed dump (~8 s
+# in 100 ms batches) plus live audio arriving while a slow provider is still
+# inferring, with headroom, so a busy provider back-pressures instead of the
+# audio loop dropping chunks.
+stt_audio_channel_capacity: 500
+
+# How long the daemon waits for a freshly spawned plugin process to produce its
+# first line of output before declaring the start a failure, in seconds.
+# An SDK must reach "ready" — bind its port, print its line — inside this.
+plugin_start_timeout_secs: 20
+
+# Grace the daemon gives a plugin's `Shutdown` RPC on a normal stop (user stop
+# / disable / uninstall) before it kills the process group, in seconds.
+# An SDK's own drain budget must not exceed this, or the SDK's tidy path never
+# gets to run: the daemon kills it first. (Daemon shutdown passes a much
+# shorter grace, bounded by the whole-teardown deadline — that path is
+# deliberately not this number.)
+plugin_stop_grace_secs: 5
+
+# Maximum combined uncompressed size the daemon will extract from one
+# `.astraplugin` archive, in bytes (500 MiB). Zip-bomb mitigation.
+# A packaging tool that produces a bundle over this makes an uninstallable
+# plugin, so the CLI is expected to refuse at build time.
+max_extract_bytes: 524_288_000
+
+# Maximum number of entries in one `.astraplugin` archive. Zip-bomb
+# mitigation, same contract as `max_extract_bytes`.
+max_archive_entries: 10_000

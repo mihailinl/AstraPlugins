@@ -35,10 +35,22 @@
               "requestType": "Empty",
               "responseType": "Empty"
             },
+            "Restart": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
             "SubscribeEvents": {
               "requestType": "Empty",
               "responseType": "AstraEvent",
               "responseStream": true
+            },
+            "ShowMainWindow": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ToggleOverlay": {
+              "requestType": "Empty",
+              "responseType": "Empty"
             }
           }
         },
@@ -101,7 +113,18 @@
                 "daemonStatus",
                 "widgetDataChanged",
                 "pluginStatusChanged",
-                "daemonShuttingDown"
+                "daemonShuttingDown",
+                "overlayToggle",
+                "overlaySelectionAttach",
+                "clientControlRequest",
+                "notification",
+                "commandsChanged",
+                "voiceProvidersChanged",
+                "settingsChanged",
+                "hotkeyBindingsChanged",
+                "reminderFired",
+                "reminderResolved",
+                "lockStateChanged"
               ]
             }
           },
@@ -149,6 +172,130 @@
             "daemonShuttingDown": {
               "type": "DaemonShuttingDownEvent",
               "id": 14
+            },
+            "overlayToggle": {
+              "type": "OverlayToggleEvent",
+              "id": 15
+            },
+            "overlaySelectionAttach": {
+              "type": "OverlaySelectionAttachEvent",
+              "id": 16
+            },
+            "clientControlRequest": {
+              "type": "ClientControlRequestEvent",
+              "id": 17
+            },
+            "notification": {
+              "type": "NotificationEvent",
+              "id": 18
+            },
+            "commandsChanged": {
+              "type": "CommandsChangedEvent",
+              "id": 19
+            },
+            "voiceProvidersChanged": {
+              "type": "VoiceProvidersChangedEvent",
+              "id": 20
+            },
+            "settingsChanged": {
+              "type": "SettingsChangedEvent",
+              "id": 21
+            },
+            "hotkeyBindingsChanged": {
+              "type": "HotkeyBindingsChangedEvent",
+              "id": 22
+            },
+            "reminderFired": {
+              "type": "ReminderFiredEvent",
+              "id": 23
+            },
+            "reminderResolved": {
+              "type": "ReminderResolvedEvent",
+              "id": 24
+            },
+            "lockStateChanged": {
+              "type": "LockStateChangedEvent",
+              "id": 25
+            }
+          }
+        },
+        "LockStateChangedEvent": {
+          "fields": {
+            "locked": {
+              "type": "bool",
+              "id": 1
+            },
+            "passcodeSet": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "NotificationEvent": {
+          "fields": {
+            "title": {
+              "type": "string",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            },
+            "level": {
+              "type": "string",
+              "id": 3
+            },
+            "persistent": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ReminderFiredEvent": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "text": {
+              "type": "string",
+              "id": 2
+            },
+            "time": {
+              "type": "string",
+              "id": 3
+            },
+            "daily": {
+              "type": "bool",
+              "id": 4
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "ReminderResolvedEvent": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "action": {
+              "type": "string",
+              "id": 2
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 3
+            },
+            "applied": {
+              "type": "bool",
+              "id": 4
+            },
+            "snoozeUntil": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -249,6 +396,24 @@
             }
           }
         },
+        "CommandsChangedEvent": {
+          "fields": {}
+        },
+        "VoiceProvidersChangedEvent": {
+          "fields": {}
+        },
+        "HotkeyBindingsChangedEvent": {
+          "fields": {}
+        },
+        "SettingsChangedEvent": {
+          "fields": {
+            "changedPaths": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
         "ErrorEvent": {
           "fields": {
             "code": {
@@ -280,6 +445,34 @@
         "DaemonShuttingDownEvent": {
           "fields": {}
         },
+        "OverlayToggleEvent": {
+          "fields": {
+            "selectedText": {
+              "type": "string",
+              "id": 1
+            },
+            "hasSelection": {
+              "type": "bool",
+              "id": 2
+            },
+            "modeSwitch": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "OverlaySelectionAttachEvent": {
+          "fields": {
+            "selectedText": {
+              "type": "string",
+              "id": 1
+            },
+            "hasSelection": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
         "WidgetDataChangedEvent": {
           "fields": {
             "widgetType": {
@@ -304,83 +497,23 @@
             }
           }
         },
-        "AuthService": {
-          "methods": {
-            "GetStatus": {
-              "requestType": "Empty",
-              "responseType": "AuthStatusResponse"
-            },
-            "StartLogin": {
-              "requestType": "Empty",
-              "responseType": "LoginResponse"
-            },
-            "Logout": {
-              "requestType": "Empty",
-              "responseType": "Empty"
-            },
-            "RefreshToken": {
-              "requestType": "Empty",
-              "responseType": "RefreshTokenResponse"
-            }
-          }
-        },
-        "AuthStatusResponse": {
+        "ClientControlRequestEvent": {
           "fields": {
-            "authenticated": {
-              "type": "bool",
+            "requestId": {
+              "type": "string",
               "id": 1
             },
-            "userId": {
+            "kind": {
               "type": "string",
               "id": 2
             },
-            "userName": {
-              "type": "string",
+            "ackRequired": {
+              "type": "bool",
               "id": 3
             },
-            "email": {
-              "type": "string",
+            "timeoutMs": {
+              "type": "uint32",
               "id": 4
-            },
-            "accessTokenExpiresAt": {
-              "type": "int64",
-              "id": 5
-            },
-            "refreshTokenExpiresAt": {
-              "type": "int64",
-              "id": 6
-            },
-            "authorized": {
-              "type": "bool",
-              "id": 7
-            },
-            "subscriptionTier": {
-              "type": "string",
-              "id": 8
-            }
-          }
-        },
-        "LoginResponse": {
-          "fields": {
-            "loginUrl": {
-              "type": "string",
-              "id": 1
-            },
-            "state": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "RefreshTokenResponse": {
-          "fields": {
-            "success": {
-              "type": "bool",
-              "id": 1
-            },
-            "errorMessage": {
-              "type": "string",
-              "id": 2
             }
           }
         },
@@ -418,6 +551,42 @@
               "requestType": "SubscribeEventsRequest",
               "responseType": "FirehoseEventMsg",
               "responseStream": true
+            },
+            "FetchConversationBacklog": {
+              "requestType": "FetchBacklogRequest",
+              "responseType": "FetchBacklogResponse"
+            },
+            "RegenerateAssistantMessage": {
+              "requestType": "RegenerateAssistantMessageRequest",
+              "responseType": "RegenerateAssistantMessageResponse"
+            },
+            "EditUserMessage": {
+              "requestType": "EditUserMessageRequest",
+              "responseType": "EditUserMessageResponse"
+            },
+            "SetConversationReasoning": {
+              "requestType": "SetConversationReasoningRequest",
+              "responseType": "SetConversationReasoningResponse"
+            }
+          }
+        },
+        "SetConversationReasoningRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SetConversationReasoningResponse": {
+          "fields": {
+            "reasoningEffort": {
+              "type": "string",
+              "id": 1
             }
           }
         },
@@ -437,27 +606,44 @@
             }
           }
         },
-        "ApprovalInfo": {
+        "DocumentAttachment": {
           "fields": {
-            "requestId": {
+            "mimeType": {
               "type": "string",
               "id": 1
             },
-            "dangerLevel": {
-              "type": "string",
+            "data": {
+              "type": "bytes",
               "id": 2
             },
-            "description": {
+            "filename": {
               "type": "string",
               "id": 3
             },
-            "ruleDescription": {
+            "extractedText": {
               "type": "string",
               "id": 4
             },
-            "timeoutSeconds": {
-              "type": "int32",
+            "metaPageCount": {
+              "type": "uint32",
               "id": 5
+            },
+            "metaSheetNames": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "metaLineCount": {
+              "type": "uint32",
+              "id": 7
+            },
+            "metaTruncated": {
+              "type": "bool",
+              "id": 8
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 9
             }
           }
         },
@@ -494,6 +680,13 @@
             }
           }
         },
+        "ConversationClient": {
+          "values": {
+            "CONVERSATION_CLIENT_MAIN": 0,
+            "CONVERSATION_CLIENT_OVERLAY": 1,
+            "CONVERSATION_CLIENT_PLUGIN": 2
+          }
+        },
         "Conversation": {
           "fields": {
             "id": {
@@ -515,6 +708,22 @@
             "messageCount": {
               "type": "int32",
               "id": 5
+            },
+            "client": {
+              "type": "ConversationClient",
+              "id": 6
+            },
+            "clientLabel": {
+              "type": "string",
+              "id": 7
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 8
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 9
             }
           }
         },
@@ -523,6 +732,22 @@
             "title": {
               "type": "string",
               "id": 1
+            },
+            "client": {
+              "type": "ConversationClient",
+              "id": 2
+            },
+            "clientLabel": {
+              "type": "string",
+              "id": 3
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 4
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -563,6 +788,27 @@
             }
           }
         },
+        "FetchBacklogRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "fromSeq": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "FetchBacklogResponse": {
+          "fields": {
+            "events": {
+              "rule": "repeated",
+              "type": "ConversationEventMsg",
+              "id": 1
+            }
+          }
+        },
         "SubmitUserMessageRequest": {
           "fields": {
             "conversationId": {
@@ -590,6 +836,20 @@
               "rule": "repeated",
               "type": "string",
               "id": 6
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 7
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 8
+            },
+            "scopeContext": {
+              "keyType": "string",
+              "type": "string",
+              "id": 9
             }
           }
         },
@@ -604,6 +864,84 @@
               "id": 2
             },
             "seq": {
+              "type": "uint64",
+              "id": 3
+            }
+          }
+        },
+        "RegenerateAssistantMessageRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "assistantMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 3
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "RegenerateAssistantMessageResponse": {
+          "fields": {
+            "truncatedToSeq": {
+              "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "EditUserMessageRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "userMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "newText": {
+              "type": "string",
+              "id": 3
+            },
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
+              "id": 4
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 5
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 6
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 7
+            }
+          }
+        },
+        "EditUserMessageResponse": {
+          "fields": {
+            "truncatedToSeq": {
+              "type": "uint64",
+              "id": 1
+            },
+            "newMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "newMessageSeq": {
               "type": "uint64",
               "id": 3
             }
@@ -624,7 +962,13 @@
                 "assistantComplete",
                 "error",
                 "voiceDelta",
-                "commandOutput"
+                "commandOutput",
+                "truncate",
+                "commandSuggested",
+                "commandSuggestionResolved",
+                "planUpdated",
+                "subagentActivity",
+                "commandExecuted"
               ]
             }
           },
@@ -688,6 +1032,38 @@
             "commandOutput": {
               "type": "CommandOutputEvt",
               "id": 21
+            },
+            "truncate": {
+              "type": "TruncateEvt",
+              "id": 22
+            },
+            "commandSuggested": {
+              "type": "CommandSuggestedEvt",
+              "id": 23
+            },
+            "commandSuggestionResolved": {
+              "type": "CommandSuggestionResolvedEvt",
+              "id": 24
+            },
+            "planUpdated": {
+              "type": "PlanUpdatedEvt",
+              "id": 25
+            },
+            "subagentActivity": {
+              "type": "SubagentActivityEvt",
+              "id": 26
+            },
+            "commandExecuted": {
+              "type": "CommandExecutedEvt",
+              "id": 27
+            }
+          }
+        },
+        "TruncateEvt": {
+          "fields": {
+            "afterSeq": {
+              "type": "uint64",
+              "id": 1
             }
           }
         },
@@ -710,6 +1086,11 @@
               "rule": "repeated",
               "type": "string",
               "id": 4
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 5
             }
           }
         },
@@ -861,6 +1242,153 @@
             }
           }
         },
+        "CommandExecutedEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "commandId": {
+              "type": "string",
+              "id": 2
+            },
+            "commandName": {
+              "type": "string",
+              "id": 3
+            },
+            "text": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "CommandSuggestedEvt": {
+          "fields": {
+            "suggestionId": {
+              "type": "string",
+              "id": 1
+            },
+            "messageId": {
+              "type": "string",
+              "id": 2
+            },
+            "proposedName": {
+              "type": "string",
+              "id": 3
+            },
+            "proposedTriggers": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            },
+            "actionsPreview": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            },
+            "decisionKind": {
+              "type": "string",
+              "id": 6
+            },
+            "targetCommandId": {
+              "type": "string",
+              "id": 7
+            },
+            "flagReview": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "CommandSuggestionResolvedEvt": {
+          "fields": {
+            "suggestionId": {
+              "type": "string",
+              "id": 1
+            },
+            "saved": {
+              "type": "bool",
+              "id": 2
+            },
+            "savedCommandId": {
+              "type": "string",
+              "id": 3
+            },
+            "savedName": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PlanUpdatedEvt": {
+          "fields": {
+            "explanation": {
+              "type": "string",
+              "id": 1
+            },
+            "steps": {
+              "rule": "repeated",
+              "type": "PlanStepMsg",
+              "id": 2
+            }
+          }
+        },
+        "SubagentActivityEvt": {
+          "fields": {
+            "parentCallId": {
+              "type": "string",
+              "id": 1
+            },
+            "agentId": {
+              "type": "string",
+              "id": 2
+            },
+            "phase": {
+              "type": "string",
+              "id": 3
+            },
+            "tool": {
+              "type": "string",
+              "id": 4
+            },
+            "callId": {
+              "type": "string",
+              "id": 5
+            },
+            "iterations": {
+              "type": "uint32",
+              "id": 6
+            },
+            "maxIterations": {
+              "type": "uint32",
+              "id": 7
+            },
+            "stop": {
+              "type": "string",
+              "id": 8
+            },
+            "reportBytes": {
+              "type": "uint32",
+              "id": 9
+            },
+            "truncated": {
+              "type": "bool",
+              "id": 10
+            }
+          }
+        },
+        "PlanStepMsg": {
+          "fields": {
+            "step": {
+              "type": "string",
+              "id": 1
+            },
+            "status": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
         "VoiceService": {
           "methods": {
             "StartListening": {
@@ -877,6 +1405,14 @@
             },
             "SetMicrophone": {
               "requestType": "SetMicrophoneRequest",
+              "responseType": "Empty"
+            },
+            "GetOutputDevices": {
+              "requestType": "Empty",
+              "responseType": "OutputDeviceListResponse"
+            },
+            "SetOutputDevice": {
+              "requestType": "SetOutputDeviceRequest",
               "responseType": "Empty"
             },
             "Speak": {
@@ -923,6 +1459,46 @@
               "requestType": "Empty",
               "responseType": "TtsProvidersResponse"
             },
+            "GetSttProviders": {
+              "requestType": "Empty",
+              "responseType": "SttProvidersResponse"
+            },
+            "GetSupertonicStatus": {
+              "requestType": "Empty",
+              "responseType": "SupertonicStatusResponse"
+            },
+            "DownloadSupertonicModels": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "GetSupertonicDownloadProgress": {
+              "requestType": "Empty",
+              "responseType": "DownloadProgressResponse"
+            },
+            "CancelSupertonicDownload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "DeleteSupertonicModels": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ListSupertonicVoices": {
+              "requestType": "Empty",
+              "responseType": "ListSupertonicVoicesResponse"
+            },
+            "ImportSupertonicVoice": {
+              "requestType": "ImportSupertonicVoiceRequest",
+              "responseType": "SupertonicVoice"
+            },
+            "DeleteSupertonicVoice": {
+              "requestType": "DeleteSupertonicVoiceRequest",
+              "responseType": "Empty"
+            },
+            "ActivateVoxVoice": {
+              "requestType": "Empty",
+              "responseType": "VoxActivationResponse"
+            },
             "GetEmbeddingModels": {
               "requestType": "Empty",
               "responseType": "EmbeddingModelsResponse"
@@ -943,28 +1519,12 @@
               "requestType": "DeleteEmbeddingModelRequest",
               "responseType": "Empty"
             },
-            "GetLlmMatchModels": {
-              "requestType": "Empty",
-              "responseType": "LlmMatchModelsResponse"
-            },
-            "DownloadLlmMatchModel": {
-              "requestType": "DownloadLlmMatchModelRequest",
-              "responseType": "Empty"
-            },
-            "GetLlmMatchDownloadProgress": {
-              "requestType": "Empty",
-              "responseType": "DownloadProgressResponse"
-            },
-            "CancelLlmMatchDownload": {
-              "requestType": "Empty",
-              "responseType": "Empty"
-            },
-            "DeleteLlmMatchModel": {
-              "requestType": "DeleteLlmMatchModelRequest",
-              "responseType": "Empty"
-            },
             "SetVoiceConversation": {
               "requestType": "SetVoiceConversationRequest",
+              "responseType": "Empty"
+            },
+            "SetVoicePendingImages": {
+              "requestType": "SetVoicePendingImagesRequest",
               "responseType": "Empty"
             }
           }
@@ -1001,6 +1561,43 @@
         "SetMicrophoneRequest": {
           "fields": {
             "microphoneId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "OutputDeviceListResponse": {
+          "fields": {
+            "devices": {
+              "rule": "repeated",
+              "type": "OutputDevice",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "OutputDevice": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "isDefault": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "SetOutputDeviceRequest": {
+          "fields": {
+            "outputDeviceId": {
               "type": "string",
               "id": 1
             }
@@ -1056,6 +1653,10 @@
             "gender": {
               "type": "string",
               "id": 5
+            },
+            "nameKey": {
+              "type": "string",
+              "id": 6
             }
           }
         },
@@ -1104,6 +1705,10 @@
             "isActive": {
               "type": "bool",
               "id": 9
+            },
+            "recommended": {
+              "type": "bool",
+              "id": 10
             }
           }
         },
@@ -1249,83 +1854,19 @@
             }
           }
         },
-        "LlmMatchModelInfoMsg": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "name": {
-              "type": "string",
-              "id": 2
-            },
-            "baseModel": {
-              "type": "string",
-              "id": 3
-            },
-            "languages": {
-              "type": "string",
-              "id": 4
-            },
-            "quantization": {
-              "type": "string",
-              "id": 5
-            },
-            "sizeBytes": {
-              "type": "uint64",
-              "id": 6
-            },
-            "sizeDisplay": {
-              "type": "string",
-              "id": 7
-            },
-            "tier": {
-              "type": "string",
-              "id": 8
-            },
-            "isDownloaded": {
-              "type": "bool",
-              "id": 9
-            },
-            "isActive": {
-              "type": "bool",
-              "id": 10
-            }
-          }
-        },
-        "LlmMatchModelsResponse": {
-          "fields": {
-            "models": {
-              "rule": "repeated",
-              "type": "LlmMatchModelInfoMsg",
-              "id": 1
-            },
-            "activeModelId": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "DownloadLlmMatchModelRequest": {
-          "fields": {
-            "modelId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "DeleteLlmMatchModelRequest": {
-          "fields": {
-            "modelId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
         "SetVoiceConversationRequest": {
           "fields": {
             "conversationId": {
               "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetVoicePendingImagesRequest": {
+          "fields": {
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
               "id": 1
             }
           }
@@ -1363,6 +1904,137 @@
             "GetCursorPosition": {
               "requestType": "Empty",
               "responseType": "CursorPositionResponse"
+            },
+            "ListGroups": {
+              "requestType": "Empty",
+              "responseType": "CommandGroupListResponse"
+            },
+            "CreateGroup": {
+              "requestType": "CreateGroupRequest",
+              "responseType": "CommandGroup"
+            },
+            "UpdateGroup": {
+              "requestType": "UpdateGroupRequest",
+              "responseType": "CommandGroup"
+            },
+            "DeleteGroup": {
+              "requestType": "DeleteGroupRequest",
+              "responseType": "Empty"
+            },
+            "MoveCommandToGroup": {
+              "requestType": "MoveCommandToGroupRequest",
+              "responseType": "CommandDefinition"
+            }
+          }
+        },
+        "CommandGroup": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "order": {
+              "type": "int32",
+              "id": 3
+            },
+            "collapsed": {
+              "type": "bool",
+              "id": 4
+            },
+            "createdAt": {
+              "type": "Timestamp",
+              "id": 5
+            },
+            "updatedAt": {
+              "type": "Timestamp",
+              "id": 6
+            }
+          }
+        },
+        "CommandGroupListResponse": {
+          "fields": {
+            "groups": {
+              "rule": "repeated",
+              "type": "CommandGroup",
+              "id": 1
+            }
+          }
+        },
+        "CreateGroupRequest": {
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "UpdateGroupRequest": {
+          "oneofs": {
+            "_name": {
+              "oneof": [
+                "name"
+              ]
+            },
+            "_collapsed": {
+              "oneof": [
+                "collapsed"
+              ]
+            },
+            "_order": {
+              "oneof": [
+                "order"
+              ]
+            }
+          },
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "collapsed": {
+              "type": "bool",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "order": {
+              "type": "int32",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "DeleteGroupRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "MoveCommandToGroupRequest": {
+          "fields": {
+            "commandId": {
+              "type": "string",
+              "id": 1
+            },
+            "groupId": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -1409,6 +2081,11 @@
               "oneof": [
                 "workflow"
               ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
             }
           },
           "fields": {
@@ -1449,6 +2126,21 @@
               "options": {
                 "proto3_optional": true
               }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 10
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 11
             }
           }
         },
@@ -1477,6 +2169,21 @@
             "_workflow": {
               "oneof": [
                 "workflow"
+              ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
+            },
+            "_slashEnabled": {
+              "oneof": [
+                "slashEnabled"
+              ]
+            },
+            "_slashDescription": {
+              "oneof": [
+                "slashDescription"
               ]
             }
           },
@@ -1531,6 +2238,27 @@
             "workflow": {
               "type": "WorkflowGraph",
               "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 10,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 12,
               "options": {
                 "proto3_optional": true
               }
@@ -1621,6 +2349,16 @@
               "oneof": [
                 "workflow"
               ]
+            },
+            "_groupId": {
+              "oneof": [
+                "groupId"
+              ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
             }
           },
           "fields": {
@@ -1670,6 +2408,70 @@
             "workflow": {
               "type": "WorkflowGraph",
               "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "groupId": {
+              "type": "string",
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 14
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 15
+            }
+          }
+        },
+        "CommandExecutionOverride": {
+          "oneofs": {
+            "_maxSteps": {
+              "oneof": [
+                "maxSteps"
+              ]
+            },
+            "_maxLoopIterations": {
+              "oneof": [
+                "maxLoopIterations"
+              ]
+            },
+            "_timeoutSeconds": {
+              "oneof": [
+                "timeoutSeconds"
+              ]
+            }
+          },
+          "fields": {
+            "maxSteps": {
+              "type": "uint64",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "maxLoopIterations": {
+              "type": "uint64",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "timeoutSeconds": {
+              "type": "uint64",
+              "id": 3,
               "options": {
                 "proto3_optional": true
               }
@@ -1791,6 +2593,91 @@
             }
           }
         },
+        "HotkeyBinding": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "combo": {
+              "type": "string",
+              "id": 2
+            },
+            "status": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "bindHint": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "HotkeyCompositorInfo": {
+          "fields": {
+            "model": {
+              "type": "string",
+              "id": 1
+            },
+            "parser": {
+              "type": "string",
+              "id": 2
+            },
+            "managedFile": {
+              "type": "string",
+              "id": 3
+            },
+            "includeTarget": {
+              "type": "string",
+              "id": 4
+            },
+            "includePresent": {
+              "type": "bool",
+              "id": 5
+            },
+            "needsSetup": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "GetHotkeyBindingsResponse": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "bindings": {
+              "rule": "repeated",
+              "type": "HotkeyBinding",
+              "id": 2
+            },
+            "compositor": {
+              "type": "HotkeyCompositorInfo",
+              "id": 3
+            }
+          }
+        },
+        "ConfigureHotkeyRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ConfigureHotkeyResponse": {
+          "fields": {
+            "opened": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
         "ConfigService": {
           "methods": {
             "GetSettings": {
@@ -1799,6 +2686,10 @@
             },
             "UpdateSettings": {
               "requestType": "UpdateSettingsRequest",
+              "responseType": "Empty"
+            },
+            "SetSetting": {
+              "requestType": "SetSettingRequest",
               "responseType": "Empty"
             },
             "CompleteOobe": {
@@ -1825,21 +2716,293 @@
               "requestType": "Empty",
               "responseType": "AiProvidersResponse"
             },
+            "TestAiProvider": {
+              "requestType": "TestAiProviderRequest",
+              "responseType": "TestAiProviderResponse"
+            },
             "GetWidgetData": {
               "requestType": "WidgetDataRequest",
               "responseType": "WidgetDataResponse"
             },
             "SaveWidgetData": {
               "requestType": "SaveWidgetDataRequest",
+              "responseType": "WidgetDataResponse"
+            },
+            "ActOnReminder": {
+              "requestType": "ReminderActionRequest",
               "responseType": "Empty"
+            },
+            "GetWidgetDescriptors": {
+              "requestType": "Empty",
+              "responseType": "WidgetDescriptorsResponse"
             },
             "GetIndexerStatus": {
               "requestType": "Empty",
               "responseType": "IndexerStatusResponse"
+            },
+            "GetHotkeyBindings": {
+              "requestType": "Empty",
+              "responseType": "GetHotkeyBindingsResponse"
+            },
+            "ConfigureHotkey": {
+              "requestType": "ConfigureHotkeyRequest",
+              "responseType": "ConfigureHotkeyResponse"
+            },
+            "GetCurrentWeather": {
+              "requestType": "WeatherRequest",
+              "responseType": "CurrentWeatherResponse"
+            },
+            "GetWeatherForecast": {
+              "requestType": "WeatherRequest",
+              "responseType": "WeatherForecastResponse"
+            },
+            "DetectLocation": {
+              "requestType": "Empty",
+              "responseType": "DetectedLocationResponse"
+            },
+            "GetCurrencyRate": {
+              "requestType": "CurrencyRateRequest",
+              "responseType": "CurrencyRateResponse"
+            },
+            "GetCurrencySeries": {
+              "requestType": "CurrencySeriesRequest",
+              "responseType": "CurrencySeriesResponse"
+            },
+            "GetCryptoRate": {
+              "requestType": "CryptoRateRequest",
+              "responseType": "CryptoRateResponse"
+            },
+            "GetCryptoSeries": {
+              "requestType": "CryptoSeriesRequest",
+              "responseType": "CryptoSeriesResponse"
+            },
+            "ListBrowsers": {
+              "requestType": "Empty",
+              "responseType": "ListBrowsersResponse"
+            }
+          }
+        },
+        "BrowserInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ListBrowsersResponse": {
+          "fields": {
+            "browsers": {
+              "rule": "repeated",
+              "type": "BrowserInfo",
+              "id": 1
+            }
+          }
+        },
+        "CurrencyRateRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CurrencySeriesRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            }
+          }
+        },
+        "CurrencySeriesPoint": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "rate": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CurrencySeriesResponse": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            },
+            "points": {
+              "rule": "repeated",
+              "type": "CurrencySeriesPoint",
+              "id": 4
+            },
+            "unsupportedCurrencies": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "CurrencyRateResponse": {
+          "oneofs": {
+            "_weekChange": {
+              "oneof": [
+                "weekChange"
+              ]
+            }
+          },
+          "fields": {
+            "rate": {
+              "type": "double",
+              "id": 1
+            },
+            "from": {
+              "type": "string",
+              "id": 2
+            },
+            "to": {
+              "type": "string",
+              "id": 3
+            },
+            "weekChange": {
+              "type": "double",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "CryptoRateRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CryptoSeriesRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            }
+          }
+        },
+        "CryptoSeriesPoint": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "rate": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CryptoSeriesResponse": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            },
+            "points": {
+              "rule": "repeated",
+              "type": "CryptoSeriesPoint",
+              "id": 4
+            },
+            "unsupportedCurrencies": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "CryptoRateResponse": {
+          "oneofs": {
+            "_weekChange": {
+              "oneof": [
+                "weekChange"
+              ]
+            }
+          },
+          "fields": {
+            "rate": {
+              "type": "double",
+              "id": 1
+            },
+            "from": {
+              "type": "string",
+              "id": 2
+            },
+            "to": {
+              "type": "string",
+              "id": 3
+            },
+            "weekChange": {
+              "type": "double",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
         "IndexerStatusResponse": {
+          "oneofs": {
+            "_progress": {
+              "oneof": [
+                "progress"
+              ]
+            }
+          },
           "fields": {
             "state": {
               "type": "string",
@@ -1861,6 +3024,13 @@
               "rule": "repeated",
               "type": "IndexerVolumeStatusMsg",
               "id": 5
+            },
+            "progress": {
+              "type": "IndexerScanProgressMsg",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -1881,6 +3051,46 @@
             "lastScan": {
               "type": "int64",
               "id": 4
+            },
+            "online": {
+              "type": "bool",
+              "id": 5
+            }
+          }
+        },
+        "IndexerScanProgressMsg": {
+          "fields": {
+            "volume": {
+              "type": "string",
+              "id": 1
+            },
+            "volumeIndex": {
+              "type": "uint32",
+              "id": 2
+            },
+            "volumeCount": {
+              "type": "uint32",
+              "id": 3
+            },
+            "phase": {
+              "type": "string",
+              "id": 4
+            },
+            "done": {
+              "type": "uint64",
+              "id": 5
+            },
+            "total": {
+              "type": "uint64",
+              "id": 6
+            },
+            "filesFound": {
+              "type": "uint64",
+              "id": 7
+            },
+            "elapsedSeconds": {
+              "type": "uint64",
+              "id": 8
             }
           }
         },
@@ -1925,6 +3135,115 @@
             "safety": {
               "type": "SafetySettings",
               "id": 10
+            },
+            "toolSearch": {
+              "type": "ToolSearchSettings",
+              "id": 11
+            },
+            "overlayWidgets": {
+              "type": "OverlayWidgetsSettings",
+              "id": 12
+            },
+            "commandExecution": {
+              "type": "CommandExecutionSettings",
+              "id": 13
+            },
+            "discord": {
+              "type": "DiscordSettings",
+              "id": 14
+            },
+            "projects": {
+              "type": "ProjectSettings",
+              "id": 15
+            },
+            "skills": {
+              "type": "SkillsSettings",
+              "id": 16
+            },
+            "mail": {
+              "type": "MailSettings",
+              "id": 17
+            },
+            "optimize": {
+              "type": "OptimizeSettings",
+              "id": 18
+            }
+          }
+        },
+        "MailSettings": {
+          "fields": {
+            "cacheBodies": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "OptimizeSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "riskTier": {
+              "type": "string",
+              "id": 2
+            },
+            "ruleStates": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 3
+            },
+            "ruleConfigs": {
+              "keyType": "string",
+              "type": "RuleConfigMsg",
+              "id": 4
+            },
+            "overviewTtlMinutes": {
+              "type": "uint32",
+              "id": 5
+            },
+            "confirmBeforeApply": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "RuleConfigMsg": {
+          "fields": {
+            "values": {
+              "keyType": "string",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SkillsSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "skillStates": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 2
+            },
+            "extraDirs": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SetSettingRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "valueJson": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -1978,6 +3297,11 @@
             "_safety": {
               "oneof": [
                 "safety"
+              ]
+            },
+            "_toolSearch": {
+              "oneof": [
+                "toolSearch"
               ]
             }
           },
@@ -2051,32 +3375,155 @@
               "options": {
                 "proto3_optional": true
               }
+            },
+            "toolSearch": {
+              "type": "ToolSearchSettings",
+              "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
-        "SemanticSettings": {
+        "ToolSearchSettings": {
           "fields": {
             "enabled": {
               "type": "bool",
               "id": 1
             },
-            "modelId": {
+            "mode": {
               "type": "string",
               "id": 2
             },
-            "threshold": {
-              "type": "float",
+            "defaultSearchLimit": {
+              "type": "uint32",
               "id": 3
             },
-            "mode": {
-              "type": "string",
+            "maxSearchLimit": {
+              "type": "uint32",
               "id": 4
             },
-            "llmModelId": {
-              "type": "string",
+            "scriptDeadlineMs": {
+              "type": "uint64",
               "id": 5
+            },
+            "scriptMemoryMb": {
+              "type": "uint64",
+              "id": 6
             }
           }
+        },
+        "CommandExecutionSettings": {
+          "fields": {
+            "maxSteps": {
+              "type": "uint64",
+              "id": 1
+            },
+            "maxLoopIterations": {
+              "type": "uint64",
+              "id": 2
+            },
+            "timeoutSeconds": {
+              "type": "uint64",
+              "id": 3
+            }
+          }
+        },
+        "DiscordSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "ProjectSettings": {
+          "fields": {
+            "items": {
+              "rule": "repeated",
+              "type": "ProjectEntry",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ProjectEntry": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "path": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SemanticSettings": {
+          "oneofs": {
+            "_enabled": {
+              "oneof": [
+                "enabled"
+              ]
+            },
+            "_modelId": {
+              "oneof": [
+                "modelId"
+              ]
+            },
+            "_threshold": {
+              "oneof": [
+                "threshold"
+              ]
+            }
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "modelId": {
+              "type": "string",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "threshold": {
+              "type": "float",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          },
+          "reserved": [
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            "mode",
+            "llm_model_id",
+            "memory_enabled"
+          ]
         },
         "CompanionSettings": {
           "fields": {
@@ -2108,6 +3555,33 @@
           }
         },
         "GeneralSettings": {
+          "oneofs": {
+            "_weatherLocationName": {
+              "oneof": [
+                "weatherLocationName"
+              ]
+            },
+            "_weatherLocationLat": {
+              "oneof": [
+                "weatherLocationLat"
+              ]
+            },
+            "_weatherLocationLon": {
+              "oneof": [
+                "weatherLocationLon"
+              ]
+            },
+            "_preferDiscreteGpu": {
+              "oneof": [
+                "preferDiscreteGpu"
+              ]
+            },
+            "_browser": {
+              "oneof": [
+                "browser"
+              ]
+            }
+          },
           "fields": {
             "language": {
               "type": "string",
@@ -2156,15 +3630,54 @@
             },
             "weatherLocationName": {
               "type": "string",
-              "id": 12
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
             },
             "weatherLocationLat": {
               "type": "double",
-              "id": 13
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
             },
             "weatherLocationLon": {
               "type": "double",
-              "id": 14
+              "id": 14,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "currencyFrom": {
+              "type": "string",
+              "id": 15
+            },
+            "currencyTo": {
+              "type": "string",
+              "id": 16
+            },
+            "preferDiscreteGpu": {
+              "type": "bool",
+              "id": 17,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "cryptoFrom": {
+              "type": "string",
+              "id": 18
+            },
+            "cryptoTo": {
+              "type": "string",
+              "id": 19
+            },
+            "browser": {
+              "type": "string",
+              "id": 20,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -2185,6 +3698,10 @@
             "silenceDurationMs": {
               "type": "int32",
               "id": 4
+            },
+            "sttProvider": {
+              "type": "string",
+              "id": 22
             },
             "ttsProvider": {
               "type": "string",
@@ -2246,6 +3763,34 @@
             "ttsBriefResponse": {
               "type": "bool",
               "id": 19
+            },
+            "outputDeviceId": {
+              "type": "string",
+              "id": 21
+            },
+            "providerConfigsJson": {
+              "type": "string",
+              "id": 23
+            },
+            "wakeWordRearmThreshold": {
+              "type": "float",
+              "id": 24
+            },
+            "triggeredSilenceExtraMs": {
+              "type": "int32",
+              "id": 25
+            },
+            "wakeWordPatienceHits": {
+              "type": "int32",
+              "id": 26
+            },
+            "audioDuckingEnabled": {
+              "type": "bool",
+              "id": 27
+            },
+            "audioDuckingLevel": {
+              "type": "int32",
+              "id": 28
             }
           },
           "reserved": [
@@ -2289,16 +3834,37 @@
               "type": "bool",
               "id": 8
             },
-            "useThinking": {
-              "type": "bool",
-              "id": 9
-            },
             "contextLength": {
               "type": "int32",
               "id": 11
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 12
+            },
+            "showReasoning": {
+              "type": "string",
+              "id": 13
+            },
+            "maxToolRounds": {
+              "type": "uint32",
+              "id": 14
+            },
+            "turnDeadlineSecs": {
+              "type": "uint64",
+              "id": 15
+            },
+            "subagentModel": {
+              "type": "string",
+              "id": 16
             }
           },
           "reserved": [
+            [
+              9,
+              9
+            ],
+            "use_thinking",
             [
               10,
               10
@@ -2311,19 +3877,28 @@
               "type": "HotkeyConfig",
               "id": 1
             },
-            "toggleListen": {
+            "overlay": {
               "type": "HotkeyConfig",
-              "id": 2
-            },
-            "stopSpeaking": {
-              "type": "HotkeyConfig",
-              "id": 3
-            },
-            "openChat": {
-              "type": "HotkeyConfig",
-              "id": 4
+              "id": 5
             }
-          }
+          },
+          "reserved": [
+            [
+              2,
+              2
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              4
+            ],
+            "toggle_listen",
+            "stop_speaking",
+            "open_chat"
+          ]
         },
         "HotkeyConfig": {
           "fields": {
@@ -2343,6 +3918,18 @@
           }
         },
         "AppearanceSettings": {
+          "oneofs": {
+            "_workflowEdgeStyle": {
+              "oneof": [
+                "workflowEdgeStyle"
+              ]
+            },
+            "_windowDecorations": {
+              "oneof": [
+                "windowDecorations"
+              ]
+            }
+          },
           "fields": {
             "theme": {
               "type": "string",
@@ -2363,6 +3950,20 @@
             "windowsEffect": {
               "type": "string",
               "id": 5
+            },
+            "workflowEdgeStyle": {
+              "type": "string",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "windowDecorations": {
+              "type": "string",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -2387,10 +3988,104 @@
             "currency": {
               "type": "bool",
               "id": 5
+            },
+            "crypto": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "OverlayWidgetsSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "widgets": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 2
+            },
+            "layout": {
+              "rule": "repeated",
+              "type": "OverlayTilePlacement",
+              "id": 3
+            }
+          }
+        },
+        "OverlayTilePlacement": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "col": {
+              "type": "uint32",
+              "id": 2
+            },
+            "row": {
+              "type": "uint32",
+              "id": 3
+            }
+          }
+        },
+        "WidgetDescriptorMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "displayKey": {
+              "type": "string",
+              "id": 2
+            },
+            "icon": {
+              "type": "string",
+              "id": 3
+            },
+            "w": {
+              "type": "uint32",
+              "id": 4
+            },
+            "h": {
+              "type": "uint32",
+              "id": 5
+            },
+            "kind": {
+              "type": "string",
+              "id": 6
+            },
+            "editable": {
+              "type": "bool",
+              "id": 7
+            },
+            "userToggleable": {
+              "type": "bool",
+              "id": 8
+            },
+            "defaultEnabled": {
+              "type": "bool",
+              "id": 9
+            }
+          }
+        },
+        "WidgetDescriptorsResponse": {
+          "fields": {
+            "descriptors": {
+              "rule": "repeated",
+              "type": "WidgetDescriptorMsg",
+              "id": 1
             }
           }
         },
         "SafetySettings": {
+          "oneofs": {
+            "_allowUnsignedPlugins": {
+              "oneof": [
+                "allowUnsignedPlugins"
+              ]
+            }
+          },
           "fields": {
             "enabled": {
               "type": "bool",
@@ -2413,6 +4108,13 @@
             "confirmationTimeoutSeconds": {
               "type": "int32",
               "id": 5
+            },
+            "allowUnsignedPlugins": {
+              "type": "bool",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -2457,6 +4159,10 @@
             "provider": {
               "type": "string",
               "id": 1
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -2478,6 +4184,71 @@
             "name": {
               "type": "string",
               "id": 2
+            },
+            "reasoningLevels": {
+              "rule": "repeated",
+              "type": "ReasoningLevelOption",
+              "id": 3
+            },
+            "reasoningDefault": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ReasoningLevelOption": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "recommended": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "TestAiProviderRequest": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "apiKey": {
+              "type": "string",
+              "id": 2
+            },
+            "model": {
+              "type": "string",
+              "id": 3
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "TestAiProviderResponse": {
+          "fields": {
+            "ok": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "model": {
+              "type": "string",
+              "id": 3
+            },
+            "latencyMs": {
+              "type": "uint32",
+              "id": 4
             }
           }
         },
@@ -2499,6 +4270,34 @@
             "GetMediaSessions": {
               "requestType": "GetMediaSessionsRequest",
               "responseType": "MediaSessionsResponse"
+            },
+            "CaptureScreen": {
+              "requestType": "CaptureScreenRequest",
+              "responseType": "CaptureScreenResponse"
+            }
+          }
+        },
+        "CaptureScreenRequest": {
+          "fields": {
+            "monitorIndex": {
+              "type": "int32",
+              "id": 1
+            }
+          }
+        },
+        "CaptureScreenResponse": {
+          "fields": {
+            "pngBytes": {
+              "type": "bytes",
+              "id": 1
+            },
+            "width": {
+              "type": "int32",
+              "id": 2
+            },
+            "height": {
+              "type": "int32",
+              "id": 3
             }
           }
         },
@@ -2547,6 +4346,22 @@
             "appIcon": {
               "type": "bytes",
               "id": 11
+            },
+            "canNext": {
+              "type": "bool",
+              "id": 12
+            },
+            "canPrevious": {
+              "type": "bool",
+              "id": 13
+            },
+            "canSeek": {
+              "type": "bool",
+              "id": 14
+            },
+            "trackUrl": {
+              "type": "string",
+              "id": 15
             }
           }
         },
@@ -2638,36 +4453,6 @@
             }
           }
         },
-        "RegistryService": {
-          "methods": {
-            "GetActionTypes": {
-              "requestType": "Empty",
-              "responseType": "ActionTypeDefinitionsResponse"
-            },
-            "GetTriggerTypes": {
-              "requestType": "Empty",
-              "responseType": "TriggerTypeDefinitionsResponse"
-            }
-          }
-        },
-        "ActionTypeDefinitionsResponse": {
-          "fields": {
-            "actionTypes": {
-              "rule": "repeated",
-              "type": "ActionTypeDefinitionMsg",
-              "id": 1
-            }
-          }
-        },
-        "TriggerTypeDefinitionsResponse": {
-          "fields": {
-            "triggerTypes": {
-              "rule": "repeated",
-              "type": "TriggerTypeDefinitionMsg",
-              "id": 1
-            }
-          }
-        },
         "ActionTypeDefinitionMsg": {
           "fields": {
             "type": {
@@ -2698,6 +4483,15 @@
             "aiPrimaryField": {
               "type": "string",
               "id": 7
+            },
+            "platforms": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
+            },
+            "hidden": {
+              "type": "bool",
+              "id": 9
             }
           }
         },
@@ -2789,6 +4583,10 @@
             "groupLabel": {
               "type": "string",
               "id": 16
+            },
+            "storagePath": {
+              "type": "string",
+              "id": 17
             }
           }
         },
@@ -2820,79 +4618,6 @@
             }
           }
         },
-        "TaskService": {
-          "methods": {
-            "GetTasks": {
-              "requestType": "Empty",
-              "responseType": "TaskListResponse"
-            },
-            "CancelTask": {
-              "requestType": "CancelTaskRequest",
-              "responseType": "Empty"
-            }
-          }
-        },
-        "BackgroundTaskMsg": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "taskType": {
-              "type": "string",
-              "id": 2
-            },
-            "title": {
-              "type": "string",
-              "id": 3
-            },
-            "description": {
-              "type": "string",
-              "id": 4
-            },
-            "progress": {
-              "type": "float",
-              "id": 5
-            },
-            "speedBytesPerSec": {
-              "type": "uint64",
-              "id": 6
-            },
-            "etaSeconds": {
-              "type": "uint32",
-              "id": 7
-            },
-            "status": {
-              "type": "string",
-              "id": 8
-            },
-            "error": {
-              "type": "string",
-              "id": 9
-            },
-            "cancelable": {
-              "type": "bool",
-              "id": 10
-            }
-          }
-        },
-        "TaskListResponse": {
-          "fields": {
-            "tasks": {
-              "rule": "repeated",
-              "type": "BackgroundTaskMsg",
-              "id": 1
-            }
-          }
-        },
-        "CancelTaskRequest": {
-          "fields": {
-            "taskId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
         "MonitorService": {
           "methods": {
             "GetSystemStats": {
@@ -2903,6 +4628,175 @@
               "requestType": "GetSystemStatsRequest",
               "responseType": "SystemStats",
               "responseStream": true
+            },
+            "SubscribeToolSearchEvents": {
+              "requestType": "ToolSearchSubscribeRequest",
+              "responseType": "ToolSearchEventMsg",
+              "responseStream": true
+            }
+          }
+        },
+        "ToolSearchSubscribeRequest": {
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ToolSearchEventMsg": {
+          "oneofs": {
+            "kind": {
+              "oneof": [
+                "query",
+                "describe",
+                "call",
+                "script",
+                "compaction"
+              ]
+            }
+          },
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            },
+            "timestampMs": {
+              "type": "int64",
+              "id": 2
+            },
+            "query": {
+              "type": "ToolSearchQueryEvent",
+              "id": 3
+            },
+            "describe": {
+              "type": "ToolSearchDescribeEvent",
+              "id": 4
+            },
+            "call": {
+              "type": "ToolSearchCallEvent",
+              "id": 5
+            },
+            "script": {
+              "type": "ToolSearchScriptEvent",
+              "id": 6
+            },
+            "compaction": {
+              "type": "ToolSearchCompactionEvent",
+              "id": 7
+            }
+          }
+        },
+        "ToolSearchQueryEvent": {
+          "fields": {
+            "query": {
+              "type": "string",
+              "id": 1
+            },
+            "results": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
+            },
+            "topScore": {
+              "type": "uint32",
+              "id": 3
+            },
+            "durationUs": {
+              "type": "uint64",
+              "id": 4
+            }
+          }
+        },
+        "ToolSearchDescribeEvent": {
+          "fields": {
+            "toolId": {
+              "type": "string",
+              "id": 1
+            },
+            "bytes": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "ToolSearchCallEvent": {
+          "fields": {
+            "toolId": {
+              "type": "string",
+              "id": 1
+            },
+            "resolvedName": {
+              "type": "string",
+              "id": 2
+            },
+            "argsPreview": {
+              "type": "string",
+              "id": 3
+            },
+            "success": {
+              "type": "bool",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint64",
+              "id": 5
+            },
+            "error": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "ToolSearchScriptEvent": {
+          "fields": {
+            "scriptPreview": {
+              "type": "string",
+              "id": 1
+            },
+            "scriptBytes": {
+              "type": "uint64",
+              "id": 2
+            },
+            "bridgeCalls": {
+              "type": "uint64",
+              "id": 3
+            },
+            "resultPreview": {
+              "type": "string",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint64",
+              "id": 5
+            },
+            "sandboxError": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "ToolSearchCompactionEvent": {
+          "fields": {
+            "visible": {
+              "type": "uint64",
+              "id": 1
+            },
+            "deferred": {
+              "type": "uint64",
+              "id": 2
+            },
+            "bytesBefore": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesAfter": {
+              "type": "uint64",
+              "id": 4
+            },
+            "savingsPercent": {
+              "type": "uint32",
+              "id": 5
             }
           }
         },
@@ -3083,253 +4977,10 @@
             "fileSystem": {
               "type": "string",
               "id": 8
-            }
-          }
-        },
-        "CompanionService": {
-          "methods": {
-            "SubscribeCommands": {
-              "requestType": "CompanionSubscribeRequest",
-              "responseType": "CompanionCommand",
-              "responseStream": true
             },
-            "ReportStatus": {
-              "requestType": "CompanionStatusReport",
-              "responseType": "Empty"
-            },
-            "ReportBlendshapes": {
-              "requestType": "CompanionBlendshapeReport",
-              "responseType": "Empty"
-            },
-            "SendCommand": {
-              "requestType": "CompanionClientCommand",
-              "responseType": "CompanionCommandResponse"
-            },
-            "GetCompanionStatus": {
-              "requestType": "Empty",
-              "responseType": "CompanionStatusResponse"
-            }
-          }
-        },
-        "CompanionSubscribeRequest": {
-          "fields": {
-            "companionId": {
-              "type": "string",
-              "id": 1
-            },
-            "companionVersion": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "CompanionCommand": {
-          "oneofs": {
-            "payload": {
-              "oneof": [
-                "loadModel",
-                "setBlendshape",
-                "setAnimator",
-                "playAudio",
-                "setSettings",
-                "emptyPayload"
-              ]
-            }
-          },
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "commandType": {
-              "type": "string",
-              "id": 2
-            },
-            "loadModel": {
-              "type": "LoadModelPayload",
-              "id": 3
-            },
-            "setBlendshape": {
-              "type": "SetBlendshapePayload",
-              "id": 4
-            },
-            "setAnimator": {
-              "type": "SetAnimatorPayload",
-              "id": 5
-            },
-            "playAudio": {
-              "type": "PlayAudioPayload",
-              "id": 6
-            },
-            "setSettings": {
-              "type": "SetSettingsPayload",
-              "id": 7
-            },
-            "emptyPayload": {
-              "type": "EmptyPayload",
-              "id": 8
-            }
-          }
-        },
-        "EmptyPayload": {
-          "fields": {}
-        },
-        "LoadModelPayload": {
-          "fields": {
-            "path": {
-              "type": "string",
-              "id": 1
-            },
-            "useDefault": {
-              "type": "bool",
-              "id": 2
-            }
-          }
-        },
-        "SetBlendshapePayload": {
-          "fields": {
-            "name": {
-              "type": "string",
-              "id": 1
-            },
-            "value": {
-              "type": "float",
-              "id": 2
-            }
-          }
-        },
-        "SetAnimatorPayload": {
-          "fields": {
-            "parameters": {
-              "keyType": "string",
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "PlayAudioPayload": {
-          "fields": {
-            "filePath": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "SetSettingsPayload": {
-          "fields": {
-            "settings": {
-              "keyType": "string",
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "CompanionStatusReport": {
-          "fields": {
-            "companionId": {
-              "type": "string",
-              "id": 1
-            },
-            "state": {
-              "type": "CompanionConnectionState",
-              "id": 2
-            },
-            "modelName": {
-              "type": "string",
-              "id": 3
-            },
-            "modelPath": {
-              "type": "string",
-              "id": 4
-            },
-            "audioPlaying": {
-              "type": "bool",
-              "id": 5
-            }
-          }
-        },
-        "CompanionConnectionState": {
-          "values": {
-            "COMPANION_DISCONNECTED": 0,
-            "COMPANION_CONNECTED": 1,
-            "COMPANION_LOADING": 2,
-            "COMPANION_READY": 3,
-            "COMPANION_SPEAKING": 4,
-            "COMPANION_ERROR": 5
-          }
-        },
-        "CompanionBlendshapeReport": {
-          "fields": {
-            "companionId": {
-              "type": "string",
-              "id": 1
-            },
-            "blendshapeNames": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "CompanionClientCommand": {
-          "fields": {
-            "companionId": {
-              "type": "string",
-              "id": 1
-            },
-            "commandType": {
-              "type": "string",
-              "id": 2
-            },
-            "data": {
-              "keyType": "string",
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "CompanionCommandResponse": {
-          "fields": {
-            "success": {
-              "type": "bool",
-              "id": 1
-            },
-            "errorMessage": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "CompanionStatusResponse": {
-          "fields": {
-            "connected": {
-              "type": "bool",
-              "id": 1
-            },
-            "companionId": {
-              "type": "string",
-              "id": 2
-            },
-            "state": {
-              "type": "CompanionConnectionState",
-              "id": 3
-            },
-            "modelName": {
-              "type": "string",
-              "id": 4
-            },
-            "modelPath": {
-              "type": "string",
-              "id": 5
-            },
-            "audioPlaying": {
-              "type": "bool",
-              "id": 6
-            },
-            "blendshapeNames": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 7
+            "freeMb": {
+              "type": "uint64",
+              "id": 9
             }
           }
         },
@@ -3421,6 +5072,14 @@
             "coverImage": {
               "type": "string",
               "id": 8
+            },
+            "nameKey": {
+              "type": "string",
+              "id": 9
+            },
+            "descriptionKey": {
+              "type": "string",
+              "id": 10
             }
           }
         },
@@ -3445,6 +5104,35 @@
             "requiresSubscription": {
               "type": "bool",
               "id": 5
+            },
+            "isLocal": {
+              "type": "bool",
+              "id": 6
+            },
+            "requiresDownload": {
+              "type": "bool",
+              "id": 7
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 8
+            },
+            "modelManager": {
+              "type": "string",
+              "id": 9
+            },
+            "voiceListing": {
+              "type": "string",
+              "id": 10
+            },
+            "availability": {
+              "type": "string",
+              "id": 11
+            },
+            "activated": {
+              "type": "bool",
+              "id": 12
             }
           }
         },
@@ -3453,6 +5141,145 @@
             "providers": {
               "rule": "repeated",
               "type": "TtsProviderInfo",
+              "id": 1
+            }
+          }
+        },
+        "SttProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "isLocal": {
+              "type": "bool",
+              "id": 3
+            },
+            "requiresDownload": {
+              "type": "bool",
+              "id": 4
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 5
+            },
+            "modelManager": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "SttProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "SttProviderInfo",
+              "id": 1
+            }
+          }
+        },
+        "SupertonicStatusResponse": {
+          "fields": {
+            "isReady": {
+              "type": "bool",
+              "id": 1
+            },
+            "isDownloading": {
+              "type": "bool",
+              "id": 2
+            },
+            "bytesDone": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesTotal": {
+              "type": "uint64",
+              "id": 4
+            },
+            "percent": {
+              "type": "float",
+              "id": 5
+            },
+            "currentFile": {
+              "type": "string",
+              "id": 6
+            },
+            "error": {
+              "type": "string",
+              "id": 7
+            }
+          }
+        },
+        "VoxActivationResponse": {
+          "fields": {
+            "activated": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "taskId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SupertonicVoice": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "gender": {
+              "type": "string",
+              "id": 3
+            },
+            "isCustom": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ListSupertonicVoicesResponse": {
+          "fields": {
+            "voices": {
+              "rule": "repeated",
+              "type": "SupertonicVoice",
+              "id": 1
+            }
+          }
+        },
+        "ImportSupertonicVoiceRequest": {
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            },
+            "gender": {
+              "type": "string",
+              "id": 2
+            },
+            "jsonContent": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "DeleteSupertonicVoiceRequest": {
+          "fields": {
+            "voiceId": {
+              "type": "string",
               "id": 1
             }
           }
@@ -3490,6 +5317,15 @@
             "sectionTitleKey": {
               "type": "string",
               "id": 8
+            },
+            "supportsModelDiscovery": {
+              "type": "bool",
+              "id": 9
+            },
+            "reasoningLevels": {
+              "rule": "repeated",
+              "type": "ReasoningLevelOption",
+              "id": 10
             }
           }
         },
@@ -3498,1196 +5334,6 @@
             "providers": {
               "rule": "repeated",
               "type": "AiProviderInfo",
-              "id": 1
-            }
-          }
-        },
-        "McpService": {
-          "methods": {
-            "ListServers": {
-              "requestType": "Empty",
-              "responseType": "McpServerListResponse"
-            },
-            "AddServer": {
-              "requestType": "McpServerConfigMsg",
-              "responseType": "McpServerConfigMsg"
-            },
-            "UpdateServer": {
-              "requestType": "McpServerConfigMsg",
-              "responseType": "Empty"
-            },
-            "RemoveServer": {
-              "requestType": "McpServerIdRequest",
-              "responseType": "Empty"
-            },
-            "StartServer": {
-              "requestType": "McpServerIdRequest",
-              "responseType": "Empty"
-            },
-            "StopServer": {
-              "requestType": "McpServerIdRequest",
-              "responseType": "Empty"
-            },
-            "GetServerTools": {
-              "requestType": "McpServerIdRequest",
-              "responseType": "McpToolListResponse"
-            },
-            "SetToolEnabled": {
-              "requestType": "McpSetToolEnabledRequest",
-              "responseType": "Empty"
-            },
-            "RefreshServerTools": {
-              "requestType": "McpServerIdRequest",
-              "responseType": "McpToolListResponse"
-            },
-            "SearchCatalog": {
-              "requestType": "CatalogSearchRequest",
-              "responseType": "CatalogSearchResponse"
-            },
-            "GetCatalogServer": {
-              "requestType": "CatalogServerRequest",
-              "responseType": "CatalogServerMsg"
-            },
-            "InstallCatalogServer": {
-              "requestType": "InstallCatalogRequest",
-              "responseType": "McpServerConfigMsg"
-            },
-            "CheckRuntimes": {
-              "requestType": "Empty",
-              "responseType": "RuntimeStatusListResponse"
-            },
-            "InstallRuntime": {
-              "requestType": "InstallRuntimeRequest",
-              "responseType": "InstallRuntimeResponse"
-            }
-          }
-        },
-        "McpServerConfigMsg": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "name": {
-              "type": "string",
-              "id": 2
-            },
-            "transportJson": {
-              "type": "string",
-              "id": 3
-            },
-            "enabled": {
-              "type": "bool",
-              "id": 4
-            },
-            "autoStart": {
-              "type": "bool",
-              "id": 5
-            },
-            "toolOverrides": {
-              "keyType": "string",
-              "type": "bool",
-              "id": 6
-            },
-            "timeoutSecs": {
-              "type": "uint64",
-              "id": 7
-            },
-            "catalogId": {
-              "type": "string",
-              "id": 8
-            },
-            "catalogVersion": {
-              "type": "string",
-              "id": 9
-            }
-          }
-        },
-        "McpServerStatusMsg": {
-          "fields": {
-            "config": {
-              "type": "McpServerConfigMsg",
-              "id": 1
-            },
-            "status": {
-              "type": "string",
-              "id": 2
-            },
-            "error": {
-              "type": "string",
-              "id": 3
-            },
-            "tools": {
-              "rule": "repeated",
-              "type": "McpToolInfoMsg",
-              "id": 4
-            }
-          }
-        },
-        "McpServerListResponse": {
-          "fields": {
-            "servers": {
-              "rule": "repeated",
-              "type": "McpServerStatusMsg",
-              "id": 1
-            }
-          }
-        },
-        "McpServerIdRequest": {
-          "fields": {
-            "serverId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "McpToolInfoMsg": {
-          "fields": {
-            "name": {
-              "type": "string",
-              "id": 1
-            },
-            "description": {
-              "type": "string",
-              "id": 2
-            },
-            "inputSchemaJson": {
-              "type": "string",
-              "id": 3
-            },
-            "enabled": {
-              "type": "bool",
-              "id": 4
-            },
-            "namespacedName": {
-              "type": "string",
-              "id": 5
-            }
-          }
-        },
-        "McpToolListResponse": {
-          "fields": {
-            "tools": {
-              "rule": "repeated",
-              "type": "McpToolInfoMsg",
-              "id": 1
-            }
-          }
-        },
-        "McpSetToolEnabledRequest": {
-          "fields": {
-            "serverId": {
-              "type": "string",
-              "id": 1
-            },
-            "toolName": {
-              "type": "string",
-              "id": 2
-            },
-            "enabled": {
-              "type": "bool",
-              "id": 3
-            }
-          }
-        },
-        "CatalogSearchRequest": {
-          "fields": {
-            "query": {
-              "type": "string",
-              "id": 1
-            },
-            "cursor": {
-              "type": "string",
-              "id": 2
-            },
-            "limit": {
-              "type": "uint32",
-              "id": 3
-            }
-          }
-        },
-        "CatalogSearchResponse": {
-          "fields": {
-            "servers": {
-              "rule": "repeated",
-              "type": "CatalogServerMsg",
-              "id": 1
-            },
-            "nextCursor": {
-              "type": "string",
-              "id": 2
-            },
-            "totalHint": {
-              "type": "uint32",
-              "id": 3
-            }
-          }
-        },
-        "CatalogServerMsg": {
-          "fields": {
-            "name": {
-              "type": "string",
-              "id": 1
-            },
-            "version": {
-              "type": "string",
-              "id": 2
-            },
-            "title": {
-              "type": "string",
-              "id": 3
-            },
-            "description": {
-              "type": "string",
-              "id": 4
-            },
-            "websiteUrl": {
-              "type": "string",
-              "id": 5
-            },
-            "iconUrl": {
-              "type": "string",
-              "id": 6
-            },
-            "repositoryUrl": {
-              "type": "string",
-              "id": 7
-            },
-            "isInstalled": {
-              "type": "bool",
-              "id": 8
-            },
-            "publishedAt": {
-              "type": "string",
-              "id": 9
-            },
-            "updatedAt": {
-              "type": "string",
-              "id": 10
-            },
-            "packages": {
-              "rule": "repeated",
-              "type": "CatalogPackageMsg",
-              "id": 11
-            },
-            "remotes": {
-              "rule": "repeated",
-              "type": "CatalogRemoteMsg",
-              "id": 12
-            }
-          }
-        },
-        "CatalogPackageMsg": {
-          "fields": {
-            "registryType": {
-              "type": "string",
-              "id": 1
-            },
-            "identifier": {
-              "type": "string",
-              "id": 2
-            },
-            "version": {
-              "type": "string",
-              "id": 3
-            },
-            "transport": {
-              "type": "string",
-              "id": 4
-            },
-            "runtimeHint": {
-              "type": "string",
-              "id": 5
-            },
-            "runtimeArguments": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 6
-            },
-            "environmentVariables": {
-              "rule": "repeated",
-              "type": "CatalogEnvVarMsg",
-              "id": 7
-            }
-          }
-        },
-        "CatalogEnvVarMsg": {
-          "fields": {
-            "name": {
-              "type": "string",
-              "id": 1
-            },
-            "description": {
-              "type": "string",
-              "id": 2
-            },
-            "isSecret": {
-              "type": "bool",
-              "id": 3
-            },
-            "isRequired": {
-              "type": "bool",
-              "id": 4
-            },
-            "defaultValue": {
-              "type": "string",
-              "id": 5
-            },
-            "choices": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 6
-            }
-          }
-        },
-        "CatalogRemoteMsg": {
-          "fields": {
-            "transportType": {
-              "type": "string",
-              "id": 1
-            },
-            "url": {
-              "type": "string",
-              "id": 2
-            },
-            "headers": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "CatalogServerRequest": {
-          "fields": {
-            "name": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "InstallCatalogRequest": {
-          "fields": {
-            "serverName": {
-              "type": "string",
-              "id": 1
-            },
-            "packageIndex": {
-              "type": "uint32",
-              "id": 2
-            },
-            "envValues": {
-              "keyType": "string",
-              "type": "string",
-              "id": 3
-            },
-            "autoStart": {
-              "type": "bool",
-              "id": 4
-            }
-          }
-        },
-        "RuntimeStatusMsg": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "displayName": {
-              "type": "string",
-              "id": 2
-            },
-            "installed": {
-              "type": "bool",
-              "id": 3
-            },
-            "version": {
-              "type": "string",
-              "id": 4
-            },
-            "resolvedPath": {
-              "type": "string",
-              "id": 5
-            },
-            "wingetId": {
-              "type": "string",
-              "id": 6
-            },
-            "downloadUrl": {
-              "type": "string",
-              "id": 7
-            }
-          }
-        },
-        "RuntimeStatusListResponse": {
-          "fields": {
-            "runtimes": {
-              "rule": "repeated",
-              "type": "RuntimeStatusMsg",
-              "id": 1
-            }
-          }
-        },
-        "InstallRuntimeRequest": {
-          "fields": {
-            "runtimeId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "InstallRuntimeResponse": {
-          "fields": {
-            "success": {
-              "type": "bool",
-              "id": 1
-            },
-            "message": {
-              "type": "string",
-              "id": 2
-            },
-            "version": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "MarketplaceService": {
-          "methods": {
-            "Browse": {
-              "requestType": "MarketplaceBrowseRequest",
-              "responseType": "MarketplaceBrowseResponse"
-            },
-            "GetFeatured": {
-              "requestType": "Empty",
-              "responseType": "MarketplaceBrowseResponse"
-            },
-            "GetListing": {
-              "requestType": "MarketplaceGetListingRequest",
-              "responseType": "MarketplaceListingDetail"
-            },
-            "Install": {
-              "requestType": "MarketplaceInstallRequest",
-              "responseType": "MarketplaceInstallResponse"
-            },
-            "CheckUpdates": {
-              "requestType": "Empty",
-              "responseType": "MarketplaceCheckUpdatesResponse"
-            },
-            "UpdateInstalled": {
-              "requestType": "MarketplaceUpdateInstalledRequest",
-              "responseType": "MarketplaceInstallResponse"
-            },
-            "Uninstall": {
-              "requestType": "MarketplaceUninstallRequest",
-              "responseType": "Empty"
-            },
-            "GetInstalled": {
-              "requestType": "Empty",
-              "responseType": "MarketplaceGetInstalledResponse"
-            },
-            "Publish": {
-              "requestType": "MarketplacePublishRequest",
-              "responseType": "MarketplaceListingDetail"
-            },
-            "GetMyListings": {
-              "requestType": "Empty",
-              "responseType": "MarketplaceBrowseResponse"
-            },
-            "ToggleStar": {
-              "requestType": "MarketplaceToggleStarRequest",
-              "responseType": "MarketplaceToggleStarResponse"
-            },
-            "SubmitReview": {
-              "requestType": "MarketplaceSubmitReviewRequest",
-              "responseType": "MarketplaceReview"
-            },
-            "GetReviews": {
-              "requestType": "MarketplaceGetReviewsRequest",
-              "responseType": "MarketplaceGetReviewsResponse"
-            },
-            "ReportListing": {
-              "requestType": "MarketplaceReportRequest",
-              "responseType": "Empty"
-            }
-          }
-        },
-        "MarketplaceBrowseRequest": {
-          "fields": {
-            "query": {
-              "type": "string",
-              "id": 1
-            },
-            "category": {
-              "type": "string",
-              "id": 2
-            },
-            "sort": {
-              "type": "string",
-              "id": 3
-            },
-            "page": {
-              "type": "int32",
-              "id": 4
-            },
-            "pageSize": {
-              "type": "int32",
-              "id": 5
-            },
-            "minRating": {
-              "type": "float",
-              "id": 6
-            }
-          }
-        },
-        "MarketplaceBrowseResponse": {
-          "fields": {
-            "listings": {
-              "rule": "repeated",
-              "type": "MarketplaceListingSummary",
-              "id": 1
-            },
-            "total": {
-              "type": "int32",
-              "id": 2
-            },
-            "page": {
-              "type": "int32",
-              "id": 3
-            },
-            "pageSize": {
-              "type": "int32",
-              "id": 4
-            },
-            "totalPages": {
-              "type": "int32",
-              "id": 5
-            }
-          }
-        },
-        "MarketplaceListingSummary": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "authorId": {
-              "type": "string",
-              "id": 2
-            },
-            "authorName": {
-              "type": "string",
-              "id": 3
-            },
-            "title": {
-              "type": "string",
-              "id": 4
-            },
-            "shortDescription": {
-              "type": "string",
-              "id": 5
-            },
-            "category": {
-              "type": "string",
-              "id": 6
-            },
-            "tags": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 7
-            },
-            "version": {
-              "type": "int32",
-              "id": 8
-            },
-            "versionLabel": {
-              "type": "string",
-              "id": 9
-            },
-            "downloadCount": {
-              "type": "int32",
-              "id": 10
-            },
-            "starCount": {
-              "type": "int32",
-              "id": 11
-            },
-            "ratingAverage": {
-              "type": "float",
-              "id": 12
-            },
-            "ratingCount": {
-              "type": "int32",
-              "id": 13
-            },
-            "capabilities": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 14
-            },
-            "screenshotThumbnail": {
-              "type": "string",
-              "id": 15
-            },
-            "featured": {
-              "type": "bool",
-              "id": 16
-            },
-            "starredByMe": {
-              "type": "bool",
-              "id": 17
-            },
-            "installed": {
-              "type": "bool",
-              "id": 18
-            },
-            "installedVersion": {
-              "type": "int32",
-              "id": 19
-            },
-            "publishedAt": {
-              "type": "Timestamp",
-              "id": 20
-            },
-            "status": {
-              "type": "string",
-              "id": 21
-            }
-          }
-        },
-        "MarketplaceGetListingRequest": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "MarketplaceListingDetail": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "authorId": {
-              "type": "string",
-              "id": 2
-            },
-            "authorName": {
-              "type": "string",
-              "id": 3
-            },
-            "title": {
-              "type": "string",
-              "id": 4
-            },
-            "shortDescription": {
-              "type": "string",
-              "id": 5
-            },
-            "description": {
-              "type": "string",
-              "id": 6
-            },
-            "category": {
-              "type": "string",
-              "id": 7
-            },
-            "tags": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 8
-            },
-            "version": {
-              "type": "int32",
-              "id": 9
-            },
-            "versionLabel": {
-              "type": "string",
-              "id": 10
-            },
-            "changelog": {
-              "type": "string",
-              "id": 11
-            },
-            "status": {
-              "type": "string",
-              "id": 12
-            },
-            "downloadCount": {
-              "type": "int32",
-              "id": 13
-            },
-            "starCount": {
-              "type": "int32",
-              "id": 14
-            },
-            "ratingAverage": {
-              "type": "float",
-              "id": 15
-            },
-            "ratingCount": {
-              "type": "int32",
-              "id": 16
-            },
-            "capabilities": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 17
-            },
-            "screenshots": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 18
-            },
-            "featured": {
-              "type": "bool",
-              "id": 19
-            },
-            "starredByMe": {
-              "type": "bool",
-              "id": 20
-            },
-            "installed": {
-              "type": "bool",
-              "id": 21
-            },
-            "installedVersion": {
-              "type": "int32",
-              "id": 22
-            },
-            "createdAt": {
-              "type": "Timestamp",
-              "id": 23
-            },
-            "updatedAt": {
-              "type": "Timestamp",
-              "id": 24
-            },
-            "publishedAt": {
-              "type": "Timestamp",
-              "id": 25
-            },
-            "commandDataJson": {
-              "type": "string",
-              "id": 26
-            }
-          }
-        },
-        "MarketplaceInstallRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "MarketplaceInstallResponse": {
-          "fields": {
-            "localCommandId": {
-              "type": "string",
-              "id": 1
-            },
-            "listingId": {
-              "type": "string",
-              "id": 2
-            },
-            "title": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "MarketplaceUpdateInstalledRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "MarketplaceUninstallRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "deleteLocalCommand": {
-              "type": "bool",
-              "id": 2
-            }
-          }
-        },
-        "MarketplaceGetInstalledResponse": {
-          "fields": {
-            "items": {
-              "rule": "repeated",
-              "type": "MarketplaceInstalledCommand",
-              "id": 1
-            }
-          }
-        },
-        "MarketplaceInstalledCommand": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "localCommandId": {
-              "type": "string",
-              "id": 2
-            },
-            "title": {
-              "type": "string",
-              "id": 3
-            },
-            "installedVersion": {
-              "type": "int32",
-              "id": 4
-            },
-            "latestVersion": {
-              "type": "int32",
-              "id": 5
-            },
-            "hasUpdate": {
-              "type": "bool",
-              "id": 6
-            }
-          }
-        },
-        "MarketplaceCheckUpdatesResponse": {
-          "fields": {
-            "updates": {
-              "rule": "repeated",
-              "type": "MarketplaceUpdate",
-              "id": 1
-            }
-          }
-        },
-        "MarketplaceUpdate": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "title": {
-              "type": "string",
-              "id": 2
-            },
-            "installedVersion": {
-              "type": "int32",
-              "id": 3
-            },
-            "latestVersion": {
-              "type": "int32",
-              "id": 4
-            },
-            "latestVersionLabel": {
-              "type": "string",
-              "id": 5
-            },
-            "changelog": {
-              "type": "string",
-              "id": 6
-            },
-            "localCommandId": {
-              "type": "string",
-              "id": 7
-            }
-          }
-        },
-        "MarketplacePublishRequest": {
-          "fields": {
-            "localCommandId": {
-              "type": "string",
-              "id": 1
-            },
-            "title": {
-              "type": "string",
-              "id": 2
-            },
-            "shortDescription": {
-              "type": "string",
-              "id": 3
-            },
-            "description": {
-              "type": "string",
-              "id": 4
-            },
-            "category": {
-              "type": "string",
-              "id": 5
-            },
-            "tags": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 6
-            },
-            "screenshots": {
-              "rule": "repeated",
-              "type": "string",
-              "id": 7
-            },
-            "listingId": {
-              "type": "string",
-              "id": 8
-            },
-            "changelog": {
-              "type": "string",
-              "id": 9
-            },
-            "status": {
-              "type": "string",
-              "id": 10
-            },
-            "versionLabel": {
-              "type": "string",
-              "id": 11
-            }
-          }
-        },
-        "MarketplaceToggleStarRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "star": {
-              "type": "bool",
-              "id": 2
-            }
-          }
-        },
-        "MarketplaceToggleStarResponse": {
-          "fields": {
-            "starred": {
-              "type": "bool",
-              "id": 1
-            },
-            "newStarCount": {
-              "type": "int32",
-              "id": 2
-            }
-          }
-        },
-        "MarketplaceSubmitReviewRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "rating": {
-              "type": "int32",
-              "id": 2
-            },
-            "reviewText": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "MarketplaceReview": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "userId": {
-              "type": "string",
-              "id": 2
-            },
-            "userName": {
-              "type": "string",
-              "id": 3
-            },
-            "rating": {
-              "type": "int32",
-              "id": 4
-            },
-            "reviewText": {
-              "type": "string",
-              "id": 5
-            },
-            "createdAt": {
-              "type": "Timestamp",
-              "id": 6
-            }
-          }
-        },
-        "MarketplaceGetReviewsRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "page": {
-              "type": "int32",
-              "id": 2
-            },
-            "pageSize": {
-              "type": "int32",
-              "id": 3
-            }
-          }
-        },
-        "MarketplaceGetReviewsResponse": {
-          "fields": {
-            "reviews": {
-              "rule": "repeated",
-              "type": "MarketplaceReview",
-              "id": 1
-            },
-            "total": {
-              "type": "int32",
-              "id": 2
-            }
-          }
-        },
-        "MarketplaceReportRequest": {
-          "fields": {
-            "listingId": {
-              "type": "string",
-              "id": 1
-            },
-            "reason": {
-              "type": "string",
-              "id": 2
-            },
-            "details": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "OobeService": {
-          "methods": {
-            "DiscoverApps": {
-              "requestType": "Empty",
-              "responseType": "DiscoverAppsResponse"
-            },
-            "FilterApps": {
-              "requestType": "FilterAppsRequest",
-              "responseType": "OobeProgressEvent",
-              "responseStream": true
-            },
-            "GenerateTriggers": {
-              "requestType": "GenerateTriggersRequest",
-              "responseType": "OobeProgressEvent",
-              "responseStream": true
-            }
-          }
-        },
-        "OobeAppEntry": {
-          "fields": {
-            "appName": {
-              "type": "string",
-              "id": 1
-            },
-            "exePath": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "DiscoverAppsResponse": {
-          "fields": {
-            "apps": {
-              "rule": "repeated",
-              "type": "OobeAppEntry",
-              "id": 1
-            }
-          }
-        },
-        "FilterAppsRequest": {
-          "fields": {
-            "apps": {
-              "rule": "repeated",
-              "type": "OobeAppEntry",
-              "id": 1
-            }
-          }
-        },
-        "GenerateTriggersRequest": {
-          "fields": {
-            "apps": {
-              "rule": "repeated",
-              "type": "OobeAppEntry",
-              "id": 1
-            },
-            "locale": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "OobeProgressEvent": {
-          "oneofs": {
-            "event": {
-              "oneof": [
-                "batchProgress",
-                "filterResult",
-                "triggersResult",
-                "error"
-              ]
-            }
-          },
-          "fields": {
-            "batchProgress": {
-              "type": "OobeBatchProgress",
-              "id": 1
-            },
-            "filterResult": {
-              "type": "FilterAppsResult",
-              "id": 2
-            },
-            "triggersResult": {
-              "type": "GenerateTriggersResult",
-              "id": 3
-            },
-            "error": {
-              "type": "string",
-              "id": 4
-            }
-          }
-        },
-        "OobeBatchProgress": {
-          "fields": {
-            "currentBatch": {
-              "type": "int32",
-              "id": 1
-            },
-            "totalBatches": {
-              "type": "int32",
-              "id": 2
-            },
-            "phase": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "FilterAppsResult": {
-          "fields": {
-            "apps": {
-              "rule": "repeated",
-              "type": "OobeAppEntry",
-              "id": 1
-            }
-          }
-        },
-        "GenerateTriggersResult": {
-          "fields": {
-            "triggers": {
-              "keyType": "string",
-              "type": "TriggerPhrases",
-              "id": 1
-            }
-          }
-        },
-        "TriggerPhrases": {
-          "fields": {
-            "phrases": {
-              "rule": "repeated",
-              "type": "string",
               "id": 1
             }
           }
@@ -4709,6 +5355,26 @@
             "data": {
               "type": "string",
               "id": 2
+            },
+            "baseData": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "ReminderActionRequest": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "action": {
+              "type": "string",
+              "id": 2
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -4717,6 +5383,116 @@
             "data": {
               "type": "string",
               "id": 1
+            }
+          }
+        },
+        "WeatherRequest": {
+          "fields": {
+            "lat": {
+              "type": "double",
+              "id": 1
+            },
+            "lon": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CurrentWeatherResponse": {
+          "fields": {
+            "temperature": {
+              "type": "double",
+              "id": 1
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 2
+            },
+            "windSpeed": {
+              "type": "double",
+              "id": 3
+            },
+            "windFromDirection": {
+              "type": "double",
+              "id": 4
+            },
+            "relativeHumidity": {
+              "type": "double",
+              "id": 5
+            },
+            "ultravioletIndex": {
+              "type": "double",
+              "id": 6
+            }
+          }
+        },
+        "DayForecastEntry": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "tempMin": {
+              "type": "double",
+              "id": 2
+            },
+            "tempMax": {
+              "type": "double",
+              "id": 3
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "HourlyForecastEntry": {
+          "fields": {
+            "time": {
+              "type": "string",
+              "id": 1
+            },
+            "temperature": {
+              "type": "double",
+              "id": 2
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 3
+            },
+            "precipitationMm": {
+              "type": "double",
+              "id": 4
+            }
+          }
+        },
+        "WeatherForecastResponse": {
+          "fields": {
+            "days": {
+              "rule": "repeated",
+              "type": "DayForecastEntry",
+              "id": 1
+            },
+            "hours": {
+              "rule": "repeated",
+              "type": "HourlyForecastEntry",
+              "id": 2
+            }
+          }
+        },
+        "DetectedLocationResponse": {
+          "fields": {
+            "lat": {
+              "type": "double",
+              "id": 1
+            },
+            "lon": {
+              "type": "double",
+              "id": 2
+            },
+            "city": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -4865,6 +5641,10 @@
               "requestType": "Empty",
               "responseType": "PluginConfigFieldsResponse"
             },
+            "TtsActivate": {
+              "requestType": "PluginTtsActivateRequest",
+              "responseType": "PluginTtsActivateResponse"
+            },
             "SttProcess": {
               "requestType": "PluginAudioChunk",
               "requestStream": true,
@@ -4879,6 +5659,18 @@
               "requestType": "Empty",
               "responseType": "PluginConfigFieldsResponse"
             },
+            "SttLoad": {
+              "requestType": "SttLoadRequest",
+              "responseType": "Empty"
+            },
+            "SttUnload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "SttGetLoadState": {
+              "requestType": "Empty",
+              "responseType": "SttLoadStateResponse"
+            },
             "AiComplete": {
               "requestType": "PluginAiCompleteRequest",
               "responseType": "PluginAiStreamChunk",
@@ -4886,7 +5678,15 @@
             },
             "AiGetModels": {
               "requestType": "Empty",
-              "responseType": "PluginAiModelsResponse"
+              "responseType": "PluginAiModelsResponse",
+              "options": {
+                "deprecated": true
+              },
+              "parsedOptions": [
+                {
+                  "deprecated": true
+                }
+              ]
             },
             "ExecuteAction": {
               "requestType": "PluginExecuteActionRequest",
@@ -4988,6 +5788,10 @@
             "homepage": {
               "type": "string",
               "id": 14
+            },
+            "builtin": {
+              "type": "bool",
+              "id": 15
             }
           }
         },
@@ -5233,6 +6037,30 @@
             }
           }
         },
+        "PluginErrorCode": {
+          "values": {
+            "PLUGIN_ERROR_UNSPECIFIED": 0,
+            "PLUGIN_ERROR_PROTOCOL_TOO_OLD": 1,
+            "PLUGIN_ERROR_AUTH": 2,
+            "PLUGIN_ERROR_UNKNOWN_PLUGIN": 3
+          }
+        },
+        "PluginError": {
+          "fields": {
+            "code": {
+              "type": "PluginErrorCode",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            },
+            "hint": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
         "PluginRegisterRequest": {
           "fields": {
             "pluginId": {
@@ -5251,6 +6079,22 @@
             "authToken": {
               "type": "string",
               "id": 4
+            },
+            "gpuTier": {
+              "type": "string",
+              "id": 5
+            },
+            "protocolVersion": {
+              "type": "uint32",
+              "id": 6
+            },
+            "sdkName": {
+              "type": "string",
+              "id": 7
+            },
+            "sdkVersion": {
+              "type": "string",
+              "id": 8
             }
           }
         },
@@ -5279,6 +6123,18 @@
             "language": {
               "type": "string",
               "id": 6
+            },
+            "protocolVersion": {
+              "type": "uint32",
+              "id": 7
+            },
+            "minSupportedProtocol": {
+              "type": "uint32",
+              "id": 8
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 9
             }
           }
         },
@@ -5554,6 +6410,10 @@
             "sampleRate": {
               "type": "uint32",
               "id": 3
+            },
+            "options": {
+              "type": "SttTranscribeOptions",
+              "id": 4
             }
           }
         },
@@ -5590,6 +6450,21 @@
             }
           }
         },
+        "PluginTtsActivateRequest": {
+          "fields": {
+            "cek": {
+              "type": "bytes",
+              "id": 1
+            },
+            "voiceId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginTtsActivateResponse": {
+          "fields": {}
+        },
         "PluginSttEvent": {
           "fields": {
             "text": {
@@ -5616,6 +6491,53 @@
               "rule": "repeated",
               "type": "string",
               "id": 1
+            }
+          }
+        },
+        "SttTranscribeOptions": {
+          "fields": {
+            "language": {
+              "type": "string",
+              "id": 1
+            },
+            "initialPrompt": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SttLoadRequest": {
+          "fields": {
+            "modelPath": {
+              "type": "string",
+              "id": 1
+            },
+            "useGpu": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "SttLoadStateResponse": {
+          "fields": {
+            "state": {
+              "type": "State",
+              "id": 1
+            },
+            "detail": {
+              "type": "string",
+              "id": 2
+            }
+          },
+          "nested": {
+            "State": {
+              "values": {
+                "NOT_NEEDED": 0,
+                "UNLOADED": 1,
+                "LOADING": 2,
+                "READY": 3,
+                "FAILED": 4
+              }
             }
           }
         },
@@ -5655,6 +6577,14 @@
             "model": {
               "type": "string",
               "id": 6
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 7
+            },
+            "showReasoning": {
+              "type": "bool",
+              "id": 8
             }
           }
         },
@@ -6048,54 +6978,6 @@
             "status": {
               "type": "string",
               "id": 2
-            }
-          }
-        },
-        "ClientAuthService": {
-          "methods": {
-            "RegisterClient": {
-              "requestType": "RegisterClientRequest",
-              "responseType": "RegisterClientResponse"
-            },
-            "DisconnectClient": {
-              "requestType": "DisconnectClientRequest",
-              "responseType": "Empty"
-            }
-          }
-        },
-        "RegisterClientRequest": {
-          "fields": {
-            "daemonSecret": {
-              "type": "string",
-              "id": 1
-            },
-            "clientName": {
-              "type": "string",
-              "id": 2
-            }
-          }
-        },
-        "RegisterClientResponse": {
-          "fields": {
-            "success": {
-              "type": "bool",
-              "id": 1
-            },
-            "sessionToken": {
-              "type": "string",
-              "id": 2
-            },
-            "error": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "DisconnectClientRequest": {
-          "fields": {
-            "sessionToken": {
-              "type": "string",
-              "id": 1
             }
           }
         }

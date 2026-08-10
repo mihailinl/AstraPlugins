@@ -9,12 +9,11 @@
     "prebuild": "node tools/gen-descriptor.mjs",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tools/contract.test.mjs",
+    "test": "node --test tools/*.test.mjs",
     "pretest": "node tools/gen-descriptor.mjs && tsc"
   },
   "files": [
-    "dist/",
-    "src/plugin.proto"
+    "dist/"
   ],
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",

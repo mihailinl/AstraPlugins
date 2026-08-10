@@ -4,8 +4,9 @@ All notable changes to this crate. Format roughly follows
 [Keep a Changelog](https://keepachangelog.com/), versions follow
 [SemVer](https://semver.org/).
 
-This crate is published to crates.io on `rust-v<VERSION>` git tags via
-the `publish-rust.yml` workflow.
+This crate is published to crates.io by the release train in
+`.github/workflows/release-sdks.yml`, which runs on a single
+`sdk-v<VERSION>` git tag and publishes all three SDKs together.
 
 ## [0.6.0] — unreleased
 

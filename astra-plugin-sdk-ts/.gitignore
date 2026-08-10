@@ -1,3 +1,9 @@
 node_modules/
-bun.lock
 dist/
+
+# bun.lock is COMMITTED on purpose — do not add it back here.
+#
+# `.github/workflows/ci.yml` installs with `bun install --frozen-lockfile`, and
+# `release-sdks.yml` publishes from that same install. Without a committed lock
+# a transitive dependency can resolve differently for CI than it did for the
+# author, and the package that reaches npm is built against a tree nobody tested.

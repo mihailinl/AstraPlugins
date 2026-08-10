@@ -21,3 +21,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["astra_plugin_sdk*"]
+
+# The vendored protocol file. setuptools packages data from inside the package
+# directory only, which is the entire reason `astra_plugin_sdk/proto/plugin.proto`
+# exists as a copy of the repo-root `proto/plugin.proto` — without this stanza the
+# copy would never reach an sdist or wheel and the justification for it would be
+# hollow. `tools/sync-proto.sh` writes it; `tools/check-proto.sh` verifies it.
+[tool.setuptools.package-data]
+astra_plugin_sdk = ["proto/*.proto"]

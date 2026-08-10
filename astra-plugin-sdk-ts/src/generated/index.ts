@@ -23,7 +23,7 @@ export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptor
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "36536b547e14a1eeab3620964828d5cde59c0dcf5deed574fbd6b98fca1d667b";
+export const PROTO_SHA256 = "13508759085f81a9bcdc87986f1f2a28b94d7a9721d69e4813bad7283696a742";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -34,24 +34,16 @@ export const PROTO_PACKAGE = "astra";
  * maps against this.
  */
 export const SERVICE_METHODS = {
-  CoreService: ["GetState", "Start", "Stop", "Shutdown", "SubscribeEvents"],
-  AuthService: ["GetStatus", "StartLogin", "Logout", "RefreshToken"],
-  ChatService: ["SubmitUserMessage", "StopGeneration", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents"],
-  VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "GetLlmMatchModels", "DownloadLlmMatchModel", "GetLlmMatchDownloadProgress", "CancelLlmMatchDownload", "DeleteLlmMatchModel", "SetVoiceConversation"],
-  CommandService: ["List", "Get", "Create", "Update", "Delete", "Execute", "SetEnabled", "GetCursorPosition"],
-  ConfigService: ["GetSettings", "UpdateSettings", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetAiProviders", "GetWidgetData", "SaveWidgetData", "GetIndexerStatus"],
-  MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions"],
-  RegistryService: ["GetActionTypes", "GetTriggerTypes"],
-  TaskService: ["GetTasks", "CancelTask"],
-  MonitorService: ["GetSystemStats", "SubscribeSystemStats"],
-  CompanionService: ["SubscribeCommands", "ReportStatus", "ReportBlendshapes", "SendCommand", "GetCompanionStatus"],
-  McpService: ["ListServers", "AddServer", "UpdateServer", "RemoveServer", "StartServer", "StopServer", "GetServerTools", "SetToolEnabled", "RefreshServerTools", "SearchCatalog", "GetCatalogServer", "InstallCatalogServer", "CheckRuntimes", "InstallRuntime"],
-  MarketplaceService: ["Browse", "GetFeatured", "GetListing", "Install", "CheckUpdates", "UpdateInstalled", "Uninstall", "GetInstalled", "Publish", "GetMyListings", "ToggleStar", "SubmitReview", "GetReviews", "ReportListing"],
-  OobeService: ["DiscoverApps", "FilterApps", "GenerateTriggers"],
+  CoreService: ["GetState", "Start", "Stop", "Shutdown", "Restart", "SubscribeEvents", "ShowMainWindow", "ToggleOverlay"],
+  ChatService: ["SubmitUserMessage", "StopGeneration", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning"],
+  VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "GetOutputDevices", "SetOutputDevice", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetSttProviders", "GetSupertonicStatus", "DownloadSupertonicModels", "GetSupertonicDownloadProgress", "CancelSupertonicDownload", "DeleteSupertonicModels", "ListSupertonicVoices", "ImportSupertonicVoice", "DeleteSupertonicVoice", "ActivateVoxVoice", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "SetVoiceConversation", "SetVoicePendingImages"],
+  CommandService: ["List", "Get", "Create", "Update", "Delete", "Execute", "SetEnabled", "GetCursorPosition", "ListGroups", "CreateGroup", "UpdateGroup", "DeleteGroup", "MoveCommandToGroup"],
+  ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers"],
+  MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions", "CaptureScreen"],
+  MonitorService: ["GetSystemStats", "SubscribeSystemStats", "SubscribeToolSearchEvents"],
   PluginService: ["ListPlugins", "InstallPlugin", "UninstallPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "GetPluginLogs", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
   PluginHostService: ["Register", "SubscribeEvents", "SendChatMessage", "FireTrigger", "GetPluginSelfConfig", "PluginLog", "GetDaemonInfo", "SetVariable", "SetThemeContribution", "PushToUi"],
-  PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "AiComplete", "AiGetModels", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
-  ClientAuthService: ["RegisterClient", "DisconnectClient"],
+  PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "TtsActivate", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "SttLoad", "SttUnload", "SttGetLoadState", "AiComplete", "AiGetModels", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
 } as const satisfies Record<string, readonly string[]>;
 
 /** Name of a service declared by `proto/plugin.proto`. */
@@ -65,9 +57,13 @@ export type PluginCapabilityMethod =
   | "TtsSynthesizeStream"
   | "TtsListVoices"
   | "TtsGetConfigFields"
+  | "TtsActivate"
   | "SttProcess"
   | "SttGetLanguages"
   | "SttGetConfigFields"
+  | "SttLoad"
+  | "SttUnload"
+  | "SttGetLoadState"
   | "AiComplete"
   | "AiGetModels"
   | "ExecuteAction"

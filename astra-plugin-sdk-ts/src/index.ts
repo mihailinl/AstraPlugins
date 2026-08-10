@@ -20,7 +20,16 @@
 
 export { Plugin } from "./plugin";
 export { HostClient, RegistrationError } from "./host-client";
-export type { RegisterResponse, DaemonInfo } from "./host-client";
+export type { RegisterResponse, RegisterErrorDetail, DaemonInfo } from "./host-client";
+export {
+  evaluateProtocol,
+  ProtocolMismatchError,
+  EXIT_PROTOCOL_INCOMPATIBLE,
+  MIN_SUPPORTED_DAEMON_PROTOCOL,
+  PROTOCOL_VERSION,
+  SDK_NAME,
+  SDK_VERSION,
+} from "./protocol";
 export { DaemonClient } from "./daemon-client";
 export { I18n } from "./i18n";
 export { Field, UiContrib } from "./types";
@@ -41,3 +50,4 @@ export type {
 } from "./types";
 export { ProtoContractError } from "./service-contract";
 export { PROTO_SHA256, PROTO_SOURCE, SERVICE_METHODS } from "./generated";
+export * as limits from "./generated/limits";

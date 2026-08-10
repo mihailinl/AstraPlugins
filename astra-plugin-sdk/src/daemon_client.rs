@@ -126,6 +126,12 @@ impl DaemonClient {
                 source_id: source_id.to_string(),
                 images: Vec::new(),
                 attachments: Vec::new(),
+                // Fields the daemon has that this SDK does not surface yet
+                // (documents, and the scope a message is asked in). Their proto3
+                // defaults are exactly "not specified", which is what a plugin
+                // that never sets them means. Listed via `..Default::default()`
+                // so the next daemon-side field is not a compile error here.
+                ..Default::default()
             })
             .await?;
         Ok(resp.into_inner())
@@ -183,6 +189,11 @@ impl DaemonClient {
             .chat
             .create_conversation(proto::CreateConversationRequest {
                 title: title.to_string(),
+                // See `submit_user_message`: the daemon's newer fields (which
+                // client this conversation belongs to, its label, the reasoning
+                // knobs) default to "unspecified", which is what a plugin that
+                // does not set them means.
+                ..Default::default()
             })
             .await?;
         Ok(resp.into_inner())

@@ -4,6 +4,7 @@
 
 import * as grpc from "@grpc/grpc-js";
 import { HostClient } from "./host-client";
+import { EXIT_PROTOCOL_INCOMPATIBLE, ProtocolMismatchError } from "./protocol";
 import { service } from "./proto-loader";
 import { addServiceChecked, type HandlerMap } from "./service-contract";
 import { capabilityAuthMode, guardHandlers } from "./capability-auth";
@@ -141,6 +142,14 @@ export abstract class Plugin {
             this.startEventLoop(eventTypes, excludeSource);
           }
         } catch (e: any) {
+          // A protocol mismatch is not a fault to retry or a stack to read. It
+          // is one fact with one fix, and it gets EX_CONFIG so the daemon's log
+          // of the exit code says "this machine is misconfigured" rather than
+          // "the plugin crashed".
+          if (e instanceof ProtocolMismatchError) {
+            console.error(e.message);
+            process.exit(EXIT_PROTOCOL_INCOMPATIBLE);
+          }
           console.error("Registration failed:", e.message);
           process.exit(1);
         }
@@ -363,7 +372,27 @@ export abstract class Plugin {
           details: "AI provider not implemented",
         });
       },
+      // Hooks this SDK does not surface yet. `UNIMPLEMENTED` is the protocol's
+      // word for "this plugin does not have that hook" — the daemon's
+      // `optional_hook` reads it as absence, not as a fault. Registered
+      // explicitly rather than left out: `addServiceChecked` refuses to start a
+      // handler map that does not cover every declared method, precisely so a
+      // hook cannot go missing by accident and be indistinguishable from one
+      // that is missing on purpose.
+      TtsActivate: this.unimplementedHandler("this plugin has no protected voice to activate"),
+      SttLoad: this.unimplementedHandler("this plugin has no explicit STT model lifecycle"),
+      SttUnload: this.unimplementedHandler("this plugin has no explicit STT model lifecycle"),
+      SttGetLoadState: this.unimplementedHandler(
+        "this plugin has no explicit STT model lifecycle"
+      ),
     } as unknown as HandlerMap;
+  }
+
+  /** A unary handler that answers `UNIMPLEMENTED` with a reason. */
+  private unimplementedHandler(details: string) {
+    return (_call: any, callback: grpc.sendUnaryData<any>) => {
+      callback({ code: grpc.status.UNIMPLEMENTED, details });
+    };
   }
 
   private wrapHandler(handler: (call: any) => Promise<any>) {

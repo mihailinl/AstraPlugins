@@ -19,6 +19,13 @@
 import * as grpc from "@grpc/grpc-js";
 import { service } from "./proto-loader";
 import { assertClientContract } from "./service-contract";
+import {
+  evaluateProtocol,
+  ProtocolMismatchError,
+  PROTOCOL_VERSION,
+  SDK_NAME,
+  SDK_VERSION,
+} from "./protocol";
 
 /** Metadata header the daemon's auth interceptor reads. */
 const SESSION_TOKEN_HEADER = "x-session-token";
@@ -35,6 +42,16 @@ const REQUIRED_METHODS = [
   "PushToUi",
 ] as const;
 
+/** Structured detail for a refused registration. Present only when `success` is false. */
+export interface RegisterErrorDetail {
+  /** `PluginErrorCode`. A proto name (`enums: String`), or a number. */
+  code: string | number;
+  /** What went wrong. One sentence. */
+  message: string;
+  /** What to DO about it. One sentence. */
+  hint: string;
+}
+
 /** The daemon's answer to `Register`. */
 export interface RegisterResponse {
   success: boolean;
@@ -46,6 +63,14 @@ export interface RegisterResponse {
   clientSessionToken: string;
   /** Daemon UI language ("en", "ru", "uk", …). */
   language: string;
+  /**
+   * The protocol generation this daemon speaks, and the oldest it accepts.
+   * Optional because a daemon that predates the handshake sends neither — which
+   * is itself the signal that it is too old (see `evaluateProtocol`).
+   */
+  protocolVersion?: number;
+  minSupportedProtocol?: number;
+  errorDetail?: RegisterErrorDetail;
 }
 
 /** Registration was rejected, or produced no usable session. */
@@ -101,6 +126,12 @@ export class HostClient {
             port: opts.port,
             capabilities: opts.capabilities,
             authToken: opts.authToken ?? "",
+            // The handshake (production plan 1.3). Without this on the wire the
+            // daemon cannot tell an old plugin from a new one, and its protocol
+            // floor stops meaning anything.
+            protocolVersion: PROTOCOL_VERSION,
+            sdkName: SDK_NAME,
+            sdkVersion: SDK_VERSION,
           },
           (err: grpc.ServiceError | null, res: RegisterResponse) => {
             if (err) reject(err);
@@ -111,6 +142,17 @@ export class HostClient {
     } catch (err) {
       stub.close();
       throw err;
+    }
+
+    // The protocol verdict comes BEFORE the generic refusal below: "your plugin
+    // is too old for this Astra" is a different problem from "the daemon said
+    // no", it has a different fix, and it gets its own exit code
+    // (`EXIT_PROTOCOL_INCOMPATIBLE`) rather than being flattened into a message
+    // the author has to interpret.
+    const mismatch = evaluateProtocol(response);
+    if (mismatch) {
+      stub.close();
+      throw new ProtocolMismatchError(mismatch);
     }
 
     if (!response.success) {

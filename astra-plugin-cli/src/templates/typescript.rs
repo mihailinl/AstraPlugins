@@ -115,8 +115,9 @@ new {class_name}().run();
 
 pub fn generate_package_json(name: &str) -> String {
     // The published npm name is unscoped: `astra-plugin-sdk-ts/package.json`
-    // declares `"name": "astra-plugin-sdk"` and `.github/workflows/publish-ts.yml`
-    // runs a plain `npm publish` from that directory. `@astra/plugin-sdk` was
+    // declares `"name": "astra-plugin-sdk"` and the release train in
+    // `.github/workflows/release-sdks.yml` runs a plain `npm publish` from that
+    // directory. `@astra/plugin-sdk` was
     // scaffolded here for a scope that was never registered, so every generated
     // TypeScript project 404'd on `npm install`.
     format!(

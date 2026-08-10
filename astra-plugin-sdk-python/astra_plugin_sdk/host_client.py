@@ -16,6 +16,7 @@ so there is no reachable object on which an unauthenticated ``log()`` /
 
 import grpc
 
+from astra_plugin_sdk import protocol
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 
 
@@ -62,6 +63,12 @@ class HostClientBootstrap:
                 port=port,
                 capabilities=capabilities,
                 auth_token=auth_token,
+                # The handshake (production plan 1.3). Without this on the wire
+                # the daemon cannot tell an old plugin from a new one, and its
+                # protocol floor stops meaning anything.
+                protocol_version=protocol.PROTOCOL_VERSION,
+                sdk_name=protocol.SDK_NAME,
+                sdk_version=protocol.sdk_version(),
             )
         )
 

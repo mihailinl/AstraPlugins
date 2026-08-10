@@ -9,6 +9,7 @@ from concurrent import futures
 
 import grpc
 
+from astra_plugin_sdk import protocol
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
@@ -114,6 +115,17 @@ class Plugin:
         print(f"Registering with capabilities: {capabilities}", flush=True)
 
         response, host = await bootstrap.register(port, capabilities, auth_token)
+
+        # The protocol verdict comes BEFORE the generic refusal below: "your
+        # plugin is too old for this Astra" is a different problem from "the
+        # daemon said no", it has a different fix, and it gets its own exit code
+        # rather than being flattened into a message the author has to interpret.
+        mismatch = protocol.evaluate(response)
+        if mismatch:
+            print(mismatch, file=sys.stderr, flush=True)
+            await bootstrap.close()
+            sys.exit(protocol.EXIT_PROTOCOL_INCOMPATIBLE)
+
         if not response.success:
             print(f"Registration failed: {response.error}", file=sys.stderr, flush=True)
             await bootstrap.close()

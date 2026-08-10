@@ -50,10 +50,23 @@ impl BootstrapHostClient {
                 port: port as u32,
                 capabilities,
                 auth_token,
+                // Reported only by the vox sidecar, which is not built on this
+                // SDK; "" is "not reported" and the daemon ignores it.
+                gpu_tier: String::new(),
+                protocol_version: crate::protocol::PROTOCOL_VERSION,
+                sdk_name: crate::protocol::SDK_NAME.to_string(),
+                sdk_version: crate::protocol::SDK_VERSION.to_string(),
             })
             .await
             .context("Register RPC failed")?
             .into_inner();
+
+        // The protocol verdict comes BEFORE the generic refusal below: "your
+        // plugin is too old for this Astra" is a different problem from "the
+        // daemon said no", it has a different fix, and it gets its own exit code
+        // (`EXIT_PROTOCOL_INCOMPATIBLE`) rather than being flattened into a
+        // sentence the author has to interpret.
+        crate::protocol::evaluate(&resp)?;
 
         if !resp.success {
             anyhow::bail!("Registration rejected by daemon: {}", resp.error);
@@ -244,6 +257,37 @@ mod tests {
     struct FakeDaemon {
         /// Token seen on the last non-Register call, for assertions.
         seen: Arc<Mutex<Option<String>>>,
+        /// The protocol generation this fake daemon claims to speak, and the
+        /// oldest it accepts. `(0, 0)` in `Default` stands for a daemon from
+        /// before the handshake existed; `with_protocol` states them.
+        protocol: (u32, u32),
+        /// The Register request as it arrived, so a test can assert what the
+        /// SDK actually put on the wire.
+        registered: Arc<Mutex<Option<proto::PluginRegisterRequest>>>,
+    }
+
+    impl FakeDaemon {
+        fn with_protocol(speaks: u32, floor: u32) -> Self {
+            Self {
+                protocol: (speaks, floor),
+                ..Default::default()
+            }
+        }
+
+        /// Bind on an OS-assigned loopback port and serve until the returned
+        /// handle is aborted.
+        async fn serve(self) -> (String, tokio::task::JoinHandle<()>, Arc<Mutex<Option<proto::PluginRegisterRequest>>>) {
+            let registered = self.registered.clone();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap().to_string();
+            let handle = tokio::spawn(async move {
+                let _ = tonic::transport::Server::builder()
+                    .add_service(PluginHostServiceServer::new(self))
+                    .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                    .await;
+            });
+            (addr, handle, registered)
+        }
     }
 
     // `tonic::Status` is a large Err variant — same as every RPC method here.
@@ -265,8 +309,38 @@ mod tests {
     impl PluginHostService for FakeDaemon {
         async fn register(
             &self,
-            _req: tonic::Request<proto::PluginRegisterRequest>,
+            req: tonic::Request<proto::PluginRegisterRequest>,
         ) -> Result<tonic::Response<proto::PluginRegisterResponse>, tonic::Status> {
+            let req = req.into_inner();
+            let declared = req.protocol_version;
+            *self.registered.lock().unwrap() = Some(req);
+
+            let (speaks, floor) = self.protocol;
+            // The daemon's own rule (`host_service::check_protocol`), mirrored
+            // here so the SDK is exercised against the answer a real daemon
+            // gives — refusal included — and not against a hand-written one.
+            if declared < floor {
+                return Ok(tonic::Response::new(proto::PluginRegisterResponse {
+                    success: false,
+                    error: format!("Plugin speaks protocol {declared}; this daemon accepts {floor} or newer."),
+                    daemon_version: "test".into(),
+                    protocol_version: speaks,
+                    min_supported_protocol: floor,
+                    error_detail: Some(proto::PluginError {
+                        code: proto::PluginErrorCode::PluginErrorProtocolTooOld as i32,
+                        message: format!(
+                            "Plugin speaks protocol {declared}; this daemon speaks {speaks} and \
+                             accepts {floor} or newer."
+                        ),
+                        hint: format!(
+                            "Rebuild the plugin against an Astra plugin SDK whose \
+                             PROTOCOL_VERSION is at least {floor}, then reinstall it."
+                        ),
+                    }),
+                    ..Default::default()
+                }));
+            }
+
             Ok(tonic::Response::new(proto::PluginRegisterResponse {
                 success: true,
                 error: String::new(),
@@ -274,6 +348,9 @@ mod tests {
                 daemon_version: "test".into(),
                 client_session_token: TOKEN.into(),
                 language: "en".into(),
+                protocol_version: speaks,
+                min_supported_protocol: floor,
+                error_detail: None,
             }))
         }
 
@@ -366,17 +443,17 @@ mod tests {
     #[tokio::test]
     async fn host_rpcs_after_register_carry_the_session_token() {
         let seen = Arc::new(Mutex::new(None));
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
+        let server = FakeDaemon {
+            seen: seen.clone(),
+            protocol: (
+                crate::protocol::PROTOCOL_VERSION,
+                crate::protocol::MIN_SUPPORTED_DAEMON_PROTOCOL,
+            ),
+            ..Default::default()
+        };
+        let (addr, handle, _) = server.serve().await;
 
-        let server = FakeDaemon { seen: seen.clone() };
-        let handle = tokio::spawn(
-            tonic::transport::Server::builder()
-                .add_service(PluginHostServiceServer::new(server))
-                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener)),
-        );
-
-        let bootstrap = super::HostClient::connect_bootstrap(&addr.to_string(), "test".into())
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
             .await
             .expect("bootstrap connect");
         let (mut host, resp) = bootstrap
@@ -391,6 +468,114 @@ mod tests {
         host.set_variable("k", "v", "session").await.expect("SetVariable");
         host.push_to_ui("ev", "{}").await.expect("PushToUi");
         host.get_config().await.expect("GetPluginSelfConfig");
+
+        handle.abort();
+    }
+
+    /// 1.3: the handshake has to be on the wire, not just in a constant. A
+    /// daemon that never receives `protocol_version` cannot tell an old plugin
+    /// from a new one, and its floor stops meaning anything.
+    #[tokio::test]
+    async fn register_declares_the_protocol_and_the_sdk() {
+        let (addr, handle, registered) = FakeDaemon::with_protocol(
+            crate::protocol::PROTOCOL_VERSION,
+            crate::protocol::MIN_SUPPORTED_DAEMON_PROTOCOL,
+        )
+        .serve()
+        .await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
+            .await
+            .expect("bootstrap connect");
+        bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+            .expect("register");
+
+        let req = registered.lock().unwrap().clone().expect("Register arrived");
+        assert_eq!(req.protocol_version, crate::protocol::PROTOCOL_VERSION);
+        assert_eq!(req.sdk_name, crate::protocol::SDK_NAME);
+        assert_eq!(req.sdk_version, crate::protocol::SDK_VERSION);
+
+        handle.abort();
+    }
+
+    /// THE acceptance case for 1.3, end to end over a real socket: this SDK is
+    /// built at protocol 1; the daemon's floor is 2. The plugin gets one
+    /// sentence — naming the number to reach and what to do — instead of
+    /// registering and then dying at the first RPC one side does not have.
+    ///
+    /// `run_with` turns this error into `exit(EXIT_PROTOCOL_INCOMPATIBLE)`; the
+    /// exit itself is not testable in-process, so the test asserts the error
+    /// that reaches that branch and the code the branch uses.
+    #[tokio::test]
+    async fn a_daemon_whose_floor_is_two_refuses_this_sdk_with_one_sentence() {
+        assert_eq!(
+            crate::protocol::PROTOCOL_VERSION,
+            1,
+            "this test is written for an SDK at protocol 1"
+        );
+        let (addr, handle, _) = FakeDaemon::with_protocol(2, 2).serve().await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "dice-roller".into())
+            .await
+            .expect("bootstrap connect");
+        // `match`, not `expect_err`: the Ok half is `(HostClient, …)`, which is
+        // not `Debug` — deliberately, it holds a session token.
+        let err = match bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+        {
+            Ok(_) => panic!("a daemon at floor 2 must refuse an SDK at 1"),
+            Err(e) => e,
+        };
+
+        let mismatch = err
+            .downcast_ref::<crate::protocol::ProtocolMismatch>()
+            .expect("the refusal must arrive as a ProtocolMismatch, not a generic error")
+            .to_string();
+        assert!(mismatch.contains('2'), "{mismatch}");
+        assert!(mismatch.contains("PROTOCOL_VERSION"), "{mismatch}");
+        assert_eq!(crate::protocol::EXIT_PROTOCOL_INCOMPATIBLE, 78);
+
+        handle.abort();
+    }
+
+    /// The other direction: a daemon too old to report a protocol at all — i.e.
+    /// Astra v0.1.0, the released build. It is SERVED, end to end.
+    ///
+    /// `FakeDaemon::default()` is that daemon exactly: `(0, 0)` for the two
+    /// handshake fields, and a session token issued anyway — which is what
+    /// v0.1.0's `host_service.rs` does, unconditionally, under `SECURITY(B1)`.
+    /// Protocol 1 IS the pre-handshake plugin surface, so there is nothing this
+    /// SDK calls that such a daemon lacks; refusing it on the strength of a
+    /// missing integer would have killed every plugin built with this SDK on the
+    /// only Astra anyone has installed.
+    ///
+    /// The host RPC at the end is the point: the check that matters is whether
+    /// the session token works, not what version number came back.
+    #[tokio::test]
+    async fn a_daemon_that_reports_no_protocol_is_served_end_to_end() {
+        let seen = Arc::new(Mutex::new(None));
+        let server = FakeDaemon {
+            seen: seen.clone(),
+            ..Default::default()
+        };
+        assert_eq!(server.protocol, (0, 0), "the pre-handshake daemon");
+        let (addr, handle, _) = server.serve().await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
+            .await
+            .expect("bootstrap connect");
+        let (mut host, resp) = bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+            .expect("a pre-handshake daemon must be served, not refused");
+        assert_eq!(resp.protocol_version, 0, "it reported no protocol");
+        assert_eq!(resp.client_session_token, TOKEN);
+
+        host.log("info", "hello").await.expect("PluginLog must be authenticated");
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
 
         handle.abort();
     }

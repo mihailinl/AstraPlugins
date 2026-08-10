@@ -4,8 +4,10 @@ All notable changes to this package. Format roughly follows
 [Keep a Changelog](https://keepachangelog.com/), versions follow
 [SemVer](https://semver.org/).
 
-This package is published to npm on `ts-v<VERSION>` git tags via the
-`publish-ts.yml` workflow.
+This package is published to npm by the release train in
+`.github/workflows/release-sdks.yml`, which runs on a single
+`sdk-v<VERSION>` git tag and publishes all three SDKs together. That tag
+names the Rust crate's version; this package keeps its own.
 
 ## [0.5.0] — unreleased
 
