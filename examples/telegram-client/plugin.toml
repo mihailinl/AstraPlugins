@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/telegram_client.exe"
+command = "target/release/telegram_client"
 
 [capabilities]
 client = true

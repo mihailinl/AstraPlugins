@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/dice_roller.exe"
+command = "target/release/dice_roller"
 
 [capabilities]
 tools = true

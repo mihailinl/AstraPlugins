@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/companion.exe"
+command = "target/release/companion"
 
 [capabilities]
 ui_contributions = true

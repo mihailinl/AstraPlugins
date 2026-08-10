@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/tone_tts.exe"
+command = "target/release/tone_tts"
 
 [capabilities]
 tts = true

@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/doom.exe"
+command = "target/release/doom"
 
 [capabilities]
 ui_contributions = true

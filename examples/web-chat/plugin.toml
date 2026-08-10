@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/web_chat.exe"
+command = "target/release/web_chat"
 
 [capabilities]
 client = true

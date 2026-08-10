@@ -7,7 +7,7 @@ author = "Astra Team"
 license = "MIT"
 
 [entry]
-command = "target/release/bad_apple.exe"
+command = "target/release/bad_apple"
 
 [capabilities]
 ui_contributions = true
