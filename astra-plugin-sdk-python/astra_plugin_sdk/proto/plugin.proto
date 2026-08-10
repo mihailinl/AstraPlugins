@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 3d844247f5a4ae12a16ee4454a3f1ba05c2bea6c71abe326695abca0f128b592
+// source-sha256: 39d2a0d5766174d3b9d1a7ab2163f50ab8b9cedcf43360b888c0615627a2deec
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2606,6 +2606,22 @@ service PluginService {
     // Install a plugin from the registry
     rpc InstallPlugin(InstallPluginRequest) returns (PluginStatusMsg);
 
+    // Install a plugin from the registry, reporting every phase as it happens.
+    //
+    // Same work as InstallPlugin; the difference is that the caller sees
+    // Resolving -> Downloading -> Verifying -> Extracting -> Starting instead of
+    // one opaque await, so a stall becomes legible (verification is its own
+    // phase for exactly that reason). The stream ALWAYS ends in a terminal
+    // message — COMPLETED carrying the installed plugin's real status, or FAILED
+    // carrying an `error_code` — so a client never has to infer an outcome from
+    // a closed stream.
+    rpc InstallPluginStream(InstallPluginRequest) returns (stream PluginInstallProgress);
+
+    // Cancel an install started by InstallPluginStream. Idempotent: cancelling
+    // an install that already finished (or never started) is not an error — the
+    // response says whether there was anything to cancel.
+    rpc CancelPluginInstall(PluginIdRequest) returns (CancelPluginInstallResponse);
+
     // Uninstall a plugin
     rpc UninstallPlugin(PluginIdRequest) returns (Empty);
 
@@ -2822,6 +2838,109 @@ message InstallPluginRequest {
     bool auto_start = 2;
 }
 
+// The named phases of an install, in the order they happen.
+//
+// They are named rather than a bare percentage because the interesting
+// question during a slow install is not "how far" but "doing what": a stall in
+// DOWNLOADING is a network problem, a stall in VERIFYING is a big file being
+// hashed, and a stall in STARTING is the plugin's own process. §4.4 of the
+// production plan makes VERIFYING its own visible phase for that reason.
+enum PluginInstallPhase {
+    PLUGIN_INSTALL_PHASE_UNSPECIFIED = 0;
+
+    // Looking the plugin up in the catalog and picking this host's artifact.
+    PLUGIN_INSTALL_RESOLVING = 1;
+
+    // Streaming the `.astraplugin` to a temp file. The only phase with a
+    // meaningful byte count, and the only determinate one.
+    PLUGIN_INSTALL_DOWNLOADING = 2;
+
+    // Checking the downloaded file's size and sha256 against the index.
+    PLUGIN_INSTALL_VERIFYING = 3;
+
+    // Unpacking into `<id>.staging/` and checking it against MANIFEST.json.
+    PLUGIN_INSTALL_EXTRACTING = 4;
+
+    // Swapped into place; spawning the plugin process.
+    PLUGIN_INSTALL_STARTING = 5;
+
+    // Terminal, success. `status` carries the installed plugin.
+    PLUGIN_INSTALL_COMPLETED = 6;
+
+    // Terminal, failure. `error_code` and `error` say why.
+    PLUGIN_INSTALL_FAILED = 7;
+}
+
+// Why an install failed, in a form the UI can turn into the right sentence —
+// §4.6 of the production plan. The distinction that matters most is between the
+// retryable pair (NETWORK, CLOCK_SKEW) and everything else: if a transient
+// failure looks like a verification failure, the first support thread ends with
+// someone adding an override flag.
+enum PluginInstallErrorCode {
+    PLUGIN_INSTALL_ERROR_UNSPECIFIED = 0;
+
+    // The bytes are not the bytes the registry signed for. Hard block.
+    PLUGIN_INSTALL_ERROR_DIGEST_MISMATCH = 1;
+
+    // The bundle's signature did not verify against a trusted key.
+    PLUGIN_INSTALL_ERROR_SIGNATURE_INVALID = 2;
+
+    // The listing has been withdrawn. (Phase 3 populates this; the code exists
+    // now so the UI copy and the wire shape do not have to change later.)
+    PLUGIN_INSTALL_ERROR_REVOKED = 3;
+
+    // No artifact exists for this OS/arch, or the bundle is for another one.
+    PLUGIN_INSTALL_ERROR_PLATFORM_UNSUPPORTED = 4;
+
+    // The plugin was built against a protocol this Astra does not accept.
+    PLUGIN_INSTALL_ERROR_PROTOCOL_UNSUPPORTED = 5;
+
+    // Retryable: DNS, TLS, connection, HTTP status, truncated transfer.
+    PLUGIN_INSTALL_ERROR_NETWORK = 6;
+
+    // Retryable: the system clock is too far off to judge freshness.
+    PLUGIN_INSTALL_ERROR_CLOCK_SKEW = 7;
+
+    // Out of space while writing the download or the extracted tree.
+    PLUGIN_INSTALL_ERROR_DISK_FULL = 8;
+
+    // The user pressed Cancel. Not a failure to report or retry.
+    PLUGIN_INSTALL_ERROR_CANCELLED = 9;
+
+    // Anything the daemon could not classify. The message is still shown.
+    PLUGIN_INSTALL_ERROR_INTERNAL = 10;
+}
+
+// One progress event from InstallPluginStream.
+message PluginInstallProgress {
+    string plugin_id = 1;
+    PluginInstallPhase phase = 2;
+
+    // Bytes transferred / expected. Only DOWNLOADING sets these, and `total`
+    // is 0 when the server sent no length — the UI must fall back to an
+    // indeterminate bar rather than dividing by zero.
+    uint64 bytes_done = 3;
+    uint64 bytes_total = 4;
+
+    // 0-100. Set for EXTRACTING (entries done / total) as well as DOWNLOADING,
+    // so the bar keeps moving through a phase with no byte count.
+    uint32 percent = 5;
+
+    // Terminal FAILED only.
+    PluginInstallErrorCode error_code = 6;
+    string error = 7;
+
+    // Terminal COMPLETED only: what `ListPlugins` would now say about it,
+    // including `status: "error"` when the plugin installed but did not start.
+    PluginStatusMsg status = 8;
+}
+
+message CancelPluginInstallResponse {
+    // False when no install for that id was in flight — the caller was late,
+    // not wrong.
+    bool cancelled = 1;
+}
+
 message PluginConfigResponse {
     string plugin_id = 1;
     string config_schema_json = 2;  // JSON Schema from manifest
@@ -2845,6 +2964,26 @@ message PluginBrowseRequest {
 message PluginBrowseResponse {
     repeated PluginRegistryEntry entries = 1;
     int32 total = 2;
+
+    // ── Degraded-catalog reporting (§4.1). ──
+    //
+    // A registry that cannot be reached is not an error the user can act on;
+    // the catalog they browsed an hour ago still is. When the live fetch fails
+    // and `<config>/plugins/.trust/index.json` has a copy, the daemon answers
+    // from that copy and says so here, and the store renders with an amber
+    // banner instead of a raw gRPC string. Only the case with NO cache at all
+    // is still an RPC error.
+    //
+    // True when `entries` came from the on-disk cache rather than a live fetch.
+    bool from_cache = 3;
+
+    // Unix seconds when that cache was written. 0 = unknown (an older cache
+    // file, or a live answer). The UI turns this into "3 hours ago".
+    int64 cached_at_unix = 4;
+
+    // Why the live fetch failed, one line, for the banner's detail line and the
+    // logs. Empty when `from_cache` is false.
+    string refresh_error = 5;
 }
 
 message PluginRegistryEntry {

@@ -5506,6 +5506,15 @@
               "requestType": "InstallPluginRequest",
               "responseType": "PluginStatusMsg"
             },
+            "InstallPluginStream": {
+              "requestType": "InstallPluginRequest",
+              "responseType": "PluginInstallProgress",
+              "responseStream": true
+            },
+            "CancelPluginInstall": {
+              "requestType": "PluginIdRequest",
+              "responseType": "CancelPluginInstallResponse"
+            },
             "UninstallPlugin": {
               "requestType": "PluginIdRequest",
               "responseType": "Empty"
@@ -5836,6 +5845,77 @@
             }
           }
         },
+        "PluginInstallPhase": {
+          "values": {
+            "PLUGIN_INSTALL_PHASE_UNSPECIFIED": 0,
+            "PLUGIN_INSTALL_RESOLVING": 1,
+            "PLUGIN_INSTALL_DOWNLOADING": 2,
+            "PLUGIN_INSTALL_VERIFYING": 3,
+            "PLUGIN_INSTALL_EXTRACTING": 4,
+            "PLUGIN_INSTALL_STARTING": 5,
+            "PLUGIN_INSTALL_COMPLETED": 6,
+            "PLUGIN_INSTALL_FAILED": 7
+          }
+        },
+        "PluginInstallErrorCode": {
+          "values": {
+            "PLUGIN_INSTALL_ERROR_UNSPECIFIED": 0,
+            "PLUGIN_INSTALL_ERROR_DIGEST_MISMATCH": 1,
+            "PLUGIN_INSTALL_ERROR_SIGNATURE_INVALID": 2,
+            "PLUGIN_INSTALL_ERROR_REVOKED": 3,
+            "PLUGIN_INSTALL_ERROR_PLATFORM_UNSUPPORTED": 4,
+            "PLUGIN_INSTALL_ERROR_PROTOCOL_UNSUPPORTED": 5,
+            "PLUGIN_INSTALL_ERROR_NETWORK": 6,
+            "PLUGIN_INSTALL_ERROR_CLOCK_SKEW": 7,
+            "PLUGIN_INSTALL_ERROR_DISK_FULL": 8,
+            "PLUGIN_INSTALL_ERROR_CANCELLED": 9,
+            "PLUGIN_INSTALL_ERROR_INTERNAL": 10
+          }
+        },
+        "PluginInstallProgress": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "phase": {
+              "type": "PluginInstallPhase",
+              "id": 2
+            },
+            "bytesDone": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesTotal": {
+              "type": "uint64",
+              "id": 4
+            },
+            "percent": {
+              "type": "uint32",
+              "id": 5
+            },
+            "errorCode": {
+              "type": "PluginInstallErrorCode",
+              "id": 6
+            },
+            "error": {
+              "type": "string",
+              "id": 7
+            },
+            "status": {
+              "type": "PluginStatusMsg",
+              "id": 8
+            }
+          }
+        },
+        "CancelPluginInstallResponse": {
+          "fields": {
+            "cancelled": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
         "PluginConfigResponse": {
           "fields": {
             "pluginId": {
@@ -5903,6 +5983,18 @@
             "total": {
               "type": "int32",
               "id": 2
+            },
+            "fromCache": {
+              "type": "bool",
+              "id": 3
+            },
+            "cachedAtUnix": {
+              "type": "int64",
+              "id": 4
+            },
+            "refreshError": {
+              "type": "string",
+              "id": 5
             }
           }
         },

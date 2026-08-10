@@ -4748,6 +4748,16 @@ class PluginServiceStub(object):
                 request_serializer=plugin__pb2.InstallPluginRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
+        self.InstallPluginStream = channel.unary_stream(
+                '/astra.PluginService/InstallPluginStream',
+                request_serializer=plugin__pb2.InstallPluginRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginInstallProgress.FromString,
+                _registered_method=True)
+        self.CancelPluginInstall = channel.unary_unary(
+                '/astra.PluginService/CancelPluginInstall',
+                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
+                response_deserializer=plugin__pb2.CancelPluginInstallResponse.FromString,
+                _registered_method=True)
         self.UninstallPlugin = channel.unary_unary(
                 '/astra.PluginService/UninstallPlugin',
                 request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
@@ -4839,6 +4849,30 @@ class PluginServiceServicer(object):
 
     def InstallPlugin(self, request, context):
         """Install a plugin from the registry
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InstallPluginStream(self, request, context):
+        """Install a plugin from the registry, reporting every phase as it happens.
+
+        Same work as InstallPlugin; the difference is that the caller sees
+        Resolving -> Downloading -> Verifying -> Extracting -> Starting instead of
+        one opaque await, so a stall becomes legible (verification is its own
+        phase for exactly that reason). The stream ALWAYS ends in a terminal
+        message — COMPLETED carrying the installed plugin's real status, or FAILED
+        carrying an `error_code` — so a client never has to infer an outcome from
+        a closed stream.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelPluginInstall(self, request, context):
+        """Cancel an install started by InstallPluginStream. Idempotent: cancelling
+        an install that already finished (or never started) is not an error — the
+        response says whether there was anything to cancel.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -4961,6 +4995,16 @@ def add_PluginServiceServicer_to_server(servicer, server):
                     servicer.InstallPlugin,
                     request_deserializer=plugin__pb2.InstallPluginRequest.FromString,
                     response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+            ),
+            'InstallPluginStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.InstallPluginStream,
+                    request_deserializer=plugin__pb2.InstallPluginRequest.FromString,
+                    response_serializer=plugin__pb2.PluginInstallProgress.SerializeToString,
+            ),
+            'CancelPluginInstall': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelPluginInstall,
+                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
+                    response_serializer=plugin__pb2.CancelPluginInstallResponse.SerializeToString,
             ),
             'UninstallPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.UninstallPlugin,
@@ -5094,6 +5138,60 @@ class PluginService(object):
             '/astra.PluginService/InstallPlugin',
             plugin__pb2.InstallPluginRequest.SerializeToString,
             plugin__pb2.PluginStatusMsg.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def InstallPluginStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/astra.PluginService/InstallPluginStream',
+            plugin__pb2.InstallPluginRequest.SerializeToString,
+            plugin__pb2.PluginInstallProgress.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CancelPluginInstall(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/CancelPluginInstall',
+            plugin__pb2.PluginIdRequest.SerializeToString,
+            plugin__pb2.CancelPluginInstallResponse.FromString,
             options,
             channel_credentials,
             insecure,

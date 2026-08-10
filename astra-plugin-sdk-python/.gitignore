@@ -3,3 +3,10 @@ __pycache__/
 *.egg-info/
 .venv/
 dist/
+# setuptools' scratch tree. `python -m build --wheel --outdir /tmp/...` and a
+# plain `pip install .` both write it into the SOURCE directory whatever
+# --outdir says, so it appears the first time anyone follows the README or runs
+# what ci.yml runs. Untracked and unignored, it is one `git add -A` away from a
+# committed second copy of the whole package — including a stale plugin_pb2.py
+# that would then outrank the real one in a reader's grep.
+build/
