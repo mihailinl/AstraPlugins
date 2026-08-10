@@ -1,0 +1,597 @@
+{
+  "schema": "astra.testdata.bundles/1",
+  "generated_by": "testdata/bundles/generate.mjs",
+  "bundle_schema": "astra.bundle/2",
+  "manifest_digest_domain": "astra.bundle/2\\0",
+  "note": "`verdict` is the answer the format's rules give. `expect` is what each implementation does today and is what the three suites assert; where it differs from `verdict` there is a `divergence` recording why, and closing that gap turns a suite red until the entry is removed. `legacy_concat_sha256` is the RETIRED in-ZIP digest, computed here only so the collision pair can be shown to share one.",
+  "vectors": [
+    {
+      "name": "ok-minimal",
+      "file": "ok-minimal.astraplugin",
+      "verdict": "accept",
+      "layer": "bundle-structure",
+      "why_it_matters": "The control. Every rejection below has to be a rejection OF something, and an implementation that refused this would fail closed on every real plugin.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "ac3d49a2fc2b7408d5b3c805ec91541510c272547a16e3bc7a30f269ba801aed",
+      "artifact_size": 1331,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "fee1de8f8e13877b790439da507ffb4b1bab0750c25fefd47b7de7d94afea94f",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      }
+    },
+    {
+      "name": "ok-noarch-runtime",
+      "file": "ok-noarch-runtime.astraplugin",
+      "verdict": "accept",
+      "layer": "bundle-structure",
+      "why_it_matters": "`noarch` is a first-class platform value and `entry.command` may name a host runtime rather than a file in the bundle. Both are how every TypeScript and Python plugin ships, and nothing else in this set exercises either — an implementation that tightened `entry.command` to 'must be a listed file' would make the whole scripted half of the catalogue uninstallable.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "noarch",
+      "artifact_sha256": "9fe71e5e0b1e6704bfd02e6310affcf10bd5b430bb41ffab366aafbc171cf721",
+      "artifact_size": 1338,
+      "manifest_sha256": "c5972c69a11586c9dffcb5e49487b0c0f6d80c2268f2dc7e4eaf45b2a3680188",
+      "manifest_digest": "e92df1777222142ed3fd375dba49e9555f5b3336f9c46a9cc2a7c8e1ad99f1f9",
+      "legacy_concat_sha256": "6df8f4c38453d081f940f930580dd83634efb1e76905e105130d2be5d41857cd",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      }
+    },
+    {
+      "name": "ok-permissions",
+      "file": "ok-permissions.astraplugin",
+      "verdict": "accept",
+      "layer": "bundle-structure",
+      "why_it_matters": "Three independent implementations of RFC 8785 have to agree on the canonical bytes of the permission map, or `permissions_hash` compares unequal across the repo boundary it exists to cross. The suites recompute the hash from the manifest's own `permissions` object and assert it against the recorded one, so a canonicalisation that drifts is caught here rather than at a user's consent sheet.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "b6ccd09fb41121ebfd8953aec3c4065f28cb2f3bc58dc75139f14a8c1e5a9f5a",
+      "artifact_size": 1506,
+      "manifest_sha256": "111454d655e835b91b1fef13eb6e300ad429b4c37f27411e9e9d594d6338782b",
+      "manifest_digest": "77309d4fbe47be61af2addf51d584124fab166ed163fa705cd8da5f6c8dc8932",
+      "legacy_concat_sha256": "bb0150b6d50ba1da3df1d57b3bd5a00c03e9574a178cad236c16bb59e2e2fe9c",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      },
+      "permissions_hash": "sha256:63dde3632926bc9fb348e0973dbce01d07476a1569cede023edde451b04a6a85"
+    },
+    {
+      "name": "ok-legacy-signed",
+      "file": "ok-legacy-signed.astraplugin",
+      "verdict": "accept",
+      "layer": "bundle-structure",
+      "why_it_matters": "The retiring in-ZIP pair is still read for two releases, and it is only readable if it stays the last two entries in that order — the digest it carries is computed over everything before it. A bundle with SIGNATURE/PUBKEY must still verify structurally while that is true.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "c661452bae74dcd4934ae088dfbe2201196fd76c5dabb4221a8c1c8eddab2bd7",
+      "artifact_size": 1563,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "fee1de8f8e13877b790439da507ffb4b1bab0750c25fefd47b7de7d94afea94f",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      },
+      "legacy_pair": true
+    },
+    {
+      "name": "collision-a-bc",
+      "file": "collision-a-bc.astraplugin",
+      "verdict": "accept",
+      "layer": "bundle-structure",
+      "why_it_matters": "The honest half of the \"ab\"+\"c\" / \"a\"+\"bc\" pair: an entry named `a` whose content is `bc`. Its `legacy_concat_sha256` is identical to `collision-ab-c`'s.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "76de4c5ab08a81b1c5a22f56466c9ed48cbe3c6dc6e30f5e9e6634df4b9e4e87",
+      "artifact_size": 1565,
+      "manifest_sha256": "0ac9b201c45cf6ae9c433354f052f0afaf1c61a7ceaad94e2d51ee4f763bf576",
+      "manifest_digest": "fef9c6b9acfb2ad8d07f5bccf14fae34d59917ae7432820ff523d80ddd03e1f2",
+      "legacy_concat_sha256": "0c0e28712aad8b042598cfb95b52d201b955b4c4942e87680404aa446f96e817",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      },
+      "collision_group": "abc"
+    },
+    {
+      "name": "collision-ab-c",
+      "file": "collision-ab-c.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The attack. Byte-for-byte the same MANIFEST.json as `collision-a-bc`, so the same manifest digest, and byte-for-byte the same retired concatenation digest — one legacy SIGNATURE validates both archives. But the archive holds `ab` with content `c` instead of `a` with content `bc`, and v2 refuses it twice over: `ab` is an entry no manifest line covers, and `a` is a manifest line no entry satisfies. Delete either half of the exhaustiveness check and this vector installs.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "67c830df3c2b10b4778aa9d566d7d6e135416c597c3dfa6b93d946a373e8aee5",
+      "artifact_size": 1566,
+      "manifest_sha256": "0ac9b201c45cf6ae9c433354f052f0afaf1c61a7ceaad94e2d51ee4f763bf576",
+      "manifest_digest": "fef9c6b9acfb2ad8d07f5bccf14fae34d59917ae7432820ff523d80ddd03e1f2",
+      "legacy_concat_sha256": "0c0e28712aad8b042598cfb95b52d201b955b4c4942e87680404aa446f96e817",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      },
+      "collision_group": "abc"
+    },
+    {
+      "name": "extra-file",
+      "file": "extra-file.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "An entry `MANIFEST.files` does not list is a file the extractor writes and nothing hashes. Checking only 'listed ⇒ present' leaves this open, and it is the cheapest way to add a payload to a bundle whose digest was already approved.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "4e5e68c67fc3e0bd5d3bfd381214dd7797ddfcdee3962eb7e60f20dda26988e4",
+      "artifact_size": 1439,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "c08d49aa8bd2403ba542a731ec1929391b8b33988f2dabb3e75f3ada6d8a8830",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "missing-file",
+      "file": "missing-file.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The other direction: dropping an entry must not make the bundle look intact. A reader that checks only 'present ⇒ listed' would install a plugin whose entry binary is simply absent, and diagnose it as a spawn failure.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "c7a3eb8f79f607b4050b0805bf388f85f175498cb237409bd3f7161c0f99f3d6",
+      "artifact_size": 1200,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "6aebecccbcc41f253fdab602fc565d5f57d48a866ae22927a0a642f96e556d68",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "duplicate-entry",
+      "file": "duplicate-entry.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "Two entries named `plugin.toml`. The first matches the manifest and is hashed; the second overwrites it on disk and is not. Every per-file digest in the manifest is worth nothing if the last writer wins.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "8ff2972ab416f76f64bcb5da9a6c82e477e3e24c8818f638a84015d02933641b",
+      "artifact_size": 1454,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "a1de068baf268c7e30945e3be92088ff03779052b74caf7f6ba1a804ea710cc2",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "duplicate-entry-case",
+      "file": "duplicate-entry-case.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "`plugin.toml` and `Plugin.TOML` are two entries to a ZIP reader and ONE file on NTFS and APFS. Both are listed with honest digests, so every per-file check passes — and then the second silently overwrites the first, after the first was hashed. This is `duplicate-entry` with the collision moved from the ZIP into the filesystem, and it is the variant a case-sensitive `seen` set does not see.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "313f0327257dac1d216df9864049e8063bc638a742c2610b141736326ee8e417",
+      "artifact_size": 1619,
+      "manifest_sha256": "3766bbf2dff3d03479c16e69ac301b68d871360ed543eb248c548cdeff2a281e",
+      "manifest_digest": "16fd15afa48b35f8d97dffccb39f5e9c69e6e1c05fe063ac3396ec31ab8de295",
+      "legacy_concat_sha256": "78269def9d28a4b097783eb14f5000d2cad172d6e98c74be8d7d19534e874b4e",
+      "expect": {
+        "cli": "accept",
+        "daemon": "reject",
+        "registry": "accept"
+      },
+      "divergence": {
+        "finding": "F1",
+        "summary": "Only the daemon folds case before looking for duplicates. `astra-plugin verify` and the registry bot both use an exact-match set, so a bundle that cannot be safely extracted on Windows or macOS passes the author's check and the registry's, and is refused only on the user's machine.",
+        "severity": "Fail-closed, so not an installation hole — a DX and review hole. The registry would publish a listing no Windows or macOS user can install.",
+        "fix": "Fold with `to_lowercase()` in astra-plugin-cli/src/bundle.rs and bot/lib/bundle.mjs."
+      }
+    },
+    {
+      "name": "symlink-entry",
+      "file": "symlink-entry.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "A symlink entry's CONTENT is a path. Every traversal guard in this project validates the entry's own name, which here is the innocuous `bin/link`; the escape is in the eleven bytes it points at. Extract it and the next write through that name lands wherever the link says.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "eb358e0ef0a3feaec530164d2b285307d92d150151192021b5de59cd8a4389ce",
+      "artifact_size": 1596,
+      "manifest_sha256": "9a796a69fd73986d6e6bc5c80d7869ff57e12a3e8a063bb4a8f6f7b412424def",
+      "manifest_digest": "27259463195946e43123c142fc5c77e0074b8782db7eeadaa55fda6482fa0b91",
+      "legacy_concat_sha256": "f36b23a19f00f5ccb055dc161ed1b967a7ef7e5a116c42095876fa2c0bfbc873",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "content-digest-mismatch",
+      "file": "content-digest-mismatch.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The file set is exactly right and one file's bytes are not. This is what the per-file digests are FOR, and the set-level checks above all pass on it — an implementation that only reconciled names would accept a swapped binary.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "6748808abf6428a8c64a4fcb75de6867fdb9eb2fbb22a60b84b8385eeab7e8dd",
+      "artifact_size": 1331,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "abe5ebe6fe1db5814dc93677a21464843c951dc0fe8b0d0ef0f83d2a162c8f42",
+      "expect": {
+        "cli": "reject",
+        "daemon": "accept",
+        "registry": "reject"
+      },
+      "divergence": {
+        "finding": "F2",
+        "summary": "By design, not a defect: the daemon's `bundle::check_structure` reads the central directory only and never inflates a byte, so content digests are checked during extraction (`ops::install_plugin::extract_archive`), where the bytes that land on disk and the bytes that are hashed are provably the same bytes. The daemon suite asserts the structural pass here and leaves the digest to that file's own tests.",
+        "severity": "None. Recorded so 'the daemon accepted it' is never read as a gap.",
+        "fix": "n/a — hashing here would hash the archive twice and still leave a gap."
+      }
+    },
+    {
+      "name": "size-mismatch",
+      "file": "size-mismatch.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The manifest's declared size is what bounds streaming extraction. A lie has to be refused before any work is done, so the extraction-time ceiling is the manifest's number and not the archive's self-description.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "4298a678ce3441b748ed6da5c58373b717a6f23f23822767fea2d99f1d03078d",
+      "artifact_size": 1331,
+      "manifest_sha256": "9a951e78bc06928b600259b7527ee95d237d0fd9ecf1c9965ee5ba42a7e3aeda",
+      "manifest_digest": "2db07d228158e4137c81a35348090e91e8908b828dee0ad0c1a0c17accb8461f",
+      "legacy_concat_sha256": "96c774ac780ba9d3413d645f4415e0116bce6e4fbda8e299d1fbba5883c6cf17",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "mode-mismatch",
+      "file": "mode-mismatch.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "Modes are applied from the manifest, so a manifest that says 0644 while the archive says 0755 leaves the reader and the extractor disagreeing about whether the entry binary is executable. The dangerous direction is the mirror of this one — a manifest claiming 0644 for an archive entry that is 0777.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "2790a97eb626ccd15254cba232854262b788734077d506953c0392f74c98814a",
+      "artifact_size": 1331,
+      "manifest_sha256": "5366de4c5369040ca9bb8176e7c11ad4173551825f83bc52bcbcd594d17bba80",
+      "manifest_digest": "c2a5867cc960964159c3770c9a1befa1b0f1479409d26d480871d3f79bd41012",
+      "legacy_concat_sha256": "e6a2d3036f246c6f279c17499fc5e25d2d5bafa3e32293b4bc5b926948baa2c8",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "accept"
+      },
+      "divergence": {
+        "finding": "F3",
+        "summary": "The registry bot does not compare `MANIFEST.files[].mode` against the archive's external attributes at all; `bot/lib/bundle.mjs` checks path, size and sha256 only.",
+        "severity": "Low. The daemon applies the manifest's mode and refuses the mismatch, so the bytes on disk are still what the manifest describes. It means a listing can be approved for a bundle no daemon will install.",
+        "fix": "Compare `(e.unixMode & 0o777)` to `parseInt(f.mode, 8) & 0o777` in checkBundle."
+      }
+    },
+    {
+      "name": "uppercase-digest",
+      "file": "uppercase-digest.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "Digests are compared as strings everywhere in this system. An uppercase one never matches anything any implementation computes, so it must be refused AS a malformed manifest — otherwise it surfaces as 'this file is corrupt', and the author goes looking at the wrong end of the pipeline.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "bfecb7f1b64000b99b1d07bfb7e026d831cdb74068b536e51d94c17fbf79cecc",
+      "artifact_size": 1331,
+      "manifest_sha256": "58efda82ae3235daf13b4ee90af1889684731d108f6ef23755049a71fb24dbd6",
+      "manifest_digest": "ef7ac1fe4da2c4b105ed7de9efe02723892fb58e199dc0e33ff02bee5ca25397",
+      "legacy_concat_sha256": "e3233e992a9966d06520e6a1cedd16eec4be36e4936372aae5e60a8c615016a7",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "unsorted-files",
+      "file": "unsorted-files.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "`files` is specified sorted, so a reader is entitled to binary-search it. An unsorted list makes that silently wrong for exactly the entries someone bothered to move, and 'the lookup missed it' reads identically to 'it was not listed'.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "73b682f8f79ab7fdc60d1a91f2ae49ab97686e619fed418bfb5f40fe4e4b6185",
+      "artifact_size": 1331,
+      "manifest_sha256": "770ea2a4e911aaf6b53dfe99436e97a9ba2c58f4aaf1bde114255af5581273d0",
+      "manifest_digest": "77e6580a0e2a94924e494ac33d01ef8531daf1c4195ae1dcdec88d9b635899f1",
+      "legacy_concat_sha256": "7f895758abc7ef51a8a9a5fd7c46720faddb170c2f323261432da8cfbd62399b",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "manifest-not-first",
+      "file": "manifest-not-first.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The manifest is entry zero so a reader can lift it out of the first few hundred bytes without inflating attacker-controlled input and without trusting a central directory. Moving it must be a refusal and never a fall-back to the pre-v2 rules — otherwise reordering one entry switches off per-file hashing, which is the only thing v2 adds.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "ad59e2de7b15901391761eb33754f3fb865ef6996be76303e7db6e647d63eb19",
+      "artifact_size": 1331,
+      "manifest_sha256": null,
+      "manifest_digest": null,
+      "manifest_sha256_intended": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest_intended": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "84ddb08066abb6caaa7ad49d323c469fc62a155e039b4b80c9a8bcfd09a398c1",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "manifest-compressed",
+      "file": "manifest-compressed.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "Entry zero is `MANIFEST.json` and it deflates. The manifest is stored precisely so that reading it needs no decompressor pointed at bytes nobody has checked yet; a reader that inflates it to find out what the archive may contain has already done the thing the ordering was designed to avoid.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "c517378ffbcb35d3d37758e46ab05c54b686c64e96d639faf6d00c86b54f8e01",
+      "artifact_size": 974,
+      "manifest_sha256": null,
+      "manifest_digest": null,
+      "manifest_sha256_intended": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest_intended": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "fee1de8f8e13877b790439da507ffb4b1bab0750c25fefd47b7de7d94afea94f",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "header-disagree",
+      "file": "header-disagree.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The central directory is appended last and nothing in the ZIP format forces it to describe the archive it is attached to. Here it names `MANIFEST.json` and points at a manifest that is not the one at byte zero. The registry bot reads the central directory; the daemon reads the local header. Left unchecked, the registry hashes, displays and countersigns a manifest no daemon ever enforces — the single most v2-specific attack there is, and the plan's list does not name it. Both readings, compared, is the only way to notice.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "ae401681c2b2321b472c91841540304ad5edb184bd3cb778ef74c683787e0181",
+      "artifact_size": 2407,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "c08d49aa8bd2403ba542a731ec1929391b8b33988f2dabb3e75f3ada6d8a8830",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      },
+      "manifest_sha256_central": "547138f2e42df11935c8d5e9b6785b3b12febcf449e855ad830417bf10f08925",
+      "manifest_digest_central": "b099f8d47335331e3081cc70c25f30bedec68428d44f6c0f7dc0020dbce3841e"
+    },
+    {
+      "name": "path-traversal",
+      "file": "path-traversal.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "`..` in an entry name is zip-slip. Refused by name shape in the CLI and the bot, and by exhaustiveness everywhere — a traversal entry is by construction one the manifest cannot honestly list.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "23cc62caa260865f9ddc363ab12f7ab5588a4b57c61ac8d8265949557cb3040d",
+      "artifact_size": 1433,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "4eecddf5ccf0b3eba950400871101c322ee2749d6e186af41fdb0d859cef053b",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "path-ads",
+      "file": "path-ads.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "A colon names an NTFS alternate data stream: `bin/fixture:stream` writes INTO `bin/fixture` on Windows, past every check that looked at the entry called `bin/fixture`, and the payload is invisible to a directory listing.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "4789641ec5449179dfe3c22e3cfee5da4e0ba9ce8daab4ebef920c5c6326cdbc",
+      "artifact_size": 1451,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "60c7c7d37115e927eba5cdb62b1c6e1972bdefb1bda29902f7482a7905669629",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "path-trailing-dot",
+      "file": "path-trailing-dot.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "Windows silently strips a trailing dot, so `bin/fixture.` and `bin/fixture` are two entries here and one file there — the second overwrites the first after the first has been hashed.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "cf19e30fe9c57c35511723fa70e015cd46c6809eed774af3ed42d0ac0145e9b7",
+      "artifact_size": 1439,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "a13c5096d5f8ba7e572db66bac3a7a839e3ed1fb89c406f265d9dd5c477e78d1",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "entry-command-shell",
+      "file": "entry-command-shell.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "`entry.command` is what the daemon executes. A shell turns `args` — which no part of the format constrains — into arbitrary code, and it is not a file in the bundle, so nothing in `files` covers what actually runs.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "b22198e888ffb7c55dab4bdc22e7c31d3d4fc34b02898e7114833554b073ad3f",
+      "artifact_size": 1370,
+      "manifest_sha256": "5dbf8fc514730e273dd30c2e7a71eaa136be2b3d03c4717ebb46f53bee77daf7",
+      "manifest_digest": "04ba98c6a4a1b4a103ce58e4c2257ce28e3879480780651316236973b77d41ed",
+      "legacy_concat_sha256": "fb65bd3fe3dbc9ecbc2ebdbfa784736b4e29baca53a15121ad2e87b1299ce0ee",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "entry-command-escape",
+      "file": "entry-command-escape.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The install directory is the jail. A command with `..` in it resolves outside and names a binary no digest in this bundle covers.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "c26397d216b4f996c21cc9dffcc5d8124ac82ebab5cb0a7bbf1b10de1c10e5aa",
+      "artifact_size": 1333,
+      "manifest_sha256": "7f050f4193bd6a9c7571e93a1d2b2b49e096b7d2a2f863547e202b3a755fe68b",
+      "manifest_digest": "743faedc4a56227b2434f2a46aa1a0bb1dd5fb143a88449c48293e896bb37b71",
+      "legacy_concat_sha256": "c5cc64dda33be77f0808b6a7af3bd8387bfbece64dc74746ea498f258d01da7d",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "plugin-id-traversal",
+      "file": "plugin-id-traversal.astraplugin",
+      "verdict": "reject",
+      "layer": "plugin-id",
+      "why_it_matters": "`plugin.id` becomes a path component the moment an archive is installed: `<plugins_dir>/<id>` is created, written to, and `remove_dir_all`'d. `../evil` aims all three one level up.",
+      "plugin_id": "../evil",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "8a1131a9363b4a819d1606af243be95b45ae5d8f68f907aeb5006bb8bc4ecba0",
+      "artifact_size": 1319,
+      "manifest_sha256": "9aa38790f13d7a9aee4a8ca3608025ba5109023b3527392980fd94eac169bf1e",
+      "manifest_digest": "6532f7abddd51f600009b8816bdf45444446d79373eca6987cc1cf4c3d535674",
+      "legacy_concat_sha256": "6b2e510caa24b6ea0710f4897b632922706684991da57dca9789201cccba8044",
+      "expect": {
+        "cli": "accept",
+        "daemon": "reject",
+        "registry": "reject"
+      },
+      "divergence": {
+        "finding": "F4",
+        "summary": "Neither the CLI's bundle reader nor `astra-plugin check` refuses these. `Bundle::open` never looks at `MANIFEST.plugin_id`, and `commands/validate.rs` checks the id charset but has no reserved-device-name rule — so `con` passes `astra-plugin check` outright, and `../evil` is caught only by the charset rule, in `check`, not in `verify`.",
+        "severity": "Fail-closed at install: the daemon's `PluginManifest::validate` refuses both, and so does the registry's `invalidId`. The cost is that an author gets a green `astra-plugin verify` on a bundle no user can install and no registry will list.",
+        "fix": "Port `is_reserved_device_name` into the CLI, and have `Bundle::open` validate `MANIFEST.plugin_id` with the same rule it already applies to archive paths."
+      }
+    },
+    {
+      "name": "plugin-id-con",
+      "file": "plugin-id-con.astraplugin",
+      "verdict": "reject",
+      "layer": "plugin-id",
+      "why_it_matters": "`con` is a Windows device name. `<plugins_dir>/con` cannot be created there at all, so an id the registry accepted would be installable on Linux and broken on Windows — and the Linux CI would never see it.",
+      "plugin_id": "con",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "920481a45f5e0ab6458b8b67dffd923da2fa913bff5e748a46ad678cbdd7edf6",
+      "artifact_size": 1311,
+      "manifest_sha256": "a3070174ba25645baa6a3c72dca4a9abc916ebadff84f4f9acd9895f62847485",
+      "manifest_digest": "312cbc615973e3eb47dabe7c440576076ec668e612623e9469d4f8548dcd957d",
+      "legacy_concat_sha256": "fb5d198b0c90d1b2bf6c89c3e02714d08b23a6ffc0a7d271962822b0f288721c",
+      "expect": {
+        "cli": "accept",
+        "daemon": "reject",
+        "registry": "reject"
+      },
+      "divergence": {
+        "finding": "F4",
+        "summary": "Neither the CLI's bundle reader nor `astra-plugin check` refuses these. `Bundle::open` never looks at `MANIFEST.plugin_id`, and `commands/validate.rs` checks the id charset but has no reserved-device-name rule — so `con` passes `astra-plugin check` outright, and `../evil` is caught only by the charset rule, in `check`, not in `verify`.",
+        "severity": "Fail-closed at install: the daemon's `PluginManifest::validate` refuses both, and so does the registry's `invalidId`. The cost is that an author gets a green `astra-plugin verify` on a bundle no user can install and no registry will list.",
+        "fix": "Port `is_reserved_device_name` into the CLI, and have `Bundle::open` validate `MANIFEST.plugin_id` with the same rule it already applies to archive paths."
+      }
+    },
+    {
+      "name": "permissions-hash-mismatch",
+      "file": "permissions-hash-mismatch.astraplugin",
+      "verdict": "reject",
+      "layer": "permissions-hash",
+      "why_it_matters": "The recorded `permissions_hash` is `sha256({})` while `permissions` asks for `fire_trigger`. The hash is what the consent sheet and the update-diff gate compare, so a bundle where the two disagree can widen its permissions without the number that is supposed to notice ever changing. §5.3-D compares this hash against the registry RECORD's; nothing yet compares the manifest against ITSELF, and until something does, the manifest's `permissions` block is a field no reader authenticates.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "521c98c6790ede8fdbd4c1d34baf3cdf8b16d05ca439d608214314d83d36a3cb",
+      "artifact_size": 1412,
+      "manifest_sha256": "0636adf04ac5ad782c3fdb13d4088423f73f81102975acf834b04cee220dce15",
+      "manifest_digest": "2f06e74d51e10fd6139b7f3592ea5da8994763ba6d33ea1d836ecb551f77a581",
+      "legacy_concat_sha256": "c564df7ed9691a4e100a7819a85119b8b9aa76e75cfdc384c576d0f1a1088892",
+      "expect": {
+        "cli": "accept",
+        "daemon": "accept",
+        "registry": "accept"
+      },
+      "recorded_permissions_hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "correct_permissions_hash": "sha256:e83d72bb2ce1ad6b376d4d4aea4b2d38f406d93796d75d317d6e8fb475e36d78",
+      "divergence": {
+        "finding": "F5",
+        "summary": "No implementation checks `sha256(canonical(MANIFEST.permissions)) == MANIFEST.permissions_hash`. All three read the two fields and reconcile neither.",
+        "severity": "Real, and it lands in Phase 4. Today `permissions` is carried and not interpreted, so the mismatch is inert. The moment a consent sheet renders `permissions` while the update-diff gate compares `permissions_hash`, the two describe different plugins and a widening passes as unchanged.",
+        "fix": "One line in each reader, next to the schema check. All three suites already recompute the correct hash for this vector, so the check has nothing left to invent."
+      }
+    }
+  ]
+}

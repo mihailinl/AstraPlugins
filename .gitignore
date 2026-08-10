@@ -2,6 +2,12 @@
 Thumbs.db
 *.swp
 *.astraplugin
+# …except the cross-repo test vectors, which are frozen bytes with their
+# expected verdicts and digests recorded beside them (testdata/bundles/README.md).
+# They are the deliverable, not build output. Without this line every golden is
+# silently absent from the checkout and three suites fail on missing fixtures —
+# or, worse, are written to skip when the directory is gone, and pass forever.
+!testdata/bundles/*.astraplugin
 target/
 node_modules/
 dist/
