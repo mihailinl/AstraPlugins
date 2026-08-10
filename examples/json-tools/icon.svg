@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="JSON Tools">
+  <title>JSON Tools</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#1f2937"/>
+  <path d="M26 16c-6 0-8 3-8 8s0 6-5 8c5 2 5 4 5 8s2 8 8 8"
+        fill="none" stroke="#facc15" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 16c6 0 8 3 8 8s0 6 5 8c-5 2-5 4-5 8s-2 8-8 8"
+        fill="none" stroke="#facc15" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="3" fill="#facc15"/>
+</svg>

@@ -7,7 +7,7 @@
       "dependencies": {
         "@grpc/grpc-js": "^1.10.0",
         "@grpc/proto-loader": "^0.7.0",
-        "astra-plugin-sdk": "^0.1.0",
+        "astra-plugin-sdk": "^0.1.1",
       },
       "devDependencies": {
         "esbuild": "^0.20.0",
@@ -101,7 +101,7 @@
 
     "ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
 
-    "astra-plugin-sdk": ["astra-plugin-sdk@0.1.0", "", { "dependencies": { "@grpc/grpc-js": "^1.10.0", "@grpc/proto-loader": "^0.7.0" } }, "sha512-pEVkvBj2RAIPDdlzKiYvcLP6oUTPPIYsskD++m97xozSrn32Y4GGKCNxisIInLSrDp814r/OLz8sqsBpcvh5yQ=="],
+    "astra-plugin-sdk": ["astra-plugin-sdk@0.1.5", "", { "dependencies": { "@grpc/grpc-js": "^1.10.0", "@grpc/proto-loader": "^0.7.0" } }, "sha512-mO6j6Ca6ZKR+TNGov52c4OkEnYmvDF3xj3I8d/zPosCAf4Mi0Ktj5iEo0m20oiJasB2gCNf0Xn7ECQ3ShXlqMQ=="],
 
     "cliui": ["cliui@8.0.1", "", { "dependencies": { "string-width": "^4.2.0", "strip-ansi": "^6.0.1", "wrap-ansi": "^7.0.0" } }, "sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ=="],
 

@@ -1,90 +1,52 @@
-# Doom Plugin Setup
+# Doom — developer setup
 
-## 1. Build the plugin backend
+User documentation is in [README.md](README.md). This file is the build and
+dev-loop notes.
+
+## Build
 
 ```bash
 cd examples/doom
 cargo build --release
 ```
 
-## 2. Download js-dos v7
+The engine and game data are committed:
 
-Download js-dos v7 files into `ui/js-dos/`:
+| File | What it is | Size |
+|---|---|---|
+| `ui/chocolate-doom.js` | Emscripten loader for the engine | ~380 KB |
+| `ui/chocolate-doom.wasm` | Chocolate Doom, compiled to WebAssembly (GPL-2.0) | ~7.3 MB |
+| `ui/chocolate-doom.data` | Packed `doom1.wad` — Freedoom, modified BSD | ~27 MB |
+| `ui/doom.js` | The page: canvas, input, engine bootstrap | ~6 KB |
 
-- `js-dos.js` — main library
-- `wdosbox.js` — DOSBox wrapper
-- `wdosbox.wasm` — DOSBox WebAssembly binary
+Nothing needs downloading. Earlier revisions of this file described fetching
+js-dos v7 and building a `DOOM.jsdos` bundle — that was a different engine and
+that instruction is obsolete.
 
-From: https://js-dos.com/v7/build/
-
-```bash
-cd ui/js-dos
-curl -LO https://js-dos.com/v7/build/js-dos.js
-curl -LO https://js-dos.com/v7/build/wdosbox.js
-curl -LO https://js-dos.com/v7/build/wdosbox.wasm
-```
-
-## 3. Create the DOOM.jsdos bundle
-
-A `.jsdos` file is a zip containing the game files and DOSBox configuration.
-
-### Get DOOM1.WAD (shareware)
-
-Download the freely distributable DOOM shareware WAD from:
-https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad
-
-### Create bundle
-
-Create a directory structure:
-
-```
-bundle/
-  DOOM1.WAD
-  .jsdos/
-    dosbox.conf
-```
-
-`dosbox.conf`:
-```ini
-[sdl]
-autolock=true
-
-[cpu]
-cycles=max
-
-[autoexec]
-mount c .
-c:
-DOOM1.WAD
-```
-
-Note: DOOM1.WAD is the shareware executable — the WAD file IS the game when
-launched through DOSBox. If you have the original DOS DOOM1.EXE + DOOM1.WAD,
-place both and use `DOOM1.EXE` in autoexec instead.
-
-Zip the bundle directory contents (not the directory itself) into `DOOM.jsdos`:
+## Dev loop
 
 ```bash
-cd bundle
-zip -r ../ui/DOOM.jsdos . -x ".*"
+astra-plugin dev .
 ```
 
-## 4. Sideload the plugin
+`dev` runs `check --strict`, builds, and asks the running daemon to sideload the
+plugin, so the daemon owns the process and mints its session token. Editing a
+file rebuilds and restarts it, with logs in your terminal.
 
-Create a sideload marker so the Astra daemon discovers the plugin:
+Hand-writing a `sideload.json` marker no longer works: the daemon refuses any
+marker it did not record itself, and requires Developer Mode at load time.
 
-**Windows:**
+## Package
+
 ```bash
-mkdir -p "$APPDATA/astra/plugins/doom"
-echo '{"source_path":"C:/Users/YOUR_USER/Github/AstraPlugins/examples/doom"}' > "$APPDATA/astra/plugins/doom/sideload.json"
+astra-plugin build
 ```
 
-**Linux:**
-```bash
-mkdir -p ~/.config/astra/astra/plugins/doom
-echo '{"source_path":"/path/to/AstraPlugins/examples/doom"}' > ~/.config/astra/astra/plugins/doom/sideload.json
-```
+The resulting `linux-x64` bundle is 15,638,822 bytes — about 15 MB compressed,
+about 36 MB extracted, and the largest example in this repository. Worth
+remembering when testing install progress, extraction caps and download policy.
 
-## 5. Run
+## Licensing
 
-Start the Astra daemon. The "Doom" tab should appear in the UI navigation.
+See the licensing section of [README.md](README.md) before distributing a build.
+The engine is GPL-2.0 and `plugin.toml` currently says MIT.

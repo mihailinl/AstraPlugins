@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Dice Roller">
+  <title>Dice Roller</title>
+  <rect x="8" y="8" width="48" height="48" rx="10" fill="#2f6df6"/>
+  <circle cx="21" cy="21" r="4.5" fill="#ffffff"/>
+  <circle cx="43" cy="21" r="4.5" fill="#ffffff"/>
+  <circle cx="32" cy="32" r="4.5" fill="#ffffff"/>
+  <circle cx="21" cy="43" r="4.5" fill="#ffffff"/>
+  <circle cx="43" cy="43" r="4.5" fill="#ffffff"/>
+</svg>

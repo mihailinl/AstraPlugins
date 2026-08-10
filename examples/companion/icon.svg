@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Companion Cat">
+  <title>Companion Cat</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#7c3aed"/>
+  <path d="M18 26 16 14l11 6z" fill="#fde68a"/>
+  <path d="M46 26 48 14l-11 6z" fill="#fde68a"/>
+  <ellipse cx="32" cy="36" rx="17" ry="15" fill="#fde68a"/>
+  <circle cx="25" cy="34" r="3" fill="#1f2937"/>
+  <circle cx="39" cy="34" r="3" fill="#1f2937"/>
+  <path d="M32 40l-3 3h6z" fill="#f472b6"/>
+  <path d="M15 36h-8M15 41h-8M49 36h8M49 41h8" stroke="#fde68a" stroke-width="2" stroke-linecap="round"/>
+</svg>

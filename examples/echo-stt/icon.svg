@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Echo STT">
+  <title>Echo STT</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0369a1"/>
+  <rect x="26" y="12" width="12" height="24" rx="6" fill="#ffffff"/>
+  <path d="M18 30a14 14 0 0 0 28 0" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 44v8" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M46 22a10 10 0 0 1 0 14M52 18a17 17 0 0 1 0 22" fill="none" stroke="#7dd3fc" stroke-width="3" stroke-linecap="round"/>
+</svg>

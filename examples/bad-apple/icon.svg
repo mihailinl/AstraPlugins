@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Bad Apple">
+  <title>Bad Apple</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0b0b0b"/>
+  <path d="M32 20c-4-5-12-4-14 2-2 7 2 16 6 22 3 4 5 4 8 2 3 2 5 2 8-2 4-6 8-15 6-22-2-6-10-7-14-2z" fill="#f5f5f5"/>
+  <path d="M32 20c0-4 2-7 6-8-0 4-2 7-6 8z" fill="#9ca3af"/>
+  <path d="M10 14h4v4h-4zM50 46h4v4h-4zM14 48h3v3h-3zM47 13h3v3h-3z" fill="#f5f5f5" opacity="0.7"/>
+</svg>
