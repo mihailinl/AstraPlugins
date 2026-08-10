@@ -1,0 +1,906 @@
+name: Astra plugin release
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE reusable release workflow for third-party Astra plugins.
+#
+# An author never writes this file and never copies it. They run
+# `astra-plugin init-ci`, which writes a nine-line caller pinned to a commit of
+# THIS file, and from then on a tag is the whole release process:
+#
+#     astra-plugin version 0.2.0
+#     git commit -am "release 0.2.0" && git tag v0.2.0 && git push --tags
+#
+# In a monorepo the tag carries the plugin id — `dice-roller-v0.2.0` — because
+# eleven plugins cannot each own `v0.2.0`. `astra-plugin version` prints the
+# tag this plugin's own caller will accept, so nobody has to remember which
+# shape they are in.
+#
+# ── WHY THREE JOBS, AND WHY THE SPLIT IS EXACTLY HERE ──────────────────────
+#
+# `build` runs the author's code. Not "may run" — it certainly does: a Rust
+# plugin's `build.rs` executes arbitrary code during `cargo build`, and a
+# TypeScript plugin's `preinstall`/`postinstall` lifecycle scripts execute
+# arbitrary code during dependency install. That job therefore holds
+# `permissions: {contents: read}` and NOTHING ELSE, and this workflow declares
+# no secrets at all, so there is nothing for the caller to hand it and nothing
+# for a compromised dependency to exfiltrate.
+#
+# Everything that needs a write token — creating the Release, attesting,
+# uploading — lives in `plan` and `publish`, and those two jobs run no author
+# code. `plan` reads `plugin.toml` as DATA with a TOML parser. `publish` moves
+# bytes that `build` produced and never executes one of them.
+#
+# A single job that both compiled the plugin and held `contents: write` would
+# hand every transitive npm dependency of every plugin the ability to rewrite
+# the author's repository. That is the whole reason for the shape of this file.
+#
+# ── WHY `plan` CREATES THE RELEASE ─────────────────────────────────────────
+#
+# Two matrix legs finishing at the same second both call `gh release create` on
+# the same tag; one of them loses with "already exists" and the release ends up
+# missing an asset, or the workflow ends up red for no reason. Astra's own
+# release.yml learned this and resolves the release in one job before the
+# matrix fans out. Same fix, same reason.
+#
+# ── WHAT THIS FILE MUST NEVER GROW ─────────────────────────────────────────
+#
+#   * `secrets: inherit`, or any `secrets:` block under `on.workflow_call`.
+#     The workflow takes no secrets; a caller that cannot pass one cannot leak
+#     one. If a future feature needs a secret, it needs a FOURTH job that runs
+#     no author code — not a secret in `build`.
+#
+#   * `if: ${{ secrets.X != '' }}`. The `secrets` context is not available in a
+#     job- or step-level `if`, and GitHub rejects the whole workflow at parse
+#     time — the failure is "invalid workflow file", nowhere near the line. The
+#     only supported shape is a job-level `env:` hoist that the steps branch on.
+#     ci.yml's `proto-upstream` job carries the same note for the same reason.
+#
+#   * A step in `build` that touches `github.token` for anything but checkout.
+#
+# ── WHAT THIS FILE CANNOT CHECK ────────────────────────────────────────────
+#
+# That the plugin works. `check --strict` reads a manifest, the glibc gate
+# reads ELF headers, the self-containment gate reads JavaScript — none of them
+# start a daemon or run the plugin. An attestation proves this repository's
+# automated build produced this file from this commit. It does not prove the
+# code is safe, and the consent sheet says so in those words.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_call:
+    inputs:
+      plugin-dir:
+        description: >-
+          Directory holding plugin.toml, relative to the repository root.
+          "." for a single-plugin repo, "plugins/dice-roller" in a monorepo.
+        type: string
+        default: "."
+      tag-prefix:
+        description: >-
+          The tag namespace this plugin releases under. "v" for a
+          single-plugin repo, so `v0.2.0` releases it.
+
+          A monorepo has ONE tag namespace and several plugins, so `v0.2.0`
+          cannot mean all of them: every caller would fire on it, each would
+          assert the tag against its own plugin.toml, the ones that disagree
+          would go red, and the ones that agree would race to create the same
+          Release. Give each plugin its own prefix — "dice-roller-v" makes
+          `dice-roller-v0.1.1` release exactly that plugin, and the caller's
+          `on: push: tags:` glob narrows to match so the others never start.
+          `astra-plugin init-ci` sets both from `plugin-dir` and keeps them
+          in step.
+        type: string
+        default: "v"
+      linux-packages:
+        description: >-
+          Extra apt packages the Linux build needs, space-separated.
+          e.g. "libasound2-dev pkg-config" for a plugin that links ALSA.
+          Installed only on the Linux leg, only when non-empty.
+        type: string
+        default: ""
+      node-version:
+        description: "Node version for TypeScript plugins."
+        type: string
+        default: "20"
+    outputs:
+      tag:
+        description: "The release tag this run published."
+        value: ${{ jobs.plan.outputs.tag }}
+      plugin-id:
+        description: "plugin.id, as read from plugin.toml."
+        value: ${{ jobs.plan.outputs.plugin-id }}
+      version:
+        description: "plugin.version, as read from plugin.toml."
+        value: ${{ jobs.plan.outputs.version }}
+      artifacts:
+        description: >-
+          JSON array of {name, target, sha256, size} for every published
+          bundle — the exact fields a registry version record needs, so the
+          listing submission never has to re-derive a digest by hand.
+        value: ${{ jobs.publish.outputs.artifacts }}
+
+# The floor of the whole workflow. A caller's `permissions:` block can only be
+# REDUCED from here, never raised, and each job below reduces it further.
+permissions:
+  contents: read
+
+concurrency:
+  # Deliberately NOT cancel-in-progress: this workflow uploads release assets,
+  # and a cancelled publish leaves a Release half-populated.
+  group: astra-plugin-release-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ══ PLAN ═══════════════════════════════════════════════════════════════════
+  #
+  # Reads plugin.toml, decides the matrix, and makes the draft Release exist.
+  # Holds a write token and runs NO author code: `actions/checkout` copies
+  # files, and the parser below is Python's stdlib `tomllib` reading them as
+  # data. Nothing in this job executes anything out of the repository.
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      plugin-id: ${{ steps.parse.outputs.plugin-id }}
+      version: ${{ steps.parse.outputs.version }}
+      language: ${{ steps.parse.outputs.language }}
+      tag: ${{ steps.parse.outputs.tag }}
+      matrix: ${{ steps.parse.outputs.matrix }}
+      artifacts: ${{ steps.parse.outputs.artifacts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nothing here runs git against the remote, so the token has no
+          # business sitting in .git/config where a later step could read it.
+          persist-credentials: false
+          # A submodule is somebody else's code. This job's whole claim is that
+          # it runs none, and `.gitmodules` is author-controlled.
+          submodules: false
+
+      - name: Parse plugin.toml and plan the matrix
+        id: parse
+        env:
+          PLUGIN_DIR: ${{ inputs.plugin-dir }}
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re, sys, tomllib
+
+          fail = []
+
+          root = pathlib.Path.cwd()
+          rel = os.environ["PLUGIN_DIR"].strip() or "."
+          d = (root / rel).resolve()
+          # A `plugin-dir` of "../../etc" would read a file outside the
+          # checkout. It is an input, not a secret, but there is no reason to
+          # let it point anywhere but into the repository.
+          if root != d and root not in d.parents:
+              print(f"::error::plugin-dir '{rel}' resolves outside the repository")
+              sys.exit(1)
+
+          mf = d / "plugin.toml"
+          if not mf.is_file():
+              print(f"::error::no plugin.toml at {rel}/plugin.toml")
+              sys.exit(1)
+
+          try:
+              data = tomllib.loads(mf.read_text(encoding="utf-8"))
+          except tomllib.TOMLDecodeError as e:
+              print(f"::error file={rel}/plugin.toml::not valid TOML: {e}")
+              sys.exit(1)
+
+          plugin = data.get("plugin") or {}
+          pid = str(plugin.get("id", ""))
+          ver = str(plugin.get("version", ""))
+
+          # The same charset the daemon's manifest loader and `astra-plugin
+          # check` accept, and the same one the registry uses as a directory
+          # name under plugins/. One vocabulary, three places.
+          if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", pid):
+              fail.append(
+                  f"plugin.id '{pid}' is not a valid id: lowercase letters, digits "
+                  "and single hyphens, and it may not start or end with a hyphen"
+              )
+
+          # semver.org's own regex. Not `x.y` and not `v1.2.3`: the tag carries
+          # the prefix, the manifest does not, and the assertion below depends
+          # on exactly one of them having it.
+          SEMVER = (
+              r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+              r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+              r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
+          )
+          if not re.fullmatch(SEMVER, ver):
+              fail.append(f"plugin.version '{ver}' is not semver (e.g. 1.2.3, 1.2.3-rc.1)")
+
+          # ── the tag assertion ────────────────────────────────────────────
+          # Everything downstream keys off the version in plugin.toml: the
+          # artifact filename, the MANIFEST, the registry record. The tag is
+          # what a human typed. When they disagree, the Release called v0.2.0
+          # carries files called 0.1.9 and the registry has no way to tell
+          # which one is the truth. Cheapest possible place to catch it.
+          #
+          # The prefix is an input because a monorepo's plugins share one tag
+          # namespace (see the `tag-prefix` description above). It is compared,
+          # never executed and never used as a path, so the only constraint is
+          # that it be a plausible piece of a ref name — an empty prefix would
+          # make the tag a bare `0.2.0`, which git allows and which reads as a
+          # mistake every time.
+          prefix = os.environ.get("TAG_PREFIX", "v")
+          if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", prefix):
+              fail.append(
+                  f"tag-prefix '{prefix}' is not a usable tag prefix: it must start with a "
+                  "letter or digit and hold only letters, digits, '.', '_', '-' or '/'"
+              )
+              prefix = "v"
+
+          want = f"{prefix}{ver}"
+          tag = os.environ["REF_NAME"]
+          if os.environ["REF_TYPE"] != "tag":
+              fail.append(
+                  f"this workflow runs on a tag push; got {os.environ['REF_TYPE']} "
+                  f"'{tag}'. Tag with {prefix}{ver or '<version>'} and push the tag."
+              )
+          elif tag != want:
+              # Only strip the prefix we were actually given. `lstrip` takes a
+              # SET of characters, so `'dice-roller-v0.1.1'.lstrip('dice-roller-v')`
+              # eats into the version — the suggested fix has to be built by
+              # removing the prefix once, or not at all.
+              typed = tag[len(prefix):] if tag.startswith(prefix) else ""
+              retag = f"  (or retag as {want})"
+              fix = (f"Fix with: astra-plugin version {typed}{retag}" if typed
+                     else f"Fix with: retag as {want}")
+              fail.append(
+                  f"tag '{tag}' does not match plugin.toml — expected '{want}'. {fix}"
+              )
+
+          # Mirrors astra-plugin-cli's `detect_language`, in its order —
+          # Cargo.toml wins over package.json. If the two ever disagree the CLI
+          # would build one language and this matrix would plan for the other,
+          # and the bug would present as an empty bundle.
+          if (d / "Cargo.toml").is_file():
+              language = "rust"
+          elif (d / "package.json").is_file():
+              language = "typescript"
+          elif (d / "pyproject.toml").is_file() or (d / "requirements.txt").is_file():
+              language = "python"
+          else:
+              language = "unknown"
+              fail.append(
+                  f"cannot tell what language {rel} is: no Cargo.toml, package.json, "
+                  "pyproject.toml or requirements.txt"
+              )
+
+          if fail:
+              for f in fail:
+                  print(f"::error::{f}")
+              sys.exit(1)
+
+          # Native code gets one leg per platform. Interpreted code gets ONE
+          # leg, `noarch` — the same collapse `astra-plugin build` makes when
+          # no --target is given, so the target key in the filename and the
+          # platform key the registry indexes under agree by construction.
+          if language == "rust":
+              legs = [
+                  {"target": "linux-x64", "runner": "ubuntu-24.04"},
+                  {"target": "windows-x64", "runner": "windows-2022"},
+              ]
+          else:
+              legs = [{"target": "noarch", "runner": "ubuntu-24.04"}]
+
+          for leg in legs:
+              leg["language"] = language
+              leg["artifact"] = f"{pid}-{ver}-{leg['target']}.astraplugin"
+
+          out = {
+              "plugin-id": pid,
+              "version": ver,
+              "language": language,
+              "tag": tag,
+              "matrix": json.dumps({"include": legs}, separators=(",", ":")),
+              "artifacts": json.dumps([leg["artifact"] for leg in legs], separators=(",", ":")),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              for k, v in out.items():
+                  fh.write(f"{k}={v}\n")
+
+          print(f"plugin  {pid} v{ver} ({language})")
+          print(f"tag     {tag}")
+          for leg in legs:
+              print(f"leg     {leg['target']:<12} {leg['runner']:<14} {leg['artifact']}")
+          PY
+
+      # One `gh release create`, in one job, before the matrix exists. Idempotent
+      # so a re-run of a partially failed release does not turn red here.
+      #
+      # `--draft`: the Release stays invisible until `publish` has every asset.
+      # A user who refreshes mid-release must never see a Release with one of
+      # two platforms attached and no way to tell that is what they are looking at.
+      - name: Create the draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.parse.outputs.tag }}
+          PLUGIN_ID: ${{ steps.parse.outputs.plugin-id }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — reusing it."
+            exit 0
+          fi
+          notes=$(cat <<EOF
+          \`$PLUGIN_ID\` $VERSION — built by GitHub Actions from \`${GITHUB_SHA}\`.
+
+          Each \`.astraplugin\` below is attested: the attestation names this
+          repository, this workflow and this commit, over the sha256 of the whole
+          file. Verify it yourself before installing:
+
+          \`\`\`
+          gh attestation verify <file>.astraplugin --repo ${GITHUB_REPOSITORY}
+          \`\`\`
+
+          \`SHA256SUMS.txt\` lists the same digests the Astra registry records.
+
+          An attestation proves where a file came from. It does not prove the code
+          is safe: an Astra plugin runs as a normal program with your user
+          account's full privileges.
+          EOF
+          )
+          # --verify-tag: refuse to invent a tag. If the tag is not on the
+          # remote, something is wrong with the push, and creating the Release
+          # anyway would hide it.
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "$PLUGIN_ID $VERSION" \
+            --notes "$notes"
+          echo "Created draft Release $TAG"
+
+  # ══ BUILD ══════════════════════════════════════════════════════════════════
+  #
+  # THE UNTRUSTED JOB. Everything the author wrote runs here: build.rs, npm
+  # lifecycle scripts, whatever `bun run build` shells out to. It gets
+  # `contents: read` and no secrets, and it is the only job with that shape.
+  build:
+    name: Build (${{ matrix.target }})
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      # The entire security argument of this file is these two lines.
+      contents: read
+    strategy:
+      # A red Windows leg must not cancel a healthy Linux one. The Release is a
+      # draft either way, so a half-finished matrix publishes nothing, and
+      # re-running one leg is the cheap fix.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        # bash on Windows too: one set of scripts, and `set -euo pipefail`
+        # everywhere instead of PowerShell's default of carrying on after a
+        # failed native command.
+        shell: bash
+    env:
+      # Astra's own floor, verbatim from Astra/.github/workflows/release.yml.
+      # Not a number chosen here: a plugin that needs a newer glibc than the
+      # daemon that spawns it is a plugin that will not start on a machine
+      # where Astra itself runs fine, and the daemon reports that as "the
+      # plugin exited immediately", which is nobody's idea of a clue.
+      GLIBC_FLOOR_MAX: "2.39"
+      PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
+      ARTIFACT: ${{ matrix.artifact }}
+    steps:
+      # The author's repository goes in `plugin-src/`, and the tooling in
+      # `astra-tooling/`, deliberately as SIBLINGS. `cargo install --path` runs
+      # with its cwd inside astra-tooling, so cargo's config discovery — which
+      # walks up from the cwd — never reaches `plugin-src/.cargo/config.toml`.
+      # An author cannot retarget the linker of the CLI that packs their bundle
+      # by committing a cargo config.
+      - name: Checkout the plugin
+        uses: actions/checkout@v4
+        with:
+          path: plugin-src
+          # The author's build must not find a credential in .git/config. It
+          # has no need for one, and this job's job is to assume it is hostile.
+          persist-credentials: false
+
+      # A silent empty `ref:` would make the checkout below take the default
+      # branch, which is exactly the "whoever can move a tag owns every plugin's
+      # build step" failure the SHA pin exists to prevent — and it would look
+      # like a green build. `job.workflow_sha` and `job.workflow_repository`
+      # landed in the job context on 2026-04-23; on a runner that predates them
+      # the expressions evaluate to the empty string, so assert them first.
+      - name: Resolve the pinned workflow commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WORKFLOW_SHA:-}" ] || [ -z "${WORKFLOW_REPO:-}" ]; then
+            echo "::error::this runner does not provide job.workflow_sha / job.workflow_repository."
+            echo "Those are what pin astra-plugin to the commit of this workflow file."
+            echo "GitHub added them on 2026-04-23; GitHub Enterprise Server needs 3.18 or newer."
+            exit 1
+          fi
+          if ! [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::job.workflow_sha is not a 40-hex commit: '$WORKFLOW_SHA'"
+            exit 1
+          fi
+          echo "astra-plugin comes from $WORKFLOW_REPO@$WORKFLOW_SHA"
+          echo "ASTRA_PLUGIN_WORKFLOW_SHA=$WORKFLOW_SHA" >> "$GITHUB_ENV"
+
+      # `job.workflow_repository` / `job.workflow_sha` describe THIS file — the
+      # reusable workflow — not the caller. So the CLI that packs the bundle and
+      # the workflow that publishes it are the same commit by construction, a
+      # fork of this repository works with no configuration, and there is no
+      # version number for anyone to keep in step.
+      - name: Checkout astra-plugin at the pinned workflow commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: astra-tooling
+          persist-credentials: false
+
+      # Needed on every leg regardless of the plugin's language: astra-plugin is
+      # itself a Rust program. A plugin that needs a specific toolchain commits
+      # a `rust-toolchain.toml`, which rustup honours for the plugin's own
+      # build — and not for the CLI's, which is built from a sibling directory
+      # the file does not reach.
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The SDKs compile the proto with tonic-build/grpc-tools, so a plugin that
+      # depends on one needs protoc even when the plugin itself has no .proto.
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          # The one place this job hands `github.token` to a third-party action.
+          # It buys a raised GitHub API rate limit for the protoc download,
+          # which on a shared runner IP is otherwise a routine flake. The token
+          # it hands over is `contents: read` on the caller's own repository and
+          # nothing else — the same read a fork of a public repo already has.
+          repo-token: ${{ github.token }}
+
+      - uses: actions/setup-node@v4
+        if: matrix.language == 'typescript'
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.language == 'typescript'
+
+      - uses: actions/setup-python@v5
+        if: matrix.language == 'python'
+        with:
+          python-version: "3.12"
+
+      - name: Install linux packages
+        if: runner.os == 'Linux' && inputs.linux-packages != ''
+        env:
+          PACKAGES: ${{ inputs.linux-packages }}
+        run: |
+          set -euo pipefail
+          # Word-split deliberately: this input is a package list.
+          # shellcheck disable=SC2086
+          sudo apt-get update -qq
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends $PACKAGES
+
+      # Keyed on the workflow commit, so a new pin rebuilds the CLI and an
+      # unchanged pin never does. The cache lives in the CALLER's cache scope
+      # and this job is the author's, so the author can poison their own cache —
+      # which changes nothing they could not already do, since they own every
+      # other step in this job. What they cannot do is reach a secret or a write
+      # token, and that is the property being defended.
+      - name: Restore astra-plugin
+        id: cli-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/astra-plugin
+            ~/.cargo/bin/astra-plugin.exe
+          key: astra-plugin-cli-${{ runner.os }}-${{ job.workflow_sha }}
+
+      - name: Build astra-plugin
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        working-directory: astra-tooling/astra-plugin-cli
+        run: |
+          set -euo pipefail
+          cargo install --path . --locked --force
+
+      - name: astra-plugin --version
+        run: astra-plugin --version
+
+      # ── the author's code starts running HERE ─────────────────────────────
+
+      # Fails on a bad capability name, an unparseable config schema, and a
+      # version that disagrees with Cargo.toml/package.json.
+      #
+      # It also lints the caller's `.github/workflows/release.yml`, and
+      # ASTRA_PLUGIN_WORKFLOW_SHA — exported by "Resolve the pinned workflow
+      # commit" above — is what it compares the `uses:` pin against. In a
+      # healthy run those are equal by construction; the check that earns its
+      # keep is the one underneath it, that the pin is a 40-hex commit at all
+      # and not a moving tag someone else can repoint.
+      - name: astra-plugin check --strict
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: astra-plugin check --strict .
+
+      # --no-sign: this job holds no key, by design. Provenance is the
+      #   attestation `publish` makes over sha256(whole file), not an Ed25519
+      #   pair sitting on a runner.
+      # --reproducible: refuses anything that would make the bytes depend on
+      #   this machine rather than on the inputs. The canary below proves it.
+      - name: astra-plugin build
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          astra-plugin build . --target "${{ matrix.target }}" --reproducible --no-sign
+
+      - name: Verify the bundle and record its digests
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          test -f "$ARTIFACT" || {
+            echo "::error::astra-plugin build did not produce $ARTIFACT"
+            ls -la
+            exit 1
+          }
+          astra-plugin verify "$ARTIFACT"
+          astra-plugin verify "$ARTIFACT" --json > "$ARTIFACT.json"
+
+          # The name is not cosmetic: the `-<target>` segment IS the registry's
+          # platform key, so a bundle whose manifest says windows-x64 under a
+          # file named linux-x64 would be indexed for the wrong machines.
+          got=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["expected_name"])' "$ARTIFACT.json")
+          if [ "$got" != "$ARTIFACT" ]; then
+            echo "::error::the manifest says this bundle must be named '$got', but it is '$ARTIFACT'"
+            exit 1
+          fi
+
+      # ── reproducibility canary ────────────────────────────────────────────
+      #
+      # Pack a second time from the same tree and compare. `--reproducible`
+      # promises sorted entries, a fixed mtime and a fixed compression level;
+      # this is the assertion that the promise is kept on THIS runner, with
+      # THIS plugin's file set. It has caught nothing yet because it is new —
+      # its value is that the day a build starts embedding a timestamp, the
+      # registry does not silently start recording a digest per release run.
+      - name: Reproducibility canary
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          first_sha=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["artifact_sha256"])' "$ARTIFACT.json")
+          # Out of the plugin directory, not renamed inside it: `mktemp -d`
+          # yields a POSIX path that git-bash handles on Windows as well, and
+          # nothing the second pack walks can see the first pack's output.
+          scratch=$(mktemp -d)
+          mv "$ARTIFACT" "$scratch/pass1"
+          astra-plugin build . --target "${{ matrix.target }}" --reproducible --no-sign >/dev/null
+          second_sha=$(astra-plugin verify "$ARTIFACT" --json \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["artifact_sha256"])')
+          rm -rf "$scratch"
+          if [ "$first_sha" != "$second_sha" ]; then
+            echo "::error::two packs of the same tree differ:"
+            echo "  pass 1  $first_sha"
+            echo "  pass 2  $second_sha"
+            echo "This bundle is not reproducible, so the digest the registry records"
+            echo "would be an accident of when it was built."
+            exit 1
+          fi
+          echo "reproducible: $first_sha"
+          echo "\`$ARTIFACT\` — sha256 \`$first_sha\` (reproducible)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Everything below inspects the FINISHED ARCHIVE, not the build tree.
+      # Gating on `target/release/foo` would check a file that is not the one
+      # shipped: `build` chooses which artifacts to pack, and a gate that reads
+      # a different file is a gate that can be walked around by accident.
+      - name: Unpack the finished archive
+        if: runner.os == 'Linux'
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/unpacked"
+          python3 -c '
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              z.extractall(sys.argv[2])
+          ' "$ARTIFACT" "$RUNNER_TEMP/unpacked"
+          find "$RUNNER_TEMP/unpacked" -type f | sed "s|$RUNNER_TEMP/unpacked/|  |"
+
+      # ── glibc floor gate ──────────────────────────────────────────────────
+      #
+      # A binary that needs a newer glibc than the user has does not report
+      # that. The loader fails, the daemon's supervisor sees a process that
+      # exited instantly, and the user sees a plugin that "just doesn't work".
+      # So it is a CI gate or it is nothing.
+      #
+      # Runs on the noarch leg too, and that is on purpose: a TypeScript plugin
+      # that pulled in a prebuilt `.node` addon has quietly stopped being
+      # noarch, and this is the step that says so.
+      - name: Assert the glibc floor
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          worst="0.0"; rc=0; seen=0
+          while IFS= read -r f; do
+            max=$(objdump -T "$f" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
+                  | sed 's/GLIBC_//' | sort -uV | tail -n1)
+            [ -n "${max:-}" ] || continue
+            seen=$((seen + 1))
+            printf '  %-40s GLIBC_%s\n' "${f#"$RUNNER_TEMP"/unpacked/}" "$max"
+            if [ "$(printf '%s\n%s\n' "$max" "$GLIBC_FLOOR_MAX" | sort -V | tail -n1)" != "$GLIBC_FLOOR_MAX" ]; then
+              echo "::error::${f#"$RUNNER_TEMP"/unpacked/} requires GLIBC_$max, above the floor GLIBC_$GLIBC_FLOOR_MAX"
+              rc=1
+            fi
+            worst=$(printf '%s\n%s\n' "$worst" "$max" | sort -V | tail -n1)
+          done < <(find "$RUNNER_TEMP/unpacked" -type f \
+                     -exec sh -c 'file -b "$1" | grep -q ELF' _ {} \; -print)
+          if [ "$seen" -eq 0 ]; then
+            echo "  no ELF objects in the archive"
+          else
+            echo "worst observed: GLIBC_$worst (floor GLIBC_$GLIBC_FLOOR_MAX)"
+          fi
+          exit $rc
+
+      # ── TypeScript self-containment gate ──────────────────────────────────
+      #
+      # A .astraplugin ships no node_modules. If the bundler left a bare
+      # `require("chalk")` behind — an external, a dynamic require it could not
+      # follow, a dependency the author added after the last build config
+      # change — the plugin installs fine and dies on first launch with
+      # MODULE_NOT_FOUND, on the user's machine, where nobody can fix it.
+      - name: Assert the TypeScript bundle is self-contained
+        if: matrix.language == 'typescript'
+        run: |
+          set -euo pipefail
+          node - "$RUNNER_TEMP/unpacked" <<'JS'
+          const fs = require("fs");
+          const path = require("path");
+          const { builtinModules } = require("module");
+
+          const builtin = new Set(builtinModules);
+          const isBuiltin = (s) => builtin.has(s.replace(/^node:/, ""));
+
+          const root = process.argv[2];
+          const files = [];
+          (function walk(dir) {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, e.name);
+              if (e.isDirectory()) walk(p);
+              else if (/\.(js|cjs|mjs)$/.test(e.name)) files.push(p);
+            }
+          })(root);
+
+          // `\brequire(` and not `require(`: esbuild's CommonJS interop emits
+          // `__require(...)` shims, and matching those would fail every single
+          // bundle it produces.
+          const patterns = [
+            /\brequire\(\s*["']([^"']+)["']\s*\)/g,          // require("x")
+            /\bfrom\s*["']([^"']+)["']/g,                     // import … from "x"
+            /\bimport\(\s*["']([^"']+)["']\s*\)/g,            // import("x")
+          ];
+
+          const bad = [];
+          for (const f of files) {
+            const src = fs.readFileSync(f, "utf8");
+            for (const re of patterns) {
+              for (const m of src.matchAll(re)) {
+                const spec = m[1];
+                if (spec.startsWith(".") || spec.startsWith("/")) continue;
+                if (isBuiltin(spec)) continue;
+                bad.push(`${path.relative(root, f)}: ${spec}`);
+              }
+            }
+          }
+
+          if (bad.length) {
+            console.log("::error::the bundle still resolves modules at run time, and ships no node_modules:");
+            for (const b of [...new Set(bad)].sort()) console.log(`  ${b}`);
+            console.log("Bundle them (esbuild --bundle), or the plugin dies with MODULE_NOT_FOUND on a user's machine.");
+            process.exit(1);
+          }
+          console.log(`self-contained: ${files.length} JavaScript file(s), no external module resolved at run time`);
+          JS
+
+      # Out of the plugin directory and into one known path, so the upload glob
+      # below does not have to deal with `plugin-src/./…` when plugin-dir is ".".
+      - name: Stage the bundle
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          mv "$ARTIFACT" "$ARTIFACT.json" "$GITHUB_WORKSPACE/out/"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: astraplugin-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ══ PUBLISH ════════════════════════════════════════════════════════════════
+  #
+  # Holds every write permission in this workflow and runs NO author code. It
+  # downloads the bundles, hashes them itself, attests them, and uploads. It
+  # never unzips one, never executes one, and never invokes a tool the author
+  # could have influenced.
+  publish:
+    name: Publish
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write      # create the Release and upload assets
+      id-token: write      # mint the OIDC token that makes signing keyless
+      attestations: write  # store the attestation on GitHub
+    outputs:
+      artifacts: ${{ steps.digests.outputs.artifacts }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: astraplugin-*
+          merge-multiple: true
+          path: dist
+
+      # `publish` re-derives the names and digests instead of believing the
+      # .json files `build` wrote, because `build` is the untrusted job. This
+      # does not make a malicious build harmless — it produced the bytes — but
+      # it does mean the digest in SHA256SUMS.txt, the attestation subject and
+      # the registry record all come from one place that read the file itself.
+      - name: Check the file set and derive the digests
+        id: digests
+        env:
+          EXPECTED: ${{ needs.plan.outputs.artifacts }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, sys
+
+          dist = pathlib.Path("dist")
+          expected = json.loads(os.environ["EXPECTED"])
+          got = sorted(p.name for p in dist.glob("*.astraplugin"))
+          if got != sorted(expected):
+              print(f"::error::expected {sorted(expected)}, got {got}")
+              sys.exit(1)
+
+          # The target vocabulary, spelled out rather than split off the name:
+          # `linux-x64` contains a hyphen, so `name.rsplit("-", 1)` yields
+          # "x64" and the registry would be handed a platform key that does not
+          # exist. Matching against the closed set also makes an unknown target
+          # an error here instead of a silent bad index entry.
+          TARGETS = ("linux-x64", "windows-x64", "noarch")
+
+          out = []
+          for name in sorted(expected):
+              p = dist / name
+              h = hashlib.sha256(p.read_bytes()).hexdigest()
+              target = next(
+                  (t for t in TARGETS if name.endswith(f"-{t}.astraplugin")), None
+              )
+              if target is None:
+                  print(f"::error::{name} does not end in one of {TARGETS}")
+                  sys.exit(1)
+              out.append({
+                  "name": name,
+                  # This is the registry's platform key, by construction.
+                  "target": target,
+                  "sha256": h,
+                  "size": p.stat().st_size,
+              })
+              print(f"  {h}  {p.stat().st_size:>10}  {name}")
+
+          with open("dist/SHA256SUMS.txt", "w", encoding="utf-8") as fh:
+              for a in out:
+                  fh.write(f"{a['sha256']}  {a['name']}\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write("artifacts=" + json.dumps(out, separators=(",", ":")) + "\n")
+          PY
+          # The per-bundle `astra-plugin verify --json` reports were written by
+          # the untrusted build job and are kept as a 7-day workflow artifact for
+          # debugging a failed release. They do not go on the Release: everything
+          # in them that matters was just re-derived above from the file itself.
+          rm -f dist/*.astraplugin.json
+
+      # ── provenance ────────────────────────────────────────────────────────
+      #
+      # Gated on visibility, and NOT because private repos do not deserve
+      # provenance: `actions/attest-build-provenance` writes to a public
+      # transparency log, and on a private repository the attestation API
+      # requires GitHub Enterprise. Without it the step fails with a permissions
+      # error that reads like a misconfiguration, so the workflow says what
+      # actually happened instead.
+      #
+      # Resolved in a step rather than inlined into the `if:`, because
+      # `github.event.repository.visibility` is an EVENT PAYLOAD field: it is
+      # present for a push, and absent for anything else a caller might trigger
+      # on. An absent field makes `== 'public'` false, which would skip
+      # attestation on a public repository and produce a release that looks
+      # complete and is not covered by anything. Falling back to the API turns
+      # that silent skip into a fact.
+      - name: Resolve repository visibility
+        id: vis
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FROM_EVENT: ${{ github.event.repository.visibility }}
+        run: |
+          set -euo pipefail
+          v="${FROM_EVENT:-}"
+          if [ -z "$v" ]; then
+            v=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .visibility)
+          fi
+          case "$v" in
+            public|private|internal) ;;
+            *) echo "::error::could not determine repository visibility (got '$v')"; exit 1 ;;
+          esac
+          echo "visibility=$v" >> "$GITHUB_OUTPUT"
+          echo "repository is $v"
+
+      # @v2 is what the plan specifies. v3 and v4 exist; v4 is a thin wrapper
+      # over `actions/attest` and keeps the same `bundle-path` output, so the
+      # bump is a one-line decision — but it is a decision about which action
+      # signs every plugin Astra lists, so it is made deliberately, not by
+      # whoever next edits this file.
+      - name: Attest the bundles
+        id: attest
+        if: steps.vis.outputs.visibility == 'public'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.astraplugin
+
+      - name: Note that no attestation was made
+        if: steps.vis.outputs.visibility != 'public'
+        env:
+          VISIBILITY: ${{ steps.vis.outputs.visibility }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### No build attestation"
+            echo
+            echo "\`${GITHUB_REPOSITORY}\` is **${VISIBILITY}**."
+            echo "Build attestations are published to a public transparency log; on a"
+            echo "private repository they require GitHub Enterprise. The bundles below"
+            echo "are unattested, and the Astra registry will not list them."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach the attestation bundle
+        if: steps.attest.outputs.bundle-path != ''
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          PLUGIN_ID: ${{ needs.plan.outputs.plugin-id }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Not required to verify — `gh attestation verify` fetches it from the
+          # API — but a user who wants to check a download on a machine with no
+          # network to GitHub needs the bundle next to the file.
+          cp "$BUNDLE" "dist/${PLUGIN_ID}-${VERSION}.sigstore.jsonl"
+
+      - name: Upload the assets and publish the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" dist/* --clobber
+          # Last step of the last job: the Release becomes visible only once
+          # every asset is attached.
+          gh release edit "$TAG" --draft=false
+          echo "Published $TAG"
+          {
+            echo "### Released \`$TAG\`"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

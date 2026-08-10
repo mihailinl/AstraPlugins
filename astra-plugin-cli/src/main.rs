@@ -1,5 +1,6 @@
 //! `astra-plugin` CLI — create, develop, build, and validate Astra plugins.
 
+mod bundle;
 mod commands;
 mod daemon;
 mod templates;
@@ -53,18 +54,48 @@ enum Commands {
         standalone: bool,
     },
 
-    /// Build a plugin into a distributable .astraplugin archive
+    /// Build a plugin into a distributable .astraplugin bundle
     Build {
         /// Path to plugin directory (default: current directory)
         #[arg(default_value = ".")]
         path: String,
 
-        /// Output file path
+        /// Output file path. Defaults to <id>-<version>-<target>.astraplugin,
+        /// which is the name a published bundle must have — the target segment
+        /// is the registry's platform key.
         #[arg(short, long)]
         output: Option<String>,
+
+        /// Platform this bundle is for: linux-x64, windows-x64, or noarch.
+        /// Defaults to the host for native plugins and noarch for
+        /// TypeScript/Python.
+        #[arg(long)]
+        target: Option<String>,
+
+        /// Assert deterministic packing: sorted entries, mtime 1980-01-01,
+        /// fixed compression level. Two builds from the same inputs produce
+        /// the same sha256.
+        #[arg(long)]
+        reproducible: bool,
+
+        /// Skip the retiring in-ZIP SIGNATURE/PUBKEY pair. What CI uses: the
+        /// release build job holds no secrets, and provenance comes from an
+        /// attestation over sha256(whole file).
+        #[arg(long)]
+        no_sign: bool,
     },
 
-    /// Check a plugin manifest and config schema
+    /// Verify a built .astraplugin bundle and print its digests
+    Verify {
+        /// Path to the .astraplugin file
+        file: String,
+
+        /// Emit the report as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Check a plugin manifest, config schema and release workflow
     #[command(alias = "validate")]
     Check {
         /// Path to plugin directory (default: current directory)
@@ -74,6 +105,51 @@ enum Commands {
         /// Treat warnings as errors
         #[arg(long)]
         strict: bool,
+
+        /// Ask GitHub whether the release workflow pin is current. Off by
+        /// default: `astra-plugin dev` runs `check --strict` on every start,
+        /// and the release workflow tells the check what it is running from
+        /// through ASTRA_PLUGIN_WORKFLOW_SHA, so neither needs the network.
+        #[arg(long)]
+        resolve_pin: bool,
+    },
+
+    /// Write .github/workflows/release.yml, pinned to a commit of the Astra
+    /// reusable workflow. Re-run it to upgrade the pin; it keeps your inputs.
+    InitCi {
+        /// Path to plugin directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+
+        /// A 40-hex commit to pin (used verbatim, no network), or a ref name
+        /// to resolve. Default: the released workflow tag, else the default
+        /// branch head.
+        #[arg(long = "ref")]
+        workflow_ref: Option<String>,
+
+        /// Set the linux-packages input, e.g. "libasound2-dev pkg-config".
+        /// Omitted, an existing file's value is kept.
+        #[arg(long)]
+        linux_packages: Option<String>,
+
+        /// Never touch the network: keep the pin already in the file.
+        #[arg(long)]
+        offline: bool,
+    },
+
+    /// Set the version in plugin.toml and every other manifest at once
+    Version {
+        /// The new version, strict semver and without a leading 'v'
+        version: String,
+
+        /// Path to plugin directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+
+        /// Allow a version that sorts below the current one. Astra refuses to
+        /// install a downgrade, so such a release is uninstallable.
+        #[arg(long)]
+        allow_downgrade: bool,
     },
 
     /// Generate an Ed25519 keypair for plugin signing
@@ -106,11 +182,55 @@ async fn main() -> Result<()> {
         } => {
             commands::dev::run(&path, daemon_addr.as_deref(), standalone).await?;
         }
-        Commands::Build { path, output } => {
-            commands::build::run(&path, output.as_deref())?;
+        Commands::Build {
+            path,
+            output,
+            target,
+            reproducible,
+            no_sign,
+        } => {
+            let target = target.as_deref().map(bundle::Target::parse).transpose()?;
+            commands::build::run(commands::build::BuildOptions {
+                path: &path,
+                output: output.as_deref(),
+                target,
+                reproducible,
+                no_sign,
+            })?;
         }
-        Commands::Check { path, strict } => {
-            commands::validate::run(&path, strict)?;
+        Commands::Verify { file, json } => {
+            commands::verify::run(&file, json)?;
+        }
+        Commands::Check {
+            path,
+            strict,
+            resolve_pin,
+        } => {
+            commands::validate::run_with(&path, strict, resolve_pin)?;
+        }
+        Commands::InitCi {
+            path,
+            workflow_ref,
+            linux_packages,
+            offline,
+        } => {
+            commands::init_ci::run(commands::init_ci::InitCiOptions {
+                path: &path,
+                workflow_ref: workflow_ref.as_deref(),
+                linux_packages: linux_packages.as_deref(),
+                offline,
+            })?;
+        }
+        Commands::Version {
+            version,
+            path,
+            allow_downgrade,
+        } => {
+            commands::version::run(commands::version::VersionOptions {
+                path: &path,
+                version: &version,
+                allow_downgrade,
+            })?;
         }
         Commands::Keygen { force } => {
             commands::keygen::run(force)?;
