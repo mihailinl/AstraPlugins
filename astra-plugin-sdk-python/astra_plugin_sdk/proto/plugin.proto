@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 39d2a0d5766174d3b9d1a7ab2163f50ab8b9cedcf43360b888c0615627a2deec
+// source-sha256: 298c257b9c3dce19797900ec4dd8751b4dfa903b13f40a141311aa4f92f80a16
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2799,7 +2799,13 @@ message PluginStatusMsg {
     string version = 3;
     string description = 4;
     string author = 5;
-    string status = 6;  // "stopped", "starting", "running", "error", "disabled"
+
+    // "stopped", "starting", "running", "error", "disabled", "tamper_detected".
+    // `tamper_detected` is §5.4's refusal: a file this daemon hashed at install
+    // no longer hashes to the same bytes, so the plugin was not spawned. It is
+    // NOT `error` — the health loop retries `error` and must never retry this,
+    // and a user reading "error" would expect it to come back on its own.
+    string status = 6;
     string error = 7;
     repeated string capabilities = 8;  // ["tools", "tts", "ai_provider", ...]
     bool enabled = 9;
@@ -2818,6 +2824,59 @@ message PluginStatusMsg {
     // `false` → shown (fail-safe), whereas a `managed` flag would default to hiding
     // every plugin.
     bool builtin = 15;
+
+    // ── Continuous verification (production plan §5.4) ──────────────────────
+    //
+    // What the daemon believes about this plugin RIGHT NOW, not what it believed
+    // when the plugin was installed. Verification used to happen exactly once,
+    // at install, over an archive that no longer exists — while the install
+    // directory is the plugin's own working directory and nothing confines it.
+    // These fields let the UI show what is true rather than what was true; they
+    // are recomputed in `discover()`, at every start, and by the periodic
+    // full re-hash.
+
+    // One of: "builtin", "verified", "developer", "unrecorded", "untrusted",
+    // "tampered", "revoked". See `trust::TrustState`.
+    //
+    // "builtin" is a first-party sidecar (astra-stt / astra-vox): it ships with
+    // the daemon, and has no bundle, no digest and no trust record BY DESIGN, so
+    // there is nothing to re-hash and the absence of a record is not a finding.
+    // "unrecorded" is an install that predates trust records (a legacy v1
+    // bundle, or a directory the user adopted) — absence of evidence.
+    // "untrusted" is a record this daemon wrote and can no longer believe —
+    // evidence of removal. Two strings, because collapsing them would either
+    // brick every old install or excuse every deleted record.
+    string trust_state = 16;
+
+    // The pinned author, prefixed by what kind of claim it is:
+    // "github:owner/repo" or "origin:host". Empty when nothing is pinned.
+    //
+    // The prefix is required, not cosmetic: an origin host and a repository are
+    // different claims, and §5.5 is explicit that NEITHER is proof of a verified
+    // build — the daemon does not verify attestations, so this is what the
+    // registry asserted, plus a URL check that the bytes came from that repo's
+    // release namespace. UI copy says "same author as before", never "verified".
+    string identity = 17;
+
+    // Lowercase hex sha256 of the whole `.astraplugin` this install came from.
+    // Empty for a built-in, a sideload, or an install with no record.
+    //
+    // THE REVOCATION KEY: a withdrawal is keyed by bundle digest, so this is the
+    // value a user compares against an advisory — which is why the UI shows it
+    // in full and copyable rather than truncated.
+    string artifact_sha256 = 18;
+
+    // "registry" | "local-unverified" | "sideloaded" | "builtin" | "".
+    // The capability ceiling in §5.5 keys off this.
+    string tier = 19;
+
+    // Provenance the registry asserted, as opaque JSON ("" when there is none).
+    //
+    // NOT verified by this daemon (§5.5). Carried so the provenance panel can
+    // show it and so `audit-index.sh` can diff it against Rekor after the fact.
+    // Opaque, so a field the registry starts recording reaches the UI without a
+    // proto change — and so nothing here can be mistaken for a daemon claim.
+    string provenance_json = 20;
 }
 
 message PluginListResponse {

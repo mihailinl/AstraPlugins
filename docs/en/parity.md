@@ -29,31 +29,31 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 
 | RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |
 |---|---|---|---|---|---|---|---|---|
-| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1306` |
-| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4016` |
-| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4306` |
+| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:2989` |
+| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6039` |
+| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6329` |
 | `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | n/a | n/a | **none** |
-| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4354` |
-| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4594` |
-| `TtsActivate` | `tts` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:4386` |
-| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4441` |
-| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4562` |
-| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4618` |
-| `SttLoad` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:4642` |
-| `SttUnload` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:4720` |
-| `SttGetLoadState` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:4671` |
+| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6377` |
+| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6617` |
+| `TtsActivate` | `tts` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6409` |
+| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6464` |
+| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6585` |
+| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6641` |
+| `SttLoad` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6665` |
+| `SttUnload` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6743` |
+| `SttGetLoadState` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6694` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs:157` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
-| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4159` |
-| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1315` |
-| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1324` |
-| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:4249` |
-| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1333` |
-| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1514` |
-| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1690` |
-| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1631` |
-| `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs:533` |
-| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:1882` |
+| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6182` |
+| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:2998` |
+| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3007` |
+| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6272` |
+| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3016` |
+| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3197` |
+| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3373` |
+| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3314` |
+| `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs:556` |
+| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:3565` |
 
 ## PluginHostService — plugin → daemon
 

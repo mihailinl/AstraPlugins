@@ -213,8 +213,9 @@ jobs:
 
       # ── degraded mode ────────────────────────────────────────────────────
       #
-      # proto/ASTRA_PROTO.lock is written by a full-mode run and committed by a
-      # maintainer. It records (a) the sha256 of proto/plugin.proto and (b) the
+      # proto/ASTRA_PROTO.lock is written by tools/gen-proto-lock.sh — from a
+      # full-mode run of this job, or by a maintainer holding both checkouts —
+      # and committed. It records (a) the sha256 of proto/plugin.proto and (b) the
       # sha256 of the astra.proto it was cut from, as of the last time the two
       # repos were actually compared. Verifying it here means: nobody has
       # changed the protocol since that comparison. A PR that DOES change the
@@ -253,12 +254,18 @@ jobs:
             cat >&2 <<'MSG'
 
           This change moves the protocol, and this run cannot verify it against
-          the daemon (no ASTRA_REPO_TOKEN — a fork, most likely). A maintainer
-          must run this job with the token, which regenerates the slice from
-          astra.proto and rewrites proto/ASTRA_PROTO.lock.
+          the daemon (no ASTRA_REPO_TOKEN — a fork, most likely). Somebody who
+          can see the private Astra repository has to regenerate the slice from
+          astra.proto, confirm it is byte-identical to proto/plugin.proto, and
+          rewrite proto/ASTRA_PROTO.lock. Two ways, same code:
+
+              tools/gen-proto-lock.sh --astra-dir ../Astra/astra-rs
+
+          from a maintainer's checkout, or re-run this job with the token, which
+          runs that script with --check.
 
           Do NOT hand-edit the lock to make this pass. Its whole value is that
-          the hashes in it were once produced by a run that could see upstream.
+          the hashes in it were produced by a process that could see upstream.
           MSG
             exit 1
           fi
@@ -342,30 +349,23 @@ jobs:
           workspaces: _astra/astra-rs/tools/proto-slice
           key: proto-slice
 
-      # `--stdout` regenerates the slice in memory and prints it, so this
-      # compares the daemon's proto AS IT IS TODAY against our checked-in copy —
-      # not against whatever Astra last committed to its own generated/ dir.
-      # Keeping Astra's committed copy current is Astra's CI's job.
-      - name: regenerate the slice and diff it against proto/plugin.proto
+      # The slicer's `--stdout` regenerates the slice in memory, so this compares
+      # the daemon's proto AS IT IS TODAY against our checked-in copy — not
+      # against whatever Astra last committed to its own generated/ dir. Keeping
+      # Astra's committed copy current is Astra's CI's job.
+      #
+      # Both halves — the byte-for-byte diff and the lock the degraded mode
+      # reads — live in tools/gen-proto-lock.sh, and this step runs it in
+      # `--check` mode. The generator used to be a heredoc right here, which
+      # made "a CI run holding the token" the only thing on earth able to refresh
+      # proto/ASTRA_PROTO.lock: a branch that moved the protocol was unmergeable
+      # until a maintainer re-ran this job, and a maintainer sitting on both
+      # checkouts had no supported way to do the work. Phase 3b was stuck on
+      # exactly that. The check and the write are now one code path, so they
+      # cannot disagree about the file's contents.
+      - name: the slice is current, and so is proto/ASTRA_PROTO.lock
         if: env.MODE == 'full'
-        run: |
-          set -euo pipefail
-          cargo run --quiet \
-            --manifest-path _astra/astra-rs/tools/proto-slice/Cargo.toml \
-            -- --stdout > /tmp/upstream-plugin.proto
-          if ! cmp -s /tmp/upstream-plugin.proto proto/plugin.proto; then
-            echo "FAIL proto/plugin.proto is not what the daemon's proto slices to." >&2
-            diff -u proto/plugin.proto /tmp/upstream-plugin.proto | head -60 >&2 || true
-            cat >&2 <<'MSG'
-
-          Fix in the Astra repo, never here:
-              cargo run --manifest-path astra-rs/tools/proto-slice/Cargo.toml
-          then copy astra-proto/generated/plugin.proto to AstraPlugins/proto/plugin.proto
-          and run tools/sync-proto.sh.
-          MSG
-            exit 1
-          fi
-          echo "ok   proto/plugin.proto is byte-identical to the regenerated slice"
+        run: bash tools/gen-proto-lock.sh --astra-dir _astra/astra-rs --check
 
       # C1 with the other half attached. The `couplings` job runs
       # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the
@@ -446,47 +446,6 @@ jobs:
               sys.exit(1)
           print("ok   the daemon delegates plugins/manifest.rs to astra-plugin-manifest")
           PY
-
-      - name: refresh proto/ASTRA_PROTO.lock and fail if it moved
-        if: env.MODE == 'full'
-        run: |
-          set -euo pipefail
-          protocol=$(sed -n 's|^// protocol: *||p' proto/plugin.proto | head -n1)
-          astra_sha=$(sed -n 's|^// source-sha256: *||p' proto/plugin.proto | head -n1)
-          plugin_sha=$(sha256sum proto/plugin.proto | cut -d' ' -f1)
-          # Cross-check the header against the file it claims to come from, so a
-          # hand-edited header cannot launder a protocol change through the lock.
-          real_astra_sha=$(sha256sum _astra/astra-rs/astra-proto/src/astra.proto | cut -d' ' -f1)
-          if [ "$astra_sha" != "$real_astra_sha" ]; then
-            echo "FAIL proto/plugin.proto's source-sha256 header says $astra_sha" >&2
-            echo "     but astra.proto hashes to                      $real_astra_sha" >&2
-            exit 1
-          fi
-          cat > /tmp/ASTRA_PROTO.lock <<EOF
-          # The upstream protocol, pinned by a run that could see it.
-          #
-          # GENERATED by .github/workflows/ci.yml (proto-upstream, full mode) — DO NOT EDIT.
-          #
-          # Written only by a run holding ASTRA_REPO_TOKEN, which regenerated the slice
-          # from Astra's astra.proto and found it byte-identical to proto/plugin.proto.
-          # Runs WITHOUT that token (every fork PR) verify these three values instead,
-          # and say plainly that they did not contact upstream.
-          #
-          #   protocol             the \`// protocol: N\` header of proto/plugin.proto
-          #   plugin_proto_sha256  sha256 of proto/plugin.proto
-          #   astra_proto_sha256   sha256 of astra-rs/astra-proto/src/astra.proto it was cut from
-          #
-          protocol=$protocol
-          plugin_proto_sha256=$plugin_sha
-          astra_proto_sha256=$astra_sha
-          EOF
-          if ! cmp -s /tmp/ASTRA_PROTO.lock proto/ASTRA_PROTO.lock; then
-            echo "FAIL proto/ASTRA_PROTO.lock is stale. Commit this:" >&2
-            echo >&2
-            cat /tmp/ASTRA_PROTO.lock >&2
-            exit 1
-          fi
-          echo "ok   proto/ASTRA_PROTO.lock is current"
 
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 

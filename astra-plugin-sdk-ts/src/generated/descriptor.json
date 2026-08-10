@@ -5801,6 +5801,26 @@
             "builtin": {
               "type": "bool",
               "id": 15
+            },
+            "trustState": {
+              "type": "string",
+              "id": 16
+            },
+            "identity": {
+              "type": "string",
+              "id": 17
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 18
+            },
+            "tier": {
+              "type": "string",
+              "id": 19
+            },
+            "provenanceJson": {
+              "type": "string",
+              "id": 20
             }
           }
         },
