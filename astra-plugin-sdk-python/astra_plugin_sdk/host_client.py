@@ -1,12 +1,36 @@
-"""HostClient — plugin-side gRPC client for calling the Astra daemon."""
+"""HostClient — plugin-side gRPC client for calling the Astra daemon.
+
+The daemon exempts exactly one ``PluginHostService`` RPC from authentication:
+``Register`` (`astra-daemon/src/server/auth_interceptor.rs`, ``EXEMPT_PATHS``).
+It is the bootstrap path — the plugin proves itself with the spawn-time
+``auth_token`` in the request body and hands back a per-plugin session token.
+Every other host RPC must present that token as ``x-session-token`` metadata
+or the daemon answers ``unauthenticated``.
+
+SECURITY: the split below enforces that in the object graph rather than with a
+runtime check. :class:`HostClientBootstrap` exposes ``register`` and nothing
+else, and :class:`HostClient` cannot be constructed without a session token —
+so there is no reachable object on which an unauthenticated ``log()`` /
+``fire_trigger()`` / ``set_variable()`` exists.
+"""
 
 import grpc
 
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 
 
-class HostClient:
-    """Client for calling daemon services from a plugin."""
+class HostClientBootstrap:
+    """Pre-registration client. ``Register`` is the only RPC it can make.
+
+    Use it once at startup::
+
+        boot = HostClientBootstrap(daemon_addr, plugin_id)
+        await boot.connect()
+        response, host = await boot.register(port, capabilities, auth_token)
+
+    On success ``host`` is an authenticated :class:`HostClient` that owns the
+    channel; this object is inert afterwards.
+    """
 
     def __init__(self, daemon_addr: str, plugin_id: str):
         self.daemon_addr = daemon_addr
@@ -21,9 +45,18 @@ class HostClient:
 
     async def register(
         self, port: int, capabilities: list[str], auth_token: str = ""
-    ) -> plugin_pb2.PluginRegisterResponse:
-        """Register this plugin with the daemon."""
-        return await self._stub.Register(
+    ) -> tuple[plugin_pb2.PluginRegisterResponse, "HostClient | None"]:
+        """Register this plugin with the daemon.
+
+        Returns ``(response, client)``. ``client`` is an authenticated
+        :class:`HostClient` when the daemon accepted the registration and
+        issued a session token, and ``None`` otherwise — a refused plugin has
+        no token, and therefore no way to make any further host call.
+        """
+        if self._stub is None:
+            raise RuntimeError("connect() must be awaited before register()")
+
+        response = await self._stub.Register(
             plugin_pb2.PluginRegisterRequest(
                 plugin_id=self.plugin_id,
                 port=port,
@@ -32,13 +65,62 @@ class HostClient:
             )
         )
 
+        client = None
+        if response.success and response.client_session_token:
+            # Hand the live channel to the authenticated client so the plugin
+            # keeps a single connection to the daemon.
+            client = HostClient(
+                self.daemon_addr,
+                self.plugin_id,
+                response.client_session_token,
+                _channel=self._channel,
+            )
+            self._channel = None
+            self._stub = None
+        return response, client
+
+    async def close(self):
+        """Close the gRPC channel, unless it was handed to a HostClient."""
+        if self._channel:
+            await self._channel.close()
+            self._channel = None
+            self._stub = None
+
+
+class HostClient:
+    """Authenticated client for calling daemon services from a plugin.
+
+    Obtained from :meth:`HostClientBootstrap.register`. The session token is
+    injected as ``x-session-token`` metadata on every request.
+    """
+
+    def __init__(
+        self,
+        daemon_addr: str,
+        plugin_id: str,
+        session_token: str,
+        *,
+        _channel: grpc.aio.Channel | None = None,
+    ):
+        if not session_token:
+            raise ValueError(
+                "HostClient requires the session token returned by Register; "
+                "use HostClientBootstrap to obtain one"
+            )
+        self.daemon_addr = daemon_addr
+        self.plugin_id = plugin_id
+        self._metadata = (("x-session-token", session_token),)
+        self._channel = _channel or grpc.aio.insecure_channel(daemon_addr)
+        self._stub = plugin_pb2_grpc.PluginHostServiceStub(self._channel)
+
     async def fire_trigger(self, trigger_type: str, payload_json: str = "{}"):
         """Fire a trigger (for trigger plugins)."""
         await self._stub.FireTrigger(
             plugin_pb2.PluginFireTriggerRequest(
                 trigger_type=trigger_type,
                 payload_json=payload_json,
-            )
+            ),
+            metadata=self._metadata,
         )
 
     async def log(self, level: str, message: str):
@@ -48,19 +130,23 @@ class HostClient:
                 plugin_id=self.plugin_id,
                 level=level,
                 message=message,
-            )
+            ),
+            metadata=self._metadata,
         )
 
     async def get_config(self) -> str:
         """Get this plugin's current config from the daemon."""
         response = await self._stub.GetPluginSelfConfig(
-            plugin_pb2.PluginSelfIdRequest(plugin_id=self.plugin_id)
+            plugin_pb2.PluginSelfIdRequest(plugin_id=self.plugin_id),
+            metadata=self._metadata,
         )
         return response.config_json
 
     async def get_daemon_info(self) -> plugin_pb2.PluginDaemonInfoResponse:
         """Get daemon info (version, state, port)."""
-        return await self._stub.GetDaemonInfo(plugin_pb2.Empty())
+        return await self._stub.GetDaemonInfo(
+            plugin_pb2.Empty(), metadata=self._metadata
+        )
 
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         """Subscribe to daemon events. Returns an async iterator.
@@ -74,7 +160,8 @@ class HostClient:
                 plugin_id=self.plugin_id,
                 event_types=event_types or [],
                 exclude_source_id=exclude_source_id,
-            )
+            ),
+            metadata=self._metadata,
         )
 
     async def set_variable(self, name: str, value: str, scope: str = "session"):
@@ -91,10 +178,12 @@ class HostClient:
                 name=name,
                 value=value,
                 scope=scope,
-            )
+            ),
+            metadata=self._metadata,
         )
 
     async def close(self):
         """Close the gRPC channel."""
         if self._channel:
             await self._channel.close()
+            self._channel = None

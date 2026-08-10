@@ -9,18 +9,9 @@ from concurrent import futures
 
 import grpc
 
-from astra_plugin_sdk.host_client import HostClient
-
-# Proto stubs will be generated at install time or pre-shipped.
-# For now, define the gRPC servicer interface manually.
-# Users run: python -m grpc_tools.protoc -I proto --python_out=. --grpc_python_out=. proto/plugin.proto
-# Or the SDK ships pre-generated stubs.
-
-try:
-    from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
-except ImportError:
-    plugin_pb2 = None
-    plugin_pb2_grpc = None
+from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
+from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
+from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 
 
 class Plugin:
@@ -77,50 +68,83 @@ class Plugin:
         asyncio.run(self._run_async(args.daemon_addr, args.plugin_id, args.auth_token))
 
     async def _run_async(self, daemon_addr: str, plugin_id: str, auth_token: str = ""):
-        if plugin_pb2_grpc is None:
+        # The daemon's supervisor reads this process's stdout to decide the
+        # plugin came up. Python block-buffers stdout when it is a pipe, so a
+        # plugin that only prints would look hung and be killed at the start
+        # timeout — force line buffering before the first print.
+        try:
+            sys.stdout.reconfigure(line_buffering=True)
+        except (AttributeError, OSError):
+            pass
+
+        # SECURITY: the capability server is the daemon's way into this plugin's
+        # tools, config and shutdown, and loopback separates it from nothing —
+        # any process of the same user can dial the port. The guard demands the
+        # daemon hand back the spawn-time `--auth-token`, which only it and this
+        # process know. Staged; see `astra_plugin_sdk.auth`.
+        guard = CapabilityAuthInterceptor(auth_token, capability_auth_mode())
+        if not guard.active:
             print(
-                "ERROR: Proto stubs not generated. Run:\n"
-                "  python -m grpc_tools.protoc -I proto "
-                "--python_out=astra_plugin_sdk/proto "
-                "--grpc_python_out=astra_plugin_sdk/proto "
-                "proto/plugin.proto",
+                "WARNING: capability server is unauthenticated — any local process can "
+                "call this plugin. (No --auth-token was passed, or the check is "
+                "switched off.)",
                 file=sys.stderr,
+                flush=True,
             )
-            sys.exit(1)
 
         # Start gRPC server on random port
-        self._server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=4))
+        self._server = grpc.aio.server(
+            futures.ThreadPoolExecutor(max_workers=4), interceptors=(guard,)
+        )
         servicer = _CapabilityServicer(self)
         plugin_pb2_grpc.add_PluginCapabilityServiceServicer_to_server(servicer, self._server)
 
         port = self._server.add_insecure_port("127.0.0.1:0")
         await self._server.start()
-        print(f"Plugin gRPC server listening on port {port}")
+        print(f"Plugin gRPC server listening on port {port}", flush=True)
 
-        # Connect to daemon and register
-        self.host = HostClient(daemon_addr, plugin_id)
-        await self.host.connect()
+        # Connect to daemon and register. `Register` is the only host RPC the
+        # daemon exempts from `x-session-token`, so it runs on a bootstrap
+        # client; the authenticated HostClient only exists once the daemon has
+        # handed back a session token.
+        bootstrap = HostClientBootstrap(daemon_addr, plugin_id)
+        await bootstrap.connect()
 
         capabilities = await self._discover_capabilities()
-        print(f"Registering with capabilities: {capabilities}")
+        print(f"Registering with capabilities: {capabilities}", flush=True)
 
-        response = await self.host.register(port, capabilities, auth_token)
+        response, host = await bootstrap.register(port, capabilities, auth_token)
         if not response.success:
-            print(f"Registration failed: {response.error}", file=sys.stderr)
+            print(f"Registration failed: {response.error}", file=sys.stderr, flush=True)
+            await bootstrap.close()
             sys.exit(1)
+        if host is None:
+            print(
+                "Registration succeeded but the daemon issued no session token; "
+                "every host call would be rejected as unauthenticated",
+                file=sys.stderr,
+                flush=True,
+            )
+            await bootstrap.close()
+            sys.exit(1)
+        self.host = host
 
-        print(f"Registered successfully. Daemon version: {response.daemon_version}")
+        print(f"Registered successfully. Daemon version: {response.daemon_version}", flush=True)
 
-        # If plugin has client capability and received a session token, create DaemonClient
-        # and start the chat firehose so `on_conversation_event` fires for every
-        # chat event the daemon emits.
-        if response.client_session_token:
+        # The daemon issues a session token to EVERY plugin (it gates the host
+        # RPCs, not just the daemon API — SECURITY(B1)), so the token alone no
+        # longer means "client capability" — gate on `is_client()` instead.
+        # Without it a trigger-only plugin opened a DaemonClient it has no
+        # permission to use and reconnected the firehose every 2 s forever.
+        # Matches runner.rs (`plugin.is_client() && !token.is_empty()`) and
+        # plugin.ts (`if (this.isClient())`).
+        if self.is_client() and response.client_session_token:
             from astra_plugin_sdk.daemon_client import DaemonClient
             self.daemon = DaemonClient(daemon_addr, response.client_session_token)
             await self.daemon.connect()
             await self.on_daemon_client_ready(self.daemon)
             asyncio.create_task(self._chat_firehose_loop(self.daemon))
-            print("DaemonClient connected (plugin has client capability)")
+            print("DaemonClient connected (plugin has client capability)", flush=True)
 
         # Pass initial language
         if response.language:
@@ -135,7 +159,7 @@ class Plugin:
         # Start event subscription if plugin wants events
         event_types = self.subscribed_events()
         if event_types:
-            print(f"Subscribing to events: {event_types}")
+            print(f"Subscribing to events: {event_types}", flush=True)
             asyncio.create_task(self._event_loop(event_types))
 
         # Wait for shutdown
@@ -350,6 +374,23 @@ class Plugin:
     def ui_overlay(id: str, url: str, *, width: int = 200, height: int = 200) -> dict:
         return {"id": id, "slot": "overlay.floating", "url": url, "transparent": True, "pointer_events": True, "width": width, "height": height}
 
+    # ── UI calls ──
+
+    async def handle_ui_call(self, method: str, params_json: str) -> dict | str | None:
+        """Handle a call from this plugin's UI iframe (``CallFromUi``).
+
+        Override this to implement UI→backend communication. ``params_json``
+        is the raw JSON the iframe sent.
+
+        Return either:
+
+        * a dict with ``result_json`` and/or ``error`` keys — used verbatim,
+          mirroring ``PluginUiCallResponse``;
+        * any other dict or list — auto-serialized into ``result_json``;
+        * a string — used as ``result_json`` as-is.
+        """
+        return {"error": f"No UI call handler implemented (method: {method})"}
+
     async def on_config_changed(self, config: dict):
         """Called when config changes."""
         pass
@@ -367,14 +408,15 @@ class Plugin:
     async def on_active_triggers(self, active_types: list[str]):
         """Called when the set of active trigger types changes.
 
-        The base class automatically updates ``self.active_triggers``.
-        Override to add custom logic, but call ``super()`` to keep tracking.
+        ``self.active_triggers`` is already updated by the time this runs — the
+        servicer tracks it, exactly as it does for ``config`` and ``language``,
+        so an override does not need to call ``super()``.
 
         Args:
             active_types: Un-namespaced trigger types that have at least one
                 command listening. If a type is NOT in this list, skip firing it.
         """
-        self.active_triggers = set(active_types)
+        pass
 
     async def on_shutdown(self):
         """Called on shutdown."""
@@ -619,6 +661,29 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             contributions=[plugin_pb2.PluginUiContribution(**c) for c in contributions]
         )
 
+    async def CallFromUi(self, request, context):
+        try:
+            result = await self.plugin.handle_ui_call(request.method, request.params_json)
+        except Exception as e:
+            return plugin_pb2.PluginUiCallResponse(error=str(e))
+
+        if result is None:
+            return plugin_pb2.PluginUiCallResponse()
+        if isinstance(result, str):
+            return plugin_pb2.PluginUiCallResponse(result_json=result)
+        if isinstance(result, dict) and ("result_json" in result or "error" in result):
+            return plugin_pb2.PluginUiCallResponse(
+                result_json=result.get("result_json", ""),
+                error=result.get("error", ""),
+            )
+        # Plain payload — serialize it for the iframe.
+        try:
+            return plugin_pb2.PluginUiCallResponse(result_json=json.dumps(result))
+        except (TypeError, ValueError) as e:
+            return plugin_pb2.PluginUiCallResponse(
+                error=f"handle_ui_call returned a non-serializable result: {e}"
+            )
+
     async def OnConfigChanged(self, request, context):
         config = json.loads(request.config_json) if request.config_json else {}
         self.plugin.config = config
@@ -626,7 +691,9 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         return plugin_pb2.Empty()
 
     async def OnActiveTriggers(self, request, context):
-        await self.plugin.on_active_triggers(list(request.trigger_types))
+        active_types = list(request.trigger_types)
+        self.plugin.active_triggers = set(active_types)
+        await self.plugin.on_active_triggers(active_types)
         return plugin_pb2.Empty()
 
     async def OnLanguageChanged(self, request, context):
