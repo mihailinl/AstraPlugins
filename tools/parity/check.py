@@ -311,6 +311,13 @@ def rule_R5(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
         return [], f"R5  SKIPPED: {astra_dir} has no astra-daemon/ — provenance UNVERIFIED."
 
     fails = []
+    # A line that merely MOVED is not a finding. The daemon's plugin host is edited
+    # every phase, so pinning exact line numbers made R5 fail on work that had
+    # nothing to do with parity — twice, and both times the fix was mechanical.
+    # What R5 is actually for is the branch below it: the call site is GONE, meaning
+    # the daemon stopped calling a hook the spec still calls routed. That stays a
+    # hard failure. Drift is reported as a note and repaired by --fix-provenance.
+    drifted = []
     for hook in doc["hooks"]:
         if hook["daemon_calls"] == "none":
             continue
@@ -326,12 +333,7 @@ def rule_R5(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
             continue
         elsewhere = [i + 1 for i, l in enumerate(lines) if pattern.search(l)]
         if elsewhere:
-            fails.append(
-                f"R5  {hook['rpc']}: {hook['daemon_calls']} is not the {what} any more; "
-                f"it is now at {rel}:{elsewhere[0]}"
-                + (f" (also {', '.join(str(x) for x in elsewhere[1:6])})" if len(elsewhere) > 1 else "")
-                + ". Update daemon_calls, or run `check.py --fix-provenance`."
-            )
+            drifted.append(f"{hook['rpc']} {rel}:{lineno}->{elsewhere[0]}")
         else:
             fails.append(
                 f"R5  {hook['rpc']}: routing={hook['routing']} claims {hook['daemon_calls']}, "
@@ -339,7 +341,15 @@ def rule_R5(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
                 f"daemon stopped calling this hook — in which case it is `unrouted`, and that is "
                 f"a finding, not a line-number fix — or the provenance names the wrong file."
             )
-    return fails, None
+    note = None
+    if drifted:
+        note = (
+            f"R5  {len(drifted)} provenance line(s) drifted (the call site still exists, it just "
+            f"moved): {', '.join(drifted[:6])}"
+            + (f", +{len(drifted) - 6} more" if len(drifted) > 6 else "")
+            + ". Not a failure. Run `check.py --fix-provenance` to re-point them."
+        )
+    return fails, note
 
 
 def fix_provenance(doc, astra_dir: Path | None) -> int:

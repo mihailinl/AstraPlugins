@@ -866,11 +866,12 @@ for (const [name, id, why] of [
       "The recorded `permissions_hash` is `sha256({})` while `permissions` asks for " +
       "`fire_trigger`. The hash is what the consent sheet and the update-diff gate " +
       "compare, so a bundle where the two disagree can widen its permissions without " +
-      "the number that is supposed to notice ever changing. §5.3-D compares this hash " +
-      "against the registry RECORD's; nothing yet compares the manifest against ITSELF, " +
-      "and until something does, the manifest's `permissions` block is a field no reader " +
-      "authenticates.",
-    expect: { cli: "accept", daemon: "accept", registry: "accept" },
+      "the number that is supposed to notice ever changing. §5.3-D is where that is " +
+      "caught: the daemon recomputes the hash from the manifest's own permissions on " +
+      "every install path and blocks with `PERMISSIONS_HASH_MISMATCH`, and the registry " +
+      "refuses to list what the daemon would refuse to install. The CLI's bundle reader " +
+      "still does not look.",
+    expect: { cli: "accept", daemon: "reject", registry: "reject" },
     extra: {
       recorded_permissions_hash: permissionsHash({}),
       correct_permissions_hash: permissionsHash(perms),
@@ -878,18 +879,26 @@ for (const [name, id, why] of [
     divergence: {
       finding: "F5",
       summary:
-        "No implementation checks `sha256(canonical(MANIFEST.permissions)) == " +
-        "MANIFEST.permissions_hash`. All three read the two fields and reconcile " +
-        "neither.",
+        "The CLI is the last reader that does not check " +
+        "`sha256(canonical(MANIFEST.permissions)) == MANIFEST.permissions_hash`. " +
+        "`Bundle::open` parses both fields into the same struct and reconciles neither, " +
+        "so `astra-plugin verify` passes a bundle the daemon blocks with " +
+        "`PERMISSIONS_HASH_MISMATCH` (§5.3-D, Phase 3a) and the registry refuses with " +
+        "`E_PERMISSIONS_HASH_MISMATCH`. Do not read this entry as \"nobody checks it\": " +
+        "the two implementations that decide whether a stranger's plugin runs both do.",
       severity:
-        "Real, and it lands in Phase 4. Today `permissions` is carried and not " +
-        "interpreted, so the mismatch is inert. The moment a consent sheet renders " +
-        "`permissions` while the update-diff gate compares `permissions_hash`, the two " +
-        "describe different plugins and a widening passes as unchanged.",
+        "Fail-closed at install and at listing, so no user is exposed. What is left is " +
+        "the author's feedback loop, and it is the mildest kind: `astra-plugin build` " +
+        "derives `permissions_hash` from `permissions`, so its own packer cannot emit a " +
+        "mismatch — only a hand-rolled or hostile packer reaches this, and both of those " +
+        "meet a gate that does check. That is why this half is last in the queue rather " +
+        "than first.",
       fix:
-        "One line in each reader, next to the schema check. All three suites already " +
-        "recompute the correct hash for this vector, so the check has nothing left to " +
-        "invent.",
+        "One line in `Bundle::open`, beside the schema check: recompute " +
+        "`sha256(canonical_permissions(permissions))` — that function is already in " +
+        "bundle.rs, the vectors suite calls it — and refuse a manifest that does not " +
+        "hash to its own permission map. Then delete this block and set expect.cli to " +
+        "`reject`.",
     },
     archive: { entries: [manifestEntry(m), ENTRY_BIN, ENTRY_TOML], manifestBytes: m },
   });

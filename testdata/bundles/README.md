@@ -261,4 +261,12 @@ a test that will change colour when it is fixed.
 | **F2** | `content-digest-mismatch` | by design: the daemon hashes content during extraction, not here |
 | **F3** | `mode-mismatch` | the registry bot does not compare modes at all |
 | **F4** | `plugin-id-*` | the CLI validates neither, in `verify` or in `check` |
-| **F5** | `permissions-hash-mismatch` | nobody checks the manifest's permission hash against its own permissions |
+| **F5** | `permissions-hash-mismatch` | only the CLI's bundle reader does not check the manifest's permission hash against its own permissions |
+
+F5 used to read "nobody checks it", and stayed that way for a phase after the
+daemon started checking it — §5.3-D blocks the install with
+`PERMISSIONS_HASH_MISMATCH`, and the registry refuses to list what the daemon
+would refuse to install (`E_PERMISSIONS_HASH_MISMATCH`). A divergence record
+that overstates the gap is worse than one that is missing: it is read as a risk
+register, and a register pointing at a closed hole is one nobody re-reads. If
+you close the CLI half, delete the block and set `expect.cli` to `reject`.
