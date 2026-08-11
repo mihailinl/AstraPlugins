@@ -13,3 +13,9 @@ node_modules/
 dist/
 __pycache__/
 *.pyc
+
+# `astra-plugin test --report` output, written by CI's conformance job into the
+# workspace so the reports can be uploaded as an artifact. Never committed: it is
+# a record of one run, and a stale one in the tree would be a conformance claim
+# nobody re-derived.
+_conformance/

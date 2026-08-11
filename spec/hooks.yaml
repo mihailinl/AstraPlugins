@@ -75,6 +75,21 @@
 #                 deprecated— has a call site history but is being retired
 #   since         protocol version the hook first appeared in (the `// protocol:`
 #                 header of `proto/plugin.proto`)
+#   deprecated_in the SDK minor that deprecated this hook — `0.6`, not a protocol
+#   removed_in    version, because that is the number in an author's manifest and
+#                 in the CHANGELOG heading. Both are optional and only on
+#                 `routing: deprecated` rows, and they are how the deprecation
+#                 policy in `docs/en/versioning.md` stops being something a human
+#                 has to remember. `tools/parity/spec.py` enforces, on every
+#                 parse:
+#                   - `routing: deprecated` needs `deprecated_in`
+#                   - `deprecated_in` needs `removed_in`
+#                   - `removed_in` is at least TWO minors after `deprecated_in`
+#                   - the row's `note` names the rpc that replaces it, or says
+#                     `no replacement`
+#                 The one-quarter half of the policy is calendar, not data: the
+#                 release train dates it, and `versioning.md` is where it is
+#                 written down.
 #   streaming     unary | server | client | bidi
 #   daemon_calls  `file:line` under astra-rs/astra-daemon/ where the daemon
 #                 invokes it (daemon->plugin) or serves it (plugin->daemon).
@@ -327,8 +342,10 @@ hooks:
     since: 1
     streaming: unary
     daemon_calls: none
+    deprecated_in: "0.6"
+    removed_in: "0.8"
     summary: "List the models this provider can run."
-    note: "FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more."
+    note: "FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more. Deprecated in 0.6, removed in 0.8, and there is no replacement: nothing in the daemon asks a plugin what models it has, and AiComplete carries the chosen model on the request."
     rust: stable
     python: stable
     typescript: stable

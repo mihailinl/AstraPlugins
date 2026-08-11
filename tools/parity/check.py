@@ -19,21 +19,59 @@ Rules:
   R6  a PluginHostService row's `permission` disagrees with the daemon's
       HOST_RPC_PERMISSIONS — the table `require_permission` reads. Same checkout,
       same loud skip.
+  R7  a conformance report and the spec disagree. THE rule for "a hook cannot be
+      committed as `stable` while returning UNIMPLEMENTED": R1 asks whether the
+      SDK has a binding, R7 asks whether the binding reached anything when a real
+      plugin process was driven through it. Needs
+      `astra-plugin test --report <file>` output, passed as --report; skipped,
+      loudly, without one.
+      (R7b: an rpc the spec marks `n/a` was answered anyway;
+       R7c: the report names an rpc no row mentions;
+       R7d: the run was against a different protocol generation)
 
 WHAT COUNTS AS A BINDING
-Not "the name appears somewhere". Each language has one anchored region — the
-gRPC service impl, the host-client call surface — and only names found inside it
-count. A registered TypeScript handler whose body answers `UNIMPLEMENTED` does
-NOT count, because on the wire an `Unimplemented` reply is indistinguishable
-from an absent hook, and that equivalence is the protocol's forward-compat
-contract. If an anchor stops matching, this script fails loudly rather than
-reporting an empty scan as a clean bill of health.
+Not "the name appears somewhere", and not "a method with the right name exists".
+Each language has one anchored region — the gRPC service impl, the host-client
+call surface — and only names found inside it count; then, for the
+daemon→plugin direction, the dispatch target is RESOLVED and its body is read.
+A handler whose body only answers `UNIMPLEMENTED` does NOT count, because on the
+wire an `Unimplemented` reply is indistinguishable from an absent hook, and that
+equivalence is the protocol's forward-compat contract.
+
+Resolving the target matters because the registration and the work are in
+different places in all three languages: TypeScript registers
+`ListTools: this.wrapHandler(this.handleListTools.bind(this))` — one line, no
+body — so a scanner that read only the map read nothing at all and the
+UNIMPLEMENTED filter could never fire. It now follows `.bind(this)` to
+`private async handleListTools(`, Python follows the `_CapabilityServicer`
+method to its `self.plugin.<hook>` call, and Rust reads the `async fn` body in
+`runner.rs`.
+
+The judgement, per handler body, in order:
+
+  1. it dispatches into the plugin's own surface  → a binding;
+  2. otherwise, it mentions UNIMPLEMENTED         → NOT a binding;
+  3. otherwise                                    → a binding.
+
+Rule 3 is not laxity: `Shutdown` in Rust legitimately never touches
+`self.plugin` (it trips the shutdown signal and `run_with` calls `on_shutdown`
+once the server is down). What rule 2 catches is the stub — a handler replaced
+by a bare `throw new HookUnimplemented(...)` — which is the shape this filter
+was written for and, until now, could not see.
+
+R1 answers "does the SDK bind this hook to something that does work". R7 — which
+drives a real plugin process — answers "did that binding reach anything". Both,
+because neither is the other.
+
+If an anchor stops matching, this script fails loudly rather than reporting an
+empty scan as a clean bill of health.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import os
 import re
 import sys
@@ -44,7 +82,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import spec  # noqa: E402
 
 REPO_ROOT = spec.REPO_ROOT
-ALL_RULES = ("R1", "R2", "R3", "R4", "R5", "R6")
+ALL_RULES = ("R1", "R2", "R3", "R4", "R5", "R6", "R7")
 
 
 class AnchorError(Exception):
@@ -81,15 +119,76 @@ def _region(rel: str, start_re: str, end_re: str | None) -> list[str]:
     return lines[start:end]
 
 
+def _strip_comments(body: str, markers: tuple[str, ...]) -> str:
+    """Drop comment lines, so a handler documented as "TODO: UNIMPLEMENTED" is
+    judged on what it does rather than on what it says about itself."""
+    kept = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if any(stripped.startswith(m) for m in markers):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def _verdict(rpc: str, body: str, dispatch: re.Pattern[str], markers: tuple[str, ...]) -> bool:
+    """Is this handler body a binding? See WHAT COUNTS AS A BINDING above."""
+    code = _strip_comments(body, markers)
+    if dispatch.search(code):
+        return True
+    return "UNIMPLEMENTED" not in code.upper()
+
+
+def _blocks(lines: list[str], head: re.Pattern[str], close: str) -> dict[str, str]:
+    """`{name: body}` for every `head` match, up to the next line equal to `close`.
+
+    Brace-counting would be more general and less honest: these three files are
+    rustfmt/black/prettier output, so the closing line of a method is exactly
+    `close` and a body that does not end that way is a file whose shape has
+    changed enough to want a human.
+    """
+    out: dict[str, str] = {}
+    name: str | None = None
+    body: list[str] = []
+    for line in lines:
+        m = head.match(line)
+        if m:
+            if name is not None:
+                out[name] = "\n".join(body)
+            name, body = m.group(1), []
+            continue
+        if name is None:
+            continue
+        if line == close:
+            out[name] = "\n".join(body)
+            name, body = None, []
+            continue
+        body.append(line)
+    if name is not None:
+        out[name] = "\n".join(body)
+    return out
+
+
+#: Rust: the handler hands the call to the author's trait impl.
+_RUST_DISPATCH = re.compile(r"self\.plugin\.")
+#: Python: same, through the servicer's `self.plugin`.
+_PY_DISPATCH = re.compile(r"self\.plugin\.")
+#: TypeScript: `this.<something>(`, where the something is not another handler
+#: and not the wrapper itself — i.e. a method an author can override.
+_TS_DISPATCH = re.compile(r"\bthis\.(?!handle[A-Z]|wrapHandler\b|overrides\b)([a-z]\w*)\s*\(")
+
+
 def scan_rust_capability() -> dict[str, str]:
     rel = "astra-plugin-sdk/src/runner.rs"
     region = _region(rel, r"^impl.*PluginCapabilityService\b", r"^#\[cfg\(test\)\]")
-    found = {}
-    for line in region:
-        m = re.match(r"    async fn ([a-z_][a-z0-9_]*)\s*\(", line)
-        if m:
-            found[m.group(1)] = rel
-    return found
+    bodies = _blocks(region, re.compile(r"    async fn ([a-z_][a-z0-9_]*)\s*\("), "    }")
+    if not bodies:
+        raise AnchorError(f"{rel}: no `async fn` found in the service impl — the anchor moved")
+    return {
+        name: rel
+        for name, body in bodies.items()
+        if _verdict(name, body, _RUST_DISPATCH, ("//",))
+    }
 
 
 def scan_rust_host() -> dict[str, str]:
@@ -105,11 +204,22 @@ def scan_rust_host() -> dict[str, str]:
 def scan_python_capability() -> dict[str, str]:
     rel = "astra-plugin-sdk-python/astra_plugin_sdk/plugin.py"
     region = _region(rel, r"^class _CapabilityServicer\b", None)
+    # Python has no closing brace, so a method ends where the next one begins or
+    # the class does. Collect by header, then cut each body at the first line
+    # that is neither blank nor indented past the method.
+    heads = [
+        (i, m.group(1))
+        for i, line in enumerate(region)
+        if (m := re.match(r"    async def ([A-Z]\w*)\s*\(", line))
+    ]
+    if not heads:
+        raise AnchorError(f"{rel}: no `async def <Rpc>(` in _CapabilityServicer — the anchor moved")
     found = {}
-    for line in region:
-        m = re.match(r"    async def ([A-Z]\w*)\s*\(", line)
-        if m:
-            found[snake(m.group(1))] = rel
+    for pos, (start, name) in enumerate(heads):
+        stop = heads[pos + 1][0] if pos + 1 < len(heads) else len(region)
+        body = "\n".join(region[start + 1 : stop])
+        if _verdict(name, body, _PY_DISPATCH, ("#",)):
+            found[snake(name)] = rel
     return found
 
 
@@ -125,23 +235,48 @@ def scan_python_host() -> dict[str, str]:
 
 
 def scan_ts_capability() -> dict[str, str]:
-    """Handler-map keys, minus the ones whose body answers UNIMPLEMENTED."""
+    """Handler-map keys, resolved to the method they `.bind(this)`, then judged.
+
+    Every entry in the map is one line — `ListTools:
+    this.wrapHandler(this.handleListTools.bind(this)),` — so there is no body at
+    the registration site to read. The body is `private async
+    handleListTools(`, elsewhere in the same file.
+    """
     rel = "astra-plugin-sdk-ts/src/plugin.ts"
     region = _region(rel, r"private capabilityHandlers\(\)", r"as unknown as HandlerMap")
-    entries: list[tuple[str, list[str]]] = []
+    targets: dict[str, str] = {}
     for line in region:
-        m = re.match(r"      ([A-Z]\w*)\s*:", line)
-        if m:
-            entries.append((m.group(1), []))
-        elif entries:
-            entries[-1][1].append(line)
-    if not entries:
+        m = re.match(r"      ([A-Z]\w*)\s*:\s*(.+)$", line)
+        if not m:
+            continue
+        rpc, expr = m.group(1), m.group(2)
+        bind = re.search(r"this\.(\w+)\.bind\(this\)", expr)
+        if not bind:
+            raise AnchorError(
+                f"{rel}: `{rpc}` in capabilityHandlers() is not a `this.<method>.bind(this)`. "
+                f"The scanner resolves the dispatch target to read its body; teach it this shape "
+                f"rather than letting the entry count on its name alone."
+            )
+        targets[rpc] = bind.group(1)
+    if not targets:
         raise AnchorError(f"{rel}: the capability handler map is empty — the anchor moved")
-    return {
-        snake(name): rel
-        for name, body in entries
-        if "UNIMPLEMENTED" not in "\n".join(body)
-    }
+
+    _, lines = _read(rel)
+    bodies = _blocks(
+        lines,
+        re.compile(r"  (?:private |protected |public )?(?:async )?(handle[A-Z]\w*)\s*\("),
+        "  }",
+    )
+    found = {}
+    for rpc, method in targets.items():
+        if method not in bodies:
+            raise AnchorError(
+                f"{rel}: capabilityHandlers() binds `{rpc}` to `{method}`, which has no "
+                f"`private {method}(` definition this scanner can find."
+            )
+        if _verdict(rpc, bodies[method], _TS_DISPATCH, ("//", "*", "/*")):
+            found[snake(rpc)] = rel
+    return found
 
 
 def scan_ts_host() -> dict[str, str]:
@@ -429,6 +564,103 @@ def rule_R6(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
     return fails, None
 
 
+def rule_R7(doc, reports: list[Path]) -> tuple[list[str], str | None]:
+    """The conformance runs and the spec must agree.
+
+    R1-R6 read source. This reads what a plugin *did*, from the report
+    `astra-plugin test --report` writes after driving a real plugin process
+    through every hook its capabilities imply.
+
+    It exists for one claim the static rules cannot make: **a hook cannot be
+    committed as `stable` while returning UNIMPLEMENTED.** R1 asks whether the
+    SDK has a binding; only a running plugin can answer whether the binding
+    reaches anything. The two together are the whole statement.
+
+    Four ways a report and the spec can disagree:
+
+      R7   the spec says a hook is `required` and `stable` in this language,
+           and the plugin answered UNIMPLEMENTED.
+      R7b  the plugin answered an rpc the spec marks `n/a` for its language —
+           the dynamic twin of R1b.
+      R7c  the report names an rpc no spec row mentions — the dynamic twin of R2.
+      R7d  the report's protocol generation is not the spec's.
+
+    Optional hooks are exempt from R7 by construction, and that exemption is
+    the forward-compatibility contract rather than an oversight: `Unimplemented`
+    means *the hook is absent*, so a plugin that does not serve an optional hook
+    is a plugin the daemon carries on without.
+
+    Same optionality as R5 and R6: no report, no check, said out loud.
+    """
+    if not reports:
+        return [], (
+            "R7  SKIPPED: no conformance report. Produce one with "
+            "`astra-plugin test --report <file>` and pass --report <file> — "
+            "CONFORMANCE UNVERIFIED."
+        )
+
+    by_rpc = {h["rpc"]: h for h in doc["hooks"]}
+    fails: list[str] = []
+
+    for path in reports:
+        if not path.exists():
+            fails.append(f"R7  {path}: no such report.")
+            continue
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            fails.append(f"R7  {path}: not readable as JSON — {exc}")
+            continue
+
+        lang = report.get("language", "")
+        # `typescript` is the spec's spelling; the CLI reports what it detected.
+        lang = {"ts": "typescript", "py": "python"}.get(lang, lang)
+        who = f"{report.get('plugin_id', path.name)} ({lang})"
+
+        if lang not in spec.LANGUAGES:
+            fails.append(
+                f"R7  {who}: `language` is `{report.get('language')}`, which is not one of "
+                f"{', '.join(spec.LANGUAGES)}. The report cannot be checked against a "
+                f"per-language column."
+            )
+            continue
+
+        declared_protocol = report.get("protocol")
+        if declared_protocol is not None and declared_protocol != doc["protocol"]:
+            fails.append(
+                f"R7d {who}: the run was against protocol {declared_protocol}, "
+                f"spec/hooks.yaml says {doc['protocol']}."
+            )
+
+        for hook in report.get("hooks", []):
+            rpc, status = hook.get("rpc"), hook.get("status")
+            row = by_rpc.get(rpc)
+            if row is None:
+                fails.append(
+                    f"R7c {who}: exercised `{rpc}`, which has no row in spec/hooks.yaml."
+                )
+                continue
+            declared = row.get(lang)
+            if status == "unimplemented" and row.get("requirement") == "required":
+                fails.append(
+                    f"R7  {rpc}: spec/hooks.yaml says `requirement: required` and "
+                    f"`{lang}: {declared}`, and {who} answered UNIMPLEMENTED. A hook cannot be "
+                    f"committed as stable while returning UNIMPLEMENTED: protocol-wise "
+                    f"Unimplemented means the hook is ABSENT, so this row is a promise the "
+                    f"running code does not keep. Either implement it, or change the row."
+                )
+            if status == "ok" and declared == "n/a":
+                fails.append(
+                    f"R7b {rpc}: spec/hooks.yaml says `{lang}: n/a` "
+                    f"({row.get(lang + '_reason', 'no reason given')}), and {who} answered it."
+                )
+
+        for failure in report.get("failures", []):
+            fails.append(f"R7  {who}: the conformance run itself failed — {failure}")
+
+    return fails, None
+
+
 def fix_provenance(doc, astra_dir: Path | None) -> int:
     """Re-point `daemon_calls` at lines that merely moved.
 
@@ -499,6 +731,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--astra-dir", default=None, help="path to Astra/astra-rs for R5 and R6")
     parser.add_argument("--today", default=None, help="ISO date, for testing R4")
     parser.add_argument(
+        "--report",
+        action="append",
+        default=[],
+        metavar="FILE",
+        help="a conformance report from `astra-plugin test --report`, for R7. Repeatable.",
+    )
+    parser.add_argument(
         "--fix-provenance",
         action="store_true",
         help="re-point daemon_calls at call sites that merely moved, then exit",
@@ -562,6 +801,12 @@ def main(argv: list[str]) -> int:
     if "R6" in selected:
         r6, skip = rule_R6(doc, astra_dir)
         failures += r6
+        if skip:
+            skips.append(skip)
+
+    if "R7" in selected:
+        r7, skip = rule_R7(doc, [Path(p) for p in args.report])
+        failures += r7
         if skip:
             skips.append(skip)
 

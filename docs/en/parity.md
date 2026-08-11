@@ -13,9 +13,9 @@ A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityS
 | **Permission** | `PluginHostService` only. The `[permissions]` key the daemon gates the call on (§5.6), or `none` if every plugin may always call it. **Not the same question as Capability:** the capability says which feature the call is part of, the permission is what the user consented to, and the daemon answers out of the *granted* permission set. Verified against the daemon's `HOST_RPC_PERMISSIONS` by rule R6. |
 | **Req** | `required` — the capability does not work without the hook. `optional` — the daemon carries on when it is absent. |
 | **Routing** | `live` — the daemon really calls it, and the call site is named. `unrouted` — declared in the proto, called by nobody. `deprecated` — being retired. |
-| `stable` | The SDK has a real binding today, verified against its source by `tools/parity/check.py` rule R1. |
+| `stable` | The SDK binds this rpc to a handler that does work — verified against its source by `tools/parity/check.py` rule R1, which resolves the dispatch target (TypeScript's `.bind(this)`, Python's servicer method, Rust's `async fn`) and reads *that* body. Whether the binding reaches anything when a real plugin process is driven through it is rule R7's question, not R1's. |
 | `planned` | Committed, not shipped. The date is the grace deadline; rule R4 fails the build once it passes. |
-| `n/a` | Not implemented and not committed. A registered handler that answers `UNIMPLEMENTED` counts as `n/a`, because on the wire that *is* an absent hook. |
+| `n/a` | Not implemented and not committed. A registered handler whose body only answers `UNIMPLEMENTED` counts as `n/a`, because on the wire that *is* an absent hook — R1 reads the handler body for exactly this. |
 
 ## Findings
 
@@ -125,7 +125,7 @@ The 23 inbound hooks a conformance run must exercise — every `daemon → plugi
 - **`SttLoad`** — Load the recognizer model, with the daemon-resolved path and GPU toggle. manager.rs:2918 routes it through `optional_hook`, which is why this is optional.
 - **`SttGetLoadState`** — Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour.
 - **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language.
-- **`AiGetModels`** — List the models this provider can run. FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more.
+- **`AiGetModels`** — List the models this provider can run. FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more. Deprecated in 0.6, removed in 0.8, and there is no replacement: nothing in the daemon asks a plugin what models it has, and AiComplete carries the chosen model on the request.
 - **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager.rs:2523 routes it through `optional_hook`.
 - **`OnLanguageChanged`** — The Astra UI language changed; re-render anything user-visible. manager.rs:1133 routes it through `optional_hook`.
 - **`Shutdown`** — Stop cleanly; the process group is killed after the grace period. Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit.

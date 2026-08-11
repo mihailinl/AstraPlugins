@@ -140,9 +140,9 @@ def render_parity(doc: dict) -> str:
         "| **Permission** | `PluginHostService` only. The `[permissions]` key the daemon gates the call on (§5.6), or `none` if every plugin may always call it. **Not the same question as Capability:** the capability says which feature the call is part of, the permission is what the user consented to, and the daemon answers out of the *granted* permission set. Verified against the daemon's `HOST_RPC_PERMISSIONS` by rule R6. |",
         "| **Req** | `required` — the capability does not work without the hook. `optional` — the daemon carries on when it is absent. |",
         "| **Routing** | `live` — the daemon really calls it, and the call site is named. `unrouted` — declared in the proto, called by nobody. `deprecated` — being retired. |",
-        "| `stable` | The SDK has a real binding today, verified against its source by `tools/parity/check.py` rule R1. |",
+        "| `stable` | The SDK binds this rpc to a handler that does work — verified against its source by `tools/parity/check.py` rule R1, which resolves the dispatch target (TypeScript's `.bind(this)`, Python's servicer method, Rust's `async fn`) and reads *that* body. Whether the binding reaches anything when a real plugin process is driven through it is rule R7's question, not R1's. |",
         "| `planned` | Committed, not shipped. The date is the grace deadline; rule R4 fails the build once it passes. |",
-        "| `n/a` | Not implemented and not committed. A registered handler that answers `UNIMPLEMENTED` counts as `n/a`, because on the wire that *is* an absent hook. |",
+        "| `n/a` | Not implemented and not committed. A registered handler whose body only answers `UNIMPLEMENTED` counts as `n/a`, because on the wire that *is* an absent hook — R1 reads the handler body for exactly this. |",
         "",
     ]
 

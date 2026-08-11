@@ -42,7 +42,7 @@ Comparing the spec against reality is `check.py`'s job, and only its job.
 
 | Rule | Fails when |
 |---|---|
-| **R1** | a hook is `stable` in the spec and the SDK has no binding for it (R1b: `n/a` in the spec and bound anyway) |
+| **R1** | a hook is `stable` in the spec and the SDK has no binding for it — the dispatch target is resolved and its body read, so a stub that only answers `UNIMPLEMENTED` is not a binding (R1b: `n/a` in the spec and bound anyway) |
 | **R2** | an SDK binds an rpc that has no row in the spec, or binds it in the wrong direction |
 | **R3** | an rpc exists on a plugin-facing service in `proto/plugin.proto` and in no spec row (R3b: a row names an rpc the proto lacks; R3c: `streaming` disagrees with the proto) |
 | **R4** | a `planned` row is past its `grace_until` |
@@ -66,16 +66,37 @@ only names inside it count:
 |---|---|---|
 | Rust | `async fn` in the `impl … PluginCapabilityService` block of `runner.rs`, cut at `#[cfg(test)]` | `.method(proto::…)` calls in `host_client.rs`, cut at `#[cfg(test)]` |
 | Python | `async def` in `_CapabilityServicer` in `plugin.py` | `_stub.Method(` in `host_client.py` |
-| TypeScript | keys of the `capabilityHandlers()` map in `plugin.ts` | `REQUIRED_METHODS` and `stub.Method(` in `host-client.ts` |
+| TypeScript | keys of the `capabilityHandlers()` map in `plugin.ts`, **resolved through `.bind(this)` to the `handleX` they name** | `REQUIRED_METHODS` and `stub.Method(` in `host-client.ts` |
+
+…and then the body of that handler is read. The registration and the work are in
+different places in all three languages — TypeScript's map is 25 one-liners of
+the form `ListTools: this.wrapHandler(this.handleListTools.bind(this)),`, so a
+scanner that stopped at the map had no body to judge and certified nothing but
+the presence of a name. Each resolved body is judged in order:
+
+1. it dispatches into the plugin's own surface (`self.plugin.` / `this.<hook>(`)
+   → a binding;
+2. otherwise it mentions `UNIMPLEMENTED` → **not** a binding;
+3. otherwise → a binding.
+
+Rule 3 is deliberate. Rust's `Shutdown` never touches `self.plugin`: it trips the
+shutdown signal and `run_with` calls `on_shutdown` once the server is down. What
+rule 2 catches is the stub — a handler replaced by a bare
+`throw new HookUnimplemented(...)` or `Err(Status::unimplemented(...))`.
 
 Cutting Rust at `#[cfg(test)]` matters: `host_client.rs`'s test module contains a
 fake daemon that implements the *whole* `PluginHostService` trait, and counting
 it would report `SendChatMessage` as shipped when no plugin can call it.
 
-A registered TypeScript handler whose body answers `UNIMPLEMENTED` does **not**
-count as a binding. On the wire an `Unimplemented` reply is indistinguishable
-from an absent hook, and that equivalence is the protocol's forward-compat
-contract — so a stub is `n/a`, not `stable`, and the spec says so.
+A handler whose body answers `UNIMPLEMENTED` does **not** count as a binding, in
+any of the three languages. On the wire an `Unimplemented` reply is
+indistinguishable from an absent hook, and that equivalence is the protocol's
+forward-compat contract — so a stub is `n/a`, not `stable`, and the spec says so.
+
+R1 answers *does the SDK bind this hook to something that does work*. R7 — which
+drives a real plugin process through `astra-plugin test` — answers *did that
+binding reach anything*. Neither substitutes for the other, and a `stable` row
+claims only the first.
 
 If an anchor stops matching, `check.py` exits 2 with the anchor that broke. An
 empty scan is never reported as a clean bill of health; that failure mode is how

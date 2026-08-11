@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 3de2d7a471dd79fc7f608180c8cae9291e5ea9af51cbc3b76f1634ff6e92965e
+// source-sha256: 3588e1647aca5a7a982e293c6d35cc2df7b9b7bfe68e390cf551ac0b25b7ca3a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2873,6 +2873,77 @@ service PluginCapabilityService {
 
 // ============ Plugin Messages — Management (PluginService) ============
 
+// **§5.10.** Why a plugin is not running, in a form a user can act on.
+//
+// `PluginStatusMsg.error` is one string, and one string is all a UI can do with
+// it: print it. That produced "Failed to spawn plugin 'dice-roller'" — true,
+// unactionable, and the reason an issue tracker fills with reports that say
+// "it doesn't work". Every field here exists because a support conversation
+// needed it and had to ask for it by hand.
+//
+// The message is ADDITIVE: `error` still carries `message`, so a client that
+// never learns about this type keeps working and keeps showing the better
+// sentence.
+message PluginFailure {
+    // Which part of the lifecycle failed. One of:
+    //   "verify"    — the pre-start integrity / revocation check refused it.
+    //   "spawn"     — the daemon could not get a process running: the entry
+    //                 command was missing, not executable, the wrong
+    //                 architecture, or it exited/hung before signalling ready.
+    //   "handshake" — the process ran but never became usable: no `Register`,
+    //                 or a registration the daemon rejected.
+    //   "runtime"   — it was running and stopped being so.
+    // Coarse ON PURPOSE: `code` is the precise value, and a UI needs a small
+    // stable set to write a heading against.
+    string phase = 1;
+
+    // Stable, machine-readable, lowercase snake_case. This is what a UI
+    // switches on and what a docs anchor is named after, so it does not change
+    // once shipped. Known values, by phase:
+    //   verify:    tampered, revoked
+    //   spawn:     entry_not_found, not_executable, wrong_architecture,
+    //              cwd_escape, start_timeout, exited_during_start, spawn_failed
+    //   handshake: registration_rejected
+    //   runtime:   process_exited, unresponsive
+    // An unknown code must render as `message` and nothing else — never as the
+    // raw code, and never as an empty card.
+    string code = 2;
+
+    // The sentence a user reads. Names the plugin and names the thing:
+    // "Dice Roller couldn't start: `bin/dice_roller` not found".
+    //
+    // NOT localised, and deliberately: it carries file paths and OS error text
+    // that must survive verbatim into a bug report. A UI with per-code copy
+    // shows its own translated heading and keeps this as the detail line.
+    string message = 3;
+
+    // What to do next: one sentence, imperative. Empty when there is nothing
+    // honest to suggest — an empty hint is better than "try again".
+    string hint = 4;
+
+    // Deep link into the troubleshooting docs, anchored on `code`. Empty when
+    // no page covers it.
+    string doc_url = 5;
+
+    // The last lines the plugin produced before it died — stdout, stderr and
+    // its own `Log` RPC, in the order the daemon saw them, oldest first.
+    //
+    // Bounded (a few dozen lines): this rides on every `ListPlugins`, and the
+    // full history is on disk at `<config>/plugins/<id>/logs/plugin.log`.
+    repeated string log_tail = 6;
+
+    // Consecutive failures — the auto-restart circuit breaker's counter. `1` is
+    // a one-off; `4` is a crash loop, and the difference changes what a user
+    // should be told.
+    uint32 restart_count = 7;
+
+    // The breaker is open: the daemon has stopped restarting this plugin by
+    // itself and will not try again until the user asks. Without this a UI
+    // cannot tell "still coming back" from "given up on", and both look
+    // identical — a stopped plugin with an error under it.
+    bool circuit_open = 8;
+}
+
 message PluginStatusMsg {
     string id = 1;
     string name = 2;
@@ -2957,6 +3028,15 @@ message PluginStatusMsg {
     // Opaque, so a field the registry starts recording reaches the UI without a
     // proto change — and so nothing here can be mistaken for a daemon claim.
     string provenance_json = 20;
+
+    // **§5.10.** Why it is not running, structured. Absent while it is running,
+    // and absent on a plugin the user simply stopped.
+    //
+    // Rides here rather than on an RPC of its own because the failure and the
+    // status are ONE fact: a card that has to fetch the explanation separately
+    // renders the bad state first and the reason a round-trip later, which is
+    // exactly the window in which a user gives up and files "it doesn't work".
+    PluginFailure failure = 21;
 }
 
 message PluginListResponse {

@@ -46,9 +46,22 @@ REQUIRED_FIELDS = (
 # PluginCapabilityService ones, which REQUIRED_FIELDS cannot express — it is a
 # flat list with no idea of the service. So it is declared optional here and the
 # per-service rule is enforced in `validate` below, where the service is known.
-OPTIONAL_FIELDS = ("note", "permission") + tuple(
+# `deprecated_in` / `removed_in` are the deprecation policy of
+# `docs/en/versioning.md` as data: an SDK minor (`0.6`), not a protocol version,
+# because that is the number an author's Cargo.toml / pyproject.toml / package.json
+# carries and the number the CHANGELOG's `BREAKING` heading is filed under. The
+# policy is enforced in `validate` below, so "two minors and one quarter" stops
+# depending on a human remembering it at removal time.
+OPTIONAL_FIELDS = ("note", "permission", "deprecated_in", "removed_in") + tuple(
     f"{lang}_{suffix}" for lang in LANGUAGES for suffix in ("issue", "grace_until", "reason")
 )
+
+#: `major.minor`, the shape of every version in the three CHANGELOGs.
+VERSION_RE = re.compile(r"(\d+)\.(\d+)")
+
+#: The minimum gap between deprecating a hook and removing it, in minors.
+#: `docs/en/versioning.md` — two minors *and* one quarter, whichever is longer.
+MIN_DEPRECATION_MINORS = 2
 
 
 class SpecError(Exception):
@@ -155,6 +168,77 @@ def _cross_check_against_pyyaml(text: str, parsed: dict) -> None:
 
 # ── validation ───────────────────────────────────────────────────────────────
 
+def _version(raw, rpc: str, field: str, where: str) -> tuple[int, int]:
+    """`0.6` → `(0, 6)`. Anything else is a SpecError naming the field."""
+    m = VERSION_RE.fullmatch(str(raw).strip())
+    if not m:
+        raise SpecError(
+            f"{where}: `{rpc}` {field}=`{raw}` is not an SDK version — write `major.minor`, "
+            f"the number in the CHANGELOG heading (e.g. `0.6`)"
+        )
+    return int(m.group(1)), int(m.group(2))
+
+
+def _validate_deprecation(hook: dict, rpc: str, where: str, all_rpcs: set[str]) -> None:
+    """The `docs/en/versioning.md` policy, enforced on the row that claims it.
+
+    Three rules, and each of them is a thing that has already gone wrong in some
+    project or other: a hook marked deprecated with no removal date lives
+    forever; a removal that lands one minor later gives an author no release to
+    migrate in; a deprecation note that does not say what to use instead sends
+    the author to the issue tracker to ask.
+    """
+    deprecated_in = hook.get("deprecated_in")
+    removed_in = hook.get("removed_in")
+
+    if hook["routing"] == "deprecated" and not deprecated_in:
+        raise SpecError(
+            f"{where}: `{rpc}` is routing=deprecated and has no `deprecated_in` — say which "
+            f"SDK minor deprecated it, or the removal window cannot be checked by anything"
+        )
+    if removed_in and not deprecated_in:
+        raise SpecError(
+            f"{where}: `{rpc}` has `removed_in` but no `deprecated_in` — nothing is removed "
+            f"that was not first deprecated (docs/en/versioning.md)"
+        )
+    if not deprecated_in:
+        return
+
+    if hook["routing"] != "deprecated":
+        raise SpecError(
+            f"{where}: `{rpc}` carries `deprecated_in` but routing={hook['routing']} — a "
+            f"deprecated hook is `routing: deprecated`, so the generated docs say so too"
+        )
+
+    since = _version(deprecated_in, rpc, "deprecated_in", where)
+    if not removed_in:
+        raise SpecError(
+            f"{where}: `{rpc}` is deprecated in {deprecated_in} and says nothing about when it "
+            f"goes — add `removed_in` at least {MIN_DEPRECATION_MINORS} minors later "
+            f"(docs/en/versioning.md)"
+        )
+    gone = _version(removed_in, rpc, "removed_in", where)
+
+    same_major_too_soon = gone[0] == since[0] and gone[1] < since[1] + MIN_DEPRECATION_MINORS
+    if gone < since or same_major_too_soon:
+        raise SpecError(
+            f"{where}: `{rpc}` is deprecated in {deprecated_in} and removed in {removed_in} — "
+            f"the policy is {MIN_DEPRECATION_MINORS} minors and one quarter minimum, so the "
+            f"earliest removal is {since[0]}.{since[1] + MIN_DEPRECATION_MINORS}"
+        )
+
+    # "The note must name its replacement" — either another hook in this file,
+    # or the honest admission that there is not one.
+    note = str(hook.get("note", ""))
+    named = [other for other in all_rpcs if other != rpc and other in note]
+    if not named and "no replacement" not in note.lower():
+        raise SpecError(
+            f"{where}: `{rpc}` is deprecated and its `note` names no replacement. Name the rpc "
+            f"that replaces it, or write `no replacement` and say why — an author who reads "
+            f"`deprecated` and nothing else has been told to stop and not where to go"
+        )
+
+
 def _validate(doc: dict) -> None:
     for key in ("protocol", "proto", "astra_daemon_root", "capabilities", "permissions"):
         if key not in doc:
@@ -162,6 +246,9 @@ def _validate(doc: dict) -> None:
     vocabulary = set(str(doc["capabilities"]).split())
     permission_vocabulary = set(str(doc["permissions"]).split())
     seen: set[str] = set()
+    # Every rpc in the file, so a deprecation note can be checked for naming the
+    # hook that replaces it — which has to be known before the loop reaches it.
+    all_rpcs = {str(h.get("rpc")) for h in doc["hooks"] if h.get("rpc")}
 
     for hook in doc["hooks"]:
         lines = hook.get("_lines", {})
@@ -239,6 +326,8 @@ def _validate(doc: dict) -> None:
                 f"{where}: `{rpc}` is routing={hook['routing']} — say `daemon_calls: none` "
                 f"rather than pointing at a call site that is not one"
             )
+
+        _validate_deprecation(hook, rpc, where, all_rpcs)
 
         for lang in LANGUAGES:
             status = hook[lang]

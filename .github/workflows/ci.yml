@@ -829,6 +829,14 @@ jobs:
           bun run build
           test -f dist/index.js
           echo "ok   json-tools type-checks and bundles against the in-repo SDK"
+          # §5.6's reference suite, and the thing that makes it a GATE rather
+          # than a document. It runs both levels — the level-1 harness and a
+          # real gRPC handshake against MockDaemon — so an SDK change that
+          # breaks a plugin's behaviour (rather than its types) fails here.
+          # `pretest` rebundles with the SDK external, so the plugin under test
+          # and the harness testing it share one copy.
+          bun run test
+          echo "ok   json-tools' reference suite passes against the in-repo SDK"
 
       - name: examples/text-utils (Python)
         run: |
@@ -854,11 +862,17 @@ jobs:
                        "being tested against the wrong SDK.")
           print(f"ok   the in-repo SDK {astra_plugin_sdk.__version__} is what is installed")
           PY
-          cd examples/text-utils/src
-          # Importing, not just compiling: the SDK's @tool/@action/@trigger
-          # decorators run at import time, so this exercises the registration
-          # surface a syntax check would sail past.
-          PYTHONPATH=. python -c "import plugin; print('ok   text-utils imports against the in-repo SDK')"
+          (cd examples/text-utils/src
+           # Importing, not just compiling: the SDK's @tool/@action/@trigger
+           # decorators run at import time, so this exercises the registration
+           # surface a syntax check would sail past.
+           PYTHONPATH=. python -c "import plugin; print('ok   text-utils imports against the in-repo SDK')")
+          # §5.6's Python reference suite, for the same reason as json-tools'
+          # above: importing proves the decorators run, and nothing more. These
+          # 47 tests are what prove the plugin still BEHAVES against this SDK.
+          python -m pip install --disable-pip-version-check pytest
+          (cd examples/text-utils && python -m pytest tests -q)
+          echo "ok   text-utils' reference suite passes against the in-repo SDK"
 
   # ══ THE AUTHOR'S FIRST FIVE MINUTES ════════════════════════════════════════
 
@@ -1027,6 +1041,40 @@ jobs:
           astra-plugin check . --strict
           astra-plugin build .
           ls -l ./*.astraplugin
+
+      # S6 — the test the scaffold ships PASSES, in the project as generated.
+      #
+      # §5.6's acceptance is "every `astra-plugin new` template contains one
+      # passing test", and until this step existed nothing checked the second
+      # word. The TypeScript scaffold is why it is worth a step of its own: its
+      # package.json declared `"test": "node --test test/*.test.mjs"` while no
+      # `test/` directory was ever written, so `npm test` matched nothing,
+      # reported `pass 0, fail 0` and exited 0 — a green check that asserted
+      # nothing, in the one place a new author looks to learn what a test is.
+      #
+      # `--capabilities tools` above means every language's generated test is
+      # the tool one: it calls the scaffolded `hello` and asserts the answer,
+      # rather than asserting the process started.
+      - name: the scaffold's own test passes
+        env:
+          LANG_UNDER_TEST: ${{ matrix.lang }}
+        run: |
+          set -euo pipefail
+          work="${WORK//\\//}"
+          cd "$work/rt/demo-plugin"
+          case "$LANG_UNDER_TEST" in
+            rust)
+              cargo test
+              ;;
+            python)
+              python -m pip install --disable-pip-version-check pytest
+              python -m pytest -q
+              ;;
+            typescript)
+              bun run test
+              ;;
+          esac
+          echo "ok   the generated $LANG_UNDER_TEST scaffold's test passes"
 
       # S5 — the scaffolded npm dependency is the unscoped name. `@astra/plugin-sdk`
       # was scaffolded for a scope that was never registered, so every generated
@@ -1220,8 +1268,162 @@ jobs:
       # proto-upstream's full mode. Listing the rules explicitly (rather than
       # running everything and tolerating R5's skip) keeps a silent skip from
       # ever being mistaken for a pass.
+      # R7 is deliberately absent here too, for the opposite reason to R5: it
+      # needs a plugin that has been RUN, and this job has no toolchain. It runs
+      # in `conformance` below, which builds one.
       - name: the spec and the SDK sources agree
         run: python tools/parity/check.py --rules R1,R2,R3,R4
+
+  # ── conformance (5.7) ──────────────────────────────────────────────────────
+  #
+  # R1-R4 read source; this reads behaviour. `astra-plugin test` starts each
+  # reference plugin the way the daemon starts it, drives every hook its
+  # capabilities imply, and writes a report; R7 then checks each report against
+  # spec/hooks.yaml. Together they are the claim the spec cannot otherwise make:
+  # a hook cannot be committed as `stable` while returning UNIMPLEMENTED.
+  #
+  # The four examples are chosen for coverage of the hook table, not for
+  # variety: dice-roller is tools + actions + triggers, mock-stt is the STT
+  # bidi stream (fed the wake-word seed burst, which is what exposed the
+  # 32-vs-500 audio channel), tone-tts is TTS, companion is ui_contributions.
+  # `ai_provider` has no example yet and is therefore NOT covered here — said
+  # out loud, because a coverage gap nobody names becomes a coverage gap
+  # everybody assumes is filled.
+  #
+  # Python and TypeScript are not here either. Their examples need an SDK that
+  # is not published (see scaffold-roundtrip's UNPUBLISHED-SDK note), and a
+  # conformance job that half-installs an SDK reports on the installation
+  # rather than on the plugin. When the SDKs publish, add them: `astra-plugin
+  # test` drives a process and does not care what language wrote it, which is
+  # the whole reason it spawns instead of linking.
+  conformance:
+    name: conformance (R7)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            astra-plugin-cli
+            astra-plugin-sdk
+          key: conformance
+
+      # The vendored copy `astra-plugin test` compiles in. It has to be
+      # byte-identical to the generated one, or the CLI is enforcing a hook list
+      # that is not the spec's. `cargo test` asserts this too; doing it here as
+      # well means the failure names the file rather than a test.
+      - name: the CLI's vendored hook list is the generated one
+        run: diff -u spec/generated/conformance.json astra-plugin-cli/src/conformance.json
+
+      - name: build the CLI
+        run: cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
+
+      - name: run the conformance suite on the reference plugins
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          mkdir -p _conformance
+          for example in dice-roller mock-stt tone-tts companion; do
+            echo "::group::astra-plugin test examples/$example"
+            "$CLI" test "examples/$example" --report "_conformance/$example.json"
+            echo "::endgroup::"
+          done
+
+      # Every template, scaffolded and driven. `astra-plugin new` offers nine
+      # starting points; a starting point that does not pass the project's own
+      # conformance suite is a starting point that teaches the wrong thing on
+      # day one. The `[patch.crates-io]` is the unpublished-SDK workaround
+      # scaffold-roundtrip explains at length — the scaffold's declared pin is
+      # left alone, so a pin that stops matching the SDK still fails here.
+      - name: every `astra-plugin new` template passes conformance
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          SDK="$PWD/astra-plugin-sdk"
+          MACROS="$PWD/astra-plugin-macros"
+          WORK="$(mktemp -d)"
+          for template in tool tts stt stt-streaming ai-provider ui action-trigger client blank; do
+            echo "::group::astra-plugin new --template $template"
+            "$CLI" new "t-$template" --lang rust --template "$template" --output "$WORK/$template"
+            # printf, not a heredoc: a heredoc terminator inside a YAML block
+            # scalar has to sit at column 0, which no indentation here allows.
+            printf '\n[patch.crates-io]\nastra-plugin-sdk = { path = "%s" }\nastra-plugin-macros = { path = "%s" }\n' \
+              "$SDK" "$MACROS" >> "$WORK/$template/Cargo.toml"
+            "$CLI" test "$WORK/$template" --report "_conformance/template-$template.json"
+            echo "::endgroup::"
+          done
+
+      # The same nine templates in the other two languages. `astra-plugin test`
+      # drives a PROCESS and does not care what wrote it, so the only reason
+      # this was Rust-only was the unpublished SDKs — and the workaround is the
+      # one every other job already uses (a `bun pm pack` tarball behind an
+      # `overrides`, a wheel installed by path). It earns its keep: at the time
+      # it was added, five of these eighteen scaffolds FAILED — `tts` and `stt`
+      # threw out of the hook their capability makes required, in both
+      # languages, and `ai-provider` scaffolded an empty plugin that answered
+      # UNIMPLEMENTED.
+      - name: build the Python and TypeScript SDKs for the scaffolds
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check build
+          python -m build --wheel --outdir /tmp/wheels astra-plugin-sdk-python
+          python -m pip install --disable-pip-version-check /tmp/wheels/astra_plugin_sdk-*.whl
+          (cd astra-plugin-sdk-ts && bun install --frozen-lockfile && bun run build \
+             && bun pm pack --destination /tmp/tgz)
+          echo "SDK_TGZ=$(ls /tmp/tgz/*.tgz)" >> "$GITHUB_ENV"
+
+      - name: every Python and TypeScript template passes conformance
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          WORK="$(mktemp -d)"
+          for template in tool tts stt stt-streaming ai-provider ui action-trigger client blank; do
+            for lang in python typescript; do
+              echo "::group::astra-plugin new --lang $lang --template $template"
+              proj="$WORK/$lang-$template"
+              "$CLI" new "t-$template" --lang "$lang" --template "$template" --output "$proj"
+              if [ "$lang" = typescript ]; then
+                node -e '
+                  const fs = require("fs");
+                  const f = process.argv[1] + "/package.json";
+                  const p = JSON.parse(fs.readFileSync(f, "utf8"));
+                  p.overrides = { "astra-plugin-sdk": "file:" + process.env.SDK_TGZ };
+                  fs.writeFileSync(f, JSON.stringify(p, null, 2));
+                ' "$proj"
+                (cd "$proj" && bun install)
+              fi
+              "$CLI" test "$proj" --report "_conformance/$lang-$template.json"
+              echo "::endgroup::"
+            done
+          done
+
+      - name: the reports and the spec agree
+        run: |
+          set -euo pipefail
+          args=()
+          for report in _conformance/*.json; do
+            args+=(--report "$report")
+          done
+          python3 tools/parity/check.py --rules R7 "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conformance-reports
+          path: _conformance/
+          if-no-files-found: warn
 
   couplings:
     name: couplings
@@ -1407,13 +1609,19 @@ jobs:
           }
           # path -> reason. Keep these keyed to the task that removes them.
           PENDING = {
-              # Task 5.8 ("fix the four places that say @astra/plugin-sdk") and the
-              # Phase 6 docs rewrite own every line below. None of them is code:
-              # the scaffold's real dependency name is asserted, on the generated
-              # file, by scaffold-roundtrip S5.
-              "astra-plugin-cli/src/templates/typescript.rs": "5.8 — a comment explaining the bug",
-              "astra-plugin-sdk-ts/src/index.ts": "5.8 — the module docstring's example import",
-              "astra-plugin-sdk-ts/README.md": "5.8 — the npm README's install line",
+              # Task 5.8 has LANDED: the install line, the example import and the
+              # scaffold's dependency all say `astra-plugin-sdk` now. What is left
+              # in these four files is PROSE naming the wrong scope as the bug it
+              # was, which is the use C6 exists to allow — so the reasons below
+              # are "none", not a task number, and the entries stay. Deleting them
+              # would trip "no stale name outside the pending list"; deleting the
+              # prose would lose the note a reader needs when they meet the old
+              # name in an existing project. The scaffold's REAL dependency name
+              # is asserted, on the generated file, by scaffold-roundtrip S5.
+              "astra-plugin-cli/src/templates/typescript.rs": "none — a comment explaining the bug",
+              "astra-plugin-sdk-ts/src/index.ts": "none — the module docstring names the old scope as wrong",
+              "astra-plugin-sdk-ts/README.md": "none — the README says the scope was never registered",
+              "astra-plugin-sdk-ts/CHANGELOG.md": "none — the 0.5.0 entry recording the rename",
               "astra-plugin-cli/src/commands/validate.rs": "none — the rename table, correctly",
               "PRODUCTION_PLAN.md": "none — the plan quotes both as the bugs they are",
               # Task 3.7's own account of why the shared manifest crate exists.
@@ -1610,6 +1818,7 @@ jobs:
       - examples-node-python
       - scaffold-roundtrip
       - parity
+      - conformance
       - couplings
     runs-on: ubuntu-24.04
     steps:
