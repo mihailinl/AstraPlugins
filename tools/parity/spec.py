@@ -42,7 +42,11 @@ REQUIRED_FIELDS = (
     "routing", "since", "streaming", "daemon_calls", "summary",
 ) + LANGUAGES
 
-OPTIONAL_FIELDS = ("note",) + tuple(
+# `permission` is required on PluginHostService rows and forbidden on
+# PluginCapabilityService ones, which REQUIRED_FIELDS cannot express — it is a
+# flat list with no idea of the service. So it is declared optional here and the
+# per-service rule is enforced in `validate` below, where the service is known.
+OPTIONAL_FIELDS = ("note", "permission") + tuple(
     f"{lang}_{suffix}" for lang in LANGUAGES for suffix in ("issue", "grace_until", "reason")
 )
 
@@ -152,10 +156,11 @@ def _cross_check_against_pyyaml(text: str, parsed: dict) -> None:
 # ── validation ───────────────────────────────────────────────────────────────
 
 def _validate(doc: dict) -> None:
-    for key in ("protocol", "proto", "astra_daemon_root", "capabilities"):
+    for key in ("protocol", "proto", "astra_daemon_root", "capabilities", "permissions"):
         if key not in doc:
             raise SpecError(f"{SPEC_PATH.name}: missing top-level `{key}`")
     vocabulary = set(str(doc["capabilities"]).split())
+    permission_vocabulary = set(str(doc["permissions"]).split())
     seen: set[str] = set()
 
     for hook in doc["hooks"]:
@@ -186,6 +191,31 @@ def _validate(doc: dict) -> None:
             raise SpecError(
                 f"{where}: `{rpc}` capability `{hook['capability']}` is not in the "
                 f"vocabulary — the daemon would never enable it"
+            )
+
+        # `permission` belongs to the plugin->daemon direction and only to it.
+        # A daemon->plugin hook is the daemon calling the plugin; there is no
+        # user consent to read, so a permission on such a row would be a claim
+        # about a gate that does not exist.
+        if hook["service"] == "PluginHostService":
+            if "permission" not in hook:
+                raise SpecError(
+                    f"{where}: `{rpc}` is a PluginHostService row and has no `permission`. "
+                    f"Say which `[permissions]` key §5.6 gates it on, or `none` if every "
+                    f"plugin may always call it — a row with no answer is how the docs "
+                    f"came to describe `[capabilities]` as sufficient"
+                )
+            if hook["permission"] not in permission_vocabulary:
+                raise SpecError(
+                    f"{where}: `{rpc}` permission `{hook['permission']}` is not in the "
+                    f"vocabulary — no such id exists in astra-plugin-manifest, so an "
+                    f"author following this row would declare a key the daemon files as "
+                    f"unrecognised"
+                )
+        elif "permission" in hook:
+            raise SpecError(
+                f"{where}: `{rpc}` is on {hook['service']} (daemon->plugin), so it is not "
+                f"gated on a permission at all — drop the `permission` field"
             )
         for field, allowed in (
             ("requirement", REQUIREMENTS), ("routing", ROUTINGS), ("streaming", STREAMINGS)

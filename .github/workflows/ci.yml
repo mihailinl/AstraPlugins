@@ -390,12 +390,18 @@ jobs:
           ### limits: **full** — the daemon's generated mirror was compared with `spec/limits.yaml`
           MSG
 
-      # R5 is the one parity rule that needs an Astra checkout: it asserts each
-      # hook row's `daemon_calls` file:line really is where the daemon calls it.
-      # The `parity` job skips it, loudly. This is where it runs.
-      - name: parity R5 (daemon_calls provenance)
+      # R5 and R6 are the parity rules that need an Astra checkout. R5 asserts
+      # each hook row's `daemon_calls` file:line really is where the daemon calls
+      # it; R6 asserts each PluginHostService row's `permission` is what
+      # `HOST_RPC_PERMISSIONS` — the table `require_permission` reads — actually
+      # requires. The `parity` job skips both, loudly. This is where they run.
+      #
+      # R6 is here rather than in the `parity` job for the same reason as R5: it
+      # compares against daemon source, and a rule that silently passes when it
+      # cannot see its other half is worse than no rule.
+      - name: parity R5, R6 (daemon_calls provenance, permission gates)
         if: env.MODE == 'full'
-        run: python3 tools/parity/check.py --rules R5 --astra-dir _astra/astra-rs
+        run: python3 tools/parity/check.py --rules R5,R6 --astra-dir _astra/astra-rs
 
       # `plugin.toml` has exactly one definition, and the CLI's copy of it is
       # byte-identical to Astra's.

@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 298c257b9c3dce19797900ec4dd8751b4dfa903b13f40a141311aa4f92f80a16
+// source-sha256: 207f8844134fd207d1c7fa104d4c702370509bcaf55fba768173df8e477d0a86
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2622,8 +2622,37 @@ service PluginService {
     // response says whether there was anything to cancel.
     rpc CancelPluginInstall(PluginIdRequest) returns (CancelPluginInstallResponse);
 
-    // Uninstall a plugin
-    rpc UninstallPlugin(PluginIdRequest) returns (Empty);
+    // Remove a plugin, and decide separately what happens to its settings.
+    //
+    // The request used to be a bare `PluginIdRequest` and the implementation
+    // `remove_dir_all`'d the directory the user's `config.json` lives in — so
+    // one unconfirmed click deleted an API key, a bot token or a server address
+    // that no reinstall could bring back. §6/4.7 splits the two halves, because
+    // they are not equally reversible: reinstalling a plugin costs a download,
+    // and retyping a credential you no longer have costs whatever it costs.
+    //
+    // `delete_config` therefore defaults to FALSE on purpose. A caller that
+    // still sends a `PluginIdRequest` — an older shell, a script — is wire-
+    // compatible with this message (field 1 is unchanged) and gets the safe
+    // half of the behaviour, which is the right way round for a default.
+    rpc UninstallPlugin(UninstallPluginRequest) returns (UninstallPluginResponse);
+
+    // Report a plugin — and, if the user asks, quarantine it HERE first.
+    //
+    // The order of those two clauses is the whole design. Someone who has just
+    // realised that the thing running on their machine is malicious needs it
+    // stopped now; they do not need a form, and they must not have to wait for
+    // a maintainer on another continent to agree with them before anything
+    // happens. So `quarantine` is a local, immediate stop-and-disable that this
+    // daemon performs itself, and the issue URL is what the response hands back
+    // afterwards.
+    //
+    // Astra files nothing on the user's behalf. The response carries a prefilled
+    // URL and the same facts as plain text; opening it, editing it and pressing
+    // Submit are all the user's, because a report is a public accusation against
+    // a named person's repository and sending one silently from an app would be
+    // indefensible.
+    rpc ReportPlugin(ReportPluginRequest) returns (ReportPluginResponse);
 
     // Enable/disable a plugin
     rpc SetPluginEnabled(SetPluginEnabledRequest) returns (Empty);
@@ -2655,8 +2684,59 @@ service PluginService {
     // Import a plugin from a local .astraplugin ZIP file
     rpc ImportPluginFile(ImportPluginFileRequest) returns (PluginStatusMsg);
 
+    // Read a `.astraplugin` file WITHOUT installing it, so §4.3's consent sheet
+    // can be shown on the import path too.
+    //
+    // The registry path renders its sheet from the signed catalogue record
+    // before a byte is downloaded. An import has no catalogue record — the file
+    // arrived out of band — so the only place its `[permissions]` block exists
+    // is inside the archive. Without this call the import path had no permission
+    // screen at all, and `push_to_ui`, `fire_trigger`, `subscribe_events` and
+    // `set_variable` — none of which the Tier-2 ceiling refuses — were granted
+    // from the bundle's own manifest with nothing named on screen. Those are
+    // exactly the permissions the registry path makes the user tick a box for.
+    //
+    // Nothing is extracted, nothing is started, no trust record is written and
+    // no bytes are copied out of the archive: the manifest is parsed in memory
+    // and the file is closed. Calling this and then never calling
+    // ImportPluginFile leaves the machine exactly as it was.
+    rpc InspectPluginFile(InspectPluginFileRequest) returns (PluginFileInspection);
+
+    // §4.5/§4.6. Approve or decline an update the daemon STAGED because it
+    // widened permissions, and which is therefore not installed.
+    //
+    // The old version keeps running either way until this call approves the
+    // staged one. `approve = false` discards the staged copy and touches
+    // nothing else; `approve = true` re-runs §5.3-A from the catalogue against
+    // the staged bytes and installs them, carrying `approved_permissions` — the
+    // ids the user actually ticked in the review sheet — because "what did the
+    // user agree to" may not be answered by a file the daemon wrote. A bundle
+    // asking for anything outside that list is staged and refused again.
+    //
+    // Without this RPC a staged update was a dead end: the review sheet could
+    // explain the delta and offer nothing but Close, so a plugin whose update
+    // widened permissions could never be updated through any affordance in the
+    // app.
+    rpc ResolvePendingUpdate(ResolvePendingUpdateRequest) returns (PluginStatusMsg);
+
     // Get logs from a plugin (last N lines)
     rpc GetPluginLogs(PluginLogsRequest) returns (PluginLogsResponse);
+
+    // Everything Astra recorded about where one INSTALLED plugin came from —
+    // production plan §4.2, the provenance panel.
+    //
+    // Answered entirely from the trust record this daemon wrote at install and
+    // from the catalogue copy already on disk. It NEVER touches the network:
+    // the whole point of the panel is that a user who is offline, or whose
+    // registry has gone away, can still see which repository, which commit and
+    // which digest the code on their machine claims to have come from. A
+    // provenance panel that needed the network would be blank exactly when
+    // somebody most wanted to read it.
+    //
+    // The browse path needs no equivalent call: PluginRegistryEntry carries the
+    // same message, so the pre-install consent sheet renders from the listing it
+    // already has.
+    rpc GetPluginProvenance(PluginProvenanceRequest) returns (PluginProvenanceMsg);
 
     // Get all UI contributions from all running plugins
     rpc GetAllUiContributions(Empty) returns (AllUiContributionsResponse);
@@ -2892,9 +2972,140 @@ message SetPluginEnabledRequest {
     bool enabled = 2;
 }
 
+// ── Uninstall, with the destructive half separated out (§6/4.7) ─────────────
+
+message UninstallPluginRequest {
+    // Field 1, unchanged from the `PluginIdRequest` this message replaces, so
+    // an older client's encoding still parses here and lands on the safe
+    // default below.
+    string plugin_id = 1;
+
+    // Also delete `<plugins_dir>/<id>/config.json` — the user's own settings for
+    // this plugin, which today live inside the directory the uninstall removes.
+    //
+    // FALSE means the settings are copied out to a daemon-owned retained store
+    // before the directory goes, and put back if this id is ever installed
+    // again. TRUE means they are gone, and the UI is required to make the user
+    // TYPE the plugin's id before it may send it: that is the one genuinely
+    // irreversible thing in this call, and it is the only place in the plugin
+    // UI where type-to-confirm is warranted (§4.3 forbids it on install for
+    // exactly the same reason it belongs here — installing is one click from
+    // undone, and a credential is not).
+    bool delete_config = 2;
+}
+
+message UninstallPluginResponse {
+    // True when settings existed and were copied to the retained store, so the
+    // UI can say "your settings were kept" rather than promising it blind.
+    // False both when `delete_config` was set and when there was nothing to
+    // keep — `settings_note` says which.
+    bool settings_retained = 1;
+
+    // One diagnostic line about what happened to the settings — for the log and
+    // a detail line, NOT for the sentence the user reads: that comes from the
+    // app's own localised strings, keyed off `settings_retained`, by the same
+    // rule §4.3 sets for permission wording. Never empty; "there was nothing to
+    // keep" is an answer, and a blank field would leave the UI guessing.
+    string settings_note = 2;
+}
+
+// ── Reporting, and the local stop button that comes before it (§6/4.7) ──────
+
+// Why the user is reporting. Ids, not prose: the words the user reads come from
+// the app's own localised table, so wording fixes ship with Astra — the same
+// rule §4.3 sets for permission labels.
+enum PluginReportReason {
+    PLUGIN_REPORT_REASON_UNSPECIFIED = 0;
+
+    // It does something hostile: exfiltrates, encrypts, mines, persists.
+    PLUGIN_REPORT_MALWARE = 1;
+
+    // It reads or sends things it has no business reading or sending.
+    PLUGIN_REPORT_PRIVACY = 2;
+
+    // It is pretending to be someone else's plugin, or someone else's brand.
+    PLUGIN_REPORT_IMPERSONATION = 3;
+
+    // It does not work, or it broke Astra. Not a security report.
+    PLUGIN_REPORT_BROKEN = 4;
+
+    // Anything else; `details` carries it.
+    PLUGIN_REPORT_OTHER = 5;
+}
+
+message ReportPluginRequest {
+    string plugin_id = 1;
+    PluginReportReason reason = 2;
+
+    // The user's own words. Truncated by the daemon rather than rejected — a
+    // report that bounces because it was 40 characters too long is a report
+    // nobody sends twice.
+    string details = 3;
+
+    // Stop the process and clear the `enabled` flag, on this machine, now.
+    //
+    // Independent of the report on purpose: quarantining without filing is a
+    // legitimate thing to want (you suspect it and want to look later), and so
+    // is filing without quarantining (it is merely broken). If this is set and
+    // the quarantine FAILS, the whole call fails — a response that said "filed"
+    // while the plugin was still running would be the one lie this RPC must
+    // never tell.
+    bool quarantine = 4;
+}
+
+message ReportPluginResponse {
+    // True when the plugin is now stopped and disabled because of this call.
+    bool quarantined = 1;
+
+    // A `https://github.com/<owner>/<repo>/issues/new?…` URL against whichever
+    // registry this daemon is configured to use, prefilled with the facts
+    // below. Empty when the configured registry is not a GitHub repository —
+    // see `issue_url_error`. Never opened by the daemon; the UI hands it to the
+    // user's browser only when the user asks.
+    string issue_url = 2;
+
+    // Why `issue_url` is empty, in one line, when it is. Empty otherwise.
+    //
+    // Astra does NOT fall back to the public registry's issue tracker for a
+    // custom or local registry: routing a private deployment's report to
+    // mihailinl/astra-registry would publish an internal plugin's name to a
+    // public repository, which is worse than having no link.
+    string issue_url_error = 3;
+
+    // The same facts as the URL carries, as plain markdown, so a user whose
+    // browser did not open — or whose registry is not on GitHub — can paste it
+    // wherever the report actually belongs.
+    string report_body = 4;
+}
+
 message InstallPluginRequest {
     string plugin_id = 1;
     bool auto_start = 2;
+
+    // §4.3. The permission ids the user was actually SHOWN and agreed to, as
+    // the consent sheet listed them.
+    //
+    // Send it whenever a consent sheet was rendered, and set `consent_recorded`
+    // alongside — an empty list from a sheet that listed nothing is a real
+    // answer, and an empty list from a caller that never asked is not, so the
+    // repeated field alone cannot carry the distinction.
+    //
+    // What the daemon does with it is a **cross-check, not a widening**: the
+    // consent sheet renders the catalogue record's `[permissions]`, while the
+    // trust record grants the bundle's own `MANIFEST.json` block, and nothing
+    // before this made the two agree. A catalogue listing declaring nothing
+    // while shipping a bundle that asks for `dom_access` would have shown the
+    // user an empty sheet and granted the bundle's full set. With this field the
+    // install is REFUSED when the bundle asks for something the sheet did not
+    // show, instead of quietly granting it (§5.5, "malicious registry takes over
+    // an installed plugin").
+    repeated string consented_permissions = 3;
+
+    // True when `consented_permissions` is the answer of a real consent screen.
+    // False (the default) preserves the pre-4.4 behaviour for callers that have
+    // no sheet — the CLI, a test — and those keep granting the bundle's declared
+    // set capped by tier.
+    bool consent_recorded = 4;
 }
 
 // The named phases of an install, in the order they happen.
@@ -3059,6 +3270,186 @@ message PluginRegistryEntry {
     bool installed = 11;
     string installed_version = 12;
     string updated_at = 13;
+
+    // §4.2's provenance, filled from the SIGNED CATALOGUE RECORD this entry came
+    // out of — so the install consent sheet (§4.3) and its Details disclosure
+    // render before a single byte is downloaded, with no second round trip.
+    //
+    // `recorded` is false, and every string is empty, when the catalogue carries
+    // no provenance block for this listing. That is the honest answer for a
+    // hand-written local catalogue and for anything published before the
+    // registry started asserting provenance; the panel says "not recorded"
+    // rather than inventing a reassurance.
+    PluginProvenanceMsg provenance = 14;
+
+    // §4.3/§5.6. The `[permissions]` block of the release this host would
+    // install, copied out of the signed catalogue record — the whole reason the
+    // consent sheet can render "before any download".
+    //
+    // **Read `permissions_known` before believing an empty list.** A repeated
+    // field cannot tell "the catalogue says this plugin asks for nothing" apart
+    // from "this daemon could not find a release record to read", and those two
+    // must never render the same sentence: the first is §5.6's default-deny and
+    // is worth saying out loud, the second is an absence of knowledge and the
+    // sheet has to refuse to reassure.
+    repeated PluginPermissionMsg permissions = 15;
+
+    // True when the daemon located this listing's release record in the
+    // catalogue and read its permissions block — so `permissions` is the
+    // complete answer, INCLUDING when it is empty. False means the daemon has
+    // no idea what this listing asks for; the consent sheet must then say so and
+    // must not offer Install as though nothing were being asked.
+    bool permissions_known = 16;
+}
+
+// Which plugin's provenance to report.
+message PluginProvenanceRequest {
+    string plugin_id = 1;
+
+    // Re-run §5.4's FULL re-hash — every file in the trust record — before
+    // answering, and report what it found. This is the panel's "Re-verify now"
+    // button, and it is a request parameter rather than a separate RPC because
+    // the answer the user wants is the whole panel with a fresh integrity line,
+    // not a bare boolean.
+    //
+    // Costs one hash of every recorded file, so the panel does NOT set it on
+    // open. A plugin whose files no longer match is stopped by this call, exactly
+    // as the periodic sweep would have.
+    bool re_verify = 2;
+}
+
+// Where one plugin came from, as far as anything on this machine can say.
+//
+// **Read the `PluginService.GetPluginProvenance` comment for what this does and
+// does not prove.** Every field below is either something this daemon computed
+// itself (the digests, the trust state, the integrity verdict) or something the
+// registry ASSERTED and the daemon merely wrote down (the repository, the
+// commit, the workflow, the attestation). §5.5 is explicit that the daemon
+// verifies no attestation, so the second group is a claim, not a proof, and the
+// UI is required to carry a permanent block saying so.
+//
+// Empty string / zero means NOT RECORDED, never "no" and never "unknown but
+// probably fine". The panel renders those as a literal "not recorded" so that a
+// missing workflow can never be mistaken for a workflow that was checked.
+message PluginProvenanceMsg {
+    string plugin_id = 1;
+    string version = 2;
+
+    // True when a trust record exists for this plugin at all. False for a
+    // built-in sidecar (no bundle, no record, BY DESIGN — see
+    // `trust::is_builtin_tier`), for a pre-3.6 install, and for a catalogue
+    // entry with no provenance block.
+    bool recorded = 3;
+
+    // ── Status ──────────────────────────────────────────────────────────────
+    // Same vocabulary as PluginStatusMsg.trust_state: "builtin", "verified",
+    // "developer", "unrecorded", "untrusted", "tampered", "revoked". Empty on a
+    // browse entry, which is not installed and therefore has no state.
+    string trust_state = 4;
+
+    // "registry" | "local-unverified" | "sideloaded" | "builtin" | "".
+    string tier = 5;
+
+    // The pinned author, prefixed by what kind of claim it is:
+    // "github:owner/repo" or "origin:host". NEVER rendered as "verified build".
+    string identity = 6;
+
+    // RFC 3339. When this identity was first pinned — §4.2's "identity pinned
+    // since 2026-03-02". An update from a different identity is refused with no
+    // override, so this date is the age of that protection.
+    string identity_pinned_at = 7;
+
+    // ── Source ──────────────────────────────────────────────────────────────
+    string repository_url = 8;
+
+    // "refs/tags/v0.2.0", as the attestation names it.
+    string source_ref = 9;
+
+    // The FULL commit sha. Shown abbreviated, copied in full.
+    string source_commit = 10;
+
+    // ── Build ───────────────────────────────────────────────────────────────
+    // ".github/workflows/release.yml".
+    string build_workflow = 11;
+
+    // The Actions run this came out of.
+    string build_run_id = 12;
+
+    // "GitHub-hosted ubuntu-24.04", or whatever the attestation recorded.
+    string build_runner = 13;
+
+    // RFC 3339 build timestamp.
+    string built_at = 14;
+
+    // ── Artifact ────────────────────────────────────────────────────────────
+    string artifact_filename = 15;
+
+    // "linux-x64", "windows-x64", "noarch", …
+    string artifact_platform = 16;
+    uint64 artifact_size = 17;
+
+    // **Lowercase hex sha256 of the whole `.astraplugin`, in full.**
+    //
+    // The revocation key, the value `astra-plugin verify` prints, and the value
+    // an advisory names. The UI shows all 64 characters and offers a copy
+    // button: a truncated hash the user cannot paste into a search box is
+    // decoration, not evidence.
+    string artifact_sha256 = 18;
+
+    // Where the catalogue said the bytes live. Shown so a user can fetch the
+    // same file and hash it themselves.
+    string artifact_url = 19;
+
+    // ── Attestation — ASSERTED BY THE REGISTRY, NOT VERIFIED HERE (§5.5) ────
+    // The Sigstore certificate identity, e.g.
+    // "https://github.com/you/dice-roller/.github/workflows/release.yml@refs/tags/v0.2.0".
+    string attestation_identity = 20;
+    string rekor_log_index = 21;
+    string rekor_url = 22;
+
+    // The exact command a user can run to check the attestation themselves,
+    // e.g. `gh attestation verify <file> --repo you/dice-roller`. Built by the
+    // daemon from recorded fields — never a string the catalogue supplied, so a
+    // listing cannot make the UI print a command of its choosing.
+    string verify_command = 23;
+
+    // ── Countersignature: which catalogue said all this ─────────────────────
+    uint64 index_serial = 24;
+    string index_signer_key_id = 25;
+    string index_expires_at = 26;
+
+    // The IndexVerdict code: "VERIFIED", "UNSIGNED", "SIGNATURE_INVALID",
+    // "SIGNATURE_KEY_EXPIRED", "CATALOG_STALE", "CLOCK_SKEW",
+    // "FRESHNESS_UNKNOWN", "FRESH".
+    string index_signature_state = 27;
+
+    // ── Local integrity (§5.4) ──────────────────────────────────────────────
+    // How many files the trust record lists — "all 4 files matched".
+    uint32 recorded_file_count = 28;
+
+    // RFC 3339, when the re-hash reported below ran. Empty unless `re_verify`
+    // was set on this request.
+    string integrity_checked_at = 29;
+
+    // What that re-hash found, one line, naming the file when one failed.
+    // Empty unless `re_verify` was set.
+    string integrity_detail = 30;
+
+    // ── Ties to the signed bundle, for anyone auditing by hand ──────────────
+    // sha256 over the canonical `[permissions]` block — what §4.6's update gate
+    // compares.
+    string permissions_hash = 31;
+
+    // `sha256("astra.bundle/2\0" ‖ MANIFEST.json)`.
+    string manifest_digest = 32;
+
+    // Everything the registry asserted, verbatim, as opaque JSON ("" when there
+    // is none).
+    //
+    // The typed fields above are a projection of this. It is carried whole so a
+    // field the registry starts recording reaches an auditor without a proto
+    // change, and so nothing in it can be mistaken for a daemon claim.
+    string provenance_json = 33;
 }
 
 message SideloadPluginRequest {
@@ -3068,6 +3459,93 @@ message SideloadPluginRequest {
 message ImportPluginFileRequest {
     string path = 1;  // Local path to .astraplugin file
     bool auto_start = 2;  // Start after install (default true)
+}
+
+message InspectPluginFileRequest {
+    string path = 1;  // Local path to .astraplugin file
+}
+
+// What a `.astraplugin` file says about itself, read without installing it.
+//
+// Every field here comes out of the archive's own manifest, so every field here
+// is a CLAIM by whoever built the file — which is precisely why the consent
+// sheet renders the *ids* through Astra's own localised table and never renders
+// author prose as Astra's voice.
+message PluginFileInspection {
+    string plugin_id = 1;
+    string name = 2;
+    string version = 3;
+    string author = 4;
+    string description = 5;
+    repeated string capabilities = 6;
+
+    // The bundle's `[permissions]` block, verbatim.
+    repeated PluginPermissionMsg permissions = 7;
+
+    // The ids in `permissions` that the Tier-2 ceiling (§5.5) refuses OUTRIGHT
+    // to an imported file — `send_chat_message`, `set_theme_contribution`,
+    // `dom_access`, `client`, "refused outright, not warned about".
+    //
+    // The daemon computes it so the sheet can say "this file asks for X and
+    // Astra will not give X to a file that arrived out of band" instead of
+    // showing a consent checkbox for a permission that would never be granted
+    // whatever the user ticked. A checkbox for something already refused teaches
+    // people that ticking boxes is theatre.
+    repeated string refused_by_tier = 8;
+
+    // sha256 of the whole file, lowercase hex — the same string the provenance
+    // panel shows and `astra-plugin verify` prints.
+    string artifact_sha256 = 9;
+
+    // A plugin with this id is already installed.
+    bool installed = 10;
+    string installed_version = 11;
+
+    // True when this archive carries a `MANIFEST.json` (bundle v2). A legacy
+    // archive has no per-file digests and no `[permissions]` block of its own —
+    // its `permissions` list here comes from the `plugin.toml` inside it, and
+    // no trust record will be written for it at all.
+    bool bundle_v2 = 12;
+}
+
+// One `[permissions]` entry, exactly as a manifest or a catalogue record
+// declared it (§5.6).
+//
+// **Declaring is asking, not receiving.** This message is what a plugin's
+// author WROTE; the granted set lives in the daemon's trust record where the
+// plugin cannot reach it, and `require_permission` reads that one. Rendering
+// this on the consent sheet is the whole point: the user is being asked to turn
+// a request into a grant.
+message PluginPermissionMsg {
+    // The wire id — "fire_trigger", "dom_access", … The app owns the WORDS for
+    // each id (§4.3: "the registry ships ids, the app ships the words"), so a
+    // listing can never write the sentence describing what it is asking for.
+    string id = 1;
+
+    // The author's own words, rendered strictly subordinate: quoted, prefixed
+    // "The author says:", plain text, capped. Never a label.
+    string reason = 2;
+
+    // `subscribe_events.types` — the event-type allowlist asked for. An empty
+    // list allows NOTHING; it is not "no filter".
+    repeated string types = 3;
+
+    // `set_variable.scopes`. Reserved — the daemon namespaces every plugin write
+    // by plugin id today.
+    repeated string scopes = 4;
+}
+
+message ResolvePendingUpdateRequest {
+    string plugin_id = 1;
+
+    // True = install the staged update. False = discard it and leave the
+    // running version alone.
+    bool approve = 2;
+
+    // The permission ids the user ticked in the review sheet. Ignored when
+    // `approve` is false. A staged update naming an id that is not in here is
+    // refused and re-staged rather than silently installed.
+    repeated string approved_permissions = 3;
 }
 
 message PluginLogsRequest {

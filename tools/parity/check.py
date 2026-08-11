@@ -16,6 +16,9 @@ Rules:
   R4  a `planned` row is past its `grace_until`
   R5  `daemon_calls` does not point at the call site it claims. Needs an Astra
       checkout ($ASTRA_RS_DIR, else ../Astra/astra-rs); skipped, loudly, without one.
+  R6  a PluginHostService row's `permission` disagrees with the daemon's
+      HOST_RPC_PERMISSIONS — the table `require_permission` reads. Same checkout,
+      same loud skip.
 
 WHAT COUNTS AS A BINDING
 Not "the name appears somewhere". Each language has one anchored region — the
@@ -41,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import spec  # noqa: E402
 
 REPO_ROOT = spec.REPO_ROOT
-ALL_RULES = ("R1", "R2", "R3", "R4", "R5")
+ALL_RULES = ("R1", "R2", "R3", "R4", "R5", "R6")
 
 
 class AnchorError(Exception):
@@ -352,6 +355,80 @@ def rule_R5(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
     return fails, note
 
 
+def rule_R6(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
+    """A host row's `permission` must be what `require_permission` actually reads.
+
+    §5.6 gates the plugin->daemon direction on `[permissions]`, and the daemon
+    holds that mapping in ONE table — `HOST_RPC_PERMISSIONS` in
+    `astra-daemon/src/plugins/host_service.rs`, which its own test pins to
+    `astra.proto`'s service block. This rule makes `spec/hooks.yaml` a third
+    reader of that table rather than a second copy of it.
+
+    It matters because the failure is silent in the worst direction. If the spec
+    says a call needs nothing and the daemon gates it, the generated docs tell an
+    author to ship a manifest that is denied on a user's machine. If the spec
+    names a permission the daemon dropped, the consent sheet grows a checkbox
+    that buys nothing — and boxes that protect nothing are how users learn to
+    tick boxes.
+
+    Parsed as text, not linked: this repo has no Rust toolchain requirement and
+    CI runs it on a bare Python. Same optionality as R5 — no checkout, no check,
+    said out loud.
+    """
+    if astra_dir is None:
+        return [], (
+            "R6  SKIPPED: no Astra checkout. Set $ASTRA_RS_DIR or put one at ../Astra/astra-rs. "
+            "The `permission` column in spec/hooks.yaml is UNVERIFIED in this run."
+        )
+    root = _daemon_root(doc, astra_dir)
+    if root is None:
+        return [], f"R6  SKIPPED: {astra_dir} has no astra-daemon/ — permissions UNVERIFIED."
+
+    path = root / "src/plugins/host_service.rs"
+    if not path.exists():
+        return [], f"R6  SKIPPED: {path} does not exist — permissions UNVERIFIED."
+    text = path.read_text(encoding="utf-8", errors="replace")
+    _, _, after = text.partition("HOST_RPC_PERMISSIONS")
+    body, _, _ = after.partition("];")
+    if not body:
+        return [f"R6  {path}: HOST_RPC_PERMISSIONS not found — the anchor moved."], None
+
+    # ("FireTrigger", Some(Permission::FireTrigger)) | ("Register", None)
+    daemon: dict[str, str] = {}
+    for rpc, arg in re.findall(r'\(\s*"(\w+)"\s*,\s*((?:Some\s*\(\s*)?[\w:]+)', body):
+        variant = arg.rpartition("::")[2] if "::" in arg else None
+        daemon[rpc] = snake(variant) if variant else "none"
+    if not daemon:
+        return [f"R6  {path}: HOST_RPC_PERMISSIONS parsed as empty — the shape changed."], None
+
+    fails = []
+    for hook in doc["hooks"]:
+        if hook["service"] != "PluginHostService":
+            continue
+        rpc, declared = hook["rpc"], hook["permission"]
+        actual = daemon.get(rpc)
+        if actual is None:
+            fails.append(
+                f"R6  {rpc}: spec/hooks.yaml gates it on `{declared}`, but the daemon's "
+                f"HOST_RPC_PERMISSIONS has no row for it at all. A host rpc with no row "
+                f"is ungated — that is a security finding, not a spec typo."
+            )
+        elif actual != declared:
+            fails.append(
+                f"R6  {rpc}: spec/hooks.yaml says `permission: {declared}`, the daemon "
+                f"requires `{actual}`. The daemon is authoritative — fix the row, and if "
+                f"the daemon is the one that changed, the generated docs and the registry "
+                f"bot's RPC_RULES have to move with it."
+            )
+    missing = sorted(set(daemon) - {h["rpc"] for h in doc["hooks"]})
+    if missing:
+        fails.append(
+            f"R6  the daemon gates {', '.join(missing)}, which spec/hooks.yaml has no row "
+            f"for. R3 covers rpcs in the proto; this covers rpcs the daemon really guards."
+        )
+    return fails, None
+
+
 def fix_provenance(doc, astra_dir: Path | None) -> int:
     """Re-point `daemon_calls` at lines that merely moved.
 
@@ -419,7 +496,7 @@ def resolve_astra_dir(explicit: str | None) -> Path | None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rules", default=",".join(ALL_RULES), help="comma-separated subset, e.g. R1,R4")
-    parser.add_argument("--astra-dir", default=None, help="path to Astra/astra-rs for R5")
+    parser.add_argument("--astra-dir", default=None, help="path to Astra/astra-rs for R5 and R6")
     parser.add_argument("--today", default=None, help="ISO date, for testing R4")
     parser.add_argument(
         "--fix-provenance",
@@ -479,6 +556,12 @@ def main(argv: list[str]) -> int:
     if "R5" in selected:
         r5, skip = rule_R5(doc, astra_dir)
         failures += r5
+        if skip:
+            skips.append(skip)
+
+    if "R6" in selected:
+        r6, skip = rule_R6(doc, astra_dir)
+        failures += r6
         if skip:
             skips.append(skip)
 

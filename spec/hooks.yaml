@@ -28,6 +28,9 @@
 #        R4  a `planned` row is past its `grace_until`
 #        R5  `daemon_calls` does not point at a live call site (needs an Astra
 #            checkout; skipped with a printed reason when there is none)
+#        R6  a host row's `permission` disagrees with the daemon's
+#            `HOST_RPC_PERMISSIONS` — the table `require_permission` reads (same
+#            Astra checkout, skipped the same way)
 #   Both run in CI. Step 2 without step 3 is how the spec becomes fiction.
 #
 # FORMAT — a deliberately tiny subset of YAML, so `tools/parity/spec.py` parses
@@ -44,6 +47,27 @@
 #   capability    the `[capabilities]` key in plugin.toml that owns this hook,
 #                 or `core` for hooks every plugin has regardless of capability.
 #                 Vocabulary from `astra-daemon/src/plugins/manifest.rs:110-141`.
+#   permission    PluginHostService rows ONLY, and required on every one of them.
+#                 The `[permissions]` key §5.6 gates this rpc on, or the literal
+#                 `none` for a call every plugin may always make. Vocabulary from
+#                 the `permissions:` key below.
+#
+#                 This column exists because Phase 4 made `capability` an
+#                 incomplete answer for the plugin->daemon direction and the
+#                 generated docs were quietly wrong about it. Declaring
+#                 `[capabilities] event_handlers = true` no longer buys
+#                 `SubscribeEvents`: the daemon reads the GRANTED permission set
+#                 (`require_permission`, `host_service.rs`), so an author who
+#                 read only the capability column shipped a plugin that failed on
+#                 a user's machine with a denial naming a section their manifest
+#                 never had. `capability` says which feature the hook belongs to;
+#                 `permission` says what the user has to consent to. Both are
+#                 real and they are not the same question.
+#
+#                 A `none` here is a claim about the daemon, not a shrug: R6
+#                 checks it against `HOST_RPC_PERMISSIONS` in
+#                 `astra-daemon/src/plugins/host_service.rs`, which is the table
+#                 `require_permission` actually reads.
 #   requirement   required — the capability does not work without this hook.
 #                 optional — the daemon carries on when the hook is absent.
 #   routing       live      — the daemon really calls it; `daemon_calls` proves it
@@ -73,6 +97,18 @@ capabilities: "tools tts stt ai_provider client actions triggers ui_contribution
 # `dom_access` owns no rpc — it is a flag the daemon copies onto a plugin's UI
 # contributions (`manager.rs:968`), not a hook. It is in the vocabulary above so
 # the checker can tell an unknown capability from a hookless one.
+
+# The `[permissions]` vocabulary — §5.6's eight ids, plus `none` for a host rpc
+# that is gated on nothing. Mirrors `astra_plugin_manifest::PERMISSION_NAMES`,
+# the crate this repo vendors under `tools/check-manifest-crate.sh`.
+#
+# `dom_access` and `client` are here and gate no row, and that is the point:
+# they are SURFACE permissions. `dom_access` decides whether a UI contribution
+# is rendered as a `PluginDomScript` or a sandboxed iframe, and `client` is a
+# capability ceiling, not an rpc gate — `SendChatMessage` is gated on
+# `send_chat_message`. Listing them keeps "no rpc needs this" distinguishable
+# from "somebody forgot a row".
+permissions: "fire_trigger subscribe_events set_variable send_chat_message push_to_ui set_theme_contribution dom_access client none"
 
 hooks:
   # ── PluginCapabilityService — tools ──
@@ -480,6 +516,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: core
+    permission: none
     requirement: required
     routing: live
     since: 1
@@ -495,6 +532,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: core
+    permission: none
     requirement: optional
     routing: live
     since: 1
@@ -509,6 +547,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: core
+    permission: none
     requirement: optional
     routing: live
     since: 1
@@ -523,6 +562,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: core
+    permission: none
     requirement: optional
     routing: live
     since: 1
@@ -537,6 +577,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: core
+    permission: set_variable
     requirement: optional
     routing: live
     since: 1
@@ -552,6 +593,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: event_handlers
+    permission: subscribe_events
     requirement: required
     routing: live
     since: 1
@@ -567,6 +609,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: triggers
+    permission: fire_trigger
     requirement: required
     routing: live
     since: 1
@@ -582,6 +625,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: client
+    permission: send_chat_message
     requirement: required
     routing: live
     since: 1
@@ -604,6 +648,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: ui_contributions
+    permission: push_to_ui
     requirement: optional
     routing: live
     since: 1
@@ -621,6 +666,7 @@ hooks:
     service: PluginHostService
     direction: "plugin->daemon"
     capability: ui_contributions
+    permission: set_theme_contribution
     requirement: optional
     routing: live
     since: 1

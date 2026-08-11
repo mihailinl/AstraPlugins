@@ -136,6 +136,8 @@ def render_parity(doc: dict) -> str:
         "",
         "| Column | Meaning |",
         "|---|---|",
+        "| **Capability** | The `[capabilities]` key in `plugin.toml` this hook belongs to, or `core` for hooks every plugin has. |",
+        "| **Permission** | `PluginHostService` only. The `[permissions]` key the daemon gates the call on (§5.6), or `none` if every plugin may always call it. **Not the same question as Capability:** the capability says which feature the call is part of, the permission is what the user consented to, and the daemon answers out of the *granted* permission set. Verified against the daemon's `HOST_RPC_PERMISSIONS` by rule R6. |",
         "| **Req** | `required` — the capability does not work without the hook. `optional` — the daemon carries on when it is absent. |",
         "| **Routing** | `live` — the daemon really calls it, and the call site is named. `unrouted` — declared in the proto, called by nobody. `deprecated` — being retired. |",
         "| `stable` | The SDK has a real binding today, verified against its source by `tools/parity/check.py` rule R1. |",
@@ -159,17 +161,22 @@ def render_parity(doc: dict) -> str:
 
     for service in spec.SERVICES:
         rows = _by_service(doc, service)
+        host = service == "PluginHostService"
+        perm_head = " Permission |" if host else ""
+        perm_rule = "---|" if host else ""
         lines += [
             f"## {service} — {spec.DIRECTIONS[service].replace('->', ' → ')}",
             "",
-            "| RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |",
-            "|---|---|---|---|---|---|---|---|---|",
+            f"| RPC | Capability |{perm_head} Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |",
+            f"|---|---|{perm_rule}---|---|---|---|---|---|---|",
         ]
         for hook in rows:
             lines.append(
-                "| `{rpc}` | `{cap}` | {req} | {routing} | {stream} | {rs} | {py} | {ts} | {prov} |".format(
+                ("| `{rpc}` | `{cap}` |" + (" `{perm}` |" if host else "") +
+                 " {req} | {routing} | {stream} | {rs} | {py} | {ts} | {prov} |").format(
                     rpc=hook["rpc"],
                     cap=hook["capability"],
+                    perm=hook.get("permission", ""),
                     req=hook["requirement"],
                     routing=hook["routing"],
                     stream=hook["streaming"],
@@ -244,17 +251,34 @@ def render_sdk(doc: dict, lang: str) -> str:
         rows = _by_service(doc, service)
         verb = "You implement these; the daemon calls them." if service == "PluginCapabilityService" \
             else "The daemon implements these; you call them."
+        host = service == "PluginHostService"
         lines += [
             f"## {service} — {spec.DIRECTIONS[service].replace('->', ' → ')}",
             "",
             verb,
             "",
-            "| RPC | Capability | Req | Stream | Status | What it does |",
-            "|---|---|---|---|---|---|",
         ]
+        if host:
+            lines += [
+                "**Capability is not enough here.** These are calls you make into the daemon, "
+                "and the daemon answers them out of the *granted* permission set (§5.6). "
+                "Declaring the capability says which feature the call belongs to; declaring "
+                "the permission is what the user consents to. A plugin that declares only the "
+                "capability gets `permission_denied` on the user's machine. `none` means every "
+                "plugin may always call it.",
+                "",
+                "| RPC | Capability | Permission | Req | Stream | Status | What it does |",
+                "|---|---|---|---|---|---|---|",
+            ]
+        else:
+            lines += [
+                "| RPC | Capability | Req | Stream | Status | What it does |",
+                "|---|---|---|---|---|---|",
+            ]
         for hook in rows:
+            perm = f" `{hook['permission']}` |" if host else ""
             lines.append(
-                f"| `{hook['rpc']}` | `{hook['capability']}` | {hook['requirement']} | "
+                f"| `{hook['rpc']}` | `{hook['capability']}` |{perm} {hook['requirement']} | "
                 f"{hook['streaming']} | {_status_cell(hook, lang)} | {hook['summary']} |"
             )
         lines.append("")

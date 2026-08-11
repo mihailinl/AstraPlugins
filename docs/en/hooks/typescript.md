@@ -41,18 +41,20 @@ You implement these; the daemon calls them.
 
 The daemon implements these; you call them.
 
-| RPC | Capability | Req | Stream | Status | What it does |
-|---|---|---|---|---|---|
-| `Register` | `core` | required | unary | stable | The handshake: prove the spawn token, receive the per-plugin session token. |
-| `GetPluginSelfConfig` | `core` | optional | unary | stable | Read this plugin's own persisted settings. |
-| `PluginLog` | `core` | optional | unary | stable | Write a line into the daemon log buffer the plugin's log pane reads. |
-| `GetDaemonInfo` | `core` | optional | unary | stable | Daemon version, state and gRPC port. |
-| `SetVariable` | `core` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
-| `SubscribeEvents` | `event_handlers` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
-| `FireTrigger` | `triggers` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |
-| `SendChatMessage` | `client` | required | server | planned → 2026-12-31 | Send a chat message as this plugin and stream the assistant's reply back. |
-| `PushToUi` | `ui_contributions` | optional | unary | stable | Push an event into this plugin's own iframes — the return path for CallFromUi. |
-| `SetThemeContribution` | `ui_contributions` | optional | unary | planned → 2026-12-31 | Contribute colours, wallpaper and shader to the active Astra theme. |
+**Capability is not enough here.** These are calls you make into the daemon, and the daemon answers them out of the *granted* permission set (§5.6). Declaring the capability says which feature the call belongs to; declaring the permission is what the user consents to. A plugin that declares only the capability gets `permission_denied` on the user's machine. `none` means every plugin may always call it.
+
+| RPC | Capability | Permission | Req | Stream | Status | What it does |
+|---|---|---|---|---|---|---|
+| `Register` | `core` | `none` | required | unary | stable | The handshake: prove the spawn token, receive the per-plugin session token. |
+| `GetPluginSelfConfig` | `core` | `none` | optional | unary | stable | Read this plugin's own persisted settings. |
+| `PluginLog` | `core` | `none` | optional | unary | stable | Write a line into the daemon log buffer the plugin's log pane reads. |
+| `GetDaemonInfo` | `core` | `none` | optional | unary | stable | Daemon version, state and gRPC port. |
+| `SetVariable` | `core` | `set_variable` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
+| `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
+| `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |
+| `SendChatMessage` | `client` | `send_chat_message` | required | server | planned → 2026-12-31 | Send a chat message as this plugin and stream the assistant's reply back. |
+| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Push an event into this plugin's own iframes — the return path for CallFromUi. |
+| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | planned → 2026-12-31 | Contribute colours, wallpaper and shader to the active Astra theme. |
 
 ## Gaps
 

@@ -9,6 +9,8 @@ A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityS
 
 | Column | Meaning |
 |---|---|
+| **Capability** | The `[capabilities]` key in `plugin.toml` this hook belongs to, or `core` for hooks every plugin has. |
+| **Permission** | `PluginHostService` only. The `[permissions]` key the daemon gates the call on (§5.6), or `none` if every plugin may always call it. **Not the same question as Capability:** the capability says which feature the call is part of, the permission is what the user consented to, and the daemon answers out of the *granted* permission set. Verified against the daemon's `HOST_RPC_PERMISSIONS` by rule R6. |
 | **Req** | `required` — the capability does not work without the hook. `optional` — the daemon carries on when it is absent. |
 | **Routing** | `live` — the daemon really calls it, and the call site is named. `unrouted` — declared in the proto, called by nobody. `deprecated` — being retired. |
 | `stable` | The SDK has a real binding today, verified against its source by `tools/parity/check.py` rule R1. |
@@ -57,18 +59,18 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 
 ## PluginHostService — plugin → daemon
 
-| RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |
-|---|---|---|---|---|---|---|---|---|
-| `Register` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:302` |
-| `GetPluginSelfConfig` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:844` |
-| `PluginLog` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:864` |
-| `GetDaemonInfo` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:898` |
-| `SetVariable` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:914` |
-| `SubscribeEvents` | `event_handlers` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:451` |
-| `FireTrigger` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:666` |
-| `SendChatMessage` | `client` | required | live | server | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:536` |
-| `PushToUi` | `ui_contributions` | optional | live | unary | stable | planned → 2026-12-31 | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:953` |
-| `SetThemeContribution` | `ui_contributions` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:979` |
+| RPC | Capability | Permission | Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |
+|---|---|---|---|---|---|---|---|---|---|
+| `Register` | `core` | `none` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:302` |
+| `GetPluginSelfConfig` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:844` |
+| `PluginLog` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:864` |
+| `GetDaemonInfo` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:898` |
+| `SetVariable` | `core` | `set_variable` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:914` |
+| `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:451` |
+| `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:666` |
+| `SendChatMessage` | `client` | `send_chat_message` | required | live | server | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:536` |
+| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | planned → 2026-12-31 | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:953` |
+| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:979` |
 
 ## Capability readiness
 

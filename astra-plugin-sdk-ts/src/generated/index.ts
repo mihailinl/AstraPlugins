@@ -23,7 +23,7 @@ export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptor
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "6e6204e4a2630abc3f6a2ae460b599561a040aa935bdae2b9505e7e88ab13008";
+export const PROTO_SHA256 = "30e5463b5b34a2278714a252e19a480955772d18e9bea4d1adc0588434751870";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -41,7 +41,7 @@ export const SERVICE_METHODS = {
   ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers"],
   MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions", "CaptureScreen"],
   MonitorService: ["GetSystemStats", "SubscribeSystemStats", "SubscribeToolSearchEvents"],
-  PluginService: ["ListPlugins", "InstallPlugin", "InstallPluginStream", "CancelPluginInstall", "UninstallPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "GetPluginLogs", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
+  PluginService: ["ListPlugins", "InstallPlugin", "InstallPluginStream", "CancelPluginInstall", "UninstallPlugin", "ReportPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "InspectPluginFile", "ResolvePendingUpdate", "GetPluginLogs", "GetPluginProvenance", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
   PluginHostService: ["Register", "SubscribeEvents", "SendChatMessage", "FireTrigger", "GetPluginSelfConfig", "PluginLog", "GetDaemonInfo", "SetVariable", "SetThemeContribution", "PushToUi"],
   PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "TtsActivate", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "SttLoad", "SttUnload", "SttGetLoadState", "AiComplete", "AiGetModels", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
 } as const satisfies Record<string, readonly string[]>;

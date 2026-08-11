@@ -5516,8 +5516,12 @@
               "responseType": "CancelPluginInstallResponse"
             },
             "UninstallPlugin": {
-              "requestType": "PluginIdRequest",
-              "responseType": "Empty"
+              "requestType": "UninstallPluginRequest",
+              "responseType": "UninstallPluginResponse"
+            },
+            "ReportPlugin": {
+              "requestType": "ReportPluginRequest",
+              "responseType": "ReportPluginResponse"
             },
             "SetPluginEnabled": {
               "requestType": "SetPluginEnabledRequest",
@@ -5559,9 +5563,21 @@
               "requestType": "ImportPluginFileRequest",
               "responseType": "PluginStatusMsg"
             },
+            "InspectPluginFile": {
+              "requestType": "InspectPluginFileRequest",
+              "responseType": "PluginFileInspection"
+            },
+            "ResolvePendingUpdate": {
+              "requestType": "ResolvePendingUpdateRequest",
+              "responseType": "PluginStatusMsg"
+            },
             "GetPluginLogs": {
               "requestType": "PluginLogsRequest",
               "responseType": "PluginLogsResponse"
+            },
+            "GetPluginProvenance": {
+              "requestType": "PluginProvenanceRequest",
+              "responseType": "PluginProvenanceMsg"
             },
             "GetAllUiContributions": {
               "requestType": "Empty",
@@ -5853,6 +5869,80 @@
             }
           }
         },
+        "UninstallPluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "deleteConfig": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "UninstallPluginResponse": {
+          "fields": {
+            "settingsRetained": {
+              "type": "bool",
+              "id": 1
+            },
+            "settingsNote": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginReportReason": {
+          "values": {
+            "PLUGIN_REPORT_REASON_UNSPECIFIED": 0,
+            "PLUGIN_REPORT_MALWARE": 1,
+            "PLUGIN_REPORT_PRIVACY": 2,
+            "PLUGIN_REPORT_IMPERSONATION": 3,
+            "PLUGIN_REPORT_BROKEN": 4,
+            "PLUGIN_REPORT_OTHER": 5
+          }
+        },
+        "ReportPluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "PluginReportReason",
+              "id": 2
+            },
+            "details": {
+              "type": "string",
+              "id": 3
+            },
+            "quarantine": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ReportPluginResponse": {
+          "fields": {
+            "quarantined": {
+              "type": "bool",
+              "id": 1
+            },
+            "issueUrl": {
+              "type": "string",
+              "id": 2
+            },
+            "issueUrlError": {
+              "type": "string",
+              "id": 3
+            },
+            "reportBody": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
         "InstallPluginRequest": {
           "fields": {
             "pluginId": {
@@ -5862,6 +5952,15 @@
             "autoStart": {
               "type": "bool",
               "id": 2
+            },
+            "consentedPermissions": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "consentRecorded": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -6072,6 +6171,167 @@
             "updatedAt": {
               "type": "string",
               "id": 13
+            },
+            "provenance": {
+              "type": "PluginProvenanceMsg",
+              "id": 14
+            },
+            "permissions": {
+              "rule": "repeated",
+              "type": "PluginPermissionMsg",
+              "id": 15
+            },
+            "permissionsKnown": {
+              "type": "bool",
+              "id": 16
+            }
+          }
+        },
+        "PluginProvenanceRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "reVerify": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "PluginProvenanceMsg": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "version": {
+              "type": "string",
+              "id": 2
+            },
+            "recorded": {
+              "type": "bool",
+              "id": 3
+            },
+            "trustState": {
+              "type": "string",
+              "id": 4
+            },
+            "tier": {
+              "type": "string",
+              "id": 5
+            },
+            "identity": {
+              "type": "string",
+              "id": 6
+            },
+            "identityPinnedAt": {
+              "type": "string",
+              "id": 7
+            },
+            "repositoryUrl": {
+              "type": "string",
+              "id": 8
+            },
+            "sourceRef": {
+              "type": "string",
+              "id": 9
+            },
+            "sourceCommit": {
+              "type": "string",
+              "id": 10
+            },
+            "buildWorkflow": {
+              "type": "string",
+              "id": 11
+            },
+            "buildRunId": {
+              "type": "string",
+              "id": 12
+            },
+            "buildRunner": {
+              "type": "string",
+              "id": 13
+            },
+            "builtAt": {
+              "type": "string",
+              "id": 14
+            },
+            "artifactFilename": {
+              "type": "string",
+              "id": 15
+            },
+            "artifactPlatform": {
+              "type": "string",
+              "id": 16
+            },
+            "artifactSize": {
+              "type": "uint64",
+              "id": 17
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 18
+            },
+            "artifactUrl": {
+              "type": "string",
+              "id": 19
+            },
+            "attestationIdentity": {
+              "type": "string",
+              "id": 20
+            },
+            "rekorLogIndex": {
+              "type": "string",
+              "id": 21
+            },
+            "rekorUrl": {
+              "type": "string",
+              "id": 22
+            },
+            "verifyCommand": {
+              "type": "string",
+              "id": 23
+            },
+            "indexSerial": {
+              "type": "uint64",
+              "id": 24
+            },
+            "indexSignerKeyId": {
+              "type": "string",
+              "id": 25
+            },
+            "indexExpiresAt": {
+              "type": "string",
+              "id": 26
+            },
+            "indexSignatureState": {
+              "type": "string",
+              "id": 27
+            },
+            "recordedFileCount": {
+              "type": "uint32",
+              "id": 28
+            },
+            "integrityCheckedAt": {
+              "type": "string",
+              "id": 29
+            },
+            "integrityDetail": {
+              "type": "string",
+              "id": 30
+            },
+            "permissionsHash": {
+              "type": "string",
+              "id": 31
+            },
+            "manifestDigest": {
+              "type": "string",
+              "id": 32
+            },
+            "provenanceJson": {
+              "type": "string",
+              "id": 33
             }
           }
         },
@@ -6092,6 +6352,108 @@
             "autoStart": {
               "type": "bool",
               "id": 2
+            }
+          }
+        },
+        "InspectPluginFileRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginFileInspection": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "version": {
+              "type": "string",
+              "id": 3
+            },
+            "author": {
+              "type": "string",
+              "id": 4
+            },
+            "description": {
+              "type": "string",
+              "id": 5
+            },
+            "capabilities": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "permissions": {
+              "rule": "repeated",
+              "type": "PluginPermissionMsg",
+              "id": 7
+            },
+            "refusedByTier": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 9
+            },
+            "installed": {
+              "type": "bool",
+              "id": 10
+            },
+            "installedVersion": {
+              "type": "string",
+              "id": 11
+            },
+            "bundleV2": {
+              "type": "bool",
+              "id": 12
+            }
+          }
+        },
+        "PluginPermissionMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
+            },
+            "types": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "scopes": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ResolvePendingUpdateRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "approve": {
+              "type": "bool",
+              "id": 2
+            },
+            "approvedPermissions": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
             }
           }
         },
