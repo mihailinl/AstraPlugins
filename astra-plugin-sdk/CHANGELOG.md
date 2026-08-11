@@ -8,6 +8,12 @@ This crate is published to crates.io by the release train in
 `.github/workflows/release-sdks.yml`, which runs on a single
 `sdk-v<VERSION>` git tag and publishes all three SDKs together.
 
+**Deprecation policy** — `docs/en/versioning.md`. Nothing is deprecated for less
+than two minors and one quarter; a deprecation note names its replacement; and a
+**removal appears under a `BREAKING` heading in this file**, naming what went and
+what replaced it. Deprecations live under `### Deprecated`, with the release they
+are removable in.
+
 ## [0.6.0] — unreleased
 
 Breaking. **Every 0.5.0 plugin is broken against the current daemon** — the
@@ -54,11 +60,39 @@ optional, which is why this is a new minor rather than a patch on 0.5.0.
   the status itself, so the same line yields `UNAUTHORIZED` and one sentence.
   This is the first failure most authors meet: `[permissions]` is default-deny.
 
+### Changed (breaking) — daemon events
+- `CommandTriggeredEvent::variables` is gone, replaced by `trigger_text`. The
+  daemon's `AstraEvent::CommandTriggered` carries `command_id`, `command_name`
+  and `trigger_text` and has never carried a variables map
+  (`astra-core/src/event.rs`); `variables` was `#[serde(default)]`, so it
+  deserialized to an empty map on every event and a plugin that read it read
+  `{}` forever. A field that cannot be populated is worse than an absent one,
+  because it looks like an answer. Read `trigger_text` instead — it is the
+  utterance that matched the trigger.
+
+### Added — the mock daemon answers for itself
+- `Recorded::unauthenticated_calls()` and `MockDaemon::unauthenticated_calls()`:
+  every host RPC that arrived without a valid `x-session-token`, in order.
+  `astra-plugin test` asserts the list is empty over a real plugin process, so
+  a host client that stops authenticating can no longer pass conformance while
+  every inbound hook still answers.
+
 ### Changed (breaking) — the authoring API
 
 Phase 5a rebuilt the surface an author actually writes against. Every 0.5 trait
 impl needs edits; all of them are mechanical, and `docs/en/migration-0.6.md`
-(task 5.11) walks through them. What changed and why:
+walks through them in the order the compiler reports them.
+
+**They do not all have to happen today.** `astra_plugin_sdk::compat` is the 0.5
+surface — the trait, `ToolResult` / `ActionResult` / `UiCallResult`, and
+`HostClient` / `DaemonClient` as `Arc<dyn Host>` / `Arc<dyn Daemon>` aliases —
+forwarded onto the 0.6 trait by a blanket impl. Changing one import line,
+`prelude::*` → `compat::*`, builds an 0.5 plugin against 0.6 with deprecation
+warnings and nothing else: verified on the 255-line 0.5 dice-roller, whose tools
+answer and whose `set_host`-stored host still fires triggers. It is removed in
+0.8. See `### Deprecated` below.
+
+What changed and why:
 
 - **Handlers take a `&PluginContext`.** `set_host(Arc<Mutex<HostClient>>)` and
   `set_daemon_client(Arc<Mutex<DaemonClient>>)` are **gone**. The context is
@@ -250,7 +284,137 @@ exactly that, and it builds.
   `astra_plugin_sdk::run(P)` directly prints nothing, which tooling must read as
   "this binary does not answer", not as "this binary declares nothing".
 
+### Added — `astra_plugin_sdk::testing`, both levels
+
+Not feature-gated, deliberately: a `testing` feature would force a second
+`[dev-dependencies] astra-plugin-sdk = { …, features = ["testing"] }` line into
+every plugin's `Cargo.toml`, which breaks the one-dependency bar above. A
+release build's dead-code pass removes it.
+
+- **Level 1, in process.** `Harness::new(plugin).with_config(json!(…))
+  .with_language(..).with_active_triggers(..).with_host(..).with_daemon(..)
+  .start()` runs the runner's real startup order — `on_config` →
+  `on_language_changed` → `on_start` — and returns a `Running<P>` exposing every
+  hook the way the daemon calls it: `call_tool`, `execute_action`, `ui_call`,
+  `stt_transcribe`, `stt_stream` (channel sized from `spec/limits.yaml`),
+  `tts_stream`, `ai_complete`, `config_changed`, `fuzz_config`,
+  `language_changed`, `active_triggers`, `event` (through the runner's own
+  `dispatch_event`), `conversation_events`, `health`, `shutdown`, plus
+  `wait_for_triggers` for hooks that fire from a spawned task.
+- `RecordingHost` implements `Host` with `fired_triggers()` / `logs()` /
+  `variables()` / `ui_pushes()` / `chat_messages()` and failure injection
+  (`deny`, `fail`, `fail_next`, `fail_times`, `clear_failures`) that builds the
+  error exactly as `host_client::rpc_failed` does, so a handler's `?` recovers
+  the same `ToolError` kind. Injection names are validated against the host RPC
+  list — a typo panics instead of arming nothing and passing.
+- `h.schema("roll_dice")` returns a `ToolSchema` with `properties()` /
+  `required()` / `description_of()` / `assert_is_a_parameters_object()` /
+  `assert_matches::<T>()`, and `h.assert_schema_matches::<T>("roll_dice")`.
+  It takes a tool NAME: a plugin declares many tools and the zero-argument form
+  has no way to say which one it means.
+- **Level 2, over the wire.** `MockDaemon` serves the real `PluginHostService`
+  on loopback and enforces what the daemon enforces — Register is the only
+  auth-exempt path, everything else needs `x-session-token`, and each rpc is
+  gated on its `spec/hooks.yaml` permission, so `revoke("fire_trigger")` yields
+  `PERMISSION_DENIED`. `WireHarness::start(plugin)` spawns the *actual*
+  `run_with` against it and connects a client carrying the spawn token, so
+  handler registration, the interceptor, descriptor mismatch and 500-slot
+  back-pressure are all on the path. `registration()` is the only place a
+  capability list, protocol version and SDK name are observable at all.
+- **Fixtures.** Golden 16 kHz f32-LE PCM in the daemon's 1600-sample batches:
+  `pcm(n)`, `utterance()`, `wake_seed_burst()` (~8 s of wake pre-roll) and
+  `channel_saturating_burst()`, sized by reading
+  `limits::STT_AUDIO_CHANNEL_CAPACITY` rather than a literal.
+  `firehose_events()` is one complete assistant turn; `firehose_error_turn()`
+  adds an error turn and an event whose oneof is empty (a daemon newer than this
+  SDK). `config_fuzz()` is 15 payloads the daemon actually produces, starting
+  with `{}` — a fresh install — and including the two that are not JSON.
+
+### Added — structured logs and panic containment (§5.10)
+
+- **`logging::layer()`** is a `tracing_subscriber` Layer forwarding events to
+  the daemon as `PluginLog`; `run_with` composes it with the `EnvFilter` and
+  `fmt` layers at init, and `logging::attach(host)` plugs the host client in
+  right after registration. `tracing`'s five levels map to the daemon's four,
+  INFO-and-above by default, overridable with `ASTRA_PLUGIN_LOG_LEVEL`. Three
+  guards against the log → RPC → log loop: a task-local set for the shipper
+  task, a target denylist (h2/hyper/tonic/tower/rustls/tokio/mio, matched on
+  `::` boundaries so `h2o_plugin` still ships), and a bounded 256-slot queue
+  with `try_send` and a `dropped()` counter — a busy handler drops lines rather
+  than waiting on the daemon.
+- **`panics::catch(hook, fut)`** wraps every `CapabilityServiceImpl` handler.
+  `call_tool` / `execute_action` / `handle_ui_call` answer in band with a coded
+  error; the discovery and lifecycle hooks answer `INTERNAL`; `health_check`
+  answers `(false, "…panicked: …")`; `on_start` aborts startup with a sentence
+  naming the hook and the line. Never `UNIMPLEMENTED`, which the daemon reads as
+  "hook absent" and stops calling. `panics::install_hook()` runs first in
+  `run_with`, chains the previous hook, and reports payload, location and
+  backtrace at error level — which, once logging is attached, is a `PluginLog`
+  in the user's pane.
+- **`panic = "abort"` turns all of this off** and must not be set in a plugin
+  profile: with it, a panicking tool takes the process down instead of returning
+  an error.
+
+### Deprecated
+
+Everything here is removed in **0.8.0** — two minors and one quarter, the
+minimum window `docs/en/versioning.md` promises. Each carries a
+`#[deprecated(since = "0.6.0", note = …)]` whose note names what to use instead,
+so the compiler tells you at the use site and `cargo build` still succeeds.
+
+- **`astra_plugin_sdk::compat`** — the whole 0.5 authoring surface:
+  - `compat::PluginCapability`, the 0.5 trait, with
+    `impl<T: compat::PluginCapability> PluginCapability for T` forwarding every
+    hook onto the 0.6 one. Replacement: the 0.6 `PluginCapability`.
+  - `compat::ToolResult` / `ActionResult` / `UiCallResult`. Replacement:
+    `Result<String, ToolError>`. A legacy `err(..)` becomes `ToolError::Internal`
+    carrying the same sentence — 0.5 had one failure and it was a string, and
+    `Internal` is the kind that promises the model nothing.
+  - `compat::HostClient` / `compat::DaemonClient`, aliases for `Arc<dyn Host>`
+    and `Arc<dyn Daemon>`, so a field typed `Arc<Mutex<HostClient>>` and a call
+    written `host.lock().await.fire_trigger(..)` both still compile.
+    Replacement: `ctx.host()` / `ctx.daemon()`.
+  - `compat::*` re-exports the rest of the 0.5 prelude unchanged, so the whole
+    migration is one import line. It is a **replacement** for `prelude::*`, not
+    an addition: both globs in scope makes `impl PluginCapability` ambiguous
+    (E0659).
+  - Two things the shim deliberately does not do. `set_host` /
+    `set_daemon_client` are delivered once, from whichever 0.6 hook carrying a
+    context runs first — the 0.5 runner delivered them at line 223 and called
+    `on_config_changed` at line 300, so the ordering an 0.5 plugin can observe is
+    preserved, but a plugin that assumed the host existed before *any* of its
+    code ran should read `ctx.host()`. And hooks 0.5 never had — `ai_complete`,
+    `tts_activate`, `stt_load`/`stt_unload`/`stt_load_state` — stay
+    `UNIMPLEMENTED` rather than answering something plausible, because the
+    daemon's idle-unload timer reads `stt_load_state` and a shim that answered
+    `NotNeeded` would tell it a resident model is not resident.
+  - Covered by seven harness tests written *against the 0.5 trait*
+    (`src/capability.rs`, `mod compat::tests`). The one that earns its keep is
+    `a_streaming_0_5_recognizer_keeps_emitting_partials`: forwarding 0.6's
+    `stt_transcribe_stream` to 0.5's *non-streaming* `stt_transcribe` compiles,
+    passes a naive test, and silently discards every partial a real streaming
+    backend emits.
+- **`PluginCapability::source_id()`** — the daemon stopped filtering by source
+  id; every client sees every event. Replacement: pass the id to
+  `Host::send_chat_message`, or delete the override.
+- **`AiGetModels` / `ai_models()`** — implemented in all three SDKs and called by
+  nobody; `all_ai_providers` hardcodes `supports_model_discovery=false`, so the
+  picker never asks. No replacement: nothing in the daemon asks a plugin what
+  models it has, and `AiComplete` carries the chosen model on the request.
+  Recorded as `deprecated_in: "0.6"` / `removed_in: "0.8"` in `spec/hooks.yaml`,
+  where `tools/parity/spec.py` enforces the window on every CI run.
+
 ### Fixed
+- **`SttProcess` no longer swallows the STT hook's failure.** The plugin task's
+  `Err` — including the SDK's own `unimplemented("stt_transcribe")` default —
+  was `warn!`ed and the response stream closed normally, so a Rust plugin that
+  declared `stt` and implemented no `stt_transcribe` answered `SttProcess` with
+  **OK and zero events**, where Python and TypeScript both answered
+  `UNIMPLEMENTED`. Phase 1 fixed `Unimplemented` to mean *the hook is absent*,
+  and this was the one language that could not say it. The failure now travels
+  on the stream, mapped by `hook_status` — so does a genuine mid-utterance
+  recognizer error, which used to be a moving waveform, no text ever, and
+  nothing in the daemon log.
 - `OnActiveTriggers` now updates `ctx.active_triggers()` **before** dispatching
   to the hook. `ActiveTriggers` previously had no writer at all: every
   `contains()` answered false, so the "is anyone listening" check the type

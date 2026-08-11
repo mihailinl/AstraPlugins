@@ -1039,6 +1039,953 @@ pub trait PluginCapability: Send + Sync + 'static {
     }
 }
 
+// ── 0.5 compatibility, for one minor ─────────────────────────────────────────
+
+/// The 0.5 authoring surface, forwarded onto the 0.6 one.
+///
+/// Deprecated in **0.6**, removed in **0.8** — the window `docs/en/versioning.md`
+/// promises. Until then an 0.5-era plugin builds against this SDK by changing
+/// its import line and nothing else:
+///
+/// ```ignore
+/// -use astra_plugin_sdk::*;          // 0.5
+/// +use astra_plugin_sdk::compat::*;  // 0.6, deprecated, still works
+/// ```
+///
+/// Every item here is `#[deprecated]`, so the build tells the author what to fix
+/// and `cargo build` still succeeds. [`docs/en/migration-0.6.md`] is the hook-by-hook
+/// version; this module is the thing that buys the time to read it.
+///
+/// # What the shim can and cannot do
+///
+/// * `HostClient` and `DaemonClient` are **type aliases** for `Arc<dyn Host>` and
+///   `Arc<dyn Daemon>`, so a field declared `Arc<Mutex<HostClient>>` and a call
+///   written `host.lock().await.fire_trigger(..)` both compile unchanged — the
+///   guard derefs through the `Arc` to the trait object. What is *not* there is
+///   the concrete 0.5 client's inherent surface: `HostClient::connect_bootstrap`
+///   and `subscribe_events` are gone, because in 0.6 the runner owns the event
+///   subscription and hands events to [`PluginCapability::on_event`].
+/// * `set_host` / `set_daemon_client` are delivered **once**, immediately before
+///   the first 0.6 hook that carries a [`PluginContext`] — in practice
+///   `on_config_changed`, which is the first thing the runner calls. In 0.5 they
+///   arrived just after registration. Nothing observable moved, but a plugin
+///   that assumed the host was set before *any* of its code ran should read
+///   [`PluginContext`] instead: `ctx.host()` is never `None`.
+/// * A `ToolResult::err` becomes [`ToolError::Internal`]. 0.5 had one failure
+///   and it was a sentence; 0.6 has eight kinds and the kind is what the AI loop
+///   reads. `Internal` is the one that promises the model nothing, which is the
+///   honest answer for a string.
+/// * Hooks that did not exist in 0.5 — `ai_complete`, `tts_activate`,
+///   `stt_load`/`stt_unload`/`stt_load_state` — stay `UNIMPLEMENTED`, which the
+///   protocol reads as *absent*. Implement them by migrating the trait.
+///
+/// [`docs/en/migration-0.6.md`]: https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/migration-0.6.md
+pub mod compat {
+    // Everything in here mentions the deprecated items on purpose. The lint is
+    // for the author's crate, where it fires at the `impl` site; inside the shim
+    // it would only be noise.
+    #![allow(deprecated)]
+
+    use std::any::TypeId;
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+
+    use tokio::sync::Mutex;
+
+    use crate::proto;
+
+    /// The rest of 0.5's prelude, unchanged in 0.6 and re-exported here so that
+    /// `use astra_plugin_sdk::compat::*;` is a drop-in for
+    /// `use astra_plugin_sdk::prelude::*;` — **one line, and the whole 0.5 plugin
+    /// still builds**.
+    ///
+    /// It has to be a replacement rather than an addition: importing both globs
+    /// puts two traits called `PluginCapability` in scope, and
+    /// `impl PluginCapability for MyPlugin` is then ambiguous (E0659) rather
+    /// than deprecated.
+    pub use super::{
+        ActionTypeDef, AiModelInfo, AudioData, Config, DropdownOption, FieldCondition, FieldDef,
+        NoConfig, SttEvent, ToolDef, TriggerTypeDef, UiContribution, VoiceInfo,
+    };
+    // Under their own names, so a hook can be moved onto the 0.6 signature one
+    // at a time without the import line changing again.
+    pub use crate::context::{ActiveTriggers, Daemon, Host, PluginContext};
+    pub use crate::error::{ActionError, ToolError};
+    pub use crate::events::{CommandCompletedEvent, CommandTriggeredEvent, StateChangedEvent};
+    pub use crate::i18n::I18n;
+    pub use crate::{CapabilityAuth, RunConfig, run, run_with};
+    pub use async_trait::async_trait;
+
+    /// 0.5's `HostClient`, as a handler held it.
+    ///
+    /// A field typed `Arc<Mutex<HostClient>>` and a call written
+    /// `host.lock().await.log_info("..")` are unchanged: the guard derefs
+    /// through the `Arc` onto [`Host`].
+    #[deprecated(
+        since = "0.6.0",
+        note = "use `ctx.host()` — a `&Arc<dyn Host>` on the `PluginContext` every \
+                0.6 handler is given, with no lock to lose"
+    )]
+    pub type HostClient = Arc<dyn Host>;
+
+    /// 0.5's `DaemonClient`, as a client plugin held it.
+    #[deprecated(
+        since = "0.6.0",
+        note = "use `ctx.daemon()` — `Option<&Arc<dyn Daemon>>`, `Some` exactly when \
+                the daemon issued this plugin a client session"
+    )]
+    pub type DaemonClient = Arc<dyn Daemon>;
+
+    /// 0.5's tool result.
+    #[deprecated(
+        since = "0.6.0",
+        note = "return `Result<String, ToolError>`: `Ok(text)` for `ToolResult::ok`, \
+                and the `ToolError` variant that says *why* for `ToolResult::err`"
+    )]
+    #[derive(Debug, Clone)]
+    pub struct ToolResult {
+        pub success: bool,
+        pub result: String,
+        pub error: String,
+    }
+
+    impl ToolResult {
+        pub fn ok(result: impl Into<String>) -> Self {
+            Self { success: true, result: result.into(), error: String::new() }
+        }
+        pub fn err(error: impl Into<String>) -> Self {
+            Self { success: false, result: String::new(), error: error.into() }
+        }
+    }
+
+    /// 0.5's action result.
+    #[deprecated(
+        since = "0.6.0",
+        note = "return `Result<String, ActionError>` (`ActionError` is `ToolError`)"
+    )]
+    #[derive(Debug, Clone)]
+    pub struct ActionResult {
+        pub success: bool,
+        pub result: String,
+        pub error: String,
+    }
+
+    impl ActionResult {
+        pub fn ok(result: impl Into<String>) -> Self {
+            Self { success: true, result: result.into(), error: String::new() }
+        }
+        pub fn err(error: impl Into<String>) -> Self {
+            Self { success: false, result: String::new(), error: error.into() }
+        }
+    }
+
+    /// 0.5's UI-call result.
+    #[deprecated(
+        since = "0.6.0",
+        note = "return `Result<String, ToolError>`; `ToolError::NotFound` is the \
+                one for an unknown method name"
+    )]
+    #[derive(Debug, Clone)]
+    pub struct UiCallResult {
+        pub result_json: String,
+        pub error: String,
+    }
+
+    impl UiCallResult {
+        pub fn ok(json: impl Into<String>) -> Self {
+            Self { result_json: json.into(), error: String::new() }
+        }
+        pub fn err(msg: impl Into<String>) -> Self {
+            Self { result_json: String::new(), error: msg.into() }
+        }
+    }
+
+    /// One `Result` out of an 0.5 pair of (`success`, `result`, `error`).
+    fn legacy_outcome(success: bool, result: String, error: String) -> Result<String, ToolError> {
+        if success {
+            Ok(result)
+        } else {
+            // 0.5 had exactly one failure and it was a sentence. `Internal` is
+            // the 0.6 kind that promises the model nothing, which is the only
+            // honest reading of a string whose author never said what it was.
+            Err(ToolError::Internal(error))
+        }
+    }
+
+    /// The plugin trait as 0.5 spelled it.
+    ///
+    /// Implementing this instead of [`crate::PluginCapability`] still produces a
+    /// working plugin: the blanket impl below forwards every hook. It warns at
+    /// the `impl` line, and it stops working in 0.8.
+    #[deprecated(
+        since = "0.6.0",
+        note = "implement `astra_plugin_sdk::PluginCapability` (0.6): handlers take a \
+                `&PluginContext`, return `Result<_, ToolError>`, and declare \
+                `type Config`. See docs/en/migration-0.6.md. This trait is removed in 0.8"
+    )]
+    #[async_trait::async_trait]
+    pub trait PluginCapability: Send + Sync + 'static {
+        // ── Client ──
+
+        fn is_client(&self) -> bool {
+            false
+        }
+
+        async fn set_daemon_client(&self, _client: Arc<Mutex<DaemonClient>>) {}
+
+        // ── Tools ──
+
+        async fn list_tools(&self) -> Vec<ToolDef> {
+            vec![]
+        }
+
+        async fn call_tool(&self, _name: &str, _arguments_json: &str) -> ToolResult {
+            ToolResult::err("Not implemented")
+        }
+
+        // ── TTS ──
+
+        async fn tts_synthesize(
+            &self,
+            _text: &str,
+            _voice_id: &str,
+            _speed: f32,
+            _pitch: f32,
+        ) -> anyhow::Result<AudioData> {
+            anyhow::bail!("TTS not implemented")
+        }
+
+        async fn tts_voices(&self) -> Vec<VoiceInfo> {
+            vec![]
+        }
+
+        async fn tts_config_fields(&self) -> Vec<FieldDef> {
+            vec![]
+        }
+
+        // ── STT ──
+
+        async fn stt_transcribe(&self, _audio: &[u8], _sample_rate: u32) -> anyhow::Result<SttEvent> {
+            anyhow::bail!("STT not implemented")
+        }
+
+        /// 0.5's streaming STT hook. The default accumulates and forwards to
+        /// [`stt_transcribe`](Self::stt_transcribe), exactly as 0.5's did — which
+        /// is why the forwarding impl below routes 0.6's stream hook *here* and
+        /// not at `stt_transcribe`. Routing it at the non-streaming hook would
+        /// silently drop a plugin's real streaming implementation, along with
+        /// every partial it emits.
+        async fn stt_transcribe_stream(
+            &self,
+            mut audio_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+            events_tx: tokio::sync::mpsc::Sender<SttEvent>,
+            sample_rate: u32,
+        ) -> anyhow::Result<()> {
+            let mut buf: Vec<u8> = Vec::new();
+            while let Some(chunk) = audio_rx.recv().await {
+                buf.extend_from_slice(&chunk);
+            }
+            if buf.is_empty() {
+                return Ok(());
+            }
+            let ev = self.stt_transcribe(&buf, sample_rate).await?;
+            let _ = events_tx.send(ev).await;
+            Ok(())
+        }
+
+        async fn stt_languages(&self) -> Vec<String> {
+            vec![]
+        }
+
+        async fn stt_config_fields(&self) -> Vec<FieldDef> {
+            vec![]
+        }
+
+        // ── AI provider ──
+
+        async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
+            (vec![], String::new())
+        }
+
+        // ── Actions and triggers ──
+
+        async fn action_types(&self) -> Vec<ActionTypeDef> {
+            vec![]
+        }
+
+        async fn execute_action(&self, _action_type: &str, _params_json: &str) -> ActionResult {
+            ActionResult::err("Not implemented")
+        }
+
+        async fn trigger_types(&self) -> Vec<TriggerTypeDef> {
+            vec![]
+        }
+
+        // ── UI ──
+
+        async fn ui_contributions(&self) -> Vec<UiContribution> {
+            vec![]
+        }
+
+        async fn handle_ui_call(&self, _method: &str, _params_json: &str) -> UiCallResult {
+            UiCallResult::err("No UI call handler implemented")
+        }
+
+        // ── Events ──
+
+        fn source_id(&self) -> &str {
+            ""
+        }
+
+        fn subscribed_events(&self) -> Vec<String> {
+            vec![]
+        }
+
+        async fn on_event(&self, _event_type: &str, _payload_json: &str) {}
+
+        async fn on_conversation_event(&self, _conv_id: &str, _event: &proto::ConversationEventMsg) {}
+
+        async fn on_state_changed(&self, _event: crate::events::StateChangedEvent) {}
+
+        async fn on_command_triggered(&self, _event: crate::events::CommandTriggeredEvent) {}
+
+        async fn on_command_completed(&self, _event: crate::events::CommandCompletedEvent) {}
+
+        // ── Lifecycle ──
+
+        async fn set_host(&self, _host: Arc<Mutex<HostClient>>) {}
+
+        async fn on_config_changed(&self, _config_json: &str) {}
+
+        async fn on_language_changed(&self, _language: &str) {}
+
+        async fn on_active_triggers(&self, _active_types: Vec<String>) {}
+
+        async fn on_shutdown(&self) {}
+
+        async fn health_check(&self) -> (bool, String) {
+            (true, "ok".into())
+        }
+    }
+
+    // ── delivering the host exactly once ──
+
+    /// Which `(plugin, host)` pairs have already been handed their `set_host`.
+    ///
+    /// The 0.5 runner called `set_host` at line 223 and `on_config_changed` at
+    /// line 300 — the host was there before any of the plugin's own code ran,
+    /// and an 0.5 `on_config_changed` that logs through the host is entitled to
+    /// work. 0.6 has no such call (the context is a parameter), so the shim
+    /// delivers from whichever forwarded hook runs first, and this registry is
+    /// what keeps "first" from meaning "every".
+    ///
+    /// A blanket impl has no field to hold a `OnceCell`, so identity has to come
+    /// from somewhere else. The key is the plugin's address *and* the host's,
+    /// both with the type id: keying on the type alone would starve the second
+    /// instance in any test process that runs two, and keying on the plugin
+    /// address alone would mis-skip if a dropped instance's allocation were
+    /// recycled — a recycled pair is a great deal less likely than a recycled
+    /// address, and re-delivering the same host to the same plugin is the
+    /// harmless direction anyway.
+    type DeliveryKey = (TypeId, usize, usize);
+    static DELIVERED: OnceLock<StdMutex<HashSet<DeliveryKey>>> = OnceLock::new();
+
+    fn delivery_key<T: PluginCapability>(plugin: &T, ctx: &PluginContext) -> DeliveryKey {
+        (
+            TypeId::of::<T>(),
+            plugin as *const T as *const () as usize,
+            Arc::as_ptr(ctx.host()) as *const () as usize,
+        )
+    }
+
+    /// Hand the plugin its 0.5 host (and daemon client), the first time only.
+    async fn deliver_once<T: PluginCapability>(plugin: &T, ctx: &PluginContext) {
+        let first = DELIVERED
+            .get_or_init(StdMutex::default)
+            .lock()
+            .expect("legacy-host registry poisoned")
+            .insert(delivery_key(plugin, ctx));
+        if !first {
+            return;
+        }
+        plugin.set_host(Arc::new(Mutex::new(ctx.host().clone()))).await;
+        if let Some(daemon) = ctx.daemon() {
+            plugin
+                .set_daemon_client(Arc::new(Mutex::new(daemon.clone())))
+                .await;
+        }
+    }
+
+    /// Forget one delivery, so a test can hand the same plugin the same host
+    /// twice. Nothing in a plugin process needs this.
+    #[doc(hidden)]
+    pub fn forget_delivery<T: PluginCapability>(plugin: &T, ctx: &PluginContext) {
+        if let Some(reg) = DELIVERED.get() {
+            reg.lock()
+                .expect("legacy-host registry poisoned")
+                .remove(&delivery_key(plugin, ctx));
+        }
+    }
+
+    // ── the forwarding impl ──
+
+    /// Every 0.5 plugin is a 0.6 plugin.
+    ///
+    /// The two rules this impl exists to get right:
+    ///
+    /// 1. **Stream hooks forward to stream hooks.** 0.6's
+    ///    `stt_transcribe_stream` calls 0.5's `stt_transcribe_stream`, whose own
+    ///    default buffers into `stt_transcribe`. Forwarding at the non-streaming
+    ///    hook instead would compile, pass a naive test, and silently discard the
+    ///    partials of every plugin that had a real streaming backend.
+    /// 2. **Hooks 0.5 never had stay absent.** `ai_complete`, `tts_activate` and
+    ///    the three `stt_load*` hooks are left at the 0.6 defaults, so they answer
+    ///    `UNIMPLEMENTED` — which the protocol reads as "no such hook", and the
+    ///    daemon carries on. Forwarding them to something plausible would tell the
+    ///    daemon a plugin supports idle-unload when it does not.
+    #[async_trait::async_trait]
+    impl<T: PluginCapability> super::PluginCapability for T {
+        // 0.5 had no typed config: the raw JSON goes straight through
+        // `on_config_changed` below, and `on_config` is never reached.
+        type Config = NoConfig;
+
+        fn is_client(&self) -> bool {
+            PluginCapability::is_client(self)
+        }
+
+        async fn list_tools(&self) -> Vec<ToolDef> {
+            PluginCapability::list_tools(self).await
+        }
+
+        async fn call_tool(
+            &self,
+            ctx: &PluginContext,
+            name: &str,
+            arguments_json: &str,
+        ) -> Result<String, ToolError> {
+            deliver_once(self, ctx).await;
+            let r = PluginCapability::call_tool(self, name, arguments_json).await;
+            legacy_outcome(r.success, r.result, r.error)
+        }
+
+        async fn tts_synthesize(
+            &self,
+            ctx: &PluginContext,
+            req: super::TtsRequest,
+        ) -> anyhow::Result<AudioData> {
+            deliver_once(self, ctx).await;
+            PluginCapability::tts_synthesize(self, &req.text, &req.voice_id, req.speed, req.pitch)
+                .await
+        }
+
+        async fn tts_voices(&self) -> Vec<VoiceInfo> {
+            PluginCapability::tts_voices(self).await
+        }
+
+        async fn tts_config_fields(&self) -> Vec<FieldDef> {
+            PluginCapability::tts_config_fields(self).await
+        }
+
+        async fn stt_transcribe(
+            &self,
+            ctx: &PluginContext,
+            audio: &[u8],
+            sample_rate: u32,
+            _options: &super::SttOptions,
+        ) -> anyhow::Result<SttEvent> {
+            deliver_once(self, ctx).await;
+            PluginCapability::stt_transcribe(self, audio, sample_rate).await
+        }
+
+        async fn stt_transcribe_stream(
+            &self,
+            ctx: &PluginContext,
+            audio: tokio::sync::mpsc::Receiver<Vec<u8>>,
+            events: tokio::sync::mpsc::Sender<SttEvent>,
+            sample_rate: u32,
+            _options: super::SttOptions,
+        ) -> anyhow::Result<()> {
+            deliver_once(self, ctx).await;
+            PluginCapability::stt_transcribe_stream(self, audio, events, sample_rate).await
+        }
+
+        async fn stt_languages(&self) -> Vec<String> {
+            PluginCapability::stt_languages(self).await
+        }
+
+        async fn stt_config_fields(&self) -> Vec<FieldDef> {
+            PluginCapability::stt_config_fields(self).await
+        }
+
+        async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
+            PluginCapability::ai_models(self).await
+        }
+
+        async fn action_types(&self) -> Vec<ActionTypeDef> {
+            PluginCapability::action_types(self).await
+        }
+
+        async fn execute_action(
+            &self,
+            ctx: &PluginContext,
+            action_type: &str,
+            params_json: &str,
+        ) -> Result<String, ToolError> {
+            deliver_once(self, ctx).await;
+            let r = PluginCapability::execute_action(self, action_type, params_json).await;
+            legacy_outcome(r.success, r.result, r.error)
+        }
+
+        async fn trigger_types(&self) -> Vec<TriggerTypeDef> {
+            PluginCapability::trigger_types(self).await
+        }
+
+        async fn ui_contributions(&self) -> Vec<UiContribution> {
+            PluginCapability::ui_contributions(self).await
+        }
+
+        async fn handle_ui_call(
+            &self,
+            ctx: &PluginContext,
+            method: &str,
+            params_json: &str,
+        ) -> Result<String, ToolError> {
+            deliver_once(self, ctx).await;
+            let r = PluginCapability::handle_ui_call(self, method, params_json).await;
+            // 0.5's UiCallResult had no `success` flag: a non-empty `error` is
+            // the failure, and an empty one with an empty result is the legal
+            // answer "nothing to say".
+            if r.error.is_empty() {
+                Ok(r.result_json)
+            } else {
+                Err(ToolError::Internal(r.error))
+            }
+        }
+
+        fn source_id(&self) -> &str {
+            PluginCapability::source_id(self)
+        }
+
+        fn subscribed_events(&self) -> Vec<String> {
+            PluginCapability::subscribed_events(self)
+        }
+
+        async fn on_event(&self, ctx: &PluginContext, event_type: &str, payload_json: &str) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_event(self, event_type, payload_json).await
+        }
+
+        async fn on_conversation_event(
+            &self,
+            ctx: &PluginContext,
+            conv_id: &str,
+            event: &proto::ConversationEventMsg,
+        ) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_conversation_event(self, conv_id, event).await
+        }
+
+        async fn on_state_changed(
+            &self,
+            ctx: &PluginContext,
+            event: crate::events::StateChangedEvent,
+        ) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_state_changed(self, event).await
+        }
+
+        async fn on_command_triggered(
+            &self,
+            ctx: &PluginContext,
+            event: crate::events::CommandTriggeredEvent,
+        ) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_command_triggered(self, event).await
+        }
+
+        async fn on_command_completed(
+            &self,
+            ctx: &PluginContext,
+            event: crate::events::CommandCompletedEvent,
+        ) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_command_completed(self, event).await
+        }
+
+        /// Straight through, unparsed. `on_config` — and with it the 0.6
+        /// warning about a config that does not fit — is deliberately not
+        /// reached: an 0.5 plugin parses its own JSON, and `NoConfig` would
+        /// accept anything anyway.
+        async fn on_config_changed(&self, ctx: &PluginContext, config_json: &str) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_config_changed(self, config_json).await
+        }
+
+        async fn on_language_changed(&self, ctx: &PluginContext, language: &str) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_language_changed(self, language).await
+        }
+
+        /// 0.5 had no `on_start`; this exists to make sure the host has been
+        /// delivered before the plugin starts serving, whatever else ran first.
+        async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
+            deliver_once(self, ctx).await;
+            Ok(())
+        }
+
+        async fn on_active_triggers(&self, ctx: &PluginContext, active_types: Vec<String>) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_active_triggers(self, active_types).await
+        }
+
+        async fn on_shutdown(&self, ctx: &PluginContext) {
+            deliver_once(self, ctx).await;
+            PluginCapability::on_shutdown(self).await
+        }
+
+        async fn health_check(&self) -> (bool, String) {
+            PluginCapability::health_check(self).await
+        }
+    }
+
+    // ── the shim, tested against the trait it is a shim for ──────────────────
+    //
+    // Every plugin below is written the way an 0.5 plugin was written: the 0.5
+    // trait, the 0.5 result types, `Mutex<Option<Arc<Mutex<HostClient>>>>` for
+    // the host. They are then run through the 0.6 harness, which only knows
+    // about the 0.6 trait — so what these tests exercise is the forwarding impl
+    // and nothing else.
+    #[cfg(test)]
+    mod tests {
+        use std::sync::Mutex as StdMutex;
+
+        use super::*;
+        use crate::testing::Harness;
+
+        // ── an 0.5 tool plugin, verbatim ──
+
+        /// dice-roller as it was written in 0.5, down to the host field.
+        #[derive(Default)]
+        struct LegacyDice {
+            host: Mutex<Option<Arc<Mutex<HostClient>>>>,
+            /// How many times `set_host` was called, which must be once.
+            host_deliveries: std::sync::atomic::AtomicUsize,
+            config_json: StdMutex<String>,
+            /// Whether the host was already there when `on_config_changed` ran,
+            /// which in 0.5 it always was.
+            config_had_host: std::sync::atomic::AtomicBool,
+        }
+
+        #[async_trait::async_trait]
+        impl PluginCapability for LegacyDice {
+            async fn set_host(&self, host: Arc<Mutex<HostClient>>) {
+                self.host_deliveries
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                *self.host.lock().await = Some(host);
+            }
+
+            async fn list_tools(&self) -> Vec<ToolDef> {
+                vec![ToolDef {
+                    name: "roll_dice".into(),
+                    description: "Roll dice.".into(),
+                    parameters_json: r#"{"type":"object","properties":{}}"#.into(),
+                }]
+            }
+
+            async fn call_tool(&self, name: &str, _arguments_json: &str) -> ToolResult {
+                if name != "roll_dice" {
+                    return ToolResult::err(format!("Unknown tool: {name}"));
+                }
+                // The 0.5 way of reaching the daemon: through the stored host.
+                let host = self.host.lock().await.clone();
+                match host {
+                    Some(h) => {
+                        let h = h.lock().await;
+                        let _ = h.fire_trigger("on_roll_value", r#"{"value":"4"}"#).await;
+                        ToolResult::ok("Rolled 1d6: [4] = 4")
+                    }
+                    None => ToolResult::err("host client not available yet"),
+                }
+            }
+
+            async fn execute_action(&self, action_type: &str, _params: &str) -> ActionResult {
+                match action_type {
+                    "roll_dice" => ActionResult::ok("1d6: [4] = 4"),
+                    other => ActionResult::err(format!("Unknown action: {other}")),
+                }
+            }
+
+            async fn handle_ui_call(&self, method: &str, _params: &str) -> UiCallResult {
+                match method {
+                    "getConfig" => UiCallResult::ok(r#"{"default_sides":6}"#),
+                    other => UiCallResult::err(format!("Unknown method: {other}")),
+                }
+            }
+
+            async fn on_config_changed(&self, config_json: &str) {
+                *self.config_json.lock().unwrap() = config_json.to_string();
+                self.config_had_host.store(
+                    self.host.lock().await.is_some(),
+                    std::sync::atomic::Ordering::SeqCst,
+                );
+            }
+        }
+
+        /// The acceptance criterion of task 5.11, in one test: an 0.5-era plugin
+        /// runs unmodified on the 0.6 SDK — its tools answer, and the host it
+        /// stored in `set_host` still reaches the daemon.
+        #[tokio::test]
+        async fn an_0_5_plugin_still_serves_tools_and_still_fires_triggers() {
+            let h = Harness::new(LegacyDice::default())
+                .with_config_json(r#"{"default_sides":20}"#)
+                .start()
+                .await
+                .unwrap();
+
+            let tools = h.tools().await;
+            assert_eq!(tools.len(), 1);
+            assert_eq!(tools[0].name, "roll_dice");
+
+            let out = h.call_tool("roll_dice", serde_json::json!({})).await.unwrap();
+            assert_eq!(out, "Rolled 1d6: [4] = 4");
+
+            let fired = h.fired_triggers();
+            assert_eq!(fired.len(), 1, "the stored host must still work: {fired:?}");
+            assert_eq!(fired[0].trigger_type, "on_roll_value");
+
+            // The raw config JSON reaches the 0.5 hook unparsed, and `on_config`
+            // (which an 0.5 plugin does not have) is not involved.
+            assert_eq!(
+                *h.plugin().config_json.lock().unwrap(),
+                r#"{"default_sides":20}"#
+            );
+
+            // 0.5's runner called `set_host` (runner.rs:223) before
+            // `on_config_changed` (runner.rs:300). An 0.5 `on_config_changed`
+            // that logs through the host is entitled to still work.
+            assert!(
+                h.plugin()
+                    .config_had_host
+                    .load(std::sync::atomic::Ordering::SeqCst),
+                "the host must arrive before the first 0.5 hook, as it did in 0.5"
+            );
+
+            // And exactly one `set_host`, no matter how many hooks ran.
+            assert_eq!(
+                h.plugin()
+                    .host_deliveries
+                    .load(std::sync::atomic::Ordering::SeqCst),
+                1
+            );
+        }
+
+        /// 0.5's three result types had one failure between them, and it was a
+        /// sentence. Each maps onto a `ToolError` that still carries it.
+        #[tokio::test]
+        async fn an_0_5_failure_becomes_a_tool_error_with_the_same_sentence() {
+            let h = Harness::new(LegacyDice::default()).start().await.unwrap();
+
+            let err = h.call_tool("nope", serde_json::json!({})).await.unwrap_err();
+            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown tool: nope"), "{err:?}");
+
+            let err = h.execute_action("nope", serde_json::json!({})).await.unwrap_err();
+            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown action: nope"), "{err:?}");
+
+            assert_eq!(
+                h.ui_call("getConfig", serde_json::json!({})).await.unwrap(),
+                r#"{"default_sides":6}"#
+            );
+            let err = h.ui_call("nope", serde_json::json!({})).await.unwrap_err();
+            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown method: nope"), "{err:?}");
+        }
+
+        // ── the streaming hooks, which are the ones worth doubting ──
+
+        /// echo-stt as it was written in 0.5: a real streaming backend, which
+        /// overrides the *stream* hook and never implements `stt_transcribe`.
+        struct LegacyStreamingStt;
+
+        #[async_trait::async_trait]
+        impl PluginCapability for LegacyStreamingStt {
+            async fn stt_transcribe_stream(
+                &self,
+                mut audio_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+                events_tx: tokio::sync::mpsc::Sender<SttEvent>,
+                _sample_rate: u32,
+            ) -> anyhow::Result<()> {
+                let mut chunks = 0usize;
+                while let Some(chunk) = audio_rx.recv().await {
+                    chunks += 1;
+                    let _ = events_tx
+                        .send(SttEvent::partial(format!("chunk {chunks} ({} bytes)", chunk.len())))
+                        .await;
+                }
+                let _ = events_tx
+                    .send(SttEvent::transcript(format!("{chunks} chunks")))
+                    .await;
+                Ok(())
+            }
+        }
+
+        /// The failure this exists to catch: forwarding 0.6's stream hook to
+        /// 0.5's *non-streaming* `stt_transcribe` compiles, and silently throws
+        /// away every partial a real streaming backend emits. Change
+        /// `stt_transcribe_stream` in the impl above to forward at
+        /// `stt_transcribe` and this test fails with one event instead of four.
+        #[tokio::test]
+        async fn a_streaming_0_5_recognizer_keeps_emitting_partials() {
+            let h = Harness::new(LegacyStreamingStt).start().await.unwrap();
+
+            let events = h
+                .stt_stream(vec![vec![0u8; 8], vec![0u8; 8], vec![0u8; 4]])
+                .await
+                .unwrap();
+
+            let partials: Vec<&SttEvent> = events.iter().filter(|e| !e.is_final).collect();
+            assert_eq!(
+                partials.len(),
+                3,
+                "the plugin's own streaming hook must be the one that ran: {events:?}"
+            );
+            assert_eq!(partials[0].text, "chunk 1 (8 bytes)");
+            let finals: Vec<&SttEvent> = events.iter().filter(|e| e.is_final).collect();
+            assert_eq!(finals.len(), 1);
+            assert_eq!(finals[0].text, "3 chunks");
+        }
+
+        /// mock-stt as it was written in 0.5: non-streaming, and reached through
+        /// 0.5's own buffering default. The daemon only ever calls `SttProcess`,
+        /// so this path is the one every non-streaming 0.5 recognizer takes.
+        struct LegacyBufferedStt;
+
+        #[async_trait::async_trait]
+        impl PluginCapability for LegacyBufferedStt {
+            async fn stt_transcribe(
+                &self,
+                audio: &[u8],
+                sample_rate: u32,
+            ) -> anyhow::Result<SttEvent> {
+                Ok(SttEvent::transcript(format!(
+                    "{} bytes at {sample_rate} Hz",
+                    audio.len()
+                )))
+            }
+        }
+
+        #[tokio::test]
+        async fn a_non_streaming_0_5_recognizer_still_gets_the_whole_utterance() {
+            let h = Harness::new(LegacyBufferedStt).start().await.unwrap();
+
+            let events = h
+                .stt_stream_with(
+                    vec![vec![0u8; 8], vec![0u8; 8], vec![0u8; 4]],
+                    16_000,
+                    crate::testing::fixtures::stt_options(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(events.len(), 1, "{events:?}");
+            assert!(events[0].is_final);
+            assert_eq!(events[0].text, "20 bytes at 16000 Hz");
+        }
+
+        /// tone-tts as it was written in 0.5: one buffer, no streaming hook —
+        /// 0.5 had none. The daemon's streaming path must still reach it, which
+        /// it does through the 0.6 default, through the shim, into 0.5's
+        /// four-argument `tts_synthesize`.
+        struct LegacyTts;
+
+        #[async_trait::async_trait]
+        impl PluginCapability for LegacyTts {
+            async fn tts_voices(&self) -> Vec<VoiceInfo> {
+                vec![VoiceInfo::new("tone", "Tone")]
+            }
+
+            async fn tts_synthesize(
+                &self,
+                text: &str,
+                voice_id: &str,
+                speed: f32,
+                _pitch: f32,
+            ) -> anyhow::Result<AudioData> {
+                Ok(AudioData {
+                    data: format!("{text}/{voice_id}/{speed}").into_bytes(),
+                    format: "pcm".into(),
+                    sample_rate: 24_000,
+                    duration_ms: 100,
+                })
+            }
+        }
+
+        #[tokio::test]
+        async fn an_0_5_tts_provider_answers_on_the_streaming_path_too() {
+            let h = Harness::new(LegacyTts).start().await.unwrap();
+
+            assert_eq!(h.tts_voices().await.len(), 1);
+
+            let req = crate::capability::TtsRequest {
+                text: "hello".into(),
+                voice_id: "tone".into(),
+                speed: 1.5,
+                pitch: 1.0,
+            };
+            let audio = h.tts_synthesize(req.clone()).await.unwrap();
+            assert_eq!(String::from_utf8(audio.data).unwrap(), "hello/tone/1.5");
+
+            // The daemon's streaming TTS path, which 0.5 had no hook for: the
+            // 0.6 default synthesizes the whole utterance and sends one chunk.
+            let chunks = h.tts_stream(req).await.unwrap();
+            assert_eq!(chunks.len(), 1);
+            assert!(chunks[0].is_last);
+            assert_eq!(chunks[0].sample_rate, 24_000);
+        }
+
+        /// Hooks that did not exist in 0.5 must stay absent, not answer
+        /// plausibly. `UNIMPLEMENTED` is the protocol's word for "no such hook",
+        /// and the daemon's idle-unload timer reads `stt_load_state` — a shim
+        /// that answered `NotNeeded` would tell it a resident model is not
+        /// resident.
+        #[tokio::test]
+        async fn hooks_0_5_never_had_stay_unimplemented() {
+            let h = Harness::new(LegacyBufferedStt).start().await.unwrap();
+
+            let e = h.stt_load_state().await.unwrap_err();
+            assert!(
+                e.downcast_ref::<crate::error::HookUnimplemented>().is_some(),
+                "stt_load_state must answer UNIMPLEMENTED, got {e:?}"
+            );
+
+            let e = h.ai_complete(crate::capability::AiRequest::default()).await.unwrap_err();
+            assert!(
+                e.downcast_ref::<crate::error::HookUnimplemented>().is_some(),
+                "ai_complete must answer UNIMPLEMENTED, got {e:?}"
+            );
+        }
+
+        /// Two instances of one 0.5 plugin in one process each get their own
+        /// host. The registry that makes `set_host` happen once must key on the
+        /// instance, not on the type — a test process runs several, and so does
+        /// `astra-plugin test`.
+        #[tokio::test]
+        async fn two_instances_of_one_0_5_plugin_each_get_a_host() {
+            let a = Harness::new(LegacyDice::default()).start().await.unwrap();
+            let b = Harness::new(LegacyDice::default()).start().await.unwrap();
+
+            for h in [&a, &b] {
+                h.call_tool("roll_dice", serde_json::json!({})).await.unwrap();
+                assert_eq!(h.fired_triggers().len(), 1);
+                assert_eq!(
+                    h.plugin()
+                        .host_deliveries
+                        .load(std::sync::atomic::Ordering::SeqCst),
+                    1
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

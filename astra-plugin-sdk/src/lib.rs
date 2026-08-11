@@ -48,6 +48,16 @@
 //! **Config is typed.** Declare [`PluginCapability::Config`] and implement
 //! [`on_config`](PluginCapability::on_config); the SDK parses, and reports a
 //! payload that does not fit rather than running on stale settings in silence.
+//!
+//! # Testing
+//!
+//! [`testing`] ships with the SDK, so a plugin's `Cargo.toml` still has one
+//! line in it. Two levels:
+//! [`Harness`](testing::Harness) runs the hooks in process against a
+//! [`RecordingHost`](testing::RecordingHost) — no daemon, no socket — and
+//! [`WireHarness`](testing::WireHarness) starts the plugin the way the daemon
+//! starts it and drives it over gRPC, which is the only level that can see
+//! registration, the session token, and the streaming paths.
 
 pub mod proto {
     tonic::include_proto!("astra");
@@ -62,8 +72,11 @@ pub mod events;
 mod host_client;
 pub mod i18n;
 pub mod limits;
+pub mod logging;
+pub mod panics;
 pub mod protocol;
 mod runner;
+pub mod testing;
 
 pub use auth::CapabilityAuth;
 pub use capability::*;
@@ -75,6 +88,7 @@ pub use daemon_client::DaemonClient;
 pub use error::{ActionError, HookUnimplemented, ToolError, ToolErrorCode, unimplemented};
 pub use host_client::HostClient;
 pub use i18n::I18n;
+pub use panics::Panicked;
 pub use protocol::{EXIT_PROTOCOL_INCOMPATIBLE, MIN_SUPPORTED_DAEMON_PROTOCOL, PROTOCOL_VERSION};
 pub use runner::{RunConfig, run, run_with};
 

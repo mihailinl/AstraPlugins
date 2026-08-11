@@ -41,7 +41,11 @@ use crate::proto::plugin_capability_service_server::PluginCapabilityServiceServe
 
 /// Dispatch a daemon event to the appropriate typed handler on the plugin.
 /// Also always calls `on_event()` for the raw payload.
-async fn dispatch_event<P: PluginCapability>(
+///
+/// `pub(crate)` so the level-1 test harness delivers events through the same
+/// code the runner does — a harness with its own dispatch would be testing
+/// itself.
+pub(crate) async fn dispatch_event<P: PluginCapability>(
     plugin: &P,
     ctx: &PluginContext,
     event: &proto::PluginEventMsg,
@@ -289,14 +293,27 @@ pub async fn run<P: PluginCapability>(plugin: P) -> Result<()> {
 
 /// [`run`] with explicit configuration.
 pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Result<()> {
+    // Before anything that can panic — including the argument parse. A panic
+    // the hook was not installed for is one nobody can read afterwards.
+    crate::panics::install_hook();
+
     if config.init_tracing {
+        use tracing_subscriber::layer::SubscriberExt;
+        use tracing_subscriber::util::SubscriberInitExt;
         // `try_init`, not `init`: a plugin that installed its own subscriber (or
         // a second `run_with` in one process, as in tests) must not panic here.
-        let _ = tracing_subscriber::fmt()
-            .with_env_filter(
+        //
+        // Two layers: stderr, which the daemon captures, and the host layer,
+        // which turns the author's own `tracing::info!` into a `PluginLog` the
+        // *user* can read in the plugin's log pane. It is inert until
+        // `logging::attach` hands it a host client, below.
+        let _ = tracing_subscriber::registry()
+            .with(
                 tracing_subscriber::EnvFilter::try_from_default_env()
                     .unwrap_or_else(|_| "info".into()),
             )
+            .with(tracing_subscriber::fmt::layer())
+            .with(crate::logging::layer())
             .try_init();
     }
 
@@ -372,6 +389,12 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
 
     // ── build ctx ──
     let host = Arc::new(host);
+
+    // From here on, `tracing::warn!("…")` in the plugin's own code reaches the
+    // user's log pane and not just stderr. Registration is the earliest this
+    // can happen: before it there is no authenticated client to send on.
+    crate::logging::attach(host.clone() as Arc<dyn Host>);
+
     let mut ctx = PluginContext::new(args.plugin_id.clone(), host.clone() as Arc<dyn Host>);
 
     // Background loops (chat firehose, event subscription). Kept so shutdown
@@ -415,10 +438,16 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     // ── on_start ──
     // An Err here aborts startup. The plugin never serves and the process exits
     // non-zero, which is what the daemon needs to see.
-    plugin
-        .on_start(&ctx)
-        .await
-        .context("Plugin on_start failed; aborting startup")?;
+    // A panic here is still an aborted startup — but it arrives as one
+    // sentence naming `on_start` and the line, rather than as an unwind out of
+    // `main` that the daemon reads as "exited 101".
+    match crate::panics::catch("on_start", plugin.on_start(&ctx)).await {
+        Ok(res) => res.context("Plugin on_start failed; aborting startup")?,
+        Err(panicked) => {
+            return Err(anyhow::anyhow!("{panicked}")
+                .context("Plugin on_start panicked; aborting startup"));
+        }
+    }
 
     // Firehose loop: on_conversation_event for every chat event. Fetch the
     // conversation list first and subscribe with cursor=0 for each so plugins
@@ -675,6 +704,30 @@ struct CapabilityServiceImpl<P: PluginCapability> {
     shutdown: ShutdownTrigger,
 }
 
+/// Run one hook, turning a panic into a `Status` the daemon can log.
+///
+/// `INTERNAL`, never `UNIMPLEMENTED`: the daemon reads the latter as *this hook
+/// is absent* and stops calling it for the life of the process, which would
+/// turn one panic into a plugin that has quietly lost a capability.
+async fn catch<F: std::future::Future>(
+    hook: &str,
+    fut: F,
+) -> Result<F::Output, tonic::Status> {
+    crate::panics::catch(hook, fut).await.map_err(Into::into)
+}
+
+/// Run one hook that already returns `Result<_, ToolError>`, turning a panic
+/// into the same in-band error a returned `Err` would have been.
+async fn caught_tool<T, F: std::future::Future<Output = Result<T, ToolError>>>(
+    hook: &str,
+    fut: F,
+) -> Result<T, ToolError> {
+    match crate::panics::catch(hook, fut).await {
+        Ok(res) => res,
+        Err(panicked) => Err(panicked.into()),
+    }
+}
+
 /// An error that reached the daemon *after* the response stream opened. The
 /// headers are already sent, so there is no status left to set — the protocol's
 /// place for this is the stream's own error variant.
@@ -695,7 +748,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginToolListResponse>, tonic::Status> {
-        let tools = self.plugin.list_tools().await;
+        let tools = catch("list_tools", self.plugin.list_tools()).await?;
         Ok(tonic::Response::new(proto::PluginToolListResponse {
             tools: tools.into_iter().map(Into::into).collect(),
         }))
@@ -709,10 +762,17 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // In-band, not `Status`: a tool that failed still ANSWERED, and the AI
         // loop has to read the answer. `wire_string()` prefixes the stable code
         // so "NOT_CONFIGURED" survives the trip through a `string error` field.
-        let resp = match self
-            .plugin
-            .call_tool(&self.ctx, &req.tool_name, &req.arguments_json)
-            .await
+        //
+        // A panic is one of those answers. `catch` turns it into
+        // `ToolError::Internal`, so a bad `unwrap` in one tool costs that call
+        // and not the process — every other capability this plugin serves is
+        // still up when the next request arrives.
+        let resp = match caught_tool(
+            "call_tool",
+            self.plugin
+                .call_tool(&self.ctx, &req.tool_name, &req.arguments_json),
+        )
+        .await
         {
             Ok(result) => proto::PluginCallToolResponse {
                 success: true,
@@ -739,7 +799,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginTtsSynthesizeRequest>,
     ) -> Result<tonic::Response<proto::PluginTtsSynthesizeResponse>, tonic::Status> {
         let req: TtsRequest = request.into_inner().into();
-        match self.plugin.tts_synthesize(&self.ctx, req).await {
+        match catch("tts_synthesize", self.plugin.tts_synthesize(&self.ctx, req)).await? {
             Ok(audio) => Ok(tonic::Response::new(audio.into())),
             Err(e) => Err(hook_status(e)),
         }
@@ -797,7 +857,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginTtsVoicesResponse>, tonic::Status> {
-        let voices = self.plugin.tts_voices().await;
+        let voices = catch("tts_voices", self.plugin.tts_voices()).await?;
         Ok(tonic::Response::new(proto::PluginTtsVoicesResponse {
             voices: voices.into_iter().map(Into::into).collect(),
         }))
@@ -808,10 +868,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginTtsActivateRequest>,
     ) -> Result<tonic::Response<proto::PluginTtsActivateResponse>, tonic::Status> {
         let req = request.into_inner();
-        match self
-            .plugin
-            .tts_activate(&self.ctx, req.cek, &req.voice_id)
-            .await
+        match catch(
+            "tts_activate",
+            self.plugin.tts_activate(&self.ctx, req.cek, &req.voice_id),
+        )
+        .await?
         {
             Ok(()) => Ok(tonic::Response::new(proto::PluginTtsActivateResponse {})),
             Err(e) => Err(hook_status(e)),
@@ -891,23 +952,44 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // live.
         let plugin = self.plugin.clone();
         let ctx = self.ctx.clone();
-        tokio::spawn(async move {
-            if let Err(e) = plugin
+        let task = tokio::spawn(async move {
+            plugin
                 .stt_transcribe_stream(&ctx, audio_rx, events_tx, sample_rate, options)
                 .await
-            {
-                tracing::warn!("stt_transcribe_stream failed: {e:#}");
-            }
         });
 
         // Outbound forwarder: map every `SttEvent` to a proto event on
         // the response stream. Closes when `events_tx` is dropped by the
-        // plugin task.
+        // plugin task — and then reports how that task ended.
+        //
+        // The hook's `Err` is part of the answer, not a log line. It used to be
+        // `warn!`ed and dropped, which made a plugin that declares `stt` and
+        // does not implement `stt_transcribe` answer `SttProcess` with OK and
+        // zero events — while Python and TypeScript both answered
+        // UNIMPLEMENTED. That broke the protocol's own forward-compat contract
+        // ("Unimplemented means the hook is absent") in the language most
+        // plugins are written in, and it swallowed genuine mid-utterance
+        // recognizer failures with it: the user saw a moving waveform, no text,
+        // and nothing in the daemon log.
+        //
+        // Yielded *after* the events rather than awaited before them, unlike
+        // `TtsSynthesizeStream`: a non-streaming STT plugin emits nothing until
+        // the utterance ends, so waiting for a first event before answering
+        // would hold the response headers for the whole utterance. Zero events
+        // followed by an `Err` reaches the client as the status anyway, because
+        // no message has been sent yet.
         let out = async_stream::stream! {
             let mut events_rx = events_rx;
             while let Some(ev) = events_rx.recv().await {
                 let proto_ev: proto::PluginSttEvent = ev.into();
                 yield Ok::<proto::PluginSttEvent, tonic::Status>(proto_ev);
+            }
+            match task.await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => yield Err(hook_status(e)),
+                Err(e) => yield Err(tonic::Status::internal(format!(
+                    "stt_transcribe_stream panicked: {e}"
+                ))),
             }
         };
         Ok(tonic::Response::new(Box::pin(out)))
@@ -917,7 +999,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginSttLanguagesResponse>, tonic::Status> {
-        let langs = self.plugin.stt_languages().await;
+        let langs = catch("stt_languages", self.plugin.stt_languages()).await?;
         Ok(tonic::Response::new(proto::PluginSttLanguagesResponse {
             languages: langs,
         }))
@@ -927,10 +1009,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::SttLoadRequest>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
-        match self
-            .plugin
-            .stt_load(&self.ctx, request.into_inner().into())
-            .await
+        match catch(
+            "stt_load",
+            self.plugin.stt_load(&self.ctx, request.into_inner().into()),
+        )
+        .await?
         {
             Ok(()) => Ok(tonic::Response::new(proto::Empty {})),
             Err(e) => Err(hook_status(e)),
@@ -941,7 +1024,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
-        match self.plugin.stt_unload(&self.ctx).await {
+        match catch("stt_unload", self.plugin.stt_unload(&self.ctx)).await? {
             Ok(()) => Ok(tonic::Response::new(proto::Empty {})),
             Err(e) => Err(hook_status(e)),
         }
@@ -951,7 +1034,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::SttLoadStateResponse>, tonic::Status> {
-        match self.plugin.stt_load_state(&self.ctx).await {
+        match catch("stt_load_state", self.plugin.stt_load_state(&self.ctx)).await? {
             Ok(state) => Ok(tonic::Response::new(state.into())),
             Err(e) => Err(hook_status(e)),
         }
@@ -961,7 +1044,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
-        let fields = self.plugin.tts_config_fields().await;
+        let fields = catch("tts_config_fields", self.plugin.tts_config_fields()).await?;
         Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
             config_fields: fields,
         }))
@@ -971,7 +1054,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginConfigFieldsResponse>, tonic::Status> {
-        let fields = self.plugin.stt_config_fields().await;
+        let fields = catch("stt_config_fields", self.plugin.stt_config_fields()).await?;
         Ok(tonic::Response::new(proto::PluginConfigFieldsResponse {
             config_fields: fields,
         }))
@@ -1035,7 +1118,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginAiModelsResponse>, tonic::Status> {
-        let (models, default) = self.plugin.ai_models().await;
+        let (models, default) = catch("ai_models", self.plugin.ai_models()).await?;
         Ok(tonic::Response::new(proto::PluginAiModelsResponse {
             models: models.into_iter().map(Into::into).collect(),
             default_model: default,
@@ -1049,10 +1132,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginExecuteActionRequest>,
     ) -> Result<tonic::Response<proto::PluginExecuteActionResponse>, tonic::Status> {
         let req = request.into_inner();
-        let resp = match self
-            .plugin
-            .execute_action(&self.ctx, &req.action_type, &req.params_json)
-            .await
+        let resp = match caught_tool(
+            "execute_action",
+            self.plugin
+                .execute_action(&self.ctx, &req.action_type, &req.params_json),
+        )
+        .await
         {
             Ok(result) => proto::PluginExecuteActionResponse {
                 success: true,
@@ -1074,7 +1159,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginActionTypesResponse>, tonic::Status> {
-        let types = self.plugin.action_types().await;
+        let types = catch("action_types", self.plugin.action_types()).await?;
         Ok(tonic::Response::new(proto::PluginActionTypesResponse {
             types,
         }))
@@ -1086,7 +1171,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginTriggerTypesResponse>, tonic::Status> {
-        let types = self.plugin.trigger_types().await;
+        let types = catch("trigger_types", self.plugin.trigger_types()).await?;
         Ok(tonic::Response::new(proto::PluginTriggerTypesResponse {
             types,
         }))
@@ -1098,7 +1183,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginUiContributionsResponse>, tonic::Status> {
-        let contributions = self.plugin.ui_contributions().await;
+        let contributions = catch("ui_contributions", self.plugin.ui_contributions()).await?;
         Ok(tonic::Response::new(proto::PluginUiContributionsResponse {
             contributions,
         }))
@@ -1109,10 +1194,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginUiCallRequest>,
     ) -> Result<tonic::Response<proto::PluginUiCallResponse>, tonic::Status> {
         let req = request.into_inner();
-        let resp = match self
-            .plugin
-            .handle_ui_call(&self.ctx, &req.method, &req.params_json)
-            .await
+        let resp = match caught_tool(
+            "handle_ui_call",
+            self.plugin
+                .handle_ui_call(&self.ctx, &req.method, &req.params_json),
+        )
+        .await
         {
             Ok(result_json) => proto::PluginUiCallResponse {
                 result_json,
@@ -1135,7 +1222,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginConfigChangedMsg>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
         let config_json = request.into_inner().config_json;
-        self.plugin.on_config_changed(&self.ctx, &config_json).await;
+        catch(
+            "on_config_changed",
+            self.plugin.on_config_changed(&self.ctx, &config_json),
+        )
+        .await?;
         Ok(tonic::Response::new(proto::Empty {}))
     }
 
@@ -1149,7 +1240,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // was always told no. Now the hook and `ctx.active_triggers()` cannot
         // disagree, because the hook cannot observe the older value.
         self.ctx.active_triggers().set(types.clone());
-        self.plugin.on_active_triggers(&self.ctx, types).await;
+        catch(
+            "on_active_triggers",
+            self.plugin.on_active_triggers(&self.ctx, types),
+        )
+        .await?;
         Ok(tonic::Response::new(proto::Empty {}))
     }
 
@@ -1159,7 +1254,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
         let language = request.into_inner().language;
         self.ctx.set_language(language.clone());
-        self.plugin.on_language_changed(&self.ctx, &language).await;
+        catch(
+            "on_language_changed",
+            self.plugin.on_language_changed(&self.ctx, &language),
+        )
+        .await?;
         Ok(tonic::Response::new(proto::Empty {}))
     }
 
@@ -1181,7 +1280,15 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginHealthResponse>, tonic::Status> {
-        let (healthy, status) = self.plugin.health_check().await;
+        // A panic here answers "not healthy", which is true and actionable —
+        // the daemon restarts the plugin. A `Status` would be read as the probe
+        // failing, which it also treats as dead, but without the sentence.
+        let (healthy, status) = match crate::panics::catch("health_check", self.plugin.health_check())
+            .await
+        {
+            Ok(answer) => answer,
+            Err(panicked) => (false, panicked.to_string()),
+        };
         Ok(tonic::Response::new(proto::PluginHealthResponse {
             healthy,
             status,

@@ -54,9 +54,12 @@ async-trait = "0.1"
 # CLI arg parsing (for --daemon-addr and --plugin-id)
 clap = { version = "4", features = ["derive"] }
 
-# Logging
+# Logging. `registry` is named explicitly and not left to `fmt` to pull in:
+# `logging::layer` composes onto a `Registry`, and a plugin that builds the SDK
+# with `default-features = false` on tracing-subscriber would otherwise lose the
+# layer with an error about a trait bound rather than about a feature.
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
 
 [build-dependencies]
 tonic-build = "0.12"

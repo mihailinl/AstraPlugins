@@ -21,8 +21,17 @@ pub struct StateChangedEvent {
 pub struct CommandTriggeredEvent {
     pub command_id: String,
     pub command_name: String,
+    /// The utterance or text that matched the command's trigger.
+    ///
+    /// This field replaces `variables`, which the daemon never sent:
+    /// `AstraEvent::CommandTriggered` carries `command_id`, `command_name` and
+    /// `trigger_text` and nothing else (`astra-core/src/event.rs`). `variables`
+    /// was `#[serde(default)]`, so it deserialized to an empty map on every
+    /// event and a plugin that read it read `{}` forever — a field that cannot
+    /// be populated is worse than an absent one, because it looks like an
+    /// answer.
     #[serde(default)]
-    pub variables: std::collections::HashMap<String, String>,
+    pub trigger_text: String,
 }
 
 /// Command completed event.
