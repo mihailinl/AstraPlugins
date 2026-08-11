@@ -1,0 +1,10 @@
+# The digests in testdata/bundles/SHA256SUMS are taken over the LF bytes. The
+# windows-2022 runner has core.autocrlf=true in its system gitconfig, so without
+# this the checkout rewrites vectors.json and the shared-vector suite fails there
+# and only there, with a digest mismatch that reads like an edited fixture.
+* text=auto eol=lf
+
+# Belt and braces: the .astraplugin goldens survive today only because git's
+# NUL-byte heuristic happens to classify them as binary. A stored-only,
+# NUL-free vector would not be so lucky.
+*.astraplugin binary
