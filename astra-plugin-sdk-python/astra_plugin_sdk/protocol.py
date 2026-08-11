@@ -1,3 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2026 Minice — https://minice.ai
+
 """The plugin wire-protocol handshake.
 
 Before this existed there was no version anywhere in either direction, so an old

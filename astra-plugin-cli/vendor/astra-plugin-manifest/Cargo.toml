@@ -13,7 +13,7 @@ name = "astra-plugin-manifest"
 version = "0.1.0"
 edition = "2024"
 authors = ["Astra Team"]
-license = "LGPL-3.0-or-later"
+license = "MPL-2.0"
 description = "The `plugin.toml` manifest: one definition, shared by the daemon, the CLI and the registry bot"
 
 [dependencies]

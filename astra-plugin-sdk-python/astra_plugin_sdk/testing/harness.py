@@ -1,3 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2026 Minice — https://minice.ai
+
 """Level 1 of the §5.6 test harness: the plugin, in this process, over the servicer.
 
 WHAT IT TESTS THAT CALLING THE METHOD DIRECTLY DOES NOT

@@ -159,7 +159,7 @@ service, the same session-token gate, the same permission gate the SDK's own
 carries the stronger copyleft: fork it and your changes ship under the same
 terms.
 
-The SDKs it scaffolds against are LGPL, so the plugins you build with it are
+The SDKs it scaffolds against are MPL-2.0, so the plugins you build with it are
 yours under any licence you like.
 
 Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional

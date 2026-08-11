@@ -233,14 +233,14 @@ is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-**LGPL-3.0-or-later** — see [LICENSE](LICENSE), with the GPL it incorporates in
-[LICENSE.GPL-3.0](LICENSE.GPL-3.0).
+**MPL-2.0** — see [LICENSE](LICENSE).
 
-Linking this crate into your plugin does not affect your plugin's licence: it
-stays yours, proprietary if you want. What the LGPL protects is this crate —
-modify it and those modifications have to be published.
+Using this crate does not affect your plugin's licence. MPL is file-level
+copyleft: modify one of these files and that file's source must be published;
+everything else you write stays yours, proprietary if you want. It is MPL
+rather than LGPL precisely so static linking carries no relinking obligation.
 
-Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional
-term under GPL-3.0 section 7(b).
+Attribution: see [NOTICE](NOTICE). Nothing is required beyond keeping the
+headers in the source files.
 
 Copyright (C) 2026 Minice — https://minice.ai

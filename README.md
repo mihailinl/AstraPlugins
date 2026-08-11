@@ -281,15 +281,17 @@ a plugin needs to be installable everywhere Astra runs.
 
 ## License
 
-Not one licence — see [LICENSE](LICENSE) for the split and why it is drawn
-where it is.
+Not one licence — see [LICENSE](LICENSE) for the map and the reasoning.
 
-The SDKs and the macro crate are **LGPL-3.0-or-later**, because they are linked
-into your plugin. Your plugin stays yours, under any licence you choose,
-including a proprietary one. The CLI, the tooling and the specs are
-**GPL-3.0-or-later**.
+The SDKs, the macro crate and the examples are **MPL-2.0**: file-level
+copyleft, designed to be combined with code under other terms. Your plugin is
+yours, under any licence you choose, including a proprietary one. The CLI, the
+tooling, the specs and the docs are **GPL-3.0-or-later**.
 
-Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional
-term under GPL-3.0 section 7(b).
+Being *allowed* to write a proprietary plugin is not the same as being allowed
+to *list* one: the registry accepts open-source licences only today. That is
+policy and can change; the licence is not and will not.
+
+Attribution: see [NOTICE](NOTICE).
 
 Copyright (C) 2026 Minice — https://minice.ai

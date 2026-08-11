@@ -1,3 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2026 Minice — https://minice.ai
+
 """Golden audio, config fuzz sets, and the pytest fixtures that hand them out.
 
 This module is registered as a pytest plugin through the `pytest11` entry point
