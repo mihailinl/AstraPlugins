@@ -402,7 +402,7 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      ASTRA_TOOLING_REF: "e7c1a606618e07fac8a38f5dd00b28bbabcce6fb"
+      ASTRA_TOOLING_REF: "5b8ab2280b0c3abee9316245e58b848232b19ab2"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
@@ -509,6 +509,33 @@ jobs:
             ~/.cargo/bin/astra-plugin
             ~/.cargo/bin/astra-plugin.exe
           key: astra-plugin-cli-${{ runner.os }}-${{ env.ASTRA_TOOLING_REF }}
+
+      # The sibling checkout the block above describes. It was described and
+      # never written: `working-directory: astra-tooling/astra-plugin-cli` below
+      # pointed at a directory nothing created, so every release died with
+      # "An error occurred trying to start process '/usr/bin/bash' with working
+      # directory …/astra-tooling/astra-plugin-cli. No such file or directory"
+      # — before a line of the author's code ran, and with the pin validated one
+      # step earlier, which made the log read like a tooling-pin problem.
+      #
+      # Nothing caught it because this workflow is only reachable by tagging a
+      # release in a plugin's own repository, and no plugin had one until now.
+      #
+      # Skipped on a cache hit, with the same condition as the build: when the
+      # binary is already restored there is nothing to compile, and cloning the
+      # tooling to not use it is the slow half of the job.
+      - name: Checkout astra-plugin's source
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ASTRA_TOOLING_REPO }}
+          ref: ${{ env.ASTRA_TOOLING_REF }}
+          path: astra-tooling
+          # A shallow clone of one commit: this is a build input, not history.
+          fetch-depth: 1
+          # Same reason as the plugin checkout. Nothing here needs a credential,
+          # and a token in .git/config is one an author's build could read.
+          persist-credentials: false
 
       - name: Build astra-plugin
         if: steps.cli-cache.outputs.cache-hit != 'true'

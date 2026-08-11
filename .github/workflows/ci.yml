@@ -1749,12 +1749,69 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # C0 below needs to resolve an arbitrary older commit.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      # C0 — `ASTRA_TOOLING_REF` in plugin-release.yml names a commit that
+      # exists here and carries the CLI.
+      #
+      # That literal is how the reusable release workflow finds the
+      # `astra-plugin` it packs every author's bundle with. It cannot be an
+      # expression: no context tells a reusable workflow its own repository and
+      # commit. So it is a SHA typed by hand, in a file whose only real exercise
+      # is somebody tagging a plugin release — and when it is wrong the job dies
+      # in a foreign repository, with a message about a missing directory,
+      # roughly never in front of the person who mistyped it.
+      #
+      # Both failures this catches have already happened: a pin whose checkout
+      # step did not exist, and — while fixing that — a SHA off by six
+      # characters in the middle.
+      - name: C0 the release workflow's tooling pin resolves
+        run: |
+          set -euo pipefail
+          ref=$(grep -oP '^\s*ASTRA_TOOLING_REF:\s*"\K[0-9a-f]+' \
+                  .github/workflows/plugin-release.yml || true)
+          if [ -z "$ref" ]; then
+            echo "::error::no ASTRA_TOOLING_REF in .github/workflows/plugin-release.yml"
+            exit 1
+          fi
+          if ! [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::ASTRA_TOOLING_REF is not a 40-hex commit: '$ref'"
+            exit 1
+          fi
+          if ! git cat-file -e "$ref^{commit}" 2>/dev/null; then
+            echo "::error::ASTRA_TOOLING_REF $ref is not a commit in this repository."
+            echo "Every plugin release checks this repository out at that SHA and fails if it is not there."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$ref" HEAD; then
+            echo "::error::ASTRA_TOOLING_REF $ref is not an ancestor of this commit —"
+            echo "it names a commit from a branch that may be rewritten or deleted."
+            exit 1
+          fi
+          if ! git cat-file -e "$ref:astra-plugin-cli/Cargo.toml" 2>/dev/null; then
+            echo "::error::$ref has no astra-plugin-cli/Cargo.toml, so"
+            echo "\`cargo install --path astra-tooling/astra-plugin-cli\` has nothing to build."
+            exit 1
+          fi
+          echo "ok    ASTRA_TOOLING_REF $ref is an ancestor and carries the CLI"
+
+          # …and the step that puts the source where the build expects it still
+          # exists. It did not, for the whole life of this file: the build's
+          # `working-directory` named a path nothing created.
+          grep -q 'path: astra-tooling' .github/workflows/plugin-release.yml || {
+            echo "::error::nothing checks the tooling out into astra-tooling/, so"
+            echo "the \`Build astra-plugin\` step's working-directory does not exist."
+            exit 1
+          }
+          echo "ok    the tooling checkout writes astra-tooling/"
 
       # C1 — the shared numeric limits. The motivating bug: the streaming-STT
       # audio channel was 500 in the daemon and 32 in the Rust SDK, and the
