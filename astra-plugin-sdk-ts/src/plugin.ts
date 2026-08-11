@@ -21,8 +21,88 @@ import type {
   UiContribution,
   UiCallResult,
   FieldDef,
+  AiChunk,
+  AiCompleteRequest,
+  AudioChunk,
+  SttLoadStatus,
+  SttOptions,
 } from "./types";
+import { PluginError } from "./errors";
+import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits";
 import { DaemonClient } from "./daemon-client";
+
+/**
+ * The daemon's word for "this plugin does not have that hook".
+ *
+ * `optional_hook` on the daemon side reads `UNIMPLEMENTED` as absence, not as a
+ * fault, and that equivalence is the protocol's forward-compat contract. Every
+ * un-overridden hook below throws this, so "not implemented" is one sentence in
+ * one place rather than a shape each handler invents.
+ */
+export class HookUnimplemented extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HookUnimplemented";
+  }
+}
+
+// ── wire projections ─────────────────────────────────────────────────────────
+//
+// The descriptor is loaded with `keepCase: false`, so every wire field is
+// lowerCamelCase (`config_fields` -> `configFields`). A snake_case key is
+// dropped by protobufjs without a word, which is how three handlers once sent
+// the daemon empty lists. These four functions are the only place the SDK
+// spells a wire field name for the §5.4 hooks.
+
+function sttEventWire(ev: SttEvent) {
+  return {
+    text: ev.text,
+    isFinal: ev.isFinal ?? true,
+    confidence: ev.confidence ?? 1.0,
+    language: ev.language ?? "",
+  };
+}
+
+function audioChunkWire(chunk: AudioChunk) {
+  return {
+    data: chunk.data,
+    isLast: chunk.isLast ?? false,
+    sampleRate: chunk.sampleRate ?? 0,
+  };
+}
+
+/**
+ * One `AiChunk` as the `oneof` it really is.
+ *
+ * A chunk that sets two things is a chunk the daemon reads one of, so the
+ * precedence is fixed here (error, tool call, thinking, done, text) rather than
+ * left to protobufjs' last-write-wins over the object's key order.
+ */
+function aiChunkWire(chunk: AiChunk) {
+  if (chunk.error) return { error: chunk.error };
+  if (chunk.toolCall) return { toolCall: chunk.toolCall };
+  if (chunk.thinking) return { thinkingDelta: chunk.thinking };
+  if (chunk.done) return { done: true };
+  return { textDelta: chunk.text ?? "" };
+}
+
+function aiRequestFromWire(request: any): AiCompleteRequest {
+  return {
+    messages: (request.messages ?? []).map((m: any) => ({
+      role: m.role ?? "",
+      content: m.content ?? "",
+      toolCallId: m.toolCallId ?? "",
+      toolCalls: m.toolCalls ?? [],
+    })),
+    tools: request.tools ?? [],
+    systemPrompt: request.systemPrompt ?? "",
+    temperature: request.temperature ?? 0,
+    maxTokens: request.maxTokens ?? 0,
+    model: request.model ?? "",
+    reasoningEffort: request.reasoningEffort ?? "",
+    showReasoning: !!request.showReasoning,
+  };
+}
 
 export abstract class Plugin {
   /** Client for calling daemon services. Available after registration. */
@@ -191,7 +271,7 @@ export abstract class Plugin {
     _speed: number,
     _pitch: number
   ): Promise<AudioData> {
-    throw new Error("TTS not implemented");
+    throw new HookUnimplemented("TTS not implemented");
   }
   async ttsListVoices(): Promise<VoiceInfo[]> {
     return [];
@@ -215,10 +295,131 @@ export abstract class Plugin {
   }
   /** Transcribe a complete utterance to text (non-streaming). The SDK
    * accumulates every audio chunk the daemon streams over `SttProcess` and
-   * calls this once the stream ends. Override for an STT plugin. */
-  async sttTranscribe(_audio: Buffer, _sampleRate: number): Promise<SttEvent> {
-    throw new Error("STT not implemented");
+   * calls this once the stream ends. `options` carries the per-utterance
+   * language hint and wake-word bias the daemon put on the first chunk.
+   * Override for an STT plugin. */
+  async sttTranscribe(
+    _audio: Buffer,
+    _sampleRate: number,
+    _options?: SttOptions
+  ): Promise<SttEvent> {
+    throw new HookUnimplemented("STT not implemented");
   }
+
+  /**
+   * Transcribe live, emitting partial results as the audio arrives.
+   *
+   * The streaming half of `SttProcess`, as an async generator — which is what a
+   * TypeScript author reaches for and what `for await` consumes. Implementing
+   * it takes precedence over `sttTranscribe`, which the SDK otherwise emulates
+   * by buffering the whole utterance.
+   *
+   * ```typescript
+   * async *sttTranscribeStream(audio: AsyncIterable<AudioChunk>) {
+   *   for await (const chunk of audio) {
+   *     const partial = this.decoder.feed(chunk.data);
+   *     if (partial) yield { text: partial, isFinal: false };
+   *   }
+   *   yield { text: this.decoder.finish(), isFinal: true };
+   * }
+   * ```
+   *
+   * Back-pressure is real: the SDK holds at most
+   * `limits.STT_AUDIO_CHANNEL_CAPACITY` chunks, the same bound the daemon's
+   * half of the bridge uses, and pauses the gRPC stream past that.
+   */
+  sttTranscribeStream(
+    _audio: AsyncIterable<AudioChunk>,
+    _options?: SttOptions
+  ): AsyncIterable<SttEvent> {
+    throw new HookUnimplemented("streaming STT not implemented");
+  }
+
+  // ── STT model lifecycle ──
+  //
+  // Optional in the strong sense: the daemon routes all three through
+  // `optional_hook`, so a plugin that manages its own models simply does not
+  // override them and the daemon behaves as it did before the hooks existed.
+  // Implementing them is what makes idle-unload actually free VRAM.
+
+  /** Load the recognizer model. `modelPath` is resolved by the daemon out of
+   * its own catalog — a plugin that ships its own models ignores it. `useGpu`
+   * is false on the daemon's degraded retry after a GPU load failed. */
+  async sttLoad(_modelPath: string, _useGpu: boolean): Promise<void> {
+    throw new HookUnimplemented("this plugin has no explicit STT model lifecycle");
+  }
+
+  /** Drop the recognizer model and free its memory. */
+  async sttUnload(): Promise<void> {
+    throw new HookUnimplemented("this plugin has no explicit STT model lifecycle");
+  }
+
+  /** Report whether the model is resident, so idle-unload can work. */
+  async sttLoadState(): Promise<SttLoadStatus> {
+    throw new HookUnimplemented("this plugin has no explicit STT model lifecycle");
+  }
+
+  /**
+   * Synthesize as a chunk stream, for first-audio latency.
+   *
+   * An async generator: yield `AudioChunk`s (or bare `Buffer`s) as fast as the
+   * engine produces them, and set `sampleRate` on the first. The SDK marks the
+   * last chunk for you.
+   *
+   * NOTE: no daemon call site exists for `TtsSynthesizeStream` yet — the rpc is
+   * declared and unrouted (`spec/hooks.yaml`). Implementing it costs nothing and
+   * is what the three SDKs agreeing looks like, but do not expect it to be
+   * exercised until the daemon's voice pipeline calls it.
+   */
+  ttsSynthesizeStream(
+    _text: string,
+    _voiceId: string,
+    _speed: number,
+    _pitch: number
+  ): AsyncIterable<AudioChunk | Buffer> {
+    throw new HookUnimplemented("streaming TTS not implemented");
+  }
+
+  /**
+   * Activate a licensed voice with a one-time content-encryption key.
+   *
+   * `cek` is a raw secret: seal it under a machine-bound key, never write it out
+   * in the clear, never log it. Most TTS plugins have no protected voice and
+   * should not override this.
+   *
+   * Unlike the other optional hooks the daemon does NOT read a failure here as
+   * "hook absent" — it propagates and the activation fails. Throw only when
+   * activation really did not happen.
+   */
+  async ttsActivate(_cek: Buffer, _voiceId: string): Promise<void> {
+    throw new HookUnimplemented("this plugin has no protected voice to activate");
+  }
+
+  /**
+   * Stream a model completion. The whole of the `ai_provider` capability.
+   *
+   * An async generator: yield `AiChunk`s, or bare strings for plain text
+   * deltas. The SDK appends the terminating `done` chunk when the generator
+   * returns, so the last thing you yield can be content.
+   *
+   * ```typescript
+   * async *aiComplete(req: AiCompleteRequest) {
+   *   for await (const token of this.client.stream(req.messages, req.model)) {
+   *     yield token;                              // a text delta
+   *   }
+   *   yield { toolCall: { id: "1", name: "get_time", argumentsJson: "{}" } };
+   * }
+   * ```
+   */
+  aiComplete(_request: AiCompleteRequest): AsyncIterable<AiChunk | string> {
+    throw new HookUnimplemented("this plugin is not an AI provider");
+  }
+
+  /**
+   * @deprecated The daemon has no call site — `all_ai_providers` builds every
+   * plugin provider with `supports_model_discovery: false`, so the model picker
+   * never asks. Kept so an existing plugin keeps compiling.
+   */
   async aiGetModels(): Promise<{ models: AiModelInfo[]; defaultModel: string }> {
     return { models: [], defaultModel: "" };
   }
@@ -300,6 +501,10 @@ export abstract class Plugin {
   async pushToUi(event: string, payload?: Record<string, unknown>): Promise<void> {
     if (this.host) await this.host.pushToUi(event, payload ? JSON.stringify(payload) : "{}");
   }
+  /** Publish a variable commands and other plugins can read. */
+  async setVariable(name: string, value: string, scope: string = "session"): Promise<void> {
+    if (this.host) await this.host.setVariable(name, value, scope);
+  }
 
   // ── Internal ──
 
@@ -320,13 +525,21 @@ export abstract class Plugin {
     return { daemonAddr, pluginId, authToken };
   }
 
+  /** Whether the subclass replaced one of `Plugin`'s own methods. */
+  private overrides(name: keyof Plugin): boolean {
+    return (this as any)[name] !== (Plugin.prototype as any)[name];
+  }
+
   private async discoverCapabilities(): Promise<string[]> {
     const caps: string[] = [];
     if ((await this.listTools()).length > 0) caps.push("tools");
     if ((await this.ttsListVoices()).length > 0) caps.push("tts");
     if ((await this.sttGetLanguages()).length > 0) caps.push("stt");
     const { models } = await this.aiGetModels();
-    if (models.length > 0) caps.push("ai_provider");
+    // `aiComplete` decides this, not `aiGetModels`: `AiGetModels` is deprecated
+    // and defaults to empty, so a provider that implemented the hook that
+    // matters used to register without the capability that names it.
+    if (models.length > 0 || this.overrides("aiComplete")) caps.push("ai_provider");
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
     if ((await this.getTriggerTypes()).length > 0) caps.push("triggers");
     if ((await this.getUiContributions()).length > 0) caps.push("ui_contributions");
@@ -337,6 +550,14 @@ export abstract class Plugin {
   /**
    * The complete `PluginCapabilityService` handler map — one entry per method
    * the proto declares, checked against the descriptor by `addServiceChecked`.
+   *
+   * Every entry dispatches to a real method on `Plugin`. An un-overridden hook
+   * throws `HookUnimplemented`, which `wrapHandler` and `failStream` turn into
+   * the transport's "no such hook" status — the daemon's `optional_hook` reads
+   * that as absence rather than as a fault. That is the whole reason no entry
+   * here is a hard-coded stub: "this plugin does not do TTS" and "this SDK
+   * cannot do TTS" have to be distinguishable, and they are only distinguishable
+   * if the second one has stopped being true.
    */
   private capabilityHandlers(): HandlerMap {
     return {
@@ -358,54 +579,46 @@ export abstract class Plugin {
       OnLanguageChanged: this.wrapHandler(this.handleOnLanguageChanged.bind(this)),
       Shutdown: this.wrapHandler(this.handleShutdown.bind(this)),
       HealthCheck: this.wrapHandler(this.handleHealthCheck.bind(this)),
-      // Streaming RPCs — stubs
-      TtsSynthesizeStream: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "Streaming TTS not implemented",
-        });
-      },
+      TtsActivate: this.wrapHandler(this.handleTtsActivate.bind(this)),
+      SttLoad: this.wrapHandler(this.handleSttLoad.bind(this)),
+      SttUnload: this.wrapHandler(this.handleSttUnload.bind(this)),
+      SttGetLoadState: this.wrapHandler(this.handleSttGetLoadState.bind(this)),
+      // Streaming RPCs.
+      TtsSynthesizeStream: this.handleTtsSynthesizeStream.bind(this),
       SttProcess: this.handleSttProcess.bind(this),
-      AiComplete: (call: any) => {
-        call.emit("error", {
-          code: grpc.status.UNIMPLEMENTED,
-          details: "AI provider not implemented",
-        });
-      },
-      // Hooks this SDK does not surface yet. `UNIMPLEMENTED` is the protocol's
-      // word for "this plugin does not have that hook" — the daemon's
-      // `optional_hook` reads it as absence, not as a fault. Registered
-      // explicitly rather than left out: `addServiceChecked` refuses to start a
-      // handler map that does not cover every declared method, precisely so a
-      // hook cannot go missing by accident and be indistinguishable from one
-      // that is missing on purpose.
-      TtsActivate: this.unimplementedHandler("this plugin has no protected voice to activate"),
-      SttLoad: this.unimplementedHandler("this plugin has no explicit STT model lifecycle"),
-      SttUnload: this.unimplementedHandler("this plugin has no explicit STT model lifecycle"),
-      SttGetLoadState: this.unimplementedHandler(
-        "this plugin has no explicit STT model lifecycle"
-      ),
+      AiComplete: this.handleAiComplete.bind(this),
     } as unknown as HandlerMap;
   }
 
-  /** A unary handler that answers `UNIMPLEMENTED` with a reason. */
-  private unimplementedHandler(details: string) {
-    return (_call: any, callback: grpc.sendUnaryData<any>) => {
-      callback({ code: grpc.status.UNIMPLEMENTED, details });
-    };
-  }
-
+  /**
+   * Unary handler wrapper. Three outcomes, three different answers:
+   *
+   * - `HookUnimplemented` → `UNIMPLEMENTED`, i.e. "this hook is absent".
+   * - a `PluginError` → its fixed transport status. These hooks have no in-band
+   *   failure slot, which is the one place `grpcStatus()` is right.
+   * - anything else → `INTERNAL`, the honest answer for an unclassified throw.
+   */
   private wrapHandler(handler: (call: any) => Promise<any>) {
     return (call: any, callback: grpc.sendUnaryData<any>) => {
       handler(call)
         .then((result) => callback(null, result))
-        .catch((err: Error) =>
-          callback({
-            code: grpc.status.INTERNAL,
-            details: err.message,
-          })
-        );
+        .catch((err: unknown) => {
+          if (err instanceof HookUnimplemented) {
+            callback({ code: grpc.status.UNIMPLEMENTED, details: err.message });
+            return;
+          }
+          callback(PluginError.from(err).toServiceError());
+        });
     };
+  }
+
+  /** The same three outcomes, on a server-streaming call. */
+  private failStream(call: any, err: unknown): void {
+    if (err instanceof HookUnimplemented) {
+      call.emit("error", { code: grpc.status.UNIMPLEMENTED, details: err.message });
+      return;
+    }
+    call.emit("error", PluginError.from(err).toServiceError());
   }
 
   // ── gRPC handlers ──
@@ -423,12 +636,20 @@ export abstract class Plugin {
 
   private async handleCallTool(call: any) {
     const { toolName, argumentsJson } = call.request;
-    const result = await this.callTool(toolName, argumentsJson);
-    return {
-      success: result.success,
-      result: result.result,
-      error: result.error || "",
-    };
+    // In-band, never a gRPC error: a failed tool call is data the AI loop has
+    // to read. "You have no API key configured" is the model's cue to tell the
+    // user what to do, and a transport error hides it from the model entirely.
+    try {
+      const result = await this.callTool(toolName, argumentsJson);
+      return {
+        success: result.success,
+        result: result.result,
+        error: result.error || "",
+        errorDetail: result.errorDetail,
+      };
+    } catch (e: unknown) {
+      return PluginError.from(e).toResponse();
+    }
   }
 
   private async handleTtsSynthesize(call: any) {
@@ -472,36 +693,192 @@ export abstract class Plugin {
     return { configFields: await this.sttConfigFields() };
   }
 
-  /** Bidi-streaming `SttProcess`: accumulate `PluginAudioChunk`s, then run
-   *  the non-streaming `sttTranscribe` and emit a single `PluginSttEvent`. */
+  /** Bidi-streaming `SttProcess`. Streams live into `sttTranscribeStream` when
+   *  the plugin has one; otherwise buffers the utterance for `sttTranscribe`. */
   private handleSttProcess(call: any): void {
+    if (this.overrides("sttTranscribeStream")) {
+      void this.sttProcessStreaming(call);
+      return;
+    }
+
     const chunks: Buffer[] = [];
     let sampleRate = 0;
+    let options: SttOptions | undefined;
     let finished = false;
     const finish = async () => {
       if (finished) return;
       finished = true;
       try {
-        const ev = await this.sttTranscribe(Buffer.concat(chunks), sampleRate);
-        call.write({
-          text: ev.text,
-          isFinal: ev.isFinal ?? true,
-          confidence: ev.confidence ?? 1.0,
-          language: ev.language ?? "",
-        });
+        const ev = await this.sttTranscribe(Buffer.concat(chunks), sampleRate, options);
+        call.write(sttEventWire(ev));
         call.end();
-      } catch (e: any) {
-        call.emit("error", { code: grpc.status.INTERNAL, details: e.message });
+      } catch (e: unknown) {
+        this.failStream(call, e);
       }
     };
     call.on("data", (chunk: any) => {
       if (sampleRate === 0 && chunk.sampleRate) sampleRate = chunk.sampleRate;
+      // Per-utterance decoding options ride on the first chunk only.
+      if (!options && chunk.options) options = chunk.options as SttOptions;
       if (chunk.data && chunk.data.length) chunks.push(Buffer.from(chunk.data));
       if (chunk.isLast) void finish();
     });
     call.on("end", () => {
       void finish();
     });
+  }
+
+  /**
+   * The streaming half: an async queue between the inbound gRPC stream and the
+   * plugin's generator.
+   *
+   * Bounded at `limits.STT_AUDIO_CHANNEL_CAPACITY`, the same number the
+   * daemon's half of the bridge uses — the smaller of two channels in series is
+   * the real capacity, and a smaller SDK-side buffer is exactly how streaming
+   * STT once lost everything past the first fraction of an utterance. Past the
+   * bound the gRPC stream is paused, so the sender feels the back-pressure
+   * rather than the audio being dropped.
+   */
+  private async sttProcessStreaming(call: any): Promise<void> {
+    const queue: AudioChunk[] = [];
+    let waiting: (() => void) | null = null;
+    let ended = false;
+    let paused = false;
+    let options: SttOptions | undefined;
+    let sawFirst = false;
+
+    const wake = () => {
+      const w = waiting;
+      waiting = null;
+      w?.();
+    };
+
+    call.on("data", (chunk: any) => {
+      if (!sawFirst) {
+        sawFirst = true;
+        if (chunk.options) options = chunk.options as SttOptions;
+      }
+      queue.push({
+        data: chunk.data && chunk.data.length ? Buffer.from(chunk.data) : Buffer.alloc(0),
+        isLast: !!chunk.isLast,
+        sampleRate: chunk.sampleRate || 0,
+      });
+      if (queue.length >= STT_AUDIO_CHANNEL_CAPACITY && !paused) {
+        paused = true;
+        call.pause();
+      }
+      wake();
+    });
+    call.on("end", () => {
+      ended = true;
+      wake();
+    });
+    call.on("error", () => {
+      ended = true;
+      wake();
+    });
+
+    const self = this;
+    async function* audio(): AsyncGenerator<AudioChunk> {
+      for (;;) {
+        while (queue.length === 0 && !ended) {
+          await new Promise<void>((resolve) => {
+            waiting = resolve;
+          });
+        }
+        if (queue.length === 0) return;
+        const chunk = queue.shift()!;
+        if (paused && queue.length < STT_AUDIO_CHANNEL_CAPACITY) {
+          paused = false;
+          call.resume();
+        }
+        yield chunk;
+        if (chunk.isLast) return;
+      }
+    }
+
+    try {
+      for await (const ev of self.sttTranscribeStream(audio(), options)) {
+        call.write(sttEventWire(ev));
+      }
+      call.end();
+    } catch (e: unknown) {
+      this.failStream(call, e);
+    }
+  }
+
+  /** Server-streaming TTS. Unrouted daemon-side today; see the hook doc. */
+  private async handleTtsSynthesizeStream(call: any): Promise<void> {
+    const { text, voiceId, speed, pitch } = call.request;
+    try {
+      // Held one behind, so `isLast` lands on the real last chunk instead of on
+      // an empty trailing one. The daemon's reader stops at `isLast`; an author
+      // who already set it keeps it.
+      let pending: AudioChunk | null = null;
+      for await (const value of this.ttsSynthesizeStream(text, voiceId, speed, pitch)) {
+        const chunk: AudioChunk = Buffer.isBuffer(value) ? { data: value } : value;
+        if (pending) call.write(audioChunkWire(pending));
+        pending = chunk;
+      }
+      if (pending) call.write(audioChunkWire({ ...pending, isLast: true }));
+      call.end();
+    } catch (e: unknown) {
+      this.failStream(call, e);
+    }
+  }
+
+  private async handleTtsActivate(call: any) {
+    const { cek, voiceId } = call.request;
+    await this.ttsActivate(Buffer.from(cek ?? []), voiceId ?? "");
+    return {};
+  }
+
+  private async handleSttLoad(call: any) {
+    await this.sttLoad(call.request.modelPath ?? "", !!call.request.useGpu);
+    return {};
+  }
+
+  private async handleSttUnload(_call: any) {
+    await this.sttUnload();
+    return {};
+  }
+
+  private async handleSttGetLoadState(_call: any) {
+    const status = await this.sttLoadState();
+    return { state: status.state, detail: status.detail ?? "" };
+  }
+
+  /** Server-streaming `AiComplete`. */
+  private async handleAiComplete(call: any): Promise<void> {
+    const req = aiRequestFromWire(call.request);
+    let last: AiChunk | null = null;
+    try {
+      for await (const value of this.aiComplete(req)) {
+        const chunk: AiChunk = typeof value === "string" ? { text: value } : value;
+        last = chunk;
+        call.write(aiChunkWire(chunk));
+      }
+    } catch (e: unknown) {
+      if (e instanceof HookUnimplemented) {
+        this.failStream(call, e);
+        return;
+      }
+      // `PluginAiStreamChunk` HAS an in-band error slot, so the failure travels
+      // as data the daemon's bridge already reads rather than as a transport
+      // fault that would look like the plugin dying. The `error` oneof arm and
+      // the structured `errorDetail` beside it are both set: the oneof is what
+      // tells a receiver the stream ended badly, and an old daemon reads only
+      // that.
+      const err = PluginError.from(e);
+      call.write({ error: err.toErrorString(), errorDetail: err.toDetail() });
+      call.end();
+      return;
+    }
+    // Terminate the stream for the author: a completion that never says `done`
+    // leaves the daemon's reader waiting on a stream that has already closed,
+    // and forgetting it is the easiest mistake to make here.
+    if (!last || (!last.done && !last.error)) call.write({ done: true });
+    call.end();
   }
 
   private async handleAiGetModels(_call: any) {
@@ -514,12 +891,17 @@ export abstract class Plugin {
 
   private async handleExecuteAction(call: any) {
     const { actionType, paramsJson } = call.request;
-    const result = await this.executeAction(actionType, paramsJson);
-    return {
-      success: result.success,
-      result: result.result,
-      error: result.error || "",
-    };
+    try {
+      const result = await this.executeAction(actionType, paramsJson);
+      return {
+        success: result.success,
+        result: result.result,
+        error: result.error || "",
+        errorDetail: result.errorDetail,
+      };
+    } catch (e: unknown) {
+      return PluginError.from(e).toResponse();
+    }
   }
 
   private async handleGetActionTypes(_call: any) {
@@ -558,15 +940,19 @@ export abstract class Plugin {
     let result: unknown;
     try {
       result = await this.handleUiCall(method, paramsJson);
-    } catch (e: any) {
-      return { resultJson: "", error: String(e?.message ?? e) };
+    } catch (e: unknown) {
+      // The daemon relays `errorDetail` on to the panel as
+      // `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can render
+      // the same config-field link a tool failure would.
+      const err = PluginError.from(e);
+      return { resultJson: "", error: err.toErrorString(), errorDetail: err.toDetail() };
     }
 
     if (result === null || result === undefined) return { resultJson: "", error: "" };
     if (typeof result === "string") return { resultJson: result, error: "" };
     if (typeof result === "object" && ("resultJson" in result || "error" in result)) {
       const r = result as UiCallResult;
-      return { resultJson: r.resultJson ?? "", error: r.error ?? "" };
+      return { resultJson: r.resultJson ?? "", error: r.error ?? "", errorDetail: r.errorDetail };
     }
     try {
       return { resultJson: JSON.stringify(result), error: "" };

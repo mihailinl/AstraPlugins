@@ -4760,8 +4760,13 @@ class PluginServiceStub(object):
                 _registered_method=True)
         self.UninstallPlugin = channel.unary_unary(
                 '/astra.PluginService/UninstallPlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.Empty.FromString,
+                request_serializer=plugin__pb2.UninstallPluginRequest.SerializeToString,
+                response_deserializer=plugin__pb2.UninstallPluginResponse.FromString,
+                _registered_method=True)
+        self.ReportPlugin = channel.unary_unary(
+                '/astra.PluginService/ReportPlugin',
+                request_serializer=plugin__pb2.ReportPluginRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ReportPluginResponse.FromString,
                 _registered_method=True)
         self.SetPluginEnabled = channel.unary_unary(
                 '/astra.PluginService/SetPluginEnabled',
@@ -4813,10 +4818,25 @@ class PluginServiceStub(object):
                 request_serializer=plugin__pb2.ImportPluginFileRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
                 _registered_method=True)
+        self.InspectPluginFile = channel.unary_unary(
+                '/astra.PluginService/InspectPluginFile',
+                request_serializer=plugin__pb2.InspectPluginFileRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginFileInspection.FromString,
+                _registered_method=True)
+        self.ResolvePendingUpdate = channel.unary_unary(
+                '/astra.PluginService/ResolvePendingUpdate',
+                request_serializer=plugin__pb2.ResolvePendingUpdateRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                _registered_method=True)
         self.GetPluginLogs = channel.unary_unary(
                 '/astra.PluginService/GetPluginLogs',
                 request_serializer=plugin__pb2.PluginLogsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginLogsResponse.FromString,
+                _registered_method=True)
+        self.GetPluginProvenance = channel.unary_unary(
+                '/astra.PluginService/GetPluginProvenance',
+                request_serializer=plugin__pb2.PluginProvenanceRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginProvenanceMsg.FromString,
                 _registered_method=True)
         self.GetAllUiContributions = channel.unary_unary(
                 '/astra.PluginService/GetAllUiContributions',
@@ -4879,7 +4899,40 @@ class PluginServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UninstallPlugin(self, request, context):
-        """Uninstall a plugin
+        """Remove a plugin, and decide separately what happens to its settings.
+
+        The request used to be a bare `PluginIdRequest` and the implementation
+        `remove_dir_all`'d the directory the user's `config.json` lives in — so
+        one unconfirmed click deleted an API key, a bot token or a server address
+        that no reinstall could bring back. §6/4.7 splits the two halves, because
+        they are not equally reversible: reinstalling a plugin costs a download,
+        and retyping a credential you no longer have costs whatever it costs.
+
+        `delete_config` therefore defaults to FALSE on purpose. A caller that
+        still sends a `PluginIdRequest` — an older shell, a script — is wire-
+        compatible with this message (field 1 is unchanged) and gets the safe
+        half of the behaviour, which is the right way round for a default.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReportPlugin(self, request, context):
+        """Report a plugin — and, if the user asks, quarantine it HERE first.
+
+        The order of those two clauses is the whole design. Someone who has just
+        realised that the thing running on their machine is malicious needs it
+        stopped now; they do not need a form, and they must not have to wait for
+        a maintainer on another continent to agree with them before anything
+        happens. So `quarantine` is a local, immediate stop-and-disable that this
+        daemon performs itself, and the issue URL is what the response hands back
+        afterwards.
+
+        Astra files nothing on the user's behalf. The response carries a prefilled
+        URL and the same facts as plain text; opening it, editing it and pressing
+        Submit are all the user's, because a report is a public accusation against
+        a named person's repository and sending one silently from an app would be
+        indefensible.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -4955,8 +5008,71 @@ class PluginServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def InspectPluginFile(self, request, context):
+        """Read a `.astraplugin` file WITHOUT installing it, so §4.3's consent sheet
+        can be shown on the import path too.
+
+        The registry path renders its sheet from the signed catalogue record
+        before a byte is downloaded. An import has no catalogue record — the file
+        arrived out of band — so the only place its `[permissions]` block exists
+        is inside the archive. Without this call the import path had no permission
+        screen at all, and `push_to_ui`, `fire_trigger`, `subscribe_events` and
+        `set_variable` — none of which the Tier-2 ceiling refuses — were granted
+        from the bundle's own manifest with nothing named on screen. Those are
+        exactly the permissions the registry path makes the user tick a box for.
+
+        Nothing is extracted, nothing is started, no trust record is written and
+        no bytes are copied out of the archive: the manifest is parsed in memory
+        and the file is closed. Calling this and then never calling
+        ImportPluginFile leaves the machine exactly as it was.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResolvePendingUpdate(self, request, context):
+        """§4.5/§4.6. Approve or decline an update the daemon STAGED because it
+        widened permissions, and which is therefore not installed.
+
+        The old version keeps running either way until this call approves the
+        staged one. `approve = false` discards the staged copy and touches
+        nothing else; `approve = true` re-runs §5.3-A from the catalogue against
+        the staged bytes and installs them, carrying `approved_permissions` — the
+        ids the user actually ticked in the review sheet — because "what did the
+        user agree to" may not be answered by a file the daemon wrote. A bundle
+        asking for anything outside that list is staged and refused again.
+
+        Without this RPC a staged update was a dead end: the review sheet could
+        explain the delta and offer nothing but Close, so a plugin whose update
+        widened permissions could never be updated through any affordance in the
+        app.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetPluginLogs(self, request, context):
         """Get logs from a plugin (last N lines)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPluginProvenance(self, request, context):
+        """Everything Astra recorded about where one INSTALLED plugin came from —
+        production plan §4.2, the provenance panel.
+
+        Answered entirely from the trust record this daemon wrote at install and
+        from the catalogue copy already on disk. It NEVER touches the network:
+        the whole point of the panel is that a user who is offline, or whose
+        registry has gone away, can still see which repository, which commit and
+        which digest the code on their machine claims to have come from. A
+        provenance panel that needed the network would be blank exactly when
+        somebody most wanted to read it.
+
+        The browse path needs no equivalent call: PluginRegistryEntry carries the
+        same message, so the pre-install consent sheet renders from the listing it
+        already has.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -5008,8 +5124,13 @@ def add_PluginServiceServicer_to_server(servicer, server):
             ),
             'UninstallPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.UninstallPlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.Empty.SerializeToString,
+                    request_deserializer=plugin__pb2.UninstallPluginRequest.FromString,
+                    response_serializer=plugin__pb2.UninstallPluginResponse.SerializeToString,
+            ),
+            'ReportPlugin': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReportPlugin,
+                    request_deserializer=plugin__pb2.ReportPluginRequest.FromString,
+                    response_serializer=plugin__pb2.ReportPluginResponse.SerializeToString,
             ),
             'SetPluginEnabled': grpc.unary_unary_rpc_method_handler(
                     servicer.SetPluginEnabled,
@@ -5061,10 +5182,25 @@ def add_PluginServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.ImportPluginFileRequest.FromString,
                     response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
             ),
+            'InspectPluginFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.InspectPluginFile,
+                    request_deserializer=plugin__pb2.InspectPluginFileRequest.FromString,
+                    response_serializer=plugin__pb2.PluginFileInspection.SerializeToString,
+            ),
+            'ResolvePendingUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResolvePendingUpdate,
+                    request_deserializer=plugin__pb2.ResolvePendingUpdateRequest.FromString,
+                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+            ),
             'GetPluginLogs': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginLogs,
                     request_deserializer=plugin__pb2.PluginLogsRequest.FromString,
                     response_serializer=plugin__pb2.PluginLogsResponse.SerializeToString,
+            ),
+            'GetPluginProvenance': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPluginProvenance,
+                    request_deserializer=plugin__pb2.PluginProvenanceRequest.FromString,
+                    response_serializer=plugin__pb2.PluginProvenanceMsg.SerializeToString,
             ),
             'GetAllUiContributions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAllUiContributions,
@@ -5217,8 +5353,35 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/UninstallPlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.Empty.FromString,
+            plugin__pb2.UninstallPluginRequest.SerializeToString,
+            plugin__pb2.UninstallPluginResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReportPlugin(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/ReportPlugin',
+            plugin__pb2.ReportPluginRequest.SerializeToString,
+            plugin__pb2.ReportPluginResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -5500,6 +5663,60 @@ class PluginService(object):
             _registered_method=True)
 
     @staticmethod
+    def InspectPluginFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/InspectPluginFile',
+            plugin__pb2.InspectPluginFileRequest.SerializeToString,
+            plugin__pb2.PluginFileInspection.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResolvePendingUpdate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/ResolvePendingUpdate',
+            plugin__pb2.ResolvePendingUpdateRequest.SerializeToString,
+            plugin__pb2.PluginStatusMsg.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetPluginLogs(request,
             target,
             options=(),
@@ -5516,6 +5733,33 @@ class PluginService(object):
             '/astra.PluginService/GetPluginLogs',
             plugin__pb2.PluginLogsRequest.SerializeToString,
             plugin__pb2.PluginLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetPluginProvenance(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginService/GetPluginProvenance',
+            plugin__pb2.PluginProvenanceRequest.SerializeToString,
+            plugin__pb2.PluginProvenanceMsg.FromString,
             options,
             channel_credentials,
             insecure,

@@ -26,9 +26,60 @@ import {
   SDK_NAME,
   SDK_VERSION,
 } from "./protocol";
+import type { ChatChunk, ThemeContribution } from "./types";
 
 /** Metadata header the daemon's auth interceptor reads. */
 const SESSION_TOKEN_HEADER = "x-session-token";
+
+/**
+ * A gRPC readable stream as an `AsyncIterable`.
+ *
+ * grpc-js streams are Node `Readable`s, which are already async-iterable — but
+ * a stream that ends in `error` throws out of the `for await` only if the
+ * rejection is wired up, and the plain `Readable` iterator swallows a
+ * `ServiceError` emitted after the last `data`. Adapting it explicitly is four
+ * lines and makes the failure land where the author is looking.
+ */
+function streamToAsyncIterable<T>(stream: grpc.ClientReadableStream<T>): AsyncIterable<T> {
+  const queue: T[] = [];
+  let done = false;
+  let failure: Error | null = null;
+  let wake: (() => void) | null = null;
+  const signal = () => {
+    const w = wake;
+    wake = null;
+    w?.();
+  };
+
+  stream.on("data", (item: T) => {
+    queue.push(item);
+    signal();
+  });
+  stream.on("error", (err: Error) => {
+    failure = err;
+    done = true;
+    signal();
+  });
+  stream.on("end", () => {
+    done = true;
+    signal();
+  });
+
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (;;) {
+        while (queue.length === 0 && !done) {
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+        }
+        while (queue.length > 0) yield queue.shift()!;
+        if (failure) throw failure;
+        if (done) return;
+      }
+    },
+  };
+}
 
 /** Every host RPC this client issues. Verified against the descriptor at connect time. */
 const REQUIRED_METHODS = [
@@ -40,6 +91,8 @@ const REQUIRED_METHODS = [
   "GetDaemonInfo",
   "SetVariable",
   "PushToUi",
+  "SendChatMessage",
+  "SetThemeContribution",
 ] as const;
 
 /** Structured detail for a refused registration. Present only when `success` is false. */
@@ -216,6 +269,64 @@ export class HostClient {
       event,
       payloadJson,
     }).then(() => undefined);
+  }
+
+  /**
+   * Contribute colours, wallpaper and shader to the active Astra theme.
+   *
+   * Requires the `set_theme_contribution` permission, which Phase 4 classes
+   * high-risk: this repaints the user's whole application, so the daemon
+   * refuses it below Tier 1 regardless of what the manifest asks for.
+   */
+  setThemeContribution(theme: ThemeContribution): Promise<void> {
+    return this.unary("SetThemeContribution", {
+      pluginId: this.pluginId,
+      themeName: theme.themeName,
+      themeDescription: theme.themeDescription ?? "",
+      cssVariables: theme.cssVariables ?? {},
+      wallpaperPath: theme.wallpaperPath ?? "",
+      wallpaperMode: theme.wallpaperMode ?? "",
+      wallpaperOpacity: theme.wallpaperOpacity ?? 1.0,
+      fragmentShader: theme.fragmentShader ?? "",
+      effectConfigJson: theme.effectConfigJson ?? "",
+    }).then(() => undefined);
+  }
+
+  /**
+   * Send a chat message as this plugin and stream the assistant's reply.
+   *
+   * Returns an `AsyncIterable`, so the call site is a `for await` and back-
+   * pressure is the loop's — which is what a TypeScript author expects and what
+   * a raw `ClientReadableStream` does not give without an adapter:
+   *
+   * ```typescript
+   * for await (const chunk of host.sendChatMessage("hello")) {
+   *   if (chunk.text) process.stdout.write(chunk.text);
+   *   if (chunk.error) throw new Error(chunk.error);
+   * }
+   * ```
+   *
+   * This is the ONLY working path for a client plugin to talk to the
+   * conversation. The session token is scoped to `PluginHostService`, so the
+   * `DaemonClient`/`ChatService` route is `permission_denied` by construction.
+   * Requires the `send_chat_message` permission.
+   *
+   * `conversationId` empty means the active conversation.
+   */
+  sendChatMessage(
+    text: string,
+    opts: { conversationId?: string; voiceEnabled?: boolean } = {}
+  ): AsyncIterable<ChatChunk> {
+    const stream: grpc.ClientReadableStream<ChatChunk> = this.stub.SendChatMessage(
+      {
+        text,
+        sourceId: this.pluginId,
+        conversationId: opts.conversationId ?? "",
+        voiceEnabled: opts.voiceEnabled ?? false,
+      },
+      this.metadata
+    );
+    return streamToAsyncIterable(stream);
   }
 
   /** Subscribe to daemon events. Returns a gRPC readable stream. */

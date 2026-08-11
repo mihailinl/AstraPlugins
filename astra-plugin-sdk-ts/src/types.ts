@@ -1,3 +1,5 @@
+import type { PluginErrorDetail } from "./errors";
+
 /** A tool definition exposed to the AI. */
 export interface ToolDef {
   name: string;
@@ -10,6 +12,15 @@ export interface ToolResult {
   success: boolean;
   result: string;
   error?: string;
+  /**
+   * The structured half of a failure (§5.2). Set it by throwing a
+   * `PluginError` — the SDK fills this in and the matching `error` string
+   * together, so the two cannot disagree. Returning `{ success: false, error }`
+   * still works and leaves this unset: the SDK will not invent a code it was
+   * not given, because the daemon acts on codes and a wrong one is worse than
+   * none.
+   */
+  errorDetail?: PluginErrorDetail;
 }
 
 /** A TTS voice provided by the plugin. */
@@ -51,6 +62,8 @@ export interface ActionResult {
   success: boolean;
   result: string;
   error?: string;
+  /** Structured failure detail (§5.2); see `ToolResult.errorDetail`. */
+  errorDetail?: PluginErrorDetail;
 }
 
 /** Field definition for action/trigger config. */
@@ -120,6 +133,154 @@ export interface UiCallResult {
   resultJson?: string;
   /** Non-empty means the call failed. */
   error?: string;
+  /**
+   * Structured failure detail (§5.2). The daemon relays it to the panel as
+   * `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can render
+   * the same config-field link a tool failure would.
+   */
+  errorDetail?: PluginErrorDetail;
+}
+
+// ── §5.4 hook payloads ───────────────────────────────────────────────────────
+
+/**
+ * One slice of PCM, in either direction.
+ *
+ * `sampleRate` is read on the first chunk of a stream only — the protocol says
+ * so, and repeating it costs nothing but says nothing either.
+ */
+export interface AudioChunk {
+  data: Buffer;
+  /** The SDK sets this on the last chunk it sends for you. */
+  isLast?: boolean;
+  sampleRate?: number;
+  /** STT request stream, first chunk only. Never set on the TTS side. */
+  options?: SttOptions;
+}
+
+/**
+ * Per-utterance decoding options, carried on the first chunk of `SttProcess`.
+ * A recognizer ignores what it has no notion of; nothing here is required.
+ */
+export interface SttOptions {
+  /** BCP-47-ish code, or "" for auto-detect. */
+  language?: string;
+  /** Decoding bias — wake-word spellings, names the user says a lot. */
+  initialPrompt?: string;
+}
+
+/**
+ * Mirrors `SttLoadStateResponse.State`.
+ *
+ * `NOT_NEEDED` is what the daemon assumes when the hook is absent, so a plugin
+ * that answers it says the same thing as one that does not implement the hook.
+ */
+export type SttLoadState = "NOT_NEEDED" | "UNLOADED" | "LOADING" | "READY" | "FAILED";
+
+/** What `sttLoadState` answers. `detail` explains a `FAILED`. */
+export interface SttLoadStatus {
+  state: SttLoadState;
+  detail?: string;
+}
+
+/** What `sttLoad` is told: a daemon-resolved model path and the GPU toggle. */
+export interface SttLoadRequest {
+  /** Absolute path the daemon resolved, or "" for the provider's default. */
+  modelPath: string;
+  /** False on the daemon's degraded retry after a GPU load failed. */
+  useGpu: boolean;
+}
+
+/** One tool call the model asked for, or that a provider is reporting. */
+export interface AiToolCall {
+  id: string;
+  name: string;
+  argumentsJson: string;
+}
+
+/** One conversation turn handed to a provider. */
+export interface AiMessage {
+  role: string; // "user" | "assistant" | "system" | "tool"
+  content: string;
+  toolCallId?: string;
+  toolCalls?: AiToolCall[];
+}
+
+/** Everything the daemon knows about one completion. */
+export interface AiCompleteRequest {
+  messages: AiMessage[];
+  tools: ToolDef[];
+  systemPrompt: string;
+  temperature: number;
+  maxTokens: number;
+  model: string;
+  /**
+   * `"" | "auto" | "off" | "low" | "medium" | "high" | "max"`.
+   *
+   * A string, not an enum, and the proto says why: an unrecognised enum value
+   * arrives silently zeroed, making "this plugin is old" indistinguishable from
+   * "the user chose auto". `""` means the daemon did not say, and that is not
+   * the same as `"auto"`.
+   */
+  reasoningEffort: string;
+  /**
+   * Whether the user wants the reasoning shown. When false, do not spend tokens
+   * producing `thinking` chunks nobody will read.
+   */
+  showReasoning: boolean;
+}
+
+/**
+ * One piece of a streamed completion — exactly one kind per chunk.
+ *
+ * The wire field is a `oneof`, so a chunk that sets two things is a chunk the
+ * daemon reads one of. The SDK resolves that with a fixed precedence (error,
+ * tool call, thinking, done, text) rather than leaving it to chance.
+ */
+export interface AiChunk {
+  /** A text delta. Yielding a bare `string` means this. */
+  text?: string;
+  /** A reasoning delta. Only worth producing when `showReasoning`. */
+  thinking?: string;
+  toolCall?: AiToolCall;
+  /** The stream is over. The SDK appends one when your generator returns. */
+  done?: boolean;
+  /** The completion failed. Prefer throwing a `PluginError`. */
+  error?: string;
+}
+
+/**
+ * Colours, wallpaper and shader a plugin contributes to the active Astra theme.
+ *
+ * Gated on the `set_theme_contribution` permission, which Phase 4 classes
+ * high-risk: this is a plugin repainting the user's whole application, so the
+ * daemon refuses it below Tier 1 no matter what the manifest asks for.
+ */
+export interface ThemeContribution {
+  themeName: string;
+  themeDescription?: string;
+  /** CSS custom properties, e.g. `{ "--accent": "#7c5cff" }`. */
+  cssVariables?: Record<string, string>;
+  /** Path relative to the plugin's `ui/` directory. */
+  wallpaperPath?: string;
+  wallpaperMode?: string; // "cover" | "contain" | "tile"
+  wallpaperOpacity?: number;
+  /** GLSL replacing the built-in Threads effect. */
+  fragmentShader?: string;
+  effectConfigJson?: string;
+}
+
+/** One chunk of the assistant's reply to `host.sendChatMessage`. */
+export interface ChatChunk {
+  /** A text delta, when this chunk carries one. */
+  text?: string;
+  /** True on the terminating chunk. */
+  done?: boolean;
+  /** Non-empty when the turn failed. */
+  error?: string;
+  messageId?: string;
+  /** Structured failure detail (§5.2), set alongside `error`. */
+  errorDetail?: PluginErrorDetail;
 }
 
 /** Builder for UI contributions. */

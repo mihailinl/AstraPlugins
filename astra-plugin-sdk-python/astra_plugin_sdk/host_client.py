@@ -171,6 +171,77 @@ class HostClient:
             metadata=self._metadata,
         )
 
+    async def push_to_ui(self, event: str, payload_json: str = "{}"):
+        """Push an event into this plugin's own iframes.
+
+        The return path for ``CallFromUi``: the iframe calls in, the backend
+        answers later. Requires the ``push_to_ui`` permission — without it the
+        daemon answers ``permission_denied``, and the fix is a
+        ``[permissions] push_to_ui`` entry in ``plugin.toml`` plus the user's
+        consent, not a retry.
+        """
+        await self._stub.PushToUi(
+            plugin_pb2.PluginUiPushRequest(
+                plugin_id=self.plugin_id,
+                event=event,
+                payload_json=payload_json,
+            ),
+            metadata=self._metadata,
+        )
+
+    def send_chat_message(
+        self,
+        text: str,
+        *,
+        conversation_id: str = "",
+        voice_enabled: bool = False,
+    ):
+        """Send a chat message as this plugin; stream the assistant's reply.
+
+        Returns an async iterator of ``PluginChatChunk``. Each chunk carries
+        exactly one of ``text`` / ``done`` / ``error`` — check with
+        ``chunk.WhichOneof("content")``::
+
+            async for chunk in host.send_chat_message("hello"):
+                if chunk.WhichOneof("content") == "text":
+                    print(chunk.text, end="")
+
+        This is the ONLY working path for a client plugin to talk to the
+        conversation. The session token is scoped to ``PluginHostService``, so
+        the ``DaemonClient``/``ChatService`` route is ``permission_denied`` by
+        construction. Requires the ``send_chat_message`` permission.
+
+        ``conversation_id`` empty means the active conversation.
+
+        Not a coroutine: it returns the stream directly, so ``async for`` works
+        without an ``await`` first — the same shape as :meth:`subscribe_events`.
+        """
+        return self._stub.SendChatMessage(
+            plugin_pb2.PluginChatRequest(
+                text=text,
+                source_id=self.plugin_id,
+                conversation_id=conversation_id,
+                voice_enabled=voice_enabled,
+            ),
+            metadata=self._metadata,
+        )
+
+    async def set_theme_contribution(self, theme) -> None:
+        """Contribute colours, wallpaper and shader to the active Astra theme.
+
+        ``theme`` is a :class:`~astra_plugin_sdk.types.ThemeContribution` (or a
+        ready-made ``PluginThemeContribution``). Requires the
+        ``set_theme_contribution`` permission, which Phase 4 classes high-risk:
+        this repaints the user's whole application, so the daemon refuses it
+        below Tier 1 regardless of what the manifest asks for.
+        """
+        message = theme
+        if hasattr(theme, "to_proto"):
+            message = theme.to_proto(self.plugin_id)
+        elif not message.plugin_id:
+            message.plugin_id = self.plugin_id
+        await self._stub.SetThemeContribution(message, metadata=self._metadata)
+
     async def set_variable(self, name: str, value: str, scope: str = "session"):
         """Set a variable in the daemon's variable context.
 

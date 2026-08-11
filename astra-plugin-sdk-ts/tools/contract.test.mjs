@@ -107,8 +107,73 @@ test("CallFromUi reports a handler error in the response body", async () => {
     throw new Error("boom");
   };
   const res = await plugin.handleCallFromUi({ request: { method: "x", paramsJson: "{}" } });
-  assert.equal(res.error, "boom");
+  // §5.2: the sentence is prefixed with the code, and the structured half rides
+  // alongside it. An unclassified `throw` is `INTERNAL` — the same answer the
+  // Rust and Python SDKs give.
+  assert.equal(res.error, "INTERNAL: boom");
   assert.equal(res.resultJson, "");
+  assert.equal(res.errorDetail.code, "PLUGIN_ERROR_INTERNAL");
+  assert.equal(res.errorDetail.message, "boom");
+});
+
+test("a thrown NotConfigured names the field in both halves", async () => {
+  const { NotConfigured } = require("../dist/errors.js");
+  const plugin = new TestPlugin();
+  plugin.callTool = async () => {
+    throw new NotConfigured("api_key");
+  };
+  const res = await plugin.handleCallTool({ request: { toolName: "t", argumentsJson: "{}" } });
+  assert.equal(res.success, false);
+  assert.match(res.error, /^NOT_CONFIGURED: required setting `api_key` is not set/);
+  assert.equal(res.errorDetail.code, "PLUGIN_ERROR_NOT_CONFIGURED");
+  assert.equal(res.errorDetail.configField, "api_key");
+});
+
+test("a thrown RateLimited carries retryAfterMs", async () => {
+  const { RateLimited } = require("../dist/errors.js");
+  const plugin = new TestPlugin();
+  plugin.executeAction = async () => {
+    throw new RateLimited({ message: "slow down", retryAfterMs: 2500 });
+  };
+  const res = await plugin.handleExecuteAction({
+    request: { actionType: "a", paramsJson: "{}" },
+  });
+  assert.equal(res.success, false);
+  assert.equal(res.error, "RATE_LIMITED: slow down (Retry in 2 s.)");
+  assert.equal(res.errorDetail.retryAfterMs, 2500);
+});
+
+test("the eight taxonomy codes all resolve against the descriptor", () => {
+  const errors = require("../dist/errors.js");
+  assert.ok(
+    errors.structuredErrorsSupported(),
+    "the descriptor is missing PluginErrorCode variants for the §5.2 taxonomy"
+  );
+  const codes = [
+    new errors.BadArguments(),
+    new errors.NotFound(),
+    new errors.NotConfigured("f"),
+    new errors.Unauthorized(),
+    new errors.RateLimited(),
+    new errors.Unavailable(),
+    new errors.Timeout(),
+    new errors.InternalError(),
+  ];
+  assert.deepEqual(
+    codes.map((e) => e.code),
+    [
+      "BAD_ARGUMENTS",
+      "NOT_FOUND",
+      "NOT_CONFIGURED",
+      "UNAUTHORIZED",
+      "RATE_LIMITED",
+      "UNAVAILABLE",
+      "TIMEOUT",
+      "INTERNAL",
+    ]
+  );
+  // Every one binds to a real enum variant, so none of them serialises as 0.
+  for (const e of codes) assert.match(e.toDetail().code, /^PLUGIN_ERROR_/);
 });
 
 test("CallFromUi serializes a plain payload", async () => {

@@ -23,7 +23,7 @@ export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptor
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "30e5463b5b34a2278714a252e19a480955772d18e9bea4d1adc0588434751870";
+export const PROTO_SHA256 = "ee68d26b07fd987860aff632d037eb8bdbd1017bd5147f09fdffeba79b432b64";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";

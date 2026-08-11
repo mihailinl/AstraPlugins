@@ -6516,7 +6516,15 @@
             "PLUGIN_ERROR_UNSPECIFIED": 0,
             "PLUGIN_ERROR_PROTOCOL_TOO_OLD": 1,
             "PLUGIN_ERROR_AUTH": 2,
-            "PLUGIN_ERROR_UNKNOWN_PLUGIN": 3
+            "PLUGIN_ERROR_UNKNOWN_PLUGIN": 3,
+            "PLUGIN_ERROR_BAD_ARGUMENTS": 4,
+            "PLUGIN_ERROR_NOT_FOUND": 5,
+            "PLUGIN_ERROR_NOT_CONFIGURED": 6,
+            "PLUGIN_ERROR_UNAUTHORIZED": 7,
+            "PLUGIN_ERROR_RATE_LIMITED": 8,
+            "PLUGIN_ERROR_UNAVAILABLE": 9,
+            "PLUGIN_ERROR_TIMEOUT": 10,
+            "PLUGIN_ERROR_INTERNAL": 11
           }
         },
         "PluginError": {
@@ -6532,6 +6540,18 @@
             "hint": {
               "type": "string",
               "id": 3
+            },
+            "configField": {
+              "type": "string",
+              "id": 4
+            },
+            "retryAfterMs": {
+              "type": "uint32",
+              "id": 5
+            },
+            "docUrl": {
+              "type": "string",
+              "id": 6
             }
           }
         },
@@ -6691,6 +6711,10 @@
             "messageId": {
               "type": "string",
               "id": 4
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 5
             }
           }
         },
@@ -6828,6 +6852,10 @@
             "error": {
               "type": "string",
               "id": 3
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 4
             }
           }
         },
@@ -7131,6 +7159,10 @@
             "error": {
               "type": "string",
               "id": 5
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 6
             }
           }
         },
@@ -7184,6 +7216,10 @@
             "error": {
               "type": "string",
               "id": 3
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 4
             }
           }
         },
@@ -7371,6 +7407,10 @@
             "error": {
               "type": "string",
               "id": 2
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 3
             }
           }
         },
@@ -7415,6 +7455,10 @@
             "error": {
               "type": "string",
               "id": 2
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 3
             }
           }
         },

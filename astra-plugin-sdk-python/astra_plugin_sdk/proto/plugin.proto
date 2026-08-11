@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 207f8844134fd207d1c7fa104d4c702370509bcaf55fba768173df8e477d0a86
+// source-sha256: 3de2d7a471dd79fc7f608180c8cae9291e5ea9af51cbc3b76f1634ff6e92965e
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3571,11 +3571,23 @@ message PluginUpdateInfo {
 
 // ============ Plugin Messages — Host (PluginHostService) ============
 
-// Why a plugin registration was refused, in a form an SDK can act on rather
-// than merely print. `PluginRegisterResponse.error` stays the human string;
-// this is the machine-readable half, so an SDK can exit with a specific code
-// and one specific sentence instead of registering "successfully" and then
-// dying at the first RPC the other side does not have.
+// Why something the plugin protocol attempted did not happen, in a form an SDK
+// or the UI can act on rather than merely print.
+//
+// Two populations share one enum on purpose:
+//
+//   1-3   a registration the daemon REFUSED. `PluginRegisterResponse.error`
+//         stays the human string; this is the machine-readable half, so an SDK
+//         can exit with a specific code and one specific sentence instead of
+//         registering "successfully" and then dying at the first RPC the other
+//         side does not have.
+//   4-11  a single CALL a plugin could not complete (production plan §5.2).
+//         These mirror the SDK's `ToolError` variants one for one, in the same
+//         order, so the mapping in every SDK is a match arm and not a policy.
+//
+// One enum rather than two because a consumer switches on `PluginError.code`
+// without first having to know which of the two conversations produced the
+// message, and because "unspecified" must mean the same thing on both.
 enum PluginErrorCode {
     PLUGIN_ERROR_UNSPECIFIED = 0;
 
@@ -3589,13 +3601,85 @@ enum PluginErrorCode {
 
     // The daemon knows no such plugin id, or it is not in a registerable state.
     PLUGIN_ERROR_UNKNOWN_PLUGIN = 3;
+
+    // ── Per-call failures (§5.2). The plugin is alive and the transport is
+    // fine; THIS call did not work, and the answer is data the caller — the AI
+    // loop, the action runner, a UI panel — is expected to read.
+    //
+    // Deliberately NOT a gRPC `Status`: a tool that returns "you have not set
+    // an API key" has produced a legitimate tool RESULT, and the model must see
+    // it to tell the user what to do. Transport-level `Status` is reserved for
+    // the call never having reached the handler.
+
+    // The arguments did not parse, or violate the tool's own contract. The
+    // caller can retry with different arguments; retrying the same ones cannot
+    // help. `message` names the offending field.
+    PLUGIN_ERROR_BAD_ARGUMENTS = 4;
+
+    // The thing addressed does not exist (an unknown tool name, an id the
+    // plugin's own store has no row for).
+    PLUGIN_ERROR_NOT_FOUND = 5;
+
+    // The plugin needs configuration the user has not supplied. THE one code
+    // that must set `config_field`: it is what turns "this tool needs an API
+    // key" into a link that opens the exact settings field.
+    PLUGIN_ERROR_NOT_CONFIGURED = 6;
+
+    // The plugin's own credentials were rejected by whatever it talks to, or
+    // the caller is not allowed to invoke this. Distinct from NOT_CONFIGURED:
+    // a value IS present, it is simply not accepted.
+    PLUGIN_ERROR_UNAUTHORIZED = 7;
+
+    // A rate limit — the plugin's own, or an upstream service's. Sets
+    // `retry_after_ms` when the limit says when.
+    PLUGIN_ERROR_RATE_LIMITED = 8;
+
+    // A dependency the plugin needs is down or unreachable. Transient by
+    // assumption; a later identical call may succeed.
+    PLUGIN_ERROR_UNAVAILABLE = 9;
+
+    // The plugin gave up waiting on something. Distinct from UNAVAILABLE only
+    // in that the plugin, not the caller, ran out of time.
+    PLUGIN_ERROR_TIMEOUT = 10;
+
+    // An unexpected failure inside the plugin — a bug, a panic caught by the
+    // SDK. The catch-all, and the code an SDK uses when it has nothing better.
+    PLUGIN_ERROR_INTERNAL = 11;
 }
 
-// Structured failure detail for a registration the daemon refused.
+// Structured failure detail: a registration the daemon refused, or one call a
+// plugin could not complete.
+//
+// Every message that carries this field ALSO keeps its `string error`, and the
+// sender keeps populating it. This is an addition, not a replacement: a 0.5-era
+// plugin talking to this daemon sends no `error_detail`, and a plugin built
+// against this protocol talking to an older daemon has its `error_detail`
+// dropped by the receiver's parser. In both directions the human string is what
+// survives, so both pairings keep working and neither loses the message.
 message PluginError {
     PluginErrorCode code = 1;
     string message = 2;  // What went wrong. One sentence.
     string hint = 3;  // What to DO about it. One sentence.
+
+    // Deep-link target: the plugin config field the user must fill in, named
+    // exactly as it appears in the plugin's config schema (`api_key`,
+    // `account.token`). Dotted for nesting. Empty unless naming a field is the
+    // actual fix — with `PLUGIN_ERROR_NOT_CONFIGURED` it is effectively
+    // required, since it is the whole reason this field exists: the UI turns it
+    // into a link to that field on that plugin's settings page, instead of
+    // printing a sentence and leaving the user to hunt.
+    string config_field = 4;
+
+    // How long to wait before retrying, in milliseconds. Set with
+    // `PLUGIN_ERROR_RATE_LIMITED` when the limit says when (an upstream
+    // `Retry-After`, a token bucket's own refill). 0 means "not stated", not
+    // "retry immediately".
+    uint32 retry_after_ms = 5;
+
+    // A page documenting THIS failure — the plugin's own docs, an upstream
+    // provider's "how to get an API key". Rendered as a link next to the
+    // message. Must be http(s); a consumer drops any other scheme.
+    string doc_url = 6;
 }
 
 message PluginRegisterRequest {
@@ -3675,6 +3759,13 @@ message PluginChatChunk {
         string error = 3;
     }
     string message_id = 4;
+
+    // §5.2. Set alongside `content.error`, never instead of it — the oneof is
+    // what tells a receiver the stream ended badly, and moving that signal into
+    // a new field would make an old plugin read the turn as still running.
+    // Outside the oneof for the same reason: a field inside it would displace
+    // `error` on the wire and an old SDK would see no error at all.
+    PluginError error_detail = 5;
 }
 
 message PluginFireTriggerRequest {
@@ -3733,6 +3824,12 @@ message PluginCallToolResponse {
     bool success = 1;
     string result = 2;
     string error = 3;
+
+    // §5.2. Set when `success` is false; `error` stays the human string. The
+    // AI loop reads this: a `PLUGIN_ERROR_NOT_CONFIGURED` with a `config_field`
+    // is the difference between the model saying "the tool failed" and the user
+    // getting a link to the field they have to fill in.
+    PluginError error_detail = 4;
 }
 
 // ── TTS ──
@@ -3885,6 +3982,12 @@ message PluginAiStreamChunk {
         bool done = 4;
         string error = 5;
     }
+
+    // §5.2. Set alongside `content.error` — see `PluginChatChunk.error_detail`
+    // for why it sits outside the oneof. `PLUGIN_ERROR_RATE_LIMITED` with
+    // `retry_after_ms` is the case that pays for itself here: a provider's 429
+    // currently reaches the user as an opaque sentence.
+    PluginError error_detail = 6;
 }
 
 message PluginAiModelsResponse {
@@ -3908,6 +4011,12 @@ message PluginExecuteActionResponse {
     bool success = 1;
     string result = 2;
     string error = 3;
+
+    // §5.2. Set when `success` is false; `error` stays the human string. An
+    // action runs unattended inside an automation, so the code is what lets the
+    // daemon decide between "retry after `retry_after_ms`" and "this will never
+    // work until a human opens Settings".
+    PluginError error_detail = 4;
 }
 
 message PluginActionTypesResponse {
@@ -3979,6 +4088,11 @@ message PluginUiCallRequest {
 message PluginUiCallResponse {
     string result_json = 1;
     string error = 2;
+
+    // §5.2. Set when `error` is non-empty. This is the plugin's half of the UI
+    // bridge; the daemon relays it to the panel as
+    // `CallPluginFromUiResponse.error_detail`.
+    PluginError error_detail = 3;
 }
 
 message PluginUiPushRequest {
@@ -3996,6 +4110,12 @@ message CallPluginFromUiRequest {
 message CallPluginFromUiResponse {
     string result_json = 1;
     string error = 2;
+
+    // §5.2. The daemon's relay of `PluginUiCallResponse.error_detail`, so a
+    // plugin's own UI panel can render the same link to the same config field
+    // that a tool failure would. Empty when the daemon itself refused the call
+    // (plugin not running, unknown id) rather than the plugin.
+    PluginError error_detail = 3;
 }
 
 // ── Lifecycle ──

@@ -18,9 +18,29 @@
  * ```
  */
 
-export { Plugin } from "./plugin";
+export { Plugin, HookUnimplemented } from "./plugin";
 export { HostClient, RegistrationError } from "./host-client";
 export type { RegisterResponse, RegisterErrorDetail, DaemonInfo } from "./host-client";
+export {
+  PluginError,
+  BadArguments,
+  NotFound,
+  NotConfigured,
+  Unauthorized,
+  RateLimited,
+  Unavailable,
+  Timeout,
+  InternalError,
+  structuredErrorsSupported,
+} from "./errors";
+export type {
+  PluginErrorCode,
+  PluginErrorDetail,
+  PluginErrorOptions,
+  AnyPluginError,
+  ToolError,
+  ActionError,
+} from "./errors";
 export {
   evaluateProtocol,
   ProtocolMismatchError,
@@ -47,6 +67,17 @@ export type {
   UiContribution,
   UiCallResult,
   UiPanel,
+  AudioChunk,
+  SttOptions,
+  SttLoadState,
+  SttLoadStatus,
+  SttLoadRequest,
+  AiToolCall,
+  AiMessage,
+  AiCompleteRequest,
+  AiChunk,
+  ThemeContribution,
+  ChatChunk,
 } from "./types";
 export { ProtoContractError } from "./service-contract";
 export { PROTO_SHA256, PROTO_SOURCE, SERVICE_METHODS } from "./generated";

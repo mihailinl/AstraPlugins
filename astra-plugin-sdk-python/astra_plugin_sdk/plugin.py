@@ -2,17 +2,85 @@
 
 import argparse
 import asyncio
+import inspect
 import json
+import os
 import signal
 import sys
+from collections.abc import AsyncIterator
 from concurrent import futures
 
 import grpc
 
-from astra_plugin_sdk import protocol
+from astra_plugin_sdk import limits, protocol
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
+from astra_plugin_sdk.errors import NotFound, PluginError
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
+from astra_plugin_sdk.types import (
+    AiCompleteRequest,
+    AudioChunk,
+    SttLoadState,
+    SttLoadStatus,
+    SttOptions,
+    coerce_ai_chunk,
+    coerce_audio_chunk,
+)
+
+
+#: The environment variable the daemon states the manifest's `[capabilities]`
+#: in (§5.4).
+#:
+#: **Why the environment and not argv, and why this SDK is the reason.** The
+#: list was briefly appended as ``--capabilities=<list>``, on the reasoning that
+#: a plugin already installed on a user's machine scans argv for the prefixes it
+#: knows and ignores the rest. True of the Rust and TypeScript SDKs — and false
+#: of *this* one as published: 0.4.0 on PyPI calls
+#: ``argparse.ArgumentParser.parse_args()``, which prints
+#: ``error: unrecognized arguments: --capabilities=tools`` and calls
+#: ``sys.exit(2)`` before the gRPC server binds. Every Python plugin in the
+#: field would have stopped starting on daemon upgrade, and no release of this
+#: package can rescue a build that is already installed. A variable a process
+#: does not read cannot break it, so that is the channel.
+CAPABILITIES_ENV = "ASTRA_PLUGIN_CAPABILITIES"
+
+
+def _capabilities_from_env() -> list[str] | None:
+    """What the daemon stated, or ``None`` if it stated nothing.
+
+    ``[]`` and ``None`` are different answers. The daemon always sets the
+    variable, empty included: empty means "this manifest declares none", and the
+    variable being *absent* means the daemon predates §5.4 and the SDK should
+    fall back to probing the subclass.
+    """
+    raw = os.environ.get(CAPABILITIES_ENV)
+    if raw is None:
+        return None
+    return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+def _accepts(func, name: str) -> bool:
+    """Whether `func` would accept `name` as a keyword argument."""
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):  # builtins, C callables
+        return False
+    if name in params:
+        return True
+    return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+def _overrides(plugin: "Plugin", name: str) -> bool:
+    """Whether the subclass replaced `Plugin.<name>`.
+
+    Used to choose between two hooks that answer the same rpc (streaming vs
+    buffered STT) and to decide what a plugin can actually do. Comparing the
+    underlying functions, not the bound methods, because bound methods compare
+    unequal even when they wrap the same function.
+    """
+    own = getattr(type(plugin), name, None)
+    base = getattr(Plugin, name, None)
+    return own is not None and own is not base
 
 
 class Plugin:
@@ -39,6 +107,11 @@ class Plugin:
         self.active_triggers: set[str] = set()
         self._server: grpc.aio.Server | None = None
 
+        # `stt_transcribe` gained an `options` parameter in 0.6 (§5.4). Asking
+        # the signature once, here, is what lets a 0.5-era two-argument override
+        # keep working instead of dying with a TypeError on the first utterance.
+        self._stt_transcribe_wants_options = _accepts(self.stt_transcribe, "options")
+
         # Auto-collect @tool / @action / @trigger decorated methods
         self._decorated_tools: dict[str, tuple[dict, object]] = {}
         self._decorated_actions: dict[str, tuple[dict, object]] = {}
@@ -64,11 +137,46 @@ class Plugin:
         parser.add_argument("--daemon-addr", required=True, help="Daemon gRPC address")
         parser.add_argument("--plugin-id", required=True, help="Plugin ID")
         parser.add_argument("--auth-token", default="", help="Auth token for registration")
-        args = parser.parse_args()
+        # A `--capabilities` on argv still wins if some harness passes one, but
+        # the daemon does not send it — see `_capabilities_from_env`.
+        parser.add_argument("--capabilities", default="", help="Comma-separated capability list")
+        # Unknown flags are ignored rather than fatal: the daemon and the SDK
+        # ship on different clocks, and a plugin must not die because the daemon
+        # it was installed under learned a new argument.
+        #
+        # THIS LINE IS THE ONE THAT MATTERS. Published 0.4.0 called
+        # `parser.parse_args()`, which prints `error: unrecognized arguments`
+        # and calls `sys.exit(2)` — so a daemon that appended one new flag would
+        # have stopped every Python plugin in the field from starting, before it
+        # ever bound its gRPC port. The daemon no longer appends one; this is the
+        # belt to that braces, and it is why the next new thing can be added at
+        # all.
+        args, extra = parser.parse_known_args()
+        if extra:
+            print(f"Ignoring unrecognized arguments: {' '.join(extra)}", file=sys.stderr, flush=True)
 
-        asyncio.run(self._run_async(args.daemon_addr, args.plugin_id, args.auth_token))
+        from_argv = [c for c in args.capabilities.split(",") if c]
+        # `None` and `[]` are different answers: `[]` is the daemon saying this
+        # manifest declares no capabilities, `None` is nobody having said
+        # anything (a daemon older than §5.4).
+        capabilities = from_argv if from_argv else _capabilities_from_env()
 
-    async def _run_async(self, daemon_addr: str, plugin_id: str, auth_token: str = ""):
+        asyncio.run(
+            self._run_async(
+                args.daemon_addr,
+                args.plugin_id,
+                args.auth_token,
+                capabilities,
+            )
+        )
+
+    async def _run_async(
+        self,
+        daemon_addr: str,
+        plugin_id: str,
+        auth_token: str = "",
+        declared_capabilities: list[str] | None = None,
+    ):
         # The daemon's supervisor reads this process's stdout to decide the
         # plugin came up. Python block-buffers stdout when it is a pipe, so a
         # plugin that only prints would look hung and be killed at the start
@@ -111,7 +219,15 @@ class Plugin:
         bootstrap = HostClientBootstrap(daemon_addr, plugin_id)
         await bootstrap.connect()
 
-        capabilities = await self._discover_capabilities()
+        # `is None`, not falsiness: an empty LIST is the daemon stating that this
+        # plugin's manifest declares no capabilities, and probing the subclass
+        # then would override the file the user consented to. Only `None` — no
+        # statement at all, i.e. a daemon older than §5.4 — falls back.
+        capabilities = (
+            declared_capabilities
+            if declared_capabilities is not None
+            else await self._discover_capabilities()
+        )
         print(f"Registering with capabilities: {capabilities}", flush=True)
 
         response, host = await bootstrap.register(port, capabilities, auth_token)
@@ -198,6 +314,15 @@ class Plugin:
         await self._server.stop(grace=2)
 
     async def _discover_capabilities(self) -> list[str]:
+        """Guess the capability list from what the subclass implements.
+
+        Only reached when the daemon did not pass `--capabilities`; the manifest
+        is the real answer and this is the compatibility path. It is also why
+        `ai_provider` is decided by `ai_complete` being overridden rather than
+        by `ai_get_models` returning something: `AiGetModels` is deprecated and
+        defaults to empty, so a provider that implemented the hook that matters
+        used to register without the capability that names it.
+        """
         caps = []
         tools = await self.list_tools()
         if tools:
@@ -209,7 +334,7 @@ class Plugin:
         if langs:
             caps.append("stt")
         models, _ = await self.ai_get_models()
-        if models:
+        if models or _overrides(self, "ai_complete"):
             caps.append("ai_provider")
         action_types = await self.get_action_types()
         if action_types:
@@ -263,16 +388,17 @@ class Plugin:
         """
         entry = self._decorated_tools.get(name)
         if entry is None:
-            return {"success": False, "result": "", "error": f"Unknown tool: {name}"}
+            raise NotFound(f"Unknown tool: {name}")
         _, handler = entry
-        try:
-            args = json.loads(arguments_json) if arguments_json else {}
-            result = await handler(**args) if asyncio.iscoroutinefunction(handler) else handler(**args)
-            if isinstance(result, dict):
-                return {"success": True, "result": json.dumps(result)}
-            return {"success": True, "result": str(result) if result is not None else ""}
-        except Exception as e:
-            return {"success": False, "result": "", "error": str(e)}
+        # Exceptions are NOT swallowed here: the servicer turns them into a
+        # coded `PluginError` result, so `raise NotConfigured("api_key")` inside
+        # a @tool reaches the UI as a link to that field. Flattening them to
+        # `str(e)` here is what made every failure look the same.
+        args = json.loads(arguments_json) if arguments_json else {}
+        result = await handler(**args) if asyncio.iscoroutinefunction(handler) else handler(**args)
+        if isinstance(result, dict):
+            return {"success": True, "result": json.dumps(result)}
+        return {"success": True, "result": str(result) if result is not None else ""}
 
     async def tts_synthesize(
         self, text: str, voice_id: str, speed: float, pitch: float
@@ -310,13 +436,22 @@ class Plugin:
         """
         return []
 
-    async def stt_transcribe(self, audio: bytes, sample_rate: int) -> str | dict:
+    async def stt_transcribe(
+        self, audio: bytes, sample_rate: int, options: SttOptions | None = None
+    ) -> str | dict:
         """Transcribe a complete utterance to text (non-streaming).
 
         The SDK accumulates every audio chunk the daemon streams over
         ``SttProcess`` and calls this once the final chunk arrives:
         ``audio`` is the concatenated PCM payload, ``sample_rate`` its
-        declared rate.
+        declared rate, and ``options`` the per-utterance
+        :class:`~astra_plugin_sdk.types.SttOptions` the daemon put on the first
+        chunk (language hint, wake-word bias) — or ``None`` when it sent none.
+
+        ``options`` is new in 0.6. A 0.5-era override that takes only
+        ``(audio, sample_rate)`` keeps working: the servicer inspects the
+        signature once at construction and only passes what the override
+        accepts.
 
         Return either the transcript string, or a dict
         ``{text, is_final, confidence, language}`` for full control.
@@ -324,8 +459,125 @@ class Plugin:
         """
         raise NotImplementedError
 
+    async def stt_transcribe_stream(
+        self, audio: AsyncIterator[AudioChunk], options: SttOptions | None = None
+    ):
+        """Transcribe live, emitting partial results as the audio arrives.
+
+        This is the streaming half of ``SttProcess`` and it is an **async
+        generator**: consume ``audio`` and ``yield`` results as you have them.
+        Overriding it takes precedence over :meth:`stt_transcribe`, which the
+        SDK otherwise emulates by buffering the whole utterance.
+
+            async def stt_transcribe_stream(self, audio, options=None):
+                async for chunk in audio:
+                    text = self.decoder.feed(chunk.data)
+                    if text:
+                        yield {"text": text, "is_final": False}
+                yield {"text": self.decoder.finish(), "is_final": True}
+
+        Yield a transcript string, or a dict
+        ``{text, is_final, confidence, language}``. Back-pressure is real: the
+        SDK buffers at most ``limits.STT_AUDIO_CHANNEL_CAPACITY`` chunks, the
+        same bound the daemon's side of the bridge uses, so a slow recognizer
+        slows the sender instead of silently losing audio.
+        """
+        raise NotImplementedError
+
+    # ── STT model lifecycle ──
+    #
+    # Optional in the strong sense: the daemon routes all three through
+    # `optional_hook`, so a plugin that manages its own models simply does not
+    # override them and the daemon behaves exactly as it did before the hooks
+    # existed. Implementing them is what makes idle-unload actually free VRAM.
+
+    async def stt_load(self, model_path: str, use_gpu: bool) -> None:
+        """Load the recognizer model.
+
+        ``model_path`` is resolved by the daemon out of its own model catalog
+        and download manager — a plugin that ships or downloads its own models
+        ignores it. ``use_gpu`` is false on the daemon's degraded retry after a
+        GPU load failed, and a plugin that honours it is the difference between
+        "STT is broken" and "STT is slower today".
+        """
+        raise NotImplementedError
+
+    async def stt_unload(self) -> None:
+        """Drop the recognizer model and free its memory."""
+        raise NotImplementedError
+
+    async def stt_load_state(self) -> SttLoadStatus | SttLoadState | tuple:
+        """Report whether the model is resident, so idle-unload can work.
+
+        Return an :class:`~astra_plugin_sdk.types.SttLoadStatus`, a bare
+        :class:`~astra_plugin_sdk.types.SttLoadState`, or ``(state, detail)``.
+        Not overriding it means ``NOT_NEEDED``, which is what the daemon
+        assumed before the hook existed.
+        """
+        raise NotImplementedError
+
+    async def tts_synthesize_stream(
+        self, text: str, voice_id: str, speed: float, pitch: float
+    ):
+        """Synthesize as a chunk stream, for first-audio latency.
+
+        An **async generator**: yield :class:`~astra_plugin_sdk.types.AudioChunk`
+        or raw ``bytes`` of PCM as fast as the engine produces them. Set
+        ``sample_rate`` on the first chunk; the SDK marks the last one for you.
+
+            async def tts_synthesize_stream(self, text, voice_id, speed, pitch):
+                yield AudioChunk(data=first, sample_rate=24000)
+                async for pcm in self.engine.stream(text):
+                    yield pcm
+
+        NOTE: no daemon call site exists for ``TtsSynthesizeStream`` yet — the
+        rpc is declared and unrouted (`spec/hooks.yaml`). Implementing it costs
+        nothing and is what the three SDKs agreeing looks like, but do not
+        expect it to be exercised until the daemon's voice pipeline calls it.
+        """
+        raise NotImplementedError
+
+    async def tts_activate(self, cek: bytes, voice_id: str) -> None:
+        """Activate a licensed voice with a one-time content-encryption key.
+
+        ``cek`` is a raw secret. Seal it under a machine-bound key and store
+        that; never write it to disk in the clear and never log it. Most TTS
+        plugins have no protected voice and should not override this.
+
+        Unlike the other optional hooks the daemon does NOT treat a failure
+        here as "hook absent" — it propagates, and the activation fails. Raise
+        only when activation really did not happen.
+        """
+        raise NotImplementedError
+
+    async def ai_complete(self, request: AiCompleteRequest):
+        """Stream a model completion. The whole of the ``ai_provider`` capability.
+
+        An **async generator**: yield
+        :class:`~astra_plugin_sdk.types.AiChunk` values, or bare strings for
+        plain text deltas. The SDK appends the terminating ``done`` chunk when
+        your generator returns, so the last thing you yield can be content.
+
+            async def ai_complete(self, request):
+                async for token in self.client.stream(request.messages,
+                                                      model=request.model):
+                    yield token                      # a text delta
+                yield AiChunk.call("1", "get_time", "{}")
+
+        ``request.reasoning_effort`` is the user's thinking-budget choice as a
+        string (``""`` means the daemon did not say — distinct from ``"auto"``),
+        and ``request.show_reasoning`` says whether anyone will read the
+        ``AiChunk.thinking_delta`` chunks you emit.
+        """
+        raise NotImplementedError
+
     async def ai_get_models(self) -> tuple[list[dict], str]:
-        """Return (models_list, default_model_id)."""
+        """Return (models_list, default_model_id).
+
+        DEPRECATED: the daemon has no call site — ``all_ai_providers`` builds
+        every plugin provider with ``supports_model_discovery: false``, so the
+        model picker never asks. Kept so an existing plugin keeps compiling.
+        """
         return [], ""
 
     async def get_action_types(self) -> list[dict]:
@@ -342,16 +594,13 @@ class Plugin:
         """
         entry = self._decorated_actions.get(action_type)
         if entry is None:
-            return {"success": False, "result": "", "error": f"Unknown action: {action_type}"}
+            raise NotFound(f"Unknown action: {action_type}")
         _, handler = entry
-        try:
-            params = json.loads(params_json) if params_json else {}
-            result = await handler(**params) if asyncio.iscoroutinefunction(handler) else handler(**params)
-            if isinstance(result, dict):
-                return {"success": True, "result": json.dumps(result)}
-            return {"success": True, "result": str(result) if result is not None else ""}
-        except Exception as e:
-            return {"success": False, "result": "", "error": str(e)}
+        params = json.loads(params_json) if params_json else {}
+        result = await handler(**params) if asyncio.iscoroutinefunction(handler) else handler(**params)
+        if isinstance(result, dict):
+            return {"success": True, "result": json.dumps(result)}
+        return {"success": True, "result": str(result) if result is not None else ""}
 
     async def get_trigger_types(self) -> list[dict]:
         """Return trigger type definitions.
@@ -461,6 +710,13 @@ class Plugin:
             payload_json = json.dumps(payload) if payload else "{}"
             await self.host.fire_trigger(trigger_type, payload_json)
 
+    async def push_to_ui(self, event: str, payload: dict | None = None):
+        """Push an event into this plugin's own iframes — the return path for
+        :meth:`handle_ui_call`. Requires the ``push_to_ui`` permission."""
+        if self.host:
+            payload_json = json.dumps(payload) if payload else "{}"
+            await self.host.push_to_ui(event, payload_json)
+
     # ── Events ──
 
     def source_id(self) -> str:
@@ -561,6 +817,75 @@ def _field_dict_to_proto(d: dict):
     return plugin_pb2.FieldDefinitionMsg(**flat, options=options, conditions=conditions)
 
 
+async def _open_stream(maybe_stream):
+    """Normalise the three shapes a streaming hook can hand back.
+
+    An `async def` with a `yield` returns an async generator immediately. An
+    `async def` without one returns a coroutine — which is what the un-overridden
+    base hooks are, and awaiting it is how their `NotImplementedError` reaches
+    us. A coroutine that returns an iterable works too, because somebody will
+    write that and it costs one line to support.
+    """
+    if hasattr(maybe_stream, "__aiter__"):
+        return maybe_stream
+    result = await maybe_stream
+    if hasattr(result, "__aiter__"):
+        return result
+    if result is None:
+        raise NotImplementedError
+    return _as_async_iter(result)
+
+
+async def _as_async_iter(values):
+    for value in values:
+        yield value
+
+
+async def _with_last_marked(chunks):
+    """Yield `AudioChunk`s, flagging the final one `is_last`.
+
+    Held one behind, so the flag lands on the real last chunk instead of on an
+    empty trailing one. The daemon's reader stops at `is_last`; an author who
+    already set it keeps it.
+    """
+    pending = None
+    async for value in chunks:
+        chunk = coerce_audio_chunk(value)
+        if pending is not None:
+            yield pending
+        pending = chunk
+    if pending is not None:
+        pending.is_last = True
+        yield pending
+
+
+def _stt_event(result) -> plugin_pb2.PluginSttEvent:
+    """A transcript string or `{text, is_final, confidence, language}` dict."""
+    if isinstance(result, str):
+        result = {"text": result}
+    return plugin_pb2.PluginSttEvent(
+        text=result.get("text", ""),
+        is_final=result.get("is_final", True),
+        confidence=result.get("confidence", 1.0),
+        language=result.get("language", ""),
+    )
+
+
+def _result_response(message_cls, result: dict):
+    """Build a Call/Action response from a handler's dict.
+
+    A handler that reports failure as a plain string gets the legacy `error`
+    field and no structured detail: the SDK will not invent a code it was not
+    given, because a wrong code is worse than an absent one — the daemon acts on
+    codes. Raise a `PluginError` to get both halves.
+    """
+    return message_cls(
+        success=bool(result.get("success", False)),
+        result=result.get("result", "") or "",
+        error=result.get("error", "") or "",
+    )
+
+
 class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     """gRPC servicer that delegates to the Plugin instance."""
 
@@ -574,8 +899,17 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         )
 
     async def CallTool(self, request, context):
-        result = await self.plugin.call_tool(request.tool_name, request.arguments_json)
-        return plugin_pb2.PluginCallToolResponse(**result)
+        # In-band, never a gRPC error: a failed tool call is data the AI loop
+        # has to read. "You have no API key configured" is the model's cue to
+        # tell the user what to do, and a transport error hides it from the
+        # model entirely. See `astra_plugin_sdk.errors`.
+        try:
+            result = await self.plugin.call_tool(request.tool_name, request.arguments_json)
+        except Exception as e:  # noqa: BLE001 — every failure becomes a coded result
+            return PluginError.from_exception(e).to_response(
+                plugin_pb2.PluginCallToolResponse, result=""
+            )
+        return _result_response(plugin_pb2.PluginCallToolResponse, result)
 
     async def TtsSynthesize(self, request, context):
         try:
@@ -587,6 +921,48 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details(str(e))
             return plugin_pb2.PluginTtsSynthesizeResponse()
+        except PluginError as e:
+            e.abort(context)
+            return plugin_pb2.PluginTtsSynthesizeResponse()
+
+    async def TtsSynthesizeStream(self, request, context):
+        """Server-streaming TTS. Unrouted daemon-side today; see the hook doc."""
+        try:
+            stream = await _open_stream(
+                self.plugin.tts_synthesize_stream(
+                    request.text, request.voice_id, request.speed, request.pitch
+                )
+            )
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin does not stream TTS")
+            return
+        try:
+            async for chunk in _with_last_marked(stream):
+                yield chunk.to_proto()
+        except PluginError as e:
+            # No in-band failure slot on this stream, so the transport carries
+            # it — the one place `grpc_status()` is the right answer.
+            e.abort(context)
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
+
+    async def TtsActivate(self, request, context):
+        try:
+            await self.plugin.tts_activate(request.cek, request.voice_id)
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin has no protected voice to activate")
+            return plugin_pb2.PluginTtsActivateResponse()
+        except PluginError as e:
+            # NOT routed through the daemon's `optional_hook`: a failure here
+            # fails the activation rather than being read as "no such hook".
+            e.abort(context)
+            return plugin_pb2.PluginTtsActivateResponse()
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
+            return plugin_pb2.PluginTtsActivateResponse()
+        return plugin_pb2.PluginTtsActivateResponse()
 
     async def TtsListVoices(self, request, context):
         voices = await self.plugin.tts_list_voices()
@@ -611,38 +987,180 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         )
 
     async def SttProcess(self, request_iterator, context):
+        """Bidi STT. Streams live into `stt_transcribe_stream` when the plugin
+        has one; otherwise buffers the utterance for `stt_transcribe`."""
+        if _overrides(self.plugin, "stt_transcribe_stream"):
+            async for event in self._stt_streaming(request_iterator, context):
+                yield event
+            return
+
         # Accumulate the utterance. The daemon currently sends a single
         # f32-LE PCM buffer flagged `is_last`, but a future caller may split
         # it across chunks — drain until `is_last` or end-of-stream either way.
         audio = bytearray()
         sample_rate = 0
+        options: SttOptions | None = None
         async for chunk in request_iterator:
             if sample_rate == 0:
                 sample_rate = chunk.sample_rate
+            if options is None:
+                # Per-utterance decoding options ride on the first chunk only.
+                parsed = AudioChunk.from_proto(chunk)
+                options = parsed.options
             audio.extend(chunk.data)
             if chunk.is_last:
                 break
 
         # Non-streaming transcription: one `stt_transcribe` call, one event.
         try:
-            result = await self.plugin.stt_transcribe(bytes(audio), sample_rate)
+            if self.plugin._stt_transcribe_wants_options:
+                result = await self.plugin.stt_transcribe(
+                    bytes(audio), sample_rate, options
+                )
+            else:
+                result = await self.plugin.stt_transcribe(bytes(audio), sample_rate)
         except NotImplementedError as e:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details(str(e) or "STT not implemented")
             return
-        except Exception as e:
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
+        except PluginError as e:
+            e.abort(context)
+            return
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
             return
 
-        if isinstance(result, str):
-            result = {"text": result}
-        yield plugin_pb2.PluginSttEvent(
-            text=result.get("text", ""),
-            is_final=result.get("is_final", True),
-            confidence=result.get("confidence", 1.0),
-            language=result.get("language", ""),
-        )
+        yield _stt_event(result)
+
+    async def _stt_streaming(self, request_iterator, context):
+        """Feed `stt_transcribe_stream` while it emits partial results.
+
+        Two coroutines: a pump draining the inbound gRPC stream into a bounded
+        queue, and the plugin's generator reading it. The bound is
+        `limits.STT_AUDIO_CHANNEL_CAPACITY` — the same number the daemon's half
+        of the bridge uses, because the smaller of two channels in series is the
+        real capacity and a smaller SDK-side buffer is exactly how streaming STT
+        once lost everything past the first fraction of an utterance.
+        """
+        queue: asyncio.Queue = asyncio.Queue(maxsize=limits.STT_AUDIO_CHANNEL_CAPACITY)
+        options: SttOptions | None = None
+        first_seen = asyncio.Event()
+
+        async def pump():
+            nonlocal options
+            try:
+                async for msg in request_iterator:
+                    chunk = AudioChunk.from_proto(msg)
+                    if not first_seen.is_set():
+                        options = chunk.options
+                        first_seen.set()
+                    await queue.put(chunk)
+                    if chunk.is_last:
+                        break
+            finally:
+                first_seen.set()
+                await queue.put(None)
+
+        async def audio():
+            while True:
+                item = await queue.get()
+                if item is None:
+                    return
+                yield item
+
+        pump_task = asyncio.create_task(pump())
+        try:
+            # The hook takes the options up front, so wait for the first chunk
+            # (or for the stream to end without one) before calling it.
+            await first_seen.wait()
+            stream = await _open_stream(
+                self.plugin.stt_transcribe_stream(audio(), options)
+            )
+            async for result in stream:
+                yield _stt_event(result)
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("STT not implemented")
+        except PluginError as e:
+            e.abort(context)
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
+        finally:
+            pump_task.cancel()
+
+    async def SttLoad(self, request, context):
+        try:
+            await self.plugin.stt_load(request.model_path, request.use_gpu)
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin has no explicit STT model lifecycle")
+        except PluginError as e:
+            e.abort(context)
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
+        return plugin_pb2.Empty()
+
+    async def SttUnload(self, request, context):
+        try:
+            await self.plugin.stt_unload()
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin has no explicit STT model lifecycle")
+        except PluginError as e:
+            e.abort(context)
+        except Exception as e:  # noqa: BLE001
+            PluginError.from_exception(e).abort(context)
+        return plugin_pb2.Empty()
+
+    async def SttGetLoadState(self, request, context):
+        try:
+            state = await self.plugin.stt_load_state()
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin has no explicit STT model lifecycle")
+            return plugin_pb2.SttLoadStateResponse()
+        except PluginError as e:
+            e.abort(context)
+            return plugin_pb2.SttLoadStateResponse()
+        # Accept the three shapes the hook documents: a status, a bare state,
+        # or `(state, detail)`.
+        if isinstance(state, SttLoadStatus):
+            return state.to_proto()
+        if isinstance(state, tuple):
+            return SttLoadStatus(SttLoadState(state[0]), str(state[1])).to_proto()
+        return SttLoadStatus(SttLoadState(state)).to_proto()
+
+    async def AiComplete(self, request, context):
+        req = AiCompleteRequest.from_proto(request)
+        try:
+            stream = await _open_stream(self.plugin.ai_complete(req))
+        except NotImplementedError:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin is not an AI provider")
+            return
+
+        last: plugin_pb2.PluginAiStreamChunk | None = None
+        try:
+            async for value in stream:
+                last = coerce_ai_chunk(value).to_proto()
+                yield last
+        except Exception as e:  # noqa: BLE001
+            # `PluginAiStreamChunk` HAS an in-band error slot, so the failure
+            # travels as data the daemon's bridge already reads, rather than as
+            # a transport fault that would look like the plugin dying. The
+            # `error` oneof arm and the structured `error_detail` beside it are
+            # both set: the oneof is what tells a receiver the stream ended
+            # badly, and an old daemon reads only that.
+            yield PluginError.from_exception(e).to_response(
+                plugin_pb2.PluginAiStreamChunk
+            )
+            return
+
+        # Terminate the stream for the author: a completion that never says
+        # `done` leaves the daemon's reader waiting on a stream that has already
+        # closed, and forgetting it is the easiest mistake to make here.
+        if last is None or last.WhichOneof("content") not in ("done", "error"):
+            yield plugin_pb2.PluginAiStreamChunk(done=True)
 
     async def AiGetModels(self, request, context):
         models, default = await self.plugin.ai_get_models()
@@ -652,8 +1170,13 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         )
 
     async def ExecuteAction(self, request, context):
-        result = await self.plugin.execute_action(request.action_type, request.params_json)
-        return plugin_pb2.PluginExecuteActionResponse(**result)
+        try:
+            result = await self.plugin.execute_action(request.action_type, request.params_json)
+        except Exception as e:  # noqa: BLE001 — every failure becomes a coded result
+            return PluginError.from_exception(e).to_response(
+                plugin_pb2.PluginExecuteActionResponse, result=""
+            )
+        return _result_response(plugin_pb2.PluginExecuteActionResponse, result)
 
     async def GetPluginActionTypes(self, request, context):
         types = await self.plugin.get_action_types()
@@ -676,8 +1199,13 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     async def CallFromUi(self, request, context):
         try:
             result = await self.plugin.handle_ui_call(request.method, request.params_json)
-        except Exception as e:
-            return plugin_pb2.PluginUiCallResponse(error=str(e))
+        except Exception as e:  # noqa: BLE001
+            # The daemon relays `error_detail` on to the panel as
+            # `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can
+            # render the same config-field link a tool failure would.
+            return PluginError.from_exception(e).to_response(
+                plugin_pb2.PluginUiCallResponse, result_json=""
+            )
 
         if result is None:
             return plugin_pb2.PluginUiCallResponse()
