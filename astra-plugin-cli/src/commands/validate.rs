@@ -214,6 +214,12 @@ fn sections_present(m: &PluginManifest) -> Vec<String> {
     if !m.capabilities.as_list().is_empty() {
         out.push("[capabilities]".into());
     }
+    // Phase 4 added `[permissions]` and this list did not follow it, which is
+    // the exact failure mode above: a manifest that requests `fire_trigger` and
+    // a `check` that never says so reads as a section the tool ignored.
+    if !m.permissions.is_empty() {
+        out.push("[permissions]".into());
+    }
     if m.config.is_some() {
         out.push("[config]".into());
     }
@@ -733,6 +739,9 @@ runtimes = ["python"]
 tools = true
 ui_contributions = true
 
+[permissions]
+push_to_ui = { reason = "Updates the Sink panel" }
+
 [dependencies]
 astra-plugin-sdk = ">=0.6,<0.7"
 
@@ -796,6 +805,7 @@ label = "Sink"
             "[plugin]",
             "[entry]",
             "[capabilities]",
+            "[permissions]",
             "[dependencies]",
             "[platform]",
             "[build]",

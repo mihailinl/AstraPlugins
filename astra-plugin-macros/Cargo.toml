@@ -1,0 +1,28 @@
+[package]
+name = "astra-plugin-macros"
+version = "0.6.0"
+edition = "2024"
+description = "Attribute macros for the Astra plugin SDK. Use `astra-plugin-sdk`; this crate is its implementation detail."
+license = "MIT"
+repository = "https://github.com/mihailinl/AstraPlugins"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits", "parsing", "printing", "proc-macro"] }
+
+# A dev-dependency cycle back onto the crate that depends on us. Cargo allows
+# exactly this shape, and it is the only way to test that an expansion compiles
+# and behaves identically to the hand-written impl it claims to be.
+# Two, and the shorter list is the point. `serde`, `serde_json` and `schemars`
+# are deliberately absent: the test crate is a stand-in for the author's crate,
+# and §3.1 says that crate has one dependency. `#[astra::args]` and every path
+# the macros emit have to work with nothing but `astra-plugin-sdk` reachable, so
+# the test that proves it cannot have those crates in its extern prelude.
+# `tokio` is here for `#[tokio::test]` — test scaffolding, not plugin surface.
+[dev-dependencies]
+astra-plugin-sdk = { path = "../astra-plugin-sdk" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
