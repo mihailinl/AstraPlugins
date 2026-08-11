@@ -5,11 +5,11 @@ four design drafts. Where a design draft and this document disagree, this docume
 
 **Repos.** Three, and commits never mix:
 
-| Tag | Repo | Path on this machine |
+| Tag | Repo | Checked out |
 |---|---|---|
-| `[AP]` | `mihailinl/AstraPlugins` | `/home/mihailin/Documents/GitHub/AstraPlugins` |
-| `[AS]` | `mihailinl/Astra` | `/home/mihailin/Documents/GitHub/Astra` |
-| `[REG]` | `mihailinl/astra-registry` (new, Phase 2) | — |
+| `[AP]` | `mihailinl/AstraPlugins` | this repository |
+| `[AS]` | `mihailinl/Astra` (private) | beside this one |
+| `[REG]` | `mihailinl/astra-registry` (new, Phase 2) | beside this one |
 
 ---
 
