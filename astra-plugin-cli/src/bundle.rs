@@ -275,9 +275,13 @@ pub struct BundleManifest {
     pub protocol: u32,
     pub min_astra_version: String,
     pub capabilities: Vec<String>,
-    /// Permission id → the author's declared reason. Empty until Phase 4 gives
-    /// permissions a vocabulary; the field and its hash exist from v2 so a
-    /// consent sheet can be added without a format bump.
+    /// The `[permissions]` section of `plugin.toml`, verbatim — permission id →
+    /// the whole request, not just its `reason`.
+    ///
+    /// §5.6 gave this a vocabulary in Phase 4 and the daemon now *enforces* it:
+    /// a registry install's granted set is read out of the trust record, which
+    /// is written from these bytes. So anything dropped here is a permission the
+    /// user can never grant, no matter what the author declared.
     pub permissions: BTreeMap<String, ManifestPermission>,
     /// `sha256:<hex>` over [`canonical_permissions`]. Carries its algorithm
     /// prefix because it is compared against a value the *registry* computed,
@@ -290,11 +294,34 @@ pub struct BundleManifest {
     pub files: Vec<FileEntry>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ManifestPermission {
-    #[serde(default)]
-    pub reason: String,
-}
+/// One `[permissions]` entry as it appears in `MANIFEST.json`.
+///
+/// **This is the daemon's own type, aliased — not a copy of it.**
+/// [`astra_plugin_manifest::PermissionRequest`] is what
+/// `astra-daemon/src/plugins/manifest.rs` deserialises `plugin.toml` into and
+/// what §5.6's grant resolution reads, and this crate already links that crate
+/// under `tools/check-manifest-crate.sh`'s byte-equality check.
+///
+/// It was a local one-field struct (`reason` only) until Phase 4, which was
+/// defensible while `[permissions]` had no vocabulary and defensible no longer
+/// once it did. That struct dropped two things on the floor:
+///
+/// * `subscribe_events.types` — an **allowlist the daemon enforces per event**,
+///   where empty allows nothing. Packing it away meant a registry-published
+///   plugin's trust record granted `subscribe_events` over no types at all, and
+///   every subscription it opened was refused. Sideload and import were
+///   unaffected, which is why it survived testing: those read `plugin.toml`
+///   directly and never pass through this packer.
+/// * `set_variable.scopes` — reserved today, silently unpublishable tomorrow.
+///
+/// It also canonicalised differently. `PermissionRequest` skips an empty
+/// `reason`, so `set_variable = {}` is `{}`; the local struct always emitted it,
+/// so the same declaration was `{"reason":""}` here and `{}` in the daemon.
+/// Nothing went red — every side recomputes `permissions_hash` from
+/// `MANIFEST.permissions` and so agrees with itself — but two canonical
+/// spellings of one declaration is precisely the drift that hash exists to
+/// prevent, and aliasing the type makes a third spelling unrepresentable.
+pub type ManifestPermission = astra_plugin_manifest::PermissionRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestEntry {
@@ -1353,25 +1380,69 @@ mod tests {
         let mut a = BTreeMap::new();
         a.insert(
             "fire_trigger".to_string(),
-            ManifestPermission {
-                reason: "to roll".into(),
-            },
+            ManifestPermission::with_reason("to roll"),
         );
         a.insert("net".to_string(), ManifestPermission::default());
         let mut b = BTreeMap::new();
         b.insert("net".to_string(), ManifestPermission::default());
         b.insert(
             "fire_trigger".to_string(),
-            ManifestPermission {
-                reason: "to roll".into(),
-            },
+            ManifestPermission::with_reason("to roll"),
         );
         assert_eq!(permissions_hash(&a).unwrap(), permissions_hash(&b).unwrap());
         assert!(permissions_hash(&a).unwrap().starts_with("sha256:"));
+        // A request with nothing in it is `{}`, not `{"reason":""}`. That is the
+        // daemon's spelling — `PermissionRequest` skips an empty `reason` — and
+        // the packer is now the same type rather than a lookalike that always
+        // emitted the member. Both sides recompute this hash from
+        // `MANIFEST.permissions` and so always agreed with themselves, which is
+        // why nothing ever went red; two canonical spellings of one declaration
+        // is still exactly the drift `permissions_hash` exists to prevent.
         assert_eq!(
             String::from_utf8(canonical_permissions(&a).unwrap()).unwrap(),
-            r#"{"fire_trigger":{"reason":"to roll"},"net":{"reason":""}}"#
+            r#"{"fire_trigger":{"reason":"to roll"},"net":{}}"#
         );
+    }
+
+    /// `subscribe_events.types` is an allowlist the daemon enforces per event,
+    /// and an empty one allows **nothing** (§5.6, task 4.1). A packer that drops
+    /// it publishes a plugin whose every subscription the daemon then refuses —
+    /// visible only on the registry path, because sideload and import read
+    /// `plugin.toml` directly and never come through here.
+    #[test]
+    fn a_permission_reaches_the_manifest_with_its_types_and_scopes() {
+        let mut perms = BTreeMap::new();
+        perms.insert(
+            "subscribe_events".to_string(),
+            ManifestPermission {
+                reason: "Watches for command_completed".into(),
+                types: vec!["command_completed".into(), "tool_started".into()],
+                scopes: vec![],
+            },
+        );
+        perms.insert(
+            "set_variable".to_string(),
+            ManifestPermission {
+                reason: String::new(),
+                types: vec![],
+                scopes: vec!["plugin".into()],
+            },
+        );
+
+        let canonical = String::from_utf8(canonical_permissions(&perms).unwrap()).unwrap();
+        assert_eq!(
+            canonical,
+            r#"{"set_variable":{"scopes":["plugin"]},"subscribe_events":{"reason":"Watches for command_completed","types":["command_completed","tool_started"]}}"#
+        );
+
+        // And the same bytes deserialise back into the daemon's own type, so
+        // what the packer wrote is what §5.6's grant resolution will read.
+        let back: astra_plugin_manifest::Permissions = serde_json::from_str(&canonical).unwrap();
+        assert_eq!(
+            back.0["subscribe_events"].types,
+            vec!["command_completed".to_string(), "tool_started".to_string()]
+        );
+        assert_eq!(back.0["set_variable"].scopes, vec!["plugin".to_string()]);
     }
 
     #[test]

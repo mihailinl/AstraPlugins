@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 
 use crate::capabilities::Capabilities;
+use crate::permissions::Permissions;
 use crate::platform::{PlatformRequirements, current_platform};
 
 /// Loaded locale data for a plugin — maps language code to flat key-value translations.
@@ -15,15 +16,25 @@ pub type PluginLocales = HashMap<String, HashMap<String, String>>;
 /// Complete plugin manifest parsed from `plugin.toml`.
 ///
 /// Deliberately **not** `deny_unknown_fields`: sections are added over releases
-/// (`[permissions]` is next) and an older daemon must skip a section it does not
-/// know rather than refuse the plugin. `[capabilities]` is the exception, and
-/// [`Capabilities`] explains why.
+/// — `[permissions]` was the last one — and an older daemon must skip a section
+/// it does not know rather than refuse the plugin. `[capabilities]` is the
+/// exception, and [`Capabilities`] explains why.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginManifest {
     pub plugin: PluginMeta,
     pub entry: EntryConfig,
+    /// What the plugin **implements**, daemon→plugin.
     #[serde(default)]
     pub capabilities: Capabilities,
+    /// What the plugin asks to **call**, plugin→daemon — and it is an *ask*.
+    ///
+    /// Absent means no host RPC beyond the always-allowed bootstrap set (§5.6).
+    /// The set a plugin actually holds is resolved by the daemon from its
+    /// provenance and is never read from here for a plugin that has a trust
+    /// record: a manifest lives in the plugin's own directory, which the plugin
+    /// can write.
+    #[serde(default)]
+    pub permissions: Permissions,
     #[serde(default)]
     pub config: Option<ConfigSection>,
     #[serde(default)]
@@ -461,6 +472,10 @@ runtimes = ["python"]
 tools = true
 ui_contributions = true
 
+[permissions]
+fire_trigger = { reason = "rolls the dice" }
+subscribe_events = { types = ["command_completed"] }
+
 [dependencies]
 astra-plugin-sdk = ">=0.6,<0.7"
 
@@ -488,6 +503,18 @@ theme = "dark"
 "#;
         let m = PluginManifest::from_str(toml).unwrap();
         assert_eq!(m.plugin.call_timeout_secs, Some(180));
+        assert_eq!(
+            m.permissions.known(),
+            vec![
+                crate::Permission::FireTrigger,
+                crate::Permission::SubscribeEvents
+            ],
+            "[permissions] is a section of the ONE manifest type, not a second parse"
+        );
+        assert_eq!(
+            m.permissions.event_types(),
+            Some(["command_completed".to_string()].as_slice())
+        );
         assert_eq!(m.plugin.min_astra_version, "0.0.1");
         assert_eq!(m.dependencies.len(), 1);
         assert_eq!(
@@ -534,6 +561,37 @@ ui_panels = true
             .expect_err("an unknown capability key must fail the parse")
             .to_string();
         assert!(err.contains("plugin.toml"), "{err}");
+    }
+
+    /// §5.6's default-deny, at the manifest level: the overwhelming majority of
+    /// plugin.tomls in the wild have no `[permissions]` section at all, and the
+    /// parse must give them the empty set rather than fail or invent one.
+    #[test]
+    fn a_manifest_with_no_permissions_section_parses_as_the_empty_set() {
+        let m = PluginManifest::from_str(
+            "[plugin]\nid = \"quiet\"\nname = \"Quiet\"\nversion = \"1.0.0\"\n\n\
+             [entry]\ncommand = \"./bin/x\"\n",
+        )
+        .expect("no [permissions] is a legal manifest");
+        assert!(m.permissions.is_empty());
+        assert!(!m.permissions.contains(crate::Permission::FireTrigger));
+    }
+
+    /// `[capabilities]` and `[permissions]` are orthogonal and share two names.
+    /// A manifest that implements `dom_access` and one that is allowed to *use*
+    /// it are different claims, and the parse keeps them apart.
+    #[test]
+    fn dom_access_as_a_capability_is_not_dom_access_as_a_permission() {
+        let m = PluginManifest::from_str(
+            "[plugin]\nid = \"dommy\"\nname = \"Dommy\"\nversion = \"1.0.0\"\n\n\
+             [entry]\ncommand = \"./bin/x\"\n\n[capabilities]\ndom_access = true\n",
+        )
+        .unwrap();
+        assert!(m.capabilities.dom_access);
+        assert!(
+            !m.permissions.contains(crate::Permission::DomAccess),
+            "declaring the capability must not carry the permission across"
+        );
     }
 
     #[test]

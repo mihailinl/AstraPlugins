@@ -45,6 +45,7 @@ IDENTICAL=(
     "src/lib.rs"
     "src/manifest.rs"
     "src/capabilities.rs"
+    "src/permissions.rs"
     "src/platform.rs"
     "README.md"
 )

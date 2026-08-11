@@ -349,26 +349,36 @@ fn declared_capabilities(manifest: &toml::Value) -> Vec<String> {
     caps
 }
 
-/// `[permissions.<id>] reason = "…"`.
+/// The whole `[permissions]` section, read with the daemon's own deserialiser.
 ///
-/// Empty until Phase 4 gives permissions a vocabulary and a consent sheet. The
-/// field is in the format from v2 so that adding them later is a value change,
-/// not a format change — and `permissions_hash` over an empty map is already a
-/// number the registry can countersign.
+/// **Deliberately not hand-parsed.** This used to pick `reason` out of each
+/// entry by hand and build a one-field struct, which silently discarded
+/// `subscribe_events.types` and `set_variable.scopes` — see
+/// [`ManifestPermission`] for what that cost. Deserialising into
+/// [`astra_plugin_manifest::Permissions`] means the packer cannot know a smaller
+/// set of fields than the daemon does: a field added to `PermissionRequest`
+/// starts being packed here with no edit, which is the only version of this that
+/// stays true.
+///
+/// An absent section is the empty map, and §5.6's default-deny reads it as
+/// "nothing". `permissions_hash` over `{}` is a number the registry can
+/// countersign, so a plugin asking for nothing is not a special case anywhere.
+///
+/// Unknown permission ids are **kept, not dropped**: `permissions_hash` has to
+/// cover the bytes three repositories hash, and an id this build of the CLI does
+/// not recognise may well be one the user's daemon does. The daemon treats them
+/// as inert, and §4.3's consent sheet renders them as "not recognised by this
+/// version" rather than hiding them.
 fn declared_permissions(manifest: &toml::Value) -> Result<BTreeMap<String, ManifestPermission>> {
-    let Some(table) = manifest.get("permissions").and_then(|p| p.as_table()) else {
+    let Some(section) = manifest.get("permissions") else {
         return Ok(BTreeMap::new());
     };
-    let mut out = BTreeMap::new();
-    for (id, value) in table {
-        let reason = value
-            .get("reason")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        out.insert(id.clone(), ManifestPermission { reason });
-    }
-    Ok(out)
+    let permissions: astra_plugin_manifest::Permissions = section.clone().try_into().context(
+        "Failed to read [permissions] in plugin.toml. Each entry is a table: \
+         `fire_trigger = { reason = \"…\" }`, with optional `types` and `scopes` \
+         string lists",
+    )?;
+    Ok(permissions.0)
 }
 
 /// Rewrite the manifest that goes *into the bundle*: `entry.command` points at
@@ -866,6 +876,61 @@ actions = true
                 "build.rs must not reference {forbidden:?} outside its tests"
             );
         }
+    }
+
+    /// The regression this file's `declared_permissions` was written wrong for.
+    ///
+    /// It read `reason` out of each entry by hand, so `types` and `scopes` never
+    /// left `plugin.toml`. Reading the section with the daemon's own
+    /// deserialiser is what makes the packer structurally unable to know fewer
+    /// fields than the daemon does.
+    #[test]
+    fn the_whole_permission_request_survives_plugin_toml() {
+        let manifest: toml::Value = toml::from_str(
+            r#"
+            [permissions]
+            fire_trigger     = { reason = "Fires the on_dice_roll trigger you configure" }
+            subscribe_events = { types = ["command_completed", "tool_started"], reason = "Watches" }
+            set_variable     = { scopes = ["plugin"] }
+            "#,
+        )
+        .unwrap();
+
+        let packed = declared_permissions(&manifest).unwrap();
+        assert_eq!(packed.len(), 3);
+        assert_eq!(
+            packed["subscribe_events"].types,
+            vec!["command_completed".to_string(), "tool_started".to_string()],
+            "subscribe_events.types is an allowlist the daemon enforces; dropping it \
+             grants the permission over no events at all"
+        );
+        assert_eq!(packed["set_variable"].scopes, vec!["plugin".to_string()]);
+        assert_eq!(
+            packed["fire_trigger"].reason,
+            "Fires the on_dice_roll trigger you configure"
+        );
+        // A bare `{reason}` request carries no empty lists into the hash.
+        assert!(packed["fire_trigger"].types.is_empty());
+        assert!(packed["fire_trigger"].scopes.is_empty());
+    }
+
+    /// An id this build does not recognise is packed anyway. `permissions_hash`
+    /// covers the bytes three repositories hash, so dropping one here would make
+    /// an old CLI and a new daemon disagree about what the author declared —
+    /// and the id may be one the *user's* daemon knows perfectly well.
+    #[test]
+    fn an_unknown_permission_id_is_packed_rather_than_dropped() {
+        let manifest: toml::Value =
+            toml::from_str("[permissions]\ntime_travel = { reason = \"Nope\" }\n").unwrap();
+        let packed = declared_permissions(&manifest).unwrap();
+        assert_eq!(packed["time_travel"].reason, "Nope");
+    }
+
+    /// An absent section is the empty set, which §5.6 reads as default-deny.
+    #[test]
+    fn no_permissions_section_is_the_empty_set() {
+        let manifest: toml::Value = toml::from_str("[capabilities]\ntools = true\n").unwrap();
+        assert!(declared_permissions(&manifest).unwrap().is_empty());
     }
 
     #[test]

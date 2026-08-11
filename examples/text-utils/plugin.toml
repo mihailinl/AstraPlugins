@@ -16,6 +16,14 @@ tools = true
 actions = true
 triggers = true
 
+# `[capabilities]` above is what this plugin implements for Astra to call into.
+# `[permissions]` is the other direction: which host RPCs the plugin may call
+# out to. Default-deny — a manifest with no `[permissions]` section may call
+# nothing beyond Register, PluginLog and GetPluginSelfConfig, so declaring
+# `triggers = true` is not what lets `fire_trigger` through. This is.
+[permissions]
+fire_trigger = { reason = "Fires the on_time trigger at the time you set, so your commands can run on a schedule" }
+
 [config]
 schema = """
 {

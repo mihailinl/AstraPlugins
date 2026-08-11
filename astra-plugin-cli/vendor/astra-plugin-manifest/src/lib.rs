@@ -16,8 +16,15 @@
 //!
 //! Everything that can be decided from the manifest text alone: the types, the
 //! `plugin.id` charset and reserved-name rules (`plugin.id` becomes a directory
-//! name), the `[platform]` vocabulary, and the capability vocabulary. Nothing
-//! that needs a running daemon, a filesystem layout or a network.
+//! name), the `[platform]` vocabulary, and the capability and permission
+//! vocabularies. Nothing that needs a running daemon, a filesystem layout or a
+//! network.
+//!
+//! In particular, `[permissions]` here is a **request**, never a grant. Which
+//! permissions a plugin actually holds depends on how it got onto the machine —
+//! four provenance paths, none of them decidable from the manifest text — and
+//! that resolution lives in the daemon. See [`Permissions`] and PRODUCTION_PLAN
+//! §5.6.
 //!
 //! The one host-dependent rule — is `plugin.min_astra_version` satisfied by the
 //! Astra that is *running*? — is behind the `astra-host` feature. Its **syntax**
@@ -33,6 +40,7 @@
 
 mod capabilities;
 mod manifest;
+mod permissions;
 mod platform;
 
 pub use capabilities::{
@@ -42,6 +50,10 @@ pub use capabilities::{
 pub use manifest::{
     BuildSection, ConfigSection, EntryConfig, PluginLocales, PluginManifest, PluginMeta,
     UiContributionDef, UiSection, is_reserved_device_name,
+};
+pub use permissions::{
+    ALL_PERMISSIONS, HIGH_RISK_PERMISSIONS, PERMISSION_NAMES, Permission, PermissionRequest,
+    Permissions, TIER2_REFUSED_PERMISSIONS, explain_unknown_permission,
 };
 pub use platform::{
     KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PlatformRequirements, RESERVED_PLATFORM_KEYS,
