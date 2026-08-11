@@ -1,15 +1,21 @@
 use astra_plugin_sdk::prelude::*;
-use std::sync::Mutex;
+use serde::{Deserialize, Serialize};
 
-struct BadApple {
-    config: Mutex<BadAppleConfig>,
-}
-
+/// Everything bad-apple can be configured with.
+///
+/// This declaration plus the two-line `on_config` below replaces the twenty
+/// lines of `v.get("opacity").and_then(|n| n.as_f64())` this plugin used to
+/// carry — one arm per field, each silently skipping a field of the wrong type.
+/// `#[serde(default)]` means a config missing a key keeps that key's default
+/// instead of failing the whole parse.
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
 struct BadAppleConfig {
     render_mode: String,
     opacity: f64,
     charset: String,
     color: String,
+    #[serde(rename = "loop")]
     do_loop: bool,
 }
 
@@ -25,60 +31,40 @@ impl Default for BadAppleConfig {
     }
 }
 
-#[async_trait::async_trait]
+#[derive(Default)]
+struct BadApple {
+    config: Config<BadAppleConfig>,
+}
+
+#[async_trait]
 impl PluginCapability for BadApple {
+    type Config = BadAppleConfig;
+
     async fn ui_contributions(&self) -> Vec<UiContribution> {
-        vec![
-            UiContribution::effect("bad-apple-bg.js")
-                .with_id("bad-apple-bg"),
-        ]
+        vec![UiContribution::effect("bad-apple-bg.js").with_id("bad-apple-bg")]
     }
 
-    async fn handle_ui_call(&self, method: &str, _params_json: &str) -> UiCallResult {
+    async fn handle_ui_call(
+        &self,
+        _ctx: &PluginContext,
+        method: &str,
+        _params_json: &str,
+    ) -> Result<String, ToolError> {
         match method {
-            "getConfig" => {
-                let cfg = self.config.lock().unwrap();
-                UiCallResult::ok(
-                    serde_json::json!({
-                        "render_mode": cfg.render_mode,
-                        "opacity": cfg.opacity,
-                        "charset": cfg.charset,
-                        "color": cfg.color,
-                        "loop": cfg.do_loop,
-                    })
-                    .to_string(),
-                )
-            }
-            _ => UiCallResult::err(format!("Unknown method: {}", method)),
+            // The effect script gets the same struct the daemon parsed, so
+            // there is no second hand-written JSON object to keep in sync with
+            // the first.
+            "getConfig" => Ok(serde_json::to_string(&*self.config.get())?),
+            _ => Err(ToolError::NotFound(format!("Unknown method: {method}"))),
         }
     }
 
-    async fn on_config_changed(&self, config_json: &str) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(config_json) {
-            let mut cfg = self.config.lock().unwrap();
-            if let Some(s) = v.get("render_mode").and_then(|s| s.as_str()) {
-                cfg.render_mode = s.to_string();
-            }
-            if let Some(n) = v.get("opacity").and_then(|n| n.as_f64()) {
-                cfg.opacity = n;
-            }
-            if let Some(s) = v.get("charset").and_then(|s| s.as_str()) {
-                cfg.charset = s.to_string();
-            }
-            if let Some(s) = v.get("color").and_then(|s| s.as_str()) {
-                cfg.color = s.to_string();
-            }
-            if let Some(b) = v.get("loop").and_then(|b| b.as_bool()) {
-                cfg.do_loop = b;
-            }
-        }
+    async fn on_config(&self, _ctx: &PluginContext, config: BadAppleConfig) {
+        self.config.store(config);
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    astra_plugin_sdk::run(BadApple {
-        config: Mutex::new(BadAppleConfig::default()),
-    })
-    .await
+    astra_plugin_sdk::run(BadApple::default()).await
 }

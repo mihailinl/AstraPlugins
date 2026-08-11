@@ -16,7 +16,6 @@ use telegram::TelegramApi;
 use types::{BotConfig, SharedConfig, SharedDaemon, SharedI18n};
 
 struct TelegramBotPlugin {
-    daemon: SharedDaemon,
     config: SharedConfig,
     state: types::SharedState,
     i18n: SharedI18n,
@@ -27,13 +26,11 @@ struct TelegramBotPlugin {
     firehose: sync::SharedFirehoseState,
 }
 
-impl TelegramBotPlugin {
-    fn new() -> Self {
-        let state = BotState::load(&BotState::state_file_path());
+impl Default for TelegramBotPlugin {
+    fn default() -> Self {
         Self {
-            daemon: Arc::new(Mutex::new(None)),
             config: Arc::new(RwLock::new(BotConfig::default())),
-            state: Arc::new(RwLock::new(state)),
+            state: Arc::new(RwLock::new(BotState::load(&BotState::state_file_path()))),
             i18n: Arc::new(I18n::load(std::path::Path::new("locales"))),
             telegram: Arc::new(Mutex::new(None)),
             shutdown_tx: Arc::new(Mutex::new(None)),
@@ -41,16 +38,17 @@ impl TelegramBotPlugin {
             firehose: sync::new_shared(),
         }
     }
+}
 
-    async fn start_bot(&self) {
-        // Check prerequisites
+impl TelegramBotPlugin {
+    /// `daemon` comes straight off the context now. There is no longer a
+    /// "daemon client not ready" state to check for: `on_start` cannot run
+    /// before registration, and `PluginContext::daemon` is `Some` for the whole
+    /// life of a plugin that has the `client` capability.
+    async fn start_bot(&self, daemon: SharedDaemon) {
         let cfg = self.config.read().await.clone();
         if cfg.bot_token.is_empty() {
             info!("Bot token not configured, not starting");
-            return;
-        }
-        if self.daemon.lock().await.is_none() {
-            info!("Daemon client not ready, not starting");
             return;
         }
 
@@ -65,7 +63,6 @@ impl TelegramBotPlugin {
         *self.shutdown_tx.lock().await = Some(tx);
 
         let state = self.state.clone();
-        let daemon = self.daemon.clone();
         let config = self.config.clone();
         let i18n = self.i18n.clone();
 
@@ -90,29 +87,30 @@ impl TelegramBotPlugin {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl PluginCapability for TelegramBotPlugin {
+    type Config = BotConfig;
+
     fn is_client(&self) -> bool {
         true
     }
 
-    async fn set_daemon_client(
-        &self,
-        client: std::sync::Arc<tokio::sync::Mutex<DaemonClient>>,
-    ) {
-        // Extract the DaemonClient from the SDK wrapper
-        let dc = client.lock().await.clone();
-        *self.daemon.lock().await = Some(dc);
-        info!("DaemonClient connected");
-        self.start_bot().await;
-    }
-
-    fn source_id(&self) -> &str {
-        types::SOURCE_ID
+    /// Config has already been applied by the time this runs, so the bot token
+    /// is there and the bot starts once, in one place, instead of racing
+    /// `set_daemon_client` against `on_config_changed`.
+    async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
+        let daemon = ctx
+            .daemon()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("telegram-client needs the `client` capability"))?;
+        *DAEMON.lock().await = Some(daemon.clone());
+        self.start_bot(daemon).await;
+        Ok(())
     }
 
     async fn on_conversation_event(
         &self,
+        _ctx: &PluginContext,
         conv_id: &str,
         event: &astra_plugin_sdk::proto::ConversationEventMsg,
     ) {
@@ -132,27 +130,23 @@ impl PluginCapability for TelegramBotPlugin {
         }
     }
 
-    async fn on_language_changed(&self, language: &str) {
+    async fn on_language_changed(&self, _ctx: &PluginContext, language: &str) {
         self.i18n.set_language(language);
         info!("Language changed to: {}", language);
     }
 
-    async fn on_config_changed(&self, config_json: &str) {
-        if let Ok(new_config) = serde_json::from_str::<BotConfig>(config_json) {
-            let token_changed = {
-                let old = self.config.read().await;
-                old.bot_token != new_config.bot_token
-            };
-            *self.config.write().await = new_config;
-            if token_changed {
-                info!("Config changed, restarting bot");
-                self.stop_bot().await;
-                self.start_bot().await;
-            }
+    /// Typed: the SDK parsed `BotConfig` and told the user if it did not fit.
+    async fn on_config(&self, _ctx: &PluginContext, new_config: BotConfig) {
+        let token_changed = self.config.read().await.bot_token != new_config.bot_token;
+        *self.config.write().await = new_config;
+        if token_changed && let Some(daemon) = DAEMON.lock().await.clone() {
+            info!("Bot token changed, restarting bot");
+            self.stop_bot().await;
+            self.start_bot(daemon).await;
         }
     }
 
-    async fn on_shutdown(&self) {
+    async fn on_shutdown(&self, _ctx: &PluginContext) {
         self.stop_bot().await;
         let state = self.state.read().await;
         state.save(&BotState::state_file_path());
@@ -170,9 +164,13 @@ impl PluginCapability for TelegramBotPlugin {
     }
 }
 
+/// `on_config` can fire before `on_start` (it does, at startup) and again long
+/// after, so the one thing it needs from the context is parked here rather than
+/// threaded through every field. `astra_plugin_sdk::ctx()` is the general
+/// answer; this plugin only needs the daemon handle.
+static DAEMON: Mutex<Option<SharedDaemon>> = Mutex::const_new(None);
+
 #[tokio::main]
-async fn main() {
-    astra_plugin_sdk::run(TelegramBotPlugin::new())
-        .await
-        .unwrap();
+async fn main() -> anyhow::Result<()> {
+    astra_plugin_sdk::run(TelegramBotPlugin::default()).await
 }

@@ -35,20 +35,13 @@ pub async fn handle_new(
     info!("Created topic '{title}' with thread_id={thread_id}");
 
     // Create a matching conversation in the daemon with the same title
-    let conv_id = {
-        let mut d = daemon.lock().await;
-        if let Some(d) = d.as_mut() {
-            match d.create_conversation(&title).await {
-                Ok(conv) => {
-                    info!("Created conversation '{}' (id={})", title, conv.id);
-                    Some(conv.id)
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to create conversation: {e}");
-                    None
-                }
-            }
-        } else {
+    let conv_id = match daemon.create_conversation(&title).await {
+        Ok(conv) => {
+            info!("Created conversation '{}' (id={})", title, conv.id);
+            Some(conv.id)
+        }
+        Err(e) => {
+            tracing::warn!("Failed to create conversation: {e}");
             None
         }
     };
@@ -74,11 +67,7 @@ pub async fn handle_list(
     i18n: &SharedI18n,
     thread_id: Option<i64>,
 ) -> Result<()> {
-    let conversations = {
-        let mut d = daemon.lock().await;
-        let d = d.as_mut().ok_or_else(|| anyhow::anyhow!("Daemon not connected"))?;
-        d.list_conversations().await?
-    };
+    let conversations = daemon.list_conversations().await?;
 
     let state_r = state.read().await;
     let mapped_ids: std::collections::HashSet<&str> = state_r
@@ -146,11 +135,7 @@ pub async fn handle_list_callback(
     conversation_id: &str,
 ) -> Result<()> {
     // Get conversation title
-    let conversations = {
-        let mut d = daemon.lock().await;
-        let d = d.as_mut().ok_or_else(|| anyhow::anyhow!("Daemon not connected"))?;
-        d.list_conversations().await?
-    };
+    let conversations = daemon.list_conversations().await?;
 
     let conv = conversations
         .conversations

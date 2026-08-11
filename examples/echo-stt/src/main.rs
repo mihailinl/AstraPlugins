@@ -20,7 +20,6 @@ struct PlayJob {
     sample_rate: u32,
     samples: Vec<f32>,
 }
-
 /// `rodio::OutputStream` isn't `Sync` (and on Windows the underlying cpal
 /// `Stream` isn't `Send` either), so a dedicated OS thread owns the
 /// stream + sink for the plugin's lifetime. Append-only command channel
@@ -72,8 +71,17 @@ fn samples_from_bytes(audio: &[u8]) -> Vec<f32> {
 
 struct EchoStt;
 
+/// Warm-up belongs in `on_start`: it runs after config and before serving.
+
 #[async_trait]
 impl PluginCapability for EchoStt {
+    type Config = NoConfig;
+
+    async fn on_start(&self, _ctx: &PluginContext) -> anyhow::Result<()> {
+        let _ = &*AUDIO_TX;
+        Ok(())
+    }
+
     async fn stt_languages(&self) -> Vec<String> {
         vec!["en".into(), "ru".into(), "uk".into()]
     }
@@ -82,8 +90,10 @@ impl PluginCapability for EchoStt {
     /// caller bypasses the streaming hook.
     async fn stt_transcribe(
         &self,
+        _ctx: &PluginContext,
         audio: &[u8],
         sample_rate: u32,
+        _options: &SttOptions,
     ) -> anyhow::Result<SttEvent> {
         let samples = samples_from_bytes(audio);
         let sample_count = samples.len();
@@ -109,9 +119,11 @@ impl PluginCapability for EchoStt {
     /// imposed (500 ms), so the demo stays meaningfully real-time.
     async fn stt_transcribe_stream(
         &self,
+        _ctx: &PluginContext,
         mut audio_rx: mpsc::Receiver<Vec<u8>>,
         events_tx: mpsc::Sender<SttEvent>,
         sample_rate: u32,
+        _options: SttOptions,
     ) -> anyhow::Result<()> {
         let batch_target =
             ((sample_rate as f32) * 0.1).round() as usize; // ~100 ms
@@ -153,16 +165,9 @@ impl PluginCapability for EchoStt {
         Ok(())
     }
 
-    async fn health_check(&self) -> (bool, String) {
-        (true, "ok".into())
-    }
 }
 
 #[tokio::main]
-async fn main() {
-    // Touch the lazy so the audio thread + sink spin up at startup, not
-    // on the first utterance — the first sink-build is the slowest one
-    // and would otherwise add latency to the very first chunk.
-    let _ = &*AUDIO_TX;
-    astra_plugin_sdk::run(EchoStt).await.unwrap();
+async fn main() -> anyhow::Result<()> {
+    astra_plugin_sdk::run(EchoStt).await
 }

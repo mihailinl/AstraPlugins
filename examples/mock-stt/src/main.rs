@@ -10,14 +10,18 @@ struct MockStt;
 
 #[async_trait]
 impl PluginCapability for MockStt {
+    type Config = NoConfig;
+
     async fn stt_languages(&self) -> Vec<String> {
         vec!["en".into(), "ru".into(), "uk".into()]
     }
 
     async fn stt_transcribe(
         &self,
+        _ctx: &PluginContext,
         audio: &[u8],
         sample_rate: u32,
+        options: &SttOptions,
     ) -> anyhow::Result<SttEvent> {
         let bytes = audio.len();
         // Daemon sends f32-LE PCM (4 bytes per sample).
@@ -40,20 +44,16 @@ impl PluginCapability for MockStt {
             (sum / take as f64) as f32
         };
 
+        // `options` is new in 0.6: the daemon's per-utterance language hint.
         let text = format!(
-            "mock transcript: {} bytes, {} samples @ {} Hz, mean amp {:.4}",
-            bytes, sample_count, sample_rate, mean_amp
-        );
+            "mock transcript: {bytes} bytes, {sample_count} samples @ {sample_rate} Hz, mean amp {mean_amp:.4}, lang hint {:?}", options.language);
         info!("stt_transcribe: {}", text);
         Ok(SttEvent::transcript(text).with_language("en"))
     }
 
-    async fn health_check(&self) -> (bool, String) {
-        (true, "ok".into())
-    }
 }
 
 #[tokio::main]
-async fn main() {
-    astra_plugin_sdk::run(MockStt).await.unwrap();
+async fn main() -> anyhow::Result<()> {
+    astra_plugin_sdk::run(MockStt).await
 }

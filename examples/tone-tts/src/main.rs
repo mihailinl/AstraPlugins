@@ -65,29 +65,13 @@ impl ToneTts {
 
 #[async_trait]
 impl PluginCapability for ToneTts {
+    type Config = NoConfig;
+
     async fn tts_voices(&self) -> Vec<VoiceInfo> {
         vec![
-            VoiceInfo {
-                id: "default".into(),
-                name: "Tone — 440 Hz".into(),
-                language: "any".into(),
-                gender: "neutral".into(),
-                preview_url: String::new(),
-            },
-            VoiceInfo {
-                id: "low".into(),
-                name: "Tone — 220 Hz".into(),
-                language: "any".into(),
-                gender: "neutral".into(),
-                preview_url: String::new(),
-            },
-            VoiceInfo {
-                id: "high".into(),
-                name: "Tone — 880 Hz".into(),
-                language: "any".into(),
-                gender: "neutral".into(),
-                preview_url: String::new(),
-            },
+            VoiceInfo::new("default", "Tone — 440 Hz"),
+            VoiceInfo::new("low", "Tone — 220 Hz"),
+            VoiceInfo::new("high", "Tone — 880 Hz"),
         ]
     }
 
@@ -113,34 +97,47 @@ impl PluginCapability for ToneTts {
 
     async fn tts_synthesize(
         &self,
-        text: &str,
-        voice_id: &str,
-        speed: f32,
-        _pitch: f32,
+        _ctx: &PluginContext,
+        req: TtsRequest,
     ) -> anyhow::Result<AudioData> {
         info!(
             "tts_synthesize: voice={}, speed={:.2}, len={}",
-            voice_id,
-            speed,
-            text.len()
+            req.voice_id,
+            req.speed,
+            req.text.len()
         );
-        let wav = Self::synth_wav(text, voice_id, speed)?;
-        let words = text.split_whitespace().count().max(1) as u32;
-        let duration_ms = words * WORD_MS + words.saturating_sub(1) * GAP_MS;
+        let wav = Self::synth_wav(&req.text, &req.voice_id, req.speed)?;
+        let words = req.text.split_whitespace().count().max(1) as u32;
         Ok(AudioData {
             data: wav,
             format: "wav".into(),
             sample_rate: SAMPLE_RATE,
-            duration_ms,
+            duration_ms: words * WORD_MS + words.saturating_sub(1) * GAP_MS,
         })
     }
 
-    async fn health_check(&self) -> (bool, String) {
-        (true, "ok".into())
+    /// One tone per word, streamed as it is generated — the daemon starts
+    /// playing the first word while the rest is still being synthesized. The
+    /// default implementation would have buffered the whole utterance and sent
+    /// one chunk, which is correct but not what a streaming provider is for.
+    async fn tts_synthesize_stream(
+        &self,
+        _ctx: &PluginContext,
+        req: TtsRequest,
+        chunks: tokio::sync::mpsc::Sender<AudioChunk>,
+    ) -> anyhow::Result<()> {
+        let words: Vec<&str> = req.text.split_whitespace().collect();
+        for (i, word) in words.iter().enumerate() {
+            let wav = Self::synth_wav(word, &req.voice_id, req.speed)?;
+            let chunk = AudioChunk::new(wav, SAMPLE_RATE);
+            let chunk = if i + 1 == words.len() { chunk.last() } else { chunk };
+            chunks.send(chunk).await?;
+        }
+        Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() {
-    astra_plugin_sdk::run(ToneTts).await.unwrap();
+async fn main() -> anyhow::Result<()> {
+    astra_plugin_sdk::run(ToneTts).await
 }

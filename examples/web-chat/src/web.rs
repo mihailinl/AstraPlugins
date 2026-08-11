@@ -82,22 +82,19 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
                 let cmd_type = cmd.get("type").and_then(|v| v.as_str()).unwrap_or("");
                 match cmd_type {
                     "list_conversations" => {
-                        let mut d = state.daemon.lock().await;
-                        if let Some(ref mut dc) = *d {
-                            match dc.list_conversations().await {
-                                Ok(resp) => {
-                                    let convs: Vec<serde_json::Value> = resp.conversations.iter().map(|c| {
-                                        serde_json::json!({
-                                            "id": c.id,
-                                            "title": c.title,
-                                        })
-                                    }).collect();
-                                    let reply = serde_json::json!({ "type": "conversations", "data": convs });
-                                    let _ = state.event_tx.send(reply.to_string());
-                                }
-                                Err(e) => {
-                                    let _ = state.event_tx.send(serde_json::json!({ "type": "error", "data": e.to_string() }).to_string());
-                                }
+                        match state.daemon.list_conversations().await {
+                            Ok(resp) => {
+                                let convs: Vec<serde_json::Value> = resp.conversations.iter().map(|c| {
+                                    serde_json::json!({
+                                        "id": c.id,
+                                        "title": c.title,
+                                    })
+                                }).collect();
+                                let reply = serde_json::json!({ "type": "conversations", "data": convs });
+                                let _ = state.event_tx.send(reply.to_string());
+                            }
+                            Err(e) => {
+                                let _ = state.event_tx.send(serde_json::json!({ "type": "error", "data": e.to_string() }).to_string());
                             }
                         }
                     }
@@ -105,25 +102,22 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
                         let text = cmd.get("text").and_then(|v| v.as_str()).unwrap_or("");
                         let conv_id = cmd.get("conversation_id").and_then(|v| v.as_str()).unwrap_or("");
                         if !text.is_empty() {
-                            let mut d = state.daemon.lock().await;
-                            if let Some(ref mut dc) = *d {
-                                match dc.submit_user_message(text, conv_id, false, SOURCE_ID).await {
-                                    Ok(resp) => {
-                                        // Response events arrive over the firehose;
-                                        // forward the resolved conv id to the client.
-                                        let ack = serde_json::json!({
-                                            "type": "submitted",
-                                            "conversation_id": resp.conversation_id,
-                                            "message_id": resp.message_id,
-                                            "seq": resp.seq,
-                                        });
-                                        let _ = state.event_tx.send(ack.to_string());
-                                    }
-                                    Err(e) => {
-                                        let _ = state.event_tx.send(
-                                            serde_json::json!({ "type": "error", "data": e.to_string() }).to_string()
-                                        );
-                                    }
+                            match state.daemon.submit_user_message(text, conv_id, false, SOURCE_ID).await {
+                                Ok(resp) => {
+                                    // Response events arrive over the firehose;
+                                    // forward the resolved conv id to the client.
+                                    let ack = serde_json::json!({
+                                        "type": "submitted",
+                                        "conversation_id": resp.conversation_id,
+                                        "message_id": resp.message_id,
+                                        "seq": resp.seq,
+                                    });
+                                    let _ = state.event_tx.send(ack.to_string());
+                                }
+                                Err(e) => {
+                                    let _ = state.event_tx.send(
+                                        serde_json::json!({ "type": "error", "data": e.to_string() }).to_string()
+                                    );
                                 }
                             }
                         }

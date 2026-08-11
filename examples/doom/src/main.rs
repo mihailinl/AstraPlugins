@@ -1,10 +1,8 @@
 use astra_plugin_sdk::prelude::*;
-use std::sync::Mutex;
+use serde::{Deserialize, Serialize};
 
-struct DoomPlugin {
-    config: Mutex<DoomConfig>,
-}
-
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
 struct DoomConfig {
     scale_mode: String,
 }
@@ -17,38 +15,37 @@ impl Default for DoomConfig {
     }
 }
 
-#[async_trait::async_trait]
+#[derive(Default)]
+struct DoomPlugin {
+    config: Config<DoomConfig>,
+}
+
+#[async_trait]
 impl PluginCapability for DoomPlugin {
+    type Config = DoomConfig;
+
     async fn ui_contributions(&self) -> Vec<UiContribution> {
         vec![UiContribution::page("doom-page", "Doom", "doom.js")]
     }
 
-    async fn handle_ui_call(&self, method: &str, _params_json: &str) -> UiCallResult {
+    async fn handle_ui_call(
+        &self,
+        _ctx: &PluginContext,
+        method: &str,
+        _params_json: &str,
+    ) -> Result<String, ToolError> {
         match method {
-            "getConfig" => {
-                let cfg = self.config.lock().unwrap();
-                UiCallResult::ok(
-                    serde_json::json!({ "scale_mode": cfg.scale_mode }).to_string(),
-                )
-            }
-            _ => UiCallResult::err(format!("Unknown method: {}", method)),
+            "getConfig" => Ok(serde_json::to_string(&*self.config.get())?),
+            _ => Err(ToolError::NotFound(format!("Unknown method: {method}"))),
         }
     }
 
-    async fn on_config_changed(&self, config_json: &str) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(config_json) {
-            let mut cfg = self.config.lock().unwrap();
-            if let Some(s) = v.get("scale_mode").and_then(|s| s.as_str()) {
-                cfg.scale_mode = s.to_string();
-            }
-        }
+    async fn on_config(&self, _ctx: &PluginContext, config: DoomConfig) {
+        self.config.store(config);
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    astra_plugin_sdk::run(DoomPlugin {
-        config: Mutex::new(DoomConfig::default()),
-    })
-    .await
+    astra_plugin_sdk::run(DoomPlugin::default()).await
 }

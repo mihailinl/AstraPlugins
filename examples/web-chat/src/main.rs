@@ -4,7 +4,6 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use astra_plugin_sdk::prelude::*;
-use tokio::sync::Mutex;
 use tracing::info;
 
 const SOURCE_ID: &str = "web-chat-client";
@@ -13,63 +12,63 @@ const SOURCE_ID: &str = "web-chat-client";
 /// streams this keeps the plugin's memory footprint bounded.
 const HISTORY_CAP: usize = 10_000;
 
-type SharedDaemon = Arc<Mutex<Option<DaemonClient>>>;
-
 /// In-memory state shared between plugin + web server.
+///
+/// `daemon` used to be an `Arc<Mutex<Option<DaemonClient>>>` that the web
+/// handlers locked, unwrapped and matched on for every request. It is now the
+/// `Arc<dyn Daemon>` off the plugin context: no lock, no `Option`, and no state
+/// where the server is up and the client is not there yet.
 ///
 /// `history` keeps the most recent `HISTORY_CAP` JSON events so WS clients
 /// connecting mid-flight can replay before switching to the live broadcast.
 pub struct AppState {
-    pub daemon: SharedDaemon,
+    pub daemon: Arc<dyn Daemon>,
     pub history: tokio::sync::RwLock<VecDeque<String>>,
     pub event_tx: tokio::sync::broadcast::Sender<String>,
 }
 
-struct WebChatPlugin {
-    daemon: SharedDaemon,
-    state: Arc<AppState>,
-}
+#[derive(Default)]
+struct WebChatPlugin;
 
-impl WebChatPlugin {
-    fn new() -> Self {
-        let daemon: SharedDaemon = Arc::new(Mutex::new(None));
-        let (event_tx, _) = tokio::sync::broadcast::channel::<String>(1024);
-        let state = Arc::new(AppState {
-            daemon: daemon.clone(),
-            history: tokio::sync::RwLock::new(VecDeque::with_capacity(HISTORY_CAP)),
-            event_tx,
-        });
-        Self { daemon, state }
-    }
-}
-
-#[async_trait::async_trait]
+#[async_trait]
 impl PluginCapability for WebChatPlugin {
+    type Config = NoConfig;
+
     fn is_client(&self) -> bool {
         true
     }
 
-    async fn set_daemon_client(&self, client: Arc<Mutex<DaemonClient>>) {
-        let dc = client.lock().await.clone();
-        *self.daemon.lock().await = Some(dc);
-        info!("DaemonClient connected");
-
-        // Start web server
-        let state = self.state.clone();
+    /// The daemon client exists by the time `on_start` runs, so the web server
+    /// never observes a half-built plugin — and if the client is missing (the
+    /// `client` capability was not granted), startup fails here with a sentence
+    /// instead of serving a UI whose every button errors.
+    async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
+        let daemon = ctx
+            .daemon()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("web-chat needs the `client` capability"))?;
+        let (event_tx, _) = tokio::sync::broadcast::channel::<String>(1024);
+        let state = Arc::new(AppState {
+            daemon,
+            history: tokio::sync::RwLock::new(VecDeque::with_capacity(HISTORY_CAP)),
+            event_tx,
+        });
+        STATE.set(state.clone()).ok();
         tokio::spawn(async move {
             if let Err(e) = web::run_server(state).await {
                 tracing::error!("Web server error: {e}");
             }
         });
+        info!("Web chat started");
+        Ok(())
     }
-
-    fn source_id(&self) -> &str { SOURCE_ID }
 
     // Firehose: every chat event in every conversation is forwarded to the
     // web client as a JSON message. Conversion is 1:1 — clients parse the
     // tagged-union `event.kind` to decide rendering.
     async fn on_conversation_event(
         &self,
+        _ctx: &PluginContext,
         conv_id: &str,
         event: &astra_plugin_sdk::proto::ConversationEventMsg,
     ) {
@@ -108,27 +107,29 @@ impl PluginCapability for WebChatPlugin {
             "body": body,
         });
         let serialized = wrapped.to_string();
+        let Some(state) = STATE.get() else { return };
         // Buffer for late-arriving WS clients; broadcast for already-connected ones.
         {
-            let mut history = self.state.history.write().await;
+            let mut history = state.history.write().await;
             if history.len() >= HISTORY_CAP {
                 history.pop_front();
             }
             history.push_back(serialized.clone());
         }
-        let _ = self.state.event_tx.send(serialized);
-    }
-
-    async fn on_shutdown(&self) {
-        info!("Shutting down web chat");
+        let _ = state.event_tx.send(serialized);
     }
 
     async fn health_check(&self) -> (bool, String) {
-        (true, "ok".into())
+        (STATE.get().is_some(), "ok".into())
     }
 }
 
+/// The web server is spawned in `on_start` and the firehose hook needs the same
+/// state; a `OnceLock` is the whole of the sharing, because `on_start` runs
+/// exactly once and strictly before anything can call a hook.
+static STATE: std::sync::OnceLock<Arc<AppState>> = std::sync::OnceLock::new();
+
 #[tokio::main]
-async fn main() {
-    astra_plugin_sdk::run(WebChatPlugin::new()).await.unwrap();
+async fn main() -> anyhow::Result<()> {
+    astra_plugin_sdk::run(WebChatPlugin).await
 }

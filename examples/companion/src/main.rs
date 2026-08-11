@@ -1,51 +1,52 @@
-use std::sync::Arc;
-
 use astra_plugin_sdk::prelude::*;
 
 struct CompanionCat {
-    i18n: Arc<I18n>,
+    i18n: I18n,
 }
 
-impl CompanionCat {
-    fn new() -> Self {
+impl Default for CompanionCat {
+    fn default() -> Self {
         Self {
-            i18n: Arc::new(I18n::load(std::path::Path::new("locales"))),
+            i18n: I18n::load(std::path::Path::new("locales")),
         }
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl PluginCapability for CompanionCat {
+    /// The cat has no settings — that is the whole of `NoConfig`.
+    type Config = NoConfig;
+
     async fn ui_contributions(&self) -> Vec<UiContribution> {
-        vec![
-            UiContribution::overlay("cat-overlay", "cat.js"),
-        ]
+        vec![UiContribution::overlay("cat-overlay", "cat.js")]
     }
 
-    async fn on_language_changed(&self, language: &str) {
+    async fn on_language_changed(&self, _ctx: &PluginContext, language: &str) {
         self.i18n.set_language(language);
     }
 
-    async fn handle_ui_call(&self, method: &str, _params_json: &str) -> UiCallResult {
+    async fn handle_ui_call(
+        &self,
+        _ctx: &PluginContext,
+        method: &str,
+        _params_json: &str,
+    ) -> Result<String, ToolError> {
         match method {
             "getRandomMessage" => {
                 let nanos = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .subsec_nanos() as usize;
-                // Get message count from locale, fall back to key count
-                let count = 41; // must match number of msg.N keys in locale files
-                let idx = nanos % count;
-                let key = format!("msg.{}", idx);
-                let msg = self.i18n.t(&key);
-                UiCallResult::ok(serde_json::json!({ "message": msg }).to_string())
+                // Must match the number of msg.N keys in the locale files.
+                let key = format!("msg.{}", nanos % 41);
+                Ok(serde_json::json!({ "message": self.i18n.t(&key) }).to_string())
             }
-            _ => UiCallResult::err(format!("Unknown method: {}", method)),
+            _ => Err(ToolError::NotFound(format!("Unknown method: {method}"))),
         }
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    astra_plugin_sdk::run(CompanionCat::new()).await
+    astra_plugin_sdk::run(CompanionCat::default()).await
 }

@@ -4,10 +4,9 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
+# One dependency — the §3.1 bar, and the reason this example exists in the shape
+# it does. tokio, serde, serde_json, anyhow, async-trait and schemars all arrive
+# through `astra_plugin_sdk::prelude`, and every path the macros expand to is
+# `::astra_plugin_sdk::…`, so nothing here compiles by accident off a crate that
+# is no longer listed.
 astra-plugin-sdk = { path = "../../astra-plugin-sdk" }
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-anyhow = "1"
-async-trait = "0.1"
-tracing = "0.1"

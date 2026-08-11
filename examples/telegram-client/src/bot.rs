@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use frankenstein::updates::UpdateContent;
 use tracing::{info, warn};
 
@@ -179,14 +178,7 @@ async fn forward_to_astra(
     // emits every event back through the chat firehose — see sync.rs for the
     // handler that renders them into this Telegram topic.
     let resp = {
-        let mut d = daemon.lock().await;
-        let Some(d) = d.as_mut() else {
-            warn!("Daemon not connected, can't forward message");
-            let mut state_w = state.write().await;
-            state_w.active_streams.remove(&active_key);
-            return;
-        };
-        match d.submit_user_message(text, &conv_id, false, SOURCE_ID).await {
+        match daemon.submit_user_message(text, &conv_id, false, SOURCE_ID).await {
             Ok(r) => r,
             Err(e) => {
                 warn!("submit_user_message error: {e}");

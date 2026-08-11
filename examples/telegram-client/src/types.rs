@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use astra_plugin_sdk::DaemonClient;
+use astra_plugin_sdk::Daemon;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::state::BotState;
 
@@ -32,7 +32,11 @@ impl BotConfig {
     }
 }
 
-pub type SharedDaemon = Arc<Mutex<Option<DaemonClient>>>;
+/// The daemon, as the plugin context hands it over. It used to be an
+/// `Arc<Mutex<Option<DaemonClient>>>`: every call site locked it, matched the
+/// `Option`, and had a "daemon not connected" branch that could not happen
+/// after `on_start`.
+pub type SharedDaemon = Arc<dyn Daemon>;
 pub type SharedState = Arc<RwLock<BotState>>;
 pub type SharedConfig = Arc<RwLock<BotConfig>>;
 pub type SharedI18n = Arc<astra_plugin_sdk::I18n>;

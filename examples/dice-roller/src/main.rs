@@ -1,23 +1,74 @@
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::Arc;
+//! Dice Roller — the reference plugin for the macro layer.
+//!
+//! Everything here is written the way §3.1 of the production plan says a plugin
+//! should be written: one dependency, `#[astra::plugin]`, `#[tool]`, and tool
+//! schemas derived from the argument types rather than typed out by hand next
+//! to a handler that may or may not still agree with them.
+//!
+//! The two impl blocks are deliberate. The plain one holds helpers — they are
+//! ordinary methods and the macro never sees them. The annotated one holds what
+//! Astra can call, and `#[hook]` inside it is the escape hatch: `action_types`
+//! and `trigger_types` describe `FieldDef` rows with placeholders, defaults and
+//! visibility conditions, which no `#[derive]` can invent from a Rust type, so
+//! they are written out and moved into the trait impl verbatim.
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use astra_plugin_sdk::prelude::*;
-use tokio::sync::Mutex;
-use tracing::info;
 
-struct DiceRoller {
-    default_sides: AtomicU32,
-    total_rolls: AtomicU64,
-    host: Mutex<Option<Arc<Mutex<HostClient>>>>,
+/// What the user sets in Astra → Plugins → Dice Roller.
+///
+/// `PluginConfig` is what makes `plugin.toml`'s `[config] schema` derivable
+/// instead of hand-maintained; `Default` is required because the first payload
+/// a freshly installed plugin receives is `{}`.
+#[astra::args]
+#[derive(PluginConfig)]
+#[serde(default)]
+struct DiceConfig {
+    /// Sides per die when a roll does not say.
+    default_sides: u32,
 }
 
+impl Default for DiceConfig {
+    fn default() -> Self {
+        Self { default_sides: 6 }
+    }
+}
+
+/// `roll_dice` arguments. The doc comments below become the schema's field
+/// descriptions, so the model is told what `sides` means in one place.
+#[astra::args]
+struct RollArgs {
+    /// How many dice to roll (1-100).
+    #[serde(default = "one")]
+    count: u32,
+    /// Sides per die. Omitted means "whatever the user configured".
+    sides: Option<u32>,
+}
+
+/// `coin_flip` arguments.
+#[astra::args]
+struct FlipArgs {
+    /// How many coins to flip (1-100).
+    #[serde(default = "one")]
+    count: u32,
+}
+
+fn one() -> u32 {
+    1
+}
+
+#[derive(Default)]
+struct DiceRoller {
+    config: Config<DiceConfig>,
+    total_rolls: AtomicU64,
+}
+
+// ── helpers: an ordinary inherent impl the macro never looks at ──────────────
+
 impl DiceRoller {
-    fn new() -> Self {
-        Self {
-            default_sides: AtomicU32::new(6),
-            total_rolls: AtomicU64::new(0),
-            host: Mutex::new(None),
-        }
+    fn default_sides(&self) -> u32 {
+        self.config.load().default_sides
     }
 
     fn roll(&self, count: u32, sides: u32) -> Vec<u32> {
@@ -35,129 +86,89 @@ impl DiceRoller {
             state ^= state << 5;
             results.push((state % sides) + 1);
         }
-        self.total_rolls
-            .fetch_add(count as u64, Ordering::Relaxed);
+        self.total_rolls.fetch_add(count as u64, Ordering::Relaxed);
         results
     }
 
     fn parse_notation(&self, notation: &str) -> (u32, u32) {
         let notation = notation.trim().to_lowercase();
-        if let Some(pos) = notation.find('d') {
-            let count: u32 = if pos == 0 {
-                1
-            } else {
-                notation[..pos].parse().unwrap_or(1)
-            };
-            let sides: u32 = notation[pos + 1..]
-                .parse()
-                .unwrap_or(self.default_sides.load(Ordering::Relaxed));
-            (count.max(1).min(100), sides.max(2).min(1000))
-        } else {
-            (1, self.default_sides.load(Ordering::Relaxed))
+        match notation.find('d') {
+            Some(pos) => {
+                let count: u32 = if pos == 0 {
+                    1
+                } else {
+                    notation[..pos].parse().unwrap_or(1)
+                };
+                let sides: u32 = notation[pos + 1..].parse().unwrap_or(self.default_sides());
+                (count.clamp(1, 100), sides.clamp(2, 1000))
+            }
+            None => (1, self.default_sides()),
         }
     }
 
-    /// Fire on_roll_value trigger for each die result (non-blocking).
-    fn fire_roll_triggers_bg(&self, results: Vec<u32>, sides: u32) {
-        let host = self.host.try_lock().ok().and_then(|g| g.clone());
-        let host = match host {
-            Some(h) => h,
-            None => {
-                info!("Cannot fire triggers: host client not available yet");
-                return;
-            }
-        };
-
+    /// Fire `on_roll_value` for each die, without blocking the caller. One `Arc`
+    /// clone off the handler's context — this used to be a
+    /// `Mutex<Option<Arc<Mutex<HostClient>>>>` and a `try_lock` that, when it
+    /// lost, logged "host client not available yet" and fired nothing.
+    fn fire_roll_values(&self, ctx: &PluginContext, results: &[u32], sides: u32) {
+        let host = ctx.host().clone();
+        let results = results.to_vec();
         tokio::spawn(async move {
             for v in results {
-                let payload = serde_json::json!({
+                let payload = json!({
                     "value": v.to_string(),
-                    "roll": format!("1d{}", sides),
+                    "roll": format!("1d{sides}"),
                     "sum": v.to_string(),
                 });
-                info!("Firing on_roll_value trigger with value={}", v);
-                let mut h = host.lock().await;
-                if let Err(e) = h
+                if let Err(e) = host
                     .fire_trigger("on_roll_value", &payload.to_string())
                     .await
                 {
-                    tracing::warn!("Failed to fire on_roll_value trigger: {}", e);
+                    let _ = host
+                        .log_warn(&format!("failed to fire on_roll_value: {e}"))
+                        .await;
                 }
             }
         });
     }
 }
 
-#[async_trait]
-impl PluginCapability for DiceRoller {
-    // ── Host ──
+// ── what Astra can call ──────────────────────────────────────────────────────
 
-    async fn set_host(&self, host: Arc<Mutex<HostClient>>) {
-        *self.host.lock().await = Some(host);
-        info!("Host client received");
-    }
-
-    // ── Tools ──
-
-    async fn list_tools(&self) -> Vec<ToolDef> {
-        vec![
-            ToolDef {
-                name: "roll_dice".into(),
-                description: "Roll dice. Specify count and sides (e.g., 3d6).".into(),
-                parameters_json: r#"{"type":"object","properties":{"count":{"type":"number","description":"Number of dice","default":1},"sides":{"type":"number","description":"Sides per die","default":6}}}"#.into(),
-            },
-            ToolDef {
-                name: "coin_flip".into(),
-                description: "Flip one or more coins.".into(),
-                parameters_json: r#"{"type":"object","properties":{"count":{"type":"number","description":"Number of coins","default":1}}}"#.into(),
-            },
-        ]
-    }
-
-    async fn call_tool(&self, name: &str, arguments_json: &str) -> ToolResult {
-        let args: serde_json::Value =
-            serde_json::from_str(arguments_json).unwrap_or_default();
-
-        match name {
-            "roll_dice" => {
-                let count =
-                    args.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
-                let sides = args
-                    .get("sides")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(self.default_sides.load(Ordering::Relaxed) as u64)
-                    as u32;
-
-                let count = count.max(1).min(100);
-                let sides = sides.max(2).min(1000);
-                let results = self.roll(count, sides);
-                let sum: u32 = results.iter().sum();
-
-                self.fire_roll_triggers_bg(results.clone(), sides);
-
-                ToolResult::ok(format!("Rolled {}d{}: {:?} = {}", count, sides, results, sum))
-            }
-            "coin_flip" => {
-                let count =
-                    args.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
-                let count = count.max(1).min(100);
-                let flips = self.roll(count, 2);
-                let labels: Vec<&str> = flips
-                    .iter()
-                    .map(|&v| if v == 1 { "Heads" } else { "Tails" })
-                    .collect();
-                if count == 1 {
-                    ToolResult::ok(format!("Flipped a coin: {}", labels[0]))
-                } else {
-                    ToolResult::ok(format!("Flipped {} coins: [{}]", count, labels.join(", ")))
-                }
-            }
-            _ => ToolResult::err(format!("Unknown tool: {name}")),
+#[astra::plugin]
+impl DiceRoller {
+    /// Roll dice. Specify count and sides (e.g. 3d6).
+    #[tool]
+    async fn roll_dice(&self, ctx: &PluginContext, a: RollArgs) -> Result<String, ToolError> {
+        let sides = a.sides.unwrap_or_else(|| self.default_sides());
+        if sides < 2 {
+            return Err(ToolError::BadArguments("sides must be >= 2".into()));
         }
+        let (count, sides) = (a.count.clamp(1, 100), sides.min(1000));
+        let results = self.roll(count, sides);
+        let sum: u32 = results.iter().sum();
+        self.fire_roll_values(ctx, &results, sides);
+        Ok(format!("Rolled {count}d{sides}: {results:?} = {sum}"))
     }
 
-    // ── Actions ──
+    /// Flip one or more coins.
+    #[tool]
+    async fn coin_flip(&self, a: FlipArgs) -> Result<String, ToolError> {
+        let count = a.count.clamp(1, 100);
+        let labels: Vec<&str> = self
+            .roll(count, 2)
+            .iter()
+            .map(|&v| if v == 1 { "Heads" } else { "Tails" })
+            .collect();
+        Ok(match count {
+            1 => format!("Flipped a coin: {}", labels[0]),
+            _ => format!("Flipped {count} coins: [{}]", labels.join(", ")),
+        })
+    }
 
+    /// Hand-written, because `fields` is the point: placeholders, defaults and
+    /// a visibility condition are command-editor UI, not a Rust type.
+    #[hook]
     async fn action_types(&self) -> Vec<ActionTypeDef> {
         vec![ActionTypeDef {
             r#type: "roll_dice".into(),
@@ -188,33 +199,30 @@ impl PluginCapability for DiceRoller {
         }]
     }
 
-    async fn execute_action(&self, action_type: &str, params_json: &str) -> ActionResult {
-        info!("execute_action: type={}, params={}", action_type, params_json);
-        match action_type {
-            "roll_dice" => {
-                let params: serde_json::Value =
-                    serde_json::from_str(params_json).unwrap_or_default();
-                let notation = params
-                    .get("dice_notation")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("1d6");
-
-                let (count, sides) = self.parse_notation(notation);
-                let results = self.roll(count, sides);
-                let sum: u32 = results.iter().sum();
-                let result_str = format!("{}d{}: {:?} = {}", count, sides, results, sum);
-
-                info!("Roll result: {}", result_str);
-                self.fire_roll_triggers_bg(results.clone(), sides);
-
-                ActionResult::ok(result_str)
-            }
-            _ => ActionResult::err(format!("Unknown action: {action_type}")),
+    #[hook]
+    async fn execute_action(
+        &self,
+        ctx: &PluginContext,
+        kind: &str,
+        params_json: &str,
+    ) -> Result<String, ActionError> {
+        if kind != "roll_dice" {
+            return Err(ActionError::NotFound(format!("Unknown action: {kind}")));
         }
+        let params: serde_json::Value = serde_json::from_str(params_json)?;
+        let notation = params
+            .get("dice_notation")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1d6");
+
+        let (count, sides) = self.parse_notation(notation);
+        let results = self.roll(count, sides);
+        let sum: u32 = results.iter().sum();
+        self.fire_roll_values(ctx, &results, sides);
+        Ok(format!("{count}d{sides}: {results:?} = {sum}"))
     }
 
-    // ── Triggers ──
-
+    #[hook]
     async fn trigger_types(&self) -> Vec<TriggerTypeDef> {
         vec![TriggerTypeDef {
             r#type: "on_roll_value".into(),
@@ -232,24 +240,24 @@ impl PluginCapability for DiceRoller {
         }]
     }
 
-    // ── Lifecycle ──
-
-    async fn on_config_changed(&self, config_json: &str) {
-        if let Ok(config) = serde_json::from_str::<serde_json::Value>(config_json) {
-            if let Some(sides) = config.get("default_sides").and_then(|v| v.as_u64()) {
-                self.default_sides.store(sides as u32, Ordering::Relaxed);
-                info!("Config updated: default_sides = {}", sides);
-            }
-        }
+    /// The whole of config handling: the SDK parsed it, and told the user if it
+    /// did not fit, so this only ever runs with a value.
+    ///
+    /// `type Config = DiceConfig` is inferred from this signature.
+    #[hook]
+    async fn on_config(&self, ctx: &PluginContext, config: DiceConfig) {
+        let _ = ctx
+            .host()
+            .log_info(&format!("config: default_sides = {}", config.default_sides))
+            .await;
+        self.config.store(config);
     }
 
+    #[hook]
     async fn health_check(&self) -> (bool, String) {
         let rolls = self.total_rolls.load(Ordering::Relaxed);
-        (true, format!("ok — {} total rolls", rolls))
+        (true, format!("ok — {rolls} total rolls"))
     }
 }
 
-#[tokio::main]
-async fn main() {
-    astra_plugin_sdk::run(DiceRoller::new()).await.unwrap();
-}
+astra::main!(DiceRoller::default());
