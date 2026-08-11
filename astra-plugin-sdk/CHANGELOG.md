@@ -67,6 +67,20 @@ optional, which is why this is a new minor rather than a patch on 0.5.0.
   the status itself, so the same line yields `UNAUTHORIZED` and one sentence.
   This is the first failure most authors meet: `[permissions]` is default-deny.
 
+### Fixed
+- **The 0.5 compatibility shim could skip `set_host` entirely**, leaving a
+  legacy plugin with no host and every tool call answering whatever that plugin
+  says when its host is missing. The shim delivers `set_host` once per (plugin,
+  context) pair and remembered which pairs it had done in a global set keyed by
+  the two *addresses*. Nothing removes from that set, so its entries outlive the
+  objects they name — and the allocator hands the same blocks straight back: in a
+  200-cycle build-and-drop probe the plugin/host address pair repeated **199
+  times**, one distinct pair in all. So a test binary that builds one harness,
+  drops it, and builds another matched the dead record and skipped the live
+  plugin's delivery. The third key component is now a per-context counter, which
+  cannot be recycled. Only a process that constructs more than one plugin or
+  context was affected — a plugin's own test suite, and `astra-plugin test`.
+
 ### Changed (breaking) — daemon events
 - `CommandTriggeredEvent::variables` is gone, replaced by `trigger_text`. The
   daemon's `AstraEvent::CommandTriggered` carries `command_id`, `command_name`

@@ -297,6 +297,22 @@ pub struct PluginContext {
 }
 
 struct Inner {
+    /// Distinguishes this context from every other one this process makes, for
+    /// the process's whole life.
+    ///
+    /// It exists for the 0.5 compatibility shim, which has to deliver `set_host`
+    /// exactly once per (plugin, context) pair and — being a blanket impl — has
+    /// no field of its own to remember that in. It used the *address* of the
+    /// host `Arc` instead, and an address is only unique while the thing at it
+    /// is alive: a test process that builds a harness, drops it, and builds
+    /// another gets the allocator's recently-freed blocks back, in the same
+    /// order, from the same construction sequence. The second harness then
+    /// collided with the first's record, its `set_host` was skipped as "already
+    /// delivered", and its plugin answered `host client not available yet`.
+    ///
+    /// A counter cannot be recycled, so the collision cannot happen. It is not
+    /// public: nothing outside the shim has any business identifying a context.
+    id: u64,
     plugin_id: String,
     language: ArcSwap<String>,
     active_triggers: ActiveTriggers,
@@ -314,8 +330,13 @@ impl PluginContext {
     /// fake host and calls handlers directly — that is the whole point of the
     /// trait.
     pub fn new(plugin_id: impl Into<String>, host: Arc<dyn Host>) -> Self {
+        static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Self {
             inner: Arc::new(Inner {
+                // Relaxed: the only requirement is that no two contexts get the
+                // same number, which `fetch_add` gives on its own. Nothing is
+                // ordered against this value.
+                id: NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
                 plugin_id: plugin_id.into(),
                 language: ArcSwap::from_pointee("en".to_string()),
                 active_triggers: ActiveTriggers::new(),
@@ -366,6 +387,15 @@ impl PluginContext {
     /// `ctx.host().clone()` gives an `Arc<dyn Host>` to move into a task.
     pub fn host(&self) -> &Arc<dyn Host> {
         &self.inner.host
+    }
+
+    /// This context's process-unique number. See [`Inner::id`].
+    ///
+    /// Clones share it — they share one `Inner` — which is the point: every hook
+    /// the runner forwards gets a clone, and they must all look like the same
+    /// context to the 0.5 shim.
+    pub(crate) fn instance_id(&self) -> u64 {
+        self.inner.id
     }
 
     /// The full daemon API — `Some` only for plugins with the `client`

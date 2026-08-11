@@ -1386,21 +1386,34 @@ pub mod compat {
     /// what keeps "first" from meaning "every".
     ///
     /// A blanket impl has no field to hold a `OnceCell`, so identity has to come
-    /// from somewhere else. The key is the plugin's address *and* the host's,
-    /// both with the type id: keying on the type alone would starve the second
-    /// instance in any test process that runs two, and keying on the plugin
-    /// address alone would mis-skip if a dropped instance's allocation were
-    /// recycled — a recycled pair is a great deal less likely than a recycled
-    /// address, and re-delivering the same host to the same plugin is the
-    /// harmless direction anyway.
-    type DeliveryKey = (TypeId, usize, usize);
+    /// from somewhere else. The key is the type id, the plugin's address, and
+    /// the **context's process-unique number**: keying on the type alone would
+    /// starve the second instance in any test process that runs two.
+    ///
+    /// The third component used to be the host `Arc`'s address, and that was a
+    /// bug. This set is global and nothing ever removes from it, so an entry
+    /// outlives the objects it names — and an address is only unique while the
+    /// thing at it is alive. A test binary that builds a harness, drops it, and
+    /// builds another gets the allocator's freed blocks back, in the same order,
+    /// from the same construction sequence, so the plugin *and* the host land at
+    /// the addresses the previous pair had. The comment here used to argue a
+    /// recycled pair was "a great deal less likely than a recycled address";
+    /// it is not, for exactly that reason, and CI caught it as
+    /// `host client not available yet` from a plugin whose `set_host` had been
+    /// skipped as already delivered.
+    ///
+    /// `PluginContext::instance_id` is a counter, so it is never recycled, and
+    /// two contexts can never collide however the allocator behaves. Within one
+    /// context the plugin instance is fixed for the context's life, so the
+    /// address component is safe there.
+    type DeliveryKey = (TypeId, usize, u64);
     static DELIVERED: OnceLock<StdMutex<HashSet<DeliveryKey>>> = OnceLock::new();
 
     fn delivery_key<T: PluginCapability>(plugin: &T, ctx: &PluginContext) -> DeliveryKey {
         (
             TypeId::of::<T>(),
             plugin as *const T as *const () as usize,
-            Arc::as_ptr(ctx.host()) as *const () as usize,
+            ctx.instance_id(),
         )
     }
 
@@ -1966,6 +1979,39 @@ pub mod compat {
             assert!(
                 e.downcast_ref::<crate::error::HookUnimplemented>().is_some(),
                 "ai_complete must answer UNIMPLEMENTED, got {e:?}"
+            );
+        }
+
+        /// Two contexts never share a delivery record, whatever the allocator
+        /// does with the addresses.
+        ///
+        /// The regression this pins: the third key component used to be the host
+        /// `Arc`'s address. `DELIVERED` is global and nothing removes from it, so
+        /// its entries outlive the objects they name — and a test binary that
+        /// drops one harness and builds another gets those very allocations
+        /// back. The second harness then matched the first's record, its
+        /// `set_host` was skipped, and its plugin answered
+        /// `host client not available yet`. It reproduced on CI and not on a
+        /// developer's machine, because it depends on allocator state.
+        ///
+        /// So this asserts the property directly instead of trying to provoke
+        /// the collision: same plugin, same host, two contexts — two keys. The
+        /// old key gave one.
+        #[test]
+        fn two_contexts_never_share_a_delivery_record() {
+            let plugin = LegacyDice::default();
+            let host: Arc<dyn crate::Host> = crate::testing::RecordingHost::new("dice-roller");
+
+            // The same host `Arc`, so the address component cannot be what
+            // distinguishes these — which is the whole point.
+            let a = PluginContext::new("dice-roller", Arc::clone(&host));
+            let b = PluginContext::new("dice-roller", Arc::clone(&host));
+
+            assert_ne!(
+                super::delivery_key(&plugin, &a),
+                super::delivery_key(&plugin, &b),
+                "two contexts share a delivery record, so the second one's `set_host` will be \
+                 skipped and its plugin will have no host",
             );
         }
 
