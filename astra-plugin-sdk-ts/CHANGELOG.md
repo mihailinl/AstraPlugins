@@ -119,8 +119,11 @@ at runtime.
   spawn-time `--auth-token` back in the `x-plugin-token` header, so a local
   process that is not the daemon can no longer reach the plugin's tools,
   config or shutdown. Staged via `ASTRA_PLUGIN_CAPABILITY_AUTH`
-  (`off` | `warn` | `require`); `warn` is the default while daemons that
-  predate the header are in the field.
+  (`off` | `warn` | `require`). **The daemon now ships its half**: it presents
+  the token on every call into a plugin and sets that variable to `require` on
+  every spawn, so a plugin enforces with nothing to configure. The default stays
+  `warn`, which is what a daemon too old to send the header leaves a plugin in —
+  the variable's absence is the only signal such a daemon gives.
 - `RegistrationError`, `ProtoContractError`, and the `RegisterResponse` /
   `DaemonInfo` / `UiContribution` / `UiCallResult` types are exported.
 - `PROTO_SHA256` / `PROTO_SOURCE` / `SERVICE_METHODS` from the generated

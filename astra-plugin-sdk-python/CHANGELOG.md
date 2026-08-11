@@ -127,6 +127,11 @@ Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
 - `astra_plugin_sdk.auth` — `CapabilityAuthInterceptor` guards the plugin's own
   `PluginCapabilityService` by demanding the spawn-time `--auth-token` back in
   the `x-plugin-token` header. Staged via `ASTRA_PLUGIN_CAPABILITY_AUTH`.
+  **The daemon now ships its half**: it presents the token on every call into a
+  plugin and sets that variable to `require` on every spawn, so a plugin
+  enforces with nothing to configure. The default stays `warn`, which is what a
+  daemon too old to send the header leaves a plugin in — the variable's absence
+  is the only signal such a daemon gives.
 - `HostClientBootstrap` exported from the package root.
 - `__version__` is now kept in lockstep with `pyproject.toml` (it had drifted
   to `0.3.0` while the package shipped as 0.4.0).

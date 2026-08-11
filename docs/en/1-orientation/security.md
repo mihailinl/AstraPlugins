@@ -165,9 +165,9 @@ Named, rather than left for a reader to discover:
 |---|---|
 | A plugin reading your files, your keys, your network | **Not defended.** No isolation exists — Phase 7 |
 | A plugin reading `daemon.token` and registering as a client | **Not defended.** Same reason |
-| A malicious or compromised registry serving different bytes | Defended *by design* — the index countersigns a digest and the daemon re-hashes — **but not in force** until the roots are provisioned |
+| A malicious or compromised registry serving different bytes | Defended *by design* — the index countersigns a digest and the daemon re-hashes — **but not in force**: the roots are provisioned (`registry/v1/root.json`, the same two keys compiled into the daemon), and the catalogue index they sign is still unsigned |
 | A withdrawn version already installed | Specified; not enforced today, because an unsigned withdrawal list is refused |
-| Another local process calling into your plugin's capability server | **Partially.** A wrong `x-plugin-token` is rejected; a missing one is accepted with a warning until the daemon ships its half. `ASTRA_PLUGIN_CAPABILITY_AUTH=require` opts in early |
+| Another local process calling into your plugin's capability server | **Defended.** The daemon presents the spawn token on every call and sets `ASTRA_PLUGIN_CAPABILITY_AUTH=require`, so the SDK refuses a call without it. Under a daemon too old to send the header the SDK stays at `warn` — a wrong token refused, a missing one accepted — because there is nothing else it could do |
 | A plugin editing its own manifest to widen its permissions | **Defended at tiers 1 and 2** — grants come from a daemon-owned trust record, not from the manifest. **Not defended at tier 3**: for a sideloaded directory the manifest *is* the grant and has no ceiling, so it can take every permission in the vocabulary by editing its own file |
 | A hand-planted sideload marker | Defended. The daemon refuses a marker it did not write |
 

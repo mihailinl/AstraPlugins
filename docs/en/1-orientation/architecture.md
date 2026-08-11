@@ -81,20 +81,28 @@ INFO astra_plugin_sdk::runner: Registering with capabilities: ["tools"]
 INFO astra_plugin_sdk::runner: Registered successfully. Daemon version: mock, protocol: 1 (accepts 0+)
 ```
 
-### The other direction, and what is not finished
+### The other direction
 
 The daemon → plugin direction uses the *same* spawn token, sent back to the
-plugin in the `x-plugin-token` header. Your capability server checks it.
+plugin in the `x-plugin-token` header on every call. Your capability server
+checks it, and the SDK does that for you.
 
-Today the SDK's default is `CapabilityAuth::Warn`: a **wrong** token is
-rejected, and a **missing** one is accepted with a warning, because daemons that
-predate the header are still in the field. That is a real, currently-open gap
-and the docs will not pretend otherwise — until the daemon ships its half, any
-process running as your user can find the plugin's loopback port and call
-`CallTool`, `OnConfigChanged` or `Shutdown` on it.
+**You do not configure this.** The daemon sets
+`ASTRA_PLUGIN_CAPABILITY_AUTH=require` in your plugin's environment, which tells
+the SDK to refuse any capability call that does not carry the token. That is the
+daemon announcing its own half rather than anyone matching version numbers: a
+daemon old enough not to send the header sets no variable, and the SDK stays at
+`CapabilityAuth::Warn` — a **wrong** token rejected, a **missing** one accepted
+with one warning — so your plugin keeps working there.
 
-Set `ASTRA_PLUGIN_CAPABILITY_AUTH=require` to opt in early; the SDK's default
-flips once the daemon sends the header (`astra-plugin-sdk/src/auth.rs`).
+It matters because loopback is not a boundary. Your capability server listens on
+`127.0.0.1` with an OS-assigned port, and every process running as your user can
+find it. Without the header, finding it was enough to call `CallTool`,
+`OnConfigChanged` — repointing your API base URL at someone else's host, after
+which your plugin posts its real credentials there — or `Shutdown`.
+
+`astra-plugin test` sets the same variable and presents the same token, so what
+you test locally is what runs on a user's machine.
 
 ## The two services
 

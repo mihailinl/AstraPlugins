@@ -69,10 +69,23 @@ pub(crate) type AuthChannel = InterceptedService<Channel, SessionInterceptor>;
 /// `astra-daemon/src/plugins/client.rs`.
 pub(crate) const PLUGIN_TOKEN_HEADER: &str = "x-plugin-token";
 
-/// Environment override for [`CapabilityAuth`]: `off`, `warn` or `require`.
+/// How the daemon tells a plugin which stage of [`CapabilityAuth`] to run in:
+/// `off`, `warn` or `require`.
 ///
-/// Lets an operator turn enforcement on ahead of the default flip (or off, if a
-/// daemon regression makes it unusable) without rebuilding every plugin.
+/// **The daemon sets this to `require` on every spawn** (`prepare_spawn` in
+/// `astra-daemon/src/plugins/instance.rs`), because it presents the token on
+/// every call and there is no legitimate caller that does not. A plugin
+/// therefore needs no configuration and no version check: the variable's
+/// *absence* means a daemon old enough not to send the header, and the
+/// [`Warn`](CapabilityAuth::Warn) default keeps that combination working.
+///
+/// It is read from the environment rather than negotiated because the plugin
+/// has to decide before the first call arrives, and because a variable a
+/// process does not read cannot break it — the same argument
+/// `ASTRA_PLUGIN_CAPABILITIES` is passed on.
+///
+/// It overrides the value passed in code, which is what makes it useful to a
+/// developer running a plugin by hand (`off`) and to the daemon (`require`).
 pub(crate) const CAPABILITY_AUTH_ENV: &str = "ASTRA_PLUGIN_CAPABILITY_AUTH";
 
 /// How the plugin's own capability server treats inbound calls.
@@ -86,18 +99,23 @@ pub(crate) const CAPABILITY_AUTH_ENV: &str = "ASTRA_PLUGIN_CAPABILITY_AUTH";
 /// `CallTool` / `ExecuteAction` / `CallFromUi` (arbitrary execution under the
 /// victim plugin's identity), or `Shutdown` (a one-RPC denial of service).
 ///
-/// The material for the fix already exists: the spawn-time `--auth-token` is a
+/// The material for the fix already existed: the spawn-time `--auth-token` is a
 /// secret the daemon minted and only the daemon and this process know. It was
 /// simply never checked on the way *in* — only echoed once in the outbound
 /// `Register` body.
 ///
-/// Enforcing it unilaterally would break every plugin against a daemon that does
-/// not yet send the header, so the rollout is staged:
+/// The daemon now presents it on every call
+/// (`astra-daemon/src/plugins/client.rs`) and says so, by setting
+/// [`CAPABILITY_AUTH_ENV`] to `require` in the plugin's environment. So a plugin
+/// under a current daemon runs in [`Require`](CapabilityAuth::Require) without
+/// anyone configuring it. The stages remain because enforcing unilaterally would
+/// break a plugin against a daemon that does not send the header, and that
+/// daemon has no way to announce itself:
 ///
 /// | stage | header absent | header wrong |
 /// |---|---|---|
-/// | [`Warn`](CapabilityAuth::Warn) — today's default | accepted, warned once | rejected |
-/// | [`Require`](CapabilityAuth::Require) — the default once the daemon ships it | rejected | rejected |
+/// | [`Warn`](CapabilityAuth::Warn) — the default, and what an older daemon leaves you in | accepted, warned once | rejected |
+/// | [`Require`](CapabilityAuth::Require) — what the daemon asks for | rejected | rejected |
 /// | [`Off`](CapabilityAuth::Off) | accepted | accepted |
 ///
 /// A wrong token is rejected in every stage but `Off`: no legitimate caller ever
@@ -106,8 +124,10 @@ pub(crate) const CAPABILITY_AUTH_ENV: &str = "ASTRA_PLUGIN_CAPABILITY_AUTH";
 pub enum CapabilityAuth {
     /// No check at all. For a plugin driven by something other than the daemon.
     Off,
-    /// Reject a wrong token; accept a missing one and warn once. Default while
-    /// daemons that predate the header are still in the field.
+    /// Reject a wrong token; accept a missing one and warn once. The default,
+    /// and what a daemon that predates the header leaves a plugin in — a
+    /// current one asks for [`Require`](Self::Require) through
+    /// [`CAPABILITY_AUTH_ENV`].
     #[default]
     Warn,
     /// Reject anything that does not carry the spawn token.
@@ -218,10 +238,12 @@ impl tonic::service::Interceptor for CapabilityInterceptor {
                 // a plugin constantly and a per-call warning would bury the log.
                 if !self.warned.swap(true, Ordering::Relaxed) {
                     warn!(
-                        "Capability call arrived without {PLUGIN_TOKEN_HEADER}. This daemon \
+                        "Capability call arrived without {PLUGIN_TOKEN_HEADER}, and \
+                         {CAPABILITY_AUTH_ENV} was not set to `require` — this daemon \
                          predates bidirectional plugin auth, so any local process can reach \
                          this plugin's tools, config and shutdown. Accepting it for \
-                         compatibility; set {CAPABILITY_AUTH_ENV}=require to refuse instead."
+                         compatibility; upgrade the daemon, or set \
+                         {CAPABILITY_AUTH_ENV}=require to refuse instead."
                     );
                 }
                 Ok(req)

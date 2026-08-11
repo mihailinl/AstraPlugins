@@ -585,6 +585,58 @@ async fn drive(
         });
     }
 
+    // The daemon set `ASTRA_PLUGIN_CAPABILITY_AUTH=require` on this spawn, so a
+    // capability call carrying no `x-plugin-token` must be refused. This is the
+    // one check here that tests something the plugin does *not* do, and it is
+    // worth a row of its own: the plugin's gRPC server is loopback TCP on an
+    // OS-assigned port, reachable by every process running as this user, and
+    // without the check they can call `CallTool`, `OnConfigChanged` — which
+    // repoints an API base URL, after which the plugin posts its real
+    // credentials wherever it was told — or `Shutdown`.
+    //
+    // It runs before teardown, on `HealthCheck`, because that is the one RPC
+    // every plugin must serve regardless of what it declares.
+    let unauthenticated = tokio::time::timeout(
+        PROBE_TIMEOUT,
+        client.health_check(tonic::Request::new(proto::Empty {})),
+    )
+    .await;
+    findings.checks.push(match unauthenticated {
+        Err(_) => (
+            "a call without the daemon's token is refused".into(),
+            false,
+            format!(
+                "an unauthenticated HealthCheck was neither answered nor refused within \
+                 {PROBE_TIMEOUT:?}"
+            ),
+        ),
+        Ok(Err(s)) if s.code() == tonic::Code::Unauthenticated => (
+            "a call without the daemon's token is refused".into(),
+            true,
+            "HealthCheck without `x-plugin-token` answered UNAUTHENTICATED".into(),
+        ),
+        Ok(Err(s)) => (
+            "a call without the daemon's token is refused".into(),
+            false,
+            format!(
+                "HealthCheck without `x-plugin-token` was refused with {} rather than \
+                 UNAUTHENTICATED — the call did not get through, but the reason says the \
+                 token guard is not what stopped it",
+                s.code()
+            ),
+        ),
+        Ok(Ok(_)) => (
+            "a call without the daemon's token is refused".into(),
+            false,
+            "HealthCheck was ANSWERED without `x-plugin-token`. The daemon sets \
+             ASTRA_PLUGIN_CAPABILITY_AUTH=require on every spawn, so any process running \
+             as this user can reach this plugin's tools, config and shutdown. If you build \
+             the server yourself rather than through the SDK's runner, guard it — see \
+             docs/en/1-orientation/architecture.md."
+                .into(),
+        ),
+    });
+
     // ── teardown ──
     for hook in teardown {
         let started = Instant::now();
@@ -1204,6 +1256,14 @@ fn spawn_plugin(
         // enough to reject unknown argv reads them there. Passing both is what
         // the daemon does.
         .env("ASTRA_PLUGIN_CAPABILITIES", capabilities.join(","))
+        // …and the daemon tells the plugin that it authenticates the calls it
+        // makes in, so the plugin may refuse the ones that are not. `MockDaemon`
+        // presents the same `--auth-token` on every call (see `req`), so this
+        // harness enforces exactly what production does. Without it the plugin
+        // sits in the SDKs' `warn` stage, and a capability server that would
+        // refuse the real daemon — a token compared wrongly, an interceptor an
+        // author disabled — passes here and fails on a user's machine.
+        .env("ASTRA_PLUGIN_CAPABILITY_AUTH", "require")
         .current_dir(dir)
         // BOTH streams are piped, and neither is inherited. The plugin's own
         // output is the author's most useful diagnostic and it is relayed line

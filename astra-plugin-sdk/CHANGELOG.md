@@ -43,6 +43,13 @@ optional, which is why this is a new minor rather than a patch on 0.5.0.
   spawn-time token back on the plugin's own `PluginCapabilityService`
   (`x-plugin-token`), staged via `CapabilityAuth` /
   `ASTRA_PLUGIN_CAPABILITY_AUTH`.
+  **The daemon now ships its half**: it presents the token on every call into a
+  plugin and sets `ASTRA_PLUGIN_CAPABILITY_AUTH=require` on every spawn, so a
+  plugin enforces with nothing to configure. Nothing here changes for an author
+  — the default stays `Warn`, which is what a daemon too old to send the header
+  leaves a plugin in, and that daemon has no way to say so. `astra-plugin test`
+  sets the same variable and presents the same token, so a capability server
+  that would refuse the real daemon fails locally instead.
 - `run_with(RunConfig)` alongside `run()` — `#[non_exhaustive]` `RunConfig`
   carries `init_tracing`, `argv`, `bind_addr`, `capability_auth` and
   `capabilities`.

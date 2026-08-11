@@ -281,8 +281,10 @@ care what language wrote the plugin.
   in 0.6 and removed in 0.8. See [migrating to 0.6](../migration-0.6.md).
 - **`PluginCapability::source_id()`** is deprecated: pass the id to
   `Host::send_chat_message`, since the daemon stopped filtering by source id.
-- **The capability server's inbound auth is staged.** A missing `x-plugin-token`
-  is accepted with a warning until the daemon ships its half; see
+- **The capability server's inbound auth needs no setting.** The daemon presents
+  `x-plugin-token` on every call and sets `ASTRA_PLUGIN_CAPABILITY_AUTH=require`,
+  so the SDK refuses a call without it. Only a daemon too old to send the header
+  leaves you at the `warn` stage; see
   [architecture](../1-orientation/architecture.md).
 
 ## See also

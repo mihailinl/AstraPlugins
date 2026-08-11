@@ -19,14 +19,16 @@ attacker-controlled host, after which it posts its real credentials there),
 ``CallTool`` / ``ExecuteAction`` / ``CallFromUi`` (arbitrary execution under this
 plugin's identity), or ``Shutdown`` (a one-RPC denial of service).
 
-The secret needed to close that hole already exists: the daemon mints
+The secret needed to close that hole already existed: the daemon mints
 ``--auth-token`` per spawn and passes it on argv, so it is shared by exactly the
 daemon and this process. It was simply never checked on the way *in* — only
 echoed once in the outbound ``Register`` body.
 
-Enforcing it unilaterally would break every plugin against a daemon that does not
-yet send the header, so the rollout is staged via
-``ASTRA_PLUGIN_CAPABILITY_AUTH``:
+The daemon now presents it on every call and says so, by setting
+``ASTRA_PLUGIN_CAPABILITY_AUTH=require`` in the plugin's environment. So a plugin
+under a current daemon enforces without anyone configuring it. The stages remain
+because enforcing unilaterally would break a plugin against a daemon that does
+not send the header, and such a daemon has no way to announce itself:
 
 ==========  =====================  ==============
 stage       header absent          header wrong
@@ -36,8 +38,8 @@ stage       header absent          header wrong
 ``off``     accepted               accepted
 ==========  =====================  ==============
 
-``warn`` is the default while daemons that predate the header are in the field;
-it becomes ``require`` once the daemon ships its half.
+``warn`` is the default, and what an older daemon leaves a plugin in — the
+variable's *absence* is the only signal that such a daemon gives.
 """
 
 import hmac
@@ -51,7 +53,11 @@ import grpc
 #: ``astra-daemon/src/plugins/client.rs``.
 PLUGIN_TOKEN_HEADER = "x-plugin-token"
 
-#: Environment override for the stage: ``off``, ``warn`` or ``require``.
+#: How the daemon states the stage: ``off``, ``warn`` or ``require``. Set to
+#: ``require`` on every spawn by ``prepare_spawn`` in
+#: ``astra-daemon/src/plugins/instance.rs``; absent under a daemon too old to
+#: send the header, which is what leaves a plugin in ``warn``. Overrides the
+#: value passed in code, which is what makes it useful to both.
 CAPABILITY_AUTH_ENV = "ASTRA_PLUGIN_CAPABILITY_AUTH"
 
 OFF = "off"

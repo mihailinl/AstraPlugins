@@ -135,7 +135,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:2989"
+    daemon_calls: "src/plugins/manager.rs:3624"
     summary: "The tool schemas this plugin offers the model, read once at startup."
     rust: stable
     python: stable
@@ -149,7 +149,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6039"
+    daemon_calls: "src/plugins/manager.rs:7601"
     summary: "Run one tool call on behalf of the model and return its result."
     rust: stable
     python: stable
@@ -164,7 +164,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6329"
+    daemon_calls: "src/plugins/manager.rs:7910"
     summary: "Synthesize one utterance and return the whole buffer."
     rust: stable
     python: stable
@@ -193,7 +193,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6377"
+    daemon_calls: "src/plugins/manager.rs:7958"
     summary: "The voices this provider exposes in the Voice settings picker."
     rust: stable
     python: stable
@@ -207,7 +207,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6617"
+    daemon_calls: "src/plugins/manager.rs:8198"
     summary: "Extra TTS settings fields, rendered by DynamicField on the Voice page."
     note: "Routed through the daemon's `optional_hook` helper (manager.rs:2878), so UNIMPLEMENTED means absent and a real fault is still a fault."
     rust: stable
@@ -222,7 +222,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6409"
+    daemon_calls: "src/plugins/manager.rs:7990"
     summary: "Deliver a licensed-voice content key for one-time machine-bound sealing."
     note: "The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager.rs:2664 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong."
     rust: stable
@@ -238,7 +238,7 @@ hooks:
     routing: live
     since: 1
     streaming: bidi
-    daemon_calls: "src/plugins/manager.rs:6464"
+    daemon_calls: "src/plugins/manager.rs:8045"
     summary: "Audio chunks in, transcript events out; carries both one-shot and streaming STT."
     note: "Also driven live at manager.rs:2808. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity."
     rust: stable
@@ -253,7 +253,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6585"
+    daemon_calls: "src/plugins/manager.rs:8166"
     summary: "The language codes this recognizer accepts."
     rust: stable
     python: stable
@@ -267,7 +267,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6641"
+    daemon_calls: "src/plugins/manager.rs:8222"
     summary: "Extra STT settings fields, rendered by DynamicField on the Voice page."
     rust: stable
     python: stable
@@ -281,7 +281,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6665"
+    daemon_calls: "src/plugins/manager.rs:8246"
     summary: "Load the recognizer model, with the daemon-resolved path and GPU toggle."
     note: "manager.rs:2918 routes it through `optional_hook`, which is why this is optional."
     rust: stable
@@ -296,7 +296,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6743"
+    daemon_calls: "src/plugins/manager.rs:8324"
     summary: "Drop the recognizer model so idle-unload actually frees VRAM."
     rust: stable
     python: stable
@@ -310,7 +310,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6694"
+    daemon_calls: "src/plugins/manager.rs:8275"
     summary: "Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload."
     note: "manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour."
     rust: stable
@@ -359,7 +359,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6182"
+    daemon_calls: "src/plugins/manager.rs:7755"
     summary: "Run one command-step action this plugin contributed."
     rust: stable
     python: stable
@@ -373,7 +373,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:2998"
+    daemon_calls: "src/plugins/manager.rs:3633"
     summary: "The action types this plugin adds to the command editor, read at startup."
     rust: stable
     python: stable
@@ -388,7 +388,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3007"
+    daemon_calls: "src/plugins/manager.rs:3642"
     summary: "The trigger types this plugin adds to the command editor, read at startup."
     rust: stable
     python: stable
@@ -402,7 +402,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:6272"
+    daemon_calls: "src/plugins/manager.rs:7853"
     summary: "Which of this plugin's trigger types a command is currently listening for."
     note: "manager.rs:2523 routes it through `optional_hook`."
     rust: stable
@@ -418,7 +418,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3016"
+    daemon_calls: "src/plugins/manager.rs:3651"
     summary: "The pages, slots, overlays and effects this plugin renders in the Astra window."
     rust: stable
     python: stable
@@ -432,7 +432,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3197"
+    daemon_calls: "src/plugins/manager.rs:3952"
     summary: "A method call from this plugin's own iframe into its backend."
     rust: stable
     python: stable
@@ -447,7 +447,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3373"
+    daemon_calls: "src/plugins/manager.rs:4133"
     summary: "The user saved new settings; here is the whole config as JSON."
     rust: stable
     python: stable
@@ -461,7 +461,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3314"
+    daemon_calls: "src/plugins/manager.rs:4074"
     summary: "The Astra UI language changed; re-render anything user-visible."
     note: "manager.rs:1133 routes it through `optional_hook`."
     rust: stable
@@ -476,7 +476,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/instance.rs:556"
+    daemon_calls: "src/plugins/instance.rs:1290"
     summary: "Stop cleanly; the process group is killed after the grace period."
     note: "Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit."
     rust: stable
@@ -491,7 +491,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager.rs:3565"
+    daemon_calls: "src/plugins/manager.rs:4394"
     summary: "Liveness probe, every 15 s."
     note: "Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager.rs:1464)."
     rust: stable
@@ -508,7 +508,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:302"
+    daemon_calls: "src/plugins/host_service.rs:1474"
     summary: "The handshake: prove the spawn token, receive the per-plugin session token."
     note: "The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token."
     rust: stable
@@ -524,7 +524,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:844"
+    daemon_calls: "src/plugins/host_service.rs:2045"
     summary: "Read this plugin's own persisted settings."
     rust: stable
     python: stable
@@ -539,7 +539,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:864"
+    daemon_calls: "src/plugins/host_service.rs:2068"
     summary: "Write a line into the daemon log buffer the plugin's log pane reads."
     rust: stable
     python: stable
@@ -554,7 +554,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:898"
+    daemon_calls: "src/plugins/host_service.rs:2106"
     summary: "Daemon version, state and gRPC port."
     rust: stable
     python: stable
@@ -569,7 +569,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:914"
+    daemon_calls: "src/plugins/host_service.rs:2126"
     summary: "Publish a variable that commands and other plugins can read."
     rust: stable
     python: stable
@@ -585,7 +585,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:451"
+    daemon_calls: "src/plugins/host_service.rs:1663"
     summary: "The filtered daemon event stream; the whole of the event_handlers capability."
     rust: stable
     python: stable
@@ -601,7 +601,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:666"
+    daemon_calls: "src/plugins/host_service.rs:1860"
     summary: "Fire one of this plugin's trigger types and run whatever commands listen."
     rust: stable
     python: stable
@@ -617,7 +617,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:536"
+    daemon_calls: "src/plugins/host_service.rs:1717"
     summary: "Send a chat message as this plugin and stream the assistant's reply back."
     note: "The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4."
     rust: stable
@@ -634,7 +634,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:953"
+    daemon_calls: "src/plugins/host_service.rs:2170"
     summary: "Push an event into this plugin's own iframes — the return path for CallFromUi."
     note: "Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously."
     rust: stable
@@ -650,7 +650,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:979"
+    daemon_calls: "src/plugins/host_service.rs:2201"
     summary: "Contribute colours, wallpaper and shader to the active Astra theme."
     note: "Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4."
     rust: stable
