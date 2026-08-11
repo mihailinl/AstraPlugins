@@ -107,6 +107,26 @@ env:
   PROTOC_VERSION: "27.x"
 
 jobs:
+  # A YAML parser is not a GitHub parser. `yaml.safe_load` accepts every file
+  # in this directory, and GitHub rejected one of them at parse time — a
+  # zero-second failure with no job to open, no annotation to read, and nothing
+  # in the API. The cause was `runner.temp` in a job-level `env:`, where that
+  # context does not exist. actionlint knows GitHub's schema and its context
+  # availability table; nothing else here does.
+  actionlint:
+    name: "workflows parse as GitHub reads them"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          ver=1.7.7
+          curl -sSL -o al.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
+          tar xzf al.tar.gz actionlint
+          ./actionlint -color .github/workflows/*.yml
+
   # ══ PROTO ══════════════════════════════════════════════════════════════════
 
   proto-vendored:
@@ -906,15 +926,20 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      # NOT `/tmp`. Under git-bash on windows-2022 that is an MSYS mount which
-      # bash understands and Python does not — `pathlib.Path("/tmp/x")` resolves
-      # to `C:\tmp\x`, a directory nothing wrote to, and the archive inspector
-      # below "finds no archive" on every Windows leg. RUNNER_TEMP is a native
-      # path on both runners; each step normalises its backslashes once, because
-      # bash, TOML and JSON all read a backslash as an escape.
-      WORK: ${{ runner.temp }}
     steps:
+      # $WORK is NOT `/tmp`. Under git-bash on windows-2022 that is an MSYS
+      # mount which bash understands and Python does not — `pathlib.Path
+      # ("/tmp/x")` resolves to `C:\tmp\x`, a directory nothing wrote to, and
+      # the archive inspector below "finds no archive" on every Windows leg.
+      # RUNNER_TEMP is a native path on both runners; each step normalises its
+      # backslashes once, because bash, TOML and JSON all read one as an escape.
+      #
+      # Set from the environment variable in a step, not from `runner.temp` in a
+      # job-level `env:`: the `runner` context does not exist at job level, and
+      # naming it there makes GitHub reject the entire file at parse time — a
+      # zero-second failure with no job to open and no annotation to read.
+      - name: WORK
+        run: echo "WORK=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: arduino/setup-protoc@v3

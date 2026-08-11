@@ -394,6 +394,15 @@ jobs:
       # where Astra itself runs fine, and the daemon reports that as "the
       # plugin exited immediately", which is nobody's idea of a clue.
       GLIBC_FLOOR_MAX: "2.39"
+
+      # Where the astra-plugin CLI that packs the bundle comes from. A literal,
+      # because no context tells a reusable workflow its own repository and
+      # commit — `github.workflow_ref` and `github.workflow_sha` describe the
+      # CALLER. Releasing a new version of this workflow means bumping the SHA
+      # below in the same commit, so the CLI and the workflow that publishes
+      # with it stay one version by construction.
+      ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
+      ASTRA_TOOLING_REF: "0000000000000000000000000000000000000000"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
@@ -411,43 +420,36 @@ jobs:
           # has no need for one, and this job's job is to assume it is hostile.
           persist-credentials: false
 
-      # A silent empty `ref:` would make the checkout below take the default
-      # branch, which is exactly the "whoever can move a tag owns every plugin's
-      # build step" failure the SHA pin exists to prevent — and it would look
-      # like a green build. `job.workflow_sha` and `job.workflow_repository`
-      # landed in the job context on 2026-04-23; on a runner that predates them
-      # the expressions evaluate to the empty string, so assert them first.
-      - name: Resolve the pinned workflow commit
+      # Where astra-plugin comes from. A literal, not an expression: there is
+      # no context that tells a reusable workflow its OWN repository and commit
+      # (`github.workflow_ref` and `github.workflow_sha` describe the CALLER),
+      # and an empty `ref:` would silently take the default branch — which is
+      # exactly the "whoever can move a branch owns every plugin's build step"
+      # failure a pin exists to prevent, wearing a green tick.
+      #
+      # So the pin is declared here and moves with this file: releasing a new
+      # version of this workflow means bumping ASTRA_TOOLING_REF in the same
+      # commit. The caller pins this workflow by SHA (`astra-plugin init-ci`
+      # writes that, and `astra-plugin check --strict` fails on a stale pin), so
+      # the chain from the author's tag to this CLI build is fixed end to end.
+      - name: Resolve the pinned tooling commit
         env:
-          WORKFLOW_REPO: ${{ job.workflow_repository }}
-          WORKFLOW_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_REPO: ${{ env.ASTRA_TOOLING_REPO }}
+          WORKFLOW_SHA: ${{ env.ASTRA_TOOLING_REF }}
         run: |
           set -euo pipefail
           if [ -z "${WORKFLOW_SHA:-}" ] || [ -z "${WORKFLOW_REPO:-}" ]; then
-            echo "::error::this runner does not provide job.workflow_sha / job.workflow_repository."
-            echo "Those are what pin astra-plugin to the commit of this workflow file."
-            echo "GitHub added them on 2026-04-23; GitHub Enterprise Server needs 3.18 or newer."
+            echo "::error::ASTRA_TOOLING_REPO / ASTRA_TOOLING_REF are empty."
+            echo "They pin the astra-plugin CLI this workflow builds with."
             exit 1
           fi
           if ! [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::job.workflow_sha is not a 40-hex commit: '$WORKFLOW_SHA'"
+            echo "::error::ASTRA_TOOLING_REF is not a 40-hex commit: '$WORKFLOW_SHA'"
+            echo "A branch or tag here would let whoever can move it own this build."
             exit 1
           fi
           echo "astra-plugin comes from $WORKFLOW_REPO@$WORKFLOW_SHA"
           echo "ASTRA_PLUGIN_WORKFLOW_SHA=$WORKFLOW_SHA" >> "$GITHUB_ENV"
-
-      # `job.workflow_repository` / `job.workflow_sha` describe THIS file — the
-      # reusable workflow — not the caller. So the CLI that packs the bundle and
-      # the workflow that publishes it are the same commit by construction, a
-      # fork of this repository works with no configuration, and there is no
-      # version number for anyone to keep in step.
-      - name: Checkout astra-plugin at the pinned workflow commit
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
-          path: astra-tooling
-          persist-credentials: false
 
       # Needed on every leg regardless of the plugin's language: astra-plugin is
       # itself a Rust program. A plugin that needs a specific toolchain commits
@@ -506,7 +508,7 @@ jobs:
           path: |
             ~/.cargo/bin/astra-plugin
             ~/.cargo/bin/astra-plugin.exe
-          key: astra-plugin-cli-${{ runner.os }}-${{ job.workflow_sha }}
+          key: astra-plugin-cli-${{ runner.os }}-${{ env.ASTRA_TOOLING_REF }}
 
       - name: Build astra-plugin
         if: steps.cli-cache.outputs.cache-hit != 'true'
