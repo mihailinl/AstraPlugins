@@ -1,15 +1,55 @@
-# Astra Plugin SDK (TypeScript)
+# astra-plugin-sdk (TypeScript)
 
-Build plugins for [Astra](https://github.com/mihailinl/Astra) in TypeScript.
+Write a plugin for Astra in TypeScript.
 
-## Installation
+Repository: <https://github.com/mihailinl/AstraPlugins>
 
 The package name is unscoped. (`@astra/plugin-sdk` appeared in older docs and
 scaffolds; that scope was never registered, so it 404s.)
 
-```bash
-npm install astra-plugin-sdk
+## Installing today
+
+**`npm install astra-plugin-sdk` gets you 0.4.0.** The daemon rejects every host
+RPC but `Register` without an `x-session-token`, and **0.5.0 is the first release
+that sends one** — a 0.4.0 plugin starts, answers inbound hooks, and gets
+`unauthenticated` on everything it tries to say back. Its `DaemonClient` is
+worse: it loaded an inline proto string that predates the chat event-sourcing
+migration, so its methods are `undefined` at runtime.
+
+`astra-plugin new --lang typescript` pins `^0.5.0`, which does not resolve yet:
+
 ```
+error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)
+```
+
+Until 0.5.0 is published, build the package from this checkout and install the
+tarball — the same sequence CI runs:
+
+```bash
+git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
+cd AstraPlugins/astra-plugin-sdk-ts
+bun install --frozen-lockfile
+bun run build
+bun pm pack --destination /tmp/tgz     # -> /tmp/tgz/astra-plugin-sdk-0.5.0.tgz
+```
+
+> **The branch matters.** A bare `git clone` checks out the default branch,
+> where `package.json` says **0.4.0** — so `bun pm pack` writes
+> `astra-plugin-sdk-0.4.0.tgz`, the next command's path does not exist, and you
+> would be installing the exact version this section exists to route around.
+> Verified with `git show master:astra-plugin-sdk-ts/package.json`.
+> `feat/plugin-production` is not pushed yet (`git ls-remote origin`), so for
+> now this means a local checkout of that branch; delete this note once it is
+> the default.
+
+then in your plugin:
+
+```bash
+bun add /tmp/tgz/astra-plugin-sdk-0.5.0.tgz     # or: npm install /tmp/tgz/...tgz
+```
+
+Verified: with that dependency in place, a freshly scaffolded plugin's
+`bun run test` passes.
 
 Requires Node 20 or newer. Ships both CommonJS and ES modules.
 
@@ -112,6 +152,50 @@ library that logs is visible without changing it. An uncaught exception or
 unhandled rejection is logged at `error` level and exits with code 70, rather
 than the process silently vanishing.
 
+**Every outbound call is default-deny.** A manifest with no `[permissions]`
+section may call `Register`, `PluginLog`, `GetPluginSelfConfig` and
+`GetDaemonInfo`, and nothing else. `ctx.setVariable` above needs
+
+```toml
+[permissions]
+set_variable = { reason = "Publishes the transformed JSON as the variable your command names in 'Store Result In'", scopes = ["session"] }
+```
+
+and the `reason` is what the user reads on the install consent sheet. Declaring
+the matching **capability** is not what opens the call; this is.
+
+A plugin whose `isClient()` returns `true` also gets a `DaemonClient` — chat,
+voice, commands, settings. There is no `chat_message_sync` hook; a client plugin
+uses `events.onConversation`.
+
+> **That client does not reach anything yet.** The daemon registers every plugin
+> as `ClientType::PluginClient` and its auth interceptor rejects that identity
+> on any gRPC path outside `/astra.PluginHostService/`, so every `DaemonClient`
+> call answers `permission_denied` — `client: true` included.
+> `host.sendChatMessage` is the only working way to drive an AI turn. The
+> daemon-side half is unbuilt; the SDK surface is here first.
+
+## Errors
+
+```typescript
+import { NotConfigured } from "astra-plugin-sdk";
+
+run: () => { throw new NotConfigured("api_key"); }
+```
+
+Eight classes with the same eight codes the Rust and Python SDKs use:
+`BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,
+`Unavailable`, `Timeout`, `InternalError`, all extending `PluginError`. `code`
+is a string literal on each class, so `AnyPluginError` is a discriminated union
+and `switch (err.code) { case "NOT_CONFIGURED": … }` narrows to the subclass and
+reaches `err.configField` with no cast.
+
+A failure stays **in-band** (`success: false`, `error: "NOT_CONFIGURED: …"`,
+plus a structured `errorDetail`) rather than becoming a gRPC status, because the
+assistant has to read it. Anything else you throw is adopted as `INTERNAL`,
+except `SyntaxError` / `TypeError` — what `JSON.parse` throws on the model's
+arguments — which become `BAD_ARGUMENTS`.
+
 ## Testing
 
 ```typescript
@@ -133,6 +217,23 @@ Fixtures come with the harness: `utteranceChunks()` is a golden 16 kHz utterance
 longer than the STT channel's 500-slot bound, `firehoseEvents()` is a whole
 assistant turn, and `h.fuzzConfig()` pushes eleven shapes of real-world config
 through `onConfigChanged` and reports which ones threw.
+
+Every TypeScript block in this file was executed against a build of this
+checkout before it was written down.
+
+## What this SDK does not do
+
+- **No isolation.** Your plugin is a native Node process with the user's full
+  privileges. Permissions constrain what the *daemon* will do for you; nothing
+  constrains what your process does to the machine.
+- `ttsSynthesizeStream` is implemented here and **the daemon has no call site
+  for `TtsSynthesizeStream`**. `aiGetModels` is deprecated and still bound so
+  old plugins get `UNIMPLEMENTED` rather than a transport error. Both are listed
+  under "Findings" in the generated hook-parity page, which `tools/parity`
+  renders from [`spec/hooks.yaml`](../spec/hooks.yaml).
+
+Full history, including everything breaking in 0.5.0:
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 

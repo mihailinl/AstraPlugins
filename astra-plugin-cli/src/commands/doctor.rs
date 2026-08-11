@@ -281,6 +281,33 @@ fn toolchains(language: &str) -> Vec<Finding> {
         ),
     });
 
+    // protoc — a hard prerequisite for every Rust build in this project, and
+    // the one that is invisible until it fires. `astra-plugin-sdk/build.rs`
+    // runs `tonic_build::configure().compile_protos(...)`, and tonic-build 0.12
+    // shells out to `protoc`; it does not vendor one. So a machine with cargo
+    // and no protoc fails at `cargo install ... astra-plugin-cli` — the very
+    // first command an author runs — with `Could not find `protoc``, before
+    // they have a project to blame.
+    out.push(match toolchain::version("protoc") {
+        Some(v) => Finding::ok("tool.protoc", "Can I compile the SDK's protobufs?", v),
+        None if needed("rust") => Finding::fail(
+            "tool.protoc",
+            "Can I compile the SDK's protobufs?",
+            "protoc is not on PATH, and this project has a Cargo.toml",
+            "The Rust SDK's build.rs compiles proto/plugin.proto with tonic-build, which does \
+             not ship a protoc. Install one: apt install protobuf-compiler / pacman -S protobuf \
+             / brew install protobuf / winget install Google.Protobuf.",
+        ),
+        None => Finding::warn(
+            "tool.protoc",
+            "Can I compile the SDK's protobufs?",
+            "protoc is not on PATH",
+            "Only needed to build Rust — the SDK's build.rs compiles proto/plugin.proto with \
+             tonic-build, which does not ship a protoc. apt install protobuf-compiler / \
+             pacman -S protobuf / brew install protobuf.",
+        ),
+    });
+
     // Node — the version floor is real: the TS SDK declares engines >= 20.
     out.push(match toolchain::version("node") {
         Some(v) => match toolchain::major(&v) {
@@ -600,7 +627,14 @@ fn release_workflow(dir: &Path) -> Finding {
         .map(str::trim)
         .filter(|l| l.starts_with("uses:"))
         .filter(|l| match l.rsplit_once('@') {
-            Some((_, r)) => !crate::commands::init_ci::is_commit_sha(r),
+            // The ref runs to the end of the line or to a trailing YAML
+            // comment, whichever comes first. `init-ci` writes exactly such a
+            // comment — `…@<sha>  # default branch` — so without this the only
+            // file this CLI produces fails this CLI's own check, and the fix it
+            // suggests (`init-ci`) regenerates the identical file.
+            Some((_, r)) => !crate::commands::init_ci::is_commit_sha(
+                r.split('#').next().unwrap_or(r).trim(),
+            ),
             None => true,
         })
         .collect();
@@ -653,6 +687,7 @@ mod tests {
             "env.config_dir",
             "env.daemon",
             "tool.cargo",
+            "tool.protoc",
             "tool.node",
             "tool.bundler",
             "tool.python",

@@ -25,9 +25,14 @@ test = ["pytest>=7.0"]
 [project.entry-points.pytest11]
 astra_plugin_sdk = "astra_plugin_sdk.testing.fixtures"
 
+# ONE canonical URL for the whole tree — `mihailinl/AstraPlugins`, the real
+# `origin` remote. Two other repository names were in circulation until Phase
+# 6.4; neither of them resolves, and neither appears anywhere in this tree now.
 [project.urls]
 Homepage = "https://github.com/mihailinl/AstraPlugins"
 Repository = "https://github.com/mihailinl/AstraPlugins/tree/master/astra-plugin-sdk-python"
+Documentation = "https://github.com/mihailinl/AstraPlugins/tree/master/docs/en"
+Changelog = "https://github.com/mihailinl/AstraPlugins/blob/master/astra-plugin-sdk-python/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=68.0"]

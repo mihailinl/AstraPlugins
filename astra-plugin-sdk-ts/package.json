@@ -54,9 +54,13 @@
     "protobufjs": "^7.2.5"
   },
   "license": "MIT",
+  "homepage": "https://github.com/mihailinl/AstraPlugins/tree/master/astra-plugin-sdk-ts#readme",
+  "bugs": {
+    "url": "https://github.com/mihailinl/AstraPlugins/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mihailinl/AstraPlugins",
+    "url": "git+https://github.com/mihailinl/AstraPlugins.git",
     "directory": "astra-plugin-sdk-ts"
   },
   "keywords": ["astra", "plugin", "sdk", "grpc"]

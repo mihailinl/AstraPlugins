@@ -7,7 +7,16 @@ version = "0.2.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "MIT"
-repository = "https://github.com/astra-assistant/astra-plugins"
+# ONE canonical URL, everywhere. This field used to name a GitHub organisation
+# that does not exist and returns 404, while the SDK next door named
+# `mihailinl/AstraPlugins` — the real `origin` remote — and the docs named a
+# third. Three names for one repository is three chances to send a reader
+# nowhere, so every `repository`, `homepage` and `documentation` field in this
+# tree now agrees with the line below, and a grep for the dead two comes back
+# empty.
+repository = "https://github.com/mihailinl/AstraPlugins"
+homepage = "https://github.com/mihailinl/AstraPlugins"
+documentation = "https://github.com/mihailinl/AstraPlugins/tree/master/docs/en"
 
 [[bin]]
 name = "astra-plugin"

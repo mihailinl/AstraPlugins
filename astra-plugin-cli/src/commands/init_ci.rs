@@ -205,6 +205,22 @@ pub fn run(opts: InitCiOptions<'_>) -> Result<()> {
                 "  current head of its default branch. Re-run `astra-plugin init-ci` once the"
             );
             hprintln!("  tag exists to move onto a released workflow.");
+            hprintln!();
+            // `ls_remote` answers with commits and knows nothing about the
+            // files in them, so this cannot be turned into a check here without
+            // adding an HTTP client. It is stated instead, because the failure
+            // it warns about happens in GitHub Actions — after the author has
+            // committed, tagged and pushed — and reads as a broken repository
+            // rather than a missing upstream file.
+            hprintln!(
+                "  Not verified: whether {WORKFLOW_FILE} exists at that commit. If"
+            );
+            hprintln!(
+                "  the tag push fails with 'invalid value workflow reference', it does not;"
+            );
+            hprintln!(
+                "  pin one that does with `astra-plugin init-ci --ref <commit>`."
+            );
         }
         PinSource::Existing => {
             hprintln!();

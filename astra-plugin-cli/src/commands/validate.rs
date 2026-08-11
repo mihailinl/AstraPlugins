@@ -110,6 +110,7 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     let manifest = parse_manifest(&content, &mut report)?;
 
     check_capabilities(&manifest, &content, &mut report);
+    check_permissions(&manifest, &mut report);
     check_config_schema(&manifest, &mut report);
     check_metadata(&manifest, &mut report);
     check_platform(&manifest, &mut report);
@@ -308,6 +309,23 @@ fn check_capabilities(m: &PluginManifest, content: &str, report: &mut Report) {
         } else {
             "No capabilities enabled — plugin won't do anything".into()
         });
+    }
+}
+
+/// `[permissions]` ids this build does not know.
+///
+/// Deliberately a warning and not an error: the section is forward-compatible
+/// by design, so an older CLI must not refuse a manifest written for a newer
+/// Astra. But "kept and inert" is only safe if somebody says so — a typo'd id
+/// grants nothing at run time and looks identical to a correct one on the page.
+/// `Permissions::unknown()` and `explain_unknown_permission` live in the
+/// manifest crate precisely so `check`, `test` and the registry bot say the
+/// same sentence about the same id.
+fn check_permissions(m: &PluginManifest, report: &mut Report) {
+    for id in m.permissions.unknown() {
+        report
+            .warnings
+            .push(astra_plugin_manifest::explain_unknown_permission(id));
     }
 }
 
@@ -825,6 +843,7 @@ label = "Sink"
         let parsed = parse_manifest(content, &mut report);
         if let Ok(ref m) = parsed {
             check_capabilities(m, content, &mut report);
+            check_permissions(m, &mut report);
             check_config_schema(m, &mut report);
             check_metadata(m, &mut report);
             check_platform(m, &mut report);
