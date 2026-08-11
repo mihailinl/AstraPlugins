@@ -16,6 +16,13 @@ tools = true
 actions = true
 triggers = true
 
+# `[permissions]` is the other direction: which host RPCs the plugin may call
+# out to. Default-deny — a manifest with no `[permissions]` section may call
+# nothing beyond Register, PluginLog and GetPluginSelfConfig, so declaring
+# `actions = true` is not what lets `set_variable` through. This is.
+[permissions]
+set_variable = { reason = "Publishes the transformed JSON as the variable your command names in 'Store Result In'", scopes = ["session"] }
+
 [config]
 schema = """
 {

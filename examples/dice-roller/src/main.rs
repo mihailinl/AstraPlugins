@@ -24,7 +24,7 @@ use astra_plugin_sdk::prelude::*;
 #[astra::args]
 #[derive(PluginConfig)]
 #[serde(default)]
-struct DiceConfig {
+pub struct DiceConfig {
     /// Sides per die when a roll does not say.
     default_sides: u32,
 }
@@ -38,7 +38,7 @@ impl Default for DiceConfig {
 /// `roll_dice` arguments. The doc comments below become the schema's field
 /// descriptions, so the model is told what `sides` means in one place.
 #[astra::args]
-struct RollArgs {
+pub struct RollArgs {
     /// How many dice to roll (1-100).
     #[serde(default = "one")]
     count: u32,
@@ -48,7 +48,7 @@ struct RollArgs {
 
 /// `coin_flip` arguments.
 #[astra::args]
-struct FlipArgs {
+pub struct FlipArgs {
     /// How many coins to flip (1-100).
     #[serde(default = "one")]
     count: u32,
@@ -59,7 +59,7 @@ fn one() -> u32 {
 }
 
 #[derive(Default)]
-struct DiceRoller {
+pub struct DiceRoller {
     config: Config<DiceConfig>,
     total_rolls: AtomicU64,
 }

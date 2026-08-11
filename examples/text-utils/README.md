@@ -47,7 +47,39 @@ Astra down with it, but the plugin will stop answering until you restart it.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| Max Text Length | `10000` | `word_count` refuses text longer than this, so a pasted log file cannot stall the plugin |
+| Max Text Length | `10000` | every tool refuses text longer than this, so a pasted log file cannot stall the plugin |
+
+A value that is not a number is logged and ignored rather than fatal: a config
+hook has nowhere to report a failure, and refusing to start over one bad field
+would take the whole plugin down.
+
+## Testing it — the reference suite
+
+`tests/test_text_utils.py` is the worked example for testing a Python Astra
+plugin, and is worth reading before writing tests for your own:
+
+```bash
+pip install -e '.[dev]'      # astra-plugin-sdk[test] — pytest and the harness
+pytest
+```
+
+It uses both levels of `astra_plugin_sdk.testing`:
+
+- **Level 1**, `astra_harness`, drives the plugin through its own gRPC servicer
+  in-process. That is not the same as calling the method: it goes through tool
+  registration, the JSON round-trip, the schema, and the error taxonomy — which
+  is where plugins actually break. `RecordingHost` records everything the plugin
+  asked Astra for, and `fail_next` makes the "Astra said no" branch reachable at
+  all. Without it, the path a plugin takes when `fire_trigger` is denied for a
+  missing `[permissions]` entry is untested by construction.
+- **Level 2**, `astra_wire`, runs the plugin's real `run()` against a mock
+  daemon over loopback gRPC — registration, the protobuf descriptor, the
+  capability interceptor, the `x-session-token` on every host call. One test, at
+  the end, because it catches a class of bug level 1 structurally cannot see.
+
+The last test in the file breaks the plugin on purpose — one tool loses its
+`@tool` decorator — and shows the suite catching it. A test suite nobody has
+watched fail is a test suite nobody should trust.
 
 ## Build it yourself
 
@@ -64,6 +96,9 @@ part is the interpreter, which comes from the user's machine.
 
 - `src/plugin.py` — the whole plugin. The `@tool` / `@action` / `@trigger`
   decorators register everything; there is no manual wiring to read.
+- `tests/test_text_utils.py` — the reference suite, above.
+- `conftest.py` — three lines, so `src.plugin` imports from `tests/` the same
+  way the daemon imports it.
 - `icon.svg` — the store icon, hand-drawn SVG.
 
 MIT licensed.

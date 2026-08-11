@@ -1,11 +1,30 @@
-"""TextUtils — Astra plugin with tools, actions, and triggers for text processing."""
+"""TextUtils — Astra plugin with tools, actions, and triggers for text processing.
+
+The Python reference example. It is deliberately small, and deliberately
+complete: every failure it can have is a coded `ToolError` the daemon can act
+on, everything it says goes through `logging` (which the SDK routes to Astra),
+and `tests/` is a worked example of both levels of the SDK test harness.
+"""
 
 import asyncio
 import base64
+import logging
 import re
 from datetime import datetime
 
-from astra_plugin_sdk import Plugin, tool, action, trigger, Field
+from astra_plugin_sdk import (
+    BadArguments,
+    Field,
+    Plugin,
+    action,
+    tool,
+    trigger,
+)
+
+log = logging.getLogger(__name__)
+
+CASE_MODES = ("upper", "lower", "title", "snake", "camel")
+TRANSFORMS = ("upper", "lower", "title", "reverse", "base64_encode", "base64_decode")
 
 
 class TextUtils(Plugin):
@@ -16,13 +35,13 @@ class TextUtils(Plugin):
         self.max_text_length = 10000
         self.operations_count = 0
         self._last_fired_minute: str = ""
+        self._time_task: asyncio.Task | None = None
 
     # -- Tools (auto-registered via @tool) --
 
     @tool("Count words, characters, and lines in text.")
     async def word_count(self, text: str):
-        if len(text) > self.max_text_length:
-            raise ValueError(f"Text exceeds max length ({self.max_text_length})")
+        self._check_length(text)
         self.operations_count += 1
         return {
             "words": len(text.split()),
@@ -32,13 +51,24 @@ class TextUtils(Plugin):
 
     @tool("Convert text case: upper, lower, title, snake, camel.")
     async def case_convert(self, text: str, mode: str):
+        self._check_length(text)
+        if mode not in CASE_MODES:
+            # BAD_ARGUMENTS, not INTERNAL: the model is the caller here, and this
+            # code is what tells it to try again with a different `mode` rather
+            # than to give up and apologise to the user.
+            raise BadArguments(f"unknown mode {mode!r}; use one of {', '.join(CASE_MODES)}")
         self.operations_count += 1
         return self._convert_case(text, mode)
 
     @tool("Test a regex pattern against text and return matches.")
     async def regex_match(self, text: str, pattern: str):
+        self._check_length(text)
+        try:
+            compiled = re.compile(pattern)
+        except re.error as e:
+            raise BadArguments(f"{pattern!r} is not a valid regular expression: {e}")
         self.operations_count += 1
-        matches = re.findall(pattern, text)
+        matches = compiled.findall(text)
         return {"pattern": pattern, "matches": matches, "count": len(matches)}
 
     # -- Action (auto-registered via @action) --
@@ -67,21 +97,26 @@ class TextUtils(Plugin):
         ai_primary_field="input_text",
     )
     async def transform_text(self, operation: str = "upper", input_text: str = "", **_):
+        if operation not in TRANSFORMS:
+            raise BadArguments(
+                f"unknown operation {operation!r}; use one of {', '.join(TRANSFORMS)}"
+            )
+        self._check_length(input_text)
         self.operations_count += 1
         if operation == "upper":
             return input_text.upper()
-        elif operation == "lower":
+        if operation == "lower":
             return input_text.lower()
-        elif operation == "title":
+        if operation == "title":
             return input_text.title()
-        elif operation == "reverse":
+        if operation == "reverse":
             return input_text[::-1]
-        elif operation == "base64_encode":
+        if operation == "base64_encode":
             return base64.b64encode(input_text.encode()).decode()
-        elif operation == "base64_decode":
-            return base64.b64decode(input_text.encode()).decode()
-        else:
-            raise ValueError(f"Unknown operation: {operation}")
+        try:
+            return base64.b64decode(input_text.encode(), validate=True).decode()
+        except Exception as e:
+            raise BadArguments(f"that is not valid Base64: {e}")
 
     # -- Trigger (auto-registered via @trigger) --
 
@@ -96,50 +131,82 @@ class TextUtils(Plugin):
     def on_time(self):
         pass
 
+    async def tick(self, now: str | None = None) -> bool:
+        """One iteration of the schedule check. Returns whether it fired.
+
+        Split out of the loop so a test can drive it with a fixed clock. A
+        `while True: await sleep(30)` body is untestable, and "untestable" is how
+        a trigger that fires twice a minute ships.
+        """
+        if "on_time" not in self.active_triggers:
+            return False  # nobody listening, skip
+        now = now or datetime.now().strftime("%H:%M")
+        if now == self._last_fired_minute:
+            return False  # already fired for this minute
+        self._last_fired_minute = now
+        try:
+            await self.fire_trigger("on_time", {"time": now})
+        except Exception as e:
+            # The daemon refusing `fire_trigger` (a missing `[permissions]`
+            # entry, a restart mid-call) must not kill the loop — the next
+            # minute should still get a chance.
+            log.error("on_time trigger failed: %s", e)
+            return False
+        return True
+
     async def _time_loop(self):
-        """Background loop: fire on_time trigger every minute when time matches."""
         while True:
             await asyncio.sleep(30)
-            if "on_time" not in self.active_triggers:
-                continue  # nobody listening, skip
-            now = datetime.now().strftime("%H:%M")
-            if now != self._last_fired_minute:
-                self._last_fired_minute = now
-                try:
-                    await self.fire_trigger("on_time", {"time": now})
-                except Exception as e:
-                    print(f"on_time trigger error: {e}")
+            await self.tick()
 
     # -- Lifecycle --
 
     async def on_config_changed(self, config: dict):
-        self.max_text_length = config.get("max_text_length", 10000)
-        if not hasattr(self, "_time_task"):
+        raw = config.get("max_text_length", 10000)
+        try:
+            self.max_text_length = max(1, int(raw))
+        except (TypeError, ValueError):
+            # A config hook has nowhere to report a failure, and refusing to
+            # start over one bad field would take the whole plugin down. Keep
+            # the last good value and say so.
+            log.warning("max_text_length=%r is not a number; keeping %d", raw, self.max_text_length)
+        if self._time_task is None:
             self._time_task = asyncio.create_task(self._time_loop())
+
+    async def on_shutdown(self):
+        if self._time_task is not None:
+            self._time_task.cancel()
+            self._time_task = None
 
     async def health_check(self):
         return True, f"ok — {self.operations_count} operations processed"
 
     # -- Helpers --
 
+    def _check_length(self, text: str) -> None:
+        if len(text) > self.max_text_length:
+            raise BadArguments(
+                f"text is {len(text)} characters; this plugin is configured to "
+                f"accept at most {self.max_text_length}"
+            )
+
     @staticmethod
     def _convert_case(text: str, mode: str) -> str:
         if mode == "upper":
             return text.upper()
-        elif mode == "lower":
+        if mode == "lower":
             return text.lower()
-        elif mode == "title":
+        if mode == "title":
             return text.title()
-        elif mode == "snake":
+        if mode == "snake":
             s = re.sub(r"([A-Z])", r"_\1", text).lower()
             s = re.sub(r"[\s\-]+", "_", s)
             return s.strip("_")
-        elif mode == "camel":
-            words = re.split(r"[\s_\-]+", text)
-            if not words:
-                return ""
-            return words[0].lower() + "".join(w.capitalize() for w in words[1:])
-        return text
+        # camel
+        words = re.split(r"[\s_\-]+", text)
+        if not words:
+            return ""
+        return words[0].lower() + "".join(w.capitalize() for w in words[1:])
 
 
 if __name__ == "__main__":

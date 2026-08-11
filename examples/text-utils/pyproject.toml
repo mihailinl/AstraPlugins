@@ -8,3 +8,10 @@ dependencies = [
     "grpcio>=1.60.0",
     "protobuf>=4.25.0",
 ]
+
+# `pip install -e '.[dev]'` then `pytest`. The `test` extra pulls in pytest; the
+# `astra_plugin_sdk.testing` harness itself needs nothing beyond the SDK, and
+# registers its fixtures through a `pytest11` entry point, so there is no
+# conftest to write beyond the three lines that put `src` on the path.
+[project.optional-dependencies]
+dev = ["astra-plugin-sdk[test]"]

@@ -54,7 +54,14 @@ is not written to disk and not sent anywhere.
 
 ```bash
 cd examples/json-tools
+# This example needs astra-plugin-sdk 0.5.0, which is not on npm yet, so point
+# resolution at the SDK in this checkout — exactly what CI does:
+#   (cd ../../astra-plugin-sdk-ts && bun install && bun run build && bun pm pack --destination /tmp/tgz)
+#   node -e 'const f=require("fs"),p=JSON.parse(f.readFileSync("package.json","utf8"));
+#            p.overrides={"astra-plugin-sdk":"file:/tmp/tgz/astra-plugin-sdk-0.5.0.tgz"};
+#            f.writeFileSync("package.json",JSON.stringify(p,null,2))'
 bun install                   # or npm install
+bun run test                  # the reference suite, both levels
 bun run build                 # esbuild bundles src/index.ts to dist/index.js
 astra-plugin build            # produces json-tools-<version>-noarch.astraplugin
 ```
@@ -62,10 +69,49 @@ astra-plugin build            # produces json-tools-<version>-noarch.astraplugin
 The bundle is `noarch`: one file that runs on every platform Astra supports,
 because the platform-specific part is the Node install, not the plugin.
 
+## How it is written
+
+The object form, with the SDK's `s` schema builder:
+
+```typescript
+json_format: tool({
+  description: "Pretty-print JSON with configurable indentation.",
+  input: s.object({
+    json: s.string({ description: "JSON string to format" }),
+    indent: s.integer({ minimum: 0, maximum: 10 }).optional(),
+  }),
+  run: ({ json, indent }, ctx) =>
+    JSON.stringify(parse(json), null, indent ?? defaultIndent(ctx.config)),
+});
+```
+
+`input` is the JSON Schema the assistant reads **and** the type of `run`'s first
+argument. There is no `String(args.json ?? "")` anywhere in this plugin: the SDK
+validated the assistant's arguments against that schema before the handler ran,
+and a violation came back to the assistant as a `BAD_ARGUMENTS` result it can
+read and correct.
+
+## The test suite
+
+`test/plugin.test.mjs` is meant to be copied. It runs at both of the SDK's
+levels:
+
+- **Level 1** — `Harness.create(app)`, in process, no socket. Every tool, the
+  action, the config handling, `assertSchemaAccepts` / `assertSchemaRejects`,
+  a `RecordingHost` with `setVariable` made to fail on purpose (so a step that
+  could not publish its variable does not report success), and
+  `h.fuzzConfig()`, which pushes eleven shapes of real-world config through
+  `onConfigChanged`.
+- **Level 2** — `MockDaemon`, a real gRPC handshake with a real session token,
+  asserting the capabilities this plugin registers with are the ones
+  `plugin.toml` declares and that a tool answers correctly over the wire.
+
 ## Files
 
-- `src/index.ts` — the whole plugin. Read it alongside `../text-utils` and
-  `../dice-roller` to see the same three capabilities in three languages.
+- `src/plugin.ts` — the plugin, as a value. Read it alongside `../text-utils`
+  and `../dice-roller` to see the same three capabilities in three languages.
+- `src/index.ts` — the two-line entrypoint.
+- `test/plugin.test.mjs` — the reference suite.
 - `icon.svg` — the store icon, hand-drawn SVG.
 
 MIT licensed.

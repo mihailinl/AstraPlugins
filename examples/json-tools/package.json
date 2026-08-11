@@ -5,12 +5,15 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js",
+    "pretest": "esbuild src/plugin.ts --bundle --platform=node --format=cjs --external:astra-plugin-sdk --outfile=dist/plugin.cjs",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0",
-    "astra-plugin-sdk": "^0.1.1"
+    "astra-plugin-sdk": "^0.5.0"
   },
   "devDependencies": {
     "esbuild": "^0.20.0",

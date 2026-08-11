@@ -6,7 +6,7 @@
 use astra_plugin_sdk::prelude::*;
 use tracing::info;
 
-struct MockStt;
+pub struct MockStt;
 
 #[async_trait]
 impl PluginCapability for MockStt {
