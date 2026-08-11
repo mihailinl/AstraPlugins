@@ -7,51 +7,31 @@ Repository: <https://github.com/mihailinl/AstraPlugins>
 The package name is unscoped. (`@astra/plugin-sdk` appeared in older docs and
 scaffolds; that scope was never registered, so it 404s.)
 
-## Installing today
-
-**`npm install astra-plugin-sdk` gets you 0.4.0.** The daemon rejects every host
-RPC but `Register` without an `x-session-token`, and **0.5.0 is the first release
-that sends one** — a 0.4.0 plugin starts, answers inbound hooks, and gets
-`unauthenticated` on everything it tries to say back. Its `DaemonClient` is
-worse: it loaded an inline proto string that predates the chat event-sourcing
-migration, so its methods are `undefined` at runtime.
-
-`astra-plugin new --lang typescript` pins `^0.5.0`, which does not resolve yet:
-
-```
-error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)
-```
-
-Until 0.5.0 is published, build the package from this checkout and install the
-tarball — the same sequence CI runs:
+## Installing
 
 ```bash
-git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
-cd AstraPlugins/astra-plugin-sdk-ts
-bun install --frozen-lockfile
-bun run build
-bun pm pack --destination /tmp/tgz     # -> /tmp/tgz/astra-plugin-sdk-0.5.0.tgz
+npm install astra-plugin-sdk     # or: bun add astra-plugin-sdk
 ```
 
-> **The branch matters.** A bare `git clone` checks out the default branch,
-> where `package.json` says **0.4.0** — so `bun pm pack` writes
-> `astra-plugin-sdk-0.4.0.tgz`, the next command's path does not exist, and you
-> would be installing the exact version this section exists to route around.
-> Verified with `git show master:astra-plugin-sdk-ts/package.json`.
-> `feat/plugin-production` is not pushed yet (`git ls-remote origin`), so for
-> now this means a local checkout of that branch; delete this note once it is
-> the default.
+`astra-plugin new --lang typescript` pins `^0.5.0`, which is what you want.
 
-then in your plugin:
-
-```bash
-bun add /tmp/tgz/astra-plugin-sdk-0.5.0.tgz     # or: npm install /tmp/tgz/...tgz
-```
-
-Verified: with that dependency in place, a freshly scaffolded plugin's
-`bun run test` passes.
+**Take 0.5.0 or newer.** The daemon rejects every host RPC but `Register`
+without an `x-session-token`, and 0.5.0 is the first release that sends one: a
+0.4.0 plugin starts, answers inbound hooks, and gets `unauthenticated` on
+everything it tries to say back. Its `DaemonClient` is worse — it loaded an
+inline proto string predating the chat event-sourcing migration, so its methods
+are `undefined` at runtime.
 
 Requires Node 20 or newer. Ships both CommonJS and ES modules.
+
+To install from this repository instead — to try an unreleased change:
+
+```bash
+cd AstraPlugins/astra-plugin-sdk-ts
+bun install --frozen-lockfile && bun run build
+bun pm pack --destination /tmp/tgz
+bun add /tmp/tgz/astra-plugin-sdk-*.tgz    # in your plugin
+```
 
 ## Quick start
 

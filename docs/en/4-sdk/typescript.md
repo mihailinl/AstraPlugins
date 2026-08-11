@@ -1,12 +1,9 @@
 # The TypeScript SDK
 
-`astra-plugin-sdk` **0.5.0 — the version this page describes.** npm currently
-serves **0.4.0**, so the dependency below does not resolve from the registry
-yet: `bun add astra-plugin-sdk` answers
-`No version matching "^0.5.0" found for specifier "astra-plugin-sdk"`. Build the
-tarball from this repository until the release train runs — see
-["What this SDK cannot do yet"](#what-this-sdk-cannot-do-yet) and
-[`astra-plugin-sdk-ts/README.md`](../../../astra-plugin-sdk-ts/README.md#installing-today).
+`astra-plugin-sdk` **0.5.0 — the version this page describes**, and the one npm
+serves. `npm install astra-plugin-sdk` (or `bun add`) resolves it; that is also
+what `astra-plugin new --lang typescript` pins. Take 0.5.0 or newer: 0.4.0 sends
+no session token and the daemon refuses every host call it makes.
 
 The package name has no scope — an earlier scoped name appears in old projects
 and was never registered, so `npm i` of it fails outright.
@@ -210,9 +207,6 @@ test("no config the daemon can deliver crashes this plugin", async () => {
 
 ## What this SDK cannot do yet
 
-- **The package is not published at 0.5.0 yet.** npm is at 0.4.0, so a fresh
-  scaffold does not resolve until the release train runs. Build the tarball from
-  the repository instead — [`astra-plugin-sdk-ts/README.md`](../../../astra-plugin-sdk-ts/README.md#installing-today).
 - **The `daemon` handed to `client.onReady` is non-functional.** The daemon
   registers every plugin as `ClientType::PluginClient` and its auth interceptor
   rejects that identity on any path outside `/astra.PluginHostService/` with

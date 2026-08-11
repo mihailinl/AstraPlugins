@@ -78,50 +78,26 @@ Next steps:
 возможности и пример кода, а `--capabilities tools,triggers` перекрывает то,
 что подразумевает шаблон.
 
-### SDK, который закрепляет шаблон, ещё не опубликован
+### Что закрепляет шаблон
 
-Прочитайте это до `cargo build` — иначе прочитаете в виде ошибки. Шаблон
-закрепляет ту версию SDK, которую описывает эта документация, а в реестрах
-лежит предыдущая, поэтому свежий проект не резолвится — ни на одном из трёх
-языков:
+| Язык | Что закрепляет шаблон | Опубликовано |
+|---|---|---|
+| Rust | `astra-plugin-sdk = "0.6"` | crates.io 0.6.0 |
+| Python | `astra-plugin-sdk>=0.5,<0.6` | PyPI 0.5.0 |
+| TypeScript | `"astra-plugin-sdk": "^0.5.0"` | npm 0.5.0 |
 
-| Язык | Что закрепляет шаблон | Что в реестре сегодня | Где падает |
-|---|---|---|---|
-| Rust | `astra-plugin-sdk = "0.6"` | crates.io: 0.5.0 | `cargo build` |
-| Python | `astra-plugin-sdk>=0.5,<0.6` | PyPI: 0.4.0 | `pip install -r requirements.txt` |
-| TypeScript | `"astra-plugin-sdk": "^0.5.0"` | npm: 0.4.0 | `bun install` |
+Всё это резолвится из реестров, поэтому `cargo build`, `pip install -r
+requirements.txt` и `bun install` работают в свежем проекте без настройки.
 
-<!-- doctest: output from="cargo build --release in a freshly scaffolded rust project" -->
-```
-error: failed to select a version for the requirement `astra-plugin-sdk = "^0.6"`
-candidate versions found which didn't match: 0.5.0, 0.2.0, 0.1.5, ...
-location searched: crates.io index
-required by package `dice_roller v0.1.0`
-```
+**Нижние границы держат нагрузку.** Rust 0.6 — первый релиз, чей `HostClient`
+прикладывает `x-session-token`; для Python и TypeScript это 0.5.0. На всём, что
+старше, демон отвечает `unauthenticated` на каждый host-вызов. Ослабление
+границы меняет ошибку резолвера на ошибку времени выполнения — а это худший
+обмен: плагин запустится, будет обслуживать хуки и молча не сможет ответить.
 
-Сами пины не ошибочны: 0.6 — первый релиз Rust SDK, чей `HostClient`
-прикладывает `x-session-token`, и на 0.5 демон отвечает `unauthenticated` на
-каждый host-вызов, так что ослабление границы меняет ошибку резолвера на
-ошибку времени выполнения. Пока релиз не вышел, направьте проект на копию SDK
-из этого репозитория. Из клона `AstraPlugins`, лежащего рядом с проектом:
-
-<!-- doctest: illustrative reason="каждая строка — фрагмент чужого файла сборки: секция Cargo.toml, вызов pip и поле package.json; одной команды тут нет, каждая была выполнена отдельно до того, как попала на страницу" -->
-```bash
-# Rust — append to the project's Cargo.toml
-#   [patch.crates-io]
-#   astra-plugin-sdk = { path = "../AstraPlugins/astra-plugin-sdk" }
-#
-# Python — install the SDK by path, then the rest of requirements.txt
-#   pip install ../AstraPlugins/astra-plugin-sdk-python
-#
-# TypeScript — pack this tree's SDK and override the specifier
-#   (cd ../AstraPlugins/astra-plugin-sdk-ts && bun run build && bun pm pack --destination /tmp/tgz)
-#   then set "overrides": { "astra-plugin-sdk": "file:/tmp/tgz/astra-plugin-sdk-0.5.0.tgz" }
-```
-
-Ни `astra-plugin doctor`, ни `astra-plugin check` этого не проверяют: оба
-читают манифест, а пин лежит в файле сборки конкретного языка. Симптом всегда
-приходит от резолвера и всегда на первой сборке.
+Python: `astra-plugin test` запускает ваш плагин тем `python`, который лежит в
+`PATH`, — активируйте виртуальное окружение, куда ставили SDK. Иначе плагин
+завершится с `ModuleNotFoundError: astra_plugin_sdk` ещё до регистрации.
 
 ## 3 · Написать плагин
 

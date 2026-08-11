@@ -78,50 +78,27 @@ lines plus a test module.
 capabilities and the example code, and `--capabilities tools,triggers` overrides
 whatever the template implies.
 
-### The SDK the scaffold pins is not published yet
+### What the scaffold pins
 
-Read this before `cargo build`, or you will read it as an error message. The
-scaffold pins the SDK version this documentation describes; the registries still
-carry the previous one, so a fresh project does not resolve — in any of the
-three languages:
+| Language | The scaffold pins | Published |
+|---|---|---|
+| Rust | `astra-plugin-sdk = "0.6"` | crates.io 0.6.0 |
+| Python | `astra-plugin-sdk>=0.5,<0.6` | PyPI 0.5.0 |
+| TypeScript | `"astra-plugin-sdk": "^0.5.0"` | npm 0.5.0 |
 
-| Language | The scaffold pins | The registry has today | Where it fails |
-|---|---|---|---|
-| Rust | `astra-plugin-sdk = "0.6"` | crates.io: 0.5.0 | `cargo build` |
-| Python | `astra-plugin-sdk>=0.5,<0.6` | PyPI: 0.4.0 | `pip install -r requirements.txt` |
-| TypeScript | `"astra-plugin-sdk": "^0.5.0"` | npm: 0.4.0 | `bun install` |
+Those resolve from the registries, so `cargo build`, `pip install -r
+requirements.txt` and `bun install` work in a fresh project with nothing to
+configure.
 
-<!-- doctest: output from="cargo build --release in a freshly scaffolded rust project" -->
-```
-error: failed to select a version for the requirement `astra-plugin-sdk = "^0.6"`
-candidate versions found which didn't match: 0.5.0, 0.2.0, 0.1.5, ...
-location searched: crates.io index
-required by package `dice_roller v0.1.0`
-```
+**The lower bounds are load-bearing.** Rust 0.6 is the first release whose
+`HostClient` attaches `x-session-token`, and Python and TypeScript 0.5.0 are
+theirs; against anything older the daemon answers `unauthenticated` on every
+host call. Relaxing a bound trades a resolver error for a runtime one, which is
+the worse trade — the plugin starts, serves hooks, and silently cannot talk back.
 
-The pins are not wrong — 0.6 is the first Rust release whose `HostClient`
-attaches `x-session-token`, and against 0.5 the daemon answers `unauthenticated`
-on every host call, so relaxing the bound trades a resolver error for a runtime
-one. Point the project at this repository's copy of the SDK until the release
-lands. From a clone of `AstraPlugins` next to your project:
-
-<!-- doctest: illustrative reason="each line is a fragment of a different project's build file — a Cargo.toml section, a pip invocation and a package.json field — so there is no one command to run; each was executed on its own before being written down" -->
-```bash
-# Rust — append to the project's Cargo.toml
-#   [patch.crates-io]
-#   astra-plugin-sdk = { path = "../AstraPlugins/astra-plugin-sdk" }
-#
-# Python — install the SDK by path, then the rest of requirements.txt
-#   pip install ../AstraPlugins/astra-plugin-sdk-python
-#
-# TypeScript — pack this tree's SDK and override the specifier
-#   (cd ../AstraPlugins/astra-plugin-sdk-ts && bun run build && bun pm pack --destination /tmp/tgz)
-#   then set "overrides": { "astra-plugin-sdk": "file:/tmp/tgz/astra-plugin-sdk-0.5.0.tgz" }
-```
-
-`astra-plugin doctor` does not check this, and neither does `astra-plugin
-check`: both read your manifest, and the pin lives in the language's build file.
-The symptom is always the resolver's, and always at the first build.
+Python: `astra-plugin test` runs your plugin with whatever `python` is on
+`PATH`, so activate the virtualenv you installed into first. Otherwise the
+plugin exits with `ModuleNotFoundError: astra_plugin_sdk` before it registers.
 
 ## 3 · Write the plugin
 

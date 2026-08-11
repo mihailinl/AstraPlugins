@@ -1015,9 +1015,17 @@ jobs:
       #          after the SDKs are published.
       #   ts     `overrides` in package.json pointing at a `bun pm pack` tarball.
       #
-      # Delete all of this once the SDKs are published and the pins resolve from
-      # the registries — and when you do, keep a job that installs the scaffold's
-      # deps from the REAL registries, because that is the thing being promised.
+      # The SDKs are published now, and the pins do resolve from the registries.
+      # The redirection below STAYS anyway, and the earlier note that said to
+      # delete it was half right: this job gates the code under review, and the
+      # tree runs ahead of the registries between releases — testing an author's
+      # scaffold against last release's SDK would stop this job from gating
+      # anything at all.
+      #
+      # What that note was actually reaching for is `scaffold-from-registries`,
+      # which now exists: one job, no redirection anywhere, three languages
+      # resolved from crates.io, PyPI and npm. That is the promise; this is the
+      # gate.
       # ───────────────────────────────────────────────────────────────────────
 
       - name: scaffold, build, package
@@ -1293,6 +1301,101 @@ jobs:
               else:
                   print(f"ok    {check}")
           sys.exit(1 if failed else 0)
+          PY
+
+  # A fresh scaffold, resolved from the REAL registries. No path dependency, no
+  # wheel on --find-links, no packed tarball, no overrides.
+  #
+  # Every other job here redirects resolution at this tree, and should: they are
+  # gating the code under review, and the tree runs ahead of the registries
+  # between releases. But that means not one of them touches crates.io, PyPI or
+  # npm — so the promise this project actually makes to an author ("scaffold it
+  # and build it") was, until the SDKs were published, checked by nobody. The
+  # comment in scaffold-roundtrip asked for this job by name for that reason.
+  #
+  # It is the only job that can fail because of something outside this
+  # repository: a yanked version, a registry outage, a pin that resolves to a
+  # release nobody meant to make. That is not a flaw in it — those are all things
+  # an author would hit, and hearing about them here beats hearing about them in
+  # an issue.
+  scaffold-from-registries:
+    name: a fresh scaffold builds from the published SDKs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: oven-sh/setup-bun@v2
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: astra-plugin-cli
+          key: scaffold-registries
+
+      - name: build the CLI
+        run: cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
+
+      - name: scaffold and build, three languages, nothing redirected
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          work="$(mktemp -d)"
+
+          echo "::group::rust"
+          "$CLI" new r-demo --lang rust --capabilities tools --output "$work/rust"
+          (cd "$work/rust" && cargo build --release && "$CLI" test . --no-build)
+          echo "::endgroup::"
+
+          echo "::group::python"
+          "$CLI" new p-demo --lang python --capabilities tools --output "$work/python"
+          python -m venv "$work/python/.venv"
+          "$work/python/.venv/bin/pip" install --disable-pip-version-check -q \
+            -r "$work/python/requirements.txt"
+          # `astra-plugin test` runs the plugin with whatever `python` is on
+          # PATH, which is exactly what an author's terminal does.
+          (cd "$work/python" && PATH="$work/python/.venv/bin:$PATH" "$CLI" test .)
+          echo "::endgroup::"
+
+          echo "::group::typescript"
+          "$CLI" new t-demo --lang ts --capabilities tools --output "$work/ts"
+          (cd "$work/ts" && bun install && "$CLI" test .)
+          echo "::endgroup::"
+
+      # The pins resolved to at least the versions that carry the session token.
+      # A range that silently resolved to an older release would build, pass the
+      # harness against the mock daemon, and fail against a real one.
+      - name: the resolved versions are the ones that authenticate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, urllib.request
+          floors = {
+              "crates.io": ("https://crates.io/api/v1/crates/astra-plugin-sdk", (0, 6, 0)),
+              "PyPI": ("https://pypi.org/pypi/astra-plugin-sdk/json", (0, 5, 0)),
+              "npm": ("https://registry.npmjs.org/astra-plugin-sdk", (0, 5, 0)),
+          }
+          bad = []
+          for name, (url, floor) in floors.items():
+              req = urllib.request.Request(url, headers={"User-Agent": "astra-ci"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  doc = json.load(r)
+              latest = (
+                  doc["crate"]["max_version"] if name == "crates.io"
+                  else doc["info"]["version"] if name == "PyPI"
+                  else doc["dist-tags"]["latest"]
+              )
+              parts = tuple(int(x) for x in latest.split(".")[:3])
+              print(f"{name:<10} {latest}")
+              if parts < floor:
+                  bad.append(f"{name} serves {latest}, below the {'.'.join(map(str, floor))} "
+                             "that first attaches x-session-token")
+          if bad:
+              raise SystemExit("\n".join(bad))
           PY
 
   # ══ THE SPECS ══════════════════════════════════════════════════════════════
@@ -2052,6 +2155,7 @@ jobs:
       - examples-rust
       - examples-node-python
       - scaffold-roundtrip
+      - scaffold-from-registries
       - parity
       - docgen
       - docs

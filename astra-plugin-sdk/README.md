@@ -4,42 +4,30 @@ Write a plugin for Astra in Rust. One dependency, fifteen lines.
 
 Repository: <https://github.com/mihailinl/AstraPlugins>
 
-## Installing today
-
-**Do not run `cargo add astra-plugin-sdk` yet.** crates.io has 0.5.0. The
-daemon rejects every host RPC but `Register` without an `x-session-token`, and
-**0.6.0 is the first release whose `HostClient` attaches one** — a 0.5.0 plugin
-starts, answers inbound hooks, and gets `unauthenticated` on every `log`,
-`fire_trigger` and `set_variable` it attempts. 0.5.0 also predates
-`#[astra::plugin]`; it does not have the API below at all.
-
-Until 0.6.0 ships, depend on this checkout:
-
-```bash
-git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
-```
+## Installing
 
 ```toml
 [dependencies]
-astra-plugin-sdk = { path = "../AstraPlugins/astra-plugin-sdk" }
+astra-plugin-sdk = "0.6"
 ```
 
-> **The branch is not optional here.** A bare `git clone` checks out the default
-> branch, where this crate is **0.5.0** — the version the paragraph above tells
-> you not to use. `#[astra::plugin]` does not exist there (`git grep astra::plugin
-> master -- astra-plugin-sdk` finds nothing) and neither does the
-> `astra-plugin-macros` crate that provides it, so the first sample below fails
-> to compile on a macro the README itself uses. Check
-> `AstraPlugins/astra-plugin-sdk/Cargo.toml` says `version = "0.6.0"` before
-> going on. `feat/plugin-production` is not pushed yet
-> (`git ls-remote origin`), so for now this means a local checkout of that
-> branch; delete this note once it is the default.
+or `cargo add astra-plugin-sdk`. That is also what `astra-plugin new` writes.
 
-That is exactly what the nine Rust examples in this repository do, and what CI
-builds. Once 0.6.0 is on crates.io the line becomes `astra-plugin-sdk = "0.6"`
-and nothing else changes — that is already what `astra-plugin new` writes.
+**Take 0.6 or newer, and mean the 0.6.** The daemon rejects every host RPC but
+`Register` without an `x-session-token`, and 0.6.0 is the first release whose
+`HostClient` attaches one: a 0.5.0 plugin starts, answers inbound hooks, and
+gets `unauthenticated` on every `log`, `fire_trigger` and `set_variable` it
+attempts. 0.5.0 also predates `#[astra::plugin]` and does not have the API below
+at all.
 
 `edition = "2024"`, so Rust 1.85 or newer.
+
+To build against this repository instead — to try an unreleased change, or to
+bisect one — point the dependency at a checkout:
+
+```toml
+astra-plugin-sdk = { path = "../AstraPlugins/astra-plugin-sdk" }
+```
 
 ### Why one dependency
 

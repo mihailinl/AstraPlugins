@@ -205,28 +205,20 @@ credential.
 
 ## Publication state
 
-Read this before copying an install command out of any tutorial.
-
-| Package | In this tree | Published | `add`/`install` gets you |
+| Package | In this tree | Published | Install |
 |---|---|---|---|
-| `astra-plugin-sdk` (crates.io) | 0.6.0 | **0.5.0** | a version with no `#[astra::plugin]` and no session token |
-| `astra-plugin-sdk` (PyPI) | 0.5.0 | **0.4.0** | a version that sends no session token |
-| `astra-plugin-sdk` (npm) | 0.5.0 | **0.4.0** | a version that sends no session token |
-| `astra-plugin-macros` (crates.io) | 0.6.0 | **not published** | — |
-| `astra-plugin-cli` (crates.io) | 0.2.0 | **not published** | — |
+| `astra-plugin-sdk` (crates.io) | 0.6.0 | 0.6.0 | `astra-plugin-sdk = "0.6"` |
+| `astra-plugin-sdk` (PyPI) | 0.5.0 | 0.5.0 | `pip install "astra-plugin-sdk>=0.5,<0.6"` |
+| `astra-plugin-sdk` (npm) | 0.5.0 | 0.5.0 | `npm install astra-plugin-sdk` |
+| `astra-plugin-macros` (crates.io) | 0.6.0 | 0.6.0 | arrives with the SDK |
+| `astra-plugin-cli` (crates.io) | 0.2.0 | **not published** | build from this repository |
 
-The daemon requires an `x-session-token` on every host RPC but `Register`. The
-first SDK release that attaches it is **Rust 0.6.0**, **Python 0.5.0**,
-**TypeScript 0.5.0**. Anything older answers `unauthenticated` on every log
-line, every `fire_trigger`, every `set_variable` — the plugin starts, serves
-inbound hooks, and cannot say a word back.
-
-Until the release train runs, build against this checkout. Each SDK README has
-the exact commands, and they are the ones CI runs:
-
-- [Rust](astra-plugin-sdk/README.md#installing-today)
-- [Python](astra-plugin-sdk-python/README.md#installing-today)
-- [TypeScript](astra-plugin-sdk-ts/README.md#installing-today)
+**Take those versions or newer.** The daemon requires an `x-session-token` on
+every host RPC but `Register`, and the first SDK release that attaches one is
+Rust 0.6.0 / Python 0.5.0 / TypeScript 0.5.0. Anything older answers
+`unauthenticated` on every log line, every `fire_trigger`, every `set_variable`
+— the plugin starts, serves inbound hooks, and cannot say a word back. That is
+why the scaffold's pins have lower bounds and why they are not worth relaxing.
 
 One other thing that does not exist yet, so that no document here implies
 otherwise:

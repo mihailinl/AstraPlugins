@@ -4,33 +4,30 @@ Write a plugin for Astra in Python.
 
 Repository: <https://github.com/mihailinl/AstraPlugins>
 
-## Installing today
-
-**Do not run `pip install astra-plugin-sdk` yet.** PyPI has 0.4.0. The daemon
-rejects every host RPC but `Register` without an `x-session-token`, and **0.5.0
-is the first release that sends one** — a 0.4.0 plugin starts, answers inbound
-hooks, and gets `unauthenticated` on every `log`, `fire_trigger` and
-`set_variable` it attempts. `pip install "astra-plugin-sdk>=0.5"` currently
-fails outright with *No matching distribution found*.
-
-Until 0.5.0 ships, install from this checkout — the same line CI runs:
+## Installing
 
 ```bash
-git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
-pip install ./AstraPlugins/astra-plugin-sdk-python
-pip install pytest        # or: pip install "./AstraPlugins/astra-plugin-sdk-python[test]"
-python -c "import astra_plugin_sdk as s; print(s.__version__)"   # must print 0.5.0
+pip install "astra-plugin-sdk>=0.5,<0.6"
+pip install "astra-plugin-sdk[test]"   # adds pytest, for the harness
 ```
 
-> **The branch matters.** A bare `git clone` checks out the default branch,
-> where this package is **0.4.0** — the version the paragraph above tells you
-> not to use, installed from a path instead of from PyPI. Verified with
-> `git show master:astra-plugin-sdk-python/pyproject.toml`.
-> `feat/plugin-production` is not pushed yet (`git ls-remote origin`), so for
-> now this means a local checkout of that branch; delete this note once it is
-> the default.
+That range is also what `astra-plugin new` writes into `requirements.txt`.
+
+**Take 0.5 or newer, and mean it.** The daemon rejects every host RPC but
+`Register` without an `x-session-token`, and 0.5.0 is the first release that
+sends one: a 0.4.0 plugin starts, answers inbound hooks, and gets
+`unauthenticated` on every `log`, `fire_trigger` and `set_variable` it attempts.
 
 Python 3.10 or newer. Brings `grpcio`, `grpcio-tools` and `protobuf`.
+
+`astra-plugin test` runs your plugin with whatever `python` is on `PATH`, so
+activate the virtualenv you installed into before running it.
+
+To install from this repository instead — to try an unreleased change:
+
+```bash
+pip install ./AstraPlugins/astra-plugin-sdk-python
+```
 
 Astra ships no Python runtime. A Python plugin's `plugin.toml` declares
 `runtimes = ["python"]` so the daemon fails with a clear message on a machine
