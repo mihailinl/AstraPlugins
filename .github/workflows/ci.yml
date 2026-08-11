@@ -119,6 +119,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: actionlint
+        env:
+          # actionlint shells out to shellcheck for every `run:` block, and
+          # shellcheck's info/style findings are shell-style opinions rather than
+          # defects — one of them (SC2153 on $WORK, which an earlier step exports
+          # through $GITHUB_ENV) it cannot avoid, because it lints each block
+          # alone and cannot see the assignment. This job exists to catch GitHub
+          # SCHEMA errors; warning and error stay on, so a real shell bug like
+          # SC2115's `rm -rf "$unset/"` still fails the run.
+          SHELLCHECK_OPTS: -S warning
         run: |
           set -euo pipefail
           ver=1.7.7
@@ -1157,16 +1166,16 @@ jobs:
       #             hash the same and the registry can promise reproducibility.
       #   order     namelist() == sorted(namelist()).
       #
-      # `order` FAILS TODAY, on purpose: deterministic ordering is task 2.2 and
-      # the packer still writes plugin.toml, then bin/, then README.md. It is
-      # listed in ARCHIVE_PENDING, which means the inspector runs it, reports it
-      # as an expected failure — and FAILS THE JOB IF IT STARTS PASSING, so the
-      # day 2.2 lands, CI tells you to delete the line instead of letting a
-      # pending exception outlive the work it was waiting for.
+      # `order` was an expected failure until task 2.2 landed; it is now enforced
+      # like the rest. The ordering is not incidental: BundleBuilder keeps its
+      # entries in a BTreeMap keyed by archive path (astra-plugin-cli/src/bundle.rs)
+      # and the directory walk sorts by file name, so the namelist is
+      # byte-lexicographic on every platform. ARCHIVE_PENDING is left empty
+      # deliberately — the inspector fails the job the moment a listed check
+      # starts passing, so an exception cannot outlive the work it waited for.
       - name: inspect the archive
         env:
           LANG_UNDER_TEST: ${{ matrix.lang }}
-          ARCHIVE_PENDING: order
         run: |
           set -euo pipefail
           work="${WORK//\\//}"
