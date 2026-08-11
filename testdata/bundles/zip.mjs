@@ -10,7 +10,8 @@
 // are committed with their digests, so regenerating them on another machine
 // must reproduce the same bytes or `SHA256SUMS` goes red for a reason that has
 // nothing to do with the format. Fixed 1980-01-01 timestamps, no extra fields,
-// no comments, caller-controlled order, stored or deflate at a pinned level.
+// no comments, caller-controlled order, and a deflate stream this file writes
+// itself rather than one whichever zlib the host Node links happens to emit.
 
 import zlib from "node:zlib";
 
@@ -29,6 +30,42 @@ export const S_IFDIR = 0o040000;
 
 export const STORED = 0;
 export const DEFLATE = 8;
+
+/**
+ * A raw-deflate stream of stored blocks (RFC 1951 §3.2.4), built here instead
+ * of by zlib.
+ *
+ * Pinning the compression level is not enough to pin the bytes: deflate's
+ * output at a given level is a property of the linked backend, not of the
+ * level. Node 20 links classic zlib and Node 24+ links zlib-ng, and for this
+ * directory's manifest they emit 400 and 403 bytes at level 6. The goldens are
+ * committed with their digests, so that drift reads as an edited fixture and
+ * has nothing to do with the ZIP format — the one thing this writer's
+ * determinism note promises not to do.
+ *
+ * Stored blocks are the encoding every inflater must accept and every encoder
+ * must agree on bit for bit: a three-bit header, byte alignment, LEN, ~LEN,
+ * then the bytes. The vectors that ask for DEFLATE care that the entry's
+ * method field is 8 and that the stream inflates, never how small it got.
+ *
+ * @param {Buffer} raw
+ * @returns {Buffer}
+ */
+function deflateRawStoredBlocks(raw) {
+  const MAX = 0xffff; // the largest LEN a stored block can express
+  const out = [];
+  let done = 0;
+  do {
+    const chunk = raw.subarray(done, done + MAX);
+    done += chunk.length;
+    const header = Buffer.alloc(5);
+    header[0] = done >= raw.length ? 1 : 0; // BFINAL in bit 0, BTYPE 00 (stored)
+    header.writeUInt16LE(chunk.length, 1);
+    header.writeUInt16LE(~chunk.length & 0xffff, 3);
+    out.push(header, Buffer.from(chunk));
+  } while (done < raw.length);
+  return Buffer.concat(out);
+}
 
 /**
  * @typedef {object} ZipEntry
@@ -64,9 +101,7 @@ export function writeZip(entries, centralOverrides = {}) {
     const name = Buffer.from(e.name, "utf8");
     const raw = Buffer.isBuffer(e.data) ? e.data : Buffer.from(e.data, "utf8");
     const method = e.method ?? STORED;
-    // Level 6 — the CLI's REPRODUCIBLE_COMPRESSION_LEVEL. An encoder default is
-    // a property of whichever flate backend is linked, not of this format.
-    const stored = method === DEFLATE ? zlib.deflateRawSync(raw, { level: 6 }) : raw;
+    const stored = method === DEFLATE ? deflateRawStoredBlocks(raw) : raw;
     const crc = zlib.crc32(raw) >>> 0;
     const mode = e.mode ?? 0o100644;
 
