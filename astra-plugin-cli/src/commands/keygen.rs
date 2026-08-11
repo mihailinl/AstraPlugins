@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use base64::{Engine, engine::general_purpose};
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
+use crate::hprintln;
 
 /// Get the plugin keys directory (~/.astra/plugin-keys/).
 fn keys_dir() -> Result<PathBuf> {
@@ -15,16 +16,22 @@ fn keys_dir() -> Result<PathBuf> {
     Ok(dir)
 }
 
+/// Where `sign` looks for the OPTIONAL private key, if this machine has a home
+/// directory at all. `None` is not an error: no key is needed to publish.
+pub fn default_key_path() -> Option<PathBuf> {
+    keys_dir().ok().map(|d| d.join("private.key"))
+}
+
 pub fn run(force: bool) -> Result<()> {
     let dir = keys_dir()?;
     let private_path = dir.join("private.key");
     let public_path = dir.join("public.key");
 
     if private_path.exists() && !force {
-        println!("Keypair already exists at:");
-        println!("  Private: {}", private_path.display());
-        println!("  Public:  {}", public_path.display());
-        println!("\nUse --force to overwrite.");
+        hprintln!("Keypair already exists at:");
+        hprintln!("  Private: {}", private_path.display());
+        hprintln!("  Public:  {}", public_path.display());
+        hprintln!("\nUse --force to overwrite.");
         return Ok(());
     }
 
@@ -45,17 +52,17 @@ pub fn run(force: bool) -> Result<()> {
     fs::write(&public_path, &public_b64)
         .with_context(|| format!("Failed to write public key: {}", public_path.display()))?;
 
-    println!("Generated Ed25519 keypair:");
-    println!("  Private: {}", private_path.display());
-    println!("  Public:  {}", public_path.display());
-    println!("\nPublic key (base64):");
-    println!("  {public_b64}");
+    hprintln!("Generated Ed25519 keypair:");
+    hprintln!("  Private: {}", private_path.display());
+    hprintln!("  Public:  {}", public_path.display());
+    hprintln!("\nPublic key (base64):");
+    hprintln!("  {public_b64}");
     // The keypair is optional and does not gate publishing. Saying so here is
     // the difference between an author who treats `keygen` as step one of
     // shipping and one who knows it is a defence-in-depth extra: `build` does
     // not read this key, and Astra installs a plugin on the strength of the
     // registry record over sha256(whole file), not on any key the author holds.
-    println!(
+    hprintln!(
         "\nThis key is optional and is not what makes Astra trust a plugin. `astra-plugin build`\n\
          does not use it; only `astra-plugin sign` does, and only as a second factor against a\n\
          GitHub account takeover. You can publish without ever running this command."

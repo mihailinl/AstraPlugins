@@ -39,6 +39,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::bundle::{Bundle, LEGACY_PAIR_SUNSET, append_legacy_signature};
+use crate::hprintln;
 
 pub struct SignOptions<'a> {
     /// The `.astraplugin` to sign, in place.
@@ -91,10 +92,10 @@ pub fn run(opts: SignOptions<'_>) -> Result<()> {
         "The signature was written but the reader does not see it"
     );
 
-    println!("Signed: {}", path.display());
-    println!("  artifact sha256: {}", reopened.artifact_sha256);
-    println!("  public key:      {}", signed.public_key_b64);
-    println!();
+    hprintln!("Signed: {}", path.display());
+    hprintln!("  artifact sha256: {}", reopened.artifact_sha256);
+    hprintln!("  public key:      {}", signed.public_key_b64);
+    hprintln!();
     print_what_this_does_not_mean();
     Ok(())
 }
@@ -106,10 +107,14 @@ pub fn run(opts: SignOptions<'_>) -> Result<()> {
 /// signed something is the moment they are most likely to conclude their users
 /// are now protected.
 fn print_what_this_does_not_mean() {
-    println!("{}", what_this_does_not_mean());
+    hprintln!("{}", what_this_does_not_mean());
 }
 
-fn what_this_does_not_mean() -> String {
+/// Public so `--json` can carry it too: the paragraph is the whole reason this
+/// command prints anything, and a machine-readable mode that drops it would let
+/// a release pipeline log "signed" with none of the context that makes the word
+/// honest.
+pub fn what_this_does_not_mean() -> String {
     format!(
         "This signature is an optional second factor, not a trust signal.\n\
          \n\
@@ -173,12 +178,13 @@ mod tests {
     fn build_leaves_it_unsigned_and_sign_is_what_signs_it() {
         let tmp = tempdir("roundtrip");
         let project = tmp.join("sign-roundtrip");
-        crate::commands::create::run(
-            "sign-roundtrip",
-            "python",
-            &["tools"],
-            &project.to_string_lossy(),
-        )
+        crate::commands::create::run(crate::commands::create::NewOptions {
+            name: "sign-roundtrip",
+            lang: "python",
+            template: "tool",
+            capabilities: None,
+            out_dir: &project.to_string_lossy(),
+        })
         .unwrap();
 
         let out = tmp.join("sign-roundtrip.astraplugin");

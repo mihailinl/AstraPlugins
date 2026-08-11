@@ -24,6 +24,7 @@ use crate::bundle::{
     Bundle, BundleBuilder, ManifestEntry, ManifestMeta, ManifestPermission,
     PLUGIN_PROTOCOL_VERSION, PLUGIN_TOML_ENTRY, SCHEMA, Target,
 };
+use crate::hprintln;
 
 /// Where `build` sends an author who wants to know what *does* establish trust.
 ///
@@ -69,6 +70,71 @@ pub struct BuildOptions<'a> {
     pub no_sign: bool,
 }
 
+/// `--all-targets`: every bundle this plugin needs to be installable everywhere
+/// Astra runs.
+///
+/// For TypeScript and Python that is exactly one file — `noarch`, which the
+/// index writes under every platform key — and saying so is more useful than
+/// producing three identical archives with different names.
+///
+/// For Rust it is one per platform, and each needs a binary cross-compiled for
+/// it. This does not run the cross-build: the toolchain, the linker and the
+/// system libraries for another OS are not something a packaging tool can
+/// conjure, and pretending otherwise is how a host binary ends up inside a
+/// foreign bundle. It builds what is there and names what is missing.
+pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
+    let dir = Path::new(opts.path).canonicalize().context("Invalid path")?;
+    let language = detect_language(&dir);
+
+    if matches!(language.as_str(), "typescript" | "ts" | "python" | "py") {
+        hprintln!(
+            "  --all-targets: {language} plugins are noarch — one bundle serves every platform."
+        );
+        return run(BuildOptions {
+            target: Some(Target::Noarch),
+            ..opts
+        });
+    }
+
+    if opts.output.is_some() {
+        anyhow::bail!(
+            "--all-targets and --output are mutually exclusive: each target gets its own file, \
+             named <id>-<version>-<target>.astraplugin, which is the name the registry requires."
+        );
+    }
+
+    let mut built = Vec::new();
+    let mut skipped = Vec::new();
+    for target in [Target::LinuxX64, Target::WindowsX64] {
+        hprintln!();
+        match run(BuildOptions {
+            path: opts.path,
+            output: None,
+            target: Some(target),
+            reproducible: opts.reproducible,
+            no_sign: false,
+        }) {
+            Ok(()) => built.push(target.key()),
+            Err(e) => skipped.push((target.key(), format!("{e:#}"))),
+        }
+    }
+
+    hprintln!();
+    hprintln!("  Built: {}", if built.is_empty() { "nothing".into() } else { built.join(", ") });
+    if !skipped.is_empty() {
+        for (key, why) in &skipped {
+            hprintln!("  Skipped {key}: {why}");
+        }
+        anyhow::bail!(
+            "{} of {} targets could not be built. A release that ships only some platforms is a \
+             release most users cannot install.",
+            skipped.len(),
+            skipped.len() + built.len()
+        );
+    }
+    Ok(())
+}
+
 pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     let dir = Path::new(opts.path)
         .canonicalize()
@@ -98,7 +164,7 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         // Consumed rather than ignored in silence: the flag is passed by every
         // release workflow generated before 3.10, and the people who maintain
         // those workflows only ever see this build's output.
-        println!(
+        hprintln!(
             "  Note: --no-sign is accepted and ignored — `build` never signs. Drop it; it is \
              removed in {}.",
             crate::bundle::LEGACY_PAIR_SUNSET
@@ -108,12 +174,12 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     let language = detect_language(&dir);
     let target = resolve_target(opts.target, &language)?;
 
-    println!(
+    hprintln!(
         "Building plugin '{plugin_id}' v{version} ({language}) for {}...",
         target.key()
     );
     if !target.matches_host_os() && language == "rust" {
-        println!(
+        hprintln!(
             "  Warning: packing a {} bundle on {}. The binary this picks up must already be \
              cross-compiled for that platform.",
             target.key(),
@@ -142,7 +208,7 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     // a missing binary or an unparseable manifest must not leave a truncated
     // .astraplugin on disk for the author to mistake for a build.
     let rust_binary = if language == "rust" {
-        Some(resolve_rust_binary(&dir, entry_command)?)
+        Some(resolve_rust_binary_for(&dir, entry_command, target)?)
     } else {
         None
     };
@@ -229,7 +295,7 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     let file_count = builder.len();
     let packed = builder.write(&output_path, &meta)?;
     for entry in &packed.files {
-        println!("  Added: {} ({})", entry.path, entry.mode);
+        hprintln!("  Added: {} ({})", entry.path, entry.mode);
     }
 
     // Round-trip. Everything this build asserted is now checked against the
@@ -238,17 +304,17 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         .context("The bundle this build just produced does not verify")?;
 
     let size = verified.artifact_size;
-    println!(
+    hprintln!(
         "  Built: {} ({:.1} KB, {} files)",
         output_path.display(),
         size as f64 / 1024.0,
         file_count
     );
-    println!("  target:          {}", target.key());
-    println!("  artifact sha256: {}", verified.artifact_sha256);
-    println!("  manifest digest: {}", verified.manifest_digest);
+    hprintln!("  target:          {}", target.key());
+    hprintln!("  artifact sha256: {}", verified.artifact_sha256);
+    hprintln!("  manifest digest: {}", verified.manifest_digest);
     if opts.reproducible {
-        println!(
+        hprintln!(
             "  reproducible:    entries sorted, mtime 1980-01-01, deflate level {}",
             crate::bundle::REPRODUCIBLE_COMPRESSION_LEVEL
         );
@@ -273,7 +339,7 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
 /// produces the same bundle and the same message as a build without one, which
 /// is also what makes `--reproducible` mean the same thing on both.
 fn print_trust_note() {
-    println!("{}", trust_note());
+    hprintln!("{}", trust_note());
 }
 
 /// The note as one string, so a test can read the sentence the author reads.
@@ -451,7 +517,7 @@ fn build_for_language(dir: &Path, language: &str) -> Result<()> {
         "typescript" | "ts" => build_typescript(dir),
         "python" | "py" => build_python(dir),
         _ => {
-            println!("  No build step for language '{language}'");
+            hprintln!("  No build step for language '{language}'");
             Ok(())
         }
     }
@@ -470,7 +536,7 @@ pub fn detect_language(dir: &Path) -> String {
 }
 
 fn build_rust(dir: &Path) -> Result<()> {
-    println!("  Running cargo build --release...");
+    hprintln!("  Running cargo build --release...");
     let status = std::process::Command::new("cargo")
         .args(["build", "--release"])
         .current_dir(dir)
@@ -482,25 +548,54 @@ fn build_rust(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Does this project define a `scripts.build` in `package.json`?
+///
+/// Parsed, not searched. The substring test this replaces (`s.contains(
+/// "\"build\"")`) matched the string `"build"` anywhere in the file — a
+/// dependency named `build`, a `"prebuild"` script, the word inside a
+/// description, `"files": ["build"]`. Each of those made the CLI run
+/// `<bundler> run build` against a script that does not exist, and npm's
+/// failure for a missing script is indistinguishable from a failed build.
+fn has_build_script(dir: &Path) -> bool {
+    let Ok(text) = fs::read_to_string(dir.join("package.json")) else {
+        return false;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    json.get("scripts")
+        .and_then(|s| s.get("build"))
+        .and_then(|b| b.as_str())
+        .is_some_and(|s| !s.trim().is_empty())
+}
+
 fn build_typescript(dir: &Path) -> Result<()> {
-    // Try bun, fallback to npx esbuild
-    let bundler = if which_exists("bun") { "bun" } else { "npx" };
-    println!("  Bundling with {bundler}...");
+    // bun if it is there, else the Node toolchain. Which Node program depends
+    // on what is being run: a package script is `npm run build`; a one-off
+    // binary from the registry is `npx esbuild`. `npx run build` — what this
+    // used to emit — is neither. npx has no `run` subcommand, so it treated
+    // `run` as a package name and went looking for a package called `run` on
+    // the registry, which is a network fetch that either fails or, worse,
+    // succeeds and executes somebody else's code.
+    let bundler = if crate::toolchain::exists("bun") {
+        "bun"
+    } else {
+        "npx"
+    };
 
     let dist_dir = dir.join("dist");
     fs::create_dir_all(&dist_dir)?;
 
-    // Use the project's own build script if available
-    let has_build_script = dir.join("package.json").exists()
-        && fs::read_to_string(dir.join("package.json"))
-            .map(|s| s.contains("\"build\""))
-            .unwrap_or(false);
+    let has_build_script = has_build_script(dir);
 
     let mut cmd;
     if has_build_script {
-        cmd = std::process::Command::new(bundler);
+        let runner = if bundler == "bun" { "bun" } else { "npm" };
+        hprintln!("  Bundling with {runner} run build...");
+        cmd = std::process::Command::new(runner);
         cmd.args(["run", "build"]);
     } else if bundler == "bun" {
+        hprintln!("  Bundling with bun build...");
         cmd = std::process::Command::new(bundler);
         cmd.args([
             "build",
@@ -511,6 +606,7 @@ fn build_typescript(dir: &Path) -> Result<()> {
             "node",
         ]);
     } else {
+        hprintln!("  Bundling with npx esbuild...");
         cmd = std::process::Command::new(bundler);
         cmd.args([
             "esbuild",
@@ -523,17 +619,20 @@ fn build_typescript(dir: &Path) -> Result<()> {
     }
     cmd.current_dir(dir);
 
-    let status = cmd.status().context("Failed to run bundler")?;
+    let program = cmd.get_program().to_string_lossy().to_string();
+    let status = cmd
+        .status()
+        .with_context(|| format!("Failed to run `{program}`"))?;
     if !status.success() {
-        anyhow::bail!("TypeScript bundling failed");
+        anyhow::bail!("TypeScript bundling failed (`{program}` exited {status})");
     }
     Ok(())
 }
 
 fn build_python(dir: &Path) -> Result<()> {
     // Generate requirements.lock if uv is available
-    if which_exists("uv") && dir.join("requirements.txt").exists() {
-        println!("  Generating requirements.lock with uv...");
+    if crate::toolchain::exists("uv") && dir.join("requirements.txt").exists() {
+        hprintln!("  Generating requirements.lock with uv...");
         let status = std::process::Command::new("uv")
             .args([
                 "pip",
@@ -546,19 +645,10 @@ fn build_python(dir: &Path) -> Result<()> {
             .status()
             .context("Failed to run uv pip compile")?;
         if !status.success() {
-            println!("  Warning: uv pip compile failed, skipping lock file");
+            hprintln!("  Warning: uv pip compile failed, skipping lock file");
         }
     }
     Ok(())
-}
-
-fn which_exists(cmd: &str) -> bool {
-    std::process::Command::new(cmd)
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok()
 }
 
 /// Locate the release binary cargo actually produced for this plugin.
@@ -568,6 +658,70 @@ fn which_exists(cmd: &str) -> bool {
 /// the real bin-target names (which cargo mangles hyphen→underscore). A plugin
 /// whose binary is not where cargo puts it declares `entry.command`; that is
 /// treated as an override and wins whenever it resolves to a real file.
+/// [`resolve_rust_binary`], except when the bundle is for a platform this
+/// machine is not.
+///
+/// Cross-packing is where a build tool can do real damage quietly. The default
+/// target directory holds the **host's** binary; packing it into a
+/// `…-windows-x64.astraplugin` produces a bundle that installs on Windows and
+/// cannot start, and nothing between here and the user's machine would notice —
+/// the digests are all correct, the signature verifies, the manifest is
+/// well-formed. Astra already shipped one bug of exactly this shape
+/// (`get_download_url` mapping a macOS host to `linux-x64`).
+///
+/// So a foreign target is resolved **only** from `target/<triple>/release/`,
+/// which is where `cargo build --target <triple>` puts it and where nothing
+/// else can. If it is not there, the build fails and says how to produce it.
+fn resolve_rust_binary_for(dir: &Path, entry_command: &str, target: Target) -> Result<PathBuf> {
+    if target.matches_host_os() || target == Target::Noarch {
+        return resolve_rust_binary(dir, entry_command);
+    }
+
+    let triples: &[&str] = match target {
+        Target::LinuxX64 => &["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"],
+        Target::WindowsX64 => &["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"],
+        Target::Noarch => &[],
+    };
+    let suffix = if target == Target::WindowsX64 { ".exe" } else { "" };
+
+    // The bin name is a property of the package, not of the host, so the host
+    // resolution is reused for it and only the directory changes.
+    let host_path = cargo_release_binary(dir)?;
+    let stem = host_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .context("Resolved Rust binary has no file name")?;
+    let target_root = host_path
+        .parent()
+        .and_then(Path::parent)
+        .context("Could not find the cargo target directory")?;
+
+    for triple in triples {
+        let candidate = target_root
+            .join(triple)
+            .join("release")
+            .join(format!("{stem}{suffix}"));
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+
+    anyhow::bail!(
+        "Cross-packing a {} bundle on {}, and no binary for it exists.\n  Looked in: {}\n\
+         Build it first:  cargo build --release --target {}\n\
+         Refusing to pack this machine's binary under that platform key — it would install and \
+         then fail to start, with every digest and signature correct.",
+        target.key(),
+        std::env::consts::OS,
+        triples
+            .iter()
+            .map(|t| target_root.join(t).join("release").join(format!("{stem}{suffix}")).display().to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        triples.first().copied().unwrap_or("<triple>")
+    )
+}
+
 fn resolve_rust_binary(dir: &Path, entry_command: &str) -> Result<PathBuf> {
     let from_cargo = cargo_release_binary(dir);
 
@@ -756,6 +910,45 @@ fn add_directory_recursive(target: &Path, builder: &mut BundleBuilder, base: &Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The substring test this replaces said "yes" to every one of these.
+    ///
+    /// Each is a real shape of `package.json`: a dependency called `build`
+    /// (there is one on npm), a `prebuild` script, `"files": ["build"]`, and
+    /// the word in a description. `<bundler> run build` against any of them
+    /// fails with npm's "Missing script: build", which reads exactly like a
+    /// build error and sent authors looking at their TypeScript.
+    #[test]
+    fn only_a_real_scripts_build_counts_as_a_build_script() {
+        let dir = std::env::temp_dir().join("astra-cli-has-build-script");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let write = |json: &str| std::fs::write(dir.join("package.json"), json).unwrap();
+
+        write(r#"{"scripts":{"build":"esbuild src/index.ts"}}"#);
+        assert!(has_build_script(&dir));
+
+        for decoy in [
+            r#"{"dependencies":{"build":"^1.0.0"}}"#,
+            r#"{"scripts":{"prebuild":"rm -rf dist"}}"#,
+            r#"{"files":["build"]}"#,
+            r#"{"description":"tools you build with"}"#,
+            r#"{"scripts":{"build":"   "}}"#,
+            r#"{"scripts":{}}"#,
+            r#"{}"#,
+            r#"not json at all"#,
+        ] {
+            write(decoy);
+            assert!(
+                !has_build_script(&dir),
+                "substring-matched a decoy: {decoy}"
+            );
+        }
+
+        std::fs::remove_file(dir.join("package.json")).unwrap();
+        assert!(!has_build_script(&dir), "no package.json, no build script");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     const BASE: &str = r#"
 [plugin]

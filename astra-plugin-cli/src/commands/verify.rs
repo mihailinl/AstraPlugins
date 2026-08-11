@@ -35,6 +35,14 @@ pub fn run(path: &str, json: bool) -> Result<()> {
         // Machine-readable, for the release workflow's reproducibility canary
         // and for whatever writes the registry's version record.
         let report = serde_json::json!({
+            // The three keys every `--json` document carries, so a caller can
+            // branch before it knows which command produced the file. Additive:
+            // the release workflow's reproducibility canary reads
+            // `artifact_sha256` and is unaffected. A verify that gets this far
+            // has passed — `Bundle::open` is what fails, above.
+            "command": "verify",
+            "ok": true,
+            "exit_code": 0,
             "file": file.display().to_string(),
             "artifact_sha256": bundle.artifact_sha256,
             "size": bundle.artifact_size,
@@ -193,7 +201,13 @@ mod roundtrip {
 
     fn build_and_verify(dir: &std::path::Path, name: &str) -> Bundle {
         let project = dir.join(name);
-        create::run(name, "python", &["tools"], &project.to_string_lossy())
+        create::run(crate::commands::create::NewOptions {
+            name,
+            lang: "python",
+            template: "tool",
+            capabilities: Some("tools"),
+            out_dir: &project.to_string_lossy(),
+        })
             .expect("`astra-plugin new` must produce a buildable scaffold");
 
         let out = dir.join(format!("{name}.astraplugin"));

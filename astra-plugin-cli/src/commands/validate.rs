@@ -20,6 +20,8 @@ use astra_plugin_manifest::{
 };
 
 use crate::commands::init_ci::{self, REQUIRED_PERMISSIONS, WORKFLOW_FILE, WORKFLOW_REPO};
+use crate::hprintln;
+use crate::output::{Rejected, Verdict};
 
 /// Environment variable carrying the commit the release workflow is running
 /// from. Set by `plugin-release.yml`'s build job; unset everywhere else.
@@ -57,14 +59,50 @@ pub fn run(path: &str, strict: bool) -> Result<()> {
 /// bought with nothing. In CI the release workflow exports
 /// [`WORKFLOW_SHA_ENV`] instead, which is both authoritative and free.
 pub fn run_with(path: &str, strict: bool, resolve_pin: bool) -> Result<()> {
-    let dir = Path::new(path);
+    match run_full(CheckOptions { path, strict, fix: false, resolve_pin })? {
+        Verdict::Pass => Ok(()),
+        // `dev` and the other internal callers use `?` and want the sentence,
+        // not an exit code. `main` gets the code from `run_full` directly.
+        Verdict::Fail => Err(Rejected::err(
+            "`astra-plugin check` found problems — the lines above say which",
+        )),
+    }
+}
+
+pub struct CheckOptions<'a> {
+    pub path: &'a str,
+    pub strict: bool,
+    /// Apply the fixes that can be applied mechanically, then re-check.
+    pub fix: bool,
+    pub resolve_pin: bool,
+}
+
+/// `check`, with `--fix` and `--json`.
+///
+/// Returns a [`Verdict`] rather than an `Err` for a manifest that is merely
+/// wrong: the manifest being wrong is the answer to the question, so it is
+/// exit 1. An `Err` from here means the check could not be run at all — no
+/// `plugin.toml`, an unreadable file — and exits 2.
+pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
+    let dir = Path::new(opts.path);
     let manifest_path = dir.join("plugin.toml");
 
     if !manifest_path.exists() {
         anyhow::bail!("No plugin.toml found at {}", manifest_path.display());
     }
 
-    println!("Checking plugin at {}...", dir.display());
+    hprintln!("Checking plugin at {}...", dir.display());
+
+    let mut applied: Vec<String> = Vec::new();
+    if opts.fix {
+        applied = crate::commands::fix::apply(dir, &manifest_path)?;
+        for line in &applied {
+            hprintln!("  FIXED: {line}");
+        }
+        if applied.is_empty() {
+            hprintln!("  --fix: nothing was mechanically fixable.");
+        }
+    }
 
     let content = std::fs::read_to_string(&manifest_path).context("Failed to read plugin.toml")?;
 
@@ -81,50 +119,70 @@ pub fn run_with(path: &str, strict: bool, resolve_pin: bool) -> Result<()> {
     check_call_timeout(&manifest, &mut report);
 
     check_versions_agree(dir, &manifest.plugin.version, &mut report.warnings);
-    check_release_workflow(dir, resolve_pin, &mut report.warnings, &mut report.notes);
+    check_release_workflow(dir, opts.resolve_pin, &mut report.warnings, &mut report.notes);
 
-    // Report results
     for n in &report.notes {
-        println!("  NOTE: {n}");
+        hprintln!("  NOTE: {n}");
     }
     for w in &report.warnings {
-        println!("  WARN: {w}");
+        hprintln!("  WARN: {w}");
     }
     for e in &report.errors {
-        println!("  ERROR: {e}");
+        hprintln!("  ERROR: {e}");
     }
 
-    if !report.errors.is_empty() {
-        anyhow::bail!(
-            "Check failed with {} error(s) and {} warning(s)",
-            report.errors.len(),
-            report.warnings.len()
-        );
-    }
-    if strict && !report.warnings.is_empty() {
-        anyhow::bail!(
-            "Check failed: {} warning(s), and --strict treats warnings as errors",
-            report.warnings.len()
-        );
-    }
+    let failed = !report.errors.is_empty() || (opts.strict && !report.warnings.is_empty());
+    let verdict = Verdict::of(!failed);
 
-    println!("  sections: {}", sections_present(&manifest).join(", "));
-    println!(
-        "  OK: plugin '{}' v{} is valid ({} warning(s), {} note(s), capabilities: {})",
-        manifest.plugin.id,
-        manifest.plugin.version,
-        report.warnings.len(),
-        report.notes.len(),
-        {
-            let enabled = manifest.capabilities.as_list();
-            if enabled.is_empty() {
-                "none".to_string()
-            } else {
-                enabled.join(", ")
-            }
+    if failed {
+        if !report.errors.is_empty() {
+            hprintln!(
+                "  FAILED: {} error(s) and {} warning(s)",
+                report.errors.len(),
+                report.warnings.len()
+            );
+        } else {
+            hprintln!(
+                "  FAILED: {} warning(s), and --strict treats warnings as errors",
+                report.warnings.len()
+            );
         }
+    } else {
+        hprintln!("  sections: {}", sections_present(&manifest).join(", "));
+        hprintln!(
+            "  OK: plugin '{}' v{} is valid ({} warning(s), {} note(s), capabilities: {})",
+            manifest.plugin.id,
+            manifest.plugin.version,
+            report.warnings.len(),
+            report.notes.len(),
+            {
+                let enabled = manifest.capabilities.as_list();
+                if enabled.is_empty() {
+                    "none".to_string()
+                } else {
+                    enabled.join(", ")
+                }
+            }
+        );
+    }
+
+    crate::output::emit(
+        "check",
+        &verdict,
+        serde_json::json!({
+            "path": dir.display().to_string(),
+            "plugin_id": manifest.plugin.id,
+            "version": manifest.plugin.version,
+            "capabilities": manifest.capabilities.as_list(),
+            "strict": opts.strict,
+            "errors": report.errors,
+            "warnings": report.warnings,
+            "notes": report.notes,
+            "fixed": applied,
+        }),
     );
-    Ok(())
+
+    Ok(verdict)
 }
 
 /// The three severities, collected so the checks below can be read one at a

@@ -21,6 +21,17 @@ path = "src/main.rs"
 # a `ui_panels` capability the daemon has never had, serde dropped the unknown
 # key, and three shipped examples declared no capabilities at all.
 astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }
+# `astra-plugin test` is the SDK's own level-2 harness pointed at a process
+# instead of at a type. It reuses `astra_plugin_sdk::testing::MockDaemon` — the
+# same PluginHostService, the same session-token gate, the same permission gate
+# the SDK's WireHarness runs against — and `astra_plugin_sdk::proto` for the
+# `PluginCapabilityService` client. Writing a second mock daemon here is how the
+# CLI's idea of the protocol and the SDK's would drift, which is the class of
+# bug `spec/hooks.yaml` exists to end.
+#
+# `default-features = false` drops `schemars`: the CLI reads JSON Schema, it
+# never derives one.
+astra-plugin-sdk = { version = "0.6.0", path = "../astra-plugin-sdk", default-features = false }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -39,6 +50,8 @@ tokio = { version = "1", features = ["full"] }
 # no .proto and no codegen in this crate.
 tonic = "0.12"
 prost = "0.13"
+# The `SttProcess` request stream `astra-plugin test` feeds a plugin.
+tokio-stream = "0.1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 sha2 = "0.10"
 rand = "0.8"
@@ -47,3 +60,14 @@ base64 = "0.22"
 # resolve `<config>` to the same directory or `--daemon-addr` autodetection
 # reads a file nobody writes.
 directories = "6"
+# Executable lookup. NOT `Command::new(x).arg("--version").status().is_ok()`,
+# which is what this CLI used to do and which is wrong twice: it reports success
+# for a program that spawned and then exited non-zero, and on Windows it misses
+# every `.cmd`/`.bat` shim — which is how `bun`, `npm` and `npx` are installed
+# there — because CreateProcess does not consult PATHEXT the way a shell does.
+which = "8"
+# `RUST_LOG` has been documented since 0.1 (docs/en/cli.md) and was inert: no
+# subscriber was ever installed, so every `tracing` event this CLI and its
+# dependencies emit went nowhere.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

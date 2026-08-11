@@ -33,6 +33,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use crate::hprintln;
 
 /// The repository holding the reusable workflow.
 pub const WORKFLOW_REPO: &str = "mihailinl/AstraPlugins";
@@ -169,26 +170,26 @@ pub fn run(opts: InitCiOptions<'_>) -> Result<()> {
 
     let shown = caller_path.strip_prefix(&root).unwrap_or(&caller_path);
     if unchanged {
-        println!("  Unchanged: {}", shown.display());
+        hprintln!("  Unchanged: {}", shown.display());
     } else if let Some(before) = before.filter(|b| *b != pin.sha) {
-        println!("  Upgraded:  {}", shown.display());
-        println!("    pin {} -> {}", short(&before), short(&pin.sha));
+        hprintln!("  Upgraded:  {}", shown.display());
+        hprintln!("    pin {} -> {}", short(&before), short(&pin.sha));
     } else if existing.is_some() {
-        println!("  Rewrote:   {}", shown.display());
+        hprintln!("  Rewrote:   {}", shown.display());
     } else {
-        println!("  Created:   {}", shown.display());
+        hprintln!("  Created:   {}", shown.display());
     }
 
-    println!("    calls  {WORKFLOW_REPO}/{WORKFLOW_FILE}");
-    println!("    pinned {} ({})", pin.sha, pin.label);
-    println!("    with   plugin-dir: {plugin_dir_input}");
-    println!("           tag-prefix: {tag_prefix}");
+    hprintln!("    calls  {WORKFLOW_REPO}/{WORKFLOW_FILE}");
+    hprintln!("    pinned {} ({})", pin.sha, pin.label);
+    hprintln!("    with   plugin-dir: {plugin_dir_input}");
+    hprintln!("           tag-prefix: {tag_prefix}");
     if !linux_packages.is_empty() {
-        println!("           linux-packages: {linux_packages}");
+        hprintln!("           linux-packages: {linux_packages}");
     }
     if tag_prefix != "v" {
-        println!();
-        println!(
+        hprintln!();
+        hprintln!(
             "  This repository holds more than one plugin, so this one releases on\n  \
              '{tag_prefix}<version>' — a bare 'v<version>' would start every plugin's workflow."
         );
@@ -196,25 +197,25 @@ pub fn run(opts: InitCiOptions<'_>) -> Result<()> {
 
     match pin.source {
         PinSource::DefaultBranch => {
-            println!();
-            println!(
+            hprintln!();
+            hprintln!(
                 "  Note: '{WORKFLOW_TAG}' does not exist in {WORKFLOW_REPO} yet, so this pins the"
             );
-            println!(
+            hprintln!(
                 "  current head of its default branch. Re-run `astra-plugin init-ci` once the"
             );
-            println!("  tag exists to move onto a released workflow.");
+            hprintln!("  tag exists to move onto a released workflow.");
         }
         PinSource::Existing => {
-            println!();
-            println!("  Note: could not reach {WORKFLOW_REPO}, so the existing pin was kept.");
+            hprintln!();
+            hprintln!("  Note: could not reach {WORKFLOW_REPO}, so the existing pin was kept.");
         }
         _ => {}
     }
 
-    println!();
-    println!("  Next: commit this file, then release with");
-    println!("    astra-plugin version <semver>");
+    hprintln!();
+    hprintln!("  Next: commit this file, then release with");
+    hprintln!("    astra-plugin version <semver>");
 
     Ok(())
 }

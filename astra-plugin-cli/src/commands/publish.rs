@@ -31,6 +31,7 @@ use anyhow::{Context, Result};
 use astra_plugin_manifest::PluginManifest;
 
 use crate::commands::init_ci::{repo_root, tag_prefix_for};
+use crate::hprintln;
 
 /// Where listing requests and release pings go.
 pub const REGISTRY_REPO: &str = "mihailinl/astra-registry";
@@ -53,7 +54,12 @@ pub struct PublishOptions<'a> {
     pub print_url: bool,
 }
 
-pub fn run(opts: PublishOptions<'_>) -> Result<()> {
+/// Returns the submission URL when there is one, so `--json` can carry it.
+///
+/// `--print-url` exists for scripts, and under `--json` the human line it
+/// prints is suppressed — the URL has to reach the document instead, or the two
+/// flags together produce nothing at all.
+pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
     let dir = Path::new(opts.path)
         .canonicalize()
         .with_context(|| format!("Invalid path: {}", opts.path))?;
@@ -74,7 +80,8 @@ pub fn run(opts: PublishOptions<'_>) -> Result<()> {
     };
 
     if opts.dry_run {
-        return dry_run(&dir, &manifest, &tag);
+        dry_run(&dir, &manifest, &tag)?;
+        return Ok(None);
     }
 
     // The repository is one of the two facts the registry cannot read out of
@@ -109,32 +116,32 @@ pub fn run(opts: PublishOptions<'_>) -> Result<()> {
         )
     };
 
-    println!("{id} {version} — {what} for {repo}@{tag}\n");
+    hprintln!("{id} {version} — {what} for {repo}@{tag}\n");
     warn_if_tag_is_missing(&dir, &tag);
     if opts.notify {
-        println!(
+        hprintln!(
             "  The registry usually notices a release by itself, within minutes. Use this when it\n\
              \x20 has not: it carries your repository and the tag, and nothing else. The bot then\n\
              \x20 re-verifies the release from scratch, which is why the link needs no token.\n"
         );
     } else {
-        println!(
+        hprintln!(
             "  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI\n\
              \x20 build and attest, and the registry picks it up. Everything on the store card —\n\
              \x20 name, summary, licence, capabilities, permissions, digests — is read out of the\n\
              \x20 attested bundle, so there is nothing else to fill in and nothing to keep in sync.\n"
         );
     }
-    println!("{url}\n");
+    hprintln!("{url}\n");
 
     if opts.print_url {
-        return Ok(());
+        return Ok(Some(url));
     }
     match open_in_browser(&url) {
-        Ok(()) => println!("Opened in your browser. Check the prefilled fields before you submit."),
-        Err(e) => println!("Could not open a browser ({e}). Copy the URL above."),
+        Ok(()) => hprintln!("Opened in your browser. Check the prefilled fields before you submit."),
+        Err(e) => hprintln!("Could not open a browser ({e}). Copy the URL above."),
     }
-    Ok(())
+    Ok(Some(url))
 }
 
 /// Everything the registry checks that can be checked here, and a plain list of
@@ -149,30 +156,30 @@ pub fn run(opts: PublishOptions<'_>) -> Result<()> {
 fn dry_run(dir: &Path, manifest: &PluginManifest, tag: &str) -> Result<()> {
     let id = &manifest.plugin.id;
     let version = &manifest.plugin.version;
-    println!("Dry run: {id} {version}, expected release tag {tag}\n");
+    hprintln!("Dry run: {id} {version}, expected release tag {tag}\n");
 
-    println!("── checked here ─────────────────────────────────────────────");
+    hprintln!("── checked here ─────────────────────────────────────────────");
     crate::commands::validate::run_with(&dir.to_string_lossy(), true, false)?;
 
     let bundles = find_bundles(dir, id, version);
     if bundles.is_empty() {
-        println!(
+        hprintln!(
             "\n  no {id}-{version}-*.astraplugin next to the plugin — `astra-plugin build` first,\n\
              \x20 or let CI build it. The registry reads the bundle CI attested, never a local one,\n\
              \x20 so this is a preflight on the same bytes rather than a check of what gets listed."
         );
     } else {
         for bundle in &bundles {
-            println!("\n  {}", bundle.display());
+            hprintln!("\n  {}", bundle.display());
             crate::commands::verify::run(&bundle.to_string_lossy(), false)?;
         }
     }
 
-    println!("\n── only the registry can check these ────────────────────────");
+    hprintln!("\n── only the registry can check these ────────────────────────");
     for line in REGISTRY_ONLY_CHECKS {
-        println!("  · {line}");
+        hprintln!("  · {line}");
     }
-    println!(
+    hprintln!(
         "\n  All of them are described in the registry's docs/BOT-CHECKS.md, with the exact code\n\
          \x20 each failure produces. What happens to a release that passes — published now,\n\
          \x20 delayed 24 hours, or held for a person — is docs/POLICY.md."
@@ -276,7 +283,7 @@ fn warn_if_tag_is_missing(dir: &Path, tag: &str) {
         && o.status.success()
         && String::from_utf8_lossy(&o.stdout).trim().is_empty()
     {
-        println!(
+        hprintln!(
             "  Note: this checkout has no tag `{tag}`. The registry reads the release, so the tag \
              has to exist and be pushed, with the .astraplugin assets attached by CI.\n"
         );

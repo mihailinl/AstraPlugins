@@ -173,7 +173,11 @@ async fn pump_logs(client: &mut DaemonClient, plugin_id: &str, printed: &mut Vec
 }
 
 /// The suffix of `current` that does not overlap the tail of `previous`.
-fn fresh_lines<'a>(previous: &[String], current: &'a [String]) -> &'a [String] {
+///
+/// Shared with `astra-plugin logs -f`, which polls the same ring buffer: two
+/// copies of this would be two chances to reprint the whole history on every
+/// poll.
+pub fn fresh_lines<'a>(previous: &[String], current: &'a [String]) -> &'a [String] {
     let max = previous.len().min(current.len());
     for overlap in (0..=max).rev() {
         if previous[previous.len() - overlap..] == current[..overlap] {

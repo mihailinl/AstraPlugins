@@ -162,18 +162,74 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     /// Synthesize one utterance. Implement `tts_synthesize_stream` instead if
     /// your engine can emit audio before it has finished — the SDK's default
     /// already forwards streaming calls here as a single chunk.
+    ///
+    /// This placeholder returns 200 ms of silence at 16 kHz, f32-LE PCM: real
+    /// audio in the format the daemon plays, so the plugin passes
+    /// `astra-plugin test` and can be heard (as nothing) from the first run.
+    /// Replace the body; keep the shape.
     #[hook]
     async fn tts_synthesize(
         &self,
-        _ctx: &PluginContext,
+        ctx: &PluginContext,
         req: TtsRequest,
     ) -> anyhow::Result<AudioData> {
-        anyhow::bail!("TTS not implemented yet; asked to say: {}", req.text)
+        let sample_rate = 16_000;
+        let samples = sample_rate / 5; // 200 ms
+        let _ = ctx
+            .host()
+            .log_warn(&format!("TTS placeholder: silence instead of {:?}", req.text))
+            .await;
+        Ok(AudioData {
+            data: vec![0u8; samples as usize * 4],
+            format: "pcm".into(),
+            sample_rate,
+            duration_ms: 200,
+        })
     }"#,
         ));
     }
 
-    if capabilities.contains(&"stt") {
+    // `--template stt-streaming` asks for the streaming hook instead of the
+    // unary one. Same capability — there is only one STT capability — but the
+    // hook an author starts from decides whether their plugin can ever emit a
+    // partial result, and bolting `stt_transcribe_stream` onto a finished
+    // unary implementation is the retrofit people get subtly wrong.
+    if capabilities.contains(&crate::commands::create::STREAMING_MARKER) {
+        members.push(Member::new(
+            Some("stt"),
+            r#"    #[hook]
+    async fn stt_languages(&self) -> Vec<String> {
+        vec!["en".into()]
+    }
+
+    /// Transcribe while the audio is still arriving. `audio` yields f32-LE PCM
+    /// chunks; send `SttEvent::partial`s as you get them and one
+    /// `SttEvent::transcript` before returning. A closed channel is
+    /// end-of-utterance.
+    ///
+    /// The channel holds `astra_plugin_sdk::limits::STT_AUDIO_CHANNEL_CAPACITY`
+    /// chunks — the daemon dumps its whole wake-word pre-roll into it at once,
+    /// so read in a loop and never block on anything slow between reads.
+    #[hook]
+    async fn stt_transcribe_stream(
+        &self,
+        _ctx: &PluginContext,
+        mut audio: tokio::sync::mpsc::Receiver<Vec<u8>>,
+        events: tokio::sync::mpsc::Sender<SttEvent>,
+        _sample_rate: u32,
+        _options: SttOptions,
+    ) -> anyhow::Result<()> {
+        let mut samples = 0usize;
+        while let Some(chunk) = audio.recv().await {
+            samples += chunk.len() / 4;
+        }
+        let _ = events
+            .send(SttEvent::transcript(format!("heard {samples} samples")))
+            .await;
+        Ok(())
+    }"#,
+        ));
+    } else if capabilities.contains(&"stt") {
         members.push(Member::new(
             Some("stt"),
             r#"    #[hook]
@@ -182,16 +238,25 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     }
 
     /// Transcribe one complete utterance: `audio` is f32-LE PCM. Implement
-    /// `stt_transcribe_stream` instead to emit partials while audio flows.
+    /// `stt_transcribe_stream` instead to emit partials while audio flows —
+    /// `astra-plugin new --template stt-streaming` starts you there.
+    ///
+    /// This placeholder describes what it was handed rather than failing: an
+    /// utterance that produces no `SttEvent` is a microphone that appears to
+    /// work and never yields text, which is the least diagnosable way for an
+    /// STT plugin to be broken. Replace the body; keep the one event.
     #[hook]
     async fn stt_transcribe(
         &self,
         _ctx: &PluginContext,
-        _audio: &[u8],
-        _sample_rate: u32,
+        audio: &[u8],
+        sample_rate: u32,
         _options: &SttOptions,
     ) -> anyhow::Result<SttEvent> {
-        anyhow::bail!("STT not implemented yet")
+        let samples = audio.len() / 4; // f32-LE
+        Ok(SttEvent::transcript(format!(
+            "[placeholder] {samples} samples @ {sample_rate} Hz"
+        )))
     }"#,
         ));
     }
@@ -307,6 +372,8 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join("\n\n");
 
+    let tests = generate_tests(&struct_name, &inferred);
+
     format!(
         r#"use astra_plugin_sdk::prelude::*;
 
@@ -319,6 +386,66 @@ impl {struct_name} {{
 }}
 
 astra::main!({struct_name}::default());
+
+{tests}"#
+    )
+}
+
+/// Where the plugin is separated from the test that proves it works.
+///
+/// `generate_main_rs` emits it, and the twelve-line assertion below counts only
+/// what comes before it.
+pub const TEST_MODULE_MARKER: &str = "#[cfg(test)]";
+
+/// The one passing test every scaffold ships.
+///
+/// It is here — at the bottom of `main.rs`, not in `tests/` — for two reasons.
+/// A binary crate has no library for an integration test to import, so a
+/// `tests/` file would have to reach back in with `#[path = "../src/main.rs"]`
+/// and the scaffold would be teaching that trick on line one. And a unit test
+/// module sees the plugin's private items, which is what an author's second
+/// test is going to want.
+///
+/// One dependency still: `Harness` and `json!` both arrive through
+/// `astra-plugin-sdk`, so `[dev-dependencies]` stays empty.
+fn generate_tests(struct_name: &str, inferred: &std::collections::BTreeSet<&str>) -> String {
+    // Every scaffold can assert that it starts and is healthy. A scaffold with
+    // a tool can assert what the tool answered, which is the assertion an
+    // author will actually edit.
+    let tool_assertion = if inferred.contains("tools") {
+        r#"
+        let answer = h.call_tool("hello", json!({})).await.expect("the tool answered");
+        assert_eq!(answer, "Hello from the plugin!");
+"#
+    } else {
+        ""
+    };
+
+    format!(
+        r#"{TEST_MODULE_MARKER}
+mod tests {{
+    use super::*;
+    use astra_plugin_sdk::testing::Harness;
+
+    /// `cargo test`. The harness runs the hooks in process against a recording
+    /// host: no daemon, no socket, no Astra installed.
+    ///
+    /// `h.host().fired_triggers()` / `.logs()` / `.variables()` say what the
+    /// plugin told Astra; `h.host().deny("fire_trigger")` stages the refusal a
+    /// user's `[permissions]` would produce. For the wire — registration, the
+    /// session token, streaming audio — there is
+    /// `astra_plugin_sdk::testing::WireHarness`.
+    #[tokio::test]
+    async fn it_starts_and_answers() {{
+        let h = Harness::new({struct_name}::default())
+            .with_config(json!({{}}))
+            .start()
+            .await
+            .expect("the plugin started");
+{tool_assertion}
+        assert!(h.health().await.0);
+    }}
+}}
 "#
     )
 }
@@ -340,11 +467,45 @@ mod tests {
     #[test]
     fn the_default_scaffold_is_about_twelve_lines() {
         let main_rs = generate_main_rs("dice-roller", &["tools"]);
-        let n = non_blank(&main_rs);
+        // The plugin, not the test module under it — §3.1's bar is about how
+        // much a plugin is, and a test is not part of the answer.
+        let plugin = main_rs
+            .split(TEST_MODULE_MARKER)
+            .next()
+            .expect("the plugin comes first");
+        let n = non_blank(plugin);
         assert_eq!(
             n, 12,
-            "the minimum viable plugin drifted to {n} non-blank lines:\n{main_rs}"
+            "the minimum viable plugin drifted to {n} non-blank lines:\n{plugin}"
         );
+    }
+
+    /// 5.6: every scaffold ships one passing test, and it is a test that can
+    /// fail — it calls the tool and asserts what came back, rather than
+    /// asserting that the struct can be constructed.
+    #[test]
+    fn the_default_scaffold_ships_a_test_that_calls_the_tool() {
+        let main_rs = generate_main_rs("dice-roller", &["tools"]);
+        assert!(main_rs.contains(TEST_MODULE_MARKER), "{main_rs}");
+        assert!(main_rs.contains("#[tokio::test]"), "{main_rs}");
+        assert!(main_rs.contains("Harness::new(DiceRoller::default())"), "{main_rs}");
+        assert!(
+            main_rs.contains(r#"h.call_tool("hello", json!({})).await"#),
+            "the scaffolded test has to exercise the scaffolded tool:\n{main_rs}"
+        );
+    }
+
+    /// A scaffold with no tool still ships a test — it starts the plugin, which
+    /// is the assertion that catches a broken `on_start`.
+    #[test]
+    fn a_scaffold_without_tools_still_ships_a_test() {
+        let main_rs = generate_main_rs("speaker", &["tts"]);
+        assert!(main_rs.contains("#[tokio::test]"), "{main_rs}");
+        assert!(
+            !main_rs.contains("call_tool"),
+            "a tts scaffold has no `hello` tool to call:\n{main_rs}"
+        );
+        assert!(main_rs.contains("h.health().await.0"), "{main_rs}");
     }
 
     /// One dependency. The whole macro layer exists to make this true, so a

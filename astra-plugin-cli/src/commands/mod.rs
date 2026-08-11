@@ -1,10 +1,14 @@
 pub mod build;
 pub mod create;
 pub mod dev;
+pub mod doctor;
+pub mod fix;
 pub mod init_ci;
 pub mod keygen;
+pub mod logs;
 pub mod publish;
 pub mod sign;
+pub mod test;
 pub mod validate;
 pub mod verify;
 pub mod version;

@@ -25,6 +25,7 @@ use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
 use crate::commands::init_ci;
+use crate::hprintln;
 
 /// Directories that never hold a version this command should touch — the same
 /// list `build` excludes, for the same reason, plus the two output directories
@@ -278,7 +279,7 @@ pub fn run(opts: VersionOptions<'_>) -> Result<()> {
     edits.extend(dunder_version_edits(&dir, &new_s)?);
 
     // ── commit, all at once ─────────────────────────────────────────────────
-    println!(
+    hprintln!(
         "Setting version to {new_s} (plugin.toml was {})",
         if current.is_empty() {
             "unset"
@@ -290,7 +291,7 @@ pub fn run(opts: VersionOptions<'_>) -> Result<()> {
         std::fs::write(&e.path, &e.content)
             .with_context(|| format!("Failed to write {}", e.path.display()))?;
         let shown = e.path.strip_prefix(&dir).unwrap_or(&e.path);
-        println!(
+        hprintln!(
             "  {:<30} {:<26} {} -> {new_s}",
             shown.display().to_string(),
             e.what,
@@ -301,7 +302,7 @@ pub fn run(opts: VersionOptions<'_>) -> Result<()> {
             }
         );
     }
-    println!("  {} file(s) rewritten", edits.len());
+    hprintln!("  {} file(s) rewritten", edits.len());
 
     // The tag this plugin's own caller workflow will accept, which in a
     // monorepo is `<id>-v<version>` and not `v<version>`. Printing the wrong
@@ -309,13 +310,13 @@ pub fn run(opts: VersionOptions<'_>) -> Result<()> {
     // plugin's release and none of their own.
     let prefix = init_ci::tag_prefix_for(&dir);
 
-    println!();
-    println!("Release it:");
-    println!("  git commit -am \"release {new_s}\"");
-    println!("  git tag {prefix}{new_s}");
-    println!("  git push && git push --tags");
-    println!();
-    println!(
+    hprintln!();
+    hprintln!("Release it:");
+    hprintln!("  git commit -am \"release {new_s}\"");
+    hprintln!("  git tag {prefix}{new_s}");
+    hprintln!("  git push && git push --tags");
+    hprintln!();
+    hprintln!(
         "  The tag must be exactly '{prefix}{new_s}': the release workflow asserts it\n  \
          against plugin.toml before it builds anything."
     );
