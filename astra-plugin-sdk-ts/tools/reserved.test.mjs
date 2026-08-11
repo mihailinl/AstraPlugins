@@ -9,11 +9,12 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const esmUrl = (rel) => pathToFileURL(join(PKG_ROOT, rel)).href;
 
 const {
   assertNoReservedNames,
@@ -152,8 +153,11 @@ test("both formats really load, in the runtime that will load them", () => {
     [
       "--input-type=module",
       "-e",
-      `import { plugin, s } from ${JSON.stringify(join(PKG_ROOT, "dist/esm/index.js"))};
-       import { Harness } from ${JSON.stringify(join(PKG_ROOT, "dist/esm/testing/index.js"))};
+      // file:// URLs, not bare absolute paths: Node's ESM loader reads the "D:"
+      // of a Windows path as a URL scheme and refuses it. Still the real build,
+      // still resolved absolutely — a relative specifier here would depend on cwd.
+      `import { plugin, s } from ${JSON.stringify(esmUrl("dist/esm/index.js"))};
+       import { Harness } from ${JSON.stringify(esmUrl("dist/esm/testing/index.js"))};
        console.log(typeof plugin, typeof s.object, typeof Harness);`,
     ],
     { cwd: PKG_ROOT, encoding: "utf8" }
