@@ -1083,7 +1083,10 @@ impl Bundle {
                      directories are implied by the paths and cannot carry a digest."
                 );
             }
-            #[cfg(unix)]
+            // `unix_mode()` reads the archive's own central directory, not the
+            // host's filesystem, so this has to run on every platform: a symlink
+            // entry is a property of the bundle being inspected. Gating it on the
+            // host let `verify` accept a symlink escape when run on Windows.
             if let Some(mode) = entry.unix_mode() {
                 const S_IFMT: u32 = 0o170000;
                 const S_IFLNK: u32 = 0o120000;
