@@ -1,0 +1,7554 @@
+/**
+ * AUTO-GENERATED — DO NOT EDIT.
+ *
+ * Produced by `tools/gen-descriptor.mjs` from `proto/plugin.proto`.
+ * Regenerate with `npm run generate`; `npm run build` does it for you.
+ */
+
+/** The protocol descriptor, as protobuf.Root#toJSON() produced it. */
+export const descriptorJson: { nested: Record<string, unknown> } = {
+  "nested": {
+    "astra": {
+      "nested": {
+        "Empty": {
+          "fields": {}
+        },
+        "Timestamp": {
+          "fields": {
+            "seconds": {
+              "type": "int64",
+              "id": 1
+            },
+            "nanos": {
+              "type": "int32",
+              "id": 2
+            }
+          }
+        },
+        "CoreService": {
+          "methods": {
+            "GetState": {
+              "requestType": "Empty",
+              "responseType": "CoreStateResponse"
+            },
+            "Start": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "Stop": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "Shutdown": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "Restart": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "SubscribeEvents": {
+              "requestType": "Empty",
+              "responseType": "AstraEvent",
+              "responseStream": true
+            },
+            "ShowMainWindow": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ToggleOverlay": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            }
+          }
+        },
+        "CoreStateResponse": {
+          "fields": {
+            "state": {
+              "type": "CoreState",
+              "id": 1
+            },
+            "sttReady": {
+              "type": "bool",
+              "id": 2
+            },
+            "ttsReady": {
+              "type": "bool",
+              "id": 3
+            },
+            "aiReady": {
+              "type": "bool",
+              "id": 4
+            },
+            "authenticated": {
+              "type": "bool",
+              "id": 5
+            },
+            "needsOobe": {
+              "type": "bool",
+              "id": 6
+            },
+            "version": {
+              "type": "string",
+              "id": 7
+            },
+            "startupStatus": {
+              "type": "string",
+              "id": 8
+            }
+          }
+        },
+        "CoreState": {
+          "values": {
+            "CORE_STATE_STOPPED": 0,
+            "CORE_STATE_READY": 1,
+            "CORE_STATE_LISTENING": 2,
+            "CORE_STATE_PROCESSING": 3,
+            "CORE_STATE_SPEAKING": 4,
+            "CORE_STATE_ERROR": 5
+          }
+        },
+        "AstraEvent": {
+          "oneofs": {
+            "event": {
+              "oneof": [
+                "stateChanged",
+                "speechRecognized",
+                "authStatus",
+                "ttsEvent",
+                "commandExecuted",
+                "error",
+                "daemonStatus",
+                "widgetDataChanged",
+                "pluginStatusChanged",
+                "daemonShuttingDown",
+                "overlayToggle",
+                "overlaySelectionAttach",
+                "clientControlRequest",
+                "notification",
+                "commandsChanged",
+                "voiceProvidersChanged",
+                "settingsChanged",
+                "hotkeyBindingsChanged",
+                "reminderFired",
+                "reminderResolved",
+                "lockStateChanged"
+              ]
+            }
+          },
+          "fields": {
+            "timestamp": {
+              "type": "Timestamp",
+              "id": 1
+            },
+            "stateChanged": {
+              "type": "StateChangedEvent",
+              "id": 2
+            },
+            "speechRecognized": {
+              "type": "SpeechRecognizedEvent",
+              "id": 3
+            },
+            "authStatus": {
+              "type": "AuthStatusEvent",
+              "id": 5
+            },
+            "ttsEvent": {
+              "type": "TtsEvent",
+              "id": 6
+            },
+            "commandExecuted": {
+              "type": "CommandExecutedEvent",
+              "id": 7
+            },
+            "error": {
+              "type": "ErrorEvent",
+              "id": 8
+            },
+            "daemonStatus": {
+              "type": "DaemonStatusEvent",
+              "id": 10
+            },
+            "widgetDataChanged": {
+              "type": "WidgetDataChangedEvent",
+              "id": 11
+            },
+            "pluginStatusChanged": {
+              "type": "PluginStatusChangedEvent",
+              "id": 12
+            },
+            "daemonShuttingDown": {
+              "type": "DaemonShuttingDownEvent",
+              "id": 14
+            },
+            "overlayToggle": {
+              "type": "OverlayToggleEvent",
+              "id": 15
+            },
+            "overlaySelectionAttach": {
+              "type": "OverlaySelectionAttachEvent",
+              "id": 16
+            },
+            "clientControlRequest": {
+              "type": "ClientControlRequestEvent",
+              "id": 17
+            },
+            "notification": {
+              "type": "NotificationEvent",
+              "id": 18
+            },
+            "commandsChanged": {
+              "type": "CommandsChangedEvent",
+              "id": 19
+            },
+            "voiceProvidersChanged": {
+              "type": "VoiceProvidersChangedEvent",
+              "id": 20
+            },
+            "settingsChanged": {
+              "type": "SettingsChangedEvent",
+              "id": 21
+            },
+            "hotkeyBindingsChanged": {
+              "type": "HotkeyBindingsChangedEvent",
+              "id": 22
+            },
+            "reminderFired": {
+              "type": "ReminderFiredEvent",
+              "id": 23
+            },
+            "reminderResolved": {
+              "type": "ReminderResolvedEvent",
+              "id": 24
+            },
+            "lockStateChanged": {
+              "type": "LockStateChangedEvent",
+              "id": 25
+            }
+          }
+        },
+        "LockStateChangedEvent": {
+          "fields": {
+            "locked": {
+              "type": "bool",
+              "id": 1
+            },
+            "passcodeSet": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "NotificationEvent": {
+          "fields": {
+            "title": {
+              "type": "string",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            },
+            "level": {
+              "type": "string",
+              "id": 3
+            },
+            "persistent": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ReminderFiredEvent": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "text": {
+              "type": "string",
+              "id": 2
+            },
+            "time": {
+              "type": "string",
+              "id": 3
+            },
+            "daily": {
+              "type": "bool",
+              "id": 4
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "ReminderResolvedEvent": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "action": {
+              "type": "string",
+              "id": 2
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 3
+            },
+            "applied": {
+              "type": "bool",
+              "id": 4
+            },
+            "snoozeUntil": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "StateChangedEvent": {
+          "fields": {
+            "previousState": {
+              "type": "CoreState",
+              "id": 1
+            },
+            "newState": {
+              "type": "CoreState",
+              "id": 2
+            }
+          }
+        },
+        "SpeechRecognizedEvent": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "isFinal": {
+              "type": "bool",
+              "id": 2
+            },
+            "confidence": {
+              "type": "float",
+              "id": 3
+            }
+          }
+        },
+        "AuthStatusEvent": {
+          "fields": {
+            "authenticated": {
+              "type": "bool",
+              "id": 1
+            },
+            "userId": {
+              "type": "string",
+              "id": 2
+            },
+            "userName": {
+              "type": "string",
+              "id": 3
+            },
+            "authorized": {
+              "type": "bool",
+              "id": 4
+            },
+            "subscriptionTier": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "TtsEvent": {
+          "oneofs": {
+            "event": {
+              "oneof": [
+                "started",
+                "stopped",
+                "progress"
+              ]
+            }
+          },
+          "fields": {
+            "started": {
+              "type": "bool",
+              "id": 1
+            },
+            "stopped": {
+              "type": "bool",
+              "id": 2
+            },
+            "progress": {
+              "type": "float",
+              "id": 3
+            }
+          }
+        },
+        "CommandExecutedEvent": {
+          "fields": {
+            "commandId": {
+              "type": "string",
+              "id": 1
+            },
+            "commandName": {
+              "type": "string",
+              "id": 2
+            },
+            "success": {
+              "type": "bool",
+              "id": 3
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "CommandsChangedEvent": {
+          "fields": {}
+        },
+        "VoiceProvidersChangedEvent": {
+          "fields": {}
+        },
+        "HotkeyBindingsChangedEvent": {
+          "fields": {}
+        },
+        "SettingsChangedEvent": {
+          "fields": {
+            "changedPaths": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ErrorEvent": {
+          "fields": {
+            "code": {
+              "type": "string",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            },
+            "details": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "DaemonStatusEvent": {
+          "fields": {
+            "status": {
+              "type": "string",
+              "id": 1
+            },
+            "isReady": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "DaemonShuttingDownEvent": {
+          "fields": {}
+        },
+        "OverlayToggleEvent": {
+          "fields": {
+            "selectedText": {
+              "type": "string",
+              "id": 1
+            },
+            "hasSelection": {
+              "type": "bool",
+              "id": 2
+            },
+            "modeSwitch": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "OverlaySelectionAttachEvent": {
+          "fields": {
+            "selectedText": {
+              "type": "string",
+              "id": 1
+            },
+            "hasSelection": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "WidgetDataChangedEvent": {
+          "fields": {
+            "widgetType": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginStatusChangedEvent": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "status": {
+              "type": "string",
+              "id": 2
+            },
+            "error": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "ClientControlRequestEvent": {
+          "fields": {
+            "requestId": {
+              "type": "string",
+              "id": 1
+            },
+            "kind": {
+              "type": "string",
+              "id": 2
+            },
+            "ackRequired": {
+              "type": "bool",
+              "id": 3
+            },
+            "timeoutMs": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "ChatService": {
+          "methods": {
+            "SubmitUserMessage": {
+              "requestType": "SubmitUserMessageRequest",
+              "responseType": "SubmitUserMessageResponse"
+            },
+            "StopGeneration": {
+              "requestType": "StopGenerationRequest",
+              "responseType": "Empty"
+            },
+            "RespondToConfirmation": {
+              "requestType": "ConfirmationResponse",
+              "responseType": "Empty"
+            },
+            "ListConversations": {
+              "requestType": "Empty",
+              "responseType": "ListConversationsResponse"
+            },
+            "CreateConversation": {
+              "requestType": "CreateConversationRequest",
+              "responseType": "Conversation"
+            },
+            "DeleteConversation": {
+              "requestType": "DeleteConversationRequest",
+              "responseType": "Empty"
+            },
+            "ClearConversation": {
+              "requestType": "ClearConversationRequest",
+              "responseType": "Empty"
+            },
+            "SubscribeEvents": {
+              "requestType": "SubscribeEventsRequest",
+              "responseType": "FirehoseEventMsg",
+              "responseStream": true
+            },
+            "FetchConversationBacklog": {
+              "requestType": "FetchBacklogRequest",
+              "responseType": "FetchBacklogResponse"
+            },
+            "RegenerateAssistantMessage": {
+              "requestType": "RegenerateAssistantMessageRequest",
+              "responseType": "RegenerateAssistantMessageResponse"
+            },
+            "EditUserMessage": {
+              "requestType": "EditUserMessageRequest",
+              "responseType": "EditUserMessageResponse"
+            },
+            "SetConversationReasoning": {
+              "requestType": "SetConversationReasoningRequest",
+              "responseType": "SetConversationReasoningResponse"
+            }
+          }
+        },
+        "SetConversationReasoningRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SetConversationReasoningResponse": {
+          "fields": {
+            "reasoningEffort": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ImageAttachment": {
+          "fields": {
+            "mimeType": {
+              "type": "string",
+              "id": 1
+            },
+            "data": {
+              "type": "bytes",
+              "id": 2
+            },
+            "filename": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "DocumentAttachment": {
+          "fields": {
+            "mimeType": {
+              "type": "string",
+              "id": 1
+            },
+            "data": {
+              "type": "bytes",
+              "id": 2
+            },
+            "filename": {
+              "type": "string",
+              "id": 3
+            },
+            "extractedText": {
+              "type": "string",
+              "id": 4
+            },
+            "metaPageCount": {
+              "type": "uint32",
+              "id": 5
+            },
+            "metaSheetNames": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "metaLineCount": {
+              "type": "uint32",
+              "id": 7
+            },
+            "metaTruncated": {
+              "type": "bool",
+              "id": 8
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 9
+            }
+          }
+        },
+        "ConfirmationResponse": {
+          "fields": {
+            "requestId": {
+              "type": "string",
+              "id": 1
+            },
+            "allowed": {
+              "type": "bool",
+              "id": 2
+            },
+            "allowLikeThis": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "ClearConversationRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ListConversationsResponse": {
+          "fields": {
+            "conversations": {
+              "rule": "repeated",
+              "type": "Conversation",
+              "id": 1
+            }
+          }
+        },
+        "ConversationClient": {
+          "values": {
+            "CONVERSATION_CLIENT_MAIN": 0,
+            "CONVERSATION_CLIENT_OVERLAY": 1,
+            "CONVERSATION_CLIENT_PLUGIN": 2
+          }
+        },
+        "Conversation": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "title": {
+              "type": "string",
+              "id": 2
+            },
+            "createdAt": {
+              "type": "Timestamp",
+              "id": 3
+            },
+            "updatedAt": {
+              "type": "Timestamp",
+              "id": 4
+            },
+            "messageCount": {
+              "type": "int32",
+              "id": 5
+            },
+            "client": {
+              "type": "ConversationClient",
+              "id": 6
+            },
+            "clientLabel": {
+              "type": "string",
+              "id": 7
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 8
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "CreateConversationRequest": {
+          "fields": {
+            "title": {
+              "type": "string",
+              "id": 1
+            },
+            "client": {
+              "type": "ConversationClient",
+              "id": 2
+            },
+            "clientLabel": {
+              "type": "string",
+              "id": 3
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 4
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "DeleteConversationRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "StopGenerationRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SubscribeEventsRequest": {
+          "fields": {
+            "cursors": {
+              "keyType": "string",
+              "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "FirehoseEventMsg": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "event": {
+              "type": "ConversationEventMsg",
+              "id": 2
+            }
+          }
+        },
+        "FetchBacklogRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "fromSeq": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "FetchBacklogResponse": {
+          "fields": {
+            "events": {
+              "rule": "repeated",
+              "type": "ConversationEventMsg",
+              "id": 1
+            }
+          }
+        },
+        "SubmitUserMessageRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "text": {
+              "type": "string",
+              "id": 2
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 3
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 4
+            },
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
+              "id": 5
+            },
+            "attachments": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 7
+            },
+            "scopeId": {
+              "type": "string",
+              "id": 8
+            },
+            "scopeContext": {
+              "keyType": "string",
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "SubmitUserMessageResponse": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "messageId": {
+              "type": "string",
+              "id": 2
+            },
+            "seq": {
+              "type": "uint64",
+              "id": 3
+            }
+          }
+        },
+        "RegenerateAssistantMessageRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "assistantMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 3
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "RegenerateAssistantMessageResponse": {
+          "fields": {
+            "truncatedToSeq": {
+              "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "EditUserMessageRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "userMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "newText": {
+              "type": "string",
+              "id": 3
+            },
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
+              "id": 4
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 5
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 6
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 7
+            }
+          }
+        },
+        "EditUserMessageResponse": {
+          "fields": {
+            "truncatedToSeq": {
+              "type": "uint64",
+              "id": 1
+            },
+            "newMessageId": {
+              "type": "string",
+              "id": 2
+            },
+            "newMessageSeq": {
+              "type": "uint64",
+              "id": 3
+            }
+          }
+        },
+        "ConversationEventMsg": {
+          "oneofs": {
+            "event": {
+              "oneof": [
+                "userMessage",
+                "assistantStart",
+                "assistantTextDelta",
+                "assistantThinkingDelta",
+                "toolCallStart",
+                "toolConfirmationRequested",
+                "toolConfirmationResolved",
+                "toolCallResult",
+                "assistantComplete",
+                "error",
+                "voiceDelta",
+                "commandOutput",
+                "truncate",
+                "commandSuggested",
+                "commandSuggestionResolved",
+                "planUpdated",
+                "subagentActivity",
+                "commandExecuted"
+              ]
+            }
+          },
+          "fields": {
+            "seq": {
+              "type": "uint64",
+              "id": 1
+            },
+            "timestamp": {
+              "type": "Timestamp",
+              "id": 2
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 3
+            },
+            "userMessage": {
+              "type": "UserMessageEvt",
+              "id": 10
+            },
+            "assistantStart": {
+              "type": "AssistantStartEvt",
+              "id": 11
+            },
+            "assistantTextDelta": {
+              "type": "AssistantTextDeltaEvt",
+              "id": 12
+            },
+            "assistantThinkingDelta": {
+              "type": "AssistantThinkingDeltaEvt",
+              "id": 13
+            },
+            "toolCallStart": {
+              "type": "ToolCallStartEvt",
+              "id": 14
+            },
+            "toolConfirmationRequested": {
+              "type": "ToolConfirmationRequestedEvt",
+              "id": 15
+            },
+            "toolConfirmationResolved": {
+              "type": "ToolConfirmationResolvedEvt",
+              "id": 16
+            },
+            "toolCallResult": {
+              "type": "ToolCallResultEvt",
+              "id": 17
+            },
+            "assistantComplete": {
+              "type": "AssistantCompleteEvt",
+              "id": 18
+            },
+            "error": {
+              "type": "ErrorEvt",
+              "id": 19
+            },
+            "voiceDelta": {
+              "type": "VoiceDeltaEvt",
+              "id": 20
+            },
+            "commandOutput": {
+              "type": "CommandOutputEvt",
+              "id": 21
+            },
+            "truncate": {
+              "type": "TruncateEvt",
+              "id": 22
+            },
+            "commandSuggested": {
+              "type": "CommandSuggestedEvt",
+              "id": 23
+            },
+            "commandSuggestionResolved": {
+              "type": "CommandSuggestionResolvedEvt",
+              "id": 24
+            },
+            "planUpdated": {
+              "type": "PlanUpdatedEvt",
+              "id": 25
+            },
+            "subagentActivity": {
+              "type": "SubagentActivityEvt",
+              "id": 26
+            },
+            "commandExecuted": {
+              "type": "CommandExecutedEvt",
+              "id": 27
+            }
+          }
+        },
+        "TruncateEvt": {
+          "fields": {
+            "afterSeq": {
+              "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "UserMessageEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "content": {
+              "type": "string",
+              "id": 2
+            },
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
+              "id": 3
+            },
+            "attachments": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            },
+            "documents": {
+              "rule": "repeated",
+              "type": "DocumentAttachment",
+              "id": 5
+            }
+          }
+        },
+        "AssistantStartEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "AssistantTextDeltaEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "delta": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "AssistantThinkingDeltaEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "delta": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ToolCallStartEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "callId": {
+              "type": "string",
+              "id": 2
+            },
+            "name": {
+              "type": "string",
+              "id": 3
+            },
+            "arguments": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ToolConfirmationRequestedEvt": {
+          "fields": {
+            "callId": {
+              "type": "string",
+              "id": 1
+            },
+            "requestId": {
+              "type": "string",
+              "id": 2
+            },
+            "dangerLevel": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "ruleDescription": {
+              "type": "string",
+              "id": 5
+            },
+            "timeoutSeconds": {
+              "type": "uint32",
+              "id": 6
+            }
+          }
+        },
+        "ToolConfirmationResolvedEvt": {
+          "fields": {
+            "callId": {
+              "type": "string",
+              "id": 1
+            },
+            "approved": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "ToolCallResultEvt": {
+          "fields": {
+            "callId": {
+              "type": "string",
+              "id": 1
+            },
+            "output": {
+              "type": "string",
+              "id": 2
+            },
+            "status": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "AssistantCompleteEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ErrorEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "content": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "VoiceDeltaEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "delta": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CommandOutputEvt": {
+          "fields": {
+            "content": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "CommandExecutedEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "commandId": {
+              "type": "string",
+              "id": 2
+            },
+            "commandName": {
+              "type": "string",
+              "id": 3
+            },
+            "text": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "CommandSuggestedEvt": {
+          "fields": {
+            "suggestionId": {
+              "type": "string",
+              "id": 1
+            },
+            "messageId": {
+              "type": "string",
+              "id": 2
+            },
+            "proposedName": {
+              "type": "string",
+              "id": 3
+            },
+            "proposedTriggers": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            },
+            "actionsPreview": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            },
+            "decisionKind": {
+              "type": "string",
+              "id": 6
+            },
+            "targetCommandId": {
+              "type": "string",
+              "id": 7
+            },
+            "flagReview": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "CommandSuggestionResolvedEvt": {
+          "fields": {
+            "suggestionId": {
+              "type": "string",
+              "id": 1
+            },
+            "saved": {
+              "type": "bool",
+              "id": 2
+            },
+            "savedCommandId": {
+              "type": "string",
+              "id": 3
+            },
+            "savedName": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PlanUpdatedEvt": {
+          "fields": {
+            "explanation": {
+              "type": "string",
+              "id": 1
+            },
+            "steps": {
+              "rule": "repeated",
+              "type": "PlanStepMsg",
+              "id": 2
+            }
+          }
+        },
+        "SubagentActivityEvt": {
+          "fields": {
+            "parentCallId": {
+              "type": "string",
+              "id": 1
+            },
+            "agentId": {
+              "type": "string",
+              "id": 2
+            },
+            "phase": {
+              "type": "string",
+              "id": 3
+            },
+            "tool": {
+              "type": "string",
+              "id": 4
+            },
+            "callId": {
+              "type": "string",
+              "id": 5
+            },
+            "iterations": {
+              "type": "uint32",
+              "id": 6
+            },
+            "maxIterations": {
+              "type": "uint32",
+              "id": 7
+            },
+            "stop": {
+              "type": "string",
+              "id": 8
+            },
+            "reportBytes": {
+              "type": "uint32",
+              "id": 9
+            },
+            "truncated": {
+              "type": "bool",
+              "id": 10
+            }
+          }
+        },
+        "PlanStepMsg": {
+          "fields": {
+            "step": {
+              "type": "string",
+              "id": 1
+            },
+            "status": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "VoiceService": {
+          "methods": {
+            "StartListening": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "StopListening": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "GetMicrophones": {
+              "requestType": "Empty",
+              "responseType": "MicrophoneListResponse"
+            },
+            "SetMicrophone": {
+              "requestType": "SetMicrophoneRequest",
+              "responseType": "Empty"
+            },
+            "GetOutputDevices": {
+              "requestType": "Empty",
+              "responseType": "OutputDeviceListResponse"
+            },
+            "SetOutputDevice": {
+              "requestType": "SetOutputDeviceRequest",
+              "responseType": "Empty"
+            },
+            "Speak": {
+              "requestType": "SpeakRequest",
+              "responseType": "Empty"
+            },
+            "StopSpeaking": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "GetVoices": {
+              "requestType": "Empty",
+              "responseType": "VoiceListResponse"
+            },
+            "SetVoice": {
+              "requestType": "SetVoiceRequest",
+              "responseType": "Empty"
+            },
+            "GetWhisperModels": {
+              "requestType": "Empty",
+              "responseType": "WhisperModelsResponse"
+            },
+            "DownloadWhisperModel": {
+              "requestType": "DownloadWhisperModelRequest",
+              "responseType": "Empty"
+            },
+            "GetDownloadProgress": {
+              "requestType": "Empty",
+              "responseType": "DownloadProgressResponse"
+            },
+            "CancelDownload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "DeleteWhisperModel": {
+              "requestType": "DeleteWhisperModelRequest",
+              "responseType": "Empty"
+            },
+            "SearchVoices": {
+              "requestType": "SearchVoicesRequest",
+              "responseType": "SearchVoicesResponse"
+            },
+            "GetTtsProviders": {
+              "requestType": "Empty",
+              "responseType": "TtsProvidersResponse"
+            },
+            "GetSttProviders": {
+              "requestType": "Empty",
+              "responseType": "SttProvidersResponse"
+            },
+            "GetSupertonicStatus": {
+              "requestType": "Empty",
+              "responseType": "SupertonicStatusResponse"
+            },
+            "DownloadSupertonicModels": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "GetSupertonicDownloadProgress": {
+              "requestType": "Empty",
+              "responseType": "DownloadProgressResponse"
+            },
+            "CancelSupertonicDownload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "DeleteSupertonicModels": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ListSupertonicVoices": {
+              "requestType": "Empty",
+              "responseType": "ListSupertonicVoicesResponse"
+            },
+            "ImportSupertonicVoice": {
+              "requestType": "ImportSupertonicVoiceRequest",
+              "responseType": "SupertonicVoice"
+            },
+            "DeleteSupertonicVoice": {
+              "requestType": "DeleteSupertonicVoiceRequest",
+              "responseType": "Empty"
+            },
+            "ActivateVoxVoice": {
+              "requestType": "Empty",
+              "responseType": "VoxActivationResponse"
+            },
+            "GetEmbeddingModels": {
+              "requestType": "Empty",
+              "responseType": "EmbeddingModelsResponse"
+            },
+            "DownloadEmbeddingModel": {
+              "requestType": "DownloadEmbeddingModelRequest",
+              "responseType": "Empty"
+            },
+            "GetEmbeddingDownloadProgress": {
+              "requestType": "Empty",
+              "responseType": "DownloadProgressResponse"
+            },
+            "CancelEmbeddingDownload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "DeleteEmbeddingModel": {
+              "requestType": "DeleteEmbeddingModelRequest",
+              "responseType": "Empty"
+            },
+            "SetVoiceConversation": {
+              "requestType": "SetVoiceConversationRequest",
+              "responseType": "Empty"
+            },
+            "SetVoicePendingImages": {
+              "requestType": "SetVoicePendingImagesRequest",
+              "responseType": "Empty"
+            }
+          }
+        },
+        "MicrophoneListResponse": {
+          "fields": {
+            "microphones": {
+              "rule": "repeated",
+              "type": "Microphone",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "Microphone": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "isDefault": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "SetMicrophoneRequest": {
+          "fields": {
+            "microphoneId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "OutputDeviceListResponse": {
+          "fields": {
+            "devices": {
+              "rule": "repeated",
+              "type": "OutputDevice",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "OutputDevice": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "isDefault": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "SetOutputDeviceRequest": {
+          "fields": {
+            "outputDeviceId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SpeakRequest": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "voiceId": {
+              "type": "string",
+              "id": 2
+            },
+            "interrupt": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "VoiceListResponse": {
+          "fields": {
+            "voices": {
+              "rule": "repeated",
+              "type": "Voice",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "Voice": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "provider": {
+              "type": "string",
+              "id": 3
+            },
+            "language": {
+              "type": "string",
+              "id": 4
+            },
+            "gender": {
+              "type": "string",
+              "id": 5
+            },
+            "nameKey": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "SetVoiceRequest": {
+          "fields": {
+            "voiceId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "WhisperModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "baseModel": {
+              "type": "string",
+              "id": 3
+            },
+            "language": {
+              "type": "string",
+              "id": 4
+            },
+            "quantization": {
+              "type": "string",
+              "id": 5
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 6
+            },
+            "sizeDisplay": {
+              "type": "string",
+              "id": 7
+            },
+            "isDownloaded": {
+              "type": "bool",
+              "id": 8
+            },
+            "isActive": {
+              "type": "bool",
+              "id": 9
+            },
+            "recommended": {
+              "type": "bool",
+              "id": 10
+            }
+          }
+        },
+        "WhisperModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "WhisperModelInfo",
+              "id": 1
+            },
+            "activeModelId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "DownloadWhisperModelRequest": {
+          "fields": {
+            "modelId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "DownloadProgressResponse": {
+          "fields": {
+            "isDownloading": {
+              "type": "bool",
+              "id": 1
+            },
+            "modelId": {
+              "type": "string",
+              "id": 2
+            },
+            "modelName": {
+              "type": "string",
+              "id": 3
+            },
+            "downloadedBytes": {
+              "type": "uint64",
+              "id": 4
+            },
+            "totalBytes": {
+              "type": "uint64",
+              "id": 5
+            },
+            "percent": {
+              "type": "float",
+              "id": 6
+            },
+            "speedBytesPerSec": {
+              "type": "uint64",
+              "id": 7
+            },
+            "etaSeconds": {
+              "type": "uint32",
+              "id": 8
+            },
+            "error": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "DeleteWhisperModelRequest": {
+          "fields": {
+            "modelId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "EmbeddingModelInfoMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "baseModel": {
+              "type": "string",
+              "id": 3
+            },
+            "languages": {
+              "type": "string",
+              "id": 4
+            },
+            "dimensions": {
+              "type": "uint32",
+              "id": 5
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 6
+            },
+            "sizeDisplay": {
+              "type": "string",
+              "id": 7
+            },
+            "tier": {
+              "type": "string",
+              "id": 8
+            },
+            "isDownloaded": {
+              "type": "bool",
+              "id": 9
+            },
+            "isActive": {
+              "type": "bool",
+              "id": 10
+            }
+          }
+        },
+        "EmbeddingModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "EmbeddingModelInfoMsg",
+              "id": 1
+            },
+            "activeModelId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "DownloadEmbeddingModelRequest": {
+          "fields": {
+            "modelId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "DeleteEmbeddingModelRequest": {
+          "fields": {
+            "modelId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetVoiceConversationRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetVoicePendingImagesRequest": {
+          "fields": {
+            "images": {
+              "rule": "repeated",
+              "type": "ImageAttachment",
+              "id": 1
+            }
+          }
+        },
+        "CommandService": {
+          "methods": {
+            "List": {
+              "requestType": "ListCommandsRequest",
+              "responseType": "CommandListResponse"
+            },
+            "Get": {
+              "requestType": "GetCommandRequest",
+              "responseType": "CommandDefinition"
+            },
+            "Create": {
+              "requestType": "CreateCommandRequest",
+              "responseType": "CommandDefinition"
+            },
+            "Update": {
+              "requestType": "UpdateCommandRequest",
+              "responseType": "CommandDefinition"
+            },
+            "Delete": {
+              "requestType": "DeleteCommandRequest",
+              "responseType": "Empty"
+            },
+            "Execute": {
+              "requestType": "ExecuteCommandRequest",
+              "responseType": "ExecuteCommandResponse"
+            },
+            "SetEnabled": {
+              "requestType": "SetCommandEnabledRequest",
+              "responseType": "Empty"
+            },
+            "GetCursorPosition": {
+              "requestType": "Empty",
+              "responseType": "CursorPositionResponse"
+            },
+            "ListGroups": {
+              "requestType": "Empty",
+              "responseType": "CommandGroupListResponse"
+            },
+            "CreateGroup": {
+              "requestType": "CreateGroupRequest",
+              "responseType": "CommandGroup"
+            },
+            "UpdateGroup": {
+              "requestType": "UpdateGroupRequest",
+              "responseType": "CommandGroup"
+            },
+            "DeleteGroup": {
+              "requestType": "DeleteGroupRequest",
+              "responseType": "Empty"
+            },
+            "MoveCommandToGroup": {
+              "requestType": "MoveCommandToGroupRequest",
+              "responseType": "CommandDefinition"
+            }
+          }
+        },
+        "CommandGroup": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "order": {
+              "type": "int32",
+              "id": 3
+            },
+            "collapsed": {
+              "type": "bool",
+              "id": 4
+            },
+            "createdAt": {
+              "type": "Timestamp",
+              "id": 5
+            },
+            "updatedAt": {
+              "type": "Timestamp",
+              "id": 6
+            }
+          }
+        },
+        "CommandGroupListResponse": {
+          "fields": {
+            "groups": {
+              "rule": "repeated",
+              "type": "CommandGroup",
+              "id": 1
+            }
+          }
+        },
+        "CreateGroupRequest": {
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "UpdateGroupRequest": {
+          "oneofs": {
+            "_name": {
+              "oneof": [
+                "name"
+              ]
+            },
+            "_collapsed": {
+              "oneof": [
+                "collapsed"
+              ]
+            },
+            "_order": {
+              "oneof": [
+                "order"
+              ]
+            }
+          },
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "collapsed": {
+              "type": "bool",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "order": {
+              "type": "int32",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "DeleteGroupRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "MoveCommandToGroupRequest": {
+          "fields": {
+            "commandId": {
+              "type": "string",
+              "id": 1
+            },
+            "groupId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CursorPositionResponse": {
+          "fields": {
+            "x": {
+              "type": "int32",
+              "id": 1
+            },
+            "y": {
+              "type": "int32",
+              "id": 2
+            }
+          }
+        },
+        "ListCommandsRequest": {
+          "fields": {
+            "includeDisabled": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "CommandListResponse": {
+          "fields": {
+            "commands": {
+              "rule": "repeated",
+              "type": "CommandDefinition",
+              "id": 1
+            }
+          }
+        },
+        "GetCommandRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "CreateCommandRequest": {
+          "oneofs": {
+            "_workflow": {
+              "oneof": [
+                "workflow"
+              ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
+            }
+          },
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            },
+            "triggers": {
+              "rule": "repeated",
+              "type": "Trigger",
+              "id": 2
+            },
+            "actions": {
+              "rule": "repeated",
+              "type": "Action",
+              "id": 3
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 4
+            },
+            "description": {
+              "type": "string",
+              "id": 5
+            },
+            "tags": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "editorMode": {
+              "type": "EditorMode",
+              "id": 7
+            },
+            "workflow": {
+              "type": "WorkflowGraph",
+              "id": 8,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 10
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 11
+            }
+          }
+        },
+        "UpdateCommandRequest": {
+          "oneofs": {
+            "_name": {
+              "oneof": [
+                "name"
+              ]
+            },
+            "_enabled": {
+              "oneof": [
+                "enabled"
+              ]
+            },
+            "_description": {
+              "oneof": [
+                "description"
+              ]
+            },
+            "_editorMode": {
+              "oneof": [
+                "editorMode"
+              ]
+            },
+            "_workflow": {
+              "oneof": [
+                "workflow"
+              ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
+            },
+            "_slashEnabled": {
+              "oneof": [
+                "slashEnabled"
+              ]
+            },
+            "_slashDescription": {
+              "oneof": [
+                "slashDescription"
+              ]
+            }
+          },
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "triggers": {
+              "rule": "repeated",
+              "type": "Trigger",
+              "id": 3
+            },
+            "actions": {
+              "rule": "repeated",
+              "type": "Action",
+              "id": 4
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "description": {
+              "type": "string",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "tags": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 7
+            },
+            "editorMode": {
+              "type": "EditorMode",
+              "id": 8,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workflow": {
+              "type": "WorkflowGraph",
+              "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 10,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "DeleteCommandRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ExecuteCommandRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "variables": {
+              "keyType": "string",
+              "type": "string",
+              "id": 2
+            },
+            "entryNodeId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "ExecuteCommandResponse": {
+          "fields": {
+            "success": {
+              "type": "bool",
+              "id": 1
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 2
+            },
+            "actionResults": {
+              "rule": "repeated",
+              "type": "ActionResult",
+              "id": 3
+            }
+          }
+        },
+        "ActionResult": {
+          "fields": {
+            "actionIndex": {
+              "type": "int32",
+              "id": 1
+            },
+            "success": {
+              "type": "bool",
+              "id": 2
+            },
+            "output": {
+              "type": "string",
+              "id": 3
+            },
+            "error": {
+              "type": "string",
+              "id": 4
+            },
+            "nodeId": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "SetCommandEnabledRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "CommandDefinition": {
+          "oneofs": {
+            "_workflow": {
+              "oneof": [
+                "workflow"
+              ]
+            },
+            "_groupId": {
+              "oneof": [
+                "groupId"
+              ]
+            },
+            "_execution": {
+              "oneof": [
+                "execution"
+              ]
+            }
+          },
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "triggers": {
+              "rule": "repeated",
+              "type": "Trigger",
+              "id": 3
+            },
+            "actions": {
+              "rule": "repeated",
+              "type": "Action",
+              "id": 4
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 5
+            },
+            "createdAt": {
+              "type": "Timestamp",
+              "id": 6
+            },
+            "updatedAt": {
+              "type": "Timestamp",
+              "id": 7
+            },
+            "description": {
+              "type": "string",
+              "id": 8
+            },
+            "tags": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 9
+            },
+            "editorMode": {
+              "type": "EditorMode",
+              "id": 10
+            },
+            "workflow": {
+              "type": "WorkflowGraph",
+              "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "groupId": {
+              "type": "string",
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "execution": {
+              "type": "CommandExecutionOverride",
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "slashEnabled": {
+              "type": "bool",
+              "id": 14
+            },
+            "slashDescription": {
+              "type": "string",
+              "id": 15
+            }
+          }
+        },
+        "CommandExecutionOverride": {
+          "oneofs": {
+            "_maxSteps": {
+              "oneof": [
+                "maxSteps"
+              ]
+            },
+            "_maxLoopIterations": {
+              "oneof": [
+                "maxLoopIterations"
+              ]
+            },
+            "_timeoutSeconds": {
+              "oneof": [
+                "timeoutSeconds"
+              ]
+            }
+          },
+          "fields": {
+            "maxSteps": {
+              "type": "uint64",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "maxLoopIterations": {
+              "type": "uint64",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "timeoutSeconds": {
+              "type": "uint64",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "Trigger": {
+          "fields": {
+            "type": {
+              "type": "string",
+              "id": 1
+            },
+            "configJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "Action": {
+          "fields": {
+            "type": {
+              "type": "string",
+              "id": 1
+            },
+            "configJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "EditorMode": {
+          "values": {
+            "EDITOR_MODE_LINEAR": 0,
+            "EDITOR_MODE_GRAPH": 1
+          }
+        },
+        "WorkflowGraph": {
+          "fields": {
+            "nodes": {
+              "rule": "repeated",
+              "type": "GraphNode",
+              "id": 1
+            },
+            "edges": {
+              "rule": "repeated",
+              "type": "GraphEdge",
+              "id": 2
+            }
+          }
+        },
+        "GraphNode": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "nodeType": {
+              "type": "NodeType",
+              "id": 2
+            },
+            "data": {
+              "keyType": "string",
+              "type": "string",
+              "id": 3
+            },
+            "label": {
+              "type": "string",
+              "id": 4
+            },
+            "positionX": {
+              "type": "double",
+              "id": 5
+            },
+            "positionY": {
+              "type": "double",
+              "id": 6
+            }
+          }
+        },
+        "NodeType": {
+          "values": {
+            "NODE_TYPE_START": 0,
+            "NODE_TYPE_END": 1,
+            "NODE_TYPE_ACTION": 2,
+            "NODE_TYPE_CONDITION": 3,
+            "NODE_TYPE_LOOP": 4,
+            "NODE_TYPE_PARALLEL": 5,
+            "NODE_TYPE_MERGE": 6,
+            "NODE_TYPE_ERROR_HANDLER": 7,
+            "NODE_TYPE_SUB_WORKFLOW": 8,
+            "NODE_TYPE_TRIGGER": 9,
+            "NODE_TYPE_STICKY_NOTE": 10,
+            "NODE_TYPE_SWITCH": 11,
+            "NODE_TYPE_DELAY": 12,
+            "NODE_TYPE_FILTER": 13
+          }
+        },
+        "GraphEdge": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "sourceNode": {
+              "type": "string",
+              "id": 2
+            },
+            "sourcePort": {
+              "type": "string",
+              "id": 3
+            },
+            "targetNode": {
+              "type": "string",
+              "id": 4
+            },
+            "targetPort": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "HotkeyBinding": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "combo": {
+              "type": "string",
+              "id": 2
+            },
+            "status": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "bindHint": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "HotkeyCompositorInfo": {
+          "fields": {
+            "model": {
+              "type": "string",
+              "id": 1
+            },
+            "parser": {
+              "type": "string",
+              "id": 2
+            },
+            "managedFile": {
+              "type": "string",
+              "id": 3
+            },
+            "includeTarget": {
+              "type": "string",
+              "id": 4
+            },
+            "includePresent": {
+              "type": "bool",
+              "id": 5
+            },
+            "needsSetup": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "GetHotkeyBindingsResponse": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "bindings": {
+              "rule": "repeated",
+              "type": "HotkeyBinding",
+              "id": 2
+            },
+            "compositor": {
+              "type": "HotkeyCompositorInfo",
+              "id": 3
+            }
+          }
+        },
+        "ConfigureHotkeyRequest": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ConfigureHotkeyResponse": {
+          "fields": {
+            "opened": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "ConfigService": {
+          "methods": {
+            "GetSettings": {
+              "requestType": "Empty",
+              "responseType": "SettingsResponse"
+            },
+            "UpdateSettings": {
+              "requestType": "UpdateSettingsRequest",
+              "responseType": "Empty"
+            },
+            "SetSetting": {
+              "requestType": "SetSettingRequest",
+              "responseType": "Empty"
+            },
+            "CompleteOobe": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ResetSettings": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "ExportSettings": {
+              "requestType": "ExportSettingsRequest",
+              "responseType": "ExportSettingsResponse"
+            },
+            "ImportSettings": {
+              "requestType": "ImportSettingsRequest",
+              "responseType": "Empty"
+            },
+            "GetModels": {
+              "requestType": "GetModelsRequest",
+              "responseType": "GetModelsResponse"
+            },
+            "GetAiProviders": {
+              "requestType": "Empty",
+              "responseType": "AiProvidersResponse"
+            },
+            "TestAiProvider": {
+              "requestType": "TestAiProviderRequest",
+              "responseType": "TestAiProviderResponse"
+            },
+            "GetWidgetData": {
+              "requestType": "WidgetDataRequest",
+              "responseType": "WidgetDataResponse"
+            },
+            "SaveWidgetData": {
+              "requestType": "SaveWidgetDataRequest",
+              "responseType": "WidgetDataResponse"
+            },
+            "ActOnReminder": {
+              "requestType": "ReminderActionRequest",
+              "responseType": "Empty"
+            },
+            "GetWidgetDescriptors": {
+              "requestType": "Empty",
+              "responseType": "WidgetDescriptorsResponse"
+            },
+            "GetIndexerStatus": {
+              "requestType": "Empty",
+              "responseType": "IndexerStatusResponse"
+            },
+            "GetHotkeyBindings": {
+              "requestType": "Empty",
+              "responseType": "GetHotkeyBindingsResponse"
+            },
+            "ConfigureHotkey": {
+              "requestType": "ConfigureHotkeyRequest",
+              "responseType": "ConfigureHotkeyResponse"
+            },
+            "GetCurrentWeather": {
+              "requestType": "WeatherRequest",
+              "responseType": "CurrentWeatherResponse"
+            },
+            "GetWeatherForecast": {
+              "requestType": "WeatherRequest",
+              "responseType": "WeatherForecastResponse"
+            },
+            "DetectLocation": {
+              "requestType": "Empty",
+              "responseType": "DetectedLocationResponse"
+            },
+            "GetCurrencyRate": {
+              "requestType": "CurrencyRateRequest",
+              "responseType": "CurrencyRateResponse"
+            },
+            "GetCurrencySeries": {
+              "requestType": "CurrencySeriesRequest",
+              "responseType": "CurrencySeriesResponse"
+            },
+            "GetCryptoRate": {
+              "requestType": "CryptoRateRequest",
+              "responseType": "CryptoRateResponse"
+            },
+            "GetCryptoSeries": {
+              "requestType": "CryptoSeriesRequest",
+              "responseType": "CryptoSeriesResponse"
+            },
+            "ListBrowsers": {
+              "requestType": "Empty",
+              "responseType": "ListBrowsersResponse"
+            }
+          }
+        },
+        "BrowserInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ListBrowsersResponse": {
+          "fields": {
+            "browsers": {
+              "rule": "repeated",
+              "type": "BrowserInfo",
+              "id": 1
+            }
+          }
+        },
+        "CurrencyRateRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CurrencySeriesRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            }
+          }
+        },
+        "CurrencySeriesPoint": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "rate": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CurrencySeriesResponse": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            },
+            "points": {
+              "rule": "repeated",
+              "type": "CurrencySeriesPoint",
+              "id": 4
+            },
+            "unsupportedCurrencies": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "CurrencyRateResponse": {
+          "oneofs": {
+            "_weekChange": {
+              "oneof": [
+                "weekChange"
+              ]
+            }
+          },
+          "fields": {
+            "rate": {
+              "type": "double",
+              "id": 1
+            },
+            "from": {
+              "type": "string",
+              "id": 2
+            },
+            "to": {
+              "type": "string",
+              "id": 3
+            },
+            "weekChange": {
+              "type": "double",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "CryptoRateRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CryptoSeriesRequest": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            }
+          }
+        },
+        "CryptoSeriesPoint": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "rate": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CryptoSeriesResponse": {
+          "fields": {
+            "from": {
+              "type": "string",
+              "id": 1
+            },
+            "to": {
+              "type": "string",
+              "id": 2
+            },
+            "days": {
+              "type": "int32",
+              "id": 3
+            },
+            "points": {
+              "rule": "repeated",
+              "type": "CryptoSeriesPoint",
+              "id": 4
+            },
+            "unsupportedCurrencies": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "CryptoRateResponse": {
+          "oneofs": {
+            "_weekChange": {
+              "oneof": [
+                "weekChange"
+              ]
+            }
+          },
+          "fields": {
+            "rate": {
+              "type": "double",
+              "id": 1
+            },
+            "from": {
+              "type": "string",
+              "id": 2
+            },
+            "to": {
+              "type": "string",
+              "id": 3
+            },
+            "weekChange": {
+              "type": "double",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "IndexerStatusResponse": {
+          "oneofs": {
+            "_progress": {
+              "oneof": [
+                "progress"
+              ]
+            }
+          },
+          "fields": {
+            "state": {
+              "type": "string",
+              "id": 1
+            },
+            "indexedFiles": {
+              "type": "uint64",
+              "id": 2
+            },
+            "scanningFiles": {
+              "type": "uint64",
+              "id": 3
+            },
+            "uptimeSeconds": {
+              "type": "uint64",
+              "id": 4
+            },
+            "volumes": {
+              "rule": "repeated",
+              "type": "IndexerVolumeStatusMsg",
+              "id": 5
+            },
+            "progress": {
+              "type": "IndexerScanProgressMsg",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "IndexerVolumeStatusMsg": {
+          "fields": {
+            "letter": {
+              "type": "string",
+              "id": 1
+            },
+            "fsType": {
+              "type": "string",
+              "id": 2
+            },
+            "totalFiles": {
+              "type": "uint64",
+              "id": 3
+            },
+            "lastScan": {
+              "type": "int64",
+              "id": 4
+            },
+            "online": {
+              "type": "bool",
+              "id": 5
+            }
+          }
+        },
+        "IndexerScanProgressMsg": {
+          "fields": {
+            "volume": {
+              "type": "string",
+              "id": 1
+            },
+            "volumeIndex": {
+              "type": "uint32",
+              "id": 2
+            },
+            "volumeCount": {
+              "type": "uint32",
+              "id": 3
+            },
+            "phase": {
+              "type": "string",
+              "id": 4
+            },
+            "done": {
+              "type": "uint64",
+              "id": 5
+            },
+            "total": {
+              "type": "uint64",
+              "id": 6
+            },
+            "filesFound": {
+              "type": "uint64",
+              "id": 7
+            },
+            "elapsedSeconds": {
+              "type": "uint64",
+              "id": 8
+            }
+          }
+        },
+        "SettingsResponse": {
+          "fields": {
+            "general": {
+              "type": "GeneralSettings",
+              "id": 1
+            },
+            "voice": {
+              "type": "VoiceSettings",
+              "id": 2
+            },
+            "ai": {
+              "type": "AiSettings",
+              "id": 3
+            },
+            "hotkeys": {
+              "type": "HotkeySettings",
+              "id": 4
+            },
+            "appearance": {
+              "type": "AppearanceSettings",
+              "id": 5
+            },
+            "network": {
+              "type": "NetworkSettings",
+              "id": 6
+            },
+            "companion": {
+              "type": "CompanionSettings",
+              "id": 7
+            },
+            "semantic": {
+              "type": "SemanticSettings",
+              "id": 8
+            },
+            "widgets": {
+              "type": "WidgetVisibilitySettings",
+              "id": 9
+            },
+            "safety": {
+              "type": "SafetySettings",
+              "id": 10
+            },
+            "toolSearch": {
+              "type": "ToolSearchSettings",
+              "id": 11
+            },
+            "overlayWidgets": {
+              "type": "OverlayWidgetsSettings",
+              "id": 12
+            },
+            "commandExecution": {
+              "type": "CommandExecutionSettings",
+              "id": 13
+            },
+            "discord": {
+              "type": "DiscordSettings",
+              "id": 14
+            },
+            "projects": {
+              "type": "ProjectSettings",
+              "id": 15
+            },
+            "skills": {
+              "type": "SkillsSettings",
+              "id": 16
+            },
+            "mail": {
+              "type": "MailSettings",
+              "id": 17
+            },
+            "optimize": {
+              "type": "OptimizeSettings",
+              "id": 18
+            }
+          }
+        },
+        "MailSettings": {
+          "fields": {
+            "cacheBodies": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "OptimizeSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "riskTier": {
+              "type": "string",
+              "id": 2
+            },
+            "ruleStates": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 3
+            },
+            "ruleConfigs": {
+              "keyType": "string",
+              "type": "RuleConfigMsg",
+              "id": 4
+            },
+            "overviewTtlMinutes": {
+              "type": "uint32",
+              "id": 5
+            },
+            "confirmBeforeApply": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "RuleConfigMsg": {
+          "fields": {
+            "values": {
+              "keyType": "string",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SkillsSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "skillStates": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 2
+            },
+            "extraDirs": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SetSettingRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "valueJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "UpdateSettingsRequest": {
+          "oneofs": {
+            "_general": {
+              "oneof": [
+                "general"
+              ]
+            },
+            "_voice": {
+              "oneof": [
+                "voice"
+              ]
+            },
+            "_ai": {
+              "oneof": [
+                "ai"
+              ]
+            },
+            "_hotkeys": {
+              "oneof": [
+                "hotkeys"
+              ]
+            },
+            "_appearance": {
+              "oneof": [
+                "appearance"
+              ]
+            },
+            "_network": {
+              "oneof": [
+                "network"
+              ]
+            },
+            "_companion": {
+              "oneof": [
+                "companion"
+              ]
+            },
+            "_semantic": {
+              "oneof": [
+                "semantic"
+              ]
+            },
+            "_widgets": {
+              "oneof": [
+                "widgets"
+              ]
+            },
+            "_safety": {
+              "oneof": [
+                "safety"
+              ]
+            },
+            "_toolSearch": {
+              "oneof": [
+                "toolSearch"
+              ]
+            }
+          },
+          "fields": {
+            "general": {
+              "type": "GeneralSettings",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "voice": {
+              "type": "VoiceSettings",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "ai": {
+              "type": "AiSettings",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "hotkeys": {
+              "type": "HotkeySettings",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "appearance": {
+              "type": "AppearanceSettings",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "network": {
+              "type": "NetworkSettings",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "companion": {
+              "type": "CompanionSettings",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "semantic": {
+              "type": "SemanticSettings",
+              "id": 8,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "widgets": {
+              "type": "WidgetVisibilitySettings",
+              "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "safety": {
+              "type": "SafetySettings",
+              "id": 10,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "toolSearch": {
+              "type": "ToolSearchSettings",
+              "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "ToolSearchSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "mode": {
+              "type": "string",
+              "id": 2
+            },
+            "defaultSearchLimit": {
+              "type": "uint32",
+              "id": 3
+            },
+            "maxSearchLimit": {
+              "type": "uint32",
+              "id": 4
+            },
+            "scriptDeadlineMs": {
+              "type": "uint64",
+              "id": 5
+            },
+            "scriptMemoryMb": {
+              "type": "uint64",
+              "id": 6
+            }
+          }
+        },
+        "CommandExecutionSettings": {
+          "fields": {
+            "maxSteps": {
+              "type": "uint64",
+              "id": 1
+            },
+            "maxLoopIterations": {
+              "type": "uint64",
+              "id": 2
+            },
+            "timeoutSeconds": {
+              "type": "uint64",
+              "id": 3
+            }
+          }
+        },
+        "DiscordSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "ProjectSettings": {
+          "fields": {
+            "items": {
+              "rule": "repeated",
+              "type": "ProjectEntry",
+              "id": 1
+            },
+            "activeId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ProjectEntry": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "path": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SemanticSettings": {
+          "oneofs": {
+            "_enabled": {
+              "oneof": [
+                "enabled"
+              ]
+            },
+            "_modelId": {
+              "oneof": [
+                "modelId"
+              ]
+            },
+            "_threshold": {
+              "oneof": [
+                "threshold"
+              ]
+            }
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "modelId": {
+              "type": "string",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "threshold": {
+              "type": "float",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          },
+          "reserved": [
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            "mode",
+            "llm_model_id",
+            "memory_enabled"
+          ]
+        },
+        "CompanionSettings": {
+          "fields": {
+            "settings": {
+              "keyType": "string",
+              "type": "string",
+              "id": 1
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "NetworkSettings": {
+          "fields": {
+            "bindAddress": {
+              "type": "string",
+              "id": 1
+            },
+            "port": {
+              "type": "uint32",
+              "id": 2
+            },
+            "allowRemote": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "GeneralSettings": {
+          "oneofs": {
+            "_weatherLocationName": {
+              "oneof": [
+                "weatherLocationName"
+              ]
+            },
+            "_weatherLocationLat": {
+              "oneof": [
+                "weatherLocationLat"
+              ]
+            },
+            "_weatherLocationLon": {
+              "oneof": [
+                "weatherLocationLon"
+              ]
+            },
+            "_preferDiscreteGpu": {
+              "oneof": [
+                "preferDiscreteGpu"
+              ]
+            },
+            "_browser": {
+              "oneof": [
+                "browser"
+              ]
+            }
+          },
+          "fields": {
+            "language": {
+              "type": "string",
+              "id": 1
+            },
+            "startOnBoot": {
+              "type": "bool",
+              "id": 2
+            },
+            "startMinimized": {
+              "type": "bool",
+              "id": 3
+            },
+            "oobeCompleted": {
+              "type": "bool",
+              "id": 4
+            },
+            "uiPreference": {
+              "type": "string",
+              "id": 5
+            },
+            "indexingMode": {
+              "type": "string",
+              "id": 6
+            },
+            "locationAllowed": {
+              "type": "bool",
+              "id": 7
+            },
+            "aiMemoryEnabled": {
+              "type": "bool",
+              "id": 8
+            },
+            "excludedPaths": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 9
+            },
+            "windSpeedUnit": {
+              "type": "string",
+              "id": 10
+            },
+            "temperatureUnit": {
+              "type": "string",
+              "id": 11
+            },
+            "weatherLocationName": {
+              "type": "string",
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "weatherLocationLat": {
+              "type": "double",
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "weatherLocationLon": {
+              "type": "double",
+              "id": 14,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "currencyFrom": {
+              "type": "string",
+              "id": 15
+            },
+            "currencyTo": {
+              "type": "string",
+              "id": 16
+            },
+            "preferDiscreteGpu": {
+              "type": "bool",
+              "id": 17,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "cryptoFrom": {
+              "type": "string",
+              "id": 18
+            },
+            "cryptoTo": {
+              "type": "string",
+              "id": 19
+            },
+            "browser": {
+              "type": "string",
+              "id": 20,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "VoiceSettings": {
+          "fields": {
+            "sttModel": {
+              "type": "string",
+              "id": 1
+            },
+            "sttLanguage": {
+              "type": "string",
+              "id": 2
+            },
+            "vadThreshold": {
+              "type": "float",
+              "id": 3
+            },
+            "silenceDurationMs": {
+              "type": "int32",
+              "id": 4
+            },
+            "sttProvider": {
+              "type": "string",
+              "id": 22
+            },
+            "ttsProvider": {
+              "type": "string",
+              "id": 5
+            },
+            "ttsVoiceId": {
+              "type": "string",
+              "id": 6
+            },
+            "ttsSpeed": {
+              "type": "float",
+              "id": 7
+            },
+            "ttsPitch": {
+              "type": "float",
+              "id": 8
+            },
+            "wakeWordMode": {
+              "type": "string",
+              "id": 20
+            },
+            "wakeWords": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 14
+            },
+            "wakeWordEnabled": {
+              "type": "bool",
+              "id": 9
+            },
+            "wakeWordSensitivity": {
+              "type": "float",
+              "id": 10
+            },
+            "microphoneId": {
+              "type": "string",
+              "id": 11
+            },
+            "inputVolume": {
+              "type": "float",
+              "id": 12
+            },
+            "outputVolume": {
+              "type": "float",
+              "id": 13
+            },
+            "ttsEnabled": {
+              "type": "bool",
+              "id": 15
+            },
+            "autoStartListening": {
+              "type": "bool",
+              "id": 16
+            },
+            "astraVoiceId": {
+              "type": "string",
+              "id": 18
+            },
+            "ttsBriefResponse": {
+              "type": "bool",
+              "id": 19
+            },
+            "outputDeviceId": {
+              "type": "string",
+              "id": 21
+            },
+            "providerConfigsJson": {
+              "type": "string",
+              "id": 23
+            },
+            "wakeWordRearmThreshold": {
+              "type": "float",
+              "id": 24
+            },
+            "triggeredSilenceExtraMs": {
+              "type": "int32",
+              "id": 25
+            },
+            "wakeWordPatienceHits": {
+              "type": "int32",
+              "id": 26
+            },
+            "audioDuckingEnabled": {
+              "type": "bool",
+              "id": 27
+            },
+            "audioDuckingLevel": {
+              "type": "int32",
+              "id": 28
+            }
+          },
+          "reserved": [
+            [
+              17,
+              17
+            ]
+          ]
+        },
+        "AiSettings": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "model": {
+              "type": "string",
+              "id": 2
+            },
+            "apiKey": {
+              "type": "string",
+              "id": 3
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 4
+            },
+            "temperature": {
+              "type": "float",
+              "id": 5
+            },
+            "maxTokens": {
+              "type": "int32",
+              "id": 6
+            },
+            "systemPrompt": {
+              "type": "string",
+              "id": 7
+            },
+            "useTools": {
+              "type": "bool",
+              "id": 8
+            },
+            "contextLength": {
+              "type": "int32",
+              "id": 11
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 12
+            },
+            "showReasoning": {
+              "type": "string",
+              "id": 13
+            },
+            "maxToolRounds": {
+              "type": "uint32",
+              "id": 14
+            },
+            "turnDeadlineSecs": {
+              "type": "uint64",
+              "id": 15
+            },
+            "subagentModel": {
+              "type": "string",
+              "id": 16
+            }
+          },
+          "reserved": [
+            [
+              9,
+              9
+            ],
+            "use_thinking",
+            [
+              10,
+              10
+            ]
+          ]
+        },
+        "HotkeySettings": {
+          "fields": {
+            "pushToTalk": {
+              "type": "HotkeyConfig",
+              "id": 1
+            },
+            "overlay": {
+              "type": "HotkeyConfig",
+              "id": 5
+            }
+          },
+          "reserved": [
+            [
+              2,
+              2
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              4
+            ],
+            "toggle_listen",
+            "stop_speaking",
+            "open_chat"
+          ]
+        },
+        "HotkeyConfig": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "modifiers": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
+            },
+            "key": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "AppearanceSettings": {
+          "oneofs": {
+            "_workflowEdgeStyle": {
+              "oneof": [
+                "workflowEdgeStyle"
+              ]
+            },
+            "_windowDecorations": {
+              "oneof": [
+                "windowDecorations"
+              ]
+            }
+          },
+          "fields": {
+            "theme": {
+              "type": "string",
+              "id": 1
+            },
+            "uiScale": {
+              "type": "float",
+              "id": 2
+            },
+            "showInTray": {
+              "type": "bool",
+              "id": 3
+            },
+            "minimizeToTray": {
+              "type": "bool",
+              "id": 4
+            },
+            "windowsEffect": {
+              "type": "string",
+              "id": 5
+            },
+            "workflowEdgeStyle": {
+              "type": "string",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "windowDecorations": {
+              "type": "string",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "WidgetVisibilitySettings": {
+          "fields": {
+            "notes": {
+              "type": "bool",
+              "id": 1
+            },
+            "reminders": {
+              "type": "bool",
+              "id": 2
+            },
+            "calendar": {
+              "type": "bool",
+              "id": 3
+            },
+            "tasks": {
+              "type": "bool",
+              "id": 4
+            },
+            "currency": {
+              "type": "bool",
+              "id": 5
+            },
+            "crypto": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "OverlayWidgetsSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "widgets": {
+              "keyType": "string",
+              "type": "bool",
+              "id": 2
+            },
+            "layout": {
+              "rule": "repeated",
+              "type": "OverlayTilePlacement",
+              "id": 3
+            }
+          }
+        },
+        "OverlayTilePlacement": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "col": {
+              "type": "uint32",
+              "id": 2
+            },
+            "row": {
+              "type": "uint32",
+              "id": 3
+            }
+          }
+        },
+        "WidgetDescriptorMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "displayKey": {
+              "type": "string",
+              "id": 2
+            },
+            "icon": {
+              "type": "string",
+              "id": 3
+            },
+            "w": {
+              "type": "uint32",
+              "id": 4
+            },
+            "h": {
+              "type": "uint32",
+              "id": 5
+            },
+            "kind": {
+              "type": "string",
+              "id": 6
+            },
+            "editable": {
+              "type": "bool",
+              "id": 7
+            },
+            "userToggleable": {
+              "type": "bool",
+              "id": 8
+            },
+            "defaultEnabled": {
+              "type": "bool",
+              "id": 9
+            }
+          }
+        },
+        "WidgetDescriptorsResponse": {
+          "fields": {
+            "descriptors": {
+              "rule": "repeated",
+              "type": "WidgetDescriptorMsg",
+              "id": 1
+            }
+          }
+        },
+        "SafetySettings": {
+          "oneofs": {
+            "_allowUnsignedPlugins": {
+              "oneof": [
+                "allowUnsignedPlugins"
+              ]
+            }
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "defaultLevel": {
+              "type": "string",
+              "id": 2
+            },
+            "whitelistedTools": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "blacklistedTools": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            },
+            "confirmationTimeoutSeconds": {
+              "type": "int32",
+              "id": 5
+            },
+            "allowUnsignedPlugins": {
+              "type": "bool",
+              "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "ExportSettingsRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "includeCommands": {
+              "type": "bool",
+              "id": 2
+            },
+            "includeHistory": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "ExportSettingsResponse": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ImportSettingsRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "mergeCommands": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "GetModelsRequest": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "GetModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "ModelInfo",
+              "id": 1
+            }
+          }
+        },
+        "ModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "reasoningLevels": {
+              "rule": "repeated",
+              "type": "ReasoningLevelOption",
+              "id": 3
+            },
+            "reasoningDefault": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ReasoningLevelOption": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "recommended": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "TestAiProviderRequest": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "apiKey": {
+              "type": "string",
+              "id": 2
+            },
+            "model": {
+              "type": "string",
+              "id": 3
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "TestAiProviderResponse": {
+          "fields": {
+            "ok": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "model": {
+              "type": "string",
+              "id": 3
+            },
+            "latencyMs": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "MediaService": {
+          "methods": {
+            "GetMediaState": {
+              "requestType": "GetMediaStateRequest",
+              "responseType": "MediaState"
+            },
+            "ControlMedia": {
+              "requestType": "ControlMediaRequest",
+              "responseType": "Empty"
+            },
+            "SubscribeMediaState": {
+              "requestType": "SubscribeMediaStateRequest",
+              "responseType": "MediaState",
+              "responseStream": true
+            },
+            "GetMediaSessions": {
+              "requestType": "GetMediaSessionsRequest",
+              "responseType": "MediaSessionsResponse"
+            },
+            "CaptureScreen": {
+              "requestType": "CaptureScreenRequest",
+              "responseType": "CaptureScreenResponse"
+            }
+          }
+        },
+        "CaptureScreenRequest": {
+          "fields": {
+            "monitorIndex": {
+              "type": "int32",
+              "id": 1
+            }
+          }
+        },
+        "CaptureScreenResponse": {
+          "fields": {
+            "pngBytes": {
+              "type": "bytes",
+              "id": 1
+            },
+            "width": {
+              "type": "int32",
+              "id": 2
+            },
+            "height": {
+              "type": "int32",
+              "id": 3
+            }
+          }
+        },
+        "MediaState": {
+          "fields": {
+            "title": {
+              "type": "string",
+              "id": 1
+            },
+            "artist": {
+              "type": "string",
+              "id": 2
+            },
+            "album": {
+              "type": "string",
+              "id": 3
+            },
+            "sourceApp": {
+              "type": "string",
+              "id": 4
+            },
+            "status": {
+              "type": "MediaPlaybackStatus",
+              "id": 5
+            },
+            "thumbnail": {
+              "type": "bytes",
+              "id": 6
+            },
+            "positionSeconds": {
+              "type": "double",
+              "id": 7
+            },
+            "durationSeconds": {
+              "type": "double",
+              "id": 8
+            },
+            "sourceAppId": {
+              "type": "string",
+              "id": 9
+            },
+            "sessionId": {
+              "type": "string",
+              "id": 10
+            },
+            "appIcon": {
+              "type": "bytes",
+              "id": 11
+            },
+            "canNext": {
+              "type": "bool",
+              "id": 12
+            },
+            "canPrevious": {
+              "type": "bool",
+              "id": 13
+            },
+            "canSeek": {
+              "type": "bool",
+              "id": 14
+            },
+            "trackUrl": {
+              "type": "string",
+              "id": 15
+            }
+          }
+        },
+        "MediaPlaybackStatus": {
+          "values": {
+            "MEDIA_PLAYBACK_UNKNOWN": 0,
+            "MEDIA_PLAYBACK_PLAYING": 1,
+            "MEDIA_PLAYBACK_PAUSED": 2,
+            "MEDIA_PLAYBACK_STOPPED": 3
+          }
+        },
+        "MediaControlAction": {
+          "values": {
+            "MEDIA_CONTROL_PLAY": 0,
+            "MEDIA_CONTROL_PAUSE": 1,
+            "MEDIA_CONTROL_TOGGLE": 2,
+            "MEDIA_CONTROL_NEXT": 3,
+            "MEDIA_CONTROL_PREVIOUS": 4,
+            "MEDIA_CONTROL_STOP": 5,
+            "MEDIA_CONTROL_SEEK": 6,
+            "MEDIA_CONTROL_ACTIVATE": 7
+          }
+        },
+        "ControlMediaRequest": {
+          "fields": {
+            "action": {
+              "type": "MediaControlAction",
+              "id": 1
+            },
+            "sessionId": {
+              "type": "string",
+              "id": 2
+            },
+            "seekPositionSeconds": {
+              "type": "double",
+              "id": 3
+            }
+          }
+        },
+        "GetMediaStateRequest": {
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SubscribeMediaStateRequest": {
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "GetMediaSessionsRequest": {
+          "fields": {}
+        },
+        "MediaSessionInfo": {
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            },
+            "sourceApp": {
+              "type": "string",
+              "id": 2
+            },
+            "sourceAppId": {
+              "type": "string",
+              "id": 3
+            },
+            "isCurrent": {
+              "type": "bool",
+              "id": 4
+            },
+            "appIcon": {
+              "type": "bytes",
+              "id": 5
+            }
+          }
+        },
+        "MediaSessionsResponse": {
+          "fields": {
+            "sessions": {
+              "rule": "repeated",
+              "type": "MediaSessionInfo",
+              "id": 1
+            }
+          }
+        },
+        "ActionTypeDefinitionMsg": {
+          "fields": {
+            "type": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "iconSvg": {
+              "type": "string",
+              "id": 3
+            },
+            "fields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 4
+            },
+            "aiAvailable": {
+              "type": "bool",
+              "id": 5
+            },
+            "aiDescription": {
+              "type": "string",
+              "id": 6
+            },
+            "aiPrimaryField": {
+              "type": "string",
+              "id": 7
+            },
+            "platforms": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
+            },
+            "hidden": {
+              "type": "bool",
+              "id": 9
+            }
+          }
+        },
+        "TriggerTypeDefinitionMsg": {
+          "fields": {
+            "type": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "iconSvg": {
+              "type": "string",
+              "id": 3
+            },
+            "fields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 4
+            }
+          }
+        },
+        "FieldDefinitionMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "fieldType": {
+              "type": "string",
+              "id": 3
+            },
+            "placeholder": {
+              "type": "string",
+              "id": 4
+            },
+            "defaultValue": {
+              "type": "string",
+              "id": 5
+            },
+            "min": {
+              "type": "double",
+              "id": 6
+            },
+            "max": {
+              "type": "double",
+              "id": 7
+            },
+            "step": {
+              "type": "double",
+              "id": 8
+            },
+            "options": {
+              "rule": "repeated",
+              "type": "DropdownOptionMsg",
+              "id": 9
+            },
+            "hasMin": {
+              "type": "bool",
+              "id": 10
+            },
+            "hasMax": {
+              "type": "bool",
+              "id": 11
+            },
+            "hasStep": {
+              "type": "bool",
+              "id": 12
+            },
+            "conditions": {
+              "rule": "repeated",
+              "type": "FieldVisibilityCondition",
+              "id": 13
+            },
+            "description": {
+              "type": "string",
+              "id": 14
+            },
+            "group": {
+              "type": "string",
+              "id": 15
+            },
+            "groupLabel": {
+              "type": "string",
+              "id": 16
+            },
+            "storagePath": {
+              "type": "string",
+              "id": 17
+            }
+          }
+        },
+        "FieldVisibilityCondition": {
+          "fields": {
+            "fieldId": {
+              "type": "string",
+              "id": 1
+            },
+            "operator": {
+              "type": "string",
+              "id": 2
+            },
+            "value": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "DropdownOptionMsg": {
+          "fields": {
+            "value": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "MonitorService": {
+          "methods": {
+            "GetSystemStats": {
+              "requestType": "GetSystemStatsRequest",
+              "responseType": "SystemStats"
+            },
+            "SubscribeSystemStats": {
+              "requestType": "GetSystemStatsRequest",
+              "responseType": "SystemStats",
+              "responseStream": true
+            },
+            "SubscribeToolSearchEvents": {
+              "requestType": "ToolSearchSubscribeRequest",
+              "responseType": "ToolSearchEventMsg",
+              "responseStream": true
+            }
+          }
+        },
+        "ToolSearchSubscribeRequest": {
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ToolSearchEventMsg": {
+          "oneofs": {
+            "kind": {
+              "oneof": [
+                "query",
+                "describe",
+                "call",
+                "script",
+                "compaction"
+              ]
+            }
+          },
+          "fields": {
+            "sessionId": {
+              "type": "string",
+              "id": 1
+            },
+            "timestampMs": {
+              "type": "int64",
+              "id": 2
+            },
+            "query": {
+              "type": "ToolSearchQueryEvent",
+              "id": 3
+            },
+            "describe": {
+              "type": "ToolSearchDescribeEvent",
+              "id": 4
+            },
+            "call": {
+              "type": "ToolSearchCallEvent",
+              "id": 5
+            },
+            "script": {
+              "type": "ToolSearchScriptEvent",
+              "id": 6
+            },
+            "compaction": {
+              "type": "ToolSearchCompactionEvent",
+              "id": 7
+            }
+          }
+        },
+        "ToolSearchQueryEvent": {
+          "fields": {
+            "query": {
+              "type": "string",
+              "id": 1
+            },
+            "results": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
+            },
+            "topScore": {
+              "type": "uint32",
+              "id": 3
+            },
+            "durationUs": {
+              "type": "uint64",
+              "id": 4
+            }
+          }
+        },
+        "ToolSearchDescribeEvent": {
+          "fields": {
+            "toolId": {
+              "type": "string",
+              "id": 1
+            },
+            "bytes": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "ToolSearchCallEvent": {
+          "fields": {
+            "toolId": {
+              "type": "string",
+              "id": 1
+            },
+            "resolvedName": {
+              "type": "string",
+              "id": 2
+            },
+            "argsPreview": {
+              "type": "string",
+              "id": 3
+            },
+            "success": {
+              "type": "bool",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint64",
+              "id": 5
+            },
+            "error": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "ToolSearchScriptEvent": {
+          "fields": {
+            "scriptPreview": {
+              "type": "string",
+              "id": 1
+            },
+            "scriptBytes": {
+              "type": "uint64",
+              "id": 2
+            },
+            "bridgeCalls": {
+              "type": "uint64",
+              "id": 3
+            },
+            "resultPreview": {
+              "type": "string",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint64",
+              "id": 5
+            },
+            "sandboxError": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "ToolSearchCompactionEvent": {
+          "fields": {
+            "visible": {
+              "type": "uint64",
+              "id": 1
+            },
+            "deferred": {
+              "type": "uint64",
+              "id": 2
+            },
+            "bytesBefore": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesAfter": {
+              "type": "uint64",
+              "id": 4
+            },
+            "savingsPercent": {
+              "type": "uint32",
+              "id": 5
+            }
+          }
+        },
+        "GetSystemStatsRequest": {
+          "fields": {
+            "intervalMs": {
+              "type": "int32",
+              "id": 1
+            }
+          }
+        },
+        "SystemStats": {
+          "fields": {
+            "cpuUsage": {
+              "type": "float",
+              "id": 1
+            },
+            "ramUsage": {
+              "type": "float",
+              "id": 2
+            },
+            "temperature": {
+              "type": "float",
+              "id": 3
+            },
+            "ramTotalMb": {
+              "type": "uint64",
+              "id": 4
+            },
+            "ramUsedMb": {
+              "type": "uint64",
+              "id": 5
+            },
+            "uptimeSeconds": {
+              "type": "uint64",
+              "id": 6
+            },
+            "temperatures": {
+              "rule": "repeated",
+              "type": "TemperatureSensor",
+              "id": 7
+            },
+            "fans": {
+              "rule": "repeated",
+              "type": "FanSensor",
+              "id": 8
+            },
+            "gpus": {
+              "rule": "repeated",
+              "type": "GpuStats",
+              "id": 9
+            },
+            "disks": {
+              "rule": "repeated",
+              "type": "DiskInfo",
+              "id": 10
+            }
+          }
+        },
+        "TemperatureSensor": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "category": {
+              "type": "string",
+              "id": 3
+            },
+            "value": {
+              "type": "float",
+              "id": 4
+            }
+          }
+        },
+        "FanSensor": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "category": {
+              "type": "string",
+              "id": 3
+            },
+            "rpm": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "GpuStats": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "usage": {
+              "type": "float",
+              "id": 3
+            },
+            "temperature": {
+              "type": "float",
+              "id": 4
+            },
+            "vramTotalMb": {
+              "type": "uint64",
+              "id": 5
+            },
+            "vramUsedMb": {
+              "type": "uint64",
+              "id": 6
+            },
+            "vramUsage": {
+              "type": "float",
+              "id": 7
+            },
+            "fanRpm": {
+              "type": "uint32",
+              "id": 8
+            },
+            "fanSpeedPercent": {
+              "type": "uint32",
+              "id": 9
+            },
+            "powerUsageMw": {
+              "type": "uint32",
+              "id": 10
+            },
+            "clockMhz": {
+              "type": "uint32",
+              "id": 11
+            }
+          }
+        },
+        "DiskInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "mountPoint": {
+              "type": "string",
+              "id": 3
+            },
+            "totalMb": {
+              "type": "uint64",
+              "id": 4
+            },
+            "usedMb": {
+              "type": "uint64",
+              "id": 5
+            },
+            "usage": {
+              "type": "float",
+              "id": 6
+            },
+            "kind": {
+              "type": "string",
+              "id": 7
+            },
+            "fileSystem": {
+              "type": "string",
+              "id": 8
+            },
+            "freeMb": {
+              "type": "uint64",
+              "id": 9
+            }
+          }
+        },
+        "SearchVoicesRequest": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "query": {
+              "type": "string",
+              "id": 2
+            },
+            "language": {
+              "type": "string",
+              "id": 3
+            },
+            "pageSize": {
+              "type": "int32",
+              "id": 4
+            },
+            "pageNumber": {
+              "type": "int32",
+              "id": 5
+            },
+            "tag": {
+              "type": "string",
+              "id": 6
+            },
+            "sortBy": {
+              "type": "string",
+              "id": 7
+            },
+            "gender": {
+              "type": "string",
+              "id": 8
+            },
+            "category": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "SearchVoicesResponse": {
+          "fields": {
+            "voices": {
+              "rule": "repeated",
+              "type": "VoiceSearchResult",
+              "id": 1
+            },
+            "totalCount": {
+              "type": "int32",
+              "id": 2
+            }
+          }
+        },
+        "VoiceSearchResult": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "provider": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "languages": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            },
+            "previewUrl": {
+              "type": "string",
+              "id": 6
+            },
+            "tags": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 7
+            },
+            "coverImage": {
+              "type": "string",
+              "id": 8
+            },
+            "nameKey": {
+              "type": "string",
+              "id": 9
+            },
+            "descriptionKey": {
+              "type": "string",
+              "id": 10
+            }
+          }
+        },
+        "TtsProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "supportsSpeed": {
+              "type": "bool",
+              "id": 3
+            },
+            "supportsPitch": {
+              "type": "bool",
+              "id": 4
+            },
+            "requiresSubscription": {
+              "type": "bool",
+              "id": 5
+            },
+            "isLocal": {
+              "type": "bool",
+              "id": 6
+            },
+            "requiresDownload": {
+              "type": "bool",
+              "id": 7
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 8
+            },
+            "modelManager": {
+              "type": "string",
+              "id": 9
+            },
+            "voiceListing": {
+              "type": "string",
+              "id": 10
+            },
+            "availability": {
+              "type": "string",
+              "id": 11
+            },
+            "activated": {
+              "type": "bool",
+              "id": 12
+            }
+          }
+        },
+        "TtsProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "TtsProviderInfo",
+              "id": 1
+            }
+          }
+        },
+        "SttProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "isLocal": {
+              "type": "bool",
+              "id": 3
+            },
+            "requiresDownload": {
+              "type": "bool",
+              "id": 4
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 5
+            },
+            "modelManager": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "SttProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "SttProviderInfo",
+              "id": 1
+            }
+          }
+        },
+        "SupertonicStatusResponse": {
+          "fields": {
+            "isReady": {
+              "type": "bool",
+              "id": 1
+            },
+            "isDownloading": {
+              "type": "bool",
+              "id": 2
+            },
+            "bytesDone": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesTotal": {
+              "type": "uint64",
+              "id": 4
+            },
+            "percent": {
+              "type": "float",
+              "id": 5
+            },
+            "currentFile": {
+              "type": "string",
+              "id": 6
+            },
+            "error": {
+              "type": "string",
+              "id": 7
+            }
+          }
+        },
+        "VoxActivationResponse": {
+          "fields": {
+            "activated": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "taskId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "SupertonicVoice": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "gender": {
+              "type": "string",
+              "id": 3
+            },
+            "isCustom": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ListSupertonicVoicesResponse": {
+          "fields": {
+            "voices": {
+              "rule": "repeated",
+              "type": "SupertonicVoice",
+              "id": 1
+            }
+          }
+        },
+        "ImportSupertonicVoiceRequest": {
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            },
+            "gender": {
+              "type": "string",
+              "id": 2
+            },
+            "jsonContent": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "DeleteSupertonicVoiceRequest": {
+          "fields": {
+            "voiceId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "AiProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "requiresSubscription": {
+              "type": "bool",
+              "id": 3
+            },
+            "defaultModel": {
+              "type": "string",
+              "id": 4
+            },
+            "defaultApiBaseUrl": {
+              "type": "string",
+              "id": 5
+            },
+            "showApiKey": {
+              "type": "bool",
+              "id": 6
+            },
+            "showApiBaseUrl": {
+              "type": "bool",
+              "id": 7
+            },
+            "sectionTitleKey": {
+              "type": "string",
+              "id": 8
+            },
+            "supportsModelDiscovery": {
+              "type": "bool",
+              "id": 9
+            },
+            "reasoningLevels": {
+              "rule": "repeated",
+              "type": "ReasoningLevelOption",
+              "id": 10
+            }
+          }
+        },
+        "AiProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "AiProviderInfo",
+              "id": 1
+            }
+          }
+        },
+        "WidgetDataRequest": {
+          "fields": {
+            "widgetType": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SaveWidgetDataRequest": {
+          "fields": {
+            "widgetType": {
+              "type": "string",
+              "id": 1
+            },
+            "data": {
+              "type": "string",
+              "id": 2
+            },
+            "baseData": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "ReminderActionRequest": {
+          "fields": {
+            "reminderId": {
+              "type": "string",
+              "id": 1
+            },
+            "action": {
+              "type": "string",
+              "id": 2
+            },
+            "occurrenceId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "WidgetDataResponse": {
+          "fields": {
+            "data": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "WeatherRequest": {
+          "fields": {
+            "lat": {
+              "type": "double",
+              "id": 1
+            },
+            "lon": {
+              "type": "double",
+              "id": 2
+            }
+          }
+        },
+        "CurrentWeatherResponse": {
+          "fields": {
+            "temperature": {
+              "type": "double",
+              "id": 1
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 2
+            },
+            "windSpeed": {
+              "type": "double",
+              "id": 3
+            },
+            "windFromDirection": {
+              "type": "double",
+              "id": 4
+            },
+            "relativeHumidity": {
+              "type": "double",
+              "id": 5
+            },
+            "ultravioletIndex": {
+              "type": "double",
+              "id": 6
+            }
+          }
+        },
+        "DayForecastEntry": {
+          "fields": {
+            "date": {
+              "type": "string",
+              "id": 1
+            },
+            "tempMin": {
+              "type": "double",
+              "id": 2
+            },
+            "tempMax": {
+              "type": "double",
+              "id": 3
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "HourlyForecastEntry": {
+          "fields": {
+            "time": {
+              "type": "string",
+              "id": 1
+            },
+            "temperature": {
+              "type": "double",
+              "id": 2
+            },
+            "symbolCode": {
+              "type": "string",
+              "id": 3
+            },
+            "precipitationMm": {
+              "type": "double",
+              "id": 4
+            }
+          }
+        },
+        "WeatherForecastResponse": {
+          "fields": {
+            "days": {
+              "rule": "repeated",
+              "type": "DayForecastEntry",
+              "id": 1
+            },
+            "hours": {
+              "rule": "repeated",
+              "type": "HourlyForecastEntry",
+              "id": 2
+            }
+          }
+        },
+        "DetectedLocationResponse": {
+          "fields": {
+            "lat": {
+              "type": "double",
+              "id": 1
+            },
+            "lon": {
+              "type": "double",
+              "id": 2
+            },
+            "city": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginService": {
+          "methods": {
+            "ListPlugins": {
+              "requestType": "Empty",
+              "responseType": "PluginListResponse"
+            },
+            "InstallPlugin": {
+              "requestType": "InstallPluginRequest",
+              "responseType": "PluginStatusMsg"
+            },
+            "InstallPluginStream": {
+              "requestType": "InstallPluginRequest",
+              "responseType": "PluginInstallProgress",
+              "responseStream": true
+            },
+            "CancelPluginInstall": {
+              "requestType": "PluginIdRequest",
+              "responseType": "CancelPluginInstallResponse"
+            },
+            "UninstallPlugin": {
+              "requestType": "UninstallPluginRequest",
+              "responseType": "UninstallPluginResponse"
+            },
+            "ReportPlugin": {
+              "requestType": "ReportPluginRequest",
+              "responseType": "ReportPluginResponse"
+            },
+            "SetPluginEnabled": {
+              "requestType": "SetPluginEnabledRequest",
+              "responseType": "Empty"
+            },
+            "StartPlugin": {
+              "requestType": "PluginIdRequest",
+              "responseType": "Empty"
+            },
+            "StopPlugin": {
+              "requestType": "PluginIdRequest",
+              "responseType": "Empty"
+            },
+            "GetPluginConfig": {
+              "requestType": "PluginIdRequest",
+              "responseType": "PluginConfigResponse"
+            },
+            "UpdatePluginConfig": {
+              "requestType": "UpdatePluginConfigRequest",
+              "responseType": "Empty"
+            },
+            "BrowsePluginRegistry": {
+              "requestType": "PluginBrowseRequest",
+              "responseType": "PluginBrowseResponse"
+            },
+            "CheckPluginUpdates": {
+              "requestType": "Empty",
+              "responseType": "PluginUpdatesResponse"
+            },
+            "UpdatePlugin": {
+              "requestType": "PluginIdRequest",
+              "responseType": "PluginStatusMsg"
+            },
+            "SideloadPlugin": {
+              "requestType": "SideloadPluginRequest",
+              "responseType": "PluginStatusMsg"
+            },
+            "ImportPluginFile": {
+              "requestType": "ImportPluginFileRequest",
+              "responseType": "PluginStatusMsg"
+            },
+            "InspectPluginFile": {
+              "requestType": "InspectPluginFileRequest",
+              "responseType": "PluginFileInspection"
+            },
+            "ResolvePendingUpdate": {
+              "requestType": "ResolvePendingUpdateRequest",
+              "responseType": "PluginStatusMsg"
+            },
+            "GetPluginLogs": {
+              "requestType": "PluginLogsRequest",
+              "responseType": "PluginLogsResponse"
+            },
+            "GetPluginProvenance": {
+              "requestType": "PluginProvenanceRequest",
+              "responseType": "PluginProvenanceMsg"
+            },
+            "GetAllUiContributions": {
+              "requestType": "Empty",
+              "responseType": "AllUiContributionsResponse"
+            },
+            "GetActiveThemes": {
+              "requestType": "Empty",
+              "responseType": "ActiveThemesResponse"
+            },
+            "CallPluginFromUi": {
+              "requestType": "CallPluginFromUiRequest",
+              "responseType": "CallPluginFromUiResponse"
+            }
+          }
+        },
+        "PluginHostService": {
+          "methods": {
+            "Register": {
+              "requestType": "PluginRegisterRequest",
+              "responseType": "PluginRegisterResponse"
+            },
+            "SubscribeEvents": {
+              "requestType": "PluginEventFilter",
+              "responseType": "PluginEventMsg",
+              "responseStream": true
+            },
+            "SendChatMessage": {
+              "requestType": "PluginChatRequest",
+              "responseType": "PluginChatChunk",
+              "responseStream": true
+            },
+            "FireTrigger": {
+              "requestType": "PluginFireTriggerRequest",
+              "responseType": "Empty"
+            },
+            "GetPluginSelfConfig": {
+              "requestType": "PluginSelfIdRequest",
+              "responseType": "PluginSelfConfigResponse"
+            },
+            "PluginLog": {
+              "requestType": "PluginLogRequest",
+              "responseType": "Empty"
+            },
+            "GetDaemonInfo": {
+              "requestType": "Empty",
+              "responseType": "PluginDaemonInfoResponse"
+            },
+            "SetVariable": {
+              "requestType": "PluginSetVariableRequest",
+              "responseType": "Empty"
+            },
+            "SetThemeContribution": {
+              "requestType": "PluginThemeContribution",
+              "responseType": "Empty"
+            },
+            "PushToUi": {
+              "requestType": "PluginUiPushRequest",
+              "responseType": "Empty"
+            }
+          }
+        },
+        "PluginCapabilityService": {
+          "methods": {
+            "ListTools": {
+              "requestType": "Empty",
+              "responseType": "PluginToolListResponse"
+            },
+            "CallTool": {
+              "requestType": "PluginCallToolRequest",
+              "responseType": "PluginCallToolResponse"
+            },
+            "TtsSynthesize": {
+              "requestType": "PluginTtsSynthesizeRequest",
+              "responseType": "PluginTtsSynthesizeResponse"
+            },
+            "TtsSynthesizeStream": {
+              "requestType": "PluginTtsSynthesizeRequest",
+              "responseType": "PluginAudioChunk",
+              "responseStream": true
+            },
+            "TtsListVoices": {
+              "requestType": "Empty",
+              "responseType": "PluginTtsVoicesResponse"
+            },
+            "TtsGetConfigFields": {
+              "requestType": "Empty",
+              "responseType": "PluginConfigFieldsResponse"
+            },
+            "TtsActivate": {
+              "requestType": "PluginTtsActivateRequest",
+              "responseType": "PluginTtsActivateResponse"
+            },
+            "SttProcess": {
+              "requestType": "PluginAudioChunk",
+              "requestStream": true,
+              "responseType": "PluginSttEvent",
+              "responseStream": true
+            },
+            "SttGetLanguages": {
+              "requestType": "Empty",
+              "responseType": "PluginSttLanguagesResponse"
+            },
+            "SttGetConfigFields": {
+              "requestType": "Empty",
+              "responseType": "PluginConfigFieldsResponse"
+            },
+            "SttLoad": {
+              "requestType": "SttLoadRequest",
+              "responseType": "Empty"
+            },
+            "SttUnload": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "SttGetLoadState": {
+              "requestType": "Empty",
+              "responseType": "SttLoadStateResponse"
+            },
+            "AiComplete": {
+              "requestType": "PluginAiCompleteRequest",
+              "responseType": "PluginAiStreamChunk",
+              "responseStream": true
+            },
+            "AiGetModels": {
+              "requestType": "Empty",
+              "responseType": "PluginAiModelsResponse",
+              "options": {
+                "deprecated": true
+              },
+              "parsedOptions": [
+                {
+                  "deprecated": true
+                }
+              ]
+            },
+            "ExecuteAction": {
+              "requestType": "PluginExecuteActionRequest",
+              "responseType": "PluginExecuteActionResponse"
+            },
+            "GetPluginActionTypes": {
+              "requestType": "Empty",
+              "responseType": "PluginActionTypesResponse"
+            },
+            "GetPluginTriggerTypes": {
+              "requestType": "Empty",
+              "responseType": "PluginTriggerTypesResponse"
+            },
+            "GetUiContributions": {
+              "requestType": "Empty",
+              "responseType": "PluginUiContributionsResponse"
+            },
+            "CallFromUi": {
+              "requestType": "PluginUiCallRequest",
+              "responseType": "PluginUiCallResponse"
+            },
+            "OnConfigChanged": {
+              "requestType": "PluginConfigChangedMsg",
+              "responseType": "Empty"
+            },
+            "OnActiveTriggers": {
+              "requestType": "PluginActiveTriggersMsg",
+              "responseType": "Empty"
+            },
+            "OnLanguageChanged": {
+              "requestType": "LanguageChangedMsg",
+              "responseType": "Empty"
+            },
+            "Shutdown": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "HealthCheck": {
+              "requestType": "Empty",
+              "responseType": "PluginHealthResponse"
+            }
+          }
+        },
+        "PluginFailure": {
+          "fields": {
+            "phase": {
+              "type": "string",
+              "id": 1
+            },
+            "code": {
+              "type": "string",
+              "id": 2
+            },
+            "message": {
+              "type": "string",
+              "id": 3
+            },
+            "hint": {
+              "type": "string",
+              "id": 4
+            },
+            "docUrl": {
+              "type": "string",
+              "id": 5
+            },
+            "logTail": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "restartCount": {
+              "type": "uint32",
+              "id": 7
+            },
+            "circuitOpen": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "PluginStatusMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "version": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "author": {
+              "type": "string",
+              "id": 5
+            },
+            "status": {
+              "type": "string",
+              "id": 6
+            },
+            "error": {
+              "type": "string",
+              "id": 7
+            },
+            "capabilities": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 9
+            },
+            "hasConfig": {
+              "type": "bool",
+              "id": 10
+            },
+            "hasUpdate": {
+              "type": "bool",
+              "id": 11
+            },
+            "latestVersion": {
+              "type": "string",
+              "id": 12
+            },
+            "iconUrl": {
+              "type": "string",
+              "id": 13
+            },
+            "homepage": {
+              "type": "string",
+              "id": 14
+            },
+            "builtin": {
+              "type": "bool",
+              "id": 15
+            },
+            "trustState": {
+              "type": "string",
+              "id": 16
+            },
+            "identity": {
+              "type": "string",
+              "id": 17
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 18
+            },
+            "tier": {
+              "type": "string",
+              "id": 19
+            },
+            "provenanceJson": {
+              "type": "string",
+              "id": 20
+            },
+            "failure": {
+              "type": "PluginFailure",
+              "id": 21
+            }
+          }
+        },
+        "PluginListResponse": {
+          "fields": {
+            "plugins": {
+              "rule": "repeated",
+              "type": "PluginStatusMsg",
+              "id": 1
+            }
+          }
+        },
+        "PluginIdRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetPluginEnabledRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "UninstallPluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "deleteConfig": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "UninstallPluginResponse": {
+          "fields": {
+            "settingsRetained": {
+              "type": "bool",
+              "id": 1
+            },
+            "settingsNote": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginReportReason": {
+          "values": {
+            "PLUGIN_REPORT_REASON_UNSPECIFIED": 0,
+            "PLUGIN_REPORT_MALWARE": 1,
+            "PLUGIN_REPORT_PRIVACY": 2,
+            "PLUGIN_REPORT_IMPERSONATION": 3,
+            "PLUGIN_REPORT_BROKEN": 4,
+            "PLUGIN_REPORT_OTHER": 5
+          }
+        },
+        "ReportPluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "PluginReportReason",
+              "id": 2
+            },
+            "details": {
+              "type": "string",
+              "id": 3
+            },
+            "quarantine": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "ReportPluginResponse": {
+          "fields": {
+            "quarantined": {
+              "type": "bool",
+              "id": 1
+            },
+            "issueUrl": {
+              "type": "string",
+              "id": 2
+            },
+            "issueUrlError": {
+              "type": "string",
+              "id": 3
+            },
+            "reportBody": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "InstallPluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "autoStart": {
+              "type": "bool",
+              "id": 2
+            },
+            "consentedPermissions": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "consentRecorded": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "PluginInstallPhase": {
+          "values": {
+            "PLUGIN_INSTALL_PHASE_UNSPECIFIED": 0,
+            "PLUGIN_INSTALL_RESOLVING": 1,
+            "PLUGIN_INSTALL_DOWNLOADING": 2,
+            "PLUGIN_INSTALL_VERIFYING": 3,
+            "PLUGIN_INSTALL_EXTRACTING": 4,
+            "PLUGIN_INSTALL_STARTING": 5,
+            "PLUGIN_INSTALL_COMPLETED": 6,
+            "PLUGIN_INSTALL_FAILED": 7
+          }
+        },
+        "PluginInstallErrorCode": {
+          "values": {
+            "PLUGIN_INSTALL_ERROR_UNSPECIFIED": 0,
+            "PLUGIN_INSTALL_ERROR_DIGEST_MISMATCH": 1,
+            "PLUGIN_INSTALL_ERROR_SIGNATURE_INVALID": 2,
+            "PLUGIN_INSTALL_ERROR_REVOKED": 3,
+            "PLUGIN_INSTALL_ERROR_PLATFORM_UNSUPPORTED": 4,
+            "PLUGIN_INSTALL_ERROR_PROTOCOL_UNSUPPORTED": 5,
+            "PLUGIN_INSTALL_ERROR_NETWORK": 6,
+            "PLUGIN_INSTALL_ERROR_CLOCK_SKEW": 7,
+            "PLUGIN_INSTALL_ERROR_DISK_FULL": 8,
+            "PLUGIN_INSTALL_ERROR_CANCELLED": 9,
+            "PLUGIN_INSTALL_ERROR_INTERNAL": 10
+          }
+        },
+        "PluginInstallProgress": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "phase": {
+              "type": "PluginInstallPhase",
+              "id": 2
+            },
+            "bytesDone": {
+              "type": "uint64",
+              "id": 3
+            },
+            "bytesTotal": {
+              "type": "uint64",
+              "id": 4
+            },
+            "percent": {
+              "type": "uint32",
+              "id": 5
+            },
+            "errorCode": {
+              "type": "PluginInstallErrorCode",
+              "id": 6
+            },
+            "error": {
+              "type": "string",
+              "id": 7
+            },
+            "status": {
+              "type": "PluginStatusMsg",
+              "id": 8
+            }
+          }
+        },
+        "CancelPluginInstallResponse": {
+          "fields": {
+            "cancelled": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "PluginConfigResponse": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "configSchemaJson": {
+              "type": "string",
+              "id": 2
+            },
+            "configValuesJson": {
+              "type": "string",
+              "id": 3
+            },
+            "fields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 4
+            }
+          }
+        },
+        "UpdatePluginConfigRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "configJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginBrowseRequest": {
+          "fields": {
+            "query": {
+              "type": "string",
+              "id": 1
+            },
+            "capabilityFilter": {
+              "type": "string",
+              "id": 2
+            },
+            "sort": {
+              "type": "string",
+              "id": 3
+            },
+            "page": {
+              "type": "int32",
+              "id": 4
+            },
+            "pageSize": {
+              "type": "int32",
+              "id": 5
+            }
+          }
+        },
+        "PluginBrowseResponse": {
+          "fields": {
+            "entries": {
+              "rule": "repeated",
+              "type": "PluginRegistryEntry",
+              "id": 1
+            },
+            "total": {
+              "type": "int32",
+              "id": 2
+            },
+            "fromCache": {
+              "type": "bool",
+              "id": 3
+            },
+            "cachedAtUnix": {
+              "type": "int64",
+              "id": 4
+            },
+            "refreshError": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginRegistryEntry": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "version": {
+              "type": "string",
+              "id": 3
+            },
+            "description": {
+              "type": "string",
+              "id": 4
+            },
+            "author": {
+              "type": "string",
+              "id": 5
+            },
+            "capabilities": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "repositoryUrl": {
+              "type": "string",
+              "id": 7
+            },
+            "iconUrl": {
+              "type": "string",
+              "id": 8
+            },
+            "downloads": {
+              "type": "int32",
+              "id": 9
+            },
+            "stars": {
+              "type": "int32",
+              "id": 10
+            },
+            "installed": {
+              "type": "bool",
+              "id": 11
+            },
+            "installedVersion": {
+              "type": "string",
+              "id": 12
+            },
+            "updatedAt": {
+              "type": "string",
+              "id": 13
+            },
+            "provenance": {
+              "type": "PluginProvenanceMsg",
+              "id": 14
+            },
+            "permissions": {
+              "rule": "repeated",
+              "type": "PluginPermissionMsg",
+              "id": 15
+            },
+            "permissionsKnown": {
+              "type": "bool",
+              "id": 16
+            }
+          }
+        },
+        "PluginProvenanceRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "reVerify": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "PluginProvenanceMsg": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "version": {
+              "type": "string",
+              "id": 2
+            },
+            "recorded": {
+              "type": "bool",
+              "id": 3
+            },
+            "trustState": {
+              "type": "string",
+              "id": 4
+            },
+            "tier": {
+              "type": "string",
+              "id": 5
+            },
+            "identity": {
+              "type": "string",
+              "id": 6
+            },
+            "identityPinnedAt": {
+              "type": "string",
+              "id": 7
+            },
+            "repositoryUrl": {
+              "type": "string",
+              "id": 8
+            },
+            "sourceRef": {
+              "type": "string",
+              "id": 9
+            },
+            "sourceCommit": {
+              "type": "string",
+              "id": 10
+            },
+            "buildWorkflow": {
+              "type": "string",
+              "id": 11
+            },
+            "buildRunId": {
+              "type": "string",
+              "id": 12
+            },
+            "buildRunner": {
+              "type": "string",
+              "id": 13
+            },
+            "builtAt": {
+              "type": "string",
+              "id": 14
+            },
+            "artifactFilename": {
+              "type": "string",
+              "id": 15
+            },
+            "artifactPlatform": {
+              "type": "string",
+              "id": 16
+            },
+            "artifactSize": {
+              "type": "uint64",
+              "id": 17
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 18
+            },
+            "artifactUrl": {
+              "type": "string",
+              "id": 19
+            },
+            "attestationIdentity": {
+              "type": "string",
+              "id": 20
+            },
+            "rekorLogIndex": {
+              "type": "string",
+              "id": 21
+            },
+            "rekorUrl": {
+              "type": "string",
+              "id": 22
+            },
+            "verifyCommand": {
+              "type": "string",
+              "id": 23
+            },
+            "indexSerial": {
+              "type": "uint64",
+              "id": 24
+            },
+            "indexSignerKeyId": {
+              "type": "string",
+              "id": 25
+            },
+            "indexExpiresAt": {
+              "type": "string",
+              "id": 26
+            },
+            "indexSignatureState": {
+              "type": "string",
+              "id": 27
+            },
+            "recordedFileCount": {
+              "type": "uint32",
+              "id": 28
+            },
+            "integrityCheckedAt": {
+              "type": "string",
+              "id": 29
+            },
+            "integrityDetail": {
+              "type": "string",
+              "id": 30
+            },
+            "permissionsHash": {
+              "type": "string",
+              "id": 31
+            },
+            "manifestDigest": {
+              "type": "string",
+              "id": 32
+            },
+            "provenanceJson": {
+              "type": "string",
+              "id": 33
+            }
+          }
+        },
+        "SideloadPluginRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "ImportPluginFileRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "autoStart": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "InspectPluginFileRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginFileInspection": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "version": {
+              "type": "string",
+              "id": 3
+            },
+            "author": {
+              "type": "string",
+              "id": 4
+            },
+            "description": {
+              "type": "string",
+              "id": 5
+            },
+            "capabilities": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "permissions": {
+              "rule": "repeated",
+              "type": "PluginPermissionMsg",
+              "id": 7
+            },
+            "refusedByTier": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
+            },
+            "artifactSha256": {
+              "type": "string",
+              "id": 9
+            },
+            "installed": {
+              "type": "bool",
+              "id": 10
+            },
+            "installedVersion": {
+              "type": "string",
+              "id": 11
+            },
+            "bundleV2": {
+              "type": "bool",
+              "id": 12
+            }
+          }
+        },
+        "PluginPermissionMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
+            },
+            "types": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "scopes": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ResolvePendingUpdateRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "approve": {
+              "type": "bool",
+              "id": 2
+            },
+            "approvedPermissions": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginLogsRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "lines": {
+              "type": "int32",
+              "id": 2
+            }
+          }
+        },
+        "PluginLogsResponse": {
+          "fields": {
+            "lines": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginUpdatesResponse": {
+          "fields": {
+            "updates": {
+              "rule": "repeated",
+              "type": "PluginUpdateInfo",
+              "id": 1
+            }
+          }
+        },
+        "PluginUpdateInfo": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "installedVersion": {
+              "type": "string",
+              "id": 3
+            },
+            "latestVersion": {
+              "type": "string",
+              "id": 4
+            },
+            "changelog": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginErrorCode": {
+          "values": {
+            "PLUGIN_ERROR_UNSPECIFIED": 0,
+            "PLUGIN_ERROR_PROTOCOL_TOO_OLD": 1,
+            "PLUGIN_ERROR_AUTH": 2,
+            "PLUGIN_ERROR_UNKNOWN_PLUGIN": 3,
+            "PLUGIN_ERROR_BAD_ARGUMENTS": 4,
+            "PLUGIN_ERROR_NOT_FOUND": 5,
+            "PLUGIN_ERROR_NOT_CONFIGURED": 6,
+            "PLUGIN_ERROR_UNAUTHORIZED": 7,
+            "PLUGIN_ERROR_RATE_LIMITED": 8,
+            "PLUGIN_ERROR_UNAVAILABLE": 9,
+            "PLUGIN_ERROR_TIMEOUT": 10,
+            "PLUGIN_ERROR_INTERNAL": 11
+          }
+        },
+        "PluginError": {
+          "fields": {
+            "code": {
+              "type": "PluginErrorCode",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            },
+            "hint": {
+              "type": "string",
+              "id": 3
+            },
+            "configField": {
+              "type": "string",
+              "id": 4
+            },
+            "retryAfterMs": {
+              "type": "uint32",
+              "id": 5
+            },
+            "docUrl": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "PluginRegisterRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "port": {
+              "type": "uint32",
+              "id": 2
+            },
+            "capabilities": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "authToken": {
+              "type": "string",
+              "id": 4
+            },
+            "gpuTier": {
+              "type": "string",
+              "id": 5
+            },
+            "protocolVersion": {
+              "type": "uint32",
+              "id": 6
+            },
+            "sdkName": {
+              "type": "string",
+              "id": 7
+            },
+            "sdkVersion": {
+              "type": "string",
+              "id": 8
+            }
+          }
+        },
+        "PluginRegisterResponse": {
+          "fields": {
+            "success": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "configJson": {
+              "type": "string",
+              "id": 3
+            },
+            "daemonVersion": {
+              "type": "string",
+              "id": 4
+            },
+            "clientSessionToken": {
+              "type": "string",
+              "id": 5
+            },
+            "language": {
+              "type": "string",
+              "id": 6
+            },
+            "protocolVersion": {
+              "type": "uint32",
+              "id": 7
+            },
+            "minSupportedProtocol": {
+              "type": "uint32",
+              "id": 8
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 9
+            }
+          }
+        },
+        "PluginEventFilter": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "eventTypes": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
+            },
+            "excludeSourceId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginEventMsg": {
+          "fields": {
+            "eventType": {
+              "type": "string",
+              "id": 1
+            },
+            "payloadJson": {
+              "type": "string",
+              "id": 2
+            },
+            "timestamp": {
+              "type": "int64",
+              "id": 3
+            }
+          }
+        },
+        "PluginChatRequest": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "sourceId": {
+              "type": "string",
+              "id": 2
+            },
+            "conversationId": {
+              "type": "string",
+              "id": 3
+            },
+            "voiceEnabled": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "PluginChatChunk": {
+          "oneofs": {
+            "content": {
+              "oneof": [
+                "text",
+                "done",
+                "error"
+              ]
+            }
+          },
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "done": {
+              "type": "bool",
+              "id": 2
+            },
+            "error": {
+              "type": "string",
+              "id": 3
+            },
+            "messageId": {
+              "type": "string",
+              "id": 4
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 5
+            }
+          }
+        },
+        "PluginFireTriggerRequest": {
+          "fields": {
+            "triggerType": {
+              "type": "string",
+              "id": 1
+            },
+            "payloadJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginSelfIdRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginSelfConfigResponse": {
+          "fields": {
+            "configJson": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginLogRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "level": {
+              "type": "string",
+              "id": 2
+            },
+            "message": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginDaemonInfoResponse": {
+          "fields": {
+            "version": {
+              "type": "string",
+              "id": 1
+            },
+            "state": {
+              "type": "string",
+              "id": 2
+            },
+            "grpcPort": {
+              "type": "uint32",
+              "id": 3
+            },
+            "language": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PluginSetVariableRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "value": {
+              "type": "string",
+              "id": 3
+            },
+            "scope": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PluginToolDef": {
+          "fields": {
+            "name": {
+              "type": "string",
+              "id": 1
+            },
+            "description": {
+              "type": "string",
+              "id": 2
+            },
+            "parametersJson": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginToolListResponse": {
+          "fields": {
+            "tools": {
+              "rule": "repeated",
+              "type": "PluginToolDef",
+              "id": 1
+            }
+          }
+        },
+        "PluginCallToolRequest": {
+          "fields": {
+            "toolName": {
+              "type": "string",
+              "id": 1
+            },
+            "argumentsJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginCallToolResponse": {
+          "fields": {
+            "success": {
+              "type": "bool",
+              "id": 1
+            },
+            "result": {
+              "type": "string",
+              "id": 2
+            },
+            "error": {
+              "type": "string",
+              "id": 3
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 4
+            }
+          }
+        },
+        "PluginTtsSynthesizeRequest": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "voiceId": {
+              "type": "string",
+              "id": 2
+            },
+            "speed": {
+              "type": "float",
+              "id": 3
+            },
+            "pitch": {
+              "type": "float",
+              "id": 4
+            }
+          }
+        },
+        "PluginTtsSynthesizeResponse": {
+          "fields": {
+            "audioData": {
+              "type": "bytes",
+              "id": 1
+            },
+            "format": {
+              "type": "string",
+              "id": 2
+            },
+            "sampleRate": {
+              "type": "uint32",
+              "id": 3
+            },
+            "durationMs": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "PluginAudioChunk": {
+          "fields": {
+            "data": {
+              "type": "bytes",
+              "id": 1
+            },
+            "isLast": {
+              "type": "bool",
+              "id": 2
+            },
+            "sampleRate": {
+              "type": "uint32",
+              "id": 3
+            },
+            "options": {
+              "type": "SttTranscribeOptions",
+              "id": 4
+            }
+          }
+        },
+        "PluginVoiceInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "language": {
+              "type": "string",
+              "id": 3
+            },
+            "gender": {
+              "type": "string",
+              "id": 4
+            },
+            "previewUrl": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginTtsVoicesResponse": {
+          "fields": {
+            "voices": {
+              "rule": "repeated",
+              "type": "PluginVoiceInfo",
+              "id": 1
+            }
+          }
+        },
+        "PluginTtsActivateRequest": {
+          "fields": {
+            "cek": {
+              "type": "bytes",
+              "id": 1
+            },
+            "voiceId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginTtsActivateResponse": {
+          "fields": {}
+        },
+        "PluginSttEvent": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "isFinal": {
+              "type": "bool",
+              "id": 2
+            },
+            "confidence": {
+              "type": "float",
+              "id": 3
+            },
+            "language": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PluginSttLanguagesResponse": {
+          "fields": {
+            "languages": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SttTranscribeOptions": {
+          "fields": {
+            "language": {
+              "type": "string",
+              "id": 1
+            },
+            "initialPrompt": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SttLoadRequest": {
+          "fields": {
+            "modelPath": {
+              "type": "string",
+              "id": 1
+            },
+            "useGpu": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "SttLoadStateResponse": {
+          "fields": {
+            "state": {
+              "type": "State",
+              "id": 1
+            },
+            "detail": {
+              "type": "string",
+              "id": 2
+            }
+          },
+          "nested": {
+            "State": {
+              "values": {
+                "NOT_NEEDED": 0,
+                "UNLOADED": 1,
+                "LOADING": 2,
+                "READY": 3,
+                "FAILED": 4
+              }
+            }
+          }
+        },
+        "PluginConfigFieldsResponse": {
+          "fields": {
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 1
+            }
+          }
+        },
+        "PluginAiCompleteRequest": {
+          "fields": {
+            "messages": {
+              "rule": "repeated",
+              "type": "PluginAiMessage",
+              "id": 1
+            },
+            "tools": {
+              "rule": "repeated",
+              "type": "PluginToolDef",
+              "id": 2
+            },
+            "systemPrompt": {
+              "type": "string",
+              "id": 3
+            },
+            "temperature": {
+              "type": "float",
+              "id": 4
+            },
+            "maxTokens": {
+              "type": "uint32",
+              "id": 5
+            },
+            "model": {
+              "type": "string",
+              "id": 6
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "id": 7
+            },
+            "showReasoning": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "PluginAiMessage": {
+          "fields": {
+            "role": {
+              "type": "string",
+              "id": 1
+            },
+            "content": {
+              "type": "string",
+              "id": 2
+            },
+            "toolCallId": {
+              "type": "string",
+              "id": 3
+            },
+            "toolCalls": {
+              "rule": "repeated",
+              "type": "PluginAiToolCall",
+              "id": 4
+            }
+          }
+        },
+        "PluginAiToolCall": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "argumentsJson": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginAiStreamChunk": {
+          "oneofs": {
+            "content": {
+              "oneof": [
+                "textDelta",
+                "toolCall",
+                "thinkingDelta",
+                "done",
+                "error"
+              ]
+            }
+          },
+          "fields": {
+            "textDelta": {
+              "type": "string",
+              "id": 1
+            },
+            "toolCall": {
+              "type": "PluginAiToolCall",
+              "id": 2
+            },
+            "thinkingDelta": {
+              "type": "string",
+              "id": 3
+            },
+            "done": {
+              "type": "bool",
+              "id": 4
+            },
+            "error": {
+              "type": "string",
+              "id": 5
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 6
+            }
+          }
+        },
+        "PluginAiModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "PluginAiModelInfo",
+              "id": 1
+            },
+            "defaultModel": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginAiModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginExecuteActionRequest": {
+          "fields": {
+            "actionType": {
+              "type": "string",
+              "id": 1
+            },
+            "paramsJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginExecuteActionResponse": {
+          "fields": {
+            "success": {
+              "type": "bool",
+              "id": 1
+            },
+            "result": {
+              "type": "string",
+              "id": 2
+            },
+            "error": {
+              "type": "string",
+              "id": 3
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 4
+            }
+          }
+        },
+        "PluginActionTypesResponse": {
+          "fields": {
+            "types": {
+              "rule": "repeated",
+              "type": "ActionTypeDefinitionMsg",
+              "id": 1
+            }
+          }
+        },
+        "PluginTriggerTypesResponse": {
+          "fields": {
+            "types": {
+              "rule": "repeated",
+              "type": "TriggerTypeDefinitionMsg",
+              "id": 1
+            }
+          }
+        },
+        "PluginUiContribution": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "slot": {
+              "type": "string",
+              "id": 2
+            },
+            "cssTarget": {
+              "type": "string",
+              "id": 3
+            },
+            "position": {
+              "type": "string",
+              "id": 4
+            },
+            "url": {
+              "type": "string",
+              "id": 5
+            },
+            "label": {
+              "type": "string",
+              "id": 6
+            },
+            "iconSvg": {
+              "type": "string",
+              "id": 7
+            },
+            "width": {
+              "type": "int32",
+              "id": 8
+            },
+            "height": {
+              "type": "int32",
+              "id": 9
+            },
+            "transparent": {
+              "type": "bool",
+              "id": 10
+            },
+            "pointerEvents": {
+              "type": "bool",
+              "id": 11
+            },
+            "zIndex": {
+              "type": "int32",
+              "id": 12
+            },
+            "props": {
+              "keyType": "string",
+              "type": "string",
+              "id": 13
+            }
+          }
+        },
+        "PluginUiContributionsResponse": {
+          "fields": {
+            "contributions": {
+              "rule": "repeated",
+              "type": "PluginUiContribution",
+              "id": 1
+            }
+          }
+        },
+        "PluginUiContributionWithMeta": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "pluginName": {
+              "type": "string",
+              "id": 2
+            },
+            "contribution": {
+              "type": "PluginUiContribution",
+              "id": 3
+            },
+            "domAccess": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "AllUiContributionsResponse": {
+          "fields": {
+            "contributions": {
+              "rule": "repeated",
+              "type": "PluginUiContributionWithMeta",
+              "id": 1
+            }
+          }
+        },
+        "PluginThemeContribution": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "themeName": {
+              "type": "string",
+              "id": 2
+            },
+            "themeDescription": {
+              "type": "string",
+              "id": 3
+            },
+            "cssVariables": {
+              "keyType": "string",
+              "type": "string",
+              "id": 4
+            },
+            "wallpaperPath": {
+              "type": "string",
+              "id": 5
+            },
+            "wallpaperMode": {
+              "type": "string",
+              "id": 6
+            },
+            "wallpaperOpacity": {
+              "type": "float",
+              "id": 7
+            },
+            "fragmentShader": {
+              "type": "string",
+              "id": 8
+            },
+            "effectConfigJson": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "ActiveThemesResponse": {
+          "fields": {
+            "themes": {
+              "rule": "repeated",
+              "type": "PluginThemeContribution",
+              "id": 1
+            }
+          }
+        },
+        "PluginUiCallRequest": {
+          "fields": {
+            "method": {
+              "type": "string",
+              "id": 1
+            },
+            "paramsJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginUiCallResponse": {
+          "fields": {
+            "resultJson": {
+              "type": "string",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 3
+            }
+          }
+        },
+        "PluginUiPushRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "event": {
+              "type": "string",
+              "id": 2
+            },
+            "payloadJson": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "CallPluginFromUiRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "method": {
+              "type": "string",
+              "id": 2
+            },
+            "paramsJson": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "CallPluginFromUiResponse": {
+          "fields": {
+            "resultJson": {
+              "type": "string",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
+            },
+            "errorDetail": {
+              "type": "PluginError",
+              "id": 3
+            }
+          }
+        },
+        "PluginConfigChangedMsg": {
+          "fields": {
+            "configJson": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginActiveTriggersMsg": {
+          "fields": {
+            "triggerTypes": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "LanguageChangedMsg": {
+          "fields": {
+            "language": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginHealthResponse": {
+          "fields": {
+            "healthy": {
+              "type": "bool",
+              "id": 1
+            },
+            "status": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        }
+      }
+    }
+  }
+};

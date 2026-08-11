@@ -3,11 +3,12 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import { HostClient } from "./host-client";
-import { EXIT_PROTOCOL_INCOMPATIBLE, ProtocolMismatchError } from "./protocol";
-import { service } from "./proto-loader";
-import { addServiceChecked, type HandlerMap } from "./service-contract";
-import { capabilityAuthMode, guardHandlers } from "./capability-auth";
+import { HostClient } from "./host-client.js";
+import { EXIT_PROTOCOL_INCOMPATIBLE, ProtocolMismatchError } from "./protocol.js";
+import { service } from "./proto-loader.js";
+import { addServiceChecked, type HandlerMap } from "./service-contract.js";
+import { assertNoReservedNames } from "./reserved.js";
+import { capabilityAuthMode, guardHandlers } from "./capability-auth.js";
 import type {
   ToolDef,
   ToolResult,
@@ -26,10 +27,16 @@ import type {
   AudioChunk,
   SttLoadStatus,
   SttOptions,
-} from "./types";
-import { PluginError } from "./errors";
-import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits";
-import { DaemonClient } from "./daemon-client";
+  StateChangedEvent,
+  CommandTriggeredEvent,
+  CommandCompletedEvent,
+} from "./types.js";
+import { PluginError } from "./errors.js";
+import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits.js";
+import { DaemonClient } from "./daemon-client.js";
+import type { Host } from "./host.js";
+import { PluginContextImpl, type PluginContext } from "./context.js";
+import { installConsoleBridge, installFatalHandlers } from "./logging.js";
 
 /**
  * The daemon's word for "this plugin does not have that hook".
@@ -105,8 +112,14 @@ function aiRequestFromWire(request: any): AiCompleteRequest {
 }
 
 export abstract class Plugin {
-  /** Client for calling daemon services. Available after registration. */
-  host: HostClient | null = null;
+  /**
+   * The daemon, once registered.
+   *
+   * Typed as the `Host` interface rather than as `HostClient`: that is the seam
+   * the level-1 test harness installs `RecordingHost` through, and the reason
+   * nothing in the SDK constructs a `HostClient` except `run()`.
+   */
+  host: Host | null = null;
 
   /** Full daemon API client. Only available if `isClient()` returns true. */
   daemon: DaemonClient | null = null;
@@ -120,11 +133,94 @@ export abstract class Plugin {
   /** Set of active trigger types (auto-updated by daemon). */
   activeTriggers: Set<string> = new Set();
 
+  /** This plugin's id, as the daemon spawned it. `""` until `run()` parses argv. */
+  pluginId: string = "";
+
   private server: grpc.Server | null = null;
+  /** Set by `stopServing`; stops the two reconnect loops from resurrecting. */
+  private stopped = false;
+  private readyResolve: (() => void) | null = null;
+  private readyReject: ((reason: unknown) => void) | null = null;
+
+  /**
+   * Settles when `run()` has registered and finished the start lifecycle.
+   *
+   * @internal The level-2 harness needs it: `Register` returns before the
+   * plugin has applied the config and language from the response, so a test
+   * that asserted on `plugin.config` right after registration was reading a
+   * value that had not arrived yet. Racy assertions are worse than absent ones.
+   */
+  readonly ready: Promise<void> = new Promise<void>((resolve, reject) => {
+    this.readyResolve = resolve;
+    this.readyReject = reject;
+  });
+  private readonly context: PluginContext = new PluginContextImpl(this);
+
+  /**
+   * The handle handlers are given.
+   *
+   * One object for the lifetime of the plugin, reading through to the live
+   * config/language/host — so a background task may capture it once at
+   * `onStart` and still see the current config an hour later.
+   */
+  ctx(): PluginContext {
+    return this.context;
+  }
+
+  /**
+   * How this plugin stops. `process.exit`, and one seam for the tests.
+   *
+   * @internal `MockDaemon` replaces it, because a level-2 test drives a real
+   * plugin in the test runner's own process and `Shutdown`'s
+   * `setTimeout(process.exit, 100)` would otherwise end the run — silently, and
+   * with the exit code of a plugin rather than of a test suite.
+   */
+  exitProcess(code: number): void {
+    process.exit(code);
+  }
+
+  /**
+   * Stop serving and release every socket, without exiting the process.
+   *
+   * @internal The level-2 harness runs a real plugin inside the test runner, so
+   * something has to hand back the capability server's listener, the host
+   * channel and the reconnect timers. A plugin normally does this by exiting;
+   * a test process that did the same would report the plugin's exit code as
+   * the suite's.
+   */
+  async stopServing(): Promise<void> {
+    this.stopped = true;
+    this.host?.close();
+    this.daemon?.close();
+    const server = this.server;
+    this.server = null;
+    if (!server) return;
+    // `forceShutdown`, not `tryShutdown`: a plugin under test may have a bidi
+    // stream still open, and `tryShutdown` waits for it — which is a hung test
+    // run rather than a failed one.
+    server.forceShutdown();
+  }
 
   /** Parse CLI args, start gRPC server, register, serve until shutdown. */
   run(): void {
+    // Nobody awaits `ready` in production, and an unawaited rejected promise is
+    // a process-killing unhandled rejection. This marks it handled without
+    // taking the rejection away from a harness that does await it.
+    void this.ready.catch(() => undefined);
     const args = this.parseArgs();
+    this.pluginId = args.pluginId;
+
+    // A crash must be a log line and a non-zero exit, not a silent process
+    // death: Node's default for an unhandled rejection is to print to stderr
+    // that nobody is reading and exit 1 with no plugin-side record at all.
+    installFatalHandlers(() => this.host);
+
+    // The descriptor is checked against the protocol's `reserved` declarations
+    // BEFORE the server binds. TypeScript answers a missing descriptor entry
+    // with `undefined`, which is how three handlers were registered against a
+    // stale descriptor and dropped for a whole release; a revived reserved
+    // field is the same class of drift arriving from the other direction.
+    assertNoReservedNames();
 
     const server = new grpc.Server();
     this.server = server;
@@ -162,7 +258,8 @@ export abstract class Plugin {
       async (err, port) => {
         if (err) {
           console.error("Failed to bind:", err);
-          process.exit(1);
+          this.exitProcess(1);
+          return;
         }
 
         console.log(`Plugin gRPC server listening on port ${port}`);
@@ -181,6 +278,21 @@ export abstract class Plugin {
             authToken: args.authToken,
           });
           this.host = host;
+
+          // From here on `console.*` is also a `PluginLog`, so an author who
+          // never calls `ctx.info` still shows up in the daemon's log pane —
+          // which is the only place a user can see why a plugin misbehaved.
+          // Installed after registration, deliberately: before it there is no
+          // host to log to, and the daemon reads this process's first line of
+          // stdout as the readiness signal.
+          installConsoleBridge(() => this.host);
+
+          // …and the registration line goes through it, so this plugin makes at
+          // least one authenticated host call on every start rather than only
+          // when the author happens to log something. `astra-plugin test`
+          // asserts that a plugin talked to the daemon at all, precisely so a
+          // host client that stopped sending `x-session-token` cannot pass
+          // conformance while every inbound hook still answers.
           console.log(
             `Registered successfully. Daemon version: ${response.daemonVersion}`
           );
@@ -198,13 +310,13 @@ export abstract class Plugin {
             console.log("DaemonClient connected (plugin has client capability)");
           }
 
-          // Pass initial language
-          if (response.language) {
-            this.language = response.language;
-            await this.onLanguageChanged(response.language);
-          }
-
-          // Pass initial config
+          // Lifecycle, in the order all three SDKs use:
+          //   bind → register → ctx → onConfigChanged → onLanguageChanged
+          //   → onStart → serve
+          // Config first because `onLanguageChanged` and `onStart` are both
+          // entitled to read it; `onStart` last because it is the hook that may
+          // open sockets and spawn timers, and it must not do that against a
+          // half-initialised plugin.
           if (response.configJson) {
             try {
               this.config = JSON.parse(response.configJson);
@@ -214,7 +326,15 @@ export abstract class Plugin {
             await this.onConfigChanged(this.config);
           }
 
+          if (response.language) {
+            this.language = response.language;
+            await this.onLanguageChanged(response.language);
+          }
+
+          await this.onStart(this.ctx());
+
           // Start event subscription
+          this.readyResolve?.();
           const eventTypes = this.subscribedEvents();
           if (eventTypes.length > 0) {
             const excludeSource = this.sourceId();
@@ -226,12 +346,14 @@ export abstract class Plugin {
           // is one fact with one fix, and it gets EX_CONFIG so the daemon's log
           // of the exit code says "this machine is misconfigured" rather than
           // "the plugin crashed".
+          this.readyReject?.(e);
           if (e instanceof ProtocolMismatchError) {
             console.error(e.message);
-            process.exit(EXIT_PROTOCOL_INCOMPATIBLE);
+            this.exitProcess(EXIT_PROTOCOL_INCOMPATIBLE);
+            return;
           }
           console.error("Registration failed:", e.message);
-          process.exit(1);
+          this.exitProcess(1);
         }
       }
     );
@@ -240,12 +362,25 @@ export abstract class Plugin {
     const shutdown = () => {
       console.log("Shutting down...");
       this.onShutdown().then(() => {
-        server.tryShutdown(() => process.exit(0));
+        server.tryShutdown(() => this.exitProcess(0));
       });
     };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
   }
+
+  // ── Lifecycle ──
+
+  /**
+   * Called once, after registration and after the first config and language
+   * have been delivered, before the plugin starts serving.
+   *
+   * This is where to open a connection, start a poller or seed a cache: `ctx`
+   * is live and `this.config` is populated, which is not true in the
+   * constructor. Throwing here fails the start loudly instead of leaving a
+   * plugin that registered and does nothing.
+   */
+  async onStart(_ctx: PluginContext): Promise<void> {}
 
   // ── Client capability ──
 
@@ -479,11 +614,11 @@ export abstract class Plugin {
    * capability. `event` is a decoded `ConversationEventMsg`. */
   async onConversationEvent(_convId: string, _event: Record<string, unknown>): Promise<void> {}
 
-  async onStateChanged(_event: { previous: string; current: string }): Promise<void> {}
+  async onStateChanged(_event: StateChangedEvent): Promise<void> {}
 
-  async onCommandTriggered(_event: { commandId: string; commandName: string; variables: Record<string, string> }): Promise<void> {}
+  async onCommandTriggered(_event: CommandTriggeredEvent): Promise<void> {}
 
-  async onCommandCompleted(_event: { commandId: string; commandName: string; success: boolean }): Promise<void> {}
+  async onCommandCompleted(_event: CommandCompletedEvent): Promise<void> {}
 
   // ── Convenience methods ──
 
@@ -520,7 +655,7 @@ export abstract class Plugin {
     }
     if (!daemonAddr || !pluginId) {
       console.error("Usage: --daemon-addr=HOST:PORT --plugin-id=ID");
-      process.exit(1);
+      this.exitProcess(1);
     }
     return { daemonAddr, pluginId, authToken };
   }
@@ -991,7 +1126,8 @@ export abstract class Plugin {
 
   private async handleShutdown(_call: any) {
     await this.onShutdown();
-    setTimeout(() => process.exit(0), 100);
+    const timer = setTimeout(() => this.exitProcess(0), 100);
+    if (typeof timer.unref === "function") timer.unref();
     return {};
   }
 
@@ -1005,7 +1141,7 @@ export abstract class Plugin {
    *  dispatched to `onConversationEvent`. */
   private startChatFirehose(): void {
     const connect = () => {
-      if (!this.daemon) return;
+      if (!this.daemon || this.stopped) return;
       const stream = this.daemon.subscribeChatEvents({});
       console.log("Chat firehose active");
       stream.on("data", async (fe: any) => {
@@ -1018,15 +1154,32 @@ export abstract class Plugin {
         }
       });
       stream.on("error", (err: Error) => {
+        if (this.stopped) return;
         console.warn(`Chat firehose error: ${err.message}, reconnecting...`);
-        setTimeout(connect, 2000);
+        this.reconnect(connect);
       });
       stream.on("end", () => {
+        if (this.stopped) return;
         console.log("Chat firehose ended, reconnecting...");
-        setTimeout(connect, 2000);
+        this.reconnect(connect);
       });
     };
     connect();
+  }
+
+  /**
+   * Reconnect in two seconds, unless `stopServing` has run.
+   *
+   * `unref`'d: a pending reconnect must not be the reason a process that has
+   * finished its work stays alive — which is precisely what kept the level-2
+   * harness's test runner from ever exiting.
+   */
+  private reconnect(connect: () => void): void {
+    if (this.stopped) return;
+    const timer = setTimeout(() => {
+      if (!this.stopped) connect();
+    }, 2000);
+    if (typeof timer.unref === "function") timer.unref();
   }
 
   private startEventLoop(eventTypes: string[], excludeSourceId: string): void {
@@ -1041,27 +1194,56 @@ export abstract class Plugin {
         await this.dispatchEvent(event.eventType, payload);
       });
       stream.on("error", (err: Error) => {
+        if (this.stopped) return;
         console.warn(`Event stream error: ${err.message}, reconnecting...`);
-        setTimeout(connect, 2000);
+        this.reconnect(connect);
       });
       stream.on("end", () => {
+        if (this.stopped) return;
         console.log("Event subscription ended, reconnecting...");
-        setTimeout(connect, 2000);
+        this.reconnect(connect);
       });
     };
     connect();
   }
 
-  private async dispatchEvent(eventType: string, payload: Record<string, unknown>): Promise<void> {
+  /**
+   * Decode one daemon event and hand it to the typed hook, then to `onEvent`.
+   *
+   * The payload keys are the daemon's, and the daemon's are **snake_case**:
+   * `AstraEvent` is `#[serde(tag = "type", rename_all = "snake_case")]`, and
+   * `rename_all` on an enum renames its *variants*, not their fields — so the
+   * wire carries `{"type":"command_triggered","command_id":…,"command_name":…,
+   * "trigger_text":…}` (`astra-core/src/event.rs`). This used to `as`-cast the
+   * payload to a camelCase shape, which the compiler happily agreed was
+   * `string` and which was `undefined` on every event forever.
+   *
+   * `@internal`, and not `private`, so the test harness delivers events through
+   * this function instead of past it. A harness with its own dispatch would be
+   * testing itself.
+   */
+  async dispatchEvent(eventType: string, payload: Record<string, unknown>): Promise<void> {
+    const str = (key: string): string => {
+      const value = payload[key];
+      return typeof value === "string" ? value : "";
+    };
     switch (eventType) {
       case "state_changed":
-        await this.onStateChanged(payload as { previous: string; current: string });
+        await this.onStateChanged({ previous: str("previous"), current: str("current") });
         break;
       case "command_triggered":
-        await this.onCommandTriggered(payload as { commandId: string; commandName: string; variables: Record<string, string> });
+        await this.onCommandTriggered({
+          commandId: str("command_id"),
+          commandName: str("command_name"),
+          triggerText: str("trigger_text"),
+        });
         break;
       case "command_completed":
-        await this.onCommandCompleted(payload as { commandId: string; commandName: string; success: boolean });
+        await this.onCommandCompleted({
+          commandId: str("command_id"),
+          commandName: str("command_name"),
+          success: payload.success === true,
+        });
         break;
     }
     await this.onEvent(eventType, payload);

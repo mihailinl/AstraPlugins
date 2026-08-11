@@ -1,9 +1,31 @@
 /**
- * Astra Plugin SDK for TypeScript
+ * Astra Plugin SDK for TypeScript.
  *
- * @example
+ * The npm package is **`astra-plugin-sdk`** — unscoped. `@astra/plugin-sdk` was
+ * scaffolded for a scope that was never registered, so every project that
+ * copied it 404'd on install.
+ *
+ * Two ways to write a plugin, and they compose: the object form for a plugin
+ * that is a bag of tools, the class for one with state and a lifecycle.
+ *
+ * @example The object form — the schema is written once and narrows the handler.
  * ```typescript
- * import { Plugin } from "@astra/plugin-sdk";
+ * import { plugin, tool, s } from "astra-plugin-sdk";
+ *
+ * plugin({
+ *   tools: {
+ *     hello: tool({
+ *       description: "Greet someone.",
+ *       input: s.object({ name: s.string(), excited: s.boolean().optional() }),
+ *       run: ({ name, excited }) => `Hello, ${name}${excited ? "!" : "."}`,
+ *     }),
+ *   },
+ * }).run();
+ * ```
+ *
+ * @example The class form.
+ * ```typescript
+ * import { Plugin } from "astra-plugin-sdk";
  *
  * class MyPlugin extends Plugin {
  *   async listTools() {
@@ -16,11 +38,49 @@
  *
  * new MyPlugin().run();
  * ```
+ *
+ * Tests live behind a second entry point, so a shipped plugin does not carry
+ * the harness: `import { Harness } from "astra-plugin-sdk/testing"`.
  */
 
-export { Plugin, HookUnimplemented } from "./plugin";
-export { HostClient, RegistrationError } from "./host-client";
-export type { RegisterResponse, RegisterErrorDetail, DaemonInfo } from "./host-client";
+export { Plugin, HookUnimplemented } from "./plugin.js";
+export { plugin, tool, action } from "./define.js";
+export type {
+  PluginApp,
+  PluginDefinition,
+  ToolSpec,
+  ToolEntry,
+  ActionSpec,
+  ActionEntry,
+  TriggerEntry,
+  TtsDefinition,
+  SttDefinition,
+  AiDefinition,
+  UiDefinition,
+  EventsDefinition,
+  ToolOutcome,
+} from "./define.js";
+export { s, Schema, ObjectSchema, validate, formatIssues } from "./schema.js";
+export type {
+  AnySchema,
+  AnyObjectSchema,
+  ArrayOptions,
+  Infer,
+  InferShape,
+  JsonSchema,
+  NumberOptions,
+  ObjectOptions,
+  SchemaOptions,
+  Shape,
+  Simplify,
+  StringOptions,
+  ValidationIssue,
+} from "./schema.js";
+export { PluginContextImpl, NoHostError } from "./context.js";
+export type { PluginContext, ContextSource } from "./context.js";
+export type { Host, DaemonInfo } from "./host.js";
+export { HostClient, RegistrationError } from "./host-client.js";
+export type { RegisterResponse, RegisterErrorDetail } from "./host-client.js";
 export {
   PluginError,
   BadArguments,
@@ -32,7 +92,7 @@ export {
   Timeout,
   InternalError,
   structuredErrorsSupported,
-} from "./errors";
+} from "./errors.js";
 export type {
   PluginErrorCode,
   PluginErrorDetail,
@@ -40,7 +100,7 @@ export type {
   AnyPluginError,
   ToolError,
   ActionError,
-} from "./errors";
+} from "./errors.js";
 export {
   evaluateProtocol,
   ProtocolMismatchError,
@@ -49,10 +109,20 @@ export {
   PROTOCOL_VERSION,
   SDK_NAME,
   SDK_VERSION,
-} from "./protocol";
-export { DaemonClient } from "./daemon-client";
-export { I18n } from "./i18n";
-export { Field, UiContrib } from "./types";
+} from "./protocol.js";
+export {
+  EXIT_UNCAUGHT,
+  LogBridge,
+  consoleBridge,
+  installConsoleBridge,
+  installFatalHandlers,
+  removeFatalHandlers,
+  restoreConsole,
+} from "./logging.js";
+export type { LogLevel } from "./logging.js";
+export { DaemonClient } from "./daemon-client.js";
+export { I18n } from "./i18n.js";
+export { Field, UiContrib } from "./types.js";
 export type {
   ToolDef,
   ToolResult,
@@ -78,7 +148,12 @@ export type {
   AiChunk,
   ThemeContribution,
   ChatChunk,
-} from "./types";
-export { ProtoContractError } from "./service-contract";
-export { PROTO_SHA256, PROTO_SOURCE, SERVICE_METHODS } from "./generated";
-export * as limits from "./generated/limits";
+  StateChangedEvent,
+  CommandTriggeredEvent,
+  CommandCompletedEvent,
+} from "./types.js";
+export { ProtoContractError } from "./service-contract.js";
+export { assertNoReservedNames, descriptorProblems, RETIRED_NAMES } from "./reserved.js";
+export type { DescriptorProblem } from "./reserved.js";
+export { PROTO_SHA256, PROTO_SOURCE, RESERVED_FIELD_NAMES, SERVICE_METHODS } from "./generated/index.js";
+export * as limits from "./generated/limits.js";

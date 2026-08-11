@@ -2,15 +2,44 @@
   "name": "astra-plugin-sdk",
   "version": "0.5.0",
   "description": "TypeScript SDK for building Astra plugins",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/esm/testing/index.d.ts",
+        "default": "./dist/esm/testing/index.js"
+      },
+      "require": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "generate": "node tools/gen-descriptor.mjs",
     "prebuild": "node tools/gen-descriptor.mjs",
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.esm.json && node tools/finish-build.mjs",
     "typecheck": "tsc --noEmit",
+    "typetest": "tsc -p tsconfig.typetest.json",
     "test": "node --test tools/*.test.mjs",
-    "pretest": "node tools/gen-descriptor.mjs && tsc"
+    "pretest": "node tools/gen-descriptor.mjs && tsc && tsc -p tsconfig.esm.json && node tools/finish-build.mjs && tsc -p tsconfig.typetest.json"
   },
   "files": [
     "dist/"

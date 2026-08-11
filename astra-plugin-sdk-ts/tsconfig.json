@@ -1,19 +1,17 @@
 {
+  "//": [
+    "The CommonJS build. `module: node16` with `\"type\": \"commonjs\"` in",
+    "package.json emits require()/exports, and — unlike the old `moduleResolution:",
+    "node` — it resolves the way Node 20 actually does, so an import that would",
+    "fail at runtime fails at compile time instead.",
+    "",
+    "The output stays at dist/ root: that is what `main`, `types`, every existing",
+    "`require(\"astra-plugin-sdk\")` and CI's tarball check already point at."
+  ],
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "declaration": true,
-    "resolveJsonModule": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+    "module": "node16",
+    "moduleResolution": "node16",
+    "outDir": "dist"
+  }
 }

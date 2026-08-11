@@ -1,0 +1,19 @@
+{
+  "//": [
+    "The ES-module build. `module: esnext` rather than `node16`, because tsc",
+    "decides a file's emit format from the nearest package.json `type` — and this",
+    "package is `\"type\": \"commonjs\"`, so node16 would emit CommonJS from these",
+    "same sources. `tools/finish-build.mjs` drops a `{\"type\": \"module\"}` marker",
+    "into dist/esm/ so Node reads the output as ESM.",
+    "",
+    "`moduleResolution: bundler` accepts the `.js` specifiers the sources already",
+    "carry and resolves them to `.ts`, which is what makes one source tree emit",
+    "both formats."
+  ],
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "outDir": "dist/esm"
+  }
+}

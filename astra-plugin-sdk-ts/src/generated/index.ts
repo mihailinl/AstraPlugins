@@ -5,7 +5,7 @@
  * Regenerate with `npm run generate`; `npm run build` does it for you.
  */
 
-import descriptorJson from "./descriptor.json";
+import { descriptorJson } from "./descriptor.js";
 
 /**
  * A protobuf.js JSON namespace (`protobuf.Root#toJSON()`), narrowed to the one
@@ -19,11 +19,24 @@ export interface ProtoDescriptorJson {
 /** The compiled protocol descriptor. Load it with `protoLoader.fromJSON()`. */
 export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptorJson;
 
+/**
+ * `reserved "name";` declarations, keyed by the message that owns them.
+ *
+ * Checked at startup by `src/reserved.ts`: a reserved name that comes back as a
+ * live field is a wire meaning colliding with the one a daemon in the field
+ * still remembers.
+ */
+export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> = {
+  "astra.SemanticSettings": ["mode", "llm_model_id", "memory_enabled"],
+  "astra.AiSettings": ["use_thinking"],
+  "astra.HotkeySettings": ["toggle_listen", "stop_speaking", "open_chat"],
+};
+
 /** Repo-relative path of the proto this descriptor was generated from. */
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "ee68d26b07fd987860aff632d037eb8bdbd1017bd5147f09fdffeba79b432b64";
+export const PROTO_SHA256 = "2bccd2f5cd787f03df552289c7906ef13fc50a8dc2ee00240bc2743994e5681d";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";

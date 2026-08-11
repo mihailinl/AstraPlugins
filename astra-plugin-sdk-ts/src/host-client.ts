@@ -17,16 +17,20 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import { service } from "./proto-loader";
-import { assertClientContract } from "./service-contract";
+import { service } from "./proto-loader.js";
+import { assertClientContract } from "./service-contract.js";
 import {
   evaluateProtocol,
   ProtocolMismatchError,
   PROTOCOL_VERSION,
   SDK_NAME,
   SDK_VERSION,
-} from "./protocol";
-import type { ChatChunk, ThemeContribution } from "./types";
+} from "./protocol.js";
+import type { ChatChunk, ThemeContribution } from "./types.js";
+import type { DaemonInfo, Host } from "./host.js";
+
+/** Re-exported so `import { DaemonInfo } from "astra-plugin-sdk"` keeps working. */
+export type { DaemonInfo } from "./host.js";
 
 /** Metadata header the daemon's auth interceptor reads. */
 const SESSION_TOKEN_HEADER = "x-session-token";
@@ -134,14 +138,15 @@ export class RegistrationError extends Error {
   }
 }
 
-/** Info about the running daemon. */
-export interface DaemonInfo {
-  version: string;
-  state: string;
-  grpcPort: number;
-}
-
-export class HostClient {
+/**
+ * The real daemon.
+ *
+ * `implements Host` is load-bearing, not decoration: it is the compile error
+ * that fires if a host RPC is added here and not to the interface the test
+ * harness's `RecordingHost` implements — which is how a hook gets a binding
+ * that no test can reach.
+ */
+export class HostClient implements Host {
   private constructor(
     private readonly stub: grpc.Client & Record<string, Function>,
     private readonly pluginId: string,
@@ -330,7 +335,7 @@ export class HostClient {
   }
 
   /** Subscribe to daemon events. Returns a gRPC readable stream. */
-  subscribeEvents(eventTypes: string[], excludeSourceId: string = ""): grpc.ClientReadableStream<any> {
+  subscribeEvents(eventTypes: string[], excludeSourceId: string = ""): grpc.ClientReadableStream<unknown> {
     return this.stub.SubscribeEvents(
       { pluginId: this.pluginId, eventTypes, excludeSourceId },
       this.metadata

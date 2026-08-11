@@ -1,0 +1,22 @@
+{
+  "//": [
+    "The type-level test. Compiling this file IS the assertion: every",
+    "`@ts-expect-error` must really be an error (TypeScript reports an unused",
+    "directive as one), and every fixture in the accepted lists must type-check.",
+    "",
+    "It emits, rather than `--noEmit`, because `tools/schema.test.mjs` then runs",
+    "the SAME fixtures through the runtime validator. That is what makes the two",
+    "halves one test: a value the type system allows must validate, and a value",
+    "the type system rejects must not."
+  ],
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "node16",
+    "moduleResolution": "node16",
+    "rootDir": "types-test",
+    "outDir": "dist-typetest",
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["types-test/**/*.ts"]
+}

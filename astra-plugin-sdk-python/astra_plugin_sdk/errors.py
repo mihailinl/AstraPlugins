@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import enum
 import math
+import traceback
 from typing import Any, ClassVar
 
 import grpc
@@ -191,6 +192,19 @@ def _find_detail_field(message_cls: Any) -> str | None:
     return None
 
 
+def _traceback_for(exc: BaseException) -> str:
+    """The formatted traceback of `exc`, or "" when it has none.
+
+    `traceback.format_exception` on the exception object rather than
+    `format_exc()` on the ambient one: a handler that catches, wraps and
+    re-raises would otherwise attach the wrong stack, and the whole point of
+    this string is that it names the line that actually failed.
+    """
+    if exc.__traceback__ is None:
+        return ""
+    return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)).rstrip()
+
+
 # ── the taxonomy ─────────────────────────────────────────────────────────────
 
 
@@ -213,8 +227,17 @@ class PluginError(Exception):
         config_field: str = "",
         retry_after: float | None = None,
         doc_url: str = "",
+        detail: str = "",
     ):
         self.message = message or self.default_message
+        #: Diagnostics for the plugin's author — the Python traceback, when this
+        #: error was adopted from an exception (§5.10). Deliberately NOT part of
+        #: `to_dict()`, `to_error_string()` or `to_proto()`: `astra.PluginError`
+        #: has no field for it, and the legacy `string error` is read by the AI
+        #: loop, which must not be fed a stack trace. It travels to the daemon as
+        #: a `PluginLog` line at error level, which is what the per-plugin log
+        #: file and the "Copy diagnostics" button are for.
+        self.detail = detail
         #: The `[config]` key the user has to fill in. Only meaningful for
         #: `NOT_CONFIGURED`, where it is a deep-link target in the settings UI.
         self.config_field = config_field
@@ -341,18 +364,29 @@ class PluginError(Exception):
         `BAD_ARGUMENTS`, and reporting it as `INTERNAL` sends the reader to the
         wrong half of the system. Everything else is `INTERNAL`, which is the
         honest answer for an exception nobody classified.
+
+        `BaseException`, not `Exception`, in the annotation and in fact: §5.10
+        has every handler catch the wider type, and `sys.exit()` inside a tool —
+        which raises `SystemExit`, not an `Exception` — used to escape the
+        servicer and take the whole gRPC handler with it.
+
+        The traceback lands in :attr:`detail`, formatted here rather than at each
+        call site so that every catch site gets it without remembering to.
         """
         if isinstance(exc, PluginError):
+            if not exc.detail:
+                exc.detail = _traceback_for(exc)
             return exc
+        detail = _traceback_for(exc)
         if isinstance(exc, (ValueError, TypeError)):
-            return BadArguments(str(exc) or type(exc).__name__)
+            return BadArguments(str(exc) or type(exc).__name__, detail=detail)
         if isinstance(exc, KeyError):
-            return NotFound(str(exc) or "not found")
+            return NotFound(str(exc) or "not found", detail=detail)
         if isinstance(exc, TimeoutError):
-            return Timeout(str(exc) or "the operation timed out")
+            return Timeout(str(exc) or "the operation timed out", detail=detail)
         if isinstance(exc, PermissionError):
-            return Unauthorized(str(exc) or "permission denied")
-        return InternalError(str(exc) or type(exc).__name__)
+            return Unauthorized(str(exc) or "permission denied", detail=detail)
+        return InternalError(str(exc) or type(exc).__name__, detail=detail)
 
 
 class BadArguments(PluginError):
@@ -390,6 +424,7 @@ class NotConfigured(PluginError):
         message: str = "",
         *,
         doc_url: str = "",
+        detail: str = "",
     ):
         super().__init__(
             # Same sentence the Rust SDK's `ToolError::not_configured` produces.
@@ -398,6 +433,7 @@ class NotConfigured(PluginError):
             message or (f"required setting `{config_field}` is not set" if config_field else ""),
             config_field=config_field,
             doc_url=doc_url,
+            detail=detail,
         )
 
 
@@ -424,8 +460,11 @@ class RateLimited(PluginError):
         *,
         retry_after: float | None = None,
         doc_url: str = "",
+        detail: str = "",
     ):
-        super().__init__(message, retry_after=retry_after, doc_url=doc_url)
+        super().__init__(
+            message, retry_after=retry_after, doc_url=doc_url, detail=detail
+        )
 
 
 class Unavailable(PluginError):

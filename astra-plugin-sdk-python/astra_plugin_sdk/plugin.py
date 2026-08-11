@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import inspect
 import json
+import logging
 import os
 import signal
 import sys
@@ -12,10 +13,21 @@ from concurrent import futures
 
 import grpc
 
-from astra_plugin_sdk import limits, protocol
+from astra_plugin_sdk import limits, protocol, reserved
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
+from astra_plugin_sdk.capability_types import (
+    ActionTypeDef,
+    AiModelInfo,
+    FieldDef,
+    ToolDef,
+    TriggerTypeDef,
+    UiContribution,
+    VoiceInfo,
+    coerce,
+)
 from astra_plugin_sdk.errors import NotFound, PluginError
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
+from astra_plugin_sdk.logging_bridge import install_logging_bridge
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.types import (
     AiCompleteRequest,
@@ -26,6 +38,11 @@ from astra_plugin_sdk.types import (
     coerce_ai_chunk,
     coerce_audio_chunk,
 )
+
+#: Where the SDK itself logs. Routed to the daemon by the bridge (§5.10) like
+#: any other logger, so an author sees SDK diagnostics in the same pane as their
+#: own without having to know this name.
+log = logging.getLogger("astra_plugin_sdk")
 
 
 #: The environment variable the daemon states the manifest's `[capabilities]`
@@ -106,16 +123,20 @@ class Plugin:
         self.language: str = "en"
         self.active_triggers: set[str] = set()
         self._server: grpc.aio.Server | None = None
+        self._log_handler = None  # PluginLogHandler, installed by `_run_async`
+        self.port: int | None = None  # set once the capability server binds
+        self._stop_event: asyncio.Event | None = None
 
         # `stt_transcribe` gained an `options` parameter in 0.6 (§5.4). Asking
         # the signature once, here, is what lets a 0.5-era two-argument override
         # keep working instead of dying with a TypeError on the first utterance.
         self._stt_transcribe_wants_options = _accepts(self.stt_transcribe, "options")
 
-        # Auto-collect @tool / @action / @trigger decorated methods
-        self._decorated_tools: dict[str, tuple[dict, object]] = {}
-        self._decorated_actions: dict[str, tuple[dict, object]] = {}
-        self._decorated_triggers: dict[str, dict] = {}
+        # Auto-collect @tool / @action / @trigger / @ui_call decorated methods
+        self._decorated_tools: dict[str, tuple[ToolDef, object]] = {}
+        self._decorated_actions: dict[str, tuple[ActionTypeDef, object]] = {}
+        self._decorated_triggers: dict[str, TriggerTypeDef] = {}
+        self._ui_calls: dict[str, object] = {}
         for attr_name in dir(self):
             try:
                 method = getattr(self, attr_name)
@@ -123,16 +144,29 @@ class Plugin:
                 continue
             if hasattr(method, "_astra_tool_meta"):
                 meta = method._astra_tool_meta
-                self._decorated_tools[meta["name"]] = (meta, method)
+                self._decorated_tools[meta.name] = (meta, method)
             if hasattr(method, "_astra_action_meta"):
                 meta = method._astra_action_meta
-                self._decorated_actions[meta["type"]] = (meta, method)
+                self._decorated_actions[meta.type] = (meta, method)
             if hasattr(method, "_astra_trigger_meta"):
                 meta = method._astra_trigger_meta
-                self._decorated_triggers[meta["type"]] = meta
+                self._decorated_triggers[meta.type] = meta
+            if hasattr(method, "_astra_ui_call_meta"):
+                self._ui_calls[method._astra_ui_call_meta["method"]] = method
+
+    #: UI contributions registered by the `@ui_page` / `@ui_slot` / `@ui_effect`
+    #: / `@ui_overlay` / `@ui_inject` class decorators. Class-level and replaced
+    #: (never mutated) by the decorators, so a subclass cannot append into its
+    #: base's list.
+    _astra_ui_contributions: list[UiContribution] = []
 
     def run(self):
         """Parse CLI args, start gRPC server, register with daemon, serve until shutdown."""
+        # BEFORE anything else, including argument parsing: if the protobuf
+        # module this process loaded revives a field name the protocol retired,
+        # every later step is reading the wrong thing. §5.8, `reserved.py`.
+        reserved.assert_no_reserved_names()
+
         parser = argparse.ArgumentParser()
         parser.add_argument("--daemon-addr", required=True, help="Daemon gRPC address")
         parser.add_argument("--plugin-id", required=True, help="Plugin ID")
@@ -186,6 +220,14 @@ class Plugin:
         except (AttributeError, OSError):
             pass
 
+        # `logging` → `PluginLog`, from here on and from any thread (§5.10).
+        # Installed before the port is bound so that a failure during bind or
+        # registration is itself logged through the same path — those are the
+        # lines an author most needs and the ones a post-registration install
+        # would lose.
+        self._log_handler = install_logging_bridge(self)
+        self._log_handler.start()
+
         # SECURITY: the capability server is the daemon's way into this plugin's
         # tools, config and shutdown, and loopback separates it from nothing —
         # any process of the same user can dial the port. The guard demands the
@@ -209,6 +251,11 @@ class Plugin:
         plugin_pb2_grpc.add_PluginCapabilityServiceServicer_to_server(servicer, self._server)
 
         port = self._server.add_insecure_port("127.0.0.1:0")
+        #: The loopback port this plugin's capability server bound to. Published
+        #: because the OS assigns it and nothing else can find it out — the
+        #: level-2 harness (§5.6) dials it, and so does anyone debugging with
+        #: `grpcurl`.
+        self.port = port
         await self._server.start()
         print(f"Plugin gRPC server listening on port {port}", flush=True)
 
@@ -258,6 +305,25 @@ class Plugin:
         self.host = host
 
         print(f"Registered successfully. Daemon version: {response.daemon_version}", flush=True)
+        # …and again through `logging`, which the bridge installed above turns
+        # into a `PluginLog`. Two reasons it is not just the print:
+        #
+        # * it is this plugin's first host call, so the session token the daemon
+        #   just issued is exercised on every start rather than only by the
+        #   plugins that happen to log something of their own. `astra-plugin
+        #   test` asserts that a plugin talked to the daemon at all, precisely
+        #   so a host client that stopped authenticating cannot pass
+        #   conformance while every inbound hook still answers;
+        # * the bridge's stderr handler writes it unbuffered, and the daemon
+        #   takes a first line on *either* stream as the readiness signal — so a
+        #   plugin whose stdout is block-buffered for any reason still comes up
+        #   instead of dying at the 20 s start timeout.
+        log.info(
+            "Registered with Astra %s (protocol %s) as '%s'",
+            response.daemon_version,
+            response.protocol_version,
+            plugin_id,
+        )
 
         # The daemon issues a session token to EVERY plugin (it gates the host
         # RPCs, not just the daemon API — SECURITY(B1)), so the token alone no
@@ -292,6 +358,9 @@ class Plugin:
 
         # Wait for shutdown
         stop_event = asyncio.Event()
+        #: Set it to make `_run_async` return. The level-2 harness (§5.6) owns
+        #: the loop the plugin runs on and has no signals to send it.
+        self._stop_event = stop_event
 
         def _signal_handler():
             stop_event.set()
@@ -300,8 +369,12 @@ class Plugin:
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 loop.add_signal_handler(sig, _signal_handler)
-            except NotImplementedError:
-                # Windows doesn't support add_signal_handler
+            except (NotImplementedError, ValueError, RuntimeError):
+                # NotImplementedError: Windows has no add_signal_handler.
+                # ValueError/RuntimeError: this loop is not on the main thread —
+                # true of the level-2 harness, and of anyone embedding a plugin
+                # in a larger process. Neither is a reason to refuse to start;
+                # `_stop_event` is the portable way to stop either way.
                 pass
 
         try:
@@ -312,6 +385,13 @@ class Plugin:
         print("Shutting down...")
         await self.on_shutdown()
         await self._server.stop(grace=2)
+        # Detach the log bridge from the root logger: its drain task belongs to
+        # the loop that is about to go away, and a handler left behind would be
+        # closed at interpreter exit against a dead loop.
+        if self._log_handler is not None:
+            logging.getLogger().removeHandler(self._log_handler)
+            self._log_handler.close()
+            self._log_handler = None
 
     async def _discover_capabilities(self) -> list[str]:
         """Guess the capability list from what the subclass implements.
@@ -372,11 +452,13 @@ class Plugin:
 
     # ── Capability methods (override in subclass) ──
 
-    async def list_tools(self) -> list[dict]:
+    async def list_tools(self) -> list[ToolDef]:
         """Return tool definitions.
 
         If you use ``@tool`` decorators, this is auto-populated.
         Override to define tools manually (or call ``super()`` to merge both).
+        Return :class:`~astra_plugin_sdk.capability_types.ToolDef` values; dicts
+        still work for one more minor and warn.
         """
         return [meta for meta, _ in self._decorated_tools.values()]
 
@@ -395,7 +477,7 @@ class Plugin:
         # a @tool reaches the UI as a link to that field. Flattening them to
         # `str(e)` here is what made every failure look the same.
         args = json.loads(arguments_json) if arguments_json else {}
-        result = await handler(**args) if asyncio.iscoroutinefunction(handler) else handler(**args)
+        result = await handler(**args) if inspect.iscoroutinefunction(handler) else handler(**args)
         if isinstance(result, dict):
             return {"success": True, "result": json.dumps(result)}
         return {"success": True, "result": str(result) if result is not None else ""}
@@ -580,7 +662,7 @@ class Plugin:
         """
         return [], ""
 
-    async def get_action_types(self) -> list[dict]:
+    async def get_action_types(self) -> list[ActionTypeDef]:
         """Return action type definitions.
 
         Auto-populated from ``@action`` decorators. Override to define manually.
@@ -597,51 +679,65 @@ class Plugin:
             raise NotFound(f"Unknown action: {action_type}")
         _, handler = entry
         params = json.loads(params_json) if params_json else {}
-        result = await handler(**params) if asyncio.iscoroutinefunction(handler) else handler(**params)
+        result = await handler(**params) if inspect.iscoroutinefunction(handler) else handler(**params)
         if isinstance(result, dict):
             return {"success": True, "result": json.dumps(result)}
         return {"success": True, "result": str(result) if result is not None else ""}
 
-    async def get_trigger_types(self) -> list[dict]:
+    async def get_trigger_types(self) -> list[TriggerTypeDef]:
         """Return trigger type definitions.
 
         Auto-populated from ``@trigger`` decorators. Override to define manually.
         """
         return list(self._decorated_triggers.values())
 
-    async def get_ui_contributions(self) -> list[dict]:
-        """Return UI contribution definitions (pages, effects, settings sections, CSS injections)."""
-        return []
+    async def get_ui_contributions(self) -> list[UiContribution]:
+        """Return UI contribution definitions (pages, effects, injections).
 
-    # Convenience factories for UI contributions
-    @staticmethod
-    def ui_page(id: str, label: str, url: str, *, icon_svg: str = "") -> dict:
-        return {"id": id, "slot": "page.custom", "label": label, "url": url, "icon_svg": icon_svg, "pointer_events": True}
+        Auto-populated from the ``@ui_page`` / ``@ui_slot`` / ``@ui_effect`` /
+        ``@ui_overlay`` / ``@ui_inject`` class decorators. Override — and call
+        ``super()`` — only when a contribution's URL or size is not known until
+        runtime.
+        """
+        return list(self._astra_ui_contributions)
 
+    # Convenience factories, for the plugin that computes its contributions at
+    # runtime. Everything else should use the decorators: a factory's return
+    # value has to be plumbed into `get_ui_contributions`, and that is the step
+    # the SDK's own documented example forgot for two releases (§5.8).
     @staticmethod
-    def ui_slot(slot: str, url: str, *, id: str = "", label: str = "", width: int = 0, height: int = 0) -> dict:
-        return {"id": id or slot, "slot": slot, "url": url, "label": label, "width": width, "height": height, "pointer_events": True}
-
-    @staticmethod
-    def ui_effect(url: str, *, id: str = "effect", audio: bool = False) -> dict:
-        props = {"audio": "true"} if audio else {}
-        return {"id": id, "slot": "background.behind", "url": url, "transparent": True, "pointer_events": False, "props": props}
-
-    @staticmethod
-    def ui_inject(css_target: str, position: str, url: str, *, id: str = "inject", width: int = 0, height: int = 0) -> dict:
-        return {"id": id, "css_target": css_target, "position": position, "url": url, "width": width, "height": height, "pointer_events": True}
+    def ui_page(id: str, label: str, url: str, *, icon_svg: str = "") -> UiContribution:
+        return UiContribution(id=id, slot="page.custom", label=label, url=url,
+                              icon_svg=icon_svg, pointer_events=True)
 
     @staticmethod
-    def ui_overlay(id: str, url: str, *, width: int = 200, height: int = 200) -> dict:
-        return {"id": id, "slot": "overlay.floating", "url": url, "transparent": True, "pointer_events": True, "width": width, "height": height}
+    def ui_slot(slot: str, url: str, *, id: str = "", label: str = "", width: int = 0, height: int = 0) -> UiContribution:
+        return UiContribution(id=id or slot, slot=slot, url=url, label=label,
+                              width=width, height=height, pointer_events=True)
+
+    @staticmethod
+    def ui_effect(url: str, *, id: str = "effect", audio: bool = False) -> UiContribution:
+        return UiContribution(id=id, slot="background.behind", url=url, transparent=True,
+                              pointer_events=False, props={"audio": "true"} if audio else {})
+
+    @staticmethod
+    def ui_inject(css_target: str, position: str, url: str, *, id: str = "inject", width: int = 0, height: int = 0) -> UiContribution:
+        return UiContribution(id=id, css_target=css_target, position=position, url=url,
+                              width=width, height=height, pointer_events=True)
+
+    @staticmethod
+    def ui_overlay(id: str, url: str, *, width: int = 200, height: int = 200) -> UiContribution:
+        return UiContribution(id=id, slot="overlay.floating", url=url, transparent=True,
+                              pointer_events=True, width=width, height=height)
 
     # ── UI calls ──
 
     async def handle_ui_call(self, method: str, params_json: str) -> dict | str | None:
         """Handle a call from this plugin's UI iframe (``CallFromUi``).
 
-        Override this to implement UI→backend communication. ``params_json``
-        is the raw JSON the iframe sent.
+        The default implementation dispatches to the ``@ui_call`` methods, so a
+        plugin that uses the decorator never overrides this. Override it for
+        manual routing; ``params_json`` is the raw JSON the iframe sent.
 
         Return either:
 
@@ -650,7 +746,18 @@ class Plugin:
         * any other dict or list — auto-serialized into ``result_json``;
         * a string — used as ``result_json`` as-is.
         """
-        return {"error": f"No UI call handler implemented (method: {method})"}
+        handler = self._ui_calls.get(method)
+        if handler is None:
+            raise NotFound(
+                f"no UI call handler for `{method}`"
+                + (
+                    f" (this plugin answers: {', '.join(sorted(self._ui_calls))})"
+                    if self._ui_calls
+                    else " (this plugin registers none — decorate a method with @ui_call)"
+                )
+            )
+        params = json.loads(params_json) if params_json else {}
+        return await _invoke_with_params(handler, params)
 
     async def on_config_changed(self, config: dict):
         """Called when config changes."""
@@ -802,19 +909,41 @@ class Plugin:
             await asyncio.sleep(2)
 
 
-def _field_dict_to_proto(d: dict):
-    """Convert a config-fields dict to ``FieldDefinitionMsg``.
+async def _invoke_with_params(handler, params):
+    """Call a decorated handler with a JSON payload.
 
-    Handles nested ``options`` / ``conditions`` arrays — protobuf's
-    ``**dict`` unpack does not auto-convert dicts to sub-messages, so the
-    nested entries are built explicitly.
+    A handler that names its parameters gets them as keyword arguments; one that
+    takes `**kwargs` or a single positional gets the whole payload. Both shapes
+    are written in the wild and neither is wrong, so the SDK asks the signature
+    rather than making the author guess which convention it picked.
     """
-    options = [plugin_pb2.DropdownOptionMsg(**o) for o in d.get("options", []) or []]
-    conditions = [
-        plugin_pb2.FieldVisibilityCondition(**c) for c in d.get("conditions", []) or []
-    ]
-    flat = {k: v for k, v in d.items() if k not in ("options", "conditions")}
-    return plugin_pb2.FieldDefinitionMsg(**flat, options=options, conditions=conditions)
+    if not isinstance(params, dict):
+        result = handler(params)
+    else:
+        try:
+            sig = inspect.signature(handler)
+        except (TypeError, ValueError):
+            sig = None
+        takes_kwargs = sig is not None and any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+        )
+        named = (
+            {n for n, p in sig.parameters.items()
+             if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)}
+            if sig is not None
+            else set()
+        )
+        if takes_kwargs or params.keys() <= named:
+            result = handler(**params)
+        elif len(named) == 1:
+            # One positional parameter and a payload that does not match it by
+            # name: the author meant "give me the object".
+            result = handler(params)
+        else:
+            result = handler(**params)
+    if inspect.isawaitable(result):
+        result = await result
+    return result
 
 
 async def _open_stream(maybe_stream):
@@ -886,17 +1015,126 @@ def _result_response(message_cls, result: dict):
     )
 
 
+def adopt(exc: BaseException, where: str) -> PluginError:
+    """Turn anything a handler raised into a `PluginError`, and log the stack.
+
+    THE POINT OF `BaseException` (production plan §5.10). Every catch site in the
+    servicer used to be `except Exception`, which does not include `SystemExit`
+    — so a `sys.exit(1)` inside a tool, or a library that calls it on a bad
+    config, escaped the handler. In `grpc.aio` that kills the RPC task and the
+    plugin answers nothing at all, for that call and for the ones after it: the
+    process is alive, the daemon's health check passes, and every tool call
+    times out. "The plugin stopped working and there is nothing in the logs" is
+    the bug report that produces.
+
+    `asyncio.CancelledError` is the one exception that must NOT be adopted: it
+    is not a failure, it is the loop telling this coroutine to stop, and
+    swallowing it turns a clean shutdown into a hang.
+
+    The formatted traceback goes to the logger — which the §5.10 bridge routes
+    into `PluginLog`, and from there into the daemon's per-plugin log file — and
+    NOT into the response. The response's `error` string is read by the AI loop,
+    and a Python stack trace in the model's context is noise that costs tokens
+    and teaches it nothing.
+    """
+    if isinstance(exc, asyncio.CancelledError):
+        raise exc
+    error = PluginError.from_exception(exc)
+    if error.detail:
+        log.error("%s failed: %s\n%s", where, error.to_error_string(), error.detail)
+    else:
+        log.error("%s failed: %s", where, error.to_error_string())
+    return error
+
+
 class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
-    """gRPC servicer that delegates to the Plugin instance."""
+    """gRPC servicer that delegates to the Plugin instance.
+
+    Every method here is a boundary: on this side a Python exception, on the
+    other side either an in-band failure the daemon can read or a gRPC status.
+    Nothing raised by a plugin handler is allowed past it — see `adopt`.
+    """
 
     def __init__(self, plugin: Plugin):
         self.plugin = plugin
 
+    # ── list hooks ──
+    #
+    # These seven answer with a repeated field and have no in-band error slot,
+    # so a failure travels as a gRPC status. Returning an empty list instead
+    # would be worse than an error: "this plugin has no tools" and "asking this
+    # plugin for its tools raised" look identical in the UI, and only one of
+    # them is a bug the author can fix.
+
+    async def _list(self, hook, hook_name, item_cls, response_cls, field_name, context):
+        try:
+            values = await hook()
+            items = [coerce(v, item_cls, hook_name).to_proto() for v in values or []]
+        except BaseException as e:  # noqa: BLE001 — see `adopt`
+            adopt(e, hook_name).abort(context)
+            return response_cls()
+        return response_cls(**{field_name: items})
+
     async def ListTools(self, request, context):
-        tools = await self.plugin.list_tools()
-        return plugin_pb2.PluginToolListResponse(
-            tools=[plugin_pb2.PluginToolDef(**t) for t in tools]
+        return await self._list(
+            self.plugin.list_tools, "list_tools", ToolDef,
+            plugin_pb2.PluginToolListResponse, "tools", context,
         )
+
+    async def TtsListVoices(self, request, context):
+        return await self._list(
+            self.plugin.tts_list_voices, "tts_list_voices", VoiceInfo,
+            plugin_pb2.PluginTtsVoicesResponse, "voices", context,
+        )
+
+    async def TtsGetConfigFields(self, request, context):
+        return await self._list(
+            self.plugin.tts_config_fields, "tts_config_fields", FieldDef,
+            plugin_pb2.PluginConfigFieldsResponse, "config_fields", context,
+        )
+
+    async def SttGetConfigFields(self, request, context):
+        return await self._list(
+            self.plugin.stt_config_fields, "stt_config_fields", FieldDef,
+            plugin_pb2.PluginConfigFieldsResponse, "config_fields", context,
+        )
+
+    async def GetPluginActionTypes(self, request, context):
+        return await self._list(
+            self.plugin.get_action_types, "get_action_types", ActionTypeDef,
+            plugin_pb2.PluginActionTypesResponse, "types", context,
+        )
+
+    async def GetPluginTriggerTypes(self, request, context):
+        return await self._list(
+            self.plugin.get_trigger_types, "get_trigger_types", TriggerTypeDef,
+            plugin_pb2.PluginTriggerTypesResponse, "types", context,
+        )
+
+    async def GetUiContributions(self, request, context):
+        return await self._list(
+            self.plugin.get_ui_contributions, "get_ui_contributions", UiContribution,
+            plugin_pb2.PluginUiContributionsResponse, "contributions", context,
+        )
+
+    async def SttGetLanguages(self, request, context):
+        try:
+            langs = await self.plugin.stt_get_languages()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_get_languages").abort(context)
+            return plugin_pb2.PluginSttLanguagesResponse()
+        return plugin_pb2.PluginSttLanguagesResponse(languages=list(langs or []))
+
+    async def AiGetModels(self, request, context):
+        try:
+            models, default = await self.plugin.ai_get_models()
+            items = [coerce(m, AiModelInfo, "ai_get_models").to_proto() for m in models or []]
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "ai_get_models").abort(context)
+            return plugin_pb2.PluginAiModelsResponse()
+        return plugin_pb2.PluginAiModelsResponse(models=items, default_model=default)
+
+    # ── per-call hooks, in-band failures ──
 
     async def CallTool(self, request, context):
         # In-band, never a gRPC error: a failed tool call is data the AI loop
@@ -905,11 +1143,50 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         # model entirely. See `astra_plugin_sdk.errors`.
         try:
             result = await self.plugin.call_tool(request.tool_name, request.arguments_json)
-        except Exception as e:  # noqa: BLE001 — every failure becomes a coded result
-            return PluginError.from_exception(e).to_response(
+        except BaseException as e:  # noqa: BLE001 — every failure becomes a coded result
+            return adopt(e, f"call_tool({request.tool_name})").to_response(
                 plugin_pb2.PluginCallToolResponse, result=""
             )
         return _result_response(plugin_pb2.PluginCallToolResponse, result)
+
+    async def ExecuteAction(self, request, context):
+        try:
+            result = await self.plugin.execute_action(request.action_type, request.params_json)
+        except BaseException as e:  # noqa: BLE001 — every failure becomes a coded result
+            return adopt(e, f"execute_action({request.action_type})").to_response(
+                plugin_pb2.PluginExecuteActionResponse, result=""
+            )
+        return _result_response(plugin_pb2.PluginExecuteActionResponse, result)
+
+    async def CallFromUi(self, request, context):
+        try:
+            result = await self.plugin.handle_ui_call(request.method, request.params_json)
+        except BaseException as e:  # noqa: BLE001
+            # The daemon relays `error_detail` on to the panel as
+            # `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can
+            # render the same config-field link a tool failure would.
+            return adopt(e, f"handle_ui_call({request.method})").to_response(
+                plugin_pb2.PluginUiCallResponse, result_json=""
+            )
+
+        if result is None:
+            return plugin_pb2.PluginUiCallResponse()
+        if isinstance(result, str):
+            return plugin_pb2.PluginUiCallResponse(result_json=result)
+        if isinstance(result, dict) and ("result_json" in result or "error" in result):
+            return plugin_pb2.PluginUiCallResponse(
+                result_json=result.get("result_json", ""),
+                error=result.get("error", ""),
+            )
+        # Plain payload — serialize it for the iframe.
+        try:
+            return plugin_pb2.PluginUiCallResponse(result_json=json.dumps(result))
+        except (TypeError, ValueError) as e:
+            return plugin_pb2.PluginUiCallResponse(
+                error=f"handle_ui_call returned a non-serializable result: {e}"
+            )
+
+    # ── TTS ──
 
     async def TtsSynthesize(self, request, context):
         try:
@@ -921,8 +1198,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details(str(e))
             return plugin_pb2.PluginTtsSynthesizeResponse()
-        except PluginError as e:
-            e.abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "tts_synthesize").abort(context)
             return plugin_pb2.PluginTtsSynthesizeResponse()
 
     async def TtsSynthesizeStream(self, request, context):
@@ -940,12 +1217,10 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         try:
             async for chunk in _with_last_marked(stream):
                 yield chunk.to_proto()
-        except PluginError as e:
+        except BaseException as e:  # noqa: BLE001
             # No in-band failure slot on this stream, so the transport carries
             # it — the one place `grpc_status()` is the right answer.
-            e.abort(context)
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
+            adopt(e, "tts_synthesize_stream").abort(context)
 
     async def TtsActivate(self, request, context):
         try:
@@ -953,38 +1228,13 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         except NotImplementedError:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("this plugin has no protected voice to activate")
-            return plugin_pb2.PluginTtsActivateResponse()
-        except PluginError as e:
+        except BaseException as e:  # noqa: BLE001
             # NOT routed through the daemon's `optional_hook`: a failure here
             # fails the activation rather than being read as "no such hook".
-            e.abort(context)
-            return plugin_pb2.PluginTtsActivateResponse()
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
-            return plugin_pb2.PluginTtsActivateResponse()
+            adopt(e, "tts_activate").abort(context)
         return plugin_pb2.PluginTtsActivateResponse()
 
-    async def TtsListVoices(self, request, context):
-        voices = await self.plugin.tts_list_voices()
-        return plugin_pb2.PluginTtsVoicesResponse(
-            voices=[plugin_pb2.PluginVoiceInfo(**v) for v in voices]
-        )
-
-    async def SttGetLanguages(self, request, context):
-        langs = await self.plugin.stt_get_languages()
-        return plugin_pb2.PluginSttLanguagesResponse(languages=langs)
-
-    async def TtsGetConfigFields(self, request, context):
-        fields = await self.plugin.tts_config_fields()
-        return plugin_pb2.PluginConfigFieldsResponse(
-            config_fields=[_field_dict_to_proto(f) for f in fields]
-        )
-
-    async def SttGetConfigFields(self, request, context):
-        fields = await self.plugin.stt_config_fields()
-        return plugin_pb2.PluginConfigFieldsResponse(
-            config_fields=[_field_dict_to_proto(f) for f in fields]
-        )
+    # ── STT ──
 
     async def SttProcess(self, request_iterator, context):
         """Bidi STT. Streams live into `stt_transcribe_stream` when the plugin
@@ -1023,11 +1273,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details(str(e) or "STT not implemented")
             return
-        except PluginError as e:
-            e.abort(context)
-            return
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_transcribe").abort(context)
             return
 
         yield _stt_event(result)
@@ -1081,10 +1328,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         except NotImplementedError:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("STT not implemented")
-        except PluginError as e:
-            e.abort(context)
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_transcribe_stream").abort(context)
         finally:
             pump_task.cancel()
 
@@ -1094,10 +1339,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         except NotImplementedError:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("this plugin has no explicit STT model lifecycle")
-        except PluginError as e:
-            e.abort(context)
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_load").abort(context)
         return plugin_pb2.Empty()
 
     async def SttUnload(self, request, context):
@@ -1106,10 +1349,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         except NotImplementedError:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("this plugin has no explicit STT model lifecycle")
-        except PluginError as e:
-            e.abort(context)
-        except Exception as e:  # noqa: BLE001
-            PluginError.from_exception(e).abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_unload").abort(context)
         return plugin_pb2.Empty()
 
     async def SttGetLoadState(self, request, context):
@@ -1119,24 +1360,33 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("this plugin has no explicit STT model lifecycle")
             return plugin_pb2.SttLoadStateResponse()
-        except PluginError as e:
-            e.abort(context)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_load_state").abort(context)
             return plugin_pb2.SttLoadStateResponse()
         # Accept the three shapes the hook documents: a status, a bare state,
         # or `(state, detail)`.
-        if isinstance(state, SttLoadStatus):
-            return state.to_proto()
-        if isinstance(state, tuple):
-            return SttLoadStatus(SttLoadState(state[0]), str(state[1])).to_proto()
-        return SttLoadStatus(SttLoadState(state)).to_proto()
+        try:
+            if isinstance(state, SttLoadStatus):
+                return state.to_proto()
+            if isinstance(state, tuple):
+                return SttLoadStatus(SttLoadState(state[0]), str(state[1])).to_proto()
+            return SttLoadStatus(SttLoadState(state)).to_proto()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "stt_load_state").abort(context)
+            return plugin_pb2.SttLoadStateResponse()
+
+    # ── AI provider ──
 
     async def AiComplete(self, request, context):
-        req = AiCompleteRequest.from_proto(request)
         try:
+            req = AiCompleteRequest.from_proto(request)
             stream = await _open_stream(self.plugin.ai_complete(req))
         except NotImplementedError:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
             context.set_details("this plugin is not an AI provider")
+            return
+        except BaseException as e:  # noqa: BLE001
+            yield adopt(e, "ai_complete").to_response(plugin_pb2.PluginAiStreamChunk)
             return
 
         last: plugin_pb2.PluginAiStreamChunk | None = None
@@ -1144,16 +1394,14 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             async for value in stream:
                 last = coerce_ai_chunk(value).to_proto()
                 yield last
-        except Exception as e:  # noqa: BLE001
+        except BaseException as e:  # noqa: BLE001
             # `PluginAiStreamChunk` HAS an in-band error slot, so the failure
             # travels as data the daemon's bridge already reads, rather than as
             # a transport fault that would look like the plugin dying. The
             # `error` oneof arm and the structured `error_detail` beside it are
             # both set: the oneof is what tells a receiver the stream ended
             # badly, and an old daemon reads only that.
-            yield PluginError.from_exception(e).to_response(
-                plugin_pb2.PluginAiStreamChunk
-            )
+            yield adopt(e, "ai_complete").to_response(plugin_pb2.PluginAiStreamChunk)
             return
 
         # Terminate the stream for the author: a completion that never says
@@ -1162,93 +1410,85 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         if last is None or last.WhichOneof("content") not in ("done", "error"):
             yield plugin_pb2.PluginAiStreamChunk(done=True)
 
-    async def AiGetModels(self, request, context):
-        models, default = await self.plugin.ai_get_models()
-        return plugin_pb2.PluginAiModelsResponse(
-            models=[plugin_pb2.PluginAiModelInfo(**m) for m in models],
-            default_model=default,
-        )
-
-    async def ExecuteAction(self, request, context):
-        try:
-            result = await self.plugin.execute_action(request.action_type, request.params_json)
-        except Exception as e:  # noqa: BLE001 — every failure becomes a coded result
-            return PluginError.from_exception(e).to_response(
-                plugin_pb2.PluginExecuteActionResponse, result=""
-            )
-        return _result_response(plugin_pb2.PluginExecuteActionResponse, result)
-
-    async def GetPluginActionTypes(self, request, context):
-        types = await self.plugin.get_action_types()
-        return plugin_pb2.PluginActionTypesResponse(
-            types=[plugin_pb2.ActionTypeDefinitionMsg(**t) for t in types]
-        )
-
-    async def GetPluginTriggerTypes(self, request, context):
-        types = await self.plugin.get_trigger_types()
-        return plugin_pb2.PluginTriggerTypesResponse(
-            types=[plugin_pb2.TriggerTypeDefinitionMsg(**t) for t in types]
-        )
-
-    async def GetUiContributions(self, request, context):
-        contributions = await self.plugin.get_ui_contributions()
-        return plugin_pb2.PluginUiContributionsResponse(
-            contributions=[plugin_pb2.PluginUiContribution(**c) for c in contributions]
-        )
-
-    async def CallFromUi(self, request, context):
-        try:
-            result = await self.plugin.handle_ui_call(request.method, request.params_json)
-        except Exception as e:  # noqa: BLE001
-            # The daemon relays `error_detail` on to the panel as
-            # `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can
-            # render the same config-field link a tool failure would.
-            return PluginError.from_exception(e).to_response(
-                plugin_pb2.PluginUiCallResponse, result_json=""
-            )
-
-        if result is None:
-            return plugin_pb2.PluginUiCallResponse()
-        if isinstance(result, str):
-            return plugin_pb2.PluginUiCallResponse(result_json=result)
-        if isinstance(result, dict) and ("result_json" in result or "error" in result):
-            return plugin_pb2.PluginUiCallResponse(
-                result_json=result.get("result_json", ""),
-                error=result.get("error", ""),
-            )
-        # Plain payload — serialize it for the iframe.
-        try:
-            return plugin_pb2.PluginUiCallResponse(result_json=json.dumps(result))
-        except (TypeError, ValueError) as e:
-            return plugin_pb2.PluginUiCallResponse(
-                error=f"handle_ui_call returned a non-serializable result: {e}"
-            )
+    # ── lifecycle ──
+    #
+    # These four answer `Empty` and have nowhere to put a failure, which is
+    # exactly why they used to be unprotected: a raise in `on_config_changed`
+    # escaped as an UNKNOWN status the daemon logged as a transport fault, and
+    # the plugin then ran on with stale config and no visible cause. Now the
+    # SDK's own state is updated first, the hook is called second, and a raise
+    # is reported with the code the author raised.
 
     async def OnConfigChanged(self, request, context):
-        config = json.loads(request.config_json) if request.config_json else {}
-        self.plugin.config = config
-        await self.plugin.on_config_changed(config)
+        try:
+            config = json.loads(request.config_json) if request.config_json else {}
+            self.plugin.config = config
+            await self.plugin.on_config_changed(config)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "on_config_changed").abort(context)
         return plugin_pb2.Empty()
 
     async def OnActiveTriggers(self, request, context):
         active_types = list(request.trigger_types)
         self.plugin.active_triggers = set(active_types)
-        await self.plugin.on_active_triggers(active_types)
+        try:
+            await self.plugin.on_active_triggers(active_types)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "on_active_triggers").abort(context)
         return plugin_pb2.Empty()
 
     async def OnLanguageChanged(self, request, context):
         self.plugin.language = request.language
-        await self.plugin.on_language_changed(request.language)
+        try:
+            await self.plugin.on_language_changed(request.language)
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "on_language_changed").abort(context)
         return plugin_pb2.Empty()
 
     async def Shutdown(self, request, context):
-        await self.plugin.on_shutdown()
-        # Schedule server stop
-        asyncio.get_running_loop().call_later(0.1, lambda: asyncio.ensure_future(
-            self.plugin._server.stop(grace=1)
-        ))
+        # Stopping the SERVER is not stopping the PROCESS. `_run_async` is
+        # parked on `_stop_event.wait()`, and until that event is set the
+        # interpreter stays alive with nothing left to serve — the daemon's
+        # grace timer then expires and SIGKILLs the process group, so the
+        # plugin's tidy path never runs on a user's machine. Releasing the
+        # event here is what makes `Shutdown` mean "exit".
+        #
+        # `call_later` rather than `set()`: this handler's response has to
+        # reach the daemon before `_run_async` tears the server down under it.
+        loop = asyncio.get_running_loop()
+        if self.plugin._stop_event is not None:
+            # `_run_async` owns the tidy path (on_shutdown, server stop, log
+            # bridge). Running `on_shutdown` here as well would run it twice.
+            loop.call_later(0.1, self.plugin._stop_event.set)
+            return plugin_pb2.Empty()
+
+        # No run loop behind this servicer — a level-1 harness drives it
+        # directly, or the plugin is embedded. Nobody else will do the tidying,
+        # so do it here.
+        #
+        # A failing `on_shutdown` must not stop the shutdown: the daemon is
+        # waiting on a grace timer and will kill the process group when it
+        # expires, so swallowing the error here is the difference between a
+        # clean stop and a SIGKILL in the user's log.
+        try:
+            await self.plugin.on_shutdown()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "on_shutdown")
+        if self.plugin._server is not None:
+            loop.call_later(0.1, lambda: asyncio.ensure_future(
+                self.plugin._server.stop(grace=1)
+            ))
         return plugin_pb2.Empty()
 
     async def HealthCheck(self, request, context):
-        healthy, status = await self.plugin.health_check()
+        try:
+            healthy, status = await self.plugin.health_check()
+        except BaseException as e:  # noqa: BLE001
+            # An unhealthy answer, not a transport error: the daemon's health
+            # probe reads `healthy`, and a status code makes it look like the
+            # plugin is gone when in fact it answered.
+            error = adopt(e, "health_check")
+            return plugin_pb2.PluginHealthResponse(
+                healthy=False, status=error.to_error_string()
+            )
         return plugin_pb2.PluginHealthResponse(healthy=healthy, status=status)

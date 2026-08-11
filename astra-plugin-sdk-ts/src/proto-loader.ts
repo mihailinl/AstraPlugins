@@ -11,8 +11,8 @@
 
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
-import { descriptor, PROTO_PACKAGE, PROTO_SOURCE } from "./generated";
-import { ProtoContractError } from "./service-contract";
+import { descriptor, PROTO_PACKAGE, PROTO_SOURCE } from "./generated/index.js";
+import { ProtoContractError } from "./service-contract.js";
 
 /**
  * Field naming on the wire objects. `keepCase: false` means every message field

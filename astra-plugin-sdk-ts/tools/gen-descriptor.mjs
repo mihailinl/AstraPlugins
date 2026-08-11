@@ -33,6 +33,7 @@ const PROTO_PATH = join(REPO_ROOT, PROTO_REL);
 
 const OUT_DIR = join(PKG_ROOT, "src", "generated");
 const OUT_JSON = join(OUT_DIR, "descriptor.json");
+const OUT_DESCRIPTOR_TS = join(OUT_DIR, "descriptor.ts");
 const OUT_TS = join(OUT_DIR, "index.ts");
 
 /** The gRPC package the SDK speaks. Everything lives under `package astra;`. */
@@ -75,6 +76,28 @@ for (const required of ["PluginHostService", "PluginCapabilityService"]) {
   if (!serviceMethods[required]) fail(`${PROTO_REL} is missing \`service ${required}\``);
 }
 
+/**
+ * Every `reserved "name";` in the proto, keyed by the dotted path of the
+ * message that declares it.
+ *
+ * A reserved name is a spelling a live daemon still associates with the OLD
+ * field. `src/reserved.ts` asserts at startup that none of them has come back
+ * as a live field — see the comment there for why that is the drift worth
+ * catching rather than a curiosity.
+ */
+function collectReserved(nested, prefix, out) {
+  for (const [name, node] of Object.entries(nested ?? {})) {
+    if (!node || typeof node !== "object") continue;
+    const path = prefix ? `${prefix}.${name}` : name;
+    const names = (node.reserved ?? []).filter((r) => typeof r === "string");
+    if (names.length > 0) out[path] = names;
+    collectReserved(node.nested, path, out);
+  }
+  return out;
+}
+
+const reservedNames = collectReserved(descriptor.nested, "", {});
+
 const protoSha256 = createHash("sha256").update(protoSource).digest("hex");
 
 const BANNER = `/**
@@ -96,9 +119,13 @@ const serviceMethodEntries = Object.entries(serviceMethods)
   })
   .join("\n");
 
+const reservedEntries = Object.entries(reservedNames)
+  .map(([path, names]) => `  ${JSON.stringify(path)}: [${names.map((n) => JSON.stringify(n)).join(", ")}],`)
+  .join("\n");
+
 const ts = `${BANNER}
 
-import descriptorJson from "./descriptor.json";
+import { descriptorJson } from "./descriptor.js";
 
 /**
  * A protobuf.js JSON namespace (\`protobuf.Root#toJSON()\`), narrowed to the one
@@ -111,6 +138,17 @@ export interface ProtoDescriptorJson {
 
 /** The compiled protocol descriptor. Load it with \`protoLoader.fromJSON()\`. */
 export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptorJson;
+
+/**
+ * \`reserved "name";\` declarations, keyed by the message that owns them.
+ *
+ * Checked at startup by \`src/reserved.ts\`: a reserved name that comes back as a
+ * live field is a wire meaning colliding with the one a daemon in the field
+ * still remembers.
+ */
+export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> = {
+${reservedEntries}
+};
 
 /** Repo-relative path of the proto this descriptor was generated from. */
 export const PROTO_SOURCE = ${JSON.stringify(PROTO_REL)};
@@ -144,8 +182,32 @@ ${unionType(
   serviceMethods.PluginHostService
 )}`;
 
+/**
+ * The descriptor as a TypeScript module, not as a JSON import.
+ *
+ * `import x from "./descriptor.json"` compiles to a `require()` under CommonJS
+ * and to a bare `import` under ESM — and Node's ESM loader refuses a JSON
+ * specifier without an import attribute, so the dual-format build (task 5.8)
+ * would ship an `import` that throws `ERR_IMPORT_ATTRIBUTE_MISSING` on first
+ * use. A `.ts` module is the same bytes with no loader opinion attached.
+ *
+ * `descriptor.json` is still written, still shipped, and asserted byte-equal to
+ * this module by `tools/contract.test.mjs` — it is what the repo's proto checks
+ * and any non-TypeScript tool read.
+ */
+const descriptorTs = `${BANNER}
+
+/** The protocol descriptor, as protobuf.Root#toJSON() produced it. */
+export const descriptorJson: { nested: Record<string, unknown> } = ${JSON.stringify(
+  descriptor,
+  null,
+  2
+)};
+`;
+
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT_JSON, `${JSON.stringify(descriptor, null, 2)}\n`);
+writeFileSync(OUT_DESCRIPTOR_TS, descriptorTs);
 writeFileSync(OUT_TS, ts);
 
 const serviceCount = Object.keys(serviceMethods).length;

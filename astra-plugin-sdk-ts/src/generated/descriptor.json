@@ -5755,6 +5755,43 @@
             }
           }
         },
+        "PluginFailure": {
+          "fields": {
+            "phase": {
+              "type": "string",
+              "id": 1
+            },
+            "code": {
+              "type": "string",
+              "id": 2
+            },
+            "message": {
+              "type": "string",
+              "id": 3
+            },
+            "hint": {
+              "type": "string",
+              "id": 4
+            },
+            "docUrl": {
+              "type": "string",
+              "id": 5
+            },
+            "logTail": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "restartCount": {
+              "type": "uint32",
+              "id": 7
+            },
+            "circuitOpen": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
         "PluginStatusMsg": {
           "fields": {
             "id": {
@@ -5837,6 +5874,10 @@
             "provenanceJson": {
               "type": "string",
               "id": 20
+            },
+            "failure": {
+              "type": "PluginFailure",
+              "id": 21
             }
           }
         },

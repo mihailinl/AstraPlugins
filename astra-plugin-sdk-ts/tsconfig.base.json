@@ -1,0 +1,29 @@
+{
+  "//": [
+    "Shared by the two emit configurations. `tsconfig.json` produces CommonJS in",
+    "dist/ (the layout the package has always published, and the one every",
+    "`require()` and every bundler already resolves); `tsconfig.esm.json`",
+    "produces ES modules in dist/esm/. The `exports` map in package.json points",
+    "each condition at the right one.",
+    "",
+    "Both are emitted from the same sources, which is only possible because every",
+    "relative import in src/ carries its `.js` extension: Node's ESM loader will",
+    "not resolve an extensionless specifier, and `moduleResolution: node16` will",
+    "not compile one."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "dist-typetest"]
+}

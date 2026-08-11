@@ -3,7 +3,31 @@
 from astra_plugin_sdk.plugin import Plugin
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
 from astra_plugin_sdk.daemon_client import DaemonClient
-from astra_plugin_sdk.decorators import tool, action, trigger, Field
+from astra_plugin_sdk.capability_types import (
+    ActionTypeDef,
+    AiModelInfo,
+    DropdownOption,
+    FieldCondition,
+    FieldDef,
+    ToolDef,
+    TriggerTypeDef,
+    UiContribution,
+    VoiceInfo,
+)
+from astra_plugin_sdk.decorators import (
+    Field,
+    action,
+    tool,
+    trigger,
+    ui_call,
+    ui_effect,
+    ui_inject,
+    ui_overlay,
+    ui_page,
+    ui_slot,
+)
+from astra_plugin_sdk.logging_bridge import PluginLogHandler, install_logging_bridge
+from astra_plugin_sdk.reserved import ReservedNameError, assert_no_reserved_names
 from astra_plugin_sdk.errors import (
     ActionError,
     BadArguments,
@@ -46,6 +70,28 @@ __all__ = [
     "action",
     "trigger",
     "Field",
+    # ── UI: registering decorators (§5.8) ──
+    "ui_call",
+    "ui_page",
+    "ui_slot",
+    "ui_effect",
+    "ui_overlay",
+    "ui_inject",
+    # ── the seven capability types (§5.8) ──
+    "ToolDef",
+    "VoiceInfo",
+    "AiModelInfo",
+    "FieldDef",
+    "DropdownOption",
+    "FieldCondition",
+    "ActionTypeDef",
+    "TriggerTypeDef",
+    "UiContribution",
+    # ── logging and the reserved-name assertion (§5.10, §5.8) ──
+    "install_logging_bridge",
+    "PluginLogHandler",
+    "assert_no_reserved_names",
+    "ReservedNameError",
     "I18n",
     "PROTOCOL_VERSION",
     "MIN_SUPPORTED_DAEMON_PROTOCOL",

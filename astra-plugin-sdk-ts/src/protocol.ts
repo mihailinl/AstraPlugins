@@ -8,7 +8,7 @@
  * once, at the handshake, by {@link evaluateProtocol}.
  */
 
-import type { RegisterResponse } from "./host-client";
+import type { RegisterResponse } from "./host-client.js";
 
 /**
  * The wire-protocol generation this SDK speaks.

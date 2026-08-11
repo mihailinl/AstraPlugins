@@ -9,6 +9,12 @@ This package is published to PyPI by the release train in
 `sdk-v<VERSION>` git tag and publishes all three SDKs together. That tag
 names the Rust crate's version; this package keeps its own.
 
+**Deprecation policy** — `docs/en/versioning.md`. Nothing is deprecated for less
+than two minors and one quarter; a deprecation note names its replacement; and a
+**removal appears under a `BREAKING` heading in this file**, naming what went and
+what replaced it. Deprecations live under `### Deprecated`, with the release they
+are removable in.
+
 ## [0.5.0] — unreleased
 
 Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
@@ -124,8 +130,109 @@ Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
 - `HostClientBootstrap` exported from the package root.
 - `__version__` is now kept in lockstep with `pyproject.toml` (it had drifted
   to `0.3.0` while the package shipped as 0.4.0).
+- **`py.typed` (production plan §5.8).** The PEP 561 marker, listed in
+  `[tool.setuptools.package-data]` so it actually reaches the wheel. Without it
+  every annotation this package ships was invisible to a type checker running in
+  a plugin's own repo — which is precisely where they are meant to help.
+- **The seven capability types, as dataclasses with `to_proto()` (§5.8).**
+  `ToolDef`, `VoiceInfo`, `AiModelInfo`, `FieldDef`, `ActionTypeDef`,
+  `TriggerTypeDef`, `UiContribution`, plus `DropdownOption` / `FieldCondition`
+  for the two things a field nests. Each capability hook now returns these
+  instead of `list[dict]`.
+  **Dicts still work for one more minor**, with a `DeprecationWarning` naming
+  the hook and the type to switch to; they are removed in the release after
+  next. A typo in a legacy dict now names the key and lists the valid ones,
+  instead of the protobuf `ValueError` it used to raise from inside the
+  servicer on the daemon's first call. `@tool` / `@action` / `@trigger` and the
+  `Field` builder produce the dataclasses, so a plugin that uses the SDK's own
+  helpers never sees the warning. `_field_dict_to_proto`, the bespoke converter
+  that existed because `Msg(**d)` cannot build sub-messages, is gone — every
+  type nests properly now.
+- **`@ui_call`, and `@ui_page` / `@ui_slot` / `@ui_effect` / `@ui_overlay` /
+  `@ui_inject` as *registering* decorators (§5.8).** `@ui_call` on a method
+  makes it reachable from the plugin's own iframe over `CallFromUi`;
+  `Plugin.handle_ui_call` dispatches to it, so UI→backend calls no longer need
+  a hand-written `if/elif` chain and an unknown method answers `NOT_FOUND`
+  listing the ones that exist. The five contribution decorators go on the
+  Plugin **class** and `Plugin.get_ui_contributions` returns what they
+  registered.
+  **Why:** the old `Plugin.ui_page(...)` was a `@staticmethod` that built a dict
+  and handed it back for the author to plumb into `get_ui_contributions` — and
+  the SDK's own documented example did not, in seven translations. A builder
+  whose return value must be remembered is a builder that gets dropped. The
+  builders still exist, unchanged apart from returning `UiContribution`, for a
+  plugin that assembles its contributions at runtime.
+- **A startup assertion that the loaded proto has not revived a retired field
+  name (§5.8, `astra_plugin_sdk.reserved`).** Rust gets a compile error for
+  this; Python got an `AttributeError` on the one line that touched the field,
+  typically inside the handler that runs when a user changes a setting — so a
+  broken build shipped and failed later, in the field. `Plugin.run()` now checks
+  the `reserved` declarations against the descriptors actually loaded, before
+  binding the port, and refuses to start on a stale or foreign `plugin_pb2`.
+- **`astra_plugin_sdk.testing` — the two-level test harness (§5.6).**
+  - `Harness` (level 1): the plugin driven through its own gRPC servicer,
+    in-process and synchronous, so a plugin author's test is a plain
+    `def test_x():` with no `pytest-asyncio` and no event-loop fixtures.
+    Tool dispatch, schemas (`h.schema`, `h.assert_schema_accepts`), actions, UI
+    calls, config, language, active triggers, deterministic `h.stt(chunks)`.
+  - `RecordingHost`: every host call recorded — `fired_triggers()`, `logs()`,
+    `variables()`, `ui_pushes()` — with `fail_next` / `fail_always` failure
+    injection, which is the only way to reach the branch a plugin takes when
+    the daemon denies a permission. Arming a failure on a method that does not
+    exist is refused, because a typo there silently arms nothing.
+  - `WireHarness` + `MockDaemon` (level 2): the plugin's real `run()` path
+    registering over loopback gRPC against a mock `PluginHostService` that
+    enforces the daemon's own rules — `Register` exempt, `x-session-token` on
+    everything else, `permission_denied` on request. Catches handler
+    registration by wire path, descriptor mismatch, the capability interceptor
+    in its `require` stage, and stream back-pressure.
+  - Fixtures, registered as a pytest plugin (no `conftest.py` to write):
+    `astra_harness`, `astra_wire`, `golden_pcm`, `wake_seed`, `fuzz_config`,
+    plus `wake_seed_burst()` (the 8-second wake-word dump in 100 ms batches)
+    and `backpressure_burst()` (more chunks than the 500-slot audio queue
+    holds, each stamped with its index).
+  - `pip install astra-plugin-sdk[test]` installs pytest; the harness itself
+    needs nothing the SDK does not already depend on.
+- **`logging` is routed into `PluginLog` (§5.10, `install_logging_bridge`).**
+  `logging.getLogger(__name__).info(...)` now reaches Astra's log pane, from
+  any thread, including from before registration completes. Installed
+  automatically by `Plugin.run()`. The queue is bounded (an unbounded one in
+  front of a stalled daemon is an OOM kill reported to the user as a crash),
+  overflow is counted and reported rather than silent, and the transport's own
+  loggers are never forwarded — forwarding a `grpc` record over `grpc` is how a
+  bridge eats itself.
+
+### Deprecated
+
+Removed in **0.7.0** — two minors and one quarter, the minimum window
+`docs/en/versioning.md` promises. Each emits a `DeprecationWarning` naming the
+replacement, so `python -W error::DeprecationWarning -m pytest` turns the whole
+list into a CI gate you can hold yourself to before the removal lands.
+
+- **A `dict` where a capability dataclass is expected.** `coerce()` accepts one
+  and warns, naming the hook and the class to return instead
+  (`capability_types.py`). Replacement: the dataclass — `ToolDef`, `VoiceInfo`,
+  `AudioData`, `SttEvent`, `AiModelInfo`, `FieldDef`, `UiContribution` — or its
+  `to_proto()`. **The runtime warning says dicts are accepted "for one more
+  minor release"; the binding number is 0.7.0**, per the policy, and
+  `docs/en/versioning.md` is the table that settles it.
+- **`ai_get_models()`** — the daemon never asks: `all_ai_providers` hardcodes
+  `supports_model_discovery=false`. No replacement; the chosen model arrives on
+  the `AiComplete` request. Recorded as `deprecated_in: "0.6"` /
+  `removed_in: "0.8"` on the `AiGetModels` row of `spec/hooks.yaml` — the row is
+  versioned against the Rust crate, which is the number the spec's rows use.
 
 ### Fixed
+- **Registration is logged through the bridge, not only printed.** `Plugin.run`
+  now emits `log.info("Registered with Astra …")` next to the existing
+  `print`, which the logging bridge turns into a `PluginLog`. Two things follow:
+  every Python plugin makes at least one authenticated host call on start — so
+  `astra-plugin test` can assert a plugin talked to the daemon at all, and a
+  host client that stopped sending `x-session-token` cannot pass conformance —
+  and the bridge's stderr handler writes the line unbuffered, which is a second
+  readiness signal for the daemon (it accepts a first line on either stream)
+  even if this process's stdout is block-buffered for a reason the SDK cannot
+  reach.
 - `plugin_pb2.py` / `plugin_pb2_grpc.py` regenerated from the vendored proto.
   They had drifted: `tools/sync-proto.sh` copies `plugin.proto` and
   `tools/check-proto.sh` verifies the copy, but **nothing regenerates or checks
@@ -134,6 +241,53 @@ Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
   was on `PluginService` — the UI-facing service no plugin touches — so nothing
   broke, but the same gap would have silently dropped the §5.2 `error_detail`
   field. A CI check belongs with the conformance work in §5.7.
+- **A handler that raises no longer takes the plugin with it (§5.10).** Every
+  servicer method now catches `BaseException`, not `Exception`. The difference
+  is not academic: `SystemExit` is not an `Exception`, so a library calling
+  `sys.exit()` on a bad configuration escaped the handler, killed the `grpc.aio`
+  RPC task, and left a plugin that was alive, passing its health check, and
+  answering nothing. `asyncio.CancelledError` is deliberately re-raised —
+  swallowing it turns a clean shutdown into a hang.
+- The nine hooks that previously had no error handling at all are covered:
+  `list_tools`, `tts_list_voices`, `stt_get_languages`, the two config-field
+  hooks, `ai_get_models`, the two type-list hooks and `get_ui_contributions`
+  fail with a status instead of an unhandled exception; `on_config_changed`,
+  `on_language_changed` and `on_active_triggers` report rather than escaping as
+  an UNKNOWN transport fault while the plugin runs on with stale state; a
+  raising `health_check` answers `healthy=false` with the reason instead of
+  looking like a dead process; and a raising `on_shutdown` no longer stops the
+  shutdown, which the daemon's grace timer would otherwise end with a SIGKILL.
+- `PluginError.detail` carries `traceback.format_exception` output for the
+  exception that was adopted. It goes to the logger — and from there to the
+  daemon's per-plugin log — and deliberately **not** into the response: the
+  legacy `error` string is read by the AI loop, and a Python stack trace in the
+  model's context costs tokens and teaches it nothing.
+- `Plugin` publishes `port` once its capability server binds, and `_stop_event`
+  so an embedder can stop it. `loop.add_signal_handler` failing off the main
+  thread is no longer fatal — it raises `ValueError`, not the
+  `NotImplementedError` the old code caught, so a plugin embedded in a larger
+  process refused to start.
+- **`Shutdown` now ends the process, not merely the gRPC server.** The handler
+  stopped `self._server` and returned, while `_run_async` stayed parked on
+  `_stop_event.wait()` — so the interpreter went on living with nothing left to
+  serve, the daemon's grace timer expired, and the process group was SIGKILLed.
+  Every Python plugin was killed rather than stopped, on every restart and every
+  quit, and `on_shutdown`'s cleanup never ran on a user's machine.
+  `astra-plugin test` reports the old behaviour as "the process was still
+  running 5s after Shutdown"; the regression test is
+  `test_shutdown_makes_the_process_exit_and_not_merely_the_server_stop`.
+  `Shutdown` hands off to `_run_async`'s tidy path rather than duplicating it,
+  so `on_shutdown` still runs exactly once.
+- `Harness.call_tool` / `execute_action` / `ui_call` and their `WireHarness`
+  counterparts take the RPC's target as a **positional-only** parameter. Written
+  `call_tool(self, name, **arguments)`, a tool with a parameter of its own
+  called `name` — which the scaffolded `hello` has, and which is about as common
+  as a parameter gets — raised `TypeError: got multiple values for argument
+  'name'`, with no spelling of the call that worked.
+- `inspect.iscoroutinefunction`, not `asyncio.iscoroutinefunction`, in the
+  `@tool` and `@action` dispatch. The latter is deprecated since 3.14 and
+  removed in 3.16, and it made a freshly scaffolded plugin's first test run
+  print a `DeprecationWarning` about the SDK.
 
 ### Version
 - Still **0.5.0**, not 0.6.0. PyPI is at 0.4.0, so 0.5.0 has never shipped and

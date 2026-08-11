@@ -27,8 +27,8 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import { service } from "./proto-loader";
-import { assertClientContract } from "./service-contract";
+import { service } from "./proto-loader.js";
+import { assertClientContract } from "./service-contract.js";
 
 /** Metadata header the daemon's auth interceptor reads. */
 const SESSION_TOKEN_HEADER = "x-session-token";

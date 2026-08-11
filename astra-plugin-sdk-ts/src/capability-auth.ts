@@ -35,7 +35,7 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import type { HandlerMap } from "./service-contract";
+import type { HandlerMap } from "./service-contract.js";
 
 /**
  * Metadata header the plugin reads the daemon's copy of the spawn token from.

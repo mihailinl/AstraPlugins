@@ -9,6 +9,12 @@ This package is published to npm by the release train in
 `sdk-v<VERSION>` git tag and publishes all three SDKs together. That tag
 names the Rust crate's version; this package keeps its own.
 
+**Deprecation policy** — `docs/en/versioning.md`. Nothing is deprecated for less
+than two minors and one quarter; a deprecation note names its replacement; and a
+**removal appears under a `BREAKING` heading in this file**, naming what went and
+what replaced it. Deprecations live under `### Deprecated`, with the release they
+are removable in.
+
 ## [0.5.0] — unreleased
 
 Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
@@ -30,6 +36,22 @@ at runtime.
   failing with `TypeError` on the first call.
 - `DaemonClient` creation and the chat firehose are gated on `isClient()`,
   not on the session token being non-empty.
+- **Typed daemon events are decoded from the daemon's key names.** The payload
+  handed to `onCommandTriggered` / `onCommandCompleted` / `onStateChanged` was
+  the parsed `payload_json` `as`-cast to a camelCase shape, so
+  `event.commandId` was `undefined` on every event forever while the compiler
+  agreed it was a `string`. The daemon serializes `AstraEvent` with
+  `#[serde(tag = "type", rename_all = "snake_case")]`, and `rename_all` on an
+  enum renames the *variants*, not their fields: the wire keys are
+  `command_id`, `command_name`, `trigger_text`. `dispatchEvent` now reads those
+  and builds `StateChangedEvent` / `CommandTriggeredEvent` /
+  `CommandCompletedEvent` (all three exported from the package root).
+- `CommandTriggeredEvent.variables` is gone, replaced by `triggerText`. No
+  daemon has ever sent a variables map on this event in any language.
+- The registration line is logged *after* the console bridge is installed, so
+  it reaches the daemon as a `PluginLog`. Every plugin now makes at least one
+  authenticated host call on start, which is what lets `astra-plugin test`
+  assert that a plugin talked to the daemon at all.
 
 ### Added
 - **`errors.ts` — the error taxonomy (production plan §5.2).** Eight classes
@@ -105,6 +127,97 @@ at runtime.
   descriptor, so a plugin can assert which proto it was built against.
 - `npm run generate` / `typecheck` / `test` scripts; `prebuild` and `pretest`
   regenerate the descriptor so it can never go stale in a published tarball.
+- **`plugin({...})` — the object form, and the `s` schema builder (§5.8).**
+  A tool declares its parameters once as `s.object({...})`; the SDK emits the
+  JSON Schema the model reads, validates the arguments the model sends, and
+  hands the handler a parameter whose TypeScript type came from that same
+  declaration. `Infer<typeof schema>` names it elsewhere. `.optional()` means
+  both "not in `required`" and `key?: T`, and the two cannot drift:
+  `types-test/schema-agreement.ts` compiles only if the inferred type accepts
+  every fixture the emitted schema validates and rejects every one it does not,
+  which `tools/schema.test.mjs` then checks from the runtime side. Objects emit
+  `additionalProperties: false`. `tool()` / `action()` are the per-entry
+  wrappers that make the inference work (a generic is inferred per call, and a
+  bare object literal inside `tools: { … }` is one context for all of them).
+  The class form is unchanged and unaffected.
+- **`PluginContext` (§5.1, in TypeScript).** `ctx()` on `Plugin`, and the second
+  argument of every handler in the object form: `config`, `language`,
+  `activeTriggers`, `host`, plus `log`/`info`/`warn`/`error`, `fireTrigger`,
+  `setVariable`, `pushToUi`, `setThemeContribution`, `sendChatMessage` and
+  `configValue(key, fallback)`. It reads through to the live plugin, so a task
+  that captured it at `onStart` sees the config as it is now. Reaching for the
+  daemon before there is one **rejects** with `NoHostError` instead of doing
+  nothing quietly, which is what `Plugin`'s own convenience wrappers do.
+- **`onStart(ctx)`**, and the lifecycle order all three SDKs now share:
+  bind → register → ctx → `onConfigChanged` → `onLanguageChanged` → `onStart` →
+  serve. Config now arrives before language, not after.
+- **`astra-plugin-sdk/testing` — the two test levels (§5.6).**
+  `Harness` is level 1: in process, no socket, driving the SDK's real handler
+  map through fake call objects that honour `pause()`/`resume()`, so the wire
+  projections, the error mapping and the bounded STT queue are all exercised.
+  `RecordingHost` implements the whole `Host` interface in memory, records
+  every call (`firedTriggers()`, `logs()`, `variables()`, `uiPushes()`,
+  `chatMessages()`) and injects failures (`fail`, `failAlways`).
+  `MockDaemon` is level 2: a real gRPC server serving `PluginHostService`, a
+  real spawn token, a real session-token check on every call but `Register`,
+  and a `PluginCapabilityService` client dialling the port the plugin bound —
+  the only place handler registration, descriptor mismatch, the interceptor and
+  `keepCase` casing can be checked at all. Fixtures: `utteranceChunks()` (a
+  golden 16 kHz utterance with an 8 s wake-seed burst, longer than the 500-slot
+  channel), `firehoseEvents()`, and `configFuzz()` behind `h.fuzzConfig()`.
+- **`Host` is an interface** (`src/host.ts`), and `Plugin.host` is typed as it.
+  `HostClient implements Host`, so a host RPC added to one and not the other is
+  a compile error rather than a hook no test can reach.
+- **`console` → `PluginLog`, and crash containment (§5.10).**
+  `installConsoleBridge` routes `console.log/info/debug/warn/error` into the
+  daemon's log pane while still printing locally; the queue is bounded at 512
+  lines, drops the oldest and says how many with the next line that gets
+  through, and a re-entrancy guard stops a transport that logs from feeding
+  itself. `installFatalHandlers` turns an `uncaughtException` or
+  `unhandledRejection` into an `error`-level `PluginLog` and an exit with
+  `EXIT_UNCAUGHT` (70, `EX_SOFTWARE`) — a code the daemon can tell apart from an
+  orderly stop.
+- **The reserved-name startup assertion (§5.8).** `assertNoReservedNames()`
+  runs in `run()` before the server binds and answers three questions the
+  descriptor cannot answer itself: is every generated service and method really
+  reachable on the loaded stub (TypeScript's own failure mode is `undefined`,
+  which is how three handlers were dropped for a release); has a field the
+  proto `reserved` come back as live; has a name Phase 1 retired come back.
+  `RESERVED_FIELD_NAMES` is generated from the proto; `RETIRED_NAMES` is the
+  Phase 1 deletions. `descriptorProblems()` returns the list for a test.
+
+### Deprecated
+
+Removed in **0.7.0** — two minors and one quarter, the minimum window
+`docs/en/versioning.md` promises. Both are marked `/** @deprecated … */`, so the
+note reaches you in the editor rather than in a release note nobody re-reads.
+
+- **`UiPanel`** — an alias for `UiContribution`, and the only deprecation in
+  this package that carried **no version at all**, which is precisely what the
+  policy exists to stop. It is dated 0.5.0 here, the first release that says so
+  in writing, and removable from 0.7.0. Replacement: `UiContribution`.
+- **`aiGetModels()`** — the daemon never asks: `all_ai_providers` hardcodes
+  `supports_model_discovery=false`, so the picker never calls it. No
+  replacement; the chosen model arrives on the `aiComplete` request. Recorded as
+  `deprecated_in: "0.6"` / `removed_in: "0.8"` on the `AiGetModels` row of
+  `spec/hooks.yaml`, whose versions track the Rust crate.
+
+### Packaging
+- **Dual CommonJS + ESM.** `"type": "commonjs"`, an `exports` map with `.` and
+  `./testing`, `engines: { node: ">=20" }`, `moduleResolution: "node16"`.
+  CommonJS stays at `dist/` (what `main`, `types` and every existing `require`
+  already point at); ES modules are emitted to `dist/esm/` with a
+  `{"type":"module"}` marker written by `tools/finish-build.mjs`. Every relative
+  import in `src/` now carries its `.js` extension, which is what lets one
+  source tree emit both formats.
+- The generated descriptor is imported as a TypeScript module
+  (`src/generated/descriptor.ts`) rather than as a JSON import: Node's ESM
+  loader refuses a JSON specifier without an import attribute, so the ESM build
+  would have thrown on first use. `descriptor.json` is still generated, still
+  shipped, and asserted byte-equal to the module by the test suite.
+- The four places that said `@astra/plugin-sdk` — a scope that was never
+  registered — now say `astra-plugin-sdk`. The name still appears in prose that
+  names it as the bug it was.
 
 ### Version
 - Still **0.5.0**, not 0.6.0. npm is at 0.4.0, so 0.5.0 has never shipped and

@@ -55,7 +55,7 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import { descriptor, PROTO_PACKAGE } from "./generated";
+import { descriptor, PROTO_PACKAGE } from "./generated/index.js";
 
 /** The eight codes. Identical strings in all three SDKs. */
 export type PluginErrorCode =

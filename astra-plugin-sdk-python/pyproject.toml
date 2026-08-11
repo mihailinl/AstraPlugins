@@ -11,6 +11,20 @@ dependencies = [
     "protobuf>=4.25.0",
 ]
 
+[project.optional-dependencies]
+# The level-1/level-2 harnesses in `astra_plugin_sdk.testing` need nothing the
+# SDK does not already have — pytest is here so `pip install astra-plugin-sdk[test]`
+# gets a plugin author a working test run in one command, not because the
+# harness imports it. `astra_plugin_sdk.testing.Harness` works from plain
+# `python -m unittest` or a bare script.
+test = ["pytest>=7.0"]
+
+# The fixtures in `astra_plugin_sdk.testing.fixtures` register themselves with
+# pytest through this entry point, so a plugin's tests can use `harness` and
+# `golden_pcm` with no conftest.py at all.
+[project.entry-points.pytest11]
+astra_plugin_sdk = "astra_plugin_sdk.testing.fixtures"
+
 [project.urls]
 Homepage = "https://github.com/mihailinl/AstraPlugins"
 Repository = "https://github.com/mihailinl/AstraPlugins/tree/master/astra-plugin-sdk-python"
@@ -27,5 +41,11 @@ include = ["astra_plugin_sdk*"]
 # exists as a copy of the repo-root `proto/plugin.proto` — without this stanza the
 # copy would never reach an sdist or wheel and the justification for it would be
 # hollow. `tools/sync-proto.sh` writes it; `tools/check-proto.sh` verifies it.
+#
+# `py.typed` is the PEP 561 marker (§5.8): without it a type checker in a
+# plugin's own repo ignores every annotation this package ships, so the
+# dataclasses, the `ToolError` hierarchy and the hook signatures are invisible
+# exactly where they are meant to help. It has to be listed here for the same
+# reason the proto does — setuptools does not ship non-Python files by default.
 [tool.setuptools.package-data]
-astra_plugin_sdk = ["proto/*.proto"]
+astra_plugin_sdk = ["proto/*.proto", "py.typed"]

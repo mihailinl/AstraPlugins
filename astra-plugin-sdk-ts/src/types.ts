@@ -1,4 +1,4 @@
-import type { PluginErrorDetail } from "./errors";
+import type { PluginErrorDetail } from "./errors.js";
 
 /** A tool definition exposed to the AI. */
 export interface ToolDef {
@@ -345,3 +345,39 @@ export const Field = {
     return { fieldId, operator, value };
   },
 };
+
+// ── daemon events ────────────────────────────────────────────────────────────
+//
+// The daemon serializes `AstraEvent` (astra-core/src/event.rs) with
+// `#[serde(tag = "type", rename_all = "snake_case")]`. `rename_all` on an enum
+// renames the VARIANTS — the value of `"type"` — and leaves the variant's
+// fields exactly as declared, which is snake_case. So the payload keys on the
+// wire are `command_id`, `command_name`, `trigger_text`, and the types below
+// are what `Plugin.dispatchEvent` produces from them.
+
+/** `state_changed`: the daemon moved between core states. */
+export interface StateChangedEvent {
+  previous: string;
+  current: string;
+}
+
+/** `command_triggered`: a user command started. */
+export interface CommandTriggeredEvent {
+  commandId: string;
+  commandName: string;
+  /**
+   * The utterance or text that matched the command's trigger.
+   *
+   * This is the daemon's `trigger_text`. There is no `variables` map on this
+   * event in any language — the field the SDKs used to declare could never be
+   * populated, so a plugin that read it read `{}` forever.
+   */
+  triggerText: string;
+}
+
+/** `command_completed`: a user command finished. */
+export interface CommandCompletedEvent {
+  commandId: string;
+  commandName: string;
+  success: boolean;
+}
