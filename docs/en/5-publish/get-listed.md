@@ -127,20 +127,24 @@ is no sandbox. See [the security model](../1-orientation/security.md).
 
 ## The state of this today
 
-Two things a reader deserves to know before following this page:
+One thing a reader deserves to know before following this page.
 
-1. **The registry repository is not published yet.** `astra-plugin publish`
-   builds a URL against `mihailinl/astra-registry`, which does not exist
-   publicly at the time of writing. The bot, its checks, its policy and its
-   issue template are written; the repository has not been pushed.
-2. **The signing chain is not anchored.** The root keys are unprovisioned, so
-   every catalogue classifies as unsigned and the bot stops each ingest at
-   `E_TRUST_UNPROVISIONED`. See
-   [`spec/registry-index.md` §0.1](../spec/registry-index.md).
+**The signing chain is not anchored.** The root keys exist — `root.json` carries
+`"status": "provisioned"` and the daemon compiles in the same two — but a root
+key does not sign a catalogue. It signs `trust.json`, which delegates to an
+index-signing key, and no `trust.json` has been signed yet. With nothing
+delegated, every catalogue classifies as unsigned and the bot stops each ingest
+at `E_TRUST_UNPROVISIONED`. See
+[`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
-Nothing on this page changes when those land — two public keys appear in two
-places, and a repository becomes reachable. Until then, treat this as the shape
-of the path rather than a path you can walk to the end today.
+The repository itself is live at
+[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry), so
+the submission path on this page works today: your issue is read, the checks run
+and the bot answers. What is still pending is the last link of the chain that
+lets Astra *install* from what it publishes.
+
+Nothing on this page changes when that lands — a signed `trust.json` appears and
+the index it delegates to starts carrying a signature.
 
 ## See also
 

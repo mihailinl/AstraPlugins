@@ -132,8 +132,10 @@ override**, and each names which of two things happened.
 Plugins page instead, or read [local install](../5-publish/local-install.md) for
 what importing it costs.
 
-Today the trust chain is **not anchored** — the root keys are unprovisioned —
-so a catalogue classifies as unsigned and revocation is not enforced. See
+Today the trust chain is **not anchored** — the root keys exist, but no
+root-signed `trust.json` delegates an index-signing key yet, so there is nothing
+to check a catalogue signature against. A catalogue therefore classifies as
+unsigned and revocation is not enforced. See
 [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## A tool call fails in a way the model cannot fix

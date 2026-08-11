@@ -45,23 +45,27 @@ not.
 
 ### The trust chain is specified, implemented, and not anchored
 
-The root keys that would make a signed catalogue verifiable **have not been
-generated**. Concretely
-([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
+The root keys exist. **The link below them does not**, so nothing verifies.
+Concretely ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 
-- the registry's `root.json` carries `"status": "unprovisioned"` and an empty
-  `roots` array;
-- the daemon's `PRODUCTION_ROOT_KEYS` is an empty table, deliberately — *a
-  shipped Astra must never trust a key that is published in a repository*;
-- therefore every catalogue today classifies as `UNSIGNED` with reason
-  `NoTrustAnchor`, and the registry bot stops every ingest at
-  `E_TRUST_UNPROVISIONED`;
+- the registry's `root.json` carries `"status": "provisioned"` and two Ed25519
+  keys, generated 2026-08-11 in an offline ceremony;
+- the daemon's `PRODUCTION_ROOT_KEYS` lists the same two — that file exists so a
+  third party can read them without disassembling a binary, and so a
+  disagreement between the two is visible;
+- but a root key does not sign a catalogue. It signs `trust.json`, which
+  delegates to an index-signing key, **and no `trust.json` has been signed
+  yet**. With nothing delegated there is no key to check a signature against, so
+  every catalogue still classifies as `UNSIGNED` with reason `NoTrustAnchor`;
+- `registry/v1/index.json` carries `"signatures": []` — by design, since that
+  repository holds no signing key and CI signs the deploy candidate — so it
+  would be unsigned even once a key were delegated;
 - and because withdrawal lists are verified strictly, an unsigned one is
   refused, so **revocation enforcement is not live either**.
 
 A default build therefore fails closed. Nothing here is a promise about a
-guarantee you have today; it is a description of a mechanism that starts
-carrying weight the day two public keys appear in two places.
+guarantee you have today; the mechanism starts carrying weight when a signed
+`trust.json` and a signed index exist, and not before.
 
 ### A local signing key confers no trust at all
 

@@ -228,16 +228,21 @@ the exact commands, and they are the ones CI runs:
 - [Python](astra-plugin-sdk-python/README.md#installing-today)
 - [TypeScript](astra-plugin-sdk-ts/README.md#installing-today)
 
-Two other things that do not exist yet, so that no document here implies
+One other thing that does not exist yet, so that no document here implies
 otherwise:
 
-- **The registry repository is not created.** `astra-plugin publish` targets
-  `mihailinl/astra-registry`, which returns 404 today.
-- **The trust root keys are not provisioned.** Astra compiles in two root key
-  slots and both are empty (`astra-daemon/src/plugins/trust.rs`,
-  `PRODUCTION_ROOT_KEYS`). Until the root ceremony runs, no catalogue signature
-  verifies and a default build fails closed. Nothing here promises a trust
-  guarantee that is not yet anchored.
+- **No `trust.json` has been signed.** The root ceremony ran on 2026-08-11:
+  `astra-registry/registry/v1/root.json` publishes two Ed25519 keys and
+  `astra-daemon/src/plugins/trust.rs` (`PRODUCTION_ROOT_KEYS`) compiles in the
+  same two. But a root key does not sign a catalogue — it signs `trust.json`,
+  which delegates to an index-signing key, and that document does not exist. So
+  no catalogue signature verifies, and a default build still fails closed.
+  Nothing here promises a trust guarantee that is not yet anchored.
+
+`astra-plugin publish` targets
+[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry),
+which is public and answering — the submission path works; what the missing link
+above blocks is Astra *installing* from what it publishes.
 
 ---
 

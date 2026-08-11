@@ -33,15 +33,19 @@ required to say "same author as before" and never "verified build".
 
 ### 0.1 The chain is not anchored yet — read this first
 
-* `astra-registry/registry/v1/root.json` carries `"status": "unprovisioned"` and
-  an **empty** `roots` array. The ceremony in `astra-registry/SECURITY.md` §4
-  (`tools/keygen-root.sh`) has not been run.
-* `astra-daemon`'s `PRODUCTION_ROOT_KEYS` is an **empty table** for the same
-  reason, deliberately: *"a shipped Astra must never trust a key that is
-  published in a repository."*
+* `astra-registry/registry/v1/root.json` carries `"status": "provisioned"` and
+  two Ed25519 keys. The ceremony in `astra-registry/SECURITY.md` §4
+  (`tools/keygen-root.sh`) was run offline on 2026-08-11.
+* `astra-daemon`'s `PRODUCTION_ROOT_KEYS` lists the same two. The registry copy
+  is public so a third party can read them without disassembling a binary, and
+  so a disagreement between the two is visible; the private halves were never on
+  a networked machine.
+* **A root key does not sign a catalogue.** It signs `trust.json`, which
+  delegates to an index-signing key, and **no `trust.json` has been signed yet**.
 * Therefore, today: no `trust.json` verifies → there are no delegated index keys
   → every catalogue is classified `UNSIGNED` with reason `NoTrustAnchor`, and
-  the registry bot stops every ingest at `E_TRUST_UNPROVISIONED`.
+  the registry bot stops every ingest at `E_TRUST_UNPROVISIONED`. The reason code
+  is the one it always was; what moved is which link is missing.
 * `registry/v1/index.json` and `registry/v1/revocations.json` are committed with
   `"signatures": []` — "unsigned" said out loud, where an absent member could not
   be told from a stripped one.
@@ -497,9 +501,9 @@ Step 4 is what makes a mutable `@v1` tag unusable as a supply chain: a tag can b
 repointed at any commit and the attestation would still name the right repository
 and workflow file. Changing that allowlist is a root-key ceremony.
 
-With roots unprovisioned there is no signed `trust.json` and therefore no
-allowlist, so every ingest currently stops at `E_TRUST_UNPROVISIONED` — the same
-fail-closed state as the daemon's empty root table.
+With no signed `trust.json` there is no allowlist, so every ingest currently
+stops at `E_TRUST_UNPROVISIONED` — the same fail-closed state the daemon reaches
+by the same route. The roots exist; nothing they would vouch for does yet.
 
 ### 7.2 Not implemented: the per-release countersignature
 
@@ -627,8 +631,8 @@ downloaded file, and confirm its `MANIFEST.json` `plugin_id`, `version`,
 | property | status |
 |---|---|
 | document formats, envelope, signing construction, JCS profile | implemented on both ends, cross-tested by fixture |
-| root keys | **not provisioned** — empty on both sides, fail-closed |
-| `trust.json` | no signed document exists yet |
+| root keys | **provisioned** 2026-08-11 — the same two on both sides |
+| `trust.json` | **no signed document exists yet** — so nothing is delegated, and the chain is fail-closed here |
 | `index.json` / `revocations.json` signatures | empty arrays in the committed tree |
 | catalogue verdicts, serial floors, freshness, clock handling | implemented in the daemon and under test |
 | revocation vocabulary, matching, five enforcement points | implemented; **inert until a signature-valid list is fetched once** |

@@ -80,8 +80,9 @@ permissions answer *what the daemon will do when the plugin asks*. Neither
 answers what the process can do to your machine. See
 [the security model](1-orientation/security.md).
 
-**The trust chain is specified and not yet anchored.** The root keys that would
-make a signed catalogue verifiable are not provisioned, so a default build
-fails closed and classifies every catalogue as unsigned. This is written down
-in [`spec/registry-index.md` §0.1](spec/registry-index.md) and repeated wherever
-it matters, rather than being quietly implied away.
+**The trust chain is specified and not yet anchored.** The root keys exist and
+match on both sides; the root-signed `trust.json` that delegates to an
+index-signing key does not, so a default build has nothing to check a catalogue
+signature against, fails closed, and classifies every catalogue as unsigned.
+This is written down in [`spec/registry-index.md` §0.1](spec/registry-index.md)
+and repeated wherever it matters, rather than being quietly implied away.

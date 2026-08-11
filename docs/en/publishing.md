@@ -31,9 +31,11 @@ SHA-256 of the whole file, and — checked by the registry bot at ingest, not by
 the daemon — GitHub's build attestation saying which workflow, at which commit,
 in which repository produced those bytes.
 
-**And today, none of that is anchored.** The root keys are unprovisioned, so
-every catalogue classifies as unsigned and the daemon fails closed. See
-[the security model](1-orientation/security.md) and
+**And today, none of that is anchored.** The root keys now exist — `root.json`
+lists the same two the daemon compiles in — but the root-signed `trust.json`
+that delegates to an index-signing key does not, so the daemon has no key to
+check a catalogue signature against. Every catalogue classifies as unsigned and
+the daemon fails closed. See [the security model](1-orientation/security.md) and
 [`spec/registry-index.md` §0.1](spec/registry-index.md).
 
 **None of it says the code is safe.** A plugin is a native process with your
