@@ -358,7 +358,7 @@ fn resolve_pin(workflow_ref: Option<&str>, offline: bool, existing: Option<Strin
         });
     }
 
-    match ls_remote(&format!("refs/tags/{WORKFLOW_TAG}")) {
+    match ls_remote_tag(WORKFLOW_TAG) {
         Ok(Some(sha)) => Ok(Pin {
             sha,
             source: PinSource::ReleaseTag,
@@ -396,10 +396,37 @@ fn resolve_pin(workflow_ref: Option<&str>, offline: bool, existing: Option<Strin
 /// HEAD, which should not happen; every network failure is an `Err`, so the
 /// caller can report "not checked" rather than "stale".
 pub fn current_upstream_pin() -> Result<Option<String>> {
-    if let Some(sha) = ls_remote(&format!("refs/tags/{WORKFLOW_TAG}"))? {
+    if let Some(sha) = ls_remote_tag(WORKFLOW_TAG)? {
         return Ok(Some(sha));
     }
     ls_remote("HEAD")
+}
+
+/// The COMMIT a release tag names, whether or not the tag is annotated.
+///
+/// SECURITY-adjacent, and it bit: `git ls-remote <url> refs/tags/<t>` with an
+/// exact refspec returns exactly that ref and nothing else. For an **annotated**
+/// tag that ref is the tag OBJECT, whose SHA is not a commit — and
+/// `uses: repo/.github/workflows/x.yml@<sha>` takes a commit. Every author's
+/// first release then died on `invalid value workflow reference`, which is the
+/// failure the generated file's own note warns about, produced by the tool that
+/// wrote the note.
+///
+/// It hid because a LIGHTWEIGHT tag points straight at the commit, so the exact
+/// refspec returns the right answer and nothing looks wrong — and a release tag
+/// carrying a message is the one you would actually cut.
+///
+/// Asking for both patterns makes the remote send the peeled `^{}` line beside
+/// the tag object; [`ls_remote`] already prefers it. Two patterns rather than a
+/// `refs/tags/<t>*` glob, because that glob would also match `<t>-rc1`.
+fn ls_remote_tag(tag: &str) -> Result<Option<String>> {
+    ls_remote_any(&tag_refspecs(tag))
+}
+
+/// The two patterns [`ls_remote_tag`] asks for. Split out so the thing that
+/// actually went wrong — asking for one of them — is testable without a network.
+fn tag_refspecs(tag: &str) -> [String; 2] {
+    [format!("refs/tags/{tag}"), format!("refs/tags/{tag}^{{}}")]
 }
 
 pub fn is_commit_sha(s: &str) -> bool {
@@ -410,38 +437,53 @@ pub fn is_commit_sha(s: &str) -> bool {
 /// ref, which is a different fact from "the network is down" and is why this
 /// is not a bare `Result<String>`.
 fn ls_remote(reference: &str) -> Result<Option<String>> {
+    ls_remote_any(&[reference.to_string()])
+}
+
+/// [`ls_remote`] over several patterns in one round trip.
+fn ls_remote_any(references: &[String]) -> Result<Option<String>> {
     let url = format!("https://github.com/{WORKFLOW_REPO}.git");
-    let out = Command::new("git")
+    let mut cmd = Command::new("git");
+    cmd
         // Without this, a private or renamed repo turns into a credential
         // prompt on a terminal that may not be attached to anything.
         .env("GIT_TERMINAL_PROMPT", "0")
-        .args(["ls-remote", &url, reference])
+        .args(["ls-remote", &url]);
+    cmd.args(references);
+    let out = cmd
         .output()
         .context("Failed to run `git ls-remote` — is git installed?")?;
 
     if !out.status.success() {
         anyhow::bail!(
-            "git ls-remote {url} {reference} failed: {}",
+            "git ls-remote {url} {} failed: {}",
+            references.join(" "),
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
 
-    let text = String::from_utf8_lossy(&out.stdout);
+    Ok(pick_sha(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// The SHA to pin, out of `git ls-remote` output.
+///
+/// An annotated tag's own object is not a commit. `^{}` is the peeled line, and
+/// it is the one a workflow reference must use, so it wins whenever the remote
+/// sent both — regardless of the order they arrive in. A lightweight tag sends
+/// only the plain line, and that one already is the commit.
+fn pick_sha(text: &str) -> Option<String> {
     let mut plain = None;
     for line in text.lines() {
         let mut parts = line.split('\t');
         let (Some(sha), Some(name)) = (parts.next(), parts.next()) else {
             continue;
         };
-        // An annotated tag's own object is not a commit. `^{}` is the peeled
-        // line, and it is the one a checkout must use; prefer it whenever the
-        // remote sent both.
         if name.ends_with("^{}") {
-            return Ok(Some(sha.to_string()));
+            return Some(sha.to_string());
         }
         plain.get_or_insert_with(|| sha.to_string());
     }
-    Ok(plain)
+    plain
 }
 
 /// The generated file. Verbatim output — no templating engine, no partial
@@ -759,6 +801,51 @@ mod tests {
             source: PinSource::Explicit,
             label: "--ref".to_string(),
         }
+    }
+
+    /// The release tag must be resolved to a COMMIT, not to the tag object.
+    ///
+    /// `git ls-remote <url> refs/tags/<t>` with an exact refspec returns exactly
+    /// that ref. For an annotated tag — which a release tag with a message is —
+    /// that is the tag object, and its SHA is not a commit.
+    /// `uses: repo/.github/workflows/x.yml@<sha>` takes a commit, so every
+    /// author's first release died on `invalid value workflow reference`: the
+    /// exact failure the generated file warns about, caused by the tool that
+    /// wrote the warning.
+    ///
+    /// It stayed hidden because a LIGHTWEIGHT tag points straight at the commit,
+    /// so the one-pattern lookup is right and nothing looks wrong.
+    #[test]
+    fn a_tag_lookup_asks_for_the_peeled_ref_too() {
+        let specs = tag_refspecs("plugin-release/v1");
+        assert_eq!(specs[0], "refs/tags/plugin-release/v1");
+        assert_eq!(
+            specs[1], "refs/tags/plugin-release/v1^{}",
+            "without the peeled pattern the remote never sends the commit an \
+             annotated tag points at, and the pin is a tag object no workflow can use",
+        );
+    }
+
+    /// …and when the remote sends both, the peeled line wins.
+    ///
+    /// The two halves are separate failures: asking for one pattern (fixed
+    /// above) and preferring the wrong line. This pins the second, which was
+    /// always right and is worth keeping that way.
+    #[test]
+    fn the_peeled_line_wins_however_the_remote_orders_them() {
+        let tag_object = "4d92cef493a33a6238f809d401cd206151038620";
+        let commit = "6d681bcb9e815bebd7f2f6e065037b1ba71a03c9";
+        for text in [
+            format!("{tag_object}\trefs/tags/t\n{commit}\trefs/tags/t^{{}}\n"),
+            format!("{commit}\trefs/tags/t^{{}}\n{tag_object}\trefs/tags/t\n"),
+        ] {
+            assert_eq!(pick_sha(&text).as_deref(), Some(commit), "{text:?}");
+        }
+        // A lightweight tag sends one line, and it is already the commit.
+        assert_eq!(
+            pick_sha(&format!("{commit}\trefs/tags/t\n")).as_deref(),
+            Some(commit),
+        );
     }
 
     #[test]
