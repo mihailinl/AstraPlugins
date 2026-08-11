@@ -1,0 +1,62 @@
+# Licensing
+
+Copyright (C) 2026 Minice — https://minice.ai
+Written and maintained by Mihailin (`mihailinl`) and the AstraPlugins
+contributors.
+
+AstraPlugins is the plugin SDK, CLI and specification set for **Astra**, a
+Minice product.
+
+This repository is **not** under a single licence. The line is drawn where it
+changes what somebody else may build: code that ends up inside another
+program is weak copyleft, and code that stands alone is strong copyleft.
+
+| Path | Licence | Why |
+|---|---|---|
+| `astra-plugin-sdk/` | **MPL-2.0** | ends up inside every Rust plugin |
+| `astra-plugin-sdk-python/` | **MPL-2.0** | imported by every Python plugin |
+| `astra-plugin-sdk-ts/` | **MPL-2.0** | imported by every TypeScript plugin |
+| `astra-plugin-macros/` | **MPL-2.0** | expands into the author's own source |
+| `astra-plugin-cli/` (except `vendor/`) | **GPL-3.0-or-later** | a standalone tool; nothing links it |
+| `astra-plugin-cli/vendor/astra-plugin-manifest/` | **MPL-2.0** | a shared library |
+| `examples/` | **MPL-2.0** | starting points people copy |
+| everything else (`docs/`, `spec/`, `tools/`, `proto/`, `testdata/`) | **GPL-3.0-or-later** | |
+
+Full texts in [`LICENSES/`](LICENSES/): [MPL-2.0](LICENSES/MPL-2.0.txt) and
+[GPL-3.0](LICENSES/GPL-3.0.txt), reproduced verbatim from mozilla.org and
+gnu.org. Neither is modified — a modified licence is a different and
+incompatible licence.
+
+## What this means in practice
+
+**Writing a plugin.** Your plugin is yours, under any licence you choose,
+including a proprietary one. MPL is file-level copyleft: it reaches the files
+it covers and nothing else, and it was written to be combined with code under
+other terms — including statically, which is why it is here rather than the
+LGPL, whose relinking requirement lands on exactly the people this is meant not
+to burden.
+
+*Being allowed to ship a proprietary plugin is not the same as being allowed to
+list one.* The registry accepts open-source licences only; see its `POLICY.md`.
+That is policy, revisable, and deliberately separate from this licence, which
+is not.
+
+**Modifying an SDK file.** Publish that file under MPL-2.0. You need not open
+anything else — not your plugin, not your product, not your other files.
+
+**Forking the CLI, the tooling, the specs or the docs.** GPL-3.0-or-later:
+publish your changes under the same terms. Nothing links these, so nothing is
+conceded. Taking this architecture, closing it and shipping it is what copyleft
+exists to prevent.
+
+**Attribution.** See [`NOTICE`](NOTICE). The GPL-licensed parts carry a
+section 7(b) attribution requirement; the MPL-licensed parts require only that
+the notices in the source files stay there, because MPL has no mechanism for
+more and pretending otherwise would not be MPL.
+
+## History
+
+Before this commit the repository declared MIT in its package manifests and
+carried no licence text at all. Anything obtained under those earlier terms
+stays under them — a licence already granted cannot be withdrawn. Everything
+from this commit onward is under the terms above.

@@ -1,0 +1,65 @@
+AstraPlugins — the plugin SDKs, CLI and specifications for Astra.
+
+Copyright (C) 2026 Minice — https://minice.ai
+Written and maintained by Mihailin (`mihailinl`) and the AstraPlugins
+contributors.
+
+Source: https://github.com/mihailinl/AstraPlugins
+
+Two licences apply, per path. See LICENSE for the map.
+
+
+THE MPL-2.0 PARTS — the SDKs, the macro crate, the examples
+
+MPL-2.0 has no mechanism for imposing an attribution requirement, and none is
+imposed. What it does require, in section 3.4, is that you not remove or alter
+the licence notices contained in the Source Code Form. Every source file
+carries the standard MPL header and the Minice copyright line; keep them where
+they are and you have met the obligation.
+
+Attribution beyond that is welcome and not required. If you build something on
+these SDKs, a line saying so is appreciated:
+
+    Built with AstraPlugins — https://minice.ai
+
+
+THE GPL-3.0 PARTS — the CLI, the tooling, the specs, the docs
+
+GPL-3.0 section 7(b) permits requiring "preservation of specified reasonable
+legal notices or author attributions" in the material or in the Appropriate
+Legal Notices displayed by works containing it. That permission is exercised
+for these parts, and it is the only additional term imposed:
+
+    Any redistribution of the GPL-licensed parts of this software, modified or
+    unmodified, in source or binary form, must preserve this NOTICE file and
+    must retain the attribution
+
+        AstraPlugins — a Minice project — https://minice.ai
+
+    in its documentation, its about screen, or wherever it presents the
+    licences of the components it is built from.
+
+This term does not restrict use, does not require you to advertise anything,
+and does not reach a plugin: a plugin uses the MPL-licensed SDKs, and this term
+travels with the GPL-licensed code itself. If you remove every part of that
+code from your work, the term stops applying with it.
+
+
+TRADEMARKS
+
+"Astra" and "Minice" are names Minice uses for its products and company.
+Neither licence here grants trademark permissions: a fork is free to use this
+code and must not present itself as Astra, as Minice, or as endorsed by either.
+
+
+WARRANTY
+
+There is none. See sections 15 and 16 of GPL-3.0 in LICENSES/GPL-3.0.txt, and
+sections 6 and 7 of MPL-2.0 in LICENSES/MPL-2.0.txt.
+
+
+THIRD-PARTY COMPONENTS
+
+The dependencies of each package are listed in its manifest (`Cargo.toml`,
+`pyproject.toml`, `package.json`) and carry their own licences, which are not
+affected by this file.
