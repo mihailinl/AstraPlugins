@@ -401,22 +401,20 @@ jobs:
           repo-token: ${{ github.token }}
 
       # spec/generated/conformance.json is the list of hooks a plugin must
-      # answer, derived from spec/hooks.yaml. Two things are true about it today
-      # and both are stated rather than papered over:
+      # answer, derived from spec/hooks.yaml. This gate checks both halves of it:
       #
-      #   * the list itself is checkable, and is checked here — it must be
-      #     current, non-empty, and every `required` hook must have a binding in
-      #     every SDK the spec calls `stable` (which is parity R1, run again
-      #     because a release is worth two seconds).
-      #   * the RUNTIME harness that calls each hook against a live plugin is
-      #     `astra-plugin test`, which is Phase 5 and does not exist. So this
-      #     gate proves the CONTRACT is consistent, not that three plugins
-      #     answered it.
+      #   * the CONTRACT — the list is current, non-empty, and every `required`
+      #     hook has a binding in every SDK the spec calls `stable` (parity R1,
+      #     run again because a release is worth two seconds);
+      #   * the RUNTIME — plugins in all three languages were started and every
+      #     hook they declare was called, which is `astra-plugin test`.
       #
-      # The second bullet is why the last step exists: the moment the CLI grows
-      # a `test` subcommand, this job goes red and says to wire it. A placeholder
-      # that cannot notice it has been superseded is how a conformance gate turns
-      # into a rubber stamp.
+      # The runtime half used to be a tripwire: the harness did not exist, so the
+      # step failed the moment `astra-plugin help test` started answering, and
+      # said to wire a real run. It exists now, and it is wired — in gate 5,
+      # which is where the 27 scaffolds live. The steps below read that run's
+      # reports rather than repeat it, and are written so that "the job we depend
+      # on did it" cannot degrade into a claim nobody checks.
       - name: the conformance list is current and non-empty
         run: |
           set -euo pipefail
@@ -436,23 +434,53 @@ jobs:
       - name: every stable hook has a binding (parity R1)
         run: python tools/parity/check.py --rules R1
 
-      - name: "`astra-plugin test` does not exist yet — fail when it does"
+      # The runtime half, which the tripwire that used to sit here asked for.
+      #
+      # It is not run again here — it already ran, on this commit, in gate 5.
+      # `ci` calls .github/workflows/ci.yml, whose `conformance (R7)` job
+      # scaffolds all nine templates in all three languages, drives four
+      # reference plugins, and calls every hook each one declares. Twenty-seven
+      # scaffolds and thirty-one reports. Repeating that here would add a
+      # quarter of an hour and prove the same thing twice.
+      #
+      # But "a job we depend on did it" is the kind of claim that quietly stops
+      # being true, so this reads the EVIDENCE rather than the dependency: the
+      # reports that job uploaded, re-checked against the spec. In particular
+      # that job uploads with `if-no-files-found: warn`, so a run that produced
+      # NO reports still ends green there — and would end red here.
+      - name: the conformance reports from gate 5
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-reports
+          path: _conformance
+
+      - name: three languages answered the contract, and the reports say so
         run: |
           set -euo pipefail
-          cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
-          if ./astra-plugin-cli/target/release/astra-plugin help test >/dev/null 2>&1; then
-            cat >&2 <<'MSG'
-          FAIL `astra-plugin test` exists now.
-
-          This gate has been checking the conformance SPEC because the runtime
-          harness did not exist. It does. Replace this step with a real run:
-          scaffold one plugin per language, start it, and call every hook in
-          spec/generated/conformance.json — that is the check this gate was
-          always a stand-in for.
-          MSG
+          count=$(find _conformance -name '*.json' -type f | wc -l)
+          if [ "$count" -lt 10 ]; then
+            echo "::error::gate 5 produced $count conformance report(s). That job drives" \
+                 "31 plugins; a number this low means it did not run, or stopped early," \
+                 "and this gate would otherwise pass on an empty directory."
             exit 1
           fi
-          echo 'ok   no `astra-plugin test` yet; the spec-level gate is still the honest one'
+          # Every language has to be represented. A regression that silently
+          # dropped the Python or TypeScript leg would leave the count healthy.
+          for lang in python typescript; do
+            if ! ls _conformance/"$lang"-*.json >/dev/null 2>&1; then
+              echo "::error::no $lang conformance report — that leg did not run"
+              exit 1
+            fi
+          done
+          # Rust reports are named for the template or the example, not the
+          # language, so they are checked by one that only Rust produces.
+          test -f _conformance/dice-roller.json \
+            || { echo "::error::no report for the Rust reference plugin"; exit 1; }
+          echo "ok   $count conformance report(s), all three languages present"
+
+          args=()
+          for report in _conformance/*.json; do args+=(--report "$report"); done
+          python tools/parity/check.py --rules R7 "${args[@]}"
 
   # ══ GATE 7: PUBLISH ════════════════════════════════════════════════════════
   #
