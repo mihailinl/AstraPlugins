@@ -1,46 +1,32 @@
 //! DaemonClient — full daemon API access for client-capable plugins.
 //!
-//! Only available to plugins that declare [`PluginCapability::is_client()`] = true.
-//! The daemon issues a session token during registration, and this client
-//! injects it as `x-session-token` on every gRPC request.
+//! Only reachable from plugins that declare `client = true` in `plugin.toml`
+//! and return `true` from [`PluginCapability::is_client`](crate::PluginCapability::is_client).
+//! The daemon issues a client session token during registration, and this
+//! client injects it as `x-session-token` on every gRPC request.
+//!
+//! Handlers reach it as [`PluginContext::daemon`](crate::PluginContext::daemon),
+//! typed as `Arc<dyn Daemon>` — so a test can substitute a fake, and so nobody
+//! has to keep an `Arc<Mutex<Option<DaemonClient>>>` on their struct any more.
 
 use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 
 use crate::auth::{AuthChannel, SessionInterceptor};
+use crate::context::{Daemon, EventStream, FirehoseStream};
 use crate::proto;
 
 // ── DaemonClient ──
 
 /// Full-access client for daemon gRPC services.
 ///
-/// Provides high-level methods for chat, voice, commands, media, and more.
-/// Only available to plugins with the "client" capability — the SDK creates
-/// one automatically after registration if the daemon grants a session token.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use astra_plugin_sdk::prelude::*;
-/// use std::sync::Arc;
-/// use tokio::sync::Mutex;
-///
-/// struct MyBot {
-///     daemon: Arc<Mutex<Option<DaemonClient>>>,
-/// }
-///
-/// #[async_trait]
-/// impl PluginCapability for MyBot {
-///     fn is_client(&self) -> bool { true }
-///
-///     async fn set_daemon_client(&self, client: Arc<Mutex<DaemonClient>>) {
-///         *self.daemon.lock().await = Some(client.lock().await.clone());
-///     }
-/// }
-/// ```
+/// Chat, voice, commands, config, media and monitor. Every method takes `&self`
+/// and clones the underlying tonic client for the call, so this is `Clone`, has
+/// no interior lock, and can be shared across tasks freely.
 #[derive(Clone)]
 pub struct DaemonClient {
     core: proto::core_service_client::CoreServiceClient<AuthChannel>,
@@ -88,30 +74,29 @@ impl DaemonClient {
             ),
         })
     }
+}
 
+/// The whole daemon surface, forwarded. See [`Daemon`] for the per-method docs.
+#[async_trait::async_trait]
+impl Daemon for DaemonClient {
     // ===== Core Service =====
 
-    /// Get the current state of the daemon.
-    pub async fn get_state(&mut self) -> Result<proto::CoreStateResponse> {
-        let resp = self.core.get_state(proto::Empty {}).await?;
+    async fn get_state(&self) -> Result<proto::CoreStateResponse> {
+        let resp = self.core.clone().get_state(proto::Empty {}).await?;
         Ok(resp.into_inner())
     }
 
-    /// Subscribe to real-time daemon events.
-    pub async fn subscribe_events(
-        &mut self,
-    ) -> Result<tonic::Streaming<proto::AstraEvent>> {
-        let resp = self.core.subscribe_events(proto::Empty {}).await?;
-        Ok(resp.into_inner())
+    async fn subscribe_events(&self) -> Result<EventStream> {
+        let resp = self.core.clone().subscribe_events(proto::Empty {}).await?;
+        Ok(Box::pin(
+            resp.into_inner().map(|r| r.map_err(anyhow::Error::from)),
+        ))
     }
 
     // ===== Chat Service (event-sourcing API) =====
 
-    /// Submit a user message. The daemon appends it to the conversation log
-    /// and drives the AI turn asynchronously; every event reaches this and
-    /// every other client through `subscribe_chat_events`.
-    pub async fn submit_user_message(
-        &mut self,
+    async fn submit_user_message(
+        &self,
         text: &str,
         conversation_id: &str,
         voice_enabled: bool,
@@ -119,6 +104,7 @@ impl DaemonClient {
     ) -> Result<proto::SubmitUserMessageResponse> {
         let resp = self
             .chat
+            .clone()
             .submit_user_message(proto::SubmitUserMessageRequest {
                 text: text.to_string(),
                 conversation_id: conversation_id.to_string(),
@@ -137,24 +123,23 @@ impl DaemonClient {
         Ok(resp.into_inner())
     }
 
-    /// Subscribe to the chat firehose — one stream for every conversation.
-    /// `cursors` maps conversation id → last seen seq so the daemon only
-    /// replays what you actually missed. Live events for every conv flow
-    /// through the same stream.
-    pub async fn subscribe_chat_events(
-        &mut self,
+    async fn subscribe_chat_events(
+        &self,
         cursors: HashMap<String, u64>,
-    ) -> Result<tonic::Streaming<proto::FirehoseEventMsg>> {
+    ) -> Result<FirehoseStream> {
         let resp = self
             .chat
+            .clone()
             .subscribe_events(proto::SubscribeEventsRequest { cursors })
             .await?;
-        Ok(resp.into_inner())
+        Ok(Box::pin(
+            resp.into_inner().map(|r| r.map_err(anyhow::Error::from)),
+        ))
     }
 
-    /// Stop AI generation. Empty `conversation_id` cancels every active turn.
-    pub async fn stop_generation(&mut self, conversation_id: &str) -> Result<()> {
+    async fn stop_generation(&self, conversation_id: &str) -> Result<()> {
         self.chat
+            .clone()
             .stop_generation(proto::StopGenerationRequest {
                 conversation_id: conversation_id.to_string(),
             })
@@ -162,14 +147,14 @@ impl DaemonClient {
         Ok(())
     }
 
-    /// Respond to a pending confirmation request (dangerous tool approval).
-    pub async fn respond_to_confirmation(
-        &mut self,
+    async fn respond_to_confirmation(
+        &self,
         request_id: &str,
         allowed: bool,
         allow_like_this: bool,
     ) -> Result<()> {
         self.chat
+            .clone()
             .respond_to_confirmation(proto::ConfirmationResponse {
                 request_id: request_id.to_string(),
                 allowed,
@@ -179,14 +164,15 @@ impl DaemonClient {
         Ok(())
     }
 
-    pub async fn list_conversations(&mut self) -> Result<proto::ListConversationsResponse> {
-        let resp = self.chat.list_conversations(proto::Empty {}).await?;
+    async fn list_conversations(&self) -> Result<proto::ListConversationsResponse> {
+        let resp = self.chat.clone().list_conversations(proto::Empty {}).await?;
         Ok(resp.into_inner())
     }
 
-    pub async fn create_conversation(&mut self, title: &str) -> Result<proto::Conversation> {
+    async fn create_conversation(&self, title: &str) -> Result<proto::Conversation> {
         let resp = self
             .chat
+            .clone()
             .create_conversation(proto::CreateConversationRequest {
                 title: title.to_string(),
                 // See `submit_user_message`: the daemon's newer fields (which
@@ -199,8 +185,9 @@ impl DaemonClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn delete_conversation(&mut self, conversation_id: &str) -> Result<()> {
+    async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
         self.chat
+            .clone()
             .delete_conversation(proto::DeleteConversationRequest {
                 id: conversation_id.to_string(),
             })
@@ -208,8 +195,9 @@ impl DaemonClient {
         Ok(())
     }
 
-    pub async fn clear_conversation(&mut self, conversation_id: &str) -> Result<()> {
+    async fn clear_conversation(&self, conversation_id: &str) -> Result<()> {
         self.chat
+            .clone()
             .clear_conversation(proto::ClearConversationRequest {
                 conversation_id: conversation_id.to_string(),
             })
@@ -219,9 +207,9 @@ impl DaemonClient {
 
     // ===== Voice Service =====
 
-    /// Speak text using TTS.
-    pub async fn speak(&mut self, text: &str, voice_id: &str, interrupt: bool) -> Result<()> {
+    async fn speak(&self, text: &str, voice_id: &str, interrupt: bool) -> Result<()> {
         self.voice
+            .clone()
             .speak(proto::SpeakRequest {
                 text: text.to_string(),
                 voice_id: voice_id.to_string(),
@@ -231,43 +219,40 @@ impl DaemonClient {
         Ok(())
     }
 
-    /// Stop current speech.
-    pub async fn stop_speaking(&mut self) -> Result<()> {
-        self.voice.stop_speaking(proto::Empty {}).await?;
+    async fn stop_speaking(&self) -> Result<()> {
+        self.voice.clone().stop_speaking(proto::Empty {}).await?;
         Ok(())
     }
 
-    /// Start listening for speech.
-    pub async fn start_listening(&mut self) -> Result<()> {
-        self.voice.start_listening(proto::Empty {}).await?;
+    async fn start_listening(&self) -> Result<()> {
+        self.voice.clone().start_listening(proto::Empty {}).await?;
         Ok(())
     }
 
-    /// Stop listening for speech.
-    pub async fn stop_listening(&mut self) -> Result<()> {
-        self.voice.stop_listening(proto::Empty {}).await?;
+    async fn stop_listening(&self) -> Result<()> {
+        self.voice.clone().stop_listening(proto::Empty {}).await?;
         Ok(())
     }
 
     // ===== Command Service =====
 
-    /// List all commands.
-    pub async fn list_commands(&mut self, include_disabled: bool) -> Result<proto::CommandListResponse> {
+    async fn list_commands(&self, include_disabled: bool) -> Result<proto::CommandListResponse> {
         let resp = self
             .command
+            .clone()
             .list(proto::ListCommandsRequest { include_disabled })
             .await?;
         Ok(resp.into_inner())
     }
 
-    /// Execute a command by ID.
-    pub async fn execute_command(
-        &mut self,
+    async fn execute_command(
+        &self,
         id: &str,
         variables: HashMap<String, String>,
     ) -> Result<proto::ExecuteCommandResponse> {
         let resp = self
             .command
+            .clone()
             .execute(proto::ExecuteCommandRequest {
                 id: id.to_string(),
                 variables,
@@ -279,18 +264,17 @@ impl DaemonClient {
 
     // ===== Config Service =====
 
-    /// Get all settings.
-    pub async fn get_settings(&mut self) -> Result<proto::SettingsResponse> {
-        let resp = self.config.get_settings(proto::Empty {}).await?;
+    async fn get_settings(&self) -> Result<proto::SettingsResponse> {
+        let resp = self.config.clone().get_settings(proto::Empty {}).await?;
         Ok(resp.into_inner())
     }
 
     // ===== Media Service =====
 
-    /// Get current media playback state.
-    pub async fn get_media_state(&mut self, session_id: &str) -> Result<proto::MediaState> {
+    async fn get_media_state(&self, session_id: &str) -> Result<proto::MediaState> {
         let resp = self
             .media
+            .clone()
             .get_media_state(proto::GetMediaStateRequest {
                 session_id: session_id.to_string(),
             })
@@ -298,13 +282,9 @@ impl DaemonClient {
         Ok(resp.into_inner())
     }
 
-    /// Control media playback.
-    pub async fn control_media(
-        &mut self,
-        action: i32,
-        session_id: &str,
-    ) -> Result<()> {
+    async fn control_media(&self, action: i32, session_id: &str) -> Result<()> {
         self.media
+            .clone()
             .control_media(proto::ControlMediaRequest {
                 action,
                 session_id: session_id.to_string(),
@@ -314,10 +294,10 @@ impl DaemonClient {
         Ok(())
     }
 
-    /// Get all active media sessions.
-    pub async fn get_media_sessions(&mut self) -> Result<Vec<proto::MediaSessionInfo>> {
+    async fn get_media_sessions(&self) -> Result<Vec<proto::MediaSessionInfo>> {
         let resp = self
             .media
+            .clone()
             .get_media_sessions(proto::GetMediaSessionsRequest {})
             .await?;
         Ok(resp.into_inner().sessions)
@@ -325,10 +305,10 @@ impl DaemonClient {
 
     // ===== Monitor Service =====
 
-    /// Get current system stats (CPU, RAM, GPU, etc.).
-    pub async fn get_system_stats(&mut self) -> Result<proto::SystemStats> {
+    async fn get_system_stats(&self) -> Result<proto::SystemStats> {
         let resp = self
             .monitor
+            .clone()
             .get_system_stats(proto::GetSystemStatsRequest { interval_ms: 0 })
             .await?;
         Ok(resp.into_inner())

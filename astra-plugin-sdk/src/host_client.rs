@@ -12,15 +12,51 @@
 //! `fire_trigger` / `log` / `get_config` / `set_variable` / `push_to_ui`.
 //! Every one of those is `unauthenticated` without the token
 //! (`astra-daemon/src/server/auth_interceptor.rs`).
+//!
+//! Every method takes `&self` and clones its tonic client for the call. tonic
+//! clients are `Clone` for exactly this reason — the clone shares one HTTP/2
+//! connection and costs an `Arc` bump — so there is no `Mutex` on this path and
+//! two concurrent handlers do not serialise behind each other. That mutex, and
+//! the `try_lock` that gave up on it, is what 0.6 deletes.
 
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 
 use crate::auth::{AuthChannel, SessionInterceptor};
+use crate::context::{ChatStream, Host};
 use crate::proto;
 use crate::proto::plugin_host_service_client::PluginHostServiceClient;
+
+/// A host RPC that came back a failure, as an error that still knows what it
+/// was.
+///
+/// What stood here was `.context("FireTrigger RPC failed")?`, and it was doing
+/// two bad things at once. It put **tonic's own `Display`** into the message —
+/// `status: PermissionDenied, message: "…", details: [], metadata:
+/// MetadataMap { headers: {} }` — and that string is what an AI loop reads out
+/// of a failed tool call and what the user is shown. And because a plugin
+/// writes `ctx.host().fire_trigger(..).await?` inside a handler, the anyhow
+/// error is converted straight to a [`ToolError`](crate::ToolError): a daemon
+/// `PERMISSION_DENIED` arrived as `Internal`, so the loop was told to retry a
+/// call that can never succeed.
+///
+/// Converting here keeps both halves right. The kind survives — `?` in a
+/// handler recovers it, because `From<anyhow::Error>` downcasts through
+/// `.context(..)` — and the human string is one sentence:
+///
+/// ```text
+/// FireTrigger failed: UNAUTHORIZED: plugin 'dice-roller' has no `fire_trigger` grant
+/// ```
+///
+/// This matters most for the failure every author meets first: `[permissions]`
+/// is default-deny, so the first host RPC you call and did not declare is
+/// denied by the daemon.
+fn rpc_failed(rpc: &'static str, status: tonic::Status) -> anyhow::Error {
+    anyhow::Error::new(crate::ToolError::from(status)).context(format!("{rpc} failed"))
+}
 
 /// Pre-registration client. Can call exactly one RPC: `Register`, the daemon's
 /// only auth-exempt path. `register` consumes it and hands back an
@@ -58,7 +94,7 @@ impl BootstrapHostClient {
                 sdk_version: crate::protocol::SDK_VERSION.to_string(),
             })
             .await
-            .context("Register RPC failed")?
+            .map_err(|s| rpc_failed("Register", s))?
             .into_inner();
 
         // The protocol verdict comes BEFORE the generic refusal below: "your
@@ -124,75 +160,84 @@ impl HostClient {
         Ok(BootstrapHostClient { channel, plugin_id })
     }
 
-    /// Fire a trigger (for trigger plugins).
-    pub async fn fire_trigger(&mut self, trigger_type: &str, payload_json: &str) -> Result<()> {
+    /// Fire a trigger (for trigger plugins). Permission: `fire_trigger`.
+    pub async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
         self.client
+            .clone()
             .fire_trigger(proto::PluginFireTriggerRequest {
                 trigger_type: trigger_type.into(),
                 payload_json: payload_json.into(),
             })
             .await
-            .context("FireTrigger RPC failed")?;
+            .map_err(|s| rpc_failed("FireTrigger", s))?;
         Ok(())
     }
 
-    /// Log a message to the daemon's log buffer.
-    pub async fn log(&mut self, level: &str, message: &str) -> Result<()> {
+    /// Log a message to the daemon's log buffer. Permission: none.
+    pub async fn log(&self, level: &str, message: &str) -> Result<()> {
         self.client
+            .clone()
             .plugin_log(proto::PluginLogRequest {
                 plugin_id: self.plugin_id.clone(),
                 level: level.into(),
                 message: message.into(),
             })
             .await
-            .context("PluginLog RPC failed")?;
+            .map_err(|s| rpc_failed("PluginLog", s))?;
         Ok(())
     }
 
-    /// Get this plugin's current config from the daemon.
-    pub async fn get_config(&mut self) -> Result<String> {
+    /// Get this plugin's current config from the daemon. Permission: none.
+    pub async fn get_config(&self) -> Result<String> {
         let resp = self
             .client
+            .clone()
             .get_plugin_self_config(proto::PluginSelfIdRequest {
                 plugin_id: self.plugin_id.clone(),
             })
             .await
-            .context("GetPluginSelfConfig RPC failed")?;
+            .map_err(|s| rpc_failed("GetPluginSelfConfig", s))?;
         Ok(resp.into_inner().config_json)
     }
 
-    /// Get daemon info (version, state, port).
-    pub async fn get_daemon_info(&mut self) -> Result<proto::PluginDaemonInfoResponse> {
+    /// Get daemon info (version, state, port). Permission: none.
+    pub async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
         let resp = self
             .client
+            .clone()
             .get_daemon_info(proto::Empty {})
             .await
-            .context("GetDaemonInfo RPC failed")?;
+            .map_err(|s| rpc_failed("GetDaemonInfo", s))?;
         Ok(resp.into_inner())
     }
 
-    /// Subscribe to daemon events.
-    /// `exclude_source_id` — if non-empty, ChatMessageSync events from this source are filtered out server-side.
+    /// Subscribe to daemon events. Permission: `subscribe_events`.
+    ///
+    /// `exclude_source_id` — if non-empty, ChatMessageSync events from this
+    /// source are filtered out server-side.
     pub async fn subscribe_events(
-        &mut self,
+        &self,
         event_types: Vec<String>,
         exclude_source_id: String,
     ) -> Result<tonic::Streaming<proto::PluginEventMsg>> {
         let resp = self
             .client
+            .clone()
             .subscribe_events(proto::PluginEventFilter {
                 plugin_id: self.plugin_id.clone(),
                 event_types,
                 exclude_source_id,
             })
             .await
-            .context("SubscribeEvents RPC failed")?;
+            .map_err(|s| rpc_failed("SubscribeEvents", s))?;
         Ok(resp.into_inner())
     }
 
     /// Set a variable in the daemon's variable context.
-    pub async fn set_variable(&mut self, name: &str, value: &str, scope: &str) -> Result<()> {
+    /// Permission: `set_variable`.
+    pub async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         self.client
+            .clone()
             .set_variable(proto::PluginSetVariableRequest {
                 plugin_id: self.plugin_id.clone(),
                 name: name.into(),
@@ -200,7 +245,7 @@ impl HostClient {
                 scope: scope.into(),
             })
             .await
-            .context("SetVariable RPC failed")?;
+            .map_err(|s| rpc_failed("SetVariable", s))?;
         Ok(())
     }
 
@@ -212,30 +257,129 @@ impl HostClient {
     // ── Logging convenience ──
 
     /// Log an info message to the daemon.
-    pub async fn log_info(&mut self, msg: &str) -> Result<()> {
+    pub async fn log_info(&self, msg: &str) -> Result<()> {
         self.log("info", msg).await
     }
 
     /// Log a warning message to the daemon.
-    pub async fn log_warn(&mut self, msg: &str) -> Result<()> {
+    pub async fn log_warn(&self, msg: &str) -> Result<()> {
         self.log("warn", msg).await
     }
 
     /// Log an error message to the daemon.
-    pub async fn log_error(&mut self, msg: &str) -> Result<()> {
+    pub async fn log_error(&self, msg: &str) -> Result<()> {
         self.log("error", msg).await
     }
 
-    /// Push a message to this plugin's UI iframes.
-    pub async fn push_to_ui(&mut self, event: &str, payload_json: &str) -> Result<()> {
+    /// Push a message to this plugin's UI iframes. Permission: `push_to_ui`.
+    pub async fn push_to_ui(&self, event: &str, payload_json: &str) -> Result<()> {
         self.client
+            .clone()
             .push_to_ui(proto::PluginUiPushRequest {
                 plugin_id: self.plugin_id.clone(),
                 event: event.to_string(),
                 payload_json: payload_json.to_string(),
             })
-            .await?;
+            .await
+            .map_err(|s| rpc_failed("PushToUi", s))?;
         Ok(())
+    }
+
+    /// Send a chat message as this plugin and stream the assistant's reply.
+    /// Permission: `send_chat_message`.
+    ///
+    /// This is the only working chat path for a plugin. The SDK's
+    /// [`DaemonClient`](crate::DaemonClient) route through `ChatService` needs a
+    /// *client* session, which the daemon grants only to plugins that declared
+    /// the `client` capability; this rpc is on `PluginHostService`, which every
+    /// plugin's session token is scoped to. Before 0.6 no SDK bound it in any
+    /// language, so `client` was a capability nobody could implement.
+    pub async fn send_chat_message(
+        &self,
+        text: &str,
+        conversation_id: &str,
+        voice_enabled: bool,
+    ) -> Result<tonic::Streaming<proto::PluginChatChunk>> {
+        let resp = self
+            .client
+            .clone()
+            .send_chat_message(proto::PluginChatRequest {
+                text: text.to_string(),
+                source_id: self.plugin_id.clone(),
+                conversation_id: conversation_id.to_string(),
+                voice_enabled,
+            })
+            .await
+            .map_err(|s| rpc_failed("SendChatMessage", s))?;
+        Ok(resp.into_inner())
+    }
+
+    /// Contribute colours, wallpaper and a shader to the active Astra theme.
+    /// Permission: `set_theme_contribution`.
+    ///
+    /// High-risk by design — it repaints the whole application — so the daemon
+    /// refuses it below Tier 1 trust. `plugin_id` is filled in for you.
+    pub async fn set_theme_contribution(
+        &self,
+        theme: proto::PluginThemeContribution,
+    ) -> Result<()> {
+        self.client
+            .clone()
+            .set_theme_contribution(proto::PluginThemeContribution {
+                plugin_id: self.plugin_id.clone(),
+                ..theme
+            })
+            .await
+            .map_err(|s| rpc_failed("SetThemeContribution", s))?;
+        Ok(())
+    }
+}
+
+/// The concrete [`Host`]. Every method forwards to the inherent one above, so
+/// the trait adds a vtable hop and nothing else — and a test can substitute a
+/// recording fake for the whole surface.
+#[async_trait::async_trait]
+impl Host for HostClient {
+    fn plugin_id(&self) -> &str {
+        HostClient::plugin_id(self)
+    }
+
+    async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
+        HostClient::fire_trigger(self, trigger_type, payload_json).await
+    }
+
+    async fn log(&self, level: &str, message: &str) -> Result<()> {
+        HostClient::log(self, level, message).await
+    }
+
+    async fn get_config(&self) -> Result<String> {
+        HostClient::get_config(self).await
+    }
+
+    async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+        HostClient::get_daemon_info(self).await
+    }
+
+    async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
+        HostClient::set_variable(self, name, value, scope).await
+    }
+
+    async fn push_to_ui(&self, event: &str, payload_json: &str) -> Result<()> {
+        HostClient::push_to_ui(self, event, payload_json).await
+    }
+
+    async fn send_chat_message(
+        &self,
+        text: &str,
+        conversation_id: &str,
+        voice_enabled: bool,
+    ) -> Result<ChatStream> {
+        let stream = HostClient::send_chat_message(self, text, conversation_id, voice_enabled).await?;
+        Ok(Box::pin(stream.map(|r| r.map_err(anyhow::Error::from))))
+    }
+
+    async fn set_theme_contribution(&self, theme: proto::PluginThemeContribution) -> Result<()> {
+        HostClient::set_theme_contribution(self, theme).await
     }
 }
 
@@ -336,6 +480,7 @@ mod tests {
                             "Rebuild the plugin against an Astra plugin SDK whose \
                              PROTOCOL_VERSION is at least {floor}, then reinstall it."
                         ),
+                        ..Default::default()
                     }),
                     ..Default::default()
                 }));
@@ -456,7 +601,7 @@ mod tests {
         let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
             .await
             .expect("bootstrap connect");
-        let (mut host, resp) = bootstrap
+        let (host, resp) = bootstrap
             .register(1234, vec!["tools".into()], "spawn-token".into())
             .await
             .expect("register");
@@ -567,7 +712,7 @@ mod tests {
         let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
             .await
             .expect("bootstrap connect");
-        let (mut host, resp) = bootstrap
+        let (host, resp) = bootstrap
             .register(1234, vec!["tools".into()], "spawn-token".into())
             .await
             .expect("a pre-handshake daemon must be served, not refused");

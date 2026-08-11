@@ -1,7 +1,7 @@
 //! Typed event structs for common daemon events.
 //!
 //! These are automatically deserialized by the SDK runner and dispatched
-//! to typed handlers on [`PluginCapability`]. Plugin developers use these
+//! to typed handlers on [`crate::PluginCapability`]. Plugin developers use these
 //! instead of manually parsing JSON from `on_event`.
 
 use serde::Deserialize;

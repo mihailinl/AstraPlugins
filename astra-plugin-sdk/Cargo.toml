@@ -6,7 +6,27 @@ description = "Rust SDK for building Astra plugins"
 license = "MIT"
 repository = "https://github.com/mihailinl/AstraPlugins"
 
+[features]
+# JSON Schema generation for tool arguments and plugin config.
+#
+# Default-on, because `#[tool] async fn roll(&self, ctx: &PluginContext, a: Roll)`
+# has to answer "what does `Roll` look like?" for the model to call it at all,
+# and the §3.1 authoring experience is one dependency and no feature flags. It
+# is still a feature: `default-features = false` drops `schemars` for a plugin
+# that hand-writes its schemas, and `#[tool]` then fails with a sentence naming
+# the flag rather than a missing path (see `astra_plugin_sdk::schema`).
+default = ["schema"]
+schema = ["dep:schemars"]
+
 [dependencies]
+# The macro layer: `astra::main!`, `#[astra::plugin]`, `#[derive(PluginConfig)]`.
+# Not optional. It is what makes a plugin one dependency, and a feature flag on
+# it would mean two documented ways to write the same plugin.
+astra-plugin-macros = { version = "0.6.0", path = "../astra-plugin-macros" }
+
+# JSON Schema, for `#[tool]` argument types and `#[derive(PluginConfig)]`.
+schemars = { version = "1", optional = true }
+
 # gRPC
 tonic = { version = "0.12", features = ["gzip"] }
 prost = "0.13"
@@ -15,6 +35,13 @@ prost = "0.13"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 async-stream = "0.3"
+
+# Lock-free shared state. `PluginContext` is cloned into every handler and every
+# background task, and the daemon rewrites the language and the active-trigger
+# set underneath them at arbitrary moments. A read has to be wait-free — the
+# thing this replaces was `Mutex<Option<Arc<Mutex<HostClient>>>>` and a
+# `try_lock` that silently dropped work when it lost the race.
+arc-swap = "1"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

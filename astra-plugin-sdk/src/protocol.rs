@@ -161,6 +161,7 @@ mod tests {
             hint: "Rebuild the plugin against an Astra plugin SDK whose PROTOCOL_VERSION is at \
                    least 2, then reinstall it."
                 .into(),
+            ..Default::default()
         });
 
         let sentence = evaluate(&resp).expect_err("floor 2 must refuse an SDK at 1").to_string();
@@ -226,6 +227,7 @@ mod tests {
             code: proto::PluginErrorCode::PluginErrorAuth as i32,
             message: "Invalid auth token".into(),
             hint: "Let the daemon spawn the plugin.".into(),
+            ..Default::default()
         });
         assert!(evaluate(&resp).is_ok());
     }
