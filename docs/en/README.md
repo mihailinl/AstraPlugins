@@ -1,53 +1,87 @@
-# Astra Plugin Development
+# Astra plugin documentation
 
-Build plugins for [Astra](https://github.com/Stella) — the AI-powered digital assistant — in Rust, Python, or TypeScript.
+A plugin is a separate program that Astra starts and talks to over gRPC. It can
+give the model tools, provide a text-to-speech or speech-to-text engine, add
+steps and triggers to the command editor, contribute UI, or act as a chat client
+of its own.
 
-Plugins are independent processes that Astra launches as sidecars. They communicate with the daemon over gRPC and can expose AI tools, provide TTS/STT backends, contribute custom actions and triggers to the Command Graph, inject UI panels, or act as full daemon clients.
+There are two journeys here, and everything on this page belongs to one of them.
 
-## Table of contents
+## Writing a plugin
 
-| Document | What it covers |
-| --- | --- |
-| [Getting started](getting-started.md) | Install the CLI, scaffold your first plugin, run it in dev mode, build a distributable bundle |
-| [CLI reference](cli.md) | Every `astra-plugin` subcommand with flags, behaviour and exit codes |
-| [Rust SDK](sdk-rust.md) | Trait-based API (`PluginCapability`), field builders, `HostClient`, `DaemonClient` |
-| [Python SDK](sdk-python.md) | Decorator API (`@tool`, `@action`, `@trigger`), auto-schema from type hints, UV integration |
-| [TypeScript SDK](sdk-typescript.md) | Class-based API, capability auto-discovery, `@grpc/grpc-js` runtime |
-| [Manifest](manifest.md) | `plugin.toml` reference — every section and field |
-| [Capabilities](capabilities.md) | All 9 capabilities, per-SDK API, proto RPCs |
-| [Publishing](publishing.md) | `.astraplugin` bundle format, Ed25519 signing, sideloading |
+| | |
+|---|---|
+| [What a plugin is](1-orientation/what-is-a-plugin.md) | The ten capabilities, and which one you want |
+| [Architecture](1-orientation/architecture.md) | Process model, the two services, the auth handshake |
+| [Security model](1-orientation/security.md) | What signatures prove, what they do not, and the privilege a plugin runs with |
+| [Platforms](1-orientation/platforms.md) | linux-x64 and windows-x64, per-OS paths, build prerequisites |
+| **[Getting started](2-tutorial/getting-started.md)** | **Zero to a running plugin. Start here.** |
+| [Rust SDK](4-sdk/rust.md) · [Python SDK](4-sdk/python.md) · [TypeScript SDK](4-sdk/typescript.md) | One page each, including what that SDK cannot do yet |
+| [Examples](7-examples/README.md) | Eleven plugins in this repository, each with its platform |
 
-## Architecture at a glance
+## Publishing a plugin
 
-```
-┌────────────────────────┐     gRPC     ┌────────────────────────┐
-│        Astra           │◀────────────▶│        Plugin          │
-│        daemon          │   localhost  │      (sidecar)         │
-│                        │              │                        │
-│ PluginHostService ─────┼────────────▶│ HostClient             │
-│                        │              │                        │
-│ plugin-capability ◀────┼──────────────│ PluginCapability       │
-│   service client       │              │   service              │
-└────────────────────────┘              └────────────────────────┘
-```
+The canonical path, and the only one users see:
 
-- The daemon launches each plugin as a separate process, passing `--daemon-addr`, `--plugin-id`, and optionally `--auth-token` on the command line.
-- The plugin starts a gRPC server on a random local port, connects back to the daemon's `PluginHostService`, and **registers** — advertising which capabilities it implements.
-- After registration the daemon calls into the plugin's `PluginCapabilityService` for tool calls, action execution, TTS, and lifecycle events.
-- The plugin uses `HostClient` to log, fire triggers, read its own config, set variables, or push events to its UI iframes. Client-capable plugins additionally get a full `DaemonClient` with access to Chat, Voice, Command, Media, Monitor and Config services.
+1. [Release with CI](5-publish/release-with-ci.md) — `astra-plugin init-ci`, then a tag. GitHub builds and attests the bundle.
+2. [Get listed](5-publish/get-listed.md) — one submission, once, ever. After that, releases are zero-touch.
+3. Users install from inside Astra, with the artifact pinned by digest.
 
-## Picking an SDK
+Two other ways to get a plugin onto a machine exist. Both are for developers,
+both cost something, and both say what:
 
-| Factor | Rust | Python | TypeScript |
-| --- | --- | --- | --- |
-| Startup latency | ~10 ms (native binary) | ~300 ms (interpreter + grpcio import) | ~100 ms (Node cold start) |
-| Memory footprint | Lowest | Highest | Medium |
-| Bundle size | ~5–10 MB binary | ~100 KB source + daemon-managed venv | ~200 KB bundle (esbuild) |
-| Best for | Performance-critical, system integration, TTS/STT providers | AI tooling, data processing, ML libraries | Web APIs, JSON-heavy work, UI integrations |
-| Type safety | Full (compile time) | Opt-in via hints (runtime schema generation) | Full (compile time) |
+- [Install a local file](5-publish/local-install.md) — a `.astraplugin` received out of band. Four permissions are refused outright.
+- [Sideload a source directory](5-publish/sideload.md) — the authoring loop. Requires Developer Mode, runs unsigned code with your full user account.
 
-All three SDKs are first-class — every capability is available in every SDK. Pick the one that matches the ecosystem you want to pull libraries from.
+Also: [versioning and deprecation policy](versioning.md) · [migrating to 0.6](migration-0.6.md)
 
-## Next step
+## Running one
 
-Go to [Getting started](getting-started.md) for the 5-minute walkthrough.
+| | |
+|---|---|
+| [Troubleshooting](6-operate/troubleshooting.md) | Keyed to the errors the daemon and the CLI actually print |
+| [Logs](6-operate/logs.md) | Where they are, per OS, and how to follow them |
+| [Performance](6-operate/performance.md) | Timeouts, start budget, shutdown grace, archive limits |
+
+## Reference
+
+Most of the reference tier is **generated** from the code it describes, and CI
+fails when a checked-in page differs from a fresh run. That is deliberate: a
+reference page that is written by hand is a second definition of the interface,
+and it is always the one that is wrong.
+
+| Page | Generated from |
+|---|---|
+| [`plugin.toml`](reference/manifest.md) | `astra-plugin-manifest` — the crate the daemon parses your manifest with |
+| [CLI](reference/cli.md) | the `clap` definitions, by running `astra-plugin --help` |
+| [Protocol](reference/protocol.md) | `proto/plugin.proto` |
+| [Errors](reference/errors.md) | the error taxonomy in all three SDKs |
+| [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 35 hooks in all three SDKs |
+| [Permissions](3-reference/permissions.md) | written: each permission, what it grants, how to write a reason |
+| [Config fields](3-reference/config-fields.md) | written: settings UI, `[config]`, and the TTS/STT field hooks |
+
+Normative specifications, for someone implementing a verifier or a registry
+rather than a plugin: [bundle v2](spec/bundle-v2.md) ·
+[registry index](spec/registry-index.md) · [permissions](spec/permissions.md).
+
+## Languages
+
+English is authoritative. [Русский](../ru/README.md) covers the written pages
+and is reviewed. Five older translations — `de`, `es`, `ja`, `uk`, `zh-CN` —
+are in [`docs/community/`](../community/), last synchronised 2026-04-17, behind
+a banner saying so. They are not current and are not maintained; corrections
+are welcome anyway.
+
+## Two things the whole of this documentation is careful about
+
+**Plugins are not sandboxed.** A plugin is a native process running as you, with
+your files and your network. Signatures answer *who published these bytes*;
+permissions answer *what the daemon will do when the plugin asks*. Neither
+answers what the process can do to your machine. See
+[the security model](1-orientation/security.md).
+
+**The trust chain is specified and not yet anchored.** The root keys that would
+make a signed catalogue verifiable are not provisioned, so a default build
+fails closed and classifies every catalogue as unsigned. This is written down
+in [`spec/registry-index.md` §0.1](spec/registry-index.md) and repeated wherever
+it matters, rather than being quietly implied away.

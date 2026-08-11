@@ -38,6 +38,7 @@ allowed to change in the same release.
 If you need the plugin working today and the migration next week, change your
 import:
 
+<!-- doctest: illustrative reason="a one-line diff of the import, not a compilable file" -->
 ```diff
 -use astra_plugin_sdk::prelude::*;
 +use astra_plugin_sdk::compat::*;
@@ -48,6 +49,7 @@ That is the entire diff. `compat` is the 0.5 trait, the 0.5 result types and the
 blanket impl. Verified on the real 0.5 dice-roller — 255 lines, unmodified apart
 from that line:
 
+<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -98,6 +100,7 @@ These are the real errors from building the unmodified 0.5 dice-roller against
 
 ### 2.1 `Config` is a required associated type
 
+<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -110,6 +113,7 @@ error[E0046]: not all trait items implemented, missing: `Config`
 
 If your plugin has no settings, that is one line:
 
+<!-- doctest: illustrative reason="the single line that satisfies the associated type; the whole impl it belongs to is the block above" -->
 ```rust
 type Config = NoConfig;
 ```
@@ -118,6 +122,7 @@ If it does, declare the type and implement `on_config` — the SDK parses the
 daemon's JSON for you. bad-apple, before (`examples/bad-apple/src/main.rs` at
 `134f6d1^`):
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 async fn on_config_changed(&self, config_json: &str) {
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(config_json) {
@@ -135,6 +140,7 @@ async fn on_config_changed(&self, config_json: &str) {
 
 and after (`examples/bad-apple/src/main.rs`):
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
@@ -172,6 +178,7 @@ atomic read, and a config rewrite mid-tool-call cannot block it.
 
 ### 2.2 Handlers take a `&PluginContext`
 
+<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -185,11 +192,13 @@ Add `ctx: &PluginContext` (or `_ctx`) after `&self`. It carries `plugin_id`,
 `language`, `active_triggers`, `host` and `daemon`; it is cheap to clone; it is
 never `None`. mock-stt, before and after:
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 // 0.5 — examples/mock-stt/src/main.rs at 134f6d1^
 async fn stt_transcribe(&self, audio: &[u8], sample_rate: u32) -> anyhow::Result<SttEvent> {
 ```
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 // 0.6 — examples/mock-stt/src/main.rs
 async fn stt_transcribe(
@@ -212,6 +221,7 @@ same context.
 
 ### 2.3 `set_host` and `set_daemon_client` are gone
 
+<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -227,6 +237,7 @@ Delete the hook, delete the field, use `ctx.host()`. This one is worth doing
 properly rather than through the shim, because the 0.5 shape had a defect in it.
 dice-roller, before (`examples/dice-roller/src/main.rs` at `134f6d1^`):
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 struct DiceRoller {
     default_sides: AtomicU32,
@@ -250,6 +261,7 @@ fn fire_roll_triggers_bg(&self, results: Vec<u32>, sides: u32) {
 When a second tool call held that lock, `try_lock` returned `None`, the plugin
 logged "host client not available yet", and **fired nothing**. After:
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 fn fire_roll_values(&self, ctx: &PluginContext, results: &[u32], sides: u32) {
     let host = ctx.host().clone();
@@ -270,6 +282,14 @@ fn fire_roll_values(&self, ctx: &PluginContext, results: &[u32], sides: u32) {
 capability, so every "daemon client not ready" branch goes away. telegram-client
 lost its `SharedDaemon` field and this check:
 
+> `Some` is about the handle, not about what it can reach. The daemon scopes
+> every plugin's session token to `PluginHostService`, so calls made through
+> `ctx.daemon()` currently answer `permission_denied` — see
+> [the Rust SDK page](4-sdk/rust.md#daemon-present-in-the-sdk-refused-by-the-daemon).
+> This section is about the shape of the migration, not about a path that works
+> end-to-end today.
+
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 // 0.5
 if self.daemon.lock().await.is_none() {
@@ -280,6 +300,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` are deleted
 
+<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```
@@ -299,6 +320,7 @@ The kind is not decoration. It is what tells the AI loop whether retrying can
 possibly help, and `NotConfigured { field }` is what turns "the tool failed"
 into a link to that exact settings input. bad-apple, after:
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 async fn handle_ui_call(
     &self,
@@ -349,6 +371,7 @@ permission, and a denial arrives as `PERMISSION_DENIED` → `ToolError::Unauthor
 
 Declaring the capability is not enough. From `examples/dice-roller/plugin.toml`:
 
+<!-- doctest: illustrative reason="an excerpt of the [permissions] block from examples/dice-roller/plugin.toml, not a whole manifest" -->
 ```toml
 # `[permissions]` is the other direction: which host RPCs the plugin may call
 # out to. Default-deny — a manifest with no `[permissions]` section may call
@@ -371,6 +394,7 @@ This is where warm-up and background tasks belong. echo-stt moved its audio
 thread there, out of `main`; telegram-client moved its whole bot start out of
 `set_daemon_client`, which is what removed a race with `on_config_changed`:
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 /// Config has already been applied by the time this runs, so the bot token
 /// is there and the bot starts once, in one place, instead of racing
@@ -429,6 +453,7 @@ the SDK fills in both the legacy string and the structured `error_detail`:
 
 From `examples/text-utils/src/plugin.py`:
 
+<!-- doctest: illustrative reason="one decorated method from examples/text-utils/src/plugin.py, not a whole module" -->
 ```python
 @tool("Convert text case: upper, lower, title, snake, camel.")
 async def case_convert(self, text: str, mode: str):
@@ -484,6 +509,7 @@ not `@astra/plugin-sdk`, which four places used to say.
 You do not need Astra installed to know whether the port worked. The 0.6 SDKs
 ship a test harness that runs your handlers in-process against a recording host:
 
+<!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
 ```rust
 use astra_plugin_sdk::testing::Harness;
 

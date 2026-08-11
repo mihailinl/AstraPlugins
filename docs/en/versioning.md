@@ -100,6 +100,7 @@ Rules that live only in a document get forgotten at exactly the moment they
 matter: the release where somebody deletes the thing. So the per-hook half of
 the policy is a column in [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
+<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...
@@ -121,6 +122,7 @@ the policy is a column in [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
 Get one wrong and the checker says so, with the line number:
 
+<!-- doctest: output from="python3 tools/parity/check.py on a row whose removed_in violates the policy" -->
 ```
 spec/hooks.yaml is malformed:
   hooks.yaml:336: `AiGetModels` is deprecated in 0.6 and removed in 0.7 — the policy is
