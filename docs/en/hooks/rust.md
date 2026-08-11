@@ -17,13 +17,13 @@ You implement these; the daemon calls them.
 | `TtsSynthesizeStream` | `tts` | optional | server | stable | Synthesize one utterance as a chunk stream, for first-audio latency. |
 | `TtsListVoices` | `tts` | required | unary | stable | The voices this provider exposes in the Voice settings picker. |
 | `TtsGetConfigFields` | `tts` | optional | unary | stable | Extra TTS settings fields, rendered by DynamicField on the Voice page. |
-| `TtsActivate` | `tts` | optional | unary | planned → 2026-12-31 | Deliver a licensed-voice content key for one-time machine-bound sealing. |
+| `TtsActivate` | `tts` | optional | unary | stable | Deliver a licensed-voice content key for one-time machine-bound sealing. |
 | `SttProcess` | `stt` | required | bidi | stable | Audio chunks in, transcript events out; carries both one-shot and streaming STT. |
 | `SttGetLanguages` | `stt` | required | unary | stable | The language codes this recognizer accepts. |
 | `SttGetConfigFields` | `stt` | optional | unary | stable | Extra STT settings fields, rendered by DynamicField on the Voice page. |
-| `SttLoad` | `stt` | optional | unary | planned → 2026-12-31 | Load the recognizer model, with the daemon-resolved path and GPU toggle. |
-| `SttUnload` | `stt` | optional | unary | planned → 2026-12-31 | Drop the recognizer model so idle-unload actually frees VRAM. |
-| `SttGetLoadState` | `stt` | optional | unary | planned → 2026-12-31 | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
+| `SttLoad` | `stt` | optional | unary | stable | Load the recognizer model, with the daemon-resolved path and GPU toggle. |
+| `SttUnload` | `stt` | optional | unary | stable | Drop the recognizer model so idle-unload actually frees VRAM. |
+| `SttGetLoadState` | `stt` | optional | unary | stable | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
 | `AiComplete` | `ai_provider` | required | server | stable | Stream a model completion; the only way a plugin can be an AI provider. |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | List the models this provider can run. |
 | `ExecuteAction` | `actions` | required | unary | stable | Run one command-step action this plugin contributed. |
@@ -52,17 +52,10 @@ The daemon implements these; you call them.
 | `SetVariable` | `core` | `set_variable` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |
-| `SendChatMessage` | `client` | `send_chat_message` | required | server | planned → 2026-12-31 | Send a chat message as this plugin and stream the assistant's reply back. |
+| `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | Send a chat message as this plugin and stream the assistant's reply back. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Push an event into this plugin's own iframes — the return path for CallFromUi. |
-| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | planned → 2026-12-31 | Contribute colours, wallpaper and shader to the active Astra theme. |
+| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Contribute colours, wallpaper and shader to the active Astra theme. |
 
 ## Gaps
 
-Committed, not shipped. The date is the deadline after which CI fails:
-
-- `TtsActivate` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Deliver a licensed-voice content key for one-time machine-bound sealing.
-- `SttLoad` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Load the recognizer model, with the daemon-resolved path and GPU toggle.
-- `SttUnload` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Drop the recognizer model so idle-unload actually frees VRAM.
-- `SttGetLoadState` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload.
-- `SendChatMessage` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Send a chat message as this plugin and stream the assistant's reply back.
-- `SetThemeContribution` — by **2026-12-31** (tracked in `PRODUCTION_PLAN.md#5.4`). Contribute colours, wallpaper and shader to the active Astra theme.
+None. The Rust SDK binds every hook in the spec.

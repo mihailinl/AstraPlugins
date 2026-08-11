@@ -293,7 +293,14 @@ astra_protocol = ">=2,<3"
 ```rust
 use astra_plugin_sdk::prelude::*;
 
-#[derive(Deserialize, JsonSchema)]
+// `#[astra::args]` and not `#[derive(Deserialize, JsonSchema)]`: serde's derive
+// expands to `extern crate serde`, which resolves in the crate graph and cannot
+// be reached through a re-export — so the plain derive needs a second dependency,
+// which is the one thing this page is promising you do not need. The attribute
+// is those two derives pointed at the SDK's own copies. Settings get
+// `#[astra::config]`, which adds `#[serde(default)]` so a fresh install's `{}`
+// still parses.
+#[astra::args]
 struct Roll {
     /// How many dice to roll
     #[serde(default = "one")] count: u32,

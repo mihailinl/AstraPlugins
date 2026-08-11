@@ -165,12 +165,10 @@ hooks:
     streaming: server
     daemon_calls: none
     summary: "Synthesize one utterance as a chunk stream, for first-audio latency."
-    note: "FINDING: no daemon call site exists in astra-rs. The Rust binding is dead code today."
+    note: "FINDING: no daemon call site exists in astra-rs. All three SDKs now serve it and nothing calls it — the drift this file exists to catch is gone, the unrouted rpc is not."
     rust: stable
-    python: "n/a"
-    python_reason: "Nothing calls it; implementing it would be dead code until the daemon routes it."
-    typescript: "n/a"
-    typescript_reason: "plugin.ts registers an entry that answers UNIMPLEMENTED, which is protocol-identical to absent."
+    python: stable
+    typescript: stable
 
   - rpc: TtsListVoices
     service: PluginCapabilityService
@@ -212,15 +210,9 @@ hooks:
     daemon_calls: "src/plugins/manager.rs:6409"
     summary: "Deliver a licensed-voice content key for one-time machine-bound sealing."
     note: "The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager.rs:2664 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    rust: stable
+    python: stable
+    typescript: stable
 
   # ── PluginCapabilityService — stt ──
   - rpc: SttProcess
@@ -277,15 +269,9 @@ hooks:
     daemon_calls: "src/plugins/manager.rs:6665"
     summary: "Load the recognizer model, with the daemon-resolved path and GPU toggle."
     note: "manager.rs:2918 routes it through `optional_hook`, which is why this is optional."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    rust: stable
+    python: stable
+    typescript: stable
 
   - rpc: SttUnload
     service: PluginCapabilityService
@@ -297,15 +283,9 @@ hooks:
     streaming: unary
     daemon_calls: "src/plugins/manager.rs:6743"
     summary: "Drop the recognizer model so idle-unload actually frees VRAM."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    rust: stable
+    python: stable
+    typescript: stable
 
   - rpc: SttGetLoadState
     service: PluginCapabilityService
@@ -318,15 +298,9 @@ hooks:
     daemon_calls: "src/plugins/manager.rs:6694"
     summary: "Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload."
     note: "manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    rust: stable
+    python: stable
+    typescript: stable
 
   # ── PluginCapabilityService — ai_provider ──
   - rpc: AiComplete
@@ -339,14 +313,10 @@ hooks:
     streaming: server
     daemon_calls: "src/plugins/capability_bridge.rs:157"
     summary: "Stream a model completion; the only way a plugin can be an AI provider."
-    note: "FINDING: with Python and TS unbound, `ai_provider` is a Rust-only capability today."
+    note: "Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language."
     rust: stable
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    python: stable
+    typescript: stable
 
   - rpc: AiGetModels
     service: PluginCapabilityService
@@ -632,16 +602,10 @@ hooks:
     streaming: server
     daemon_calls: "src/plugins/host_service.rs:536"
     summary: "Send a chat message as this plugin and stream the assistant's reply back."
-    note: "FINDING: no SDK binds it in any language, so `client` is a capability nobody can implement. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs point authors at is permission_denied — this rpc is the only working path."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    note: "The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4."
+    rust: stable
+    python: stable
+    typescript: stable
 
   # ── PluginHostService — ui_contributions ──
   - rpc: PushToUi
@@ -655,11 +619,9 @@ hooks:
     streaming: unary
     daemon_calls: "src/plugins/host_service.rs:953"
     summary: "Push an event into this plugin's own iframes — the return path for CallFromUi."
-    note: "FINDING: Python has CallFromUi but no PushToUi, so a Python UI plugin can be called and cannot answer asynchronously."
+    note: "Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously."
     rust: stable
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
+    python: stable
     typescript: stable
 
   - rpc: SetThemeContribution
@@ -673,13 +635,7 @@ hooks:
     streaming: unary
     daemon_calls: "src/plugins/host_service.rs:979"
     summary: "Contribute colours, wallpaper and shader to the active Astra theme."
-    note: "FINDING: served by the daemon, bound by no SDK. Phase 4 classes it high-risk and refuses it below Tier 1, so the binding and the consent gate must land together."
-    rust: planned
-    rust_issue: "PRODUCTION_PLAN.md#5.4"
-    rust_grace_until: 2026-12-31
-    python: planned
-    python_issue: "PRODUCTION_PLAN.md#5.8"
-    python_grace_until: 2026-12-31
-    typescript: planned
-    typescript_issue: "PRODUCTION_PLAN.md#5.8"
-    typescript_grace_until: 2026-12-31
+    note: "Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4."
+    rust: stable
+    python: stable
+    typescript: stable

@@ -500,6 +500,27 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --manifest-path astra-plugin-sdk/Cargo.toml --all-targets
 
+      # The `schema` feature is default-on, so every check above exercises the
+      # schemars path and none of them exercises the other one. A plugin author
+      # who hand-writes schemas builds with `default-features = false`, and that
+      # configuration is where `#[tool]` on a typed argument is supposed to fail
+      # with a named sentence rather than a missing-path error — which only
+      # holds if the crate still compiles at all without the feature.
+      - name: cargo build --no-default-features (the `schema` feature is off)
+        run: cargo build --manifest-path astra-plugin-sdk/Cargo.toml --no-default-features
+
+      # astra-plugin-macros is a second published crate, not a module: the SDK
+      # depends on it by version, `cargo test -p astra-plugin-sdk` does NOT run
+      # its tests, and its own suite is what proves `#[astra::plugin]` expands to
+      # the hand-written impl and emits only `::astra_plugin_sdk::…` paths. A
+      # regression there breaks every scaffolded plugin and nothing else here
+      # would notice.
+      - name: cargo test (astra-plugin-macros)
+        run: cargo test --manifest-path astra-plugin-macros/Cargo.toml --all-targets
+
+      - name: cargo clippy (astra-plugin-macros)
+        run: cargo clippy --manifest-path astra-plugin-macros/Cargo.toml --all-targets
+
       # `cargo package` refuses files outside the crate root, which is the entire
       # reason astra-plugin-sdk/proto/plugin.proto exists as a copy. If the copy
       # is not in the packaged file list, build.rs cannot compile the protocol

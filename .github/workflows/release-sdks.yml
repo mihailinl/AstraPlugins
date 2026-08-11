@@ -24,6 +24,9 @@ name: Release SDKs
 # that the tag names the train:
 #
 #   * tag semver           == astra-plugin-sdk/Cargo.toml version
+#   * astra-plugin-macros  == astra-plugin-sdk (these two are ONE package split
+#     in two for proc-macro reasons; the SDK depends on the macros crate by
+#     version, so they must ship together at the same number)
 #   * pyproject version    == astra_plugin_sdk.__version__
 #   * each CHANGELOG's newest entry == that package's version
 #   * no package's version is already on its registry (that would be a silent
@@ -41,7 +44,7 @@ name: Release SDKs
 #   5 ci            the whole matrix — 6 OS legs of SDK tests, the examples,
 #                   the scaffold round-trip, the couplings
 #   6 conformance   the hook list every SDK must answer
-#   7 publish       crates.io, PyPI, npm
+#   7 publish       crates.io (macros, then the SDK), PyPI, npm
 #
 # Each `needs:` the one before it, so a red gate stops the train rather than
 # racing it. 1-4 are seconds; putting them ahead of the matrix means a
@@ -126,6 +129,15 @@ jobs:
 
           read = lambda p: pathlib.Path(p).read_text(encoding="utf-8")
           rust = re.search(r'^version = "([^"]+)"', read("astra-plugin-sdk/Cargo.toml"), re.M).group(1)
+          # astra-plugin-macros is a second crates.io package, published from this
+          # same tag. The SDK depends on it by `version = "<x>", path = "..."`, so
+          # cargo resolves the crates.io copy at publish time: a macros crate whose
+          # version differs from the SDK's makes `cargo publish` fail after the
+          # macros crate has already gone up, which is unrecoverable.
+          macros = re.search(r'^version = "([^"]+)"',
+                             read("astra-plugin-macros/Cargo.toml"), re.M).group(1)
+          macros_dep = re.search(r'astra-plugin-macros = \{ version = "([^"]+)"',
+                                 read("astra-plugin-sdk/Cargo.toml")).group(1)
           pyproject = re.search(r'^version = "([^"]+)"',
                                 read("astra-plugin-sdk-python/pyproject.toml"), re.M).group(1)
           dunder = re.search(r'__version__ = "([^"]+)"',
@@ -140,6 +152,11 @@ jobs:
 
           check(version == rust,
                 f"the tag ({version}) is the Rust SDK's version ({rust})")
+          check(macros == rust,
+                f"astra-plugin-macros ({macros}) is the Rust SDK's version ({rust})")
+          check(macros_dep == macros,
+                f"the SDK's dependency on astra-plugin-macros ({macros_dep}) is "
+                f"the version being published ({macros})")
           check(pyproject == dunder,
                 f"pyproject ({pyproject}) == __version__ ({dunder})")
           for name, path, ver in (("rust", "astra-plugin-sdk/CHANGELOG.md", rust),
@@ -186,19 +203,24 @@ jobs:
           fails = []
 
           # crates.io lists every version; a 404 means the crate itself is new.
-          status, body = get("https://crates.io/api/v1/crates/astra-plugin-sdk")
+          # Both Rust packages are checked: they ship from one tag at one version,
+          # and `cargo publish` on the SDK resolves astra-plugin-macros from the
+          # registry, so a duplicate on either one aborts the whole release.
           rust = os.environ["RUST_V"]
-          if status == 200:
-              published = {v["num"] for v in json.loads(body)["versions"]}
-              if rust in published:
-                  fails.append(f"crates.io already has astra-plugin-sdk {rust}")
+          for crate in ("astra-plugin-sdk", "astra-plugin-macros"):
+              status, body = get(f"https://crates.io/api/v1/crates/{crate}")
+              if status == 200:
+                  published = {v["num"] for v in json.loads(body)["versions"]}
+                  if rust in published:
+                      fails.append(f"crates.io already has {crate} {rust}")
+                  else:
+                      print(f"ok   crates.io has {len(published)} version(s) of "
+                            f"{crate}; {rust} is not one of them")
+              elif status == 404:
+                  print(f"ok   crates.io: {crate} has never been published")
               else:
-                  print(f"ok   crates.io has {len(published)} version(s) of "
-                        f"astra-plugin-sdk; {rust} is not one of them")
-          elif status == 404:
-              print("ok   crates.io: the crate has never been published")
-          else:
-              fails.append(f"crates.io answered HTTP {status}; refusing to guess")
+                  fails.append(f"crates.io answered HTTP {status} for {crate}; "
+                               "refusing to guess")
 
           # PyPI and npm both answer per-version, so a 404 IS the answer.
           for name, url, ver in (
@@ -451,7 +473,38 @@ jobs:
         with:
           version: "27.x"
           repo-token: ${{ github.token }}
-      - name: cargo publish
+      # TWO crates, in this order. The SDK depends on astra-plugin-macros by
+      # `version = "…", path = "…"`; `cargo publish` ignores the path and
+      # resolves the version from crates.io, so publishing the SDK first fails
+      # with "no matching package named astra-plugin-macros" — after the tag has
+      # been pushed and with nothing to roll back.
+      - name: cargo publish (astra-plugin-macros — the SDK depends on it)
+        working-directory: astra-plugin-macros
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      # `cargo publish` returns once the tarball is accepted, but the index the
+      # next resolve reads is updated asynchronously. Without this wait the SDK
+      # publish races it and fails on a crate that demonstrably exists.
+      - name: wait for the index to carry it
+        env:
+          RUST_V: ${{ needs.versions.outputs.rust }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if cargo info "astra-plugin-macros@${RUST_V}" >/dev/null 2>&1; then
+              echo "ok   crates.io index has astra-plugin-macros ${RUST_V} (after ${i} tries)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "FAIL astra-plugin-macros ${RUST_V} did not appear in the index" >&2
+          echo "     It IS published. Re-run only this job once the index catches up;" >&2
+          echo "     do not bump the version." >&2
+          exit 1
+
+      - name: cargo publish (astra-plugin-sdk)
         working-directory: astra-plugin-sdk
         run: cargo publish
         env:

@@ -21,11 +21,8 @@ A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityS
 
 Derived from the rows below, not written by hand. Each one is a way a plugin author's code fails today.
 
-1. **`TtsSynthesizeStream` is unrouted.** The proto declares it and no daemon call site exists — bound anyway in Rust. Either wire it or retire it; today it is a promise the daemon does not keep.
+1. **`TtsSynthesizeStream` is unrouted.** The proto declares it and no daemon call site exists — bound anyway in Rust, Python, TypeScript. Either wire it or retire it; today it is a promise the daemon does not keep.
 2. **`AiGetModels` is deprecated but still bound** in Rust, Python, TypeScript. Keep the bindings so an old plugin keeps getting `UNIMPLEMENTED` rather than a transport error; add no new ones.
-3. **`ai_provider` is not available in Python, TypeScript.** `AiComplete` is required for it and only Rust binds it.
-4. **`client` is a capability nobody can implement.** `SendChatMessage` is required for it and no SDK binds it.
-5. **`PushToUi` is uneven.** Bound in Rust, TypeScript, missing in Python — the exact shape of drift this file exists to catch.
 
 ## PluginCapabilityService — daemon → plugin
 
@@ -34,17 +31,17 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 | `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:2989` |
 | `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6039` |
 | `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6329` |
-| `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | n/a | n/a | **none** |
+| `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | stable | stable | **none** |
 | `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6377` |
 | `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6617` |
-| `TtsActivate` | `tts` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6409` |
+| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6409` |
 | `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6464` |
 | `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6585` |
 | `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6641` |
-| `SttLoad` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6665` |
-| `SttUnload` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6743` |
-| `SttGetLoadState` | `stt` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/manager.rs:6694` |
-| `AiComplete` | `ai_provider` | required | live | server | stable | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs:157` |
+| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6665` |
+| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6743` |
+| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6694` |
+| `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs:157` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:6182` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs:2998` |
@@ -68,9 +65,9 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 | `SetVariable` | `core` | `set_variable` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:914` |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:451` |
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:666` |
-| `SendChatMessage` | `client` | `send_chat_message` | required | live | server | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:536` |
-| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | planned → 2026-12-31 | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:953` |
-| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | planned → 2026-12-31 | planned → 2026-12-31 | planned → 2026-12-31 | `astra-rs/astra-daemon/src/plugins/host_service.rs:979` |
+| `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:536` |
+| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:953` |
+| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs:979` |
 
 ## Capability readiness
 
@@ -81,13 +78,13 @@ Can a plugin written in this language implement this capability at all today?
 | `tools` | yes | yes | yes |
 | `tts` | yes | yes | yes |
 | `stt` | yes | yes | yes |
-| `ai_provider` | yes | no — needs `AiComplete` | no — needs `AiComplete` |
+| `ai_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
 | `ui_contributions` | yes | yes | yes |
 | `core` | yes | yes | yes |
 | `event_handlers` | yes | yes | yes |
-| `client` | no — needs `SendChatMessage` | no — needs `SendChatMessage` | no — needs `SendChatMessage` |
+| `client` | yes | yes | yes |
 
 ## Conformance coverage
 
@@ -121,19 +118,19 @@ The 23 inbound hooks a conformance run must exercise — every `daemon → plugi
 
 ## Notes
 
-- **`TtsSynthesizeStream`** — Synthesize one utterance as a chunk stream, for first-audio latency. FINDING: no daemon call site exists in astra-rs. The Rust binding is dead code today.
+- **`TtsSynthesizeStream`** — Synthesize one utterance as a chunk stream, for first-audio latency. FINDING: no daemon call site exists in astra-rs. All three SDKs now serve it and nothing calls it — the drift this file exists to catch is gone, the unrouted rpc is not.
 - **`TtsGetConfigFields`** — Extra TTS settings fields, rendered by DynamicField on the Voice page. Routed through the daemon's `optional_hook` helper (manager.rs:2878), so UNIMPLEMENTED means absent and a real fault is still a fault.
 - **`TtsActivate`** — Deliver a licensed-voice content key for one-time machine-bound sealing. The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager.rs:2664 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong.
 - **`SttProcess`** — Audio chunks in, transcript events out; carries both one-shot and streaming STT. Also driven live at manager.rs:2808. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity.
 - **`SttLoad`** — Load the recognizer model, with the daemon-resolved path and GPU toggle. manager.rs:2918 routes it through `optional_hook`, which is why this is optional.
 - **`SttGetLoadState`** — Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour.
-- **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. FINDING: with Python and TS unbound, `ai_provider` is a Rust-only capability today.
+- **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language.
 - **`AiGetModels`** — List the models this provider can run. FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more.
 - **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager.rs:2523 routes it through `optional_hook`.
 - **`OnLanguageChanged`** — The Astra UI language changed; re-render anything user-visible. manager.rs:1133 routes it through `optional_hook`.
 - **`Shutdown`** — Stop cleanly; the process group is killed after the grace period. Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit.
 - **`HealthCheck`** — Liveness probe, every 15 s. Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager.rs:1464).
 - **`Register`** — The handshake: prove the spawn token, receive the per-plugin session token. The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token.
-- **`SendChatMessage`** — Send a chat message as this plugin and stream the assistant's reply back. FINDING: no SDK binds it in any language, so `client` is a capability nobody can implement. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs point authors at is permission_denied — this rpc is the only working path.
-- **`PushToUi`** — Push an event into this plugin's own iframes — the return path for CallFromUi. FINDING: Python has CallFromUi but no PushToUi, so a Python UI plugin can be called and cannot answer asynchronously.
-- **`SetThemeContribution`** — Contribute colours, wallpaper and shader to the active Astra theme. FINDING: served by the daemon, bound by no SDK. Phase 4 classes it high-risk and refuses it below Tier 1, so the binding and the consent gate must land together.
+- **`SendChatMessage`** — Send a chat message as this plugin and stream the assistant's reply back. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4.
+- **`PushToUi`** — Push an event into this plugin's own iframes — the return path for CallFromUi. Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously.
+- **`SetThemeContribution`** — Contribute colours, wallpaper and shader to the active Astra theme. Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4.
