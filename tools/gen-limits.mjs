@@ -129,6 +129,22 @@ const specSha256 = createHash("sha256").update(specSource).digest("hex");
 const CONST = (name) => name.toUpperCase();
 const plain = (l) => String(l.value);
 
+/**
+ * The MPL header every source file in this repository carries. Generated files
+ * are shipped source too, so the generator has to emit it — otherwise the file
+ * on disk and the file the generator would write can never agree again.
+ */
+function license(commentPrefix) {
+  return [
+    `${commentPrefix} This Source Code Form is subject to the terms of the Mozilla Public`,
+    `${commentPrefix} License, v. 2.0. If a copy of the MPL was not distributed with this`,
+    `${commentPrefix} file, You can obtain one at https://mozilla.org/MPL/2.0/.`,
+    `${commentPrefix}`,
+    `${commentPrefix} Copyright (C) 2026 Minice — https://minice.ai`,
+    "",
+  ].join("\n");
+}
+
 function banner(commentPrefix, extra = "") {
   return [
     `${commentPrefix} AUTO-GENERATED — DO NOT EDIT.`,
@@ -154,7 +170,8 @@ function rustFile() {
   const note =
     "Every limit is a `u64`, uniformly — cast at the use site (`… as usize`).\n" +
     "//! One rule beats a per-key type table that can drift on its own.";
-  return `${banner("//!", note)}
+  return `${license("//")}
+${banner("//!", note)}
 
 /// SHA-256 of the \`${SPEC_REL}\` these constants were generated from.
 pub const SPEC_SHA256: &str = "${specSha256}";
@@ -173,7 +190,8 @@ function pythonFile() {
   const all = ["SPEC_SHA256", ...limits.map((l) => CONST(l.name))]
     .map((n) => `    "${n}",`)
     .join("\n");
-  return `"""Shared numeric limits, generated from ${SPEC_REL}.
+  return `${license("#")}
+"""Shared numeric limits, generated from ${SPEC_REL}.
 
 ${banner("#").replace(/^# ?/gm, "")}
 """
@@ -199,7 +217,8 @@ function typescriptFile() {
       return `${doc}\nexport const ${CONST(l.name)} = ${plain(l)};`;
     })
     .join("\n\n");
-  return `${banner(" *").replace(/^ \*/, "/**\n *")}
+  return `${license("//")}
+${banner(" *").replace(/^ \*/, "/**\n *")}
  */
 
 /** SHA-256 of the \`${SPEC_REL}\` these constants were generated from. */
