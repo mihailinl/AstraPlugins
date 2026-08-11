@@ -449,7 +449,31 @@ jobs:
             exit 1
           fi
           echo "astra-plugin comes from $WORKFLOW_REPO@$WORKFLOW_SHA"
-          echo "ASTRA_PLUGIN_WORKFLOW_SHA=$WORKFLOW_SHA" >> "$GITHUB_ENV"
+
+          # ASTRA_PLUGIN_WORKFLOW_SHA is deliberately NOT exported from this
+          # value. It used to be, and it made every release fail:
+          #
+          #   WARN: release.yml: stale pin. It calls the workflow at 5512b4b9bf52,
+          #         but the current one is 5b8ab2280b0c.
+          #
+          # Two different SHAs, correctly. The caller's `uses:` pin names the
+          # commit of THIS FILE; ASTRA_TOOLING_REF names the commit the CLI is
+          # built from. The comment above them claimed they are "equal by
+          # construction", and they cannot be: a commit cannot contain its own
+          # SHA, so a release of this workflow can never carry a tooling pin
+          # equal to itself.
+          #
+          # Freshness is a question about a moving target — "is this pin the
+          # currently released workflow?" — which needs a network call and a
+          # notion of current. That is `astra-plugin check --resolve-pin`, run
+          # by the author, where a stale pin is a nudge. It has no business
+          # being a hard failure inside a build whose code GitHub already
+          # resolved, and answering it from a literal in the file being checked
+          # is not answering it at all.
+          #
+          # With the variable absent, `check --strict` prints "Pin freshness not
+          # checked" as a NOTE and carries on. The check that earns its keep —
+          # that the pin is a 40-hex commit and not a movable tag — ran above.
 
       # Needed on every leg regardless of the plugin's language: astra-plugin is
       # itself a Rust program. A plugin that needs a specific toolchain commits
@@ -552,12 +576,12 @@ jobs:
       # Fails on a bad capability name, an unparseable config schema, and a
       # version that disagrees with Cargo.toml/package.json.
       #
-      # It also lints the caller's `.github/workflows/release.yml`, and
-      # ASTRA_PLUGIN_WORKFLOW_SHA — exported by "Resolve the pinned workflow
-      # commit" above — is what it compares the `uses:` pin against. In a
-      # healthy run those are equal by construction; the check that earns its
-      # keep is the one underneath it, that the pin is a 40-hex commit at all
-      # and not a moving tag someone else can repoint.
+      # It also lints the caller's `.github/workflows/release.yml`. The check
+      # that earns its keep there is that the `uses:` pin is a 40-hex commit and
+      # not a moving tag someone else can repoint — pin FRESHNESS is skipped
+      # here on purpose, and "Resolve the pinned tooling commit" above says why
+      # at length. Short version: the two SHAs are different facts, and the one
+      # this job could supply is not the one the question is about.
       - name: astra-plugin check --strict
         working-directory: ${{ env.PLUGIN_DIR }}
         run: astra-plugin check --strict .
