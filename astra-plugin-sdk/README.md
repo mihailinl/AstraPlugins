@@ -233,4 +233,14 @@ is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-MIT.
+**LGPL-3.0-or-later** — see [LICENSE](LICENSE), with the GPL it incorporates in
+[LICENSE.GPL-3.0](LICENSE.GPL-3.0).
+
+Linking this crate into your plugin does not affect your plugin's licence: it
+stays yours, proprietary if you want. What the LGPL protects is this crate —
+modify it and those modifications have to be published.
+
+Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional
+term under GPL-3.0 section 7(b).
+
+Copyright (C) 2026 Minice — https://minice.ai

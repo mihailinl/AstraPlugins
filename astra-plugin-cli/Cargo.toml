@@ -6,7 +6,7 @@ name = "astra-plugin-cli"
 version = "0.2.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
-license = "MIT"
+license = "GPL-3.0-or-later"
 # ONE canonical URL, everywhere. This field used to name a GitHub organisation
 # that does not exist and returns 404, while the SDK next door named
 # `mihailinl/AstraPlugins` — the real `origin` remote — and the docs named a

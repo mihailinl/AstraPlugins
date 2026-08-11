@@ -155,4 +155,14 @@ service, the same session-token gate, the same permission gate the SDK's own
 
 ## License
 
-MIT.
+**GPL-3.0-or-later** — see [LICENSE](LICENSE). Nothing links this tool, so it
+carries the stronger copyleft: fork it and your changes ship under the same
+terms.
+
+The SDKs it scaffolds against are LGPL, so the plugins you build with it are
+yours under any licence you like.
+
+Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional
+term under GPL-3.0 section 7(b).
+
+Copyright (C) 2026 Minice — https://minice.ai

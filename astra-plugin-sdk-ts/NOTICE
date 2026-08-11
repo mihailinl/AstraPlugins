@@ -1,0 +1,52 @@
+AstraPlugins — the plugin SDKs, CLI and specifications for Astra.
+
+Copyright (C) 2026 Minice — https://minice.ai
+Written and maintained by Mihailin (`mihailinl`) and the AstraPlugins
+contributors.
+
+Source: https://github.com/mihailinl/AstraPlugins
+
+
+ADDITIONAL TERM UNDER GPL-3.0 SECTION 7(b)
+
+GPL-3.0 section 7(b) permits requiring "preservation of specified reasonable
+legal notices or author attributions" in the material or in the Appropriate
+Legal Notices displayed by works containing it. That permission is exercised
+here, and it is the only additional term imposed:
+
+    Any redistribution of this software, modified or unmodified, in source or
+    binary form, must preserve this NOTICE file and must retain the attribution
+
+        AstraPlugins — a Minice project — https://minice.ai
+
+    in its documentation, its about screen, or wherever it presents the
+    licences of the components it is built from.
+
+Nothing else is added. In particular this term does not restrict use, does not
+require you to advertise anything, and does not apply to a plugin merely
+because it links the LGPL-licensed SDKs — under LGPL-3.0 your plugin remains
+yours, and this term travels with the AstraPlugins code itself, not with the
+work that links it.
+
+If you remove every part of this software from your work, the term stops
+applying with it.
+
+
+TRADEMARKS
+
+"Astra" and "Minice" are names Minice uses for its products and company. This
+licence grants copyright permissions, not trademark permissions: a fork is free
+to use this code and must not present itself as Astra, as Minice, or as
+endorsed by either.
+
+
+WARRANTY
+
+There is none. See sections 15 and 16 of GPL-3.0 in LICENSES/GPL-3.0.txt.
+
+
+THIRD-PARTY COMPONENTS
+
+The dependencies of each package are listed in its manifest (`Cargo.toml`,
+`pyproject.toml`, `package.json`) and carry their own licences, which are not
+affected by this file.

@@ -42,7 +42,10 @@
     "pretest": "node tools/gen-descriptor.mjs && tsc && tsc -p tsconfig.esm.json && node tools/finish-build.mjs && tsc -p tsconfig.typetest.json"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "LICENSE",
+    "LICENSE.GPL-3.0",
+    "NOTICE"
   ],
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
@@ -53,7 +56,7 @@
     "@types/node": "^20.0.0",
     "protobufjs": "^7.2.5"
   },
-  "license": "MIT",
+  "license": "LGPL-3.0-or-later",
   "homepage": "https://github.com/mihailinl/AstraPlugins/tree/master/astra-plugin-sdk-ts#readme",
   "bugs": {
     "url": "https://github.com/mihailinl/AstraPlugins/issues"

@@ -281,4 +281,15 @@ a plugin needs to be installable everywhere Astra runs.
 
 ## License
 
-MIT.
+Not one licence — see [LICENSE](LICENSE) for the split and why it is drawn
+where it is.
+
+The SDKs and the macro crate are **LGPL-3.0-or-later**, because they are linked
+into your plugin. Your plugin stays yours, under any licence you choose,
+including a proprietary one. The CLI, the tooling and the specs are
+**GPL-3.0-or-later**.
+
+Redistribution must preserve the attribution in [NOTICE](NOTICE), an additional
+term under GPL-3.0 section 7(b).
+
+Copyright (C) 2026 Minice — https://minice.ai
