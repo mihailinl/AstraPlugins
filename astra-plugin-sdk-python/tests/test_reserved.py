@@ -35,8 +35,8 @@ def test_the_parser_is_not_matching_nothing():
     the difference between a check and a formality.
     """
     parsed = parse_reserved_names(vendored_proto_text())
-    assert len(parsed) == 3
-    assert sum(len(v) for v in parsed.values()) == 7
+    assert len(parsed) == 4
+    assert sum(len(v) for v in parsed.values()) == 8
 
 
 def test_a_revived_reserved_name_is_refused():

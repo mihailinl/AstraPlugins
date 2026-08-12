@@ -132,7 +132,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "hotkeyBindingsChanged",
                 "reminderFired",
                 "reminderResolved",
-                "lockStateChanged"
+                "lockStateChanged",
+                "backgroundJobsChanged",
+                "commandTriggered"
               ]
             }
           },
@@ -224,6 +226,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "lockStateChanged": {
               "type": "LockStateChangedEvent",
               "id": 25
+            },
+            "backgroundJobsChanged": {
+              "type": "BackgroundJobsChangedEvent",
+              "id": 26
+            },
+            "commandTriggered": {
+              "type": "CommandTriggeredEvent",
+              "id": 27
+            }
+          }
+        },
+        "CommandTriggeredEvent": {
+          "fields": {
+            "commandId": {
+              "type": "string",
+              "id": 1
+            },
+            "commandName": {
+              "type": "string",
+              "id": 2
+            },
+            "runId": {
+              "type": "string",
+              "id": 3
+            },
+            "triggerType": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -540,7 +570,7 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "responseType": "Empty"
             },
             "ListConversations": {
-              "requestType": "Empty",
+              "requestType": "ListConversationsRequest",
               "responseType": "ListConversationsResponse"
             },
             "CreateConversation": {
@@ -679,6 +709,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "ListConversationsRequest": {
+          "fields": {
+            "includeAutomation": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
         "ListConversationsResponse": {
           "fields": {
             "conversations": {
@@ -692,7 +730,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "values": {
             "CONVERSATION_CLIENT_MAIN": 0,
             "CONVERSATION_CLIENT_OVERLAY": 1,
-            "CONVERSATION_CLIENT_PLUGIN": 2
+            "CONVERSATION_CLIENT_PLUGIN": 2,
+            "CONVERSATION_CLIENT_AUTOMATION": 3
           }
         },
         "Conversation": {
@@ -976,7 +1015,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "commandSuggestionResolved",
                 "planUpdated",
                 "subagentActivity",
-                "commandExecuted"
+                "commandExecuted",
+                "turnUsage"
               ]
             }
           },
@@ -1064,6 +1104,42 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "commandExecuted": {
               "type": "CommandExecutedEvt",
               "id": 27
+            },
+            "turnUsage": {
+              "type": "TurnUsageEvt",
+              "id": 28
+            }
+          }
+        },
+        "TurnUsageEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "inputTokens": {
+              "type": "uint32",
+              "id": 2
+            },
+            "outputTokens": {
+              "type": "uint32",
+              "id": 3
+            },
+            "cachedInputTokens": {
+              "type": "uint32",
+              "id": 4
+            },
+            "reasoningTokens": {
+              "type": "uint32",
+              "id": 5
+            },
+            "contextTokens": {
+              "type": "uint32",
+              "id": 6
+            },
+            "roundsMeasured": {
+              "type": "uint32",
+              "id": 7
             }
           }
         },
@@ -1107,6 +1183,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "messageId": {
               "type": "string",
               "id": 1
+            },
+            "causedBy": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -1267,6 +1347,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "text": {
               "type": "string",
               "id": 4
+            },
+            "status": {
+              "type": "string",
+              "id": 5
+            },
+            "firstError": {
+              "type": "string",
+              "id": 6
+            },
+            "runId": {
+              "type": "string",
+              "id": 7
             }
           }
         },
@@ -1533,6 +1625,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "SetVoicePendingImages": {
               "requestType": "SetVoicePendingImagesRequest",
+              "responseType": "Empty"
+            },
+            "SetPushToTalk": {
+              "requestType": "SetPushToTalkRequest",
               "responseType": "Empty"
             }
           }
@@ -1876,6 +1972,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "ImageAttachment",
               "id": 1
+            }
+          }
+        },
+        "SetPushToTalkRequest": {
+          "fields": {
+            "active": {
+              "type": "bool",
+              "id": 1
+            },
+            "discard": {
+              "type": "bool",
+              "id": 2
             }
           }
         },
@@ -2336,6 +2444,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "nodeId": {
               "type": "string",
               "id": 5
+            },
+            "visit": {
+              "type": "int32",
+              "id": 6
             }
           }
         },
@@ -3865,6 +3977,15 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "subagentModel": {
               "type": "string",
               "id": 16
+            },
+            "reportBackgroundJobs": {
+              "type": "bool",
+              "id": 17
+            },
+            "customProviders": {
+              "rule": "repeated",
+              "type": "CustomAiProviderMsg",
+              "id": 18
             }
           },
           "reserved": [
@@ -3877,6 +3998,37 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               10,
               10
             ]
+          ]
+        },
+        "CustomAiProviderMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 3
+            },
+            "model": {
+              "type": "string",
+              "id": 5
+            },
+            "supportsModelDiscovery": {
+              "type": "bool",
+              "id": 6
+            }
+          },
+          "reserved": [
+            [
+              4,
+              4
+            ],
+            "api_key"
           ]
         },
         "HotkeySettings": {
@@ -5334,6 +5486,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "ReasoningLevelOption",
               "id": 10
+            },
+            "userDefined": {
+              "type": "bool",
+              "id": 11
+            },
+            "hasApiKey": {
+              "type": "bool",
+              "id": 12
             }
           }
         },
@@ -6233,6 +6393,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "permissionsKnown": {
               "type": "bool",
               "id": 16
+            },
+            "readme": {
+              "type": "string",
+              "id": 17
             }
           }
         },
@@ -7547,6 +7711,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "id": 2
             }
           }
+        },
+        "BackgroundJobsChangedEvent": {
+          "fields": {}
         }
       }
     }

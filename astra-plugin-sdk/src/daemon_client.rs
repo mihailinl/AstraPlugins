@@ -171,7 +171,21 @@ impl Daemon for DaemonClient {
     }
 
     async fn list_conversations(&self) -> Result<proto::ListConversationsResponse> {
-        let resp = self.chat.clone().list_conversations(proto::Empty {}).await?;
+        // `include_automation: false` — the fail-safe default, and the same
+        // answer this method has always given. The rpc's request type widened
+        // from `Empty` when the daemon grew automation threads: a plugin's own
+        // trigger output now lands in a durable per-source thread instead of a
+        // fresh "New Chat" per fire, and those threads are excluded here so a
+        // plugin listing conversations sees what a person would call a chat.
+        // Widening this method's signature to expose the flag is a product
+        // decision for a later wave, not a side effect of a proto sync.
+        let resp = self
+            .chat
+            .clone()
+            .list_conversations(proto::ListConversationsRequest {
+                include_automation: false,
+            })
+            .await?;
         Ok(resp.into_inner())
     }
 

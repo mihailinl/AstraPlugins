@@ -134,6 +134,8 @@ pub fn firehose_events() -> Vec<proto::FirehoseEventMsg> {
             2,
             E::AssistantStart(proto::AssistantStartEvt {
                 message_id: message_id.clone(),
+                // A turn a person started, so nothing caused it but them.
+                caused_by: String::new(),
             }),
         ),
         evt(
@@ -194,6 +196,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
                 1,
                 E::AssistantStart(proto::AssistantStartEvt {
                     message_id: "msg-2".into(),
+                    caused_by: String::new(),
                 }),
             )),
         },

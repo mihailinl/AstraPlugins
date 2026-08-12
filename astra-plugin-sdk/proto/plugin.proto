@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 3588e1647aca5a7a982e293c6d35cc2df7b9b7bfe68e390cf551ac0b25b7ca3a
+// source-sha256: c06c13a1bbaf9f848788739888396d6aab5a4682b4179b7130e3f01d3a4efa8f
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -110,7 +110,32 @@ message AstraEvent {
         ReminderFiredEvent reminder_fired = 23;
         ReminderResolvedEvent reminder_resolved = 24;
         LockStateChangedEvent lock_state_changed = 25;
+        BackgroundJobsChangedEvent background_jobs_changed = 26;
+        CommandTriggeredEvent command_triggered = 27;
     }
+}
+
+// A command run STARTED — the counterpart to CommandExecutedEvent, which says
+// it finished. Carries `run_id` so a client can join the two without guessing
+// by name: two fires of the same command overlap routinely (a plugin trigger
+// bursting, an automation firing while the user runs the same command by hand),
+// and the pair (start, end) is only unambiguous through the id.
+//
+// `trigger_type` is what MATCHED — "voice", "hotkey", "plugin:<id>", "schedule"
+// — deliberately NOT the text the user spoke or typed. The AstraEvent stream is
+// reachable by any subscribed plugin, and the trigger text is the user's own
+// words; the type says which surface fired without quoting the person.
+//
+// No daemon converter arm exists yet: `AstraEvent::CommandTriggered`'s audience
+// is still `Internal` (astra-core/src/event.rs), so nothing publishes this on
+// the wire. The member lands here, in the effort's ONE proto window, because
+// both shells must be able to CARRY it before the audience flips — a member
+// added later would need a second window on a repo other people push to.
+message CommandTriggeredEvent {
+    string command_id = 1;
+    string command_name = 2;
+    string run_id = 3;
+    string trigger_type = 4;
 }
 
 // The app passcode was armed, disarmed, entered or reset. This is the ONE push
@@ -293,7 +318,7 @@ service ChatService {
     rpc RespondToConfirmation(ConfirmationResponse) returns (Empty);
 
     // Conversation CRUD.
-    rpc ListConversations(Empty) returns (ListConversationsResponse);
+    rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
 
     rpc CreateConversation(CreateConversationRequest) returns (Conversation);
 
@@ -384,6 +409,20 @@ message ClearConversationRequest {
     string conversation_id = 1;
 }
 
+// Ask for the conversation list. Every field here is a WIDENING of what the
+// daemon would otherwise hide, so the zero value is the safe answer and an
+// empty body is a complete, meaningful request: proto3 decodes one with all
+// fields defaulted, which is why turning `ListConversations(Empty)` into this
+// is wire-compatible and an older client keeps working unchanged.
+message ListConversationsRequest {
+    // Include the threads automations write into (ConversationClient
+    // AUTOMATION). Default FALSE on purpose: a client that has not thought
+    // about the question gets the user's own chats. astra-tui seeds its active
+    // chat from `conversations.first()`, so a listed automation thread pinned
+    // at index 0 would silently become the chat the user types into.
+    bool include_automation = 1;
+}
+
 message ListConversationsResponse {
     repeated Conversation conversations = 1;
 }
@@ -395,6 +434,13 @@ enum ConversationClient {
     CONVERSATION_CLIENT_MAIN = 0;
     CONVERSATION_CLIENT_OVERLAY = 1;
     CONVERSATION_CLIENT_PLUGIN = 2;
+
+    // Where a run with no chat behind it writes — a scheduler fire, a plugin
+    // trigger, a hotkey with no conversation. One durable thread per SOURCE.
+    // Distinct from PLUGIN, which means "a plugin acting as a chat client"
+    // (the plugin's OWN conversation, e.g. a Telegram bridge): that is a real
+    // and different thing, and no existing record moves to this variant.
+    CONVERSATION_CLIENT_AUTOMATION = 3;
 }
 
 message Conversation {
@@ -562,7 +608,36 @@ message ConversationEventMsg {
         PlanUpdatedEvt plan_updated = 25;
         SubagentActivityEvt subagent_activity = 26;
         CommandExecutedEvt command_executed = 27;
+        TurnUsageEvt turn_usage = 28;
     }
+}
+
+// What the provider says one assistant turn cost.
+//
+// Emitted at most once per turn, and ONLY when a provider actually reported a
+// figure — a turn nobody measured produces no event at all, so "we don't know"
+// reaches a client as an absence rather than as zeros it would have to tell
+// apart from a free turn. The shipped `astra` provider runs its tool loop
+// server-side and reports nothing yet; a plugin AI backend has no field for it.
+//
+// `input_tokens` is SUMMED over the turn's rounds (every round re-sends the
+// whole conversation, so that is what was billed) while `context_tokens` is the
+// LAST round's input (how full the context got). They differ by roughly the
+// round count — a meter fed the sum reads several hundred per cent full.
+//
+// `cached_input_tokens` is a subset of `input_tokens`, and `reasoning_tokens` a
+// subset of `output_tokens`. Never add either as a separate term.
+message TurnUsageEvt {
+    string message_id = 1;
+    uint32 input_tokens = 2;
+    uint32 output_tokens = 3;
+    uint32 cached_input_tokens = 4;
+    uint32 reasoning_tokens = 5;
+    uint32 context_tokens = 6;
+
+    // How many rounds reported a figure. Never zero on the wire: an unmeasured
+    // turn is not sent.
+    uint32 rounds_measured = 7;
 }
 
 // Marks every event with seq > after_seq as removed from the conversation.
@@ -585,6 +660,17 @@ message UserMessageEvt {
 
 message AssistantStartEvt {
     string message_id = 1;
+
+    // The message id this bubble was opened UNDER, or "" when it is the start
+    // of a turn the user asked for.
+    //
+    // A non-empty value means "continuation, not a turn start", and every
+    // reducer must read it that way: a client that latches its in-flight/busy
+    // slot on any AssistantStart hands the slot to a child bubble that
+    // completes in milliseconds, so the Stop button reverts to Send while the
+    // model is still streaming — and in the overlay's single-slot form the
+    // parent's own completion then never matches, leaving `busy` stuck on.
+    string caused_by = 2;
 }
 
 message AssistantTextDeltaEvt {
@@ -655,6 +741,26 @@ message CommandExecutedEvt {
     string command_id = 2;
     string command_name = 3;
     string text = 4;
+
+    // How it ended: "ok" | "failed" | "still_running" | "refused" | "panicked".
+    // A string, not an enum, for the same reason OptimizeService's status is:
+    // it keeps this arm on the generic Electron pass-through, where an enum
+    // would need a hand-written decoder on one shell only.
+    //
+    // Empty means an older daemon that did not say. It is NOT a synonym for
+    // "ok" — reporting success is exactly what a failed command does today,
+    // and a client must render an absent status as unknown, not as fine.
+    string status = 5;
+
+    // The first error the run produced, already rendered in the user's
+    // language, or "" when it produced none. One sentence, not a trace: it is
+    // shown beside the command's name.
+    string first_error = 6;
+
+    // The run this line reports. Joins to CommandTriggeredEvent.run_id, and is
+    // what makes two concurrent fires of one command distinguishable — the
+    // name is not enough, and neither is the anchor message.
+    string run_id = 7;
 }
 
 // Daemon proposed saving (or extending) a command based on an AI turn's
@@ -849,6 +955,18 @@ service VoiceService {
     // clears the buffer. Drained by the voice bridge on the next utterance so
     // it mirrors the text-chat flow where attachments clear on send.
     rpc SetVoicePendingImages(SetVoicePendingImagesRequest) returns (Empty);
+
+    // Arm (`active = true`) or release (`active = false`) a client-driven
+    // push-to-talk capture — the SAME capture the PTT hotkey drives, so a mic
+    // button and the key are one path with one set of semantics: VAD and the
+    // wake word are bypassed, and the recognised utterance is dispatched to the
+    // conversation the client bound with SetVoiceConversation.
+    //
+    // Arming starts the pipeline when it is idle and stops it again once the
+    // utterance has been transcribed, so a client need not own the listening
+    // state; a capture the client never releases is bounded by the daemon.
+    // A capture can also be ENDED without sending it — see `discard`.
+    rpc SetPushToTalk(SetPushToTalkRequest) returns (Empty);
 }
 
 message MicrophoneListResponse {
@@ -987,6 +1105,16 @@ message SetVoiceConversationRequest {
 
 message SetVoicePendingImagesRequest {
     repeated ImageAttachment images = 1;
+}
+
+message SetPushToTalkRequest {
+    // true = press (start recording), false = end the capture.
+    bool active = 1;
+
+    // Only read when `active` is false: throw the recorded audio away instead of
+    // transcribing it — the user withdrew the message. Nothing is recognised,
+    // nothing reaches the conversation, no SpeechRecognized is published.
+    bool discard = 2;
 }
 
 // ============ Command Service ============
@@ -1136,6 +1264,14 @@ message ActionResult {
     string output = 3;
     string error = 4;
     string node_id = 5;
+
+    // Which visit of this node produced this result, 1-based; 0 = the daemon
+    // did not count (an older build). A workflow's diamond reaches its tail
+    // twice and a Loop body reaches every node once per iteration, so
+    // `node_id` alone does not identify a row — the editor's per-node log
+    // panel showed the second visit overwriting the first with no sign that
+    // anything had been replaced.
+    int32 visit = 6;
 }
 
 message SetCommandEnabledRequest {
@@ -1832,6 +1968,38 @@ message AiSettings {
     // model. ONLY the model changes — provider, key and base URL stay the main
     // ones, so this opens no second credential path.
     string subagent_model = 16;
+
+    // Whether a background command that finishes wakes the assistant to report
+    // it in the chat that started it. The one setting that governs a request
+    // the user did not ask for, which is why it is a switch and not a constant.
+    bool report_background_jobs = 17;
+
+    // OpenAI-compatible endpoints the user saved under their own names, served
+    // as ordinary providers by GetAiProviders (with `user_defined` set).
+    //
+    // Read-only here in practice: UpdateSettings does NOT apply this list —
+    // same reason as VoiceSettings.provider_configs_json. It is a list whose
+    // rows are added and removed one at a time, so a partial write from a
+    // client that has never heard of it would wipe every entry. Changes go
+    // through the granular `ai.custom_providers` path instead.
+    repeated CustomAiProviderMsg custom_providers = 18;
+}
+
+// One saved endpoint, as a CLIENT sees it.
+//
+// There is deliberately no api_key field. The key is write-only: it reaches the
+// daemon through the granular `ai.custom_providers` settings path and never
+// comes back, so no client can leak, log or accidentally echo it — what a
+// client needs in order to render the field is AiProviderInfo.has_api_key, a
+// bool. Field 4 is reserved so nobody re-adds it by accident.
+message CustomAiProviderMsg {
+    string id = 1;  // "custom__<slug>" — stable across renames
+    string name = 2;  // display name, free text (not an i18n key)
+    string api_base_url = 3;  // API ROOT only; "/v1" is added downstream
+    reserved 4;
+    reserved "api_key";
+    string model = 5;  // seeds ai.model when the entry is selected
+    bool supports_model_discovery = 6;  // GET <base>/v1/models is worth asking
 }
 
 message HotkeySettings {
@@ -2524,6 +2692,17 @@ message AiProviderInfo {
     // client falls back to when the selected model is in no catalogue (the
     // model combobox is free-solo, and discovery endpoints return id+name only).
     repeated ReasoningLevelOption reasoning_levels = 10;
+
+    // True for an endpoint THIS user saved (`ai.custom_providers`, id
+    // `custom__<slug>`) rather than one this build ships. It is what tells a
+    // client the row may be renamed and deleted; deriving it from the id prefix
+    // client-side would put a daemon convention in every shell.
+    bool user_defined = 11;
+
+    // Whether a key is stored for this provider. The key ITSELF never crosses
+    // the wire — this is the whole of what a client needs to render "a key is
+    // saved" on a field it must not be able to read back.
+    bool has_api_key = 12;
 }
 
 message AiProvidersResponse {
@@ -3380,6 +3559,30 @@ message PluginRegistryEntry {
     // no idea what this listing asks for; the consent sheet must then say so and
     // must not offer Install as though nothing were being asked.
     bool permissions_known = 16;
+
+    // The listing's long-form description — the bundle's own `README.md` as the
+    // registry derived it: GitHub-flavoured markdown, at most 16384 characters,
+    // raw HTML stripped, and every image already an absolute `https://` URL
+    // pinned to the attested commit. Empty when the listing published none.
+    //
+    // Inline in the signed index for the same two reasons `icon_url` is: the
+    // bytes are then covered by the index signature like everything else, and
+    // rendering the store makes no request to a host the plugin author
+    // controls.
+    //
+    // **Deliberately WITHOUT a `readme_known` twin.** Absent and empty carry no
+    // security meaning here — a missing README is a missing README, and the
+    // detail view renders nothing and says nothing about it. `permissions_known`
+    // exists because an empty permission list is an affirmative claim about what
+    // a plugin may do; copying that pattern where it is not load-bearing is
+    // cargo cult.
+    //
+    // The renderer still treats every byte of this as hostile — no raw HTML
+    // (never `rehype-raw`), images only from `https://`, links opened
+    // externally. The registry filters at derive time; a hand-written or older
+    // catalogue entry reaches the same component, so the component may not
+    // depend on that having happened.
+    string readme = 17;
 }
 
 // Which plugin's provenance to report.
@@ -4216,3 +4419,9 @@ message PluginHealthResponse {
     bool healthy = 1;
     string status = 2;
 }
+
+// Emitted when a background job starts, produces output or finishes. Empty by
+// design — the registry is the source of truth and the client refetches, so a
+// client that missed an event still converges. Output is DEBOUNCED daemon-side;
+// status changes are not.
+message BackgroundJobsChangedEvent {}

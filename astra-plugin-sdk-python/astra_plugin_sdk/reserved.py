@@ -69,6 +69,12 @@ REGISTRY: Mapping[str, frozenset[str]] = {
     "SemanticSettings": frozenset({"mode", "llm_model_id", "memory_enabled"}),
     "AiSettings": frozenset({"use_thinking"}),
     "HotkeySettings": frozenset({"toggle_listen", "stop_speaking", "open_chat"}),
+    # `api_key` is write-only by design: a saved AI endpoint's key reaches the
+    # daemon through the settings path and never comes back, so no client can
+    # leak, log or echo it. A client that wants to render the field reads
+    # `AiProviderInfo.has_api_key`, a bool. Reviving the name here would put a
+    # secret back on a wire every installed plugin can read.
+    "CustomAiProviderMsg": frozenset({"api_key"}),
 }
 
 

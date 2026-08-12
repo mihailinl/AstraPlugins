@@ -5,7 +5,7 @@ import warnings
 
 from . import plugin_pb2 as plugin__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.75.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in plugin_pb2_grpc.py depends on'
+        + f' but the generated code in plugin_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -449,7 +449,7 @@ class ChatServiceStub(object):
                 _registered_method=True)
         self.ListConversations = channel.unary_unary(
                 '/astra.ChatService/ListConversations',
-                request_serializer=plugin__pb2.Empty.SerializeToString,
+                request_serializer=plugin__pb2.ListConversationsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.ListConversationsResponse.FromString,
                 _registered_method=True)
         self.CreateConversation = channel.unary_unary(
@@ -616,7 +616,7 @@ def add_ChatServiceServicer_to_server(servicer, server):
             ),
             'ListConversations': grpc.unary_unary_rpc_method_handler(
                     servicer.ListConversations,
-                    request_deserializer=plugin__pb2.Empty.FromString,
+                    request_deserializer=plugin__pb2.ListConversationsRequest.FromString,
                     response_serializer=plugin__pb2.ListConversationsResponse.SerializeToString,
             ),
             'CreateConversation': grpc.unary_unary_rpc_method_handler(
@@ -769,7 +769,7 @@ class ChatService(object):
             request,
             target,
             '/astra.ChatService/ListConversations',
-            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.ListConversationsRequest.SerializeToString,
             plugin__pb2.ListConversationsResponse.FromString,
             options,
             channel_credentials,
@@ -1179,6 +1179,11 @@ class VoiceServiceStub(object):
                 request_serializer=plugin__pb2.SetVoicePendingImagesRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.SetPushToTalk = channel.unary_unary(
+                '/astra.VoiceService/SetPushToTalk',
+                request_serializer=plugin__pb2.SetPushToTalkRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class VoiceServiceServicer(object):
@@ -1441,6 +1446,22 @@ class VoiceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetPushToTalk(self, request, context):
+        """Arm (`active = true`) or release (`active = false`) a client-driven
+        push-to-talk capture — the SAME capture the PTT hotkey drives, so a mic
+        button and the key are one path with one set of semantics: VAD and the
+        wake word are bypassed, and the recognised utterance is dispatched to the
+        conversation the client bound with SetVoiceConversation.
+
+        Arming starts the pipeline when it is idle and stops it again once the
+        utterance has been transcribed, so a client need not own the listening
+        state; a capture the client never releases is bounded by the daemon.
+        A capture can also be ENDED without sending it — see `discard`.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_VoiceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1612,6 +1633,11 @@ def add_VoiceServiceServicer_to_server(servicer, server):
             'SetVoicePendingImages': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVoicePendingImages,
                     request_deserializer=plugin__pb2.SetVoicePendingImagesRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'SetPushToTalk': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPushToTalk,
+                    request_deserializer=plugin__pb2.SetPushToTalkRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
@@ -2534,6 +2560,33 @@ class VoiceService(object):
             target,
             '/astra.VoiceService/SetVoicePendingImages',
             plugin__pb2.SetVoicePendingImagesRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetPushToTalk(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetPushToTalk',
+            plugin__pb2.SetPushToTalkRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
