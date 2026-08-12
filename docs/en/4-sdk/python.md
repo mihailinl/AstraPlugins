@@ -128,6 +128,44 @@ For when the daemon side lands: it is **`submit_user_message`**, not
 `on_daemon_client_ready(client)`, and only for plugins that declare
 `client = true` and return `True` from `is_client()`.
 
+## Where a fired trigger's output goes
+
+A trigger you fire while handling a call from Astra is attributed to that call,
+so whatever it causes — a command run, a spoken line, a chat message — lands in
+the conversation the user is actually looking at. **You write nothing for this.**
+The SDK carries an opaque lease from the inbound call to the outbound
+`FireTrigger` for you:
+
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+A trigger fired from anywhere else is a **root event**: the daemon files it in
+this plugin's own automation thread rather than guessing at a conversation. That
+covers a background task started at `on_start`, a timer, a callback from a C
+extension, and anything on a thread you made yourself. It is the correct answer,
+not a degraded one — the wrong conversation is worse than none.
+
+The mechanism is a `contextvars.ContextVar`, so it follows `await`,
+`asyncio.create_task` and `asyncio.gather`. **`loop.run_in_executor` does not
+copy the context**, so work handed to a thread pool loses the attribution:
+
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+Fire from the coroutine where you can; copy the context across where you cannot.
+
+Your own tests can check any of this: `FiredTrigger.caused_by` is `None` for a
+root event, and `WireHarness.lease("...")` issues a call the way the daemon
+will.
+
 ## Errors
 
 Raise them; the SDK maps them to the same wire codes as the other two SDKs.

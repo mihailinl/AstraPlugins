@@ -147,6 +147,33 @@ The wrappers take a **payload object** and stringify it for you;
 `setVariable`, `pushToUi` and the UI call path all exist and are bound; older
 documentation said otherwise because they landed late.
 
+## Where a fired trigger's output goes
+
+A trigger you fire while handling a call from Astra is attributed to that call,
+so whatever it causes lands in the conversation the user is actually looking at.
+**You write nothing for this**, and it holds across `await`, `setTimeout` and
+promise chains — including through `ctx.fireTrigger`, `ctx.host.fireTrigger`
+and `this.fireTrigger` on a `Plugin` subclass, which all reach the same
+transport.
+
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+A trigger fired from anywhere else is a **root event**: the daemon files it in
+this plugin's own automation thread rather than guessing at a conversation. That
+covers a timer started outside a handler, a `child_process`, a
+`worker_threads` worker, and a callback scheduled by a native addon. It is the
+correct answer, not a degraded one — the wrong conversation is worse than none.
+
+`MockDaemon.firedTriggers()` reports `causedBy` — `undefined` for a root event —
+so your own tests can tell the two apart, and `wire.callTool(name, args,
+{ causedBy })` issues a call the way the daemon will.
+
 ## Errors
 
 `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

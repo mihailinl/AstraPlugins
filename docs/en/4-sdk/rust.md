@@ -173,6 +173,33 @@ with methods including `submit_user_message`, `subscribe_chat_events`,
 `execute_command`, `get_settings`, `get_system_stats`. It is
 `submit_user_message`, not `send_message`.
 
+## Where a fired trigger's output goes
+
+A trigger you fire through `ctx.host()` while handling a call from Astra is
+attributed to that call, so whatever it causes lands in the conversation the
+user is actually looking at. **You write nothing for this**, and the shipped
+idiom keeps working unchanged:
+
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+That is why Rust scopes the *handle* rather than using a task-local: a
+`tokio::task_local!` does not cross `tokio::spawn`, and the reference plugin
+spawns. Clone `ctx` or `ctx.host()` as freely as you like — both carry it.
+
+A trigger fired from anywhere else is a **root event**: the daemon files it in
+this plugin's own automation thread rather than guessing at a conversation.
+That covers `astra_plugin_sdk::ctx()`, a host you stored at `on_start`, and a
+raw `std::thread`. It is the correct answer, not a degraded one — the wrong
+conversation is worse than none.
+
+`testing::FiredTrigger::caused_by` is `None` for a root event, so your own
+tests can tell the two apart.
+
 ## Errors
 
 Handlers return `Result<_, ToolError>` (`ActionError` is an alias for the same
