@@ -136,6 +136,7 @@ the conversation the user is actually looking at. **You write nothing for this.*
 The SDK carries an opaque lease from the inbound call to the outbound
 `FireTrigger` for you:
 
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
 ```python
 @tool("Roll dice")
 async def roll_dice(self, count: int = 1):
@@ -154,6 +155,7 @@ The mechanism is a `contextvars.ContextVar`, so it follows `await`,
 `asyncio.create_task` and `asyncio.gather`. **`loop.run_in_executor` does not
 copy the context**, so work handed to a thread pool loses the attribution:
 
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
 ```python
 loop = asyncio.get_running_loop()
 ctx = contextvars.copy_context()

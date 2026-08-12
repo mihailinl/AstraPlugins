@@ -180,6 +180,7 @@ attributed to that call, so whatever it causes lands in the conversation the
 user is actually looking at. **You write nothing for this**, and the shipped
 idiom keeps working unchanged:
 
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
 ```rust
 let host = ctx.host().clone();          // the cause rides inside the Arc
 tokio::spawn(async move {

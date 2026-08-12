@@ -156,6 +156,7 @@ promise chains — including through `ctx.fireTrigger`, `ctx.host.fireTrigger`
 and `this.fireTrigger` on a `Plugin` subclass, which all reach the same
 transport.
 
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
 ```ts
 run: async ({ count }, ctx) => {
   const results = roll(count);
