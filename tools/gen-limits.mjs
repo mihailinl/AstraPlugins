@@ -57,6 +57,9 @@ const REQUIRED_LIMITS = [
   "plugin_stop_grace_secs",
   "max_extract_bytes",
   "max_archive_entries",
+  "lease_ttl_secs",
+  "lease_fire_grace_secs",
+  "lease_max_fires",
 ];
 
 /** Metadata keys with the same guarantee. `x_astra_cause` is load-bearing for

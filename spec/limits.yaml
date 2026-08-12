@@ -58,3 +58,54 @@ max_extract_bytes: 524_288_000
 # Maximum number of entries in one `.astraplugin` archive. Zip-bomb
 # mitigation, same contract as `max_extract_bytes`.
 max_archive_entries: 10_000
+
+# ── the invocation lease ─────────────────────────────────────────────────────
+#
+# When the daemon calls into a plugin it mints a lease and carries it as the
+# `x_astra_cause` metadata key (`spec/wire.yaml`). If that plugin fires a
+# trigger while handling the call, the SDK echoes the lease back, the daemon
+# redeems it against its ledger, and the resulting output goes to the
+# conversation the original call came from instead of a thread nobody is
+# looking at. All three numbers below bound that ledger, and all three fail the
+# same safe way: an expired or exhausted lease is treated exactly like a lease
+# that was never presented — the fire becomes a root event. Never an error.
+
+# How long a lease stays redeemable after it is ISSUED, in seconds.
+#
+# A ceiling, not the lifetime: the daemon's own budget for one work RPC is the
+# plugin's declared `plugin.call_timeout_secs`, else 120 s
+# (`astra-daemon/src/plugins/manager.rs:747,781`), and nothing caps what a
+# plugin may declare. So the lifetime is the call's budget plus
+# `lease_fire_grace_secs`, clamped to this. 300 s is 2.5x the default budget: a
+# plugin that declares longer than this is doing work the lease cannot usefully
+# span anyway, and it degrades to a root event rather than failing.
+lease_ttl_secs: 300
+
+# How long a lease stays redeemable after the plugin call RETURNS, in seconds.
+#
+# This window exists because the reference idiom fires from a DETACHED task:
+# `examples/dice-roller/src/main.rs` clones the host out of the context,
+# `tokio::spawn`s, and returns — every fire happens after the RPC is over. So
+# the honest question is not "how long after returning is a fire still
+# plausibly caused by the call" but "how long can that shipped loop take".
+#
+# The answer is bounded by `lease_max_fires` below: up to 100 sequential host
+# RPCs, each a round trip to a daemon that may be busy. 30 s covers the whole
+# loop at 300 ms per fire, which is three orders of magnitude slower than a
+# healthy local call. A stingier value would work on an idle machine and lose
+# attribution on a loaded one, which is the worst way for this to fail.
+lease_fire_grace_secs: 30
+
+# How many trigger fires ONE lease may redeem, so it cannot be replayed
+# indefinitely.
+#
+# The floor here is measured, not chosen: `dice-roller` clamps its die count to
+# `1..=100` (`main.rs:103,147,157`) and fires `on_roll_value` once per die from
+# a single `roll_dice` call. Anything below 100 silently unattributes the tail
+# of a `100d6` roll — in the very example the whole effort was filed from. 256
+# keeps that whole loop leased with real headroom while still bounding a buggy
+# or hostile plugin's fan-out from one call.
+#
+# It is a replay bound, not a rate limit. Leased fires are deliberately not
+# throttled; root fires are, by a separate token bucket the daemon owns.
+lease_max_fires: 256
