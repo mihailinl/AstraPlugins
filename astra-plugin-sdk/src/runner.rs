@@ -710,6 +710,34 @@ struct CapabilityServiceImpl<P: PluginCapability> {
     shutdown: ShutdownTrigger,
 }
 
+impl<P: PluginCapability> CapabilityServiceImpl<P> {
+    /// The context to hand this call's handler: the shared one, scoped to the
+    /// invocation lease the daemon put in the call's metadata.
+    ///
+    /// Called on every arm that dispatches into plugin code, not only the three
+    /// the daemon stamps today. It costs one `Option` read when the header is
+    /// absent — which is every call from every daemon currently in the field —
+    /// and the alternative rule ("read it on exactly these arms") is the kind
+    /// that goes stale silently: the daemon growing a fourth stamped call site
+    /// would produce a lease this SDK receives and throws away, with nothing
+    /// anywhere reporting it.
+    ///
+    /// Must be called BEFORE `request.into_inner()`, which consumes the
+    /// metadata along with the request.
+    fn scoped<T>(&self, request: &tonic::Request<T>) -> PluginContext {
+        let cause = request
+            .metadata()
+            .get(crate::wire::X_ASTRA_CAUSE)
+            // A non-ASCII lease is not one this daemon minted, so it is treated
+            // as no lease at all rather than as an error: the fire still
+            // happens, as a root event.
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| !value.is_empty())
+            .map(Arc::from);
+        self.ctx.for_invocation(cause)
+    }
+}
+
 /// Run one hook, turning a panic into a `Status` the daemon can log.
 ///
 /// `INTERNAL`, never `UNIMPLEMENTED`: the daemon reads the latter as *this hook
@@ -764,6 +792,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginCallToolRequest>,
     ) -> Result<tonic::Response<proto::PluginCallToolResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req = request.into_inner();
         // In-band, not `Status`: a tool that failed still ANSWERED, and the AI
         // loop has to read the answer. `wire_string()` prefixes the stable code
@@ -776,7 +805,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         let resp = match caught_tool(
             "call_tool",
             self.plugin
-                .call_tool(&self.ctx, &req.tool_name, &req.arguments_json),
+                .call_tool(&ctx, &req.tool_name, &req.arguments_json),
         )
         .await
         {
@@ -804,8 +833,9 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginTtsSynthesizeRequest>,
     ) -> Result<tonic::Response<proto::PluginTtsSynthesizeResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req: TtsRequest = request.into_inner().into();
-        match catch("tts_synthesize", self.plugin.tts_synthesize(&self.ctx, req)).await? {
+        match catch("tts_synthesize", self.plugin.tts_synthesize(&ctx, req)).await? {
             Ok(audio) => Ok(tonic::Response::new(audio.into())),
             Err(e) => Err(hook_status(e)),
         }
@@ -819,10 +849,10 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginTtsSynthesizeRequest>,
     ) -> Result<tonic::Response<Self::TtsSynthesizeStreamStream>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req: TtsRequest = request.into_inner().into();
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AudioChunk>(STREAM_CHANNEL_CAPACITY);
         let plugin = self.plugin.clone();
-        let ctx = self.ctx.clone();
         let task = tokio::spawn(async move { plugin.tts_synthesize_stream(&ctx, req, tx).await });
 
         // Wait for the first chunk before answering. A hook that has no TTS at
@@ -873,10 +903,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginTtsActivateRequest>,
     ) -> Result<tonic::Response<proto::PluginTtsActivateResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req = request.into_inner();
         match catch(
             "tts_activate",
-            self.plugin.tts_activate(&self.ctx, req.cek, &req.voice_id),
+            self.plugin.tts_activate(&ctx, req.cek, &req.voice_id),
         )
         .await?
         {
@@ -895,6 +926,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<tonic::Streaming<proto::PluginAudioChunk>>,
     ) -> Result<tonic::Response<Self::SttProcessStream>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let mut inbound = request.into_inner();
 
         // Set up the streaming bridge: a channel of `Vec<u8>` chunks
@@ -957,7 +989,6 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // a future Vosk wrapper) overrides the hook and consumes chunks
         // live.
         let plugin = self.plugin.clone();
-        let ctx = self.ctx.clone();
         let task = tokio::spawn(async move {
             plugin
                 .stt_transcribe_stream(&ctx, audio_rx, events_tx, sample_rate, options)
@@ -1015,9 +1046,10 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::SttLoadRequest>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        let ctx = self.scoped(&request);
         match catch(
             "stt_load",
-            self.plugin.stt_load(&self.ctx, request.into_inner().into()),
+            self.plugin.stt_load(&ctx, request.into_inner().into()),
         )
         .await?
         {
@@ -1028,9 +1060,9 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
 
     async fn stt_unload(
         &self,
-        _request: tonic::Request<proto::Empty>,
+        request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
-        match catch("stt_unload", self.plugin.stt_unload(&self.ctx)).await? {
+        match catch("stt_unload", self.plugin.stt_unload(&self.scoped(&request))).await? {
             Ok(()) => Ok(tonic::Response::new(proto::Empty {})),
             Err(e) => Err(hook_status(e)),
         }
@@ -1038,9 +1070,9 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
 
     async fn stt_get_load_state(
         &self,
-        _request: tonic::Request<proto::Empty>,
+        request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::SttLoadStateResponse>, tonic::Status> {
-        match catch("stt_load_state", self.plugin.stt_load_state(&self.ctx)).await? {
+        match catch("stt_load_state", self.plugin.stt_load_state(&self.scoped(&request))).await? {
             Ok(state) => Ok(tonic::Response::new(state.into())),
             Err(e) => Err(hook_status(e)),
         }
@@ -1079,10 +1111,10 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginAiCompleteRequest>,
     ) -> Result<tonic::Response<Self::AiCompleteStream>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req = request.into_inner();
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AiChunk>(STREAM_CHANNEL_CAPACITY);
         let plugin = self.plugin.clone();
-        let ctx = self.ctx.clone();
         let task = tokio::spawn(async move { plugin.ai_complete(&ctx, req, tx).await });
 
         // Same first-chunk rule as `tts_synthesize_stream`: a plugin that is not
@@ -1137,11 +1169,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginExecuteActionRequest>,
     ) -> Result<tonic::Response<proto::PluginExecuteActionResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req = request.into_inner();
         let resp = match caught_tool(
             "execute_action",
             self.plugin
-                .execute_action(&self.ctx, &req.action_type, &req.params_json),
+                .execute_action(&ctx, &req.action_type, &req.params_json),
         )
         .await
         {
@@ -1199,11 +1232,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginUiCallRequest>,
     ) -> Result<tonic::Response<proto::PluginUiCallResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let req = request.into_inner();
         let resp = match caught_tool(
             "handle_ui_call",
             self.plugin
-                .handle_ui_call(&self.ctx, &req.method, &req.params_json),
+                .handle_ui_call(&ctx, &req.method, &req.params_json),
         )
         .await
         {
@@ -1227,10 +1261,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginConfigChangedMsg>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let config_json = request.into_inner().config_json;
         catch(
             "on_config_changed",
-            self.plugin.on_config_changed(&self.ctx, &config_json),
+            self.plugin.on_config_changed(&ctx, &config_json),
         )
         .await?;
         Ok(tonic::Response::new(proto::Empty {}))
@@ -1240,6 +1275,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::PluginActiveTriggersMsg>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let types = request.into_inner().trigger_types;
         // Applied to the context BEFORE the hook runs. `ActiveTriggers` was a
         // type nothing ever wrote to — a plugin that asked "is anyone listening"
@@ -1248,7 +1284,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         self.ctx.active_triggers().set(types.clone());
         catch(
             "on_active_triggers",
-            self.plugin.on_active_triggers(&self.ctx, types),
+            self.plugin.on_active_triggers(&ctx, types),
         )
         .await?;
         Ok(tonic::Response::new(proto::Empty {}))
@@ -1258,11 +1294,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::LanguageChangedMsg>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        let ctx = self.scoped(&request);
         let language = request.into_inner().language;
         self.ctx.set_language(language.clone());
         catch(
             "on_language_changed",
-            self.plugin.on_language_changed(&self.ctx, &language),
+            self.plugin.on_language_changed(&ctx, &language),
         )
         .await?;
         Ok(tonic::Response::new(proto::Empty {}))
@@ -1553,6 +1590,15 @@ mod tests {
         token: &str,
         mode: CapabilityAuth,
     ) -> String {
+        serve_plugin_with_ctx(plugin, test_ctx(), token, mode).await
+    }
+
+    async fn serve_plugin_with_ctx<P: PluginCapability>(
+        plugin: P,
+        ctx: PluginContext,
+        token: &str,
+        mode: CapabilityAuth,
+    ) -> String {
         let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
             .await
             .unwrap();
@@ -1560,7 +1606,7 @@ mod tests {
         let (tx, rx) = oneshot::channel::<()>();
         let svc = CapabilityServiceImpl {
             plugin: Arc::new(plugin),
-            ctx: test_ctx(),
+            ctx,
             shutdown: ShutdownTrigger::new(tx),
         };
         let guard = CapabilityInterceptor::new(token, mode);
@@ -1703,6 +1749,64 @@ mod tests {
         assert!(!resp.success);
         assert!(resp.error.starts_with("NOT_CONFIGURED: "), "{}", resp.error);
         assert!(resp.error.contains("api_key"), "{}", resp.error);
+    }
+
+    /// The end of the chain the lease exists for: the daemon puts it on the
+    /// call, the runner reads it off the metadata, the context carries it into
+    /// a DETACHED task, and the host fires with it attached. Every earlier test
+    /// pins one link; this one is the only place all of them run at once, over
+    /// a real socket.
+    #[tokio::test]
+    async fn a_lease_on_the_call_reaches_the_trigger_it_causes() {
+        struct Roller;
+        #[async_trait::async_trait]
+        impl PluginCapability for Roller {
+            type Config = NoConfig;
+            async fn call_tool(
+                &self,
+                ctx: &PluginContext,
+                _name: &str,
+                _args: &str,
+            ) -> Result<String, ToolError> {
+                // Exactly the shipped idiom: clone the host out, spawn, fire
+                // from there, return before it runs.
+                let host = ctx.host().clone();
+                let fired = tokio::spawn(async move {
+                    tokio::task::yield_now().await;
+                    host.fire_trigger("on_roll_value", "{}").await
+                });
+                fired.await.unwrap().unwrap();
+                Ok("2".into())
+            }
+        }
+
+        async fn roll(addr: &str, cause: Option<&str>) {
+            let mut client = connect(addr).await;
+            let mut req = tonic::Request::new(proto::PluginCallToolRequest {
+                tool_name: "roll_dice".into(),
+                arguments_json: "{}".into(),
+            });
+            if let Some(cause) = cause {
+                req.metadata_mut()
+                    .insert(crate::wire::X_ASTRA_CAUSE, cause.parse().unwrap());
+            }
+            client.call_tool(req).await.unwrap();
+        }
+
+        let spy = Arc::new(crate::context::CauseSpy::default());
+        let ctx = PluginContext::new("test", spy.clone());
+        let addr = serve_plugin_with_ctx(Roller, ctx, "", CapabilityAuth::Off).await;
+
+        roll(&addr, Some("lease-1")).await;
+        roll(&addr, None).await;
+        roll(&addr, Some("lease-2")).await;
+
+        // Order matters as much as presence: two chats rolling at once must not
+        // be able to collect each other's cause.
+        assert_eq!(
+            spy.causes(),
+            vec![Some("lease-1".to_string()), None, Some("lease-2".to_string())]
+        );
     }
 
     /// 5.4: `OnActiveTriggers` has to reach the CONTEXT, not just the hook.

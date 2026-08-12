@@ -168,12 +168,55 @@ impl HostClient {
 
     /// Fire a trigger (for trigger plugins). Permission: `fire_trigger`.
     pub async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
+        self.fire_trigger_caused_by(trigger_type, payload_json, None)
+            .await
+    }
+
+    /// [`fire_trigger`](Self::fire_trigger), carrying the lease for the daemon
+    /// call this fire came out of. Permission: `fire_trigger`.
+    ///
+    /// **This is the transport, and it is deliberately the only place the lease
+    /// is read.** Both other ways to fire — `PluginContext::host()` and a host
+    /// cloned into a task — funnel through here, so putting the read anywhere
+    /// higher would leave one of them unstamped.
+    ///
+    /// The lease travels as gRPC call metadata rather than in the request body,
+    /// because `payload_json`'s keys are injected verbatim as workflow variables
+    /// daemon-side: a reserved key would show up as `{__astra_cause}` in the
+    /// user's own variable picker.
+    ///
+    /// Absent is a legal, safe answer — the daemon files an unattributed fire as
+    /// a root event — so nothing here fails the call to preserve the cause. An
+    /// empty or unencodable lease is dropped rather than sent, which degrades to
+    /// exactly the same place a plugin built before leases existed lands in.
+    pub async fn fire_trigger_caused_by(
+        &self,
+        trigger_type: &str,
+        payload_json: &str,
+        cause: Option<&str>,
+    ) -> Result<()> {
+        let mut request = tonic::Request::new(proto::PluginFireTriggerRequest {
+            trigger_type: trigger_type.into(),
+            payload_json: payload_json.into(),
+        });
+        if let Some(cause) = cause.filter(|c| !c.is_empty()) {
+            match cause.parse::<tonic::metadata::MetadataValue<tonic::metadata::Ascii>>() {
+                Ok(value) => {
+                    request.metadata_mut().insert(crate::wire::X_ASTRA_CAUSE, value);
+                }
+                // The daemon minted this string, so an unencodable one is a
+                // daemon bug and worth saying so. It is still not worth failing
+                // the fire over: the trigger is the plugin's actual work and it
+                // arrives, merely unattributed.
+                Err(_) => tracing::warn!(
+                    "daemon issued an invocation lease that is not a valid HTTP header value; \
+                     firing `{trigger_type}` as a root event"
+                ),
+            }
+        }
         self.client
             .clone()
-            .fire_trigger(proto::PluginFireTriggerRequest {
-                trigger_type: trigger_type.into(),
-                payload_json: payload_json.into(),
-            })
+            .fire_trigger(request)
             .await
             .map_err(|s| rpc_failed("FireTrigger", s))?;
         Ok(())
@@ -352,6 +395,15 @@ impl Host for HostClient {
 
     async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
         HostClient::fire_trigger(self, trigger_type, payload_json).await
+    }
+
+    async fn fire_trigger_caused_by(
+        &self,
+        trigger_type: &str,
+        payload_json: &str,
+        cause: Option<&str>,
+    ) -> Result<()> {
+        HostClient::fire_trigger_caused_by(self, trigger_type, payload_json, cause).await
     }
 
     async fn log(&self, level: &str, message: &str) -> Result<()> {

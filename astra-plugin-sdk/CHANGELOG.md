@@ -38,6 +38,41 @@ optional, which is why this is a new minor rather than a patch on 0.5.0.
   2 s forever.
 
 ### Added
+- **A trigger fired while handling a daemon call names the call that caused
+  it.** `PluginContext::host()` now hands out a host scoped to the invocation
+  the runner is dispatching, and a trigger fired through it carries that
+  invocation's lease as gRPC metadata (`spec/wire.yaml`'s `x-astra-cause`).
+  The daemon redeems the lease to decide which conversation the trigger's
+  output belongs in — today it lands in a freshly auto-created chat the user
+  never sees, and with two chats driving one plugin at once nothing on the
+  wire even distinguishes them.
+
+  **Nothing to do, and nothing to change.** The cause rides inside the
+  `Arc<dyn Host>`, so the shipped idiom — clone the host, `tokio::spawn`, fire
+  from the detached task — carries it with no author involvement. Rust gets a
+  scoped handle rather than a task-local precisely because a
+  `tokio::task_local!` does not cross that `spawn`. `ctx()`, a host stashed at
+  `on_start`, or a raw `std::thread` gets the unscoped host and its fires are
+  root events, which is the honest answer.
+
+  **Inert until a daemon issues leases.** No daemon in the field does, so every
+  fire today is a root event exactly as before.
+- `Host::fire_trigger_caused_by`, defaulted. Plugin authors never call it; it is
+  the seam the scoped host uses. An existing `Host` impl — a test double, a fake
+  in another crate — keeps compiling and drops the cause, which degrades to a
+  root event rather than to an error.
+- `wire` module: the gRPC metadata keys, generated from `spec/wire.yaml`.
+  `x-session-token` and `x-plugin-token` used to be spelled by hand in fifteen
+  places across the three SDKs and the CLI. A metadata key is a map entry, so a
+  misspelling is not an error — it is an absence, and absence is legal for all
+  three. The typo silently removes authentication, or attribution, and says
+  nothing.
+- `limits`: `LEASE_TTL_SECS`, `LEASE_FIRE_GRACE_SECS`, `LEASE_MAX_FIRES` — the
+  bounds the daemon enforces on a lease.
+- `testing::FiredTrigger` records `caused_by`, so a plugin's own tests can
+  assert *where* a trigger's output was going to land and not only that it
+  fired. The struct is now `#[non_exhaustive]`: it is a record of what a plugin
+  did, so a test reads its fields and never builds one.
 - `auth` module: `SessionInterceptor` attaches `x-session-token` to every
   `HostClient` *and* `DaemonClient` call; `CapabilityInterceptor` checks the
   spawn-time token back on the plugin's own `PluginCapabilityService`

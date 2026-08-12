@@ -79,6 +79,32 @@ pub trait Host: Send + Sync + 'static {
     /// expensive to build — if nothing is listening, the daemon drops it.
     async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()>;
 
+    /// [`fire_trigger`](Self::fire_trigger), naming the daemon call that caused
+    /// it.
+    ///
+    /// **Plugin authors never call this.** It is the seam the SDK uses to carry
+    /// a per-invocation lease back to the daemon, so that a trigger fired while
+    /// handling a call can be attributed to the conversation that call came
+    /// from instead of landing in a thread nobody is looking at. The runner
+    /// scopes the context it hands a handler ([`PluginContext::for_invocation`])
+    /// and `ctx.host()` then fills the cause in on its own.
+    ///
+    /// Defaulted on purpose: an existing `Host` implementation — a test double,
+    /// a fake in someone else's crate — keeps compiling and simply drops the
+    /// cause, which is the honest degradation. The daemon treats an absent,
+    /// unknown, expired, exhausted or foreign cause identically: the fire
+    /// becomes a root event. So a `Host` that ignores this is never *wrong*,
+    /// only unattributed. Never synthesise a value to fill it.
+    async fn fire_trigger_caused_by(
+        &self,
+        trigger_type: &str,
+        payload_json: &str,
+        cause: Option<&str>,
+    ) -> Result<()> {
+        let _ = cause;
+        self.fire_trigger(trigger_type, payload_json).await
+    }
+
     /// Write a line into the daemon's log buffer — the plugin's log pane.
     /// Permission: none. `level` is `debug` / `info` / `warn` / `error`.
     async fn log(&self, level: &str, message: &str) -> Result<()>;
@@ -294,6 +320,14 @@ impl std::fmt::Debug for ActiveTriggers {
 #[derive(Clone)]
 pub struct PluginContext {
     inner: Arc<Inner>,
+    /// What [`host`](Self::host) hands out — normally `inner.host` itself, and
+    /// a [`CausalHost`] wrapping it while a daemon call is being handled.
+    ///
+    /// It sits beside `inner` rather than inside it because a per-invocation
+    /// context must NOT be a new [`Inner`]: see [`Inner::id`]. Two contexts that
+    /// share one `Inner` share one identity, one language cell and one trigger
+    /// set, and differ only in which host their handler fires through.
+    scoped_host: Arc<dyn Host>,
 }
 
 struct Inner {
@@ -332,6 +366,7 @@ impl PluginContext {
     pub fn new(plugin_id: impl Into<String>, host: Arc<dyn Host>) -> Self {
         static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Self {
+            scoped_host: host.clone(),
             inner: Arc::new(Inner {
                 // Relaxed: the only requirement is that no two contexts get the
                 // same number, which `fetch_add` gives on its own. Nothing is
@@ -385,8 +420,42 @@ impl PluginContext {
     ///
     /// `ctx.host().fire_trigger(..)` calls straight through;
     /// `ctx.host().clone()` gives an `Arc<dyn Host>` to move into a task.
+    ///
+    /// While a handler is running this is the *scoped* host: a trigger fired
+    /// through it names the daemon call that caused it, so its output lands in
+    /// the conversation the user is actually looking at. That property rides in
+    /// the `Arc` and therefore survives `clone()` and `tokio::spawn` — which it
+    /// has to, because the shipped reference idiom fires from a detached task
+    /// (`examples/dice-roller/src/main.rs`). Everywhere else — [`ctx()`], a host
+    /// stashed at `on_start`, a raw `std::thread` — this is the plain host and
+    /// the fire is a root event.
     pub fn host(&self) -> &Arc<dyn Host> {
-        &self.inner.host
+        &self.scoped_host
+    }
+
+    /// This context, scoped to one daemon call.
+    ///
+    /// The runner builds one of these per inbound RPC from the lease in the
+    /// call's metadata, and hands it to the handler in place of the shared
+    /// context. `cause: None` yields a plain clone, which is what every arm gets
+    /// from a daemon that does not issue leases — i.e. every daemon today.
+    ///
+    /// **It reuses `inner`, deliberately.** A fresh [`PluginContext::new`] would
+    /// mint a new [`Inner::id`], and the 0.5 compatibility shim keys "have I
+    /// delivered `set_host` for this context" on that number in a process-global
+    /// set that is never pruned — so a per-call context would leak one entry per
+    /// action call, forever, inside every third-party plugin process.
+    pub(crate) fn for_invocation(&self, cause: Option<Arc<str>>) -> Self {
+        match cause {
+            Some(cause) => Self {
+                inner: self.inner.clone(),
+                scoped_host: Arc::new(CausalHost {
+                    inner: self.inner.host.clone(),
+                    cause,
+                }),
+            },
+            None => self.clone(),
+        }
     }
 
     /// This context's process-unique number. See [`Inner::id`].
@@ -420,6 +489,143 @@ impl std::fmt::Debug for PluginContext {
             .finish_non_exhaustive()
     }
 }
+
+/// The real host, plus the lease for the call currently being handled.
+///
+/// Everything forwards untouched except [`Host::fire_trigger`], which is the
+/// one method whose result the daemon has to file somewhere. There is no
+/// `Deref`-style shortcut here: `Host` has ten required methods and forwarding
+/// them by hand is the price of the wrapper being the only thing that differs.
+/// The four `log_*` conveniences are NOT overridden — their defaults call
+/// `self.log`, which forwards, so they reach the same place.
+struct CausalHost {
+    inner: Arc<dyn Host>,
+    cause: Arc<str>,
+}
+
+#[async_trait::async_trait]
+impl Host for CausalHost {
+    fn plugin_id(&self) -> &str {
+        self.inner.plugin_id()
+    }
+
+    /// The whole point. A plugin author writes `ctx.host().fire_trigger(..)`
+    /// and the lease goes with it.
+    async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
+        self.inner
+            .fire_trigger_caused_by(trigger_type, payload_json, Some(&self.cause))
+            .await
+    }
+
+    /// An explicit cause wins over the scoped one — the caller knows something
+    /// this wrapper does not. `None` means "use my scope", not "no cause": a
+    /// caller wanting a root event fires through a host that was never scoped.
+    async fn fire_trigger_caused_by(
+        &self,
+        trigger_type: &str,
+        payload_json: &str,
+        cause: Option<&str>,
+    ) -> Result<()> {
+        self.inner
+            .fire_trigger_caused_by(trigger_type, payload_json, cause.or(Some(&self.cause)))
+            .await
+    }
+
+    async fn log(&self, level: &str, message: &str) -> Result<()> {
+        self.inner.log(level, message).await
+    }
+
+    async fn get_config(&self) -> Result<String> {
+        self.inner.get_config().await
+    }
+
+    async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+        self.inner.get_daemon_info().await
+    }
+
+    async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
+        self.inner.set_variable(name, value, scope).await
+    }
+
+    async fn push_to_ui(&self, event: &str, payload_json: &str) -> Result<()> {
+        self.inner.push_to_ui(event, payload_json).await
+    }
+
+    async fn send_chat_message(
+        &self,
+        text: &str,
+        conversation_id: &str,
+        voice_enabled: bool,
+    ) -> Result<ChatStream> {
+        self.inner
+            .send_chat_message(text, conversation_id, voice_enabled)
+            .await
+    }
+
+    async fn set_theme_contribution(&self, theme: proto::PluginThemeContribution) -> Result<()> {
+        self.inner.set_theme_contribution(theme).await
+    }
+}
+
+/// Records what cause each fire arrived with, so a test can tell "no lease"
+/// apart from "a lease that did not survive".
+///
+/// Crate-visible rather than local to this module's tests, because the runner's
+/// over-the-wire tests need the same double and a second copy of a ten-method
+/// trait impl is a second thing to keep in step.
+#[cfg(test)]
+#[derive(Default)]
+pub(crate) struct CauseSpy {
+    fires: std::sync::Mutex<Vec<(String, Option<String>)>>,
+}
+
+#[cfg(test)]
+impl CauseSpy {
+    pub(crate) fn causes(&self) -> Vec<Option<String>> {
+        self.fires.lock().unwrap().iter().map(|(_, c)| c.clone()).collect()
+    }
+}
+
+#[cfg(test)]
+#[async_trait::async_trait]
+impl Host for CauseSpy {
+    fn plugin_id(&self) -> &str {
+        "spy"
+    }
+    async fn fire_trigger(&self, t: &str, _: &str) -> Result<()> {
+        self.fires.lock().unwrap().push((t.into(), None));
+        Ok(())
+    }
+    async fn fire_trigger_caused_by(&self, t: &str, _: &str, cause: Option<&str>) -> Result<()> {
+        self.fires
+            .lock()
+            .unwrap()
+            .push((t.into(), cause.map(str::to_owned)));
+        Ok(())
+    }
+    async fn log(&self, _: &str, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn get_config(&self) -> Result<String> {
+        Ok("{}".into())
+    }
+    async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+        Ok(Default::default())
+    }
+    async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn push_to_ui(&self, _: &str, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn send_chat_message(&self, _: &str, _: &str, _: bool) -> Result<ChatStream> {
+        Ok(Box::pin(tokio_stream::empty()))
+    }
+    async fn set_theme_contribution(&self, _: proto::PluginThemeContribution) -> Result<()> {
+        Ok(())
+    }
+}
+
 
 // ── the ambient context, for background tasks ────────────────────────────────
 
@@ -525,5 +731,89 @@ mod tests {
             .unwrap()
             .unwrap();
         ctx.host().log_info("still usable").await.unwrap();
+    }
+
+    // ── the invocation lease ─────────────────────────────────────────────────
+
+    fn spied() -> (PluginContext, Arc<CauseSpy>) {
+        let spy = Arc::new(CauseSpy::default());
+        (PluginContext::new("test", spy.clone()), spy)
+    }
+
+    /// The reason `for_invocation` reuses `inner` instead of building a fresh
+    /// context: the 0.5 shim keys "have I delivered `set_host`" on this number
+    /// in a global set that is never pruned, so a per-call identity would leak
+    /// an entry per action call for the life of the process.
+    #[test]
+    fn a_scoped_context_is_the_same_context() {
+        let (ctx, _) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+        assert_eq!(scoped.instance_id(), ctx.instance_id());
+        assert_eq!(scoped.plugin_id(), ctx.plugin_id());
+
+        // And it is still one shared cell, not a snapshot.
+        scoped.set_language("ru");
+        assert_eq!(*ctx.language(), "ru");
+        ctx.active_triggers().set(["on_roll_value".to_string()]);
+        assert!(scoped.active_triggers().contains("on_roll_value"));
+    }
+
+    /// The property Rust cannot get from a task-local, and the whole reason the
+    /// cause rides in the `Arc` instead: the shipped reference idiom clones the
+    /// host, `tokio::spawn`s, and fires from there.
+    #[tokio::test]
+    async fn the_cause_survives_a_detached_task() {
+        let (ctx, spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+
+        let host = scoped.host().clone();
+        tokio::spawn(async move {
+            // An await first, so this cannot pass by running inline.
+            tokio::task::yield_now().await;
+            host.fire_trigger("on_roll_value", "{}").await
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(spy.causes(), vec![Some("lease-1".to_string())]);
+    }
+
+    /// Everything that is not a scoped handler is a root event, and says so by
+    /// carrying nothing at all rather than by carrying an empty string.
+    #[tokio::test]
+    async fn an_unscoped_context_fires_with_no_cause() {
+        let (ctx, spy) = spied();
+        ctx.host().fire_trigger("on_time", "{}").await.unwrap();
+
+        // …including a context scoped with no lease, which is what every arm
+        // gets from a daemon that does not issue them — i.e. every daemon in
+        // the field today.
+        let unleased = ctx.for_invocation(None);
+        unleased.host().fire_trigger("on_time", "{}").await.unwrap();
+
+        assert_eq!(spy.causes(), vec![None, None]);
+    }
+
+    /// A caller who names a cause knows something the scope does not.
+    #[tokio::test]
+    async fn an_explicit_cause_beats_the_scoped_one() {
+        let (ctx, spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+        scoped
+            .host()
+            .fire_trigger_caused_by("on_roll_value", "{}", Some("lease-2"))
+            .await
+            .unwrap();
+        assert_eq!(spy.causes(), vec![Some("lease-2".to_string())]);
+    }
+
+    /// The compatibility promise attached to the defaulted trait method: a
+    /// `Host` written before leases existed keeps working, and simply reports a
+    /// root event. `NullHost` overrides neither method.
+    #[tokio::test]
+    async fn a_host_that_never_heard_of_leases_still_fires() {
+        let ctx = ctx_for_test().for_invocation(Some(Arc::from("lease-1")));
+        ctx.host().fire_trigger("on_roll_value", "{}").await.unwrap();
     }
 }

@@ -22,10 +22,26 @@ use crate::error::ToolError;
 use crate::proto;
 
 /// One `FireTrigger`.
+///
+/// `#[non_exhaustive]`: this is a record of what a plugin did, so a test reads
+/// its fields and never builds one. Saying so here is what lets a later field
+/// — `caused_by` was the first — arrive without breaking every test in every
+/// plugin repository.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FiredTrigger {
     pub trigger_type: String,
     pub payload_json: String,
+    /// The invocation lease this fire arrived under, or `None` for a root
+    /// event.
+    ///
+    /// `None` is the normal, correct answer almost everywhere: a plugin firing
+    /// from a background task it started itself, or through a host it stashed
+    /// at `on_start`, genuinely has no cause. It is `Some` only when the fire
+    /// happened through the context the runner scoped to a daemon call — which
+    /// is what decides whether the trigger's output reaches the conversation
+    /// the user is looking at.
+    pub caused_by: Option<String>,
 }
 
 /// One `PluginLog`.
@@ -432,6 +448,16 @@ impl Host for RecordingHost {
     }
 
     async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
+        self.fire_trigger_caused_by(trigger_type, payload_json, None)
+            .await
+    }
+
+    async fn fire_trigger_caused_by(
+        &self,
+        trigger_type: &str,
+        payload_json: &str,
+        cause: Option<&str>,
+    ) -> Result<()> {
         self.recorded.note("fire_trigger");
         if let Some(e) = self.staged("fire_trigger", "FireTrigger") {
             return Err(e);
@@ -439,6 +465,7 @@ impl Host for RecordingHost {
         self.recorded.trigger(FiredTrigger {
             trigger_type: trigger_type.to_string(),
             payload_json: payload_json.to_string(),
+            caused_by: cause.map(str::to_owned),
         });
         Ok(())
     }

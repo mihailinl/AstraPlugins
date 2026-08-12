@@ -356,10 +356,19 @@ impl PluginHostService for HostService {
         req: tonic::Request<proto::PluginFireTriggerRequest>,
     ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
         self.gate(&req, "fire_trigger")?;
+        // Off the metadata, before `into_inner()` consumes it. This is the only
+        // place in the tree that observes the invocation lease as it actually
+        // arrives on a socket, rather than as the SDK intended to send it.
+        let caused_by = req
+            .metadata()
+            .get(crate::wire::X_ASTRA_CAUSE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
         let req = req.into_inner();
         self.state.recorded.trigger(FiredTrigger {
             trigger_type: req.trigger_type,
             payload_json: req.payload_json,
+            caused_by,
         });
         Ok(tonic::Response::new(proto::Empty {}))
     }

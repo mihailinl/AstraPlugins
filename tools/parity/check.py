@@ -192,12 +192,34 @@ def scan_rust_capability() -> dict[str, str]:
 
 
 def scan_rust_host() -> dict[str, str]:
+    """Two shapes, because one rpc now needs per-call metadata.
+
+    The original shape is `client.rpc(proto::Message { .. })` — the message
+    inline in the call. That was every host rpc until `FireTrigger` had to carry
+    an invocation lease as gRPC metadata, which means building a
+    `tonic::Request` first and passing it by name. Reading only the first shape
+    made a live binding invisible: R1 reported `FireTrigger` as unimplemented in
+    Rust while the SDK was calling it perfectly well.
+
+    So the second shape is `let <name> = tonic::Request::new(proto::Message …)`
+    followed by `.rpc(<name>)`. The staged names reset at every `pub async fn`,
+    so a local called `request` in one method cannot vouch for a `.foo(request)`
+    in another — the check has to stay able to fail.
+    """
     rel = "astra-plugin-sdk/src/host_client.rs"
     region = _region(rel, r"^//!|^use |^pub |^impl ", r"^#\[cfg\(test\)\]")
     found = {}
+    staged: set[str] = set()
     for line in region:
+        if re.match(r"\s*(?:pub )?(?:async )?fn ", line):
+            staged.clear()
+        for m in re.finditer(r"\blet\s+(?:mut\s+)?(\w+)\s*=\s*tonic::Request::new\(\s*proto::", line):
+            staged.add(m.group(1))
         for m in re.finditer(r"\.([a-z_][a-z0-9_]*)\(\s*proto::", line):
             found[m.group(1)] = rel
+        for m in re.finditer(r"\.([a-z_][a-z0-9_]*)\(\s*(\w+)\s*\)", line):
+            if m.group(2) in staged:
+                found[m.group(1)] = rel
     return found
 
 
