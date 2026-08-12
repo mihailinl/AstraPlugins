@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from astra_plugin_sdk.causality import current_cause
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.types import ThemeContribution
 
@@ -38,6 +39,16 @@ class LogLine:
 class FiredTrigger:
     trigger_type: str
     payload_json: str
+    #: The invocation lease this fire arrived under, or ``None`` for a root
+    #: event.
+    #:
+    #: ``None`` is the normal answer almost everywhere: a plugin firing from a
+    #: background task it started itself genuinely has no cause. It is set only
+    #: when the fire happened inside a daemon call the daemon leased — which is
+    #: what decides whether the trigger's output reaches the conversation the
+    #: user is looking at. Defaulted so existing positional construction keeps
+    #: working.
+    caused_by: str | None = None
 
     @property
     def payload(self) -> Any:
@@ -145,7 +156,11 @@ class RecordingHost:
 
     async def fire_trigger(self, trigger_type: str, payload_json: str = "{}") -> None:
         self._maybe_fail("fire_trigger")
-        self._triggers.append(FiredTrigger(trigger_type, payload_json))
+        # The same read the real transport does, so a level-1 test sees the same
+        # attribution a level-2 one would. Without it, a plugin whose fire lost
+        # its cause would look correct here and land in the wrong conversation
+        # in production.
+        self._triggers.append(FiredTrigger(trigger_type, payload_json, current_cause()))
 
     async def log(self, level: str, message: str) -> None:
         self._maybe_fail("log")

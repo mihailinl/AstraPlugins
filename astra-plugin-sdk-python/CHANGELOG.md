@@ -54,6 +54,48 @@ Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
   Matches `runner.rs` and `plugin.ts`.
 
 ### Added
+- **A trigger fired while handling a daemon call names the call that caused
+  it.** A `grpc.aio.ServerInterceptor` binds the invocation lease into a
+  `contextvars.ContextVar` around every capability call, and
+  `HostClient.fire_trigger` reads it and attaches it as gRPC metadata
+  (`spec/wire.yaml`'s `x-astra-cause`). The daemon redeems the lease to decide
+  which conversation the trigger's output belongs in — today it lands in a
+  freshly auto-created chat the user never sees, and with two chats driving one
+  plugin at once nothing on the wire even distinguishes them.
+
+  **The read is in the transport, deliberately.** `Plugin.fire_trigger` routes
+  to `self.host` directly, bypassing any per-call context — and it is the path
+  the docs teach. A read one layer up would leave exactly that one unstamped.
+
+  **Nothing to do, and nothing to change.** A `ContextVar` is copied into every
+  task `asyncio` creates, so `await`, `asyncio.create_task` and `asyncio.gather`
+  all keep the cause.
+
+  **`loop.run_in_executor` does not**, and that gap is documented and tested
+  rather than papered over: a thread-pool worker sees no cause, so a fire from
+  one is a root event. `contextvars.copy_context()` carries it across by hand,
+  and there is a test that the workaround works. A wrong conversation is worse
+  than an unattributed one, and nothing here guesses.
+
+  **Inert until a daemon issues leases.** No daemon in the field does.
+- `astra_plugin_sdk.causality`: `current_cause`, `cause_from_metadata`,
+  `set_cause`, `CauseInterceptor`.
+- `testing.FiredTrigger` records `caused_by`, in both `RecordingHost` (level 1)
+  and `MockDaemon` (level 2, read off the metadata as it arrived on the socket).
+  A plugin's own tests can now assert *where* a trigger's output was going to
+  land, not only that it fired. The field is defaulted, so existing positional
+  construction keeps working.
+- `WireHarness.lease(cause)`: a block whose capability calls carry an invocation
+  lease, so a test can issue a call the way the daemon will. A block rather than
+  an argument on `call_tool`, which forwards `**arguments` to the tool — a
+  keyword named `caused_by` would be indistinguishable from a tool parameter.
+- `astra_plugin_sdk.wire`: the gRPC metadata keys, generated from
+  `spec/wire.yaml`. `x-session-token` and `x-plugin-token` used to be spelled by
+  hand in fifteen places across the three SDKs and the CLI. A metadata key is a
+  map entry, so a misspelling is not an error — it is an absence, and absence is
+  legal for all three. The typo silently removes authentication, or attribution,
+  and says nothing.
+- `limits`: `LEASE_TTL_SECS`, `LEASE_FIRE_GRACE_SECS`, `LEASE_MAX_FIRES`.
 - **`astra_plugin_sdk.errors` — the error taxonomy (production plan §5.2).**
   Eight exceptions with the same eight codes the Rust and TypeScript SDKs use:
   `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

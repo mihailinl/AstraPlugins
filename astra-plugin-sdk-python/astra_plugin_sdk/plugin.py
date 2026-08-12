@@ -21,6 +21,7 @@ import grpc
 
 from astra_plugin_sdk import limits, protocol, reserved
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
+from astra_plugin_sdk.causality import CauseInterceptor
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
     AiModelInfo,
@@ -250,8 +251,12 @@ class Plugin:
             )
 
         # Start gRPC server on random port
+        # Order matters: `guard` first, so an unauthenticated call is refused
+        # before anything is bound for it. `CauseInterceptor` is a no-op on every
+        # call that carries no invocation lease, which today is all of them.
         self._server = grpc.aio.server(
-            futures.ThreadPoolExecutor(max_workers=4), interceptors=(guard,)
+            futures.ThreadPoolExecutor(max_workers=4),
+            interceptors=(guard, CauseInterceptor()),
         )
         servicer = _CapabilityServicer(self)
         plugin_pb2_grpc.add_PluginCapabilityServiceServicer_to_server(servicer, self._server)

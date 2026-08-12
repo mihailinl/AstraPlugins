@@ -24,7 +24,8 @@ import grpc
 
 from astra_plugin_sdk import protocol
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
-from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER
+from astra_plugin_sdk.causality import current_cause
+from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER, X_ASTRA_CAUSE
 
 
 class HostClientBootstrap:
@@ -128,13 +129,33 @@ class HostClient:
         self._stub = plugin_pb2_grpc.PluginHostServiceStub(self._channel)
 
     async def fire_trigger(self, trigger_type: str, payload_json: str = "{}"):
-        """Fire a trigger (for trigger plugins)."""
+        """Fire a trigger, carrying the lease for the daemon call it came out of.
+
+        **This is the transport, and the read belongs here rather than one level
+        up.** Both other ways to fire — ``PluginContext.fire_trigger`` and the
+        ``Plugin.fire_trigger`` wrapper an author is most likely to write —
+        forward to this method, and the wrapper routes to the process-global
+        host. A read in the context wrapper would leave that path unstamped,
+        which is the one the docs teach.
+
+        The lease travels as call metadata rather than in the request body,
+        because ``payload_json``'s keys are injected verbatim as workflow
+        variables daemon-side: a reserved key would appear as
+        ``{__astra_cause}`` in the user's own variable picker.
+
+        No ambient lease means no header. Never an empty one, never an invented
+        one, and never a failed fire: the daemon files an unattributed trigger
+        as a root event, which is where every plugin built before leases existed
+        lands.
+        """
+        cause = current_cause()
+        metadata = self._metadata if cause is None else (*self._metadata, (X_ASTRA_CAUSE, cause))
         await self._stub.FireTrigger(
             plugin_pb2.PluginFireTriggerRequest(
                 trigger_type=trigger_type,
                 payload_json=payload_json,
             ),
-            metadata=self._metadata,
+            metadata=metadata,
         )
 
     async def log(self, level: str, message: str):

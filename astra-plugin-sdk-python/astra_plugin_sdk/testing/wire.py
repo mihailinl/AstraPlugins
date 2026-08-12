@@ -36,6 +36,7 @@ So this level runs `Plugin._run_async` unchanged — the same function Astra run
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import secrets
@@ -46,6 +47,7 @@ from typing import Any, Iterable
 import grpc
 
 from astra_plugin_sdk import protocol
+from astra_plugin_sdk.causality import cause_from_metadata
 from astra_plugin_sdk.plugin import Plugin
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.testing.recording_host import (
@@ -62,7 +64,7 @@ __all__ = ["MockDaemon", "WireHarness", "WireError"]
 #: because this harness is what `astra-plugin test` runs against a real
 #: plugin process: if it checked a spelling of its own, a drift between the
 #: SDK and the daemon would pass the conformance run it exists to catch.
-from astra_plugin_sdk.wire import PLUGIN_TOKEN_HEADER, SESSION_TOKEN_HEADER
+from astra_plugin_sdk.wire import PLUGIN_TOKEN_HEADER, SESSION_TOKEN_HEADER, X_ASTRA_CAUSE
 
 
 class WireError(AssertionError):
@@ -176,7 +178,13 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
     async def FireTrigger(self, request, context):
         if not self._authenticate(context, "FireTrigger"):
             return plugin_pb2.Empty()
-        self._triggers.append(FiredTrigger(request.trigger_type, request.payload_json))
+        # Off the metadata as it landed on the socket. This is the only place in
+        # the Python tree that observes the invocation lease as the daemon would
+        # see it, rather than as the SDK intended to send it.
+        caused_by = cause_from_metadata(context.invocation_metadata())
+        self._triggers.append(
+            FiredTrigger(request.trigger_type, request.payload_json, caused_by)
+        )
         return plugin_pb2.Empty()
 
     async def SetVariable(self, request, context):
@@ -291,6 +299,9 @@ class WireHarness:
         self._previous_auth_env: str | None = None
         self._channel: grpc.Channel | None = None
         self._stub = None
+        #: Set inside `lease()`; the invocation lease every capability call
+        #: carries while it is set.
+        self._lease: str | None = None
         self._run_task: asyncio.Task | None = None
 
         self._loop = asyncio.new_event_loop()
@@ -402,7 +413,29 @@ class WireHarness:
     @property
     def metadata(self) -> list[tuple[str, str]]:
         """What the daemon attaches to every daemon→plugin call."""
-        return [(PLUGIN_TOKEN_HEADER, self.daemon.auth_token)]
+        base = [(PLUGIN_TOKEN_HEADER, self.daemon.auth_token)]
+        if self._lease is not None:
+            base.append((X_ASTRA_CAUSE, self._lease))
+        return base
+
+    @contextlib.contextmanager
+    def lease(self, cause: str):
+        """Every capability call inside the block carries `cause` as its lease.
+
+        A block rather than an argument on `call_tool`, because that method
+        forwards `**arguments` to the tool: a keyword named `caused_by` would be
+        indistinguishable from a tool parameter of the same name.
+
+        Not concurrency-safe, deliberately — it is one attribute on one harness.
+        A test that needs two leases in flight at once should start two
+        harnesses, which is also closer to what two chats actually are.
+        """
+        saved = self._lease
+        self._lease = cause
+        try:
+            yield self
+        finally:
+            self._lease = saved
 
     def stub(self):
         """The raw `PluginCapabilityServiceStub`, for a call with no wrapper."""
