@@ -1,6 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Telegram Bot">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Telegram Bot">
   <title>Telegram Bot</title>
-  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0f4c75"/>
-  <path d="M12 31l40-15-7 33-13-10-4 9-3-12z" fill="#ffffff"/>
-  <path d="M28 36l17-14-21 12z" fill="#bfdbfe"/>
+  <!-- Flat geometry: a paper plane over the stack of forum topics it keeps in
+       sync. Plain static markup: no script, no external references, no fonts. -->
+
+  <circle cx="128" cy="128" r="122" fill="#229ed9"/>
+  <circle cx="128" cy="128" r="116" fill="none" stroke="#7fd3f2" stroke-width="6" opacity="0.5"/>
+
+  <!-- one bar per topic, the conversation list the bridge writes into -->
+  <g fill="#ffffff" opacity="0.42">
+    <rect x="38" y="160" width="86" height="13" rx="6.5"/>
+    <rect x="38" y="183" width="62" height="13" rx="6.5"/>
+    <rect x="38" y="206" width="40" height="13" rx="6.5"/>
+  </g>
+
+  <!-- the plane: two folds, tip to the top right -->
+  <path d="M222 36 L34 116 L110 133 Z" fill="#ffffff"/>
+  <path d="M222 36 L110 133 L126 206 L152 166 Z" fill="#bfe6f7"/>
+  <path d="M222 36 L110 133 L110 178 Z" fill="#8fd0ee"/>
 </svg>

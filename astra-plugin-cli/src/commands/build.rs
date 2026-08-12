@@ -37,6 +37,21 @@ const TRUST_DOC_URL: &str = "https://github.com/mihailinl/AstraPlugins/blob/mast
 /// rewritten to point at.
 const ARCHIVE_BIN_DIR: &str = "bin";
 
+/// The icon filenames packed into the bundle, in `spec/icon-formats.yaml`'s
+/// order.
+///
+/// Kept in step with the registry's own list by
+/// `the_packed_icon_formats_are_the_ones_the_spec_declares` below. Drift here
+/// is silent at both ends — see that file's header for what it costs.
+const ICON_FILENAMES: &[&str] = &[
+    "icon.png",
+    "icon.webp",
+    "icon.svg",
+    "icon.jpg",
+    "icon.jpeg",
+    "icon.ico",
+];
+
 /// Directory names that are never part of a plugin, wherever they appear.
 const EXCLUDED_DIRS: &[&str] = &[
     "target",
@@ -257,7 +272,17 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         _ => add_directory_recursive(&dir, &mut builder, &dir)?,
     }
 
-    for name in &["icon.png", "icon.svg", "README.md", "LICENSE"] {
+    // The plugin's face: whatever picture the author put next to plugin.toml,
+    // plus the prose and the licence. The registry reads all three straight out
+    // of the bundle when it derives a listing, so these travel covered by the
+    // build attestation rather than being retyped into a form.
+    //
+    // The icon list mirrors `astra-registry/bot/lib/assets.mjs` ICON_FORMATS
+    // and is checked against it by the parity job: a format packed here that the
+    // registry does not accept is an icon that silently never appears, and one
+    // accepted there but not packed here is an icon an author added and this
+    // tool threw away.
+    for name in ICON_FILENAMES.iter().chain(&["README.md", "LICENSE"]) {
         let p = dir.join(name);
         if p.exists() && !builder.contains(name) {
             builder.add_path(name, &p)?;
@@ -910,6 +935,34 @@ fn add_directory_recursive(target: &Path, builder: &mut BundleBuilder, base: &Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `spec/icon-formats.yaml` is the list; this file only mirrors it.
+    ///
+    /// The failure this prevents is silent at both ends. `astra-plugin build`
+    /// packs the formats below; `astra-registry`'s `ICON_FORMATS` decides which
+    /// ones become a store card. A format in one list and not the other is an
+    /// author who added an icon, watched the build pack it, and got a blank
+    /// card with no error anywhere to explain it. The registry checks the same
+    /// spec file from its side, so the two lists can only ever be wrong
+    /// together with this file.
+    #[test]
+    fn the_packed_icon_formats_are_the_ones_the_spec_declares() {
+        let spec = Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/icon-formats.yaml");
+        let text = fs::read_to_string(&spec)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", spec.display()));
+        let declared: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect();
+
+        assert_eq!(
+            declared, ICON_FILENAMES,
+            "spec/icon-formats.yaml and ICON_FILENAMES disagree. Order matters: it is the \
+             preference order both this packer and the registry's picker use when a plugin \
+             ships more than one icon."
+        );
+    }
 
     /// The substring test this replaces said "yes" to every one of these.
     ///

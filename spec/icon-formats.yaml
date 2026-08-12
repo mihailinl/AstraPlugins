@@ -1,0 +1,42 @@
+# The icon filenames a plugin may ship, in the order they are preferred.
+#
+# Two programs in two repositories have to agree on this list, and neither can
+# see the other:
+#
+#   * `astra-plugin build` (astra-plugin-cli/src/commands/build.rs) packs
+#     whichever of these it finds next to plugin.toml into the bundle.
+#   * the registry's ingest (astra-registry/bot/lib/assets.mjs, ICON_FORMATS)
+#     pulls one back out of the bundle, checks it, and inlines it into the
+#     signed catalogue as a data: URI.
+#
+# Disagreement is silent in both directions, which is why this file exists. A
+# format packed here but not accepted there is an icon the author added, the
+# build shipped, and the store never shows — with nothing anywhere saying why.
+# A format accepted there but not packed here is an icon that never reaches the
+# bundle to be accepted. Neither produces an error; both produce a plugin whose
+# card is blank and an author with no way to find out.
+#
+# HOW TO CHANGE THIS LIST
+#   1. Edit it here.
+#   2. Mirror it in `build.rs`'s packing loop; its test reads this file and
+#      fails until they match.
+#   3. Mirror it in `assets.mjs`'s ICON_FORMATS, with the media type the bytes
+#      are inlined under and the signature they must actually begin with;
+#      `tools/validate.mjs` compares the names against this file whenever an
+#      AstraPlugins checkout is reachable.
+#
+# ORDER IS PREFERENCE. When a bundle carries more than one, the first match
+# wins. Raster formats come before SVG deliberately: a raster image has no
+# execution semantics at all, so the common case never rests on the SVG
+# hardening being complete.
+#
+# FORMAT — one filename per line, `#` comments, blank lines ignored. No
+# nesting, no quotes; both readers are three lines long and neither takes a
+# dependency to parse it.
+
+icon.png
+icon.webp
+icon.svg
+icon.jpg
+icon.jpeg
+icon.ico

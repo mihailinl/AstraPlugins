@@ -1,9 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="JSON Tools">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="JSON Tools">
   <title>JSON Tools</title>
-  <rect x="4" y="4" width="56" height="56" rx="12" fill="#1f2937"/>
-  <path d="M26 16c-6 0-8 3-8 8s0 6-5 8c5 2 5 4 5 8s2 8 8 8"
-        fill="none" stroke="#facc15" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M38 16c6 0 8 3 8 8s0 6 5 8c-5 2-5 4-5 8s-2 8-8 8"
-        fill="none" stroke="#facc15" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="32" cy="32" r="3" fill="#facc15"/>
+  <!-- Flat geometry: a pair of braces holding a three-line diff. Plain static
+       markup: no script, no external references, no embedded fonts. -->
+
+  <rect x="6" y="6" width="244" height="244" rx="58" fill="#0f766e"/>
+  <rect x="6" y="6" width="244" height="244" rx="58" fill="none" stroke="#5eead4" stroke-width="6" opacity="0.55"/>
+
+  <g fill="none" stroke="#ecfdf5" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M99 55 C79 55 79 70 79 88 C79 108 68 118 58 128 C68 138 79 148 79 168 C79 186 79 201 99 201"/>
+    <path d="M157 55 C177 55 177 70 177 88 C177 108 188 118 198 128 C188 138 177 148 177 168 C177 186 177 201 157 201"/>
+  </g>
+
+  <g>
+    <rect x="96" y="86" width="64" height="17" rx="8.5" fill="#86efac"/>
+    <rect x="96" y="119" width="46" height="17" rx="8.5" fill="#fca5a5"/>
+    <rect x="96" y="152" width="58" height="17" rx="8.5" fill="#ecfdf5"/>
+  </g>
 </svg>

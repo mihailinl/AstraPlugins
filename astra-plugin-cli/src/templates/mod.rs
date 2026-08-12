@@ -167,17 +167,7 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 
 /// Generate a README.md.
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {
-    let name_title = name
-        .split('-')
-        .map(|w| {
-            let mut c = w.chars();
-            match c.next() {
-                None => String::new(),
-                Some(f) => f.to_uppercase().to_string() + c.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+    let name_title = title_case(name);
 
     format!(
         r#"# {name_title}
@@ -199,9 +189,154 @@ astra-plugin build
 ```
 
 This produces a `.astraplugin` file for distribution.
+
+## How this file is used
+
+When this plugin is listed, Astra's store shows this README on the plugin's
+page — so what you write here is what someone reads while deciding whether to
+install it. `icon.svg` next to `plugin.toml` becomes the store card's picture;
+replace it with your own.
+
+Screenshots work, and are the reason to add any:
+
+```markdown
+![The command editor, mid-roll](docs/screenshot.png)
+```
+
+Commit the images to this repository and link them with a **relative path**.
+The registry rewrites those to point at the exact commit your release was built
+from, so a picture cannot change after somebody approved the listing. Images
+hosted anywhere but GitHub are dropped rather than rendered — a remote image is
+a request from the user's machine, made before they have installed anything.
+
+Raw HTML is stripped, so use markdown for layout.
 "#,
         caps = capabilities.join(", "),
     )
+}
+
+/// The placeholder icon, as a 16×16 pixel-art plug.
+///
+/// `.` is the coloured plate, `#` the plug face, `o` its shadow. Sixteen
+/// characters per row, sixteen rows — the map IS the picture, so editing it
+/// needs no arithmetic.
+const ICON_PIXELS: [&str; 16] = [
+    "................",
+    "................",
+    "....##....##....",
+    "....##....##....",
+    "..############..",
+    "..###########o..",
+    "..###########o..",
+    "..###########o..",
+    "..###########o..",
+    "..#ooooooooooo..",
+    "....########....",
+    "....#######o....",
+    "......####......",
+    "......###o......",
+    "......###o......",
+    "................",
+];
+
+/// Plate colours, all of which a near-white foreground reads against.
+///
+/// Astra's store renders on a light or a dark background depending on the
+/// user's theme, and a picture that is mostly one or the other disappears into
+/// half of them. A saturated plate carries its own contrast either way, which
+/// is why the icon is a coloured square rather than a transparent glyph.
+const ICON_PLATES: [&str; 8] = [
+    "#2f6df6", "#7c3aed", "#db2777", "#dc2626", "#ea580c", "#ca8a04", "#059669", "#0891b2",
+];
+
+/// Generate `icon.svg` — the plugin's picture in Astra's store.
+///
+/// Scaffolded rather than left to the author, because an icon nobody adds is
+/// the default outcome: `astra-plugin build` has always packed `icon.svg` when
+/// it found one, and no generated project has ever contained one, so every
+/// plugin ever scaffolded shipped without a picture and the store rendered a
+/// wall of identical cards. A file that already exists gets replaced; a file
+/// that has to be created from nothing does not.
+///
+/// The plate colour is chosen from the plugin's id so two plugins in a list are
+/// usually different colours. Deliberately not random: scaffolding the same
+/// name twice has to produce the same bytes, or the CLI's own tests cannot
+/// assert anything about its output.
+pub fn generate_icon(name: &str) -> String {
+    // FNV-1a. Any stable hash would do; this one is four lines and has no deps.
+    let mut hash: u32 = 0x811c_9dc5;
+    for byte in name.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    let plate = ICON_PLATES[(hash as usize) % ICON_PLATES.len()];
+
+    let mut rects = String::new();
+    for (y, row) in ICON_PIXELS.iter().enumerate() {
+        // Merge horizontal runs of one colour into a single <rect>. A rect per
+        // pixel would be 256 of them, and this file is read by humans.
+        let cells: Vec<char> = row.chars().collect();
+        let mut x = 0;
+        while x < cells.len() {
+            let ch = cells[x];
+            let mut run = 1;
+            while x + run < cells.len() && cells[x + run] == ch {
+                run += 1;
+            }
+            if let Some(fill) = match ch {
+                '#' => Some("#f8fafc"),
+                'o' => Some("#94a3b8"),
+                _ => None,
+            } {
+                rects.push_str(&format!(
+                    "  <rect x=\"{x}\" y=\"{y}\" width=\"{run}\" height=\"1\" fill=\"{fill}\"/>\n"
+                ));
+            }
+            x += run;
+        }
+    }
+
+    let title = title_case(name);
+    format!(
+        r#"<!-- Replace me. This is a placeholder so your plugin has *a* picture
+     from the first minute; it is not a house style and nothing expects your
+     icon to look anything like it.
+
+     `astra-plugin build` packs whichever of these it finds next to plugin.toml,
+     and Astra's store draws it on your card:
+
+         icon.png   icon.webp   icon.svg   icon.jpg   icon.ico
+
+     PNG with a transparent background is the usual answer. Draw it square; it
+     is displayed at about 64px, so it wants a bold silhouette rather than fine
+     detail, and it should read on both a light and a dark background because
+     the store follows the user's theme.
+
+     If you do ship an SVG, keep it static: no <script>, no on* handlers, no
+     <foreignObject>, and no reference to anything off this machine. The
+     registry drops an icon carrying any of those, and your plugin would list
+     with no picture at all. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="64" height="64"
+     shape-rendering="crispEdges" role="img" aria-label="{title}">
+  <title>{title}</title>
+  <rect width="16" height="16" fill="{plate}"/>
+{rects}</svg>
+"#
+    )
+}
+
+/// `dice-roller` → `Dice Roller`.
+fn title_case(name: &str) -> String {
+    name.split('-')
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().to_string() + c.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Generate a .gitignore.
