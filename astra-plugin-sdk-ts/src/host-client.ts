@@ -34,7 +34,8 @@ import {
 } from "./protocol.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 import type { DaemonInfo, Host } from "./host.js";
-import { SESSION_TOKEN_HEADER } from "./generated/wire.js";
+import { SESSION_TOKEN_HEADER, X_ASTRA_CAUSE } from "./generated/wire.js";
+import { currentCause } from "./causality.js";
 
 /** Re-exported so `import { DaemonInfo } from "astra-plugin-sdk"` keeps working. */
 export type { DaemonInfo } from "./host.js";
@@ -234,9 +235,32 @@ export class HostClient implements Host {
     return { host: new HostClient(stub, opts.pluginId, metadata), response };
   }
 
-  /** Fire a trigger. */
+  /**
+   * Fire a trigger, carrying the lease for the daemon call it came out of.
+   *
+   * **This is the transport, and the read belongs here rather than one level
+   * up.** Both other ways to fire — `PluginContext.fireTrigger` and the
+   * `Plugin.fireTrigger` wrapper an author is most likely to write — forward to
+   * this method, and the wrapper routes to the process-global host. A read in
+   * the context wrapper would leave that path unstamped, which is the one the
+   * docs teach.
+   *
+   * The lease travels as call metadata rather than in the request body, because
+   * `payloadJson`'s keys are injected verbatim as workflow variables
+   * daemon-side: a reserved key would appear as `{__astra_cause}` in the user's
+   * own variable picker.
+   *
+   * No ambient lease means no header. Never an empty one, never an invented
+   * one, and never a failed fire: the daemon files an unattributed trigger as a
+   * root event, which is where every plugin built before leases existed lands.
+   */
   fireTrigger(triggerType: string, payloadJson: string = "{}"): Promise<void> {
-    return this.unary("FireTrigger", { triggerType, payloadJson }).then(() => undefined);
+    const cause = currentCause();
+    const metadata = cause === undefined ? undefined : this.metadata.clone();
+    if (metadata !== undefined && cause !== undefined) metadata.set(X_ASTRA_CAUSE, cause);
+    return this.unary("FireTrigger", { triggerType, payloadJson }, metadata).then(
+      () => undefined
+    );
   }
 
   /** Log a message to the daemon. */
@@ -356,12 +380,19 @@ export class HostClient implements Host {
     this.stub.close();
   }
 
-  /** Every unary host RPC goes through here, so none can forget the token. */
-  private unary<T>(method: string, request: object): Promise<T> {
+  /**
+   * Every unary host RPC goes through here, so none can forget the token.
+   *
+   * `metadata` overrides the shared one for a single call. Only `FireTrigger`
+   * uses it, to add the invocation lease — and it passes a CLONE, because
+   * `this.metadata` is shared by every concurrent call and mutating it would
+   * stamp one chat's lease onto another chat's RPC.
+   */
+  private unary<T>(method: string, request: object, metadata?: grpc.Metadata): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.stub[method](
         request,
-        this.metadata,
+        metadata ?? this.metadata,
         (err: grpc.ServiceError | null, response: T) => {
           if (err) reject(err);
           else resolve(response);

@@ -43,7 +43,7 @@ import { PLUGIN_TOKEN_HEADER } from "../capability-auth.js";
 import { removeFatalHandlers, restoreConsole } from "../logging.js";
 import type { AudioChunk, SttEvent, ToolDef, ToolResult } from "../types.js";
 import type { Testable } from "./harness.js";
-import { SESSION_TOKEN_HEADER } from "../generated/wire.js";
+import { SESSION_TOKEN_HEADER, X_ASTRA_CAUSE } from "../generated/wire.js";
 
 /** What the plugin sent to `Register`. */
 export interface RegisterRecord {
@@ -61,6 +61,11 @@ export interface HostCall {
   method: string;
   request: Record<string, unknown>;
   sessionToken: string | undefined;
+  /**
+   * The invocation lease this call arrived under, or `undefined` for a root
+   * event. Only `FireTrigger` ever carries one.
+   */
+  causedBy: string | undefined;
 }
 
 /** How the mock daemon should answer `Register`. */
@@ -108,15 +113,30 @@ export class WirePlugin {
     readonly port: number
   ) {}
 
-  /** Any unary capability RPC, by its proto name. */
-  unary<T = Record<string, unknown>>(method: string, request: object = {}): Promise<T> {
+  /**
+   * Any unary capability RPC, by its proto name.
+   *
+   * `extra` adds metadata to a CLONE of the spawn-token metadata — a test that
+   * mutated the shared one would leak its header onto every later call, which
+   * is precisely the confusion an invocation lease exists to remove.
+   */
+  unary<T = Record<string, unknown>>(
+    method: string,
+    request: object = {},
+    extra?: Record<string, string>
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const fn = this.stub[method];
       if (typeof fn !== "function") {
         reject(new Error(`PluginCapabilityService stub has no method ${method}`));
         return;
       }
-      fn.call(this.stub, request, this.metadata, (err: grpc.ServiceError | null, res: T) => {
+      let metadata = this.metadata;
+      if (extra !== undefined) {
+        metadata = this.metadata.clone();
+        for (const [k, v] of Object.entries(extra)) metadata.set(k, v);
+      }
+      fn.call(this.stub, request, metadata, (err: grpc.ServiceError | null, res: T) => {
         if (err) reject(err);
         else resolve(res);
       });
@@ -143,11 +163,23 @@ export class WirePlugin {
     return res.tools ?? [];
   }
 
-  callTool(toolName: string, args: Record<string, unknown> | string = {}): Promise<ToolResult> {
-    return this.unary<ToolResult>("CallTool", {
-      toolName,
-      argumentsJson: typeof args === "string" ? args : JSON.stringify(args),
-    });
+  /**
+   * `CallTool`, optionally as the daemon would issue it: with an invocation
+   * lease, so a trigger the tool fires can be attributed back to this call.
+   */
+  callTool(
+    toolName: string,
+    args: Record<string, unknown> | string = {},
+    opts: { causedBy?: string } = {}
+  ): Promise<ToolResult> {
+    return this.unary<ToolResult>(
+      "CallTool",
+      {
+        toolName,
+        argumentsJson: typeof args === "string" ? args : JSON.stringify(args),
+      },
+      opts.causedBy === undefined ? undefined : { [X_ASTRA_CAUSE]: opts.causedBy }
+    );
   }
 
   healthCheck(): Promise<{ healthy: boolean; status: string }> {
@@ -282,11 +314,19 @@ export class MockDaemon {
       message: String(c.request.message ?? ""),
     }));
   }
-  /** Triggers fired over `FireTrigger`. */
-  firedTriggers(): { triggerType: string; payloadJson: string }[] {
+  /**
+   * Triggers fired over `FireTrigger`, with the invocation lease each arrived
+   * under.
+   *
+   * `causedBy` is read off the metadata as it actually landed on the socket, so
+   * a test asserting on it is asserting what the daemon would see — not what
+   * the SDK meant to send.
+   */
+  firedTriggers(): { triggerType: string; payloadJson: string; causedBy: string | undefined }[] {
     return this.callsTo("FireTrigger").map((c) => ({
       triggerType: String(c.request.triggerType ?? ""),
       payloadJson: String(c.request.payloadJson ?? ""),
+      causedBy: c.causedBy,
     }));
   }
   /** Variables published over `SetVariable`. */
@@ -404,6 +444,7 @@ export class MockDaemon {
       method,
       request: (call.request ?? {}) as Record<string, unknown>,
       sessionToken: call.metadata.get(SESSION_TOKEN_HEADER)[0] as string | undefined,
+      causedBy: call.metadata.get(X_ASTRA_CAUSE)[0] as string | undefined,
     });
   }
 

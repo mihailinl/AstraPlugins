@@ -13,6 +13,7 @@ import { HostClient } from "./host-client.js";
 import { EXIT_PROTOCOL_INCOMPATIBLE, ProtocolMismatchError } from "./protocol.js";
 import { service } from "./proto-loader.js";
 import { addServiceChecked, type HandlerMap } from "./service-contract.js";
+import { causeFromCall, withCause } from "./causality.js";
 import { assertNoReservedNames } from "./reserved.js";
 import { capabilityAuthMode, guardHandlers } from "./capability-auth.js";
 import type {
@@ -725,9 +726,9 @@ export abstract class Plugin {
       SttUnload: this.wrapHandler(this.handleSttUnload.bind(this)),
       SttGetLoadState: this.wrapHandler(this.handleSttGetLoadState.bind(this)),
       // Streaming RPCs.
-      TtsSynthesizeStream: this.handleTtsSynthesizeStream.bind(this),
-      SttProcess: this.handleSttProcess.bind(this),
-      AiComplete: this.handleAiComplete.bind(this),
+      TtsSynthesizeStream: this.wrapStream(this.handleTtsSynthesizeStream.bind(this)),
+      SttProcess: this.wrapStream(this.handleSttProcess.bind(this)),
+      AiComplete: this.wrapStream(this.handleAiComplete.bind(this)),
     } as unknown as HandlerMap;
   }
 
@@ -741,7 +742,12 @@ export abstract class Plugin {
    */
   private wrapHandler(handler: (call: any) => Promise<any>) {
     return (call: any, callback: grpc.sendUnaryData<any>) => {
-      handler(call)
+      // Every unary capability call enters the invocation store here, not on
+      // the three arms the daemon stamps today. A rule naming specific arms
+      // goes stale in silence: a fourth stamped call site would produce a lease
+      // this SDK receives and drops, with nothing anywhere reporting it. A call
+      // with no lease enters no store at all, so this costs one map lookup.
+      withCause(causeFromCall(call), () => handler(call))
         .then((result) => callback(null, result))
         .catch((err: unknown) => {
           if (err instanceof HookUnimplemented) {
@@ -751,6 +757,18 @@ export abstract class Plugin {
           callback(PluginError.from(err).toServiceError());
         });
     };
+  }
+
+  /**
+   * The streaming counterpart of `wrapHandler`'s invocation store.
+   *
+   * The three streaming handlers are bound straight into the map because their
+   * error path is `failStream`, not a callback — but they hand a context to
+   * plugin code just as the unary ones do, so a trigger fired from inside one
+   * must be attributed the same way.
+   */
+  private wrapStream(handler: (call: any) => unknown) {
+    return (call: any) => withCause(causeFromCall(call), () => handler(call));
   }
 
   /** The same three outcomes, on a server-streaming call. */

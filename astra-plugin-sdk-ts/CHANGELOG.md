@@ -54,6 +54,40 @@ at runtime.
   assert that a plugin talked to the daemon at all.
 
 ### Added
+- **A trigger fired while handling a daemon call names the call that caused
+  it.** The capability server enters an `AsyncLocalStorage` store around every
+  handler, and `HostClient.fireTrigger` reads it and attaches the invocation
+  lease as gRPC metadata (`spec/wire.yaml`'s `x-astra-cause`). The daemon
+  redeems the lease to decide which conversation the trigger's output belongs
+  in — today it lands in a freshly auto-created chat the user never sees, and
+  with two chats driving one plugin at once nothing on the wire even
+  distinguishes them.
+
+  **The read is in the transport, deliberately.** All three ways to fire —
+  `HostClient.fireTrigger`, `PluginContext.fireTrigger` and the
+  `Plugin.fireTrigger` wrapper — converge there, and the wrapper routes to the
+  process-global host. A read one layer up would leave unstamped the very path
+  the docs teach.
+
+  **Nothing to do, and nothing to change.** The store follows `await`,
+  `setTimeout` and promise chains, so a handler that defers still fires with its
+  cause. A `child_process`, a `worker_threads` worker, or a timer started
+  outside a handler gets none, and its fires are root events — the honest
+  answer, and where every plugin lands today.
+
+  **Inert until a daemon issues leases.** No daemon in the field does.
+- `MockDaemon.firedTriggers()` reports `causedBy`, read off the metadata as it
+  arrived on the socket. A plugin's own tests can now assert *where* a
+  trigger's output was going to land, not only that it fired. `HostCall` grows
+  the same field, and `WirePlugin.callTool` takes `{ causedBy }` so a test can
+  issue a call the way the daemon will.
+- `wire` module (`export * as wire`): the gRPC metadata keys, generated from
+  `spec/wire.yaml`. `x-session-token` and `x-plugin-token` used to be spelled by
+  hand in fifteen places across the three SDKs and the CLI. A metadata key is a
+  map entry, so a misspelling is not an error — it is an absence, and absence is
+  legal for all three. The typo silently removes authentication, or attribution,
+  and says nothing.
+- `limits`: `LEASE_TTL_SECS`, `LEASE_FIRE_GRACE_SECS`, `LEASE_MAX_FIRES`.
 - **`errors.ts` — the error taxonomy (production plan §5.2).** Eight classes
   with the same eight codes the Rust and Python SDKs use: `BadArguments`,
   `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`, `Unavailable`,

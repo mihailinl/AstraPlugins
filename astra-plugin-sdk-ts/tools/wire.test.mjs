@@ -93,7 +93,11 @@ test("every host RPC after Register carries the session token", async () => {
       );
     }
   }
-  assert.deepEqual(d.firedTriggers(), [{ triggerType: "shouted", payloadJson: '{"length":3}' }]);
+  // `causedBy: undefined` is the assertion, not noise: this tool was called
+  // without an invocation lease, and the SDK must not invent one.
+  assert.deepEqual(d.firedTriggers(), [
+    { triggerType: "shouted", payloadJson: '{"length":3}', causedBy: undefined },
+  ]);
   assert.deepEqual(d.variables(), [{ name: "last_shout", value: "hey", scope: "session" }]);
   assert.ok(d.logs().some((l) => l.level === "info" && l.message.includes("shouting 3 chars")));
 });
