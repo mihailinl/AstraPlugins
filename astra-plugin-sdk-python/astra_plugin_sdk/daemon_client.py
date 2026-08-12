@@ -24,6 +24,7 @@ Example::
 import grpc
 
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
+from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER
 
 
 class DaemonClient:
@@ -36,7 +37,7 @@ class DaemonClient:
     def __init__(self, daemon_addr: str, session_token: str):
         self._daemon_addr = daemon_addr
         self._token = session_token
-        self._metadata = (("x-session-token", session_token),)
+        self._metadata = ((SESSION_TOKEN_HEADER, session_token),)
         self._channel: grpc.aio.Channel | None = None
         # Service stubs
         self._core: plugin_pb2_grpc.CoreServiceStub | None = None

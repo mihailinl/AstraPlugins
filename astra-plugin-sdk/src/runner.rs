@@ -1591,7 +1591,7 @@ mod tests {
         let mut req = tonic::Request::new(proto::Empty {});
         if let Some(token) = token {
             req.metadata_mut()
-                .insert("x-plugin-token", token.parse().unwrap());
+                .insert(crate::wire::PLUGIN_TOKEN_HEADER, token.parse().unwrap());
         }
         client.list_tools(req).await.map(|_| ()).map_err(|e| e.code())
     }

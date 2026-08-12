@@ -1,0 +1,71 @@
+# Cross-repo wire STRINGS — the one place a gRPC metadata key is spelled.
+#
+# `spec/limits.yaml`'s companion, and split from it deliberately. That file is
+# integers-only so its parser is one regex and every constant it emits is a
+# `u64`; a string in it would end both properties. Same generator, same
+# `--check`, same block in the daemon — two inputs, one mechanism.
+#
+# WHAT BELONGS HERE
+#   A metadata key that the daemon writes and an SDK reads, or the reverse.
+#   Nothing else: not a header a plugin invents for its own HTTP calls, not an
+#   environment variable (those are already stated once, next to the code that
+#   parses them), and not a value — only a key's spelling.
+#
+# WHY A MISSPELLING IS THE WORST KIND OF BUG HERE
+#   gRPC metadata is a map. A key nobody wrote is simply absent, and absent is
+#   a legal state for every key below — an unauthenticated call, a trigger with
+#   no cause. So a typo does not raise; it removes a feature. `x-astra-cause`
+#   is the sharpest case: misspelled on either side, every plugin-fired trigger
+#   silently becomes a root event and its output goes to a thread the user was
+#   not looking at. That is the exact bug the lease exists to remove, so the
+#   spelling cannot be allowed to be the thing that reintroduces it.
+#
+# HOW TO CHANGE A KEY
+#   1. Edit the value here.
+#   2. Run `node tools/gen-limits.mjs` (from the AstraPlugins repo root). It
+#      rewrites the generated `wire` module in all three SDKs and — when it can
+#      find an Astra checkout (`$ASTRA_RS_DIR`, else `../Astra/astra-rs`) — the
+#      generated block in `astra-daemon/src/plugins/voice_capability.rs`.
+#   3. Build the daemon, which reads the generated constant directly.
+#   Changing a key here is a WIRE BREAK: a daemon and a plugin that disagree
+#   lose the feature the key carries. Only the two ends upgrading together
+#   makes it safe, which for `x-session-token` and `x-plugin-token` means never
+#   in practice — they are load-bearing on installed plugins.
+#
+# FORMAT — the same tiny subset `spec/limits.yaml` uses, one `key: <value>` per
+# line, no nesting and no quotes, so the generator still needs no YAML parser.
+# The value is an HTTP/2 header name: lowercase ASCII letters, digits, `-`, `.`
+# and `_` only. `#` comment lines directly above a key become that constant's
+# doc comment in every language. A `-bin` suffix is refused: gRPC reserves it
+# for base64-encoded binary values, and nothing here carries bytes.
+
+# Metadata key the daemon carries a per-invocation LEASE under when it calls
+# into a plugin, and the key an SDK echoes it back on when that plugin fires a
+# trigger. Redeeming the lease is how the daemon recovers what caused the fire,
+# and therefore which conversation the resulting output belongs in.
+#
+# It is metadata and not a proto field for two reasons that are both about not
+# colliding with the plugin's own data. Inbound, a trigger's payload keys are
+# injected verbatim as workflow variables, so a reserved key would appear as
+# `{__astra_cause}` in the user's own variable picker. Outbound, `params_json`
+# is the plugin's typed argument document, where an extra field hard-fails any
+# plugin whose model uses `deny_unknown_fields` or `extra="forbid"`.
+#
+# Absent is legal and is the honest answer: a plugin that never heard of leases
+# — every published plugin today — fires without it and the daemon files the
+# result as a root event. An SDK must therefore never invent a value and never
+# send the key empty. `x_astra_cause` keeps the identifier the daemon-side
+# design names, without the `_header` suffix the two older keys carry.
+x_astra_cause: x-astra-cause
+
+# Metadata key every host RPC but `Register` must present its session token
+# under. `Register` is the one exempt path — it is where a plugin trades its
+# spawn-time `--auth-token` for the session token — and everything after it
+# comes back `unauthenticated` without this.
+session_token_header: x-session-token
+
+# Metadata key the daemon presents its copy of the plugin's spawn token under,
+# on every call INTO the plugin. The mirror image of the session token: it is
+# what lets a plugin's own capability server tell the daemon apart from any
+# other local process that found its loopback port.
+plugin_token_header: x-plugin-token

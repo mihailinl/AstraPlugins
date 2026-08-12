@@ -49,9 +49,9 @@ import sys
 import grpc
 
 #: Metadata header the plugin reads the daemon's copy of the spawn token from.
-#: Must stay identical to the header the daemon attaches in
-#: ``astra-daemon/src/plugins/client.rs``.
-PLUGIN_TOKEN_HEADER = "x-plugin-token"
+#: Declared once in ``spec/wire.yaml``; re-exported here, where callers
+#: already import it from. The daemon reads the same generated constant.
+from astra_plugin_sdk.wire import PLUGIN_TOKEN_HEADER
 
 #: How the daemon states the stage: ``off``, ``warn`` or ``require``. Set to
 #: ``require`` on every spawn by ``prepare_spawn`` in

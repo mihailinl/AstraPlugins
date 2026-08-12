@@ -58,12 +58,11 @@ from astra_plugin_sdk.testing.recording_host import (
 
 __all__ = ["MockDaemon", "WireHarness", "WireError"]
 
-#: The header the daemon's `auth_interceptor.rs` requires on every host RPC
-#: except `Register`.
-SESSION_TOKEN_HEADER = "x-session-token"
-
-#: The header the daemon attaches so a plugin can prove the caller is the daemon.
-PLUGIN_TOKEN_HEADER = "x-plugin-token"
+#: The two headers, from the generated `spec/wire.yaml` reader. Re-bound here
+#: because this harness is what `astra-plugin test` runs against a real
+#: plugin process: if it checked a spelling of its own, a drift between the
+#: SDK and the daemon would pass the conformance run it exists to catch.
+from astra_plugin_sdk.wire import PLUGIN_TOKEN_HEADER, SESSION_TOKEN_HEADER
 
 
 class WireError(AssertionError):

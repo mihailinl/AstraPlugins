@@ -1391,7 +1391,7 @@ fn req<T>(message: T) -> tonic::Request<T> {
     let mut r = tonic::Request::new(message);
     if let Some(token) = SPAWN_TOKEN.get() {
         r.metadata_mut()
-            .insert("x-plugin-token", token.parse().expect("ascii token"));
+            .insert(astra_plugin_sdk::wire::PLUGIN_TOKEN_HEADER, token.parse().expect("ascii token"));
     }
     r
 }
@@ -1468,7 +1468,7 @@ mod tests {
         // A call with the token the daemon issued: both pass.
         let mut ok = tonic::Request::new(line());
         ok.metadata_mut()
-            .insert("x-session-token", daemon.session_token().parse().unwrap());
+            .insert(astra_plugin_sdk::wire::SESSION_TOKEN_HEADER, daemon.session_token().parse().unwrap());
         client.plugin_log(ok).await.unwrap();
         let checks = host_side_checks(&daemon);
         assert!(checks[0].1, "{}", checks[0].2);

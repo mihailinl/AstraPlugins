@@ -45,13 +45,17 @@
 
 import * as grpc from "@grpc/grpc-js";
 import type { HandlerMap } from "./service-contract.js";
+import { PLUGIN_TOKEN_HEADER } from "./generated/wire.js";
 
 /**
  * Metadata header the plugin reads the daemon's copy of the spawn token from.
- * Must stay identical to the header the daemon attaches in
- * `astra-daemon/src/plugins/client.rs`.
+ *
+ * Declared once in `spec/wire.yaml` and re-exported here, where three years of
+ * callers already import it from. The daemon side reads the same generated
+ * constant, so the two cannot disagree — and disagreeing is invisible, because
+ * a metadata key nobody wrote is simply absent and absent is a legal state.
  */
-export const PLUGIN_TOKEN_HEADER = "x-plugin-token";
+export { PLUGIN_TOKEN_HEADER };
 
 /**
  * How the daemon states the stage: `off`, `warn` or `require`. Set to `require`

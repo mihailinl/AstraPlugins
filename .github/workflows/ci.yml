@@ -231,9 +231,9 @@ jobs:
               echo "trusted run last compared it with the daemon. It proves nothing about"
               echo "the daemon as it stands today."
               echo
-              echo "**The daemon's \`spec/limits.yaml\` mirror was NOT checked either.** The"
+              echo "**The daemon's \`spec/{limits,wire}.yaml\` mirror was NOT checked either.** The"
               echo "\`couplings\` job runs \`gen-limits.mjs --check\` with no Astra checkout, so"
-              echo "it verifies the three SDK files and skips the daemon block; the daemon's"
+              echo "it verifies the six SDK files and skips the daemon block; the daemon's"
               echo "own \`assert!\` only compares its constants with the mirror beside them, and"
               echo "a regeneration moves both. A spec edit that never reached the daemon is"
               echo "green everywhere until a full-mode run says otherwise."
@@ -408,7 +408,7 @@ jobs:
       # (500 daemon / 32 SDK) was about — was checked by nothing at all until
       # this step. It is the only job with both trees, so it is the only place
       # the check can live.
-      - name: C1 (full) spec/limits.yaml == the daemon's mirror
+      - name: C1 (full) spec/{limits,wire}.yaml == the daemon's mirror
         if: env.MODE == 'full'
         env:
           ASTRA_RS_DIR: _astra/astra-rs
@@ -416,7 +416,7 @@ jobs:
           set -euo pipefail
           node tools/gen-limits.mjs --check
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
-          ### limits: **full** — the daemon's generated mirror was compared with `spec/limits.yaml`
+          ### limits: **full** — the daemon's generated mirror was compared with `spec/limits.yaml` and `spec/wire.yaml`
           MSG
 
       # R5 and R6 are the parity rules that need an Astra checkout. R5 asserts
@@ -1819,11 +1819,17 @@ jobs:
       # is a const_assert! next to its own constants; this is the SDK half.
       #
       # HALF, literally: with no Astra checkout the generator prints "daemon
-      # block: skipped" and this step passes on the three SDK files alone. The
+      # block: skipped" and this step passes on the six SDK files alone. The
       # spec -> daemon comparison needs both trees and runs in proto-upstream's
       # full mode ("C1 (full)"). Do not read a green tick here as "the daemon
-      # agrees with spec/limits.yaml" — it cannot see the daemon.
-      - name: C1 spec/limits.yaml codegen is current (SDK files only)
+      # agrees with the spec" — it cannot see the daemon.
+      #
+      # One generator, two specs. `spec/wire.yaml` holds the gRPC metadata keys
+      # and rides the same `--check`, so a new spec file needed no new CI step.
+      # Its failure mode is worse than a limit's: a key nobody wrote is simply
+      # absent, and absent is legal for all three, so a drift removes trigger
+      # attribution or authentication and raises nothing anywhere.
+      - name: C1 spec/{limits,wire}.yaml codegen is current (SDK files only)
         run: node tools/gen-limits.mjs --check
 
       # C1b — the shared bundle vectors. `testdata/bundles/` is one directory

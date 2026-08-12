@@ -37,7 +37,8 @@ const DAEMON_PORT_FILENAME: &str = "daemon.port";
 const DAEMON_TOKEN_FILENAME: &str = "daemon.token";
 
 /// Header the daemon's `AuthLayer` reads on every non-exempt RPC.
-const SESSION_TOKEN_HEADER: &str = "x-session-token";
+/// Declared once in `spec/wire.yaml`; this is the generated reader.
+use astra_plugin_sdk::wire::SESSION_TOKEN_HEADER;
 
 /// Name this CLI registers under. Anything that is not the reserved overlay or
 /// companion name lands in the bounded main-client FIFO, same as `astraui`.

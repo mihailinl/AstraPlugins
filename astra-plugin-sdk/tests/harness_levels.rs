@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use astra_plugin_sdk::prelude::*;
 use astra_plugin_sdk::testing::{Harness, MockDaemon, WireHarness, fixtures};
+use astra_plugin_sdk::wire::SESSION_TOKEN_HEADER;
 
 // ── the plugin under test ────────────────────────────────────────────────────
 
@@ -594,7 +595,7 @@ async fn the_mock_daemons_own_session_gate_refuses_an_untokened_caller() {
     let mut wrong = tonic::Request::new(log());
     wrong
         .metadata_mut()
-        .insert("x-session-token", "not-the-token".parse().unwrap());
+        .insert(SESSION_TOKEN_HEADER, "not-the-token".parse().unwrap());
     let err = client
         .plugin_log(wrong)
         .await
@@ -604,10 +605,9 @@ async fn the_mock_daemons_own_session_gate_refuses_an_untokened_caller() {
     // The token it actually issued gets through — otherwise the gate could be
     // "reject everything", which would fail the real tests for the wrong reason.
     let mut right = tonic::Request::new(log());
-    right.metadata_mut().insert(
-        "x-session-token",
-        daemon.session_token().parse().unwrap(),
-    );
+    right
+        .metadata_mut()
+        .insert(SESSION_TOKEN_HEADER, daemon.session_token().parse().unwrap());
     client.plugin_log(right).await.expect("the issued token works");
 
     // And every refusal is on the record, so `astra-plugin test` can assert on

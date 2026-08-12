@@ -258,7 +258,7 @@ impl HostService {
         self.state.recorded.note(rpc);
         let token = req
             .metadata()
-            .get("x-session-token")
+            .get(crate::wire::SESSION_TOKEN_HEADER)
             .and_then(|v| v.to_str().ok());
         if token != Some(SESSION_TOKEN) {
             // On the record, not just refused. `astra-plugin test` reuses this
@@ -616,7 +616,7 @@ impl WireHarness {
     pub fn request<T>(&self, message: T) -> tonic::Request<T> {
         let mut req = tonic::Request::new(message);
         req.metadata_mut()
-            .insert("x-plugin-token", SPAWN_TOKEN.parse().unwrap());
+            .insert(crate::wire::PLUGIN_TOKEN_HEADER, SPAWN_TOKEN.parse().unwrap());
         req
     }
 

@@ -35,9 +35,7 @@
 import * as grpc from "@grpc/grpc-js";
 import { service } from "./proto-loader.js";
 import { assertClientContract } from "./service-contract.js";
-
-/** Metadata header the daemon's auth interceptor reads. */
-const SESSION_TOKEN_HEADER = "x-session-token";
+import { SESSION_TOKEN_HEADER } from "./generated/wire.js";
 
 /** Methods this class calls, per service. Checked against the descriptor in `connect()`. */
 const REQUIRED_METHODS: Record<string, readonly string[]> = {

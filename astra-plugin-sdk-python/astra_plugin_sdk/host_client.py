@@ -24,6 +24,7 @@ import grpc
 
 from astra_plugin_sdk import protocol
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
+from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER
 
 
 class HostClientBootstrap:
@@ -122,7 +123,7 @@ class HostClient:
             )
         self.daemon_addr = daemon_addr
         self.plugin_id = plugin_id
-        self._metadata = (("x-session-token", session_token),)
+        self._metadata = ((SESSION_TOKEN_HEADER, session_token),)
         self._channel = _channel or grpc.aio.insecure_channel(daemon_addr)
         self._stub = plugin_pb2_grpc.PluginHostServiceStub(self._channel)
 

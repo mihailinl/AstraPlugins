@@ -445,7 +445,7 @@ mod tests {
     fn require_token<T>(req: &tonic::Request<T>, seen: &Mutex<Option<String>>) -> Result<(), tonic::Status> {
         let token = req
             .metadata()
-            .get("x-session-token")
+            .get(crate::wire::SESSION_TOKEN_HEADER)
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
         *seen.lock().unwrap() = token.clone();

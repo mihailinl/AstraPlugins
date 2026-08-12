@@ -163,3 +163,4 @@ export { assertNoReservedNames, descriptorProblems, RETIRED_NAMES } from "./rese
 export type { DescriptorProblem } from "./reserved.js";
 export { PROTO_SHA256, PROTO_SOURCE, RESERVED_FIELD_NAMES, SERVICE_METHODS } from "./generated/index.js";
 export * as limits from "./generated/limits.js";
+export * as wire from "./generated/wire.js";

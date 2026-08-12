@@ -34,12 +34,10 @@ import {
 } from "./protocol.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 import type { DaemonInfo, Host } from "./host.js";
+import { SESSION_TOKEN_HEADER } from "./generated/wire.js";
 
 /** Re-exported so `import { DaemonInfo } from "astra-plugin-sdk"` keeps working. */
 export type { DaemonInfo } from "./host.js";
-
-/** Metadata header the daemon's auth interceptor reads. */
-const SESSION_TOKEN_HEADER = "x-session-token";
 
 /**
  * A gRPC readable stream as an `AsyncIterable`.

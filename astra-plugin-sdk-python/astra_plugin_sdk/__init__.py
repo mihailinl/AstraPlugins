@@ -50,6 +50,7 @@ from astra_plugin_sdk.errors import (
 )
 from astra_plugin_sdk.i18n import I18n
 from astra_plugin_sdk import limits
+from astra_plugin_sdk import wire
 from astra_plugin_sdk.protocol import (
     EXIT_PROTOCOL_INCOMPATIBLE,
     MIN_SUPPORTED_DAEMON_PROTOCOL,

@@ -83,6 +83,7 @@ pub mod panics;
 pub mod protocol;
 mod runner;
 pub mod testing;
+pub mod wire;
 
 pub use auth::CapabilityAuth;
 pub use capability::*;

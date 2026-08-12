@@ -43,9 +43,7 @@ import { PLUGIN_TOKEN_HEADER } from "../capability-auth.js";
 import { removeFatalHandlers, restoreConsole } from "../logging.js";
 import type { AudioChunk, SttEvent, ToolDef, ToolResult } from "../types.js";
 import type { Testable } from "./harness.js";
-
-/** Header the daemon's auth interceptor reads on every host RPC but `Register`. */
-const SESSION_TOKEN_HEADER = "x-session-token";
+import { SESSION_TOKEN_HEADER } from "../generated/wire.js";
 
 /** What the plugin sent to `Register`. */
 export interface RegisterRecord {

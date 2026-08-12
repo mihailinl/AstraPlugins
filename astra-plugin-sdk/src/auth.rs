@@ -26,9 +26,14 @@ use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 use tracing::warn;
 
-/// Metadata header the daemon reads the session token from.
-/// Mirrors `astra-daemon/src/server/client_auth.rs::SESSION_TOKEN_HEADER`.
-const SESSION_TOKEN_HEADER: &str = "x-session-token";
+// Both header names come from `spec/wire.yaml` through the generated
+// [`crate::wire`] module. They used to be two `const`s here and two more in
+// every other SDK, mirrored by prose comments that pointed at daemon files —
+// the same shape of contract that let the STT channel capacity be 500 on one
+// side and 32 on the other. A metadata key nobody wrote is simply absent, and
+// absent is legal for both of these (an unauthenticated call), so a typo would
+// not raise anywhere: it would remove the authentication and say nothing.
+pub(crate) use crate::wire::{PLUGIN_TOKEN_HEADER, SESSION_TOKEN_HEADER};
 
 /// Attaches the plugin's session token to every outgoing request.
 #[derive(Clone)]
@@ -62,12 +67,6 @@ impl tonic::service::Interceptor for SessionInterceptor {
 pub(crate) type AuthChannel = InterceptedService<Channel, SessionInterceptor>;
 
 // ── daemon → plugin ───────────────────────────────────────────────────────────
-
-/// Metadata header the plugin reads the daemon's copy of the spawn token from.
-///
-/// Must stay identical to the header the daemon attaches in
-/// `astra-daemon/src/plugins/client.rs`.
-pub(crate) const PLUGIN_TOKEN_HEADER: &str = "x-plugin-token";
 
 /// How the daemon tells a plugin which stage of [`CapabilityAuth`] to run in:
 /// `off`, `warn` or `require`.
