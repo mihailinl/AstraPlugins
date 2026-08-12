@@ -133,6 +133,13 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
     let readme = templates::generate_readme(name, &lang, &manifest_caps);
     fs::write(out_path.join("README.md"), readme)?;
 
+    // Both of these are the plugin's face in the store, and `astra-plugin
+    // build` has always packed them when it found them. Scaffolding the icon
+    // rather than mentioning it in the docs is the whole point: a file that
+    // exists gets replaced, a file that has to be created from nothing does not.
+    let icon = templates::generate_icon(name);
+    fs::write(out_path.join("icon.svg"), icon)?;
+
     let gitignore = templates::generate_gitignore(&lang);
     fs::write(out_path.join(".gitignore"), gitignore)?;
 

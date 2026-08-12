@@ -37,6 +37,60 @@ what is still unproven:
   · the declared-vs-called host RPC scan
 ```
 
+### What your listing will look like
+
+Two files decide that, and both are ones you already have next to
+`plugin.toml`. Neither is named anywhere in the manifest — the packer picks them
+up because of what they are called, and the registry reads them back out of the
+bundle it has just verified. You never type a URL, and nobody can type one for
+you.
+
+**The icon** — the picture on your plugin's card. Any one of:
+
+<!-- doctest: illustrative reason="the accepted filenames, not a command; spec/icon-formats.yaml is the list both the packer and the registry read" -->
+```
+icon.png    icon.webp    icon.svg    icon.jpg    icon.ico
+```
+
+`astra-plugin new` scaffolds a placeholder `icon.svg` so there is something to
+replace. Draw it square; it is shown at roughly 64 pixels, so it wants a bold
+silhouette rather than fine detail, and it should read on both a light and a
+dark background because the store follows the user's theme. PNG with a
+transparent background is the usual answer.
+
+If you ship an SVG, keep it static: no `<script>`, no `on*` handlers, no
+`<foreignObject>`, and no reference to anything off your machine. An icon
+carrying any of those is dropped and your plugin lists without a picture. It
+does not fail your release — a decorative file is not a gate on shipping
+software — but you get a warning saying so, and nobody sees your icon.
+
+**`README.md`** — your plugin's page, shown when somebody clicks the card. It is
+what a person reads while deciding whether to install you, which makes it worth
+more than the one-line summary.
+
+It renders as GitHub-flavoured markdown, including tables. Screenshots work, and
+a paragraph made only of images becomes a gallery row:
+
+<!-- doctest: illustrative reason="markdown an author writes in their own README; there is nothing here for a runner to execute" -->
+```markdown
+![The command editor, mid-roll](docs/editor.png)
+![The trigger firing on a natural 20](docs/trigger.png)
+```
+
+Three rules, all of which the registry applies when it derives your listing:
+
+- **Link images with a relative path**, and commit them to your repository. They
+  are rewritten to point at the exact commit your release was built from, so a
+  picture cannot change after somebody approved the listing.
+- **Images hosted anywhere but GitHub are dropped** and replaced by their alt
+  text. Build badges included. This is a privacy rule rather than a security
+  one: every remote image in a rendered README is a request from a user's
+  machine, made before they have installed anything.
+- **Raw HTML is stripped.** Use markdown for layout.
+
+Long READMEs are truncated at 16 KB on a line boundary, with a link to the rest
+on GitHub.
+
 ## 2 · Submit
 
 <!-- doctest: cli -->

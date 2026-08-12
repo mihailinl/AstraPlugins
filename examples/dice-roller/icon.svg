@@ -1,9 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Dice Roller">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Dice Roller">
   <title>Dice Roller</title>
-  <rect x="8" y="8" width="48" height="48" rx="10" fill="#2f6df6"/>
-  <circle cx="21" cy="21" r="4.5" fill="#ffffff"/>
-  <circle cx="43" cy="21" r="4.5" fill="#ffffff"/>
-  <circle cx="32" cy="32" r="4.5" fill="#ffffff"/>
-  <circle cx="21" cy="43" r="4.5" fill="#ffffff"/>
-  <circle cx="43" cy="43" r="4.5" fill="#ffffff"/>
+  <!-- Isometric d6 mid-tumble with a coin flipping beside it. Plain static
+       markup: no script, no external references, no embedded fonts. -->
+
+  <!-- the coin, caught edge-on behind the die -->
+  <g>
+    <ellipse cx="70" cy="196" rx="40" ry="23" fill="#b07d12"/>
+    <ellipse cx="70" cy="188" rx="40" ry="23" fill="#f0b429"/>
+    <ellipse cx="70" cy="188" rx="27" ry="15.5" fill="none" stroke="#a86f0c" stroke-width="5"/>
+  </g>
+
+  <!-- die: top, left and right faces of an isometric cube -->
+  <g stroke="#2c1a63" stroke-width="6" stroke-linejoin="round">
+    <path d="M128 34 L196 73 L128 112 L60 73 Z" fill="#c4b3ff"/>
+    <path d="M60 73 L128 112 L128 190 L60 151 Z" fill="#7a5cf0"/>
+    <path d="M128 112 L196 73 L196 151 L128 190 Z" fill="#5334c9"/>
+  </g>
+
+  <!-- pips, skewed into each face's own plane -->
+  <g fill="#241356">
+    <g transform="matrix(68,39,-68,39,128,34)">
+      <circle cx="0.5" cy="0.5" r="0.1"/>
+    </g>
+  </g>
+  <g fill="#f6f3ff">
+    <g transform="matrix(68,39,0,78,60,73)">
+      <circle cx="0.26" cy="0.24" r="0.085"/>
+      <circle cx="0.5" cy="0.5" r="0.085"/>
+      <circle cx="0.74" cy="0.76" r="0.085"/>
+    </g>
+    <g transform="matrix(68,-39,0,78,128,112)">
+      <circle cx="0.27" cy="0.26" r="0.085"/>
+      <circle cx="0.73" cy="0.26" r="0.085"/>
+      <circle cx="0.5" cy="0.5" r="0.085"/>
+      <circle cx="0.27" cy="0.74" r="0.085"/>
+      <circle cx="0.73" cy="0.74" r="0.085"/>
+    </g>
+  </g>
+
+  <!-- motion ticks: it is still in the air -->
+  <g stroke="#f0b429" stroke-width="8" stroke-linecap="round">
+    <path d="M208 44 L226 26"/>
+    <path d="M222 68 L244 62"/>
+    <path d="M186 24 L192 4"/>
+  </g>
 </svg>

@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Web Chat Client">
-  <title>Web Chat Client</title>
-  <rect x="4" y="4" width="56" height="56" rx="12" fill="#065f46"/>
-  <rect x="10" y="14" width="30" height="22" rx="4" fill="#ffffff"/>
-  <path d="M16 36l-2 8 10-8z" fill="#ffffff"/>
-  <rect x="26" y="28" width="28" height="20" rx="4" fill="#6ee7b7"/>
-  <path d="M48 48l2 7-10-7z" fill="#6ee7b7"/>
-</svg>
