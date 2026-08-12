@@ -795,6 +795,32 @@ mod tests {
         assert_eq!(spy.causes(), vec![None, None]);
     }
 
+    /// The **ambient** context is never scoped, even while a leased call is in
+    /// flight beside it.
+    ///
+    /// Distinct from the test above, which uses a context nobody scoped: this
+    /// one pins [`ctx()`] itself, the process-global that a `Drop` impl, a
+    /// callback from a C library or a `std::thread` started at boot reaches
+    /// for. Those places have no way to know which call is running, so picking
+    /// up whichever lease happened to be live would attribute their output to a
+    /// conversation chosen by timing. `install_context` publishes the base
+    /// context and `for_invocation` never republishes, so the answer is `None`
+    /// — a root event, decided by the source rather than by the clock.
+    #[tokio::test]
+    async fn the_ambient_context_is_never_scoped() {
+        let (base, spy) = spied();
+        install_context(base.clone());
+
+        // A leased call is being handled…
+        let scoped = base.for_invocation(Some(Arc::from("lease-1")));
+        scoped.host().fire_trigger("from_the_handler", "{}").await.unwrap();
+
+        // …and something outside it reaches for the ambient context meanwhile.
+        ctx().host().fire_trigger("from_a_drop_impl", "{}").await.unwrap();
+
+        assert_eq!(spy.causes(), vec![Some("lease-1".to_string()), None]);
+    }
+
     /// A caller who names a cause knows something the scope does not.
     #[tokio::test]
     async fn an_explicit_cause_beats_the_scoped_one() {
