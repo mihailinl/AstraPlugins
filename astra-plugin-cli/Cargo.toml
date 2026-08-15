@@ -40,7 +40,7 @@ astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }
 #
 # `default-features = false` drops `schemars`: the CLI reads JSON Schema, it
 # never derives one.
-astra-plugin-sdk = { version = "0.6.0", path = "../astra-plugin-sdk", default-features = false }
+astra-plugin-sdk = { version = "0.7.0", path = "../astra-plugin-sdk", default-features = false }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
