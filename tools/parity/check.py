@@ -246,6 +246,24 @@ def scan_rust_host() -> dict[str, str]:
         for m in re.finditer(r"\.([a-z_][a-z0-9_]*)\(\s*(\w+)\s*\)", line):
             if m.group(2) in staged:
                 found[m.group(1)] = rel
+    # The module docstring states the rule — "if an anchor stops matching, this
+    # script fails loudly rather than reporting an empty scan as a clean bill of
+    # health" — and six of the seven scanners implement it. This was the seventh.
+    # An argument written once gets implemented once; what catches that is not
+    # re-reading the argument but enumerating the sites it describes.
+    #
+    # The message names BOTH shapes this scanner accepts, because this branch
+    # scrapes two: the direct `.rpc(proto::…)` call, and the staged form where a
+    # `tonic::Request` is bound to a local first. An empty result means neither
+    # matched, and the fix depends on which one the source now uses.
+    if not found:
+        raise AnchorError(
+            f"{rel}: no `.<rpc>(proto::…)` call and no `.<rpc>(<staged request>)` call "
+            f"found — the host-client shape changed. Refusing rather than returning an "
+            f"empty scan: an empty one would surface as R1 blaming every host hook for "
+            f"having no binding, which is a true statement about a broken scraper and a "
+            f"misleading one about the SDK."
+        )
     return found
 
 
@@ -871,6 +889,28 @@ def main(argv: list[str]) -> int:
         failures += r7
         if skip:
             skips.append(skip)
+
+    # Every number on the summary line is a coverage counter, and a coverage
+    # counter that is only printed is one nobody reads until it is too late: a
+    # zero means a scrape stopped matching, and a rule over nothing is green for
+    # the wrong reason. Printing was never the check. Each gets a floor.
+    #
+    # The floor is 1, not the current value: this asserts "something was
+    # scanned", which is what distinguishes a working scraper from a broken one.
+    # A tighter floor would be a second copy of spec/hooks.yaml's row count, and
+    # R1/R2/R3 already compare the sets themselves.
+    for lang in spec.LANGUAGES:
+        if not bindings[lang]:
+            failures.append(
+                f"COVERAGE {lang}: zero bindings scanned. Every rule over this language is "
+                f"then vacuously satisfiable — the scrape found nothing, so nothing can "
+                f"disagree with the spec. One of that language's scanners matched an empty "
+                f"region."
+            )
+    if not doc["hooks"]:
+        failures.append("COVERAGE spec/hooks.yaml parsed to zero rows — every rule is vacuous.")
+    if not proto_rpcs:
+        failures.append(f"COVERAGE {doc['proto']} parsed to zero plugin-facing rpcs — R3 is vacuous.")
 
     counts = ", ".join(
         f"{lang}={len(bindings[lang])}" for lang in spec.LANGUAGES
