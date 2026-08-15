@@ -115,7 +115,21 @@ def _region(rel: str, start_re: str, end_re: str | None) -> list[str]:
         )
     if end_re is None:
         return lines[start:]
-    end = next((i for i in range(start + 1, len(lines)) if re.search(end_re, lines[i])), len(lines))
+    # The END anchor refuses too. It used to fall back to `len(lines)`, so a
+    # terminator that stopped matching silently widened the region to the rest
+    # of the file — and every scanner over it collects names it FINDS, so a
+    # wider region yields more bindings and R1 ("a hook marked stable has a
+    # binding") passes more easily. A miss made the check weaker while staying
+    # green, which is the one direction nobody can see. The start anchor has
+    # refused since this file was written; the end anchor was the asymmetry.
+    end = next((i for i in range(start + 1, len(lines)) if re.search(end_re, lines[i])), None)
+    if end is None:
+        raise AnchorError(
+            f"{rel}: found the start anchor /{start_re}/ but not the end anchor "
+            f"/{end_re}/ after it. Refusing rather than scanning to end of file: a "
+            f"widened region finds MORE bindings, so this would have made the parity "
+            f"rules pass more easily instead of failing. Update tools/parity/check.py."
+        )
     return lines[start:end]
 
 
@@ -165,7 +179,19 @@ def _blocks(lines: list[str], head: re.Pattern[str], close: str) -> dict[str, st
             continue
         body.append(line)
     if name is not None:
-        out[name] = "\n".join(body)
+        # Same asymmetry as `_region`'s end anchor, and the docstring above
+        # already argues for refusing here — "a body that does not end that way
+        # is a file whose shape has changed enough to want a human" — while the
+        # code quietly kept the unterminated tail instead of summoning one. A
+        # reasoning written down and not applied at the site it describes reads
+        # as protection and is not.
+        raise AnchorError(
+            f"the block `{name}` is not terminated by {close!r}. These files are "
+            f"rustfmt/black/prettier output, so a method's closing line is exactly "
+            f"that; a body running to end of file means the shape changed. Refusing "
+            f"rather than keeping the tail: the scanners count what they find, so a "
+            f"swollen block makes the parity rules pass more easily."
+        )
     return out
 
 
