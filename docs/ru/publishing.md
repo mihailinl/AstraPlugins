@@ -49,9 +49,11 @@ astra-plugin --version
 ```
 
 Если это ничего не печатает, остановитесь здесь и сначала пройдите
-**[установку CLI](install-cli.md)**. Это одна строка `cargo install`,
-нужен тулчейн Rust, и готовых бинарников пока нет — та страница говорит об
-этом прямо и объясняет, что установить.
+**[установку CLI](install-cli.md)**. Теперь есть готовые бинарники —
+скачайте архив для Linux или Windows, сверьте его с `SHA256SUMS.txt`, и
+никакой тулчейн не нужен. Сборка из исходников по-прежнему работает и
+остаётся путём для macOS и ARM Linux. `cargo install astra-plugin-cli` —
+вообще не путь; та страница объясняет, почему.
 
 > **Не судите о здоровье вашей сборки по номеру версии.** CLI, собранная
 > до коммита `5b8ab22`, пишет workflow релиза, который GitHub отклоняет в
@@ -215,10 +217,12 @@ Checking plugin at ....
 умолчанию она выключена, чтобы ни `dev`, ни CI не требовали сети для
 запуска проверки.
 
-## 4 · Опубликуйте, публично
+## 4 · Опубликуйте, публично — с файлом владения
 
 <!-- doctest: cli -->
 ```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
@@ -230,6 +234,21 @@ astra-plugin check --strict
 остановка здесь — это как раз то место, где ошиблись две реальные заявки,
 подтолкнувшие к созданию этой страницы. Что делает его опубликованным
 плагином — это тег на следующем шаге.
+
+**Две дополнительные строки сверху — это доказательство владения, и они не
+опциональны.** `.well-known/astra-plugin-owner` на вашей дефолтной ветке
+хранит ваш логин GitHub — по одному на строку. Именно так реестр
+устанавливает, что человек, просящий листинг, контролирует репозиторий,
+который листингуется, — то единственное, чего не может сказать аттестация
+сборки. Создайте его сейчас, пока вы всё равно коммитите, и шаг 8 пройдёт с
+первого раза.
+
+Пропустите его — и первая заявка получит отказ с `E_OWNERSHIP_UNPROVEN`,
+потому что две более сильные проверки не могут ответить за обычный
+репозиторий: GitHub отвечает реестру `403`, когда тот спрашивает, у кого
+есть `admin` на репозитории, в который у него нет видимости, а автор релиза
+— `github-actions[bot]`: релиз публикует workflow из шага 3, а не вы. Полное
+объяснение — [Попасть в каталог §2](5-publish/get-listed.md#2--докажите-что-вы-контролируете-репозиторий).
 
 ## 5 · Тег — это и есть релиз
 
@@ -349,7 +368,7 @@ astra-plugin publish --dry-run
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -360,7 +379,26 @@ astra-plugin publish --dry-run
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
+Из этого списка строка про владение — та проверка, которую решает ваша
+собственная работа, и вы её сделали на
+[шаге 4](#4--опубликуйте-публично--с-файлом-владения). Остальное следует из
+того, что вы затегировали релиз, который собрал workflow.
+
 ## 8 · Отправьте заявку, один раз навсегда
+
+**Прежде чем запускать это**, убедитесь, что файл владения из
+[шага 4](#4--опубликуйте-публично--с-файлом-владения) есть на вашей дефолтной
+ветке. Это единственная проверка на этой странице, которую можно провалить,
+сделав всё остальное правильно:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+Это должно напечатать ваш логин. `Not Found (HTTP 404)` значит, что реестр
+тоже его не найдёт.
 
 <!-- doctest: cli -->
 ```bash
@@ -402,8 +440,10 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 > начинается без чьего-либо вмешательства.
 
 Заявка несёт **два факта**: ваш исходный репозиторий (`you/dice-roller`) и
-тег релиза (`v0.1.0`), плюс два подтверждения — что вы владеете
-репозиторием или являетесь его мейнтейнером, и что вы прочли политику.
+тег релиза (`v0.1.0`), плюс три обязательных подтверждения — что вы
+закоммитили `.well-known/astra-plugin-owner` в дефолтную ветку и в нём есть
+ваш логин, что вы владеете репозиторием или являетесь его мейнтейнером, и
+что вы прочли политику.
 Всё остальное считывается из удостоверенного бандла, потому что всё в
 бандле покрыто аттестацией и поэтому строго надёжнее, чем что-либо,
 введённое в форму.
@@ -411,7 +451,7 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 ## 9 · Что происходит дальше
 
 Подробности, включая каждый код причины: [Попасть в каталог §что
-происходит после отправки](5-publish/get-listed.md#3-что-происходит-после-отправки).
+происходит после отправки](5-publish/get-listed.md#4--что-происходит-после-отправки).
 Короткая версия:
 
 | Исход | Значит | Кто вовлечён |

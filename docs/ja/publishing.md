@@ -45,9 +45,11 @@ astra-plugin --version
 ```
 
 何も表示されない場合は、ここで止まって先に **[CLI をインストールする](install-cli.md)**
-を行ってください。`cargo install` の 1 行で済みますが Rust ツールチェーンが必要で、
-ビルド済みバイナリはまだありません — そのページにはそのことがはっきり書かれており、
-何をインストールすべきかも書かれています。
+を行ってください。今ではビルド済みバイナリがあります — Linux か Windows 用の
+アーカイブをダウンロードし、`SHA256SUMS.txt` と照合すれば、ツールチェーンは一切
+不要です。ソースからのビルドも引き続き動作し、macOS と ARM Linux ではそちらが唯一の道です。
+`cargo install astra-plugin-cli` はそもそも道ではありません — そのページに理由が
+書かれています。
 
 > **ビルドの健全さをバージョン番号から読み取らないでください。** コミット
 > `5b8ab22` より前にビルドされた CLI は、最初のタグを push した瞬間に GitHub が
@@ -209,10 +211,12 @@ Checking plugin at ....
 ワークフローピンが今も最新かどうかを GitHub に問い合わせます。`dev` にも CI にも
 チェックを走らせるのにネットワークが不要であるように、デフォルトでは無効です。
 
-## 4 · push する、公開で
+## 4 · push する、公開で — 所有権ファイルとともに
 
 <!-- doctest: cli -->
 ```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
@@ -224,6 +228,22 @@ astra-plugin check --strict
 公開することではなく、このページのきっかけとなった 2 件の実際の申請はここで
 止まってしまったことが誤りでした。公開済みプラグインにするのは次のステップの
 タグです。
+
+**冒頭に追加された 2 行が所有権の証明であり、これは省略できません。**
+`.well-known/astra-plugin-owner` は、あなたのデフォルトブランチ上に、あなたの
+GitHub ログインを 1 行につき 1 つ保持します。これは、リスト掲載を申請している
+人物が掲載対象のリポジトリを制御していることをレジストリが確立する方法であり、
+ビルド証明では言えない唯一のことです。どうせコミットするついでに今のうちに
+作成しておけば、ステップ 8 は 1 回目で通ります。
+
+これを省くと、最初の提出は `E_OWNERSHIP_UNPROVEN` で拒否されます。なぜなら、
+より強い 2 つのチェックは普通のリポジトリでは答えられないからです: GitHub は、
+可視性を持たないリポジトリの `admin` を誰が持っているかレジストリが尋ねると
+`403` を返しますし、リリースの作者は `github-actions[bot]` です — ステップ 3
+のワークフローがリリースを公開するのであって、あなたではありません。詳しい
+説明は
+[リストに掲載してもらう §2](5-publish/get-listed.md#2--リポジトリを制御していることを証明する)
+にあります。
 
 ## 5 · タグを打つ — これがリリースです
 
@@ -344,7 +364,7 @@ astra-plugin publish --dry-run
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -355,7 +375,24 @@ astra-plugin publish --dry-run
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
+このリストの中で、あなた自身の作業が決めるものは所有権の行であり、それは
+[ステップ 4](#4--push-する公開で--所有権ファイルとともに)で行いました。
+残りは、ワークフローがビルドしたリリースにタグを打ったことから導かれます。
+
 ## 8 · 1 回だけ提出する
+
+**これを実行する前に**、[ステップ 4](#4--push-する公開で--所有権ファイルとともに)
+の所有権ファイルがデフォルトブランチにあることを確認してください。これは、
+他のすべてを正しく行っていても失敗しうる、このページで唯一のチェックです:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+これはあなたのログインを表示するはずです。`Not Found (HTTP 404)` は、
+レジストリもそれを見つけられないことを意味します。
 
 <!-- doctest: cli -->
 ```bash
@@ -396,14 +433,16 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 > 取り込みが始まる経路はこれです。
 
 この提出には **2 つの事実** — あなたのソースリポジトリ(`you/dice-roller`)と
-リリースタグ(`v0.1.0`) — と、2 つの確認事項 — あなたがそのリポジトリの所有者
-またはメンテナーであること、ポリシーを読んだこと — が含まれます。それ以外は
+リリースタグ(`v0.1.0`) — と、3 つの必須確認事項 — `.well-known/astra-plugin-owner`
+をデフォルトブランチにコミットし、そこに自分のログイン名があること、あなたが
+そのリポジトリの所有者またはメンテナーであること、ポリシーを読んだこと — が
+含まれます。それ以外は
 すべて証明済みバンドルから読み取られます。バンドル内のすべてが証明の対象と
 なっているため、フォームに入力された何よりも厳密に価値が高いからです。
 
 ## 9 · そのあと何が起きるか
 
-詳細と理由コードの全一覧は [リストに掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#3--提出後に何が起きるか)
+詳細と理由コードの全一覧は [リストに掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#4--提出後に何が起きるか)
 にあります。要約すると次のとおりです。
 
 | 結果 | 意味 | 誰が関わるか |

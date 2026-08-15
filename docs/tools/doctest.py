@@ -39,6 +39,13 @@ THE MARKER
                        the real binary (`--help` appended: clap validates the
                        subcommand and every flag, then exits before doing
                        anything). Other lines must use an allowlisted command.
+                       The block is NOT executed as a script, so one thing it
+                       cannot observe is checked structurally instead: a block
+                       that unpacks the CLI archive and then calls `astra-plugin`
+                       by bare name is refused, because for the reader — who by
+                       definition has no CLI yet — that line is `command not
+                       found`. Path-qualify it, or put the `cp` onto `PATH` in
+                       the same block.
       python-plugin    a complete Python module. Byte-compiled, and executed
                        top-level when the SDK is importable.
       ts-plugin        a complete TypeScript module. Type-checked with `tsc
@@ -81,7 +88,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -425,14 +432,38 @@ def run_toml_manifest(b: Block, env: Env) -> None:
     run([str(env.cli), "check", str(d), "--strict"], cwd=d)
 
 
+def is_cli_head(head: str) -> bool:
+    """Whether this word invokes *this* repository's binary.
+
+    A bare `astra-plugin` resolves through `PATH`; a path-qualified one —
+    `./astra-plugin-0.2.1-linux-x64-musl/astra-plugin` — resolves out of the
+    directory an archive just unpacked into. Both are the same program, and
+    the second is the only form that works before anything is on `PATH`.
+    """
+    return PurePosixPath(head).name in ("astra-plugin", "astra-plugin.exe")
+
+
+# A line that unpacks a release archive of the CLI. Everything after one of
+# these, inside the same block, is running on a machine that does not yet have
+# `astra-plugin` on its `PATH` — see `run_cli`.
+UNPACKS_CLI_RE = re.compile(r"^(tar|unzip)\b.*astra-plugin-\S*\.(tar\.gz|tgz|zip)")
+# ... unless the block itself puts the binary somewhere `PATH` will find it.
+INSTALLS_CLI_RE = re.compile(r"^(cp|mv|install)\b.*astra-plugin.*\bbin\b")
+
+
 def run_cli(b: Block, env: Env) -> None:
     cli = str(env.cli)
     checked = 0
+    unpacked_here = False
     for raw in b.body.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         line = line.removeprefix("$ ").strip()
+        if UNPACKS_CLI_RE.match(line):
+            unpacked_here = True
+        elif INSTALLS_CLI_RE.match(line):
+            unpacked_here = False
         # One line, one command: `&&`, `|` and `;` join commands that are each
         # checked on their own terms.
         for part in re.split(r"&&|\|\||;", line):
@@ -447,7 +478,21 @@ def run_cli(b: Block, env: Env) -> None:
             if not words:
                 continue
             head = words[0]
-            if head == "astra-plugin":
+            if head == "astra-plugin" and unpacked_here:
+                # The blind spot this harness had, made loud. A `cli` block is
+                # never executed as a script — every `astra-plugin` line is
+                # re-run on its own against a prebuilt binary at an absolute
+                # path — so a block that unpacks the CLI and then calls it by
+                # bare name passed here while exiting 127 for every reader,
+                # who by definition does not have it on `PATH` yet.
+                raise Fail(
+                    f"`{part}` runs before anything is on `PATH`: this block unpacks the CLI "
+                    "archive and never copies the binary into a `bin` directory, so a reader "
+                    "pasting it gets `command not found` (exit 127). Write it path-qualified — "
+                    "`./astra-plugin-<version>-<target>/astra-plugin --version` — or add the "
+                    "`cp … ~/.local/bin/` line to this block."
+                )
+            if is_cli_head(head):
                 # clap parses the subcommand and every flag, then `--help`
                 # short-circuits before the subcommand does anything. An
                 # unknown flag or subcommand exits 2 — which is the check.

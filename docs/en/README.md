@@ -32,7 +32,7 @@ laptop carries neither.
 | | |
 |---|---|
 | **[Publishing a plugin](publishing.md)** | **The whole journey in one page: empty directory to listed plugin, every command with its output. Start here.** |
-| [Install the CLI](install-cli.md) | `astra-plugin` is not on crates.io and has no prebuilt binaries yet; this is how to get it, honestly |
+| [Install the CLI](install-cli.md) | Download a prebuilt `astra-plugin` and verify it, or build from source. Not `cargo install` — that cannot work, and this says why |
 
 The three tiers of it, if you want one at a time:
 

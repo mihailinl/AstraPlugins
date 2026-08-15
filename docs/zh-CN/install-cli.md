@@ -5,25 +5,153 @@
 发布流程中的一切都始于一条命令，而这一页就是教你获得这条命令的地方。这个可执行文件
 叫 **`astra-plugin`** —— 不是 `astra-plugin-cli`，后者只是 crate 的名字。
 
-## 如实说明现状
+## 两种方式，选哪一个
 
-**目前还没有预编译二进制文件，`astra-plugin-cli` 也不在 crates.io 上。**
-今天验证过：`https://index.crates.io/as/tr/astra-plugin-cli` 返回 `404`，而同一索引
-上的 `astra-plugin-sdk` 返回 `200`，所以这不是查询失败，而是确实不存在。
-`gh release list --repo mihailinl/AstraPlugins` 什么也不打印。
+**下载二进制文件。** 发布 [`cli-v0.2.1`][rel] 带有 Linux 和 Windows 的
+预编译归档文件、一个校验和文件，以及一个你可以验证的 Sigstore 包。不需要
+编译任何东西，也不涉及任何工具链。这是大多数人想要的路，下面就是它的
+说明。
 
-所以获取 CLI 的唯一方式就是自己构建，而构建需要 Rust 工具链。发布预编译二进制文件
-是一项已知的、独立的、尚待完成的任务 —— 相应的发布自动化正在编写中，等到真的有一个
-可供下载的 release 的那天，这一页才会长出一行下载命令。在那之前，它描述的就是现状
-的全部，这里也没有任何一处要你去下载什么。
+**或者从源码构建**，这需要 Rust 1.85 或更新版本，以及 `protoc`。如果
+你所在的平台还没有归档文件 —— 目前来说是 macOS 和 ARM Linux —— 或者你
+想读一读甚至改一改 CLI，而不只是运行它，就选这条路。
 
-这个成本是真实的，值得说明为什么仍然值得付出：CLI 并不是套在某条更简单路径外面的
-便利包装。它是唯一能写出正确发布工作流的东西，唯一能让你的各份清单在版本号上保持
-一致的东西，也是唯一能打开一个注册表 bot 真正会看到的上架申请的东西。绕开它，正是
-两次真实提交最终归于沉默的原因 —— 详见
-[发布到底是什么](publishing.md)。
+**`cargo install astra-plugin-cli` 不是这两种方式之一，而且不会成功。**
+这个 crate 以路径方式依赖一个 vendor 进来的 `astra-plugin-manifest`
+(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`)，
+cargo 从不会打包一个路径依赖的源码，所以发布会因为 *all dependencies
+must have a version requirement specified* 而失败 —— 所以这个 crate
+根本就不在 crates.io 上（`https://index.crates.io/as/tr/astra-plugin-cli`
+今天返回 `404`，而同一索引上的 `astra-plugin-sdk` 返回 `200`）。要解决
+这个问题，得先从 Astra 发布这个清单 crate，而本页不会对此承诺任何日期。
 
-## 前置条件
+[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
+
+## 下载二进制文件
+
+### 选哪个归档
+
+| 你在用 | 选择 |
+|---|---|
+| **任意 Linux** | `astra-plugin-0.2.1-linux-x64-musl.tar.gz` |
+| Linux，且特别想要 glibc 构建版本 | `astra-plugin-0.2.1-linux-x64-gnu.tar.gz` |
+| **Windows** | `astra-plugin-0.2.1-windows-x64.zip` |
+
+**musl 是安全的默认选择，理由不是口味问题。** gnu 那个构建是动态链接
+的，它的符号表需要 **glibc 2.39 或更新版本**，而 Ubuntu 22.04（2.35）、
+Debian 12（2.36）、RHEL 9（2.34）都没有 —— 在这些系统上它会直接启动
+失败，而不是隐晦地出问题。musl 归档是一个完全不依赖 libc 的
+`static-pie` 可执行文件，所以在它们上面都能跑。只有在你确实明确想要
+gnu 版本时才选它。
+
+那次发布的完整资产列表，也就是所有已发布的内容：
+
+<!-- doctest: output from="gh release view cli-v0.2.1 --repo mihailinl/AstraPlugins --json assets" unrun="reads a GitHub release over the network; re-run the command in the from= to confirm the list, or open the release page" -->
+```
+astra-plugin-0.2.1-linux-x64-gnu.tar.gz     3372607
+astra-plugin-0.2.1-linux-x64-musl.tar.gz    3425289
+astra-plugin-0.2.1-windows-x64.zip          3450755
+SHA256SUMS.txt                                  314
+astra-plugin-0.2.1.sigstore.jsonl             11414
+```
+
+### 获取并验证它
+
+在 Linux 上用 `curl` —— 这里既不需要 `gh`，也不需要 GitHub 账号：
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+这是这些命令的一份真实记录：
+
+<!-- doctest: output from="sha256sum -c --ignore-missing SHA256SUMS.txt" unrun="needs the release archive downloaded next to the checksum file; re-run the two curl lines above and then this one" -->
+```
+astra-plugin-0.2.1-linux-x64-musl.tar.gz: OK
+```
+
+**请使用 `--ignore-missing`。** `SHA256SUMS.txt` 列出了全部三个归档
+文件，普通的 `sha256sum -c SHA256SUMS.txt` 会把你没下载的那两个报告
+为 `FAILED open or read`，并**以退出码 1 结束** —— 这看起来完全就像
+下载损坏了，但其实不是：
+
+<!-- doctest: output from="sha256sum -c SHA256SUMS.txt" unrun="needs one of the three archives present and the other two absent; re-run the curl lines above and then this one to reproduce it" -->
+```
+sha256sum: astra-plugin-0.2.1-linux-x64-gnu.tar.gz: No such file or directory
+astra-plugin-0.2.1-linux-x64-gnu.tar.gz: FAILED open or read
+astra-plugin-0.2.1-linux-x64-musl.tar.gz: OK
+sha256sum: astra-plugin-0.2.1-windows-x64.zip: No such file or directory
+astra-plugin-0.2.1-windows-x64.zip: FAILED open or read
+sha256sum: WARNING: 2 listed files could not be read
+```
+
+这个归档会解压出一个目录，其中包含二进制文件和它的许可证文件：
+
+<!-- doctest: output from="tar tzf astra-plugin-0.2.1-linux-x64-musl.tar.gz" unrun="needs the downloaded archive; re-run the curl line above and then this one" -->
+```
+astra-plugin-0.2.1-linux-x64-musl/
+astra-plugin-0.2.1-linux-x64-musl/LICENSE
+astra-plugin-0.2.1-linux-x64-musl/NOTICE
+astra-plugin-0.2.1-linux-x64-musl/README.md
+astra-plugin-0.2.1-linux-x64-musl/astra-plugin
+```
+
+把 `astra-plugin` 移动到 `PATH` 中的某个位置 —— `~/.local/bin` 是常见
+的选择，而且不需要 `sudo`：
+
+<!-- doctest: cli -->
+```bash
+mkdir -p ~/.local/bin
+cp astra-plugin-0.2.1-linux-x64-musl/astra-plugin ~/.local/bin/
+astra-plugin --version
+```
+
+在 Windows 上，从发布页面下载 `.zip`，解压它，然后把
+`astra-plugin.exe` 放到你的 `PATH` 中。`certutil -hashfile <file>
+SHA256` 是内置的校验和工具，把它的输出和 `SHA256SUMS.txt` 用肉眼比对。
+
+### 验证是谁构建的它
+
+校验和证明的是这些字节和发布中列出的某个文件相匹配。它不能证明是谁
+生产了那个文件 —— 为此有一个 Sigstore 包，`gh` 会拿它去和 GitHub 的
+构建证明核对：
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+astra-plugin --version
+```
+
+**成功时，如果输出不是终端就什么都不打印，并以 `0` 退出。** 第一次
+遇到这个会让人费解；请检查 `echo $?`，而不是去找一个对勾。失败时会
+很吵闹，并以 `1` 退出：
+
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+```
+Error: verifying with issuer "sigstore.dev"
+```
+
+这是通过在归档文件末尾附加一个字节产生的；把 `--repo` 指向一个没有
+构建过它的仓库也会以同样的方式失败。一个包会覆盖全部三个归档文件，
+它证明的内容可以用 `--format json` 读取：签名用的工作流是
+`https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`，
+issuer 是 `https://token.actions.githubusercontent.com`，三个 subject
+摘要值就是 `SHA256SUMS.txt` 的三行。`gh attestation verify` 需要网络
+访问来获取信任根，但不需要 GitHub 登录。
+
+## 从源码构建
+
+在 macOS 或 ARM Linux 上选这条路，因为那里还没有归档文件，或者是为了
+在 CLI 本身上做开发。这不是下载失败时的备用方案 —— 上面的二进制文件
+就是同一个程序。
+
+### 前置条件
 
 | | 原因 | 检查方式 |
 |---|---|---|
@@ -52,7 +180,7 @@ Windows         winget install Google.Protobuf     (or scoop install protobuf)
   Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
 ```
 
-## 安装
+### 构建它
 
 **一行命令，无需克隆。** 通常应该用这个：
 
@@ -97,6 +225,16 @@ astra-plugin --version
 普通的 `git clone` 检出的就是 `master`，而当前的 CLI 就在 `master` 上 —— 没有什么
 额外的分支需要你去记住。
 
+要构建出和已发布二进制文件完全相同的代码，而不是 `master` 今天携带的
+内容，请先检出那个发布标签：
+
+<!-- doctest: cli -->
+```bash
+git clone --branch cli-v0.2.1 https://github.com/mihailinl/AstraPlugins
+cargo install --path AstraPlugins/astra-plugin-cli --locked
+astra-plugin --version
+```
+
 ## 验证是否成功
 
 <!-- doctest: cli -->
@@ -110,14 +248,17 @@ astra-plugin --help
 astra-plugin <version>
 ```
 
-这个数字是占位符，因为两条安装命令都不让你挑版本：它们构建的都是某个 commit 而不是
-某个 release，所以你拿到的就是那个 commit 的 `Cargo.toml` 里写的版本。`0.2.1` 是
-[CLI 的 changelog](../../astra-plugin-cli/CHANGELOG.md) 里最新的一条，那里同样记录了
-这个 crate 没有发布列车 —— 没有 crates.io，没有标签，也没有二进制文件。
+下载的二进制文件会打印出 `astra-plugin 0.2.1`，因为这个归档是从标签
+`cli-v0.2.1` 构建的，别无其他来源。`<version>` 只在源码这条路上才是
+占位符：`cargo install --git` 构建的是那一刻 `master` 上的内容，所以
+你拿到的就是那个 commit 的 `Cargo.toml` 里写的版本，它可能领先于最新
+的发布版本。`0.2.1` 是 [CLI 的 changelog](../../astra-plugin-cli/CHANGELOG.md)
+里最新的一条。
 
-如果 shell 找不到它，说明 `cargo install` 把它装到了 `~/.cargo/bin`（Windows 上是
-`%USERPROFILE%\.cargo\bin`），而这个目录不在你的 `PATH` 里。出现这种情况时，
-`cargo` 会明确打印出相应的警告。
+如果 shell 找不到它：下载的二进制文件就在你复制到的那个位置，而
+`cargo install` 会把它装到 `~/.cargo/bin`（Windows 上是
+`%USERPROFILE%\.cargo\bin`）。无论哪种情况，这个目录都不在你的
+`PATH` 里。出现这种情况时，`cargo` 会明确打印出相应的警告。
 
 ### 会破坏第一次发布的那个 bug，以及如何判断你的构建是否包含修复
 
@@ -126,10 +267,14 @@ astra-plugin <version>
 就以 `invalid value workflow reference` 失败。这就是
 [AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2)。
 
-**修复是提交 `5b8ab22`，而不是某个版本号**，这一点最容易把人绕进去。这里没有发布
-列车 —— 什么都没有发布，所以没有人安装“选定的版本”；每个人构建的都是自己克隆到的
-那个 commit。`5b8ab22` 进入 `master` 的时间*早于*把版本号提升到 `0.2.1` 的那次
-提交，这意味着：
+**下载 `0.2.1` 二进制文件就能解决这个问题，这是最简短的答案。** 这个
+归档是从标签 `cli-v0.2.1` 构建的，`5b8ab22` 是它的祖先提交，所以下载的
+二进制文件已经带有这个修复。本节剩下的内容是关于从源码构建的，那里的
+数字才无法给出定论。
+
+**修复是提交 `5b8ab22`，而不是某个版本号**，这一点最容易把人绕进去。从源码构建
+安装的是你克隆到的那个 commit，而不是某个选定的发布版本。`5b8ab22` 进入 `master`
+的时间*早于*把版本号提升到 `0.2.1` 的那次提交，这意味着：
 
 - `5b8ab22` 之后从 `master` 构建出来的东西**既包含修复，又仍然显示 `0.2.0`** ——
   那不是坏掉的构建；
@@ -200,16 +345,24 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 
 ## 保持最新
 
-重新运行同一条 `cargo install --git` 命令即可，Cargo 会原地替换掉可执行文件。
-目前没有自我更新机制，而且在有了签名的发布二进制文件之前，也不会有。
+如果你下载的是二进制文件，下载下一个发布版本的归档文件并替换掉旧的 ——
+再核对一次校验和，因为新发布就意味着新的字节。如果你是从源码构建的，
+重新运行同一条 `cargo install` 命令，cargo 就会原地替换掉可执行文件。
+**没有自我更新机制**，这套工具链里也没有任何东西会主动联网去发现是否
+有新版本存在。
 
 ## 常见问题
 
 | 症状 | 原因 |
 |---|---|
+| `sha256sum -c` 报出 `FAILED open or read` | 你只下载了一个归档，而文件里列出了三个。加上 `--ignore-missing` |
+| `Error: verifying with issuer "sigstore.dev"` | 归档和包不匹配，或者 `--repo` 指向的仓库并没有构建过它。重新下载一次，而不是去推理原因 |
+| `gh attestation verify` 完全没有输出 | 那就是成功。它在输出不是终端时保持沉默；用 `echo $?` 确认是 `0` |
+| 二进制文件启动不了，加载器抱怨找不到 `GLIBC_2.39` 版本 | 你在一个 glibc 较旧的系统上选用了 gnu 归档。换成 musl 的，它不需要 libc |
+| `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` 无法成功，这就是它给出的报错。参见本页开头 |
 | `Could not find` protoc` ` | `protoc` 不在 `PATH` 中，参见上面的表格 |
 | `feature `edition2024` is required` | Rust 版本低于 1.85 |
-| 安装成功后仍提示 `astra-plugin: command not found` | `~/.cargo/bin` 不在 `PATH` 中 |
+| 安装成功后仍提示 `astra-plugin: command not found` | 放二进制文件的那个目录不在 `PATH` 中 —— 对于从源码构建，那就是 `~/.cargo/bin` |
 | 在仓库根目录运行 `cargo install --path .` 时出现 `error: could not find `Cargo.toml`` | 根目录没有工作区清单文件。把 `--path` 指向 `astra-plugin-cli/` |
 | `unrecognized subcommand 'new'` | `PATH` 中有一个更旧的 `astra-plugin`排在前面。`--version` 无法帮你分辨，用 `which astra-plugin`（Windows 上用 `where`）查看你实际运行的是哪个文件 |
 | 第一次推送标签时出现 `invalid value workflow reference` | 写出 `release.yml` 的那个 CLI 早于 `5b8ab22`，固定的是标签对象。参见[如何判断你的构建是否包含修复](#会破坏第一次发布的那个-bug以及如何判断你的构建是否包含修复) |

@@ -4,8 +4,8 @@
 you never hand-build a bundle again.
 
 Everything on this page starts from the `astra-plugin` binary. If you do not
-have it, [install the CLI](../install-cli.md) first — one `cargo install` line,
-a Rust toolchain required, no prebuilt binaries yet. For the whole journey in
+have it, [install the CLI](../install-cli.md) first — download a prebuilt
+archive, or build from source if you want to. For the whole journey in
 one page rather than this one tier of it, see
 [Publishing a plugin](../publishing.md).
 

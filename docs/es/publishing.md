@@ -50,10 +50,12 @@ astra-plugin --version
 ```
 
 Si eso no imprime nada, detente aquí y haz primero
-**[Instalar la CLI](install-cli.md)**. Es una línea de
-`cargo install`, necesita una toolchain de Rust, y todavía no hay
-binarios precompilados — esa página lo dice con claridad y te indica
-qué instalar.
+**[Instalar la CLI](install-cli.md)**. Ahora hay binarios
+precompilados — descarga un archivo para Linux o Windows, compruébalo
+contra `SHA256SUMS.txt`, y no hace falta ninguna toolchain. Compilar
+desde el código fuente sigue funcionando y es la vía en macOS y ARM
+Linux. `cargo install astra-plugin-cli` no es una vía en absoluto; esa
+página explica por qué.
 
 > **No leas la salud de tu compilación en el número de versión.** Una CLI
 > compilada antes del commit `5b8ab22` escribe un workflow de release que
@@ -223,10 +225,12 @@ le pregunta a GitHub si el fijado de tu workflow sigue siendo el
 actual; está desactivado por defecto para que ni `dev` ni la CI
 necesiten red para ejecutar una comprobación.
 
-## 4 · Subirlo, en público
+## 4 · Subirlo, en público — con el archivo de propiedad
 
 <!-- doctest: cli -->
 ```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
@@ -238,6 +242,22 @@ Pero nota lo que *no* es: subir esto no publica el plugin, y detenerse
 aquí es donde se equivocaron las dos solicitudes reales que motivaron
 esta página. Lo que lo convierte en un plugin publicado es la etiqueta
 del siguiente paso.
+
+**Las dos líneas extra al principio son la prueba de propiedad, y no
+son opcionales.** `.well-known/astra-plugin-owner`, en tu rama por
+defecto, guarda tu login de GitHub — uno por línea. Así es como el
+registro establece que la persona que solicita el listado controla el
+repositorio que se está listando, lo único que la attestation de
+compilación no puede decir. Créalo ahora, ya que de todos modos estás
+haciendo commit, y el paso 8 pasará a la primera.
+
+Sáltatelo y tu primer envío será rechazado con
+`E_OWNERSHIP_UNPROVEN`, porque las dos comprobaciones más fuertes no
+pueden responder por un repositorio normal: GitHub le dice al registro
+`403` cuando pregunta quién tiene `admin` en un repositorio al que no
+tiene visibilidad, y el autor del release es `github-actions[bot]` — el
+workflow del paso 3 publica el release, no tú. La explicación completa
+está en [Conseguir el listado §2](5-publish/get-listed.md#2--demuestra-que-controlas-el-repositorio).
 
 ## 5 · Etiquetar — esto es el release
 
@@ -358,7 +378,7 @@ ejecutar, para que sepas qué queda por demostrar:
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -369,7 +389,26 @@ ejecutar, para que sepas qué queda por demostrar:
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
+De esa lista, la línea de propiedad es la que decide tu propio trabajo, y la
+resolviste en el
+[paso 4](#4--subirlo-en-público--con-el-archivo-de-propiedad). El resto
+viene de haber etiquetado un release que compiló el workflow.
+
 ## 8 · Enviar, una sola vez, para siempre
+
+**Antes de ejecutar esto**, confirma que el archivo de propiedad del
+[paso 4](#4--subirlo-en-público--con-el-archivo-de-propiedad) está en tu
+rama por defecto. Es la única comprobación de esta página en la que
+puedes fallar habiendo hecho todo lo demás correctamente:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+Eso debería imprimir tu login. `Not Found (HTTP 404)` significa que el
+registro tampoco lo encontrará.
 
 <!-- doctest: cli -->
 ```bash
@@ -414,16 +453,18 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 > que inicia una ingesta sin que nadie tenga que intervenir.
 
 El envío lleva **dos hechos**: tu repositorio fuente
-(`you/dice-roller`) y la etiqueta de release (`v0.1.0`), más dos
-confirmaciones — que eres dueño o mantenedor del repositorio, y que has
-leído la política. Todo lo demás se lee del paquete certificado, porque
+(`you/dice-roller`) y la etiqueta de release (`v0.1.0`), más tres
+confirmaciones obligatorias — que has subido `.well-known/astra-plugin-owner`
+a la rama por defecto con tu login dentro, que eres dueño o mantenedor del
+repositorio, y que has leído la política. Todo lo demás se lee del paquete
+certificado, porque
 todo en el paquete está cubierto por la attestation y por tanto vale
 estrictamente más que cualquier cosa escrita en un formulario.
 
 ## 9 · Qué pasa después
 
 Detalle, incluyendo cada código de motivo:
-[Conseguir el listado §qué pasa después de enviar](5-publish/get-listed.md#3--qué-pasa-después-de-enviar).
+[Conseguir el listado §qué pasa después de enviar](5-publish/get-listed.md#4--qué-pasa-después-de-enviar).
 La versión corta:
 
 | Resultado | Significa | Quién está involucrado |

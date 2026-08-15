@@ -78,14 +78,39 @@ someone you are willing to run code from.
 
 ### 1. Get the CLI
 
-`astra-plugin-cli` is **not on crates.io** and there are **no prebuilt
-binaries** — verified today: `https://index.crates.io/as/tr/astra-plugin-cli`
-answers `404` where `astra-plugin-sdk` answers `200`, and
-`gh release list --repo mihailinl/AstraPlugins` prints nothing. So installing it
-means building it, which means a Rust toolchain. Prebuilt `linux-x64` and
-`windows-x64` binaries are a known, separate, pending task.
+**Download a binary.** Release [`cli-v0.2.1`][rel] carries
+`astra-plugin-0.2.1-linux-x64-musl.tar.gz`,
+`astra-plugin-0.2.1-linux-x64-gnu.tar.gz`,
+`astra-plugin-0.2.1-windows-x64.zip`, `SHA256SUMS.txt` and
+`astra-plugin-0.2.1.sigstore.jsonl`. No toolchain:
 
-One line, no clone:
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt    # …-musl.tar.gz: OK
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+```
+
+Take **musl** on any Linux: the gnu build needs glibc 2.39 or newer, which
+Ubuntu 22.04, Debian 12 and RHEL 9 do not have, while the musl build is
+`static-pie` and needs no libc. `--ignore-missing` is not optional —
+`SHA256SUMS.txt` lists all three archives, so without it `sha256sum` exits 1
+over the two you did not download. To check who built it rather than only that
+the bytes match, `gh attestation verify <archive> --bundle
+astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins`; it is silent
+and exits `0` on success.
+
+There is no macOS or ARM archive yet — build from source there.
+
+**`cargo install astra-plugin-cli` does not work**, and will not until a
+separate crate ships: the CLI depends on a vendored `astra-plugin-manifest` by
+path, cargo never packages a path dependency's source, so the crate cannot be
+published (`https://index.crates.io/as/tr/astra-plugin-cli` answers `404` where
+`astra-plugin-sdk` answers `200`). No date is promised.
+
+[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
+
+**Or build from source** — one line, no clone:
 
 ```bash
 cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked
@@ -97,7 +122,9 @@ astra-plugin --version          # astra-plugin <version>
 — `<version>` being whatever that commit's `Cargo.toml` says, not a number you
 chose.
 
-**Do not read the build's health off that number.** `init-ci` used to pin an
+**On a source build, do not read the build's health off that number.** A
+downloaded `0.2.1` binary is built from the `cli-v0.2.1` tag and has the fix
+below. `init-ci` used to pin an
 annotated tag's object SHA instead of the commit it names, so every first
 release died with `invalid value workflow reference` before a job started
 ([#2]). The fix is **commit `5b8ab22`**, and it landed on `master` *before* the
@@ -122,7 +149,7 @@ cargo install --path AstraPlugins/astra-plugin-cli --locked
 A bare `git clone` checks out `master`, and `master` carries the current CLI —
 there is no branch you need to know about.
 
-Building needs Rust 1.85+ **and `protoc` on PATH** — the CLI depends on
+Building from source needs Rust 1.85+ **and `protoc` on PATH** — the CLI depends on
 `astra-plugin-sdk`, whose `build.rs` compiles `proto/plugin.proto` with
 tonic-build, which calls an external `protoc`. `apt install protobuf-compiler` /
 `pacman -S protobuf` / `brew install protobuf` / `winget install
@@ -225,6 +252,26 @@ does not prove the code is safe.
 
 ### 5. Get listed — once, ever
 
+**First, prove you control the repository.** Commit your GitHub login to
+`.well-known/astra-plugin-owner` on the default branch:
+
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+git add .well-known/astra-plugin-owner && git commit -m "Astra registry owner" && git push
+```
+
+The attestation proves which repository built the bundle; this proves that the
+person requesting the listing controls that repository, so a stranger cannot
+list someone else's plugin and own its updates. Skip it and the first answer you
+get is `E_OWNERSHIP_UNPROVEN` — the automatic checks cannot cover for you,
+because GitHub answers `403` when the registry asks who has `admin` on a
+repository it cannot see into, and the release author is `github-actions[bot]`
+rather than you whenever CI publishes the release. Full explanation:
+[Get listed §2](docs/en/5-publish/get-listed.md#2--prove-you-control-the-repository).
+
+Then:
+
 ```bash
 astra-plugin publish --dry-run   # every registry check that can run locally
 astra-plugin publish             # opens a prefilled listing request
@@ -262,7 +309,7 @@ directory to a listed plugin, with every command and its output.
 | `astra-plugin-sdk` (PyPI) | 0.5.0 | 0.5.0 | `pip install "astra-plugin-sdk>=0.5,<0.6"` |
 | `astra-plugin-sdk` (npm) | 0.5.0 | 0.5.0 | `npm install astra-plugin-sdk` |
 | `astra-plugin-macros` (crates.io) | 0.6.0 | 0.6.0 | arrives with the SDK |
-| `astra-plugin-cli` (crates.io) | 0.2.1 | **not published, and no prebuilt binaries** | `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
+| `astra-plugin-cli` (crates.io) | 0.2.1 | **not on crates.io**; binaries released as [`cli-v0.2.1`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
 
 **Take those versions or newer.** The daemon requires an `x-session-token` on
 every host RPC but `Register`, and the first SDK release that attaches one is

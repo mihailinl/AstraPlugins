@@ -41,9 +41,11 @@ Astra 没有可以核对的东西，注册表也没有可以固定的东西。
 astra-plugin --version
 ```
 
-如果什么都没打印出来，先停在这里，去做 **[安装 CLI](install-cli.md)**。那只是
-一行 `cargo install`，但需要 Rust 工具链，而且目前还没有预编译二进制文件 ——
-那一页把这一点讲得很清楚，也告诉你该装什么。
+如果什么都没打印出来，先停在这里，去做 **[安装 CLI](install-cli.md)**。现在
+已经有预编译二进制文件了 —— 下载一个 Linux 或 Windows 的归档文件，用
+`SHA256SUMS.txt` 核对一下，完全不涉及工具链。从源码构建依然有效，也是
+macOS 和 ARM Linux 上唯一的路。`cargo install astra-plugin-cli` 根本不是
+一条路 —— 那一页说明了原因。
 
 > **不要从版本号去判断你这个构建是否健康。** 在提交 `5b8ab22` 之前构建的 CLI
 > 会写出一个发布工作流，你推送第一个标签的那一刻它就会被 GitHub 拒绝。这个修复
@@ -194,10 +196,12 @@ Checking plugin at ....
 工作流固定值是否仍是最新的；它默认关闭，这样 `dev` 和 CI 运行一次检查都不需要
 联网。
 
-## 4 · 推送它，公开地
+## 4 · 推送它，公开地 —— 带上所有权文件
 
 <!-- doctest: cli -->
 ```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
@@ -207,6 +211,19 @@ astra-plugin check --strict
 这一步没有任何特别之处 —— 就是一个普通仓库。但请注意它*不是*什么：推送它并
 不是发布这个插件，而止步于此正是促成本页出现的那两次真实提交出错的地方。真正
 让它成为已发布插件的，是下一步的标签(tag)。
+
+**顶部新增的两行就是所有权证明，它们不是可选项。** `.well-known/astra-plugin-owner`
+放在你的默认分支上，保存着你的 GitHub 登录名 —— 一行一个。这正是注册表
+用来确立申请上架的人确实控制着即将上架的这个仓库的方式，也是构建证明
+无法说明的唯一一件事。趁着你反正都要提交，现在就把它建好，第 8 步就会
+一次通过。
+
+跳过它，你的首次提交就会以 `E_OWNERSHIP_UNPROVEN` 被拒绝，因为那两项
+更强的检查对一个普通仓库都无法给出回答：GitHub 在注册表询问谁对一个
+它看不进去的仓库拥有 `admin` 时会回答 `403`，而发布的作者是
+`github-actions[bot]` —— 是第 3 步的工作流发布了这次 release，而不是
+你。完整的说明见
+[申请上架 §2](5-publish/get-listed.md#2--证明你控制着这个仓库)。
 
 ## 5 · 打标签 —— 这才是发布
 
@@ -319,7 +336,7 @@ astra-plugin publish --dry-run
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -330,7 +347,24 @@ astra-plugin publish --dry-run
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
+在这份清单中，所有权那一行是由你自己的工作决定的，你已经在
+[第 4 步](#4--推送它公开地--带上所有权文件)完成了它。剩下的都取决于
+你已经给工作流构建出来的那次发布打上了标签。
+
 ## 8 · 一次性提交，仅此一次
+
+**在运行这个之前**，请确认[第 4 步](#4--推送它公开地--带上所有权文件)
+中的所有权文件确实在你的默认分支上。这是本页唯一一项即使你把其他一切
+都做对了、也可能失败的检查：
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+这应该会打印出你的登录名。`Not Found (HTTP 404)` 意味着注册表也同样
+找不到它。
 
 <!-- doctest: cli -->
 ```bash
@@ -368,14 +402,15 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 > 但还是请用这条链接：它是那条不需要任何人介入就能开始摄入的路径。
 
 这次提交只携带**两个事实**：你的源码仓库(`you/dice-roller`)和发布标签
-(`v0.1.0`),外加两项确认 —— 你拥有或维护着该仓库，以及你已经读过政策。其余
-的一切都从已获证明的包中读取，因为包里的每一样东西都在证明范围内，因而其
-可信度严格高于任何填进表单里的内容。
+(`v0.1.0`)，外加三项必填确认 —— 你已经把 `.well-known/astra-plugin-owner`
+提交到默认分支并且里面写着你的登录名、你拥有或维护着该仓库，以及你已经读过
+政策。其余的一切都从已获证明的包中读取，因为包里的每一样东西都在证明范围内，
+因而其可信度严格高于任何填进表单里的内容。
 
 ## 9 · 接下来会发生什么
 
 详细内容以及每一个原因代码，见
-[申请上架 §提交之后会发生什么](5-publish/get-listed.md#3--提交之后会发生什么)。
+[申请上架 §提交之后会发生什么](5-publish/get-listed.md#4--提交之后会发生什么)。
 简版如下：
 
 | 结果 | 含义 | 涉及谁 |

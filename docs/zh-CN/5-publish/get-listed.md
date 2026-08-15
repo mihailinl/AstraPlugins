@@ -18,8 +18,10 @@
 维护者帮忙构建的 issue。注册表只会上架 CI 出具过证明的发布资产，
 其他一概不行。
 
-以下每一条命令都是 `astra-plugin`。如果你还没有它，请先
-[安装 CLI](../install-cli.md)。
+以下几乎每一条命令都是 `astra-plugin`；唯一的例外是
+[第 2 步](#2--证明你控制着这个仓库)，那只是在你自己仓库里的一个文件加
+一次 `git commit`。如果你还没有这个 CLI，请先
+[安装它](../install-cli.md) —— 现在已经有预编译二进制文件了。
 
 ## 1 · 预检
 
@@ -36,12 +38,17 @@ astra-plugin publish --dry-run
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
   · the declared-vs-called host RPC scan
 ```
+
+**其中有一项你可以提前解决，而且应该这么做。** 所有权那一行已经点名了
+这个文件，而提交它就是
+[第 2 步](#2--证明你控制着这个仓库)。在提交之前先做好这件事，检查就会
+一次通过；跳过它，你得到的第一个答复就会是拒绝。
 
 ### 你的上架条目会是什么样子
 
@@ -94,7 +101,92 @@ icon.png    icon.webp    icon.svg    icon.jpg    icon.ico
 过长的 README 会在 16 KB 处、按行边界截断，并附带一个指向 GitHub 上
 完整内容的链接。
 
-## 2 · 提交
+## 2 · 证明你控制着这个仓库
+
+**请在开这个 issue 之前先做这件事。** 只需要一个文件、一次提交，而
+跳过它正是一次正确、诚实的首次提交最常被拒绝的原因。
+
+注册表必须回答一个本页其他任何地方都没有回答的问题：**申请这次上架
+的人，是否真的控制着即将被上架的这个仓库？** 证明本身已经证明了这个
+包确实来自那个仓库，而且上架条目也固定在那个仓库上 —— 但这两个事实
+都没有说明*你*是谁。没有这一步，一个陌生人就可能把别人的插件拿去上架，
+从而变成了那个插件更新到达 Astra 用户手中所经过的身份。
+
+把这个文件提交到你仓库的**默认分支**：
+
+<!-- doctest: illustrative reason="the path and content of a file the author writes in their own repository; there is nothing here for a runner to execute" -->
+```
+path      .well-known/astra-plugin-owner
+content   your GitHub login, one per line
+```
+
+创建它只需要一条命令，在你插件仓库的根目录运行：
+
+<!-- doctest: illustrative reason="git commands against the author's own repository — the runner has no such repository, and `cli` blocks must contain an astra-plugin command" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+git add .well-known/astra-plugin-owner
+git commit -m "Declare the Astra registry owner for this repository"
+git push
+```
+
+**这能证明什么：** 一个能写入你默认分支的人，断言这个 GitHub 登录名
+代表这个仓库 —— 这是在 bot 检查的那一刻实时读取的，所以从文件里删掉
+一个登录名，那个人就无法再开新的上架申请、也无法通过 `/recheck`。但它
+**够不到**已经上架的插件：[此后的每一次发布](#5--此后的每一次发布)都是
+针对发布该 release 的账号来证明的，而上架条目无论如何都仍然钉在这个仓库上。
+**这不能证明什么：** 完全不能证明你代码的任何事情，因为根本没有人会
+去读它；这不是一个签名，也不是一次安全审查。
+
+### 格式，精确地说
+
+一行一个登录名。`#` 之后的一切都是注释，开头可以有 `@`，前后的空白
+会被去掉，比较时不区分大小写。只会读取前 4 KB。所以下面这个文件是有效
+的，列出了一位所有者：
+
+<!-- doctest: illustrative reason="the contents of a file in the author's repository, not a command" -->
+```
+# owners of this repository
+@Rel0d1x   # primary
+```
+
+请列出所有可以代表这个仓库提交或重新提交申请的人。对于一个属于某个
+组织的仓库，通常不止一个名字。
+
+### 确认注册表能读到它
+
+bot 会通过 GitHub 的 contents API、以未认证方式，从默认分支读取这个
+文件。你可以发出和它完全一样的请求：
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+它应该会把你的登录名原样打印出来。如果它打印出 `Not Found (HTTP
+404)`，说明这个文件不在 bot 查找的位置 —— 常见的原因是它在默认分支
+以外的分支上、还没有提交或推送，或者目录名写成了没有开头那个点的
+`well-known`。
+
+### 为什么这是一个步骤，而不是一个后备方案
+
+注册表会尝试三种方式来确立控制权，而这个文件正是对普通作者行得通的
+那一种。这不是偏好，而是结构性的，另外两种方式都曾在真实提交中被
+观察到失败：
+
+| 方式 | 为什么它不能替你回答 |
+|---|---|
+| **协作者权限** —— 询问 GitHub 谁拥有 `admin` 或 `maintain` | GitHub 只会对已经拥有该仓库 admin 可见性的调用者回答这个端点。注册表的 token 属于注册表本身，所以对*你的*仓库，它得到的是 `403` —— 这意味着"我不会告诉你"，而不是"不是"，因而会被当作完全没有回答处理 |
+| **发布的作者** —— 发布这次 release 的账号 | [用 CI 发布](release-with-ci.md) 中的发布工作流创建了这个 GitHub Release，所以它的作者是 `github-actions[bot]`，而不是一个人。恰恰是遵循了这份文档化流程，才让这种方式失效 |
+| **`.well-known/astra-plugin-owner`** | 不需要对注册表可见任何东西，也不需要安装任何东西。它能给出回答 |
+
+第一种方式返回的 `403` 不会算在你头上，单凭它自己也永远不会导致拒绝。
+拒绝只会在三种方式全都没有给出回答时发生，而这正是这个文件不存在时
+会发生的情况。
+
+## 3 · 提交
 
 <!-- doctest: cli -->
 ```bash
@@ -119,6 +211,12 @@ dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
 ```
 
+这段输出是在一个没有自己 git 标签的目录里录下来的。如果你在自己的检出里、
+在还没拉到该标签之前运行它，段落上方会多出一行 ——
+`Note: this checkout has no tag v0.1.0.` 这是提醒，不是错误：注册表是从
+GitHub 读取这次发布的，所以真正重要的是标签已经推送、并且 CI 已经把
+产物附加上去了。
+
 > **那个 URL 里的 `template=plugin-listing.yml` 是至关重要的。**
 > 这个模板声明了 `labels: ["listing", "needs-triage"]`，而注册表的 bot
 > 只会对带有 `listing` 标签的 issue 进入提交处理路径。别的东西都不会打上
@@ -139,9 +237,10 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 | 字段 | 为什么是输入的而不是读取的 |
 |---|---|
 | 源码仓库（`you/dice-roller`） | 包本身无法证明自己是从哪里提供的 |
-| 发布标签（`v0.2.0`） | 同上 |
+| 发布标签（`v0.1.0`） | 同上 |
 
-外加两项确认：你拥有或维护着该仓库，以及你已经读过政策。
+外加三项确认，全部必填：你已经把 `.well-known/astra-plugin-owner` 提交到
+默认分支并且里面写着你的登录名、你拥有或维护着该仓库，以及你已经读过政策。
 
 **其余的一切都从已获证明的包中读取** —— id、版本、显示名称、摘要、
 许可证、能力(capability)、权限、平台、摘要值(digest)、文件大小。这
@@ -149,7 +248,7 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 填进表单里的内容都要严格地更可信。这也消除了整整一类拒绝的可能性，
 因为根本不存在一个能和 `plugin.toml` 产生分歧的表单。
 
-## 3 · 提交之后会发生什么
+## 4 · 提交之后会发生什么
 
 这一节正是两位真实的作者需要、却没能得到的内容。它描述的是
 `astra-registry/docs/POLICY.md` 和 `docs/BOT-CHECKS.md` 所定义的注册表
@@ -160,14 +259,14 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 ### 整个流程
 
 1. **你的 issue 会被打上 `listing` 和 `needs-triage` 标签** —— 由
-   issue 模板自动完成。这一步决定了接下来是否会发生任何事；参见 §2
+   issue 模板自动完成。这一步决定了接下来是否会发生任何事；参见 §3
    中的警告。
 2. **bot 会对它进行分诊**，读取你提供的两个事实，以未认证方式从
    GitHub 获取这次发布，并针对这些字节运行 `docs/BOT-CHECKS.md` 中的
    每一项检查：证明本身以及是哪个工作流产出了它、资产的 URL 是否位于
-   你自己仓库的发布命名空间下、你是否在该仓库拥有 admin 或 maintain
-   权限、归档的结构、清单文件、许可证、版本排序，以及声明与实际调用
-   之间的 host RPC 扫描。
+   你自己仓库的发布命名空间下、你是否控制着这个仓库
+   （[第 2 步](#2--证明你控制着这个仓库)）、归档的结构、清单文件、
+   许可证、版本排序，以及声明与实际调用之间的 host RPC 扫描。
 3. **bot 会在你的 issue 上评论**结果、原因，以及 —— 如果有的话 ——
    确切的发布时间。无论结果如何，你都会被告知。
 
@@ -225,7 +324,7 @@ bot 会附带一个固定的代码，以及该怎么处理它。一次拒绝不�
 | `E_RELEASE_NOT_FOUND` | 那个仓库没有带着那个标签的发布 | 一个草稿发布(draft release)除了你自己之外任何人都看不到，一个私有仓库看起来和一个不存在的仓库完全一样 |
 | `E_WORKFLOW_NOT_ALLOWED` | 构建运行的工作流不是这个注册表所允许的 | 用 commit SHA 把 Astra 的可复用工作流固定住。`astra-plugin init-ci` 会替你完成这件事 |
 | `E_ASSET_URL_FOREIGN` | 某个资产的 URL 不在你自己仓库的 releases 之下 | 每一个下载 URL 都必须位于 `https://github.com/<owner>/<repo>/releases/download/<tag>/` 之下 |
-| `E_OWNERSHIP_UNPROVEN` | 你不是那个仓库的 admin 或 maintainer | 请一位是 admin/maintainer 的人来开这个 issue，或者在默认分支上提交一个包含你 GitHub 登录名的 `.well-known/astra-plugin-owner` 文件，然后评论 `/recheck` |
+| `E_OWNERSHIP_UNPROVEN` | 没有任何东西证明你控制着这个仓库 | 你几乎肯定是跳过了[第 2 步](#2--证明你控制着这个仓库)。在默认分支上提交一个包含你 GitHub 登录名的 `.well-known/astra-plugin-owner` 文件，然后评论 `/recheck` —— 不需要新的发布，也不需要新的标签 |
 | `E_INPUT_REPO` / `E_INPUT_TAG` | 仓库或标签的格式不符合预期 | 应该是 `you/dice-roller`，不是一个 URL；应该是 `v0.2.0`，不是一个 commit SHA 或分支名 |
 
 修复之后，在同一个 issue 上评论 **`/recheck`**。所有检查会针对当时
@@ -278,7 +377,7 @@ bot 会给出确切的发布时间，一旦倒计时结束，整个摄入过程�
 更多：一个作者的 GitHub 账号如果被人接管，在这个窗口期内，本人能够
 看到一次自己并未发起的发布，并有机会站出来说明情况。
 
-## 4 · 此后的每一次发布
+## 5 · 此后的每一次发布
 
 什么都不用做。打标签，剩下的交给 CI；注册表会注意到这次发布并重新
 生成索引。
@@ -292,6 +391,13 @@ astra-plugin publish --notify
 
 这是给**已经上架**的插件用的手动 ping。不这样做的话，`publish` 会
 打开一个首次上架申请。
+
+**在这条路径上，所有权是另一个问题。** 一次 ping —— 以及它背后的 cron
+兜底 —— 是针对*发布*该 release 的账号来证明的，既不是针对敲下 ping 的
+人，也不是针对 `.well-known/astra-plugin-owner`。因此编辑那个文件并不会
+改变谁能为一个已经上架的插件发布新版本。真正约束它的是：一次 ping 只能
+指向注册表**已经钉住**的那个仓库；换仓库就不再是例行公事，会重新回到
+人来处理。
 
 ## 上架并不意味着什么
 

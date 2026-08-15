@@ -23,8 +23,11 @@ Repository, das deinen Quellcode enthält, ein an jemanden geschicktes
 Maintainer bittet, es zu bauen. Die Registry listet Release-Assets, die CI
 bezeugt hat, und nichts sonst.
 
-Jeder Befehl unten ist `astra-plugin`. Falls du sie nicht hast,
-[installiere zuerst die CLI](../install-cli.md).
+Fast jeder Befehl unten ist `astra-plugin`; die Ausnahme ist
+[Schritt 2](#2--beweisen-dass-du-das-repository-kontrollierst), eine einzige
+Datei und ein `git commit` in deinem eigenen Repository. Falls du die CLI
+nicht hast, [installiere sie zuerst](../install-cli.md) — es gibt jetzt
+vorgebaute Binärdateien.
 
 ## 1 · Preflight
 
@@ -42,12 +45,18 @@ die Registry ausführen kann**, sodass du weißt, was noch unbewiesen ist:
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
   · the declared-vs-called host RPC scan
 ```
+
+**Eine davon kannst du im Voraus erledigen, und solltest du auch.** Die
+Ownership-Zeile nennt die Datei, und sie zu committen ist
+[Schritt 2](#2--beweisen-dass-du-das-repository-kontrollierst). Tu das,
+bevor du einreichst, und die Prüfung besteht beim ersten Versuch; lässt du
+es aus, ist die erste Antwort eine Ablehnung.
 
 ### Wie dein Listing aussehen wird
 
@@ -112,7 +121,105 @@ ableitet:
 Lange READMEs werden bei 16 KB an einer Zeilengrenze abgeschnitten, mit
 einem Link zum Rest auf GitHub.
 
-## 2 · Einreichen
+## 2 · Beweisen, dass du das Repository kontrollierst
+
+**Tu das, bevor du das Issue öffnest.** Es ist eine Datei und ein Commit,
+und es auszulassen ist der häufigste Weg, wie eine korrekte, ehrliche
+erste Einreichung abgelehnt wird.
+
+Die Registry muss eine Frage beantworten, die nichts anderes auf dieser
+Seite beantwortet: **Kontrolliert die Person, die dieses Listing anfragt,
+das Repository, das gelistet wird?** Die Attestation beweist bereits, dass
+das Bundle aus diesem Repository stammt, und das Listing ist daran
+gepinnt — aber keiner dieser beiden Fakten sagt, wer *du* bist. Ohne
+diesen Schritt könnte ein Fremder das Plugin von jemand anderem listen und
+zu der Identität werden, über die dessen Updates die Astra-Nutzer
+erreichen.
+
+Committe diese Datei auf den **Default-Branch** deines Repositorys:
+
+<!-- doctest: illustrative reason="the path and content of a file the author writes in their own repository; there is nothing here for a runner to execute" -->
+```
+path      .well-known/astra-plugin-owner
+content   your GitHub login, one per line
+```
+
+Der eine Befehl, der sie erstellt, ausgeführt an der Wurzel des
+Repositorys deines Plugins:
+
+<!-- doctest: illustrative reason="git commands against the author's own repository — the runner has no such repository, and `cli` blocks must contain an astra-plugin command" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+git add .well-known/astra-plugin-owner
+git commit -m "Declare the Astra registry owner for this repository"
+git push
+```
+
+**Was das beweist:** Jemand, der auf deinen Default-Branch schreiben kann,
+bestätigt, dass dieser GitHub-Login für dieses Repository spricht — live
+gelesen in dem Moment, in dem der Bot prüft, sodass das Entfernen eines
+Logins diese Person daran hindert, eine neue Listing-Anfrage zu öffnen oder
+ein `/recheck` zu bestehen. Es erreicht **nicht** ein bereits gelistetes
+Plugin: [jedes Release danach](#5--jedes-release-danach) wird gegen das Konto
+geprüft, das das Release veröffentlicht hat, und der Eintrag bleibt ohnehin an
+dieses Repository gepinnt.
+**Was das nicht beweist:** absolut nichts über deinen Code, den niemand
+liest; es ist keine Signatur, und es ist keine Sicherheitsprüfung.
+
+### Das Format, genau
+
+Ein Login pro Zeile. Alles nach einem `#` ist ein Kommentar, ein
+führendes `@` ist erlaubt, umgebende Leerzeichen werden getrimmt, und der
+Abgleich ist groß-/kleinschreibungsunabhängig. Nur die ersten 4 KB werden
+gelesen. Diese Datei ist also gültig und listet einen Besitzer:
+
+<!-- doctest: illustrative reason="the contents of a file in the author's repository, not a command" -->
+```
+# owners of this repository
+@Rel0d1x   # primary
+```
+
+Liste jede Person auf, die im Namen dieses Repositorys einreichen oder
+erneut einreichen darf. Für ein einer Organisation gehörendes Repository
+sind das gewöhnlich mehrere Namen.
+
+### Prüfen, dass die Registry sie lesen kann
+
+Der Bot liest die Datei über GitHubs Contents-API, unauthentifiziert, vom
+Default-Branch. Du kannst genau die Anfrage stellen, die er stellt:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+Sie sollte deinen Login zurückgeben. Gibt sie `Not Found (HTTP 404)` aus,
+ist die Datei nicht dort, wo der Bot sucht — die üblichen Ursachen sind,
+dass sie auf einem anderen Branch als dem Default-Branch liegt, dass sie
+noch nicht committed oder gepusht ist, oder dass das Verzeichnis als
+`well-known` ohne führenden Punkt geschrieben ist.
+
+### Warum das ein Schritt ist und kein Fallback
+
+Die Registry versucht drei Wege, um Kontrolle festzustellen, und diese
+Datei ist der, der für einen gewöhnlichen Autor funktioniert. Das ist
+keine Vorliebe, es ist strukturell, und beide anderen wurden dabei
+beobachtet, bei echten Einreichungen zu scheitern:
+
+| Weg | Warum er nicht für dich antwortet |
+|---|---|
+| **Collaborator-Permission** — GitHub fragen, wer `admin` oder `maintain` hat | GitHub beantwortet diesen Endpunkt nur für einen Aufrufer, der bereits Admin-Sichtbarkeit auf das Repository hat. Das Token der Registry gehört der Registry, für *dein* Repository bekommt sie also `403` — was „ich sage es dir nicht" bedeutet, nicht „nein", und als überhaupt keine Antwort behandelt wird |
+| **Release-Autor** — das Konto, das das Release veröffentlicht hat | Der Release-Workflow aus [Mit CI veröffentlichen](release-with-ci.md) erstellt das GitHub-Release, dessen Autor also `github-actions[bot]` ist statt eine Person. Genau das Befolgen des dokumentierten Wegs entwertet diesen Weg |
+| **`.well-known/astra-plugin-owner`** | Nichts muss für die Registry sichtbar sein, und nichts muss installiert werden. Er antwortet |
+
+Ein `403` beim ersten Weg wird dir nicht angelastet und wird niemals für
+sich allein zu einer Ablehnung. Die Ablehnung passiert nur, wenn alle drei
+nichts liefern, und das ist genau das, was passiert, wenn diese Datei
+nicht existiert.
+
+## 3 · Einreichen
 
 <!-- doctest: cli -->
 ```bash
@@ -138,6 +245,12 @@ dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
 ```
 
+Diese Aufnahme stammt aus einem Verzeichnis ohne eigenen Git-Tag. Führst du den
+Befehl in deinem Checkout aus, bevor der Tag geholt wurde, erscheint über dem
+Absatz eine zusätzliche Zeile — `Note: this checkout has no tag v0.1.0.` Das ist
+ein Hinweis, kein Fehler: die Registry liest das Release von GitHub, es zählt
+also, dass der Tag gepusht ist und CI die Assets angehängt hat.
+
 > **`template=plugin-listing.yml` in dieser URL ist tragend.** Die Vorlage
 > deklariert `labels: ["listing", "needs-triage"]`, und der Bot der Registry
 > betritt den Einreichungspfad nur für ein Issue, das `listing` trägt.
@@ -162,10 +275,12 @@ Die Einreichung trägt **zwei Fakten**:
 | Feld | Warum es eingetippt statt gelesen wird |
 |---|---|
 | Quell-Repository (`you/dice-roller`) | Das Bundle kann nicht dafür bürgen, von wo es ausgeliefert wird |
-| Release-Tag (`v0.2.0`) | Dasselbe |
+| Release-Tag (`v0.1.0`) | Dasselbe |
 
-Plus zwei Bestätigungen: dass du das Repository besitzt oder pflegst, und
-dass du die Policy gelesen hast.
+Plus drei Bestätigungen, alle verpflichtend: dass du
+`.well-known/astra-plugin-owner` mit deinem Login auf den Default-Branch
+committet hast, dass du das Repository besitzt oder pflegst, und dass du die
+Policy gelesen hast.
 
 **Alles andere wird aus dem bezeugten Bundle gelesen** — die ID, die
 Version, der Anzeigename, die Zusammenfassung, die Lizenz, die
@@ -175,7 +290,7 @@ abgedeckt, was es strikt vertrauenswürdiger macht als alles in ein
 Formular Eingetippte. Es löscht auch eine ganze Klasse von Ablehnungen,
 weil es kein Formular gibt, mit dem `plugin.toml` uneins sein könnte.
 
-## 3 · Was nach der Einreichung passiert
+## 4 · Was nach der Einreichung passiert
 
 Dieser Abschnitt ist der, den zwei echte Autoren brauchten und nicht
 hatten. Er beschreibt den Ablauf der Registry, so wie
@@ -188,15 +303,15 @@ still vom Code abweichen können, der sie pflegt.
 
 1. **Dein Issue bekommt die Labels `listing` und `needs-triage`** — aus
    der Issue-Vorlage, automatisch. Das ist der Schritt, der entscheidet,
-   ob überhaupt etwas passiert; siehe die Warnung in §2.
+   ob überhaupt etwas passiert; siehe die Warnung in §3.
 2. **Der Bot triagiert es**, liest deine zwei Fakten, holt das Release
    unauthentifiziert von GitHub und führt jede Prüfung aus
    `docs/BOT-CHECKS.md` gegen die Bytes aus: die Attestation und welcher
    Workflow sie erzeugt hat, dass die Asset-URLs unter dem eigenen
-   Release-Namensraum deines Repositorys liegen, dass du admin oder
-   maintain auf dem Repository hast, die Struktur des Archivs, das
-   Manifest, die Lizenz, die Versionsordnung, und den
-   deklariert-versus-aufgerufen-Host-RPC-Scan.
+   Release-Namensraum deines Repositorys liegen, dass du das Repository
+   kontrollierst ([Schritt 2](#2--beweisen-dass-du-das-repository-kontrollierst)),
+   die Struktur des Archivs, das Manifest, die Lizenz, die
+   Versionsordnung, und den deklariert-versus-aufgerufen-Host-RPC-Scan.
 3. **Der Bot kommentiert dein Issue** mit dem Ergebnis, dem Grund, und —
    wenn es einen gibt — dem genauen Veröffentlichungszeitpunkt. Du wirst
    so oder so informiert.
@@ -265,7 +380,7 @@ behebbare Bedingung. Die, auf die Autoren am häufigsten stoßen:
 | `E_RELEASE_NOT_FOUND` | Dieses Repository hat kein Release mit diesem Tag | Ein Entwurfs-Release ist für alle außer dir unsichtbar, und ein privates Repository sieht identisch aus wie ein fehlendes |
 | `E_WORKFLOW_NOT_ALLOWED` | Der Build lief über einen Workflow, den diese Registry nicht erlaubt | Pinne den Astra-Reusable-Workflow per Commit-SHA. `astra-plugin init-ci` erledigt das für dich |
 | `E_ASSET_URL_FOREIGN` | Eine Asset-URL liegt nicht unter den eigenen Releases deines Repositorys | Jede Download-URL muss unter `https://github.com/<owner>/<repo>/releases/download/<tag>/` liegen |
-| `E_OWNERSHIP_UNPROVEN` | Du bist kein Admin oder Maintainer dieses Repositorys | Lass jemanden, der es ist, das Issue öffnen, oder committe `.well-known/astra-plugin-owner` auf dem Default-Branch mit deinem GitHub-Login und kommentiere `/recheck` |
+| `E_OWNERSHIP_UNPROVEN` | Nichts hat bewiesen, dass du dieses Repository kontrollierst | Du hast fast sicher [Schritt 2](#2--beweisen-dass-du-das-repository-kontrollierst) ausgelassen. Committe `.well-known/astra-plugin-owner` auf dem Default-Branch mit deinem GitHub-Login darin, kommentiere dann `/recheck` — kein neues Release und kein neues Tag nötig |
 | `E_INPUT_REPO` / `E_INPUT_TAG` | Das Repository oder Tag hat nicht die erwartete Form | `you/dice-roller`, keine URL; `v0.2.0`, keine Commit-SHA oder ein Branch |
 
 Nachdem du es behoben hast, kommentiere **`/recheck`** auf demselben
@@ -328,7 +443,7 @@ behauptet nicht mehr: ein Fenster, in dem ein Autor, dessen
 GitHub-Konto übernommen wurde, ein Release sehen kann, das er nicht selbst
 gemacht hat, und das sagen kann.
 
-## 4 · Jedes Release danach
+## 5 · Jedes Release danach
 
 Nichts. Taggen, und CI erledigt den Rest; die Registry bemerkt das Release
 und generiert den Index neu.
@@ -342,6 +457,15 @@ astra-plugin publish --notify
 
 Das ist der manuelle Ping für ein Plugin, das **bereits gelistet** ist.
 Ohne ihn öffnet `publish` eine Erst-Listing-Anfrage.
+
+**Ownership ist auf diesem Pfad eine andere Frage.** Ein Ping — und der
+Cron-Backstop dahinter — prüft das Release gegen das Konto, das es
+*veröffentlicht* hat, nicht gegen den Tippenden und nicht gegen
+`.well-known/astra-plugin-owner`. Diese Datei zu ändern ändert also nicht,
+wer ein Release eines bereits gelisteten Plugins ausliefern kann. Begrenzt
+wird das dadurch, dass ein Ping nur ein Repository nennen darf, das die
+Registry **bereits gepinnt** hat: ein Repository-Wechsel ist nicht mehr
+Routine und geht zurück an einen Menschen.
 
 ## Was ein Listing nicht bedeutet
 
