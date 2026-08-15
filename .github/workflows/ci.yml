@@ -1719,9 +1719,28 @@ jobs:
           set -euo pipefail
           CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
           mkdir -p _conformance
+          # Assert the report LANDED, here, in the loop that names it.
+          #
+          # The verifying step below globs `_conformance/*.json` and checks
+          # whatever it finds. A producer that exits 0 without writing its
+          # report therefore removes itself from the check silently: the glob
+          # yields one fewer path, R7 agrees with the ones that remain, and a
+          # job called `conformance (R7)` goes green having verified a subset
+          # it never named.
+          #
+          # The floor is not a count. These three loops already enumerate every
+          # expected report — 4 examples, 9 Rust templates, 9 templates in two
+          # more languages — so each one asserts its own, by name, and a loss
+          # is reported against the thing that failed to produce it rather than
+          # as a total lower than some guess. Same reason `docs/tools/doctest.py`
+          # checks its roots individually.
           for example in dice-roller mock-stt tone-tts companion; do
             echo "::group::astra-plugin test examples/$example"
             "$CLI" test "examples/$example" --report "_conformance/$example.json"
+            test -s "_conformance/$example.json" || {
+              echo "FAIL astra-plugin test exited 0 but wrote no report for $example." >&2
+              echo "     Every report below is checked; a missing one is not." >&2
+              exit 1; }
             echo "::endgroup::"
           done
 
@@ -1746,6 +1765,9 @@ jobs:
             printf '\n[patch.crates-io]\nastra-plugin-sdk = { path = "%s" }\nastra-plugin-macros = { path = "%s" }\n' \
               "$SDK" "$MACROS" >> "$WORK/$template/Cargo.toml"
             "$CLI" test "$WORK/$template" --report "_conformance/template-$template.json"
+            test -s "_conformance/template-$template.json" || {
+              echo "FAIL no report written for the $template template (Rust)." >&2
+              exit 1; }
             echo "::endgroup::"
           done
 
@@ -1789,6 +1811,9 @@ jobs:
                 (cd "$proj" && bun install)
               fi
               "$CLI" test "$proj" --report "_conformance/$lang-$template.json"
+              test -s "_conformance/$lang-$template.json" || {
+                echo "FAIL no report written for the $template template ($lang)." >&2
+                exit 1; }
               echo "::endgroup::"
             done
           done
