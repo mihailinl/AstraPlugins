@@ -1136,6 +1136,48 @@ jobs:
       # `--capabilities tools` above means every language's generated test is
       # the tool one: it calls the scaffolded `hello` and asserts the answer,
       # rather than asserting the process started.
+      #
+      # COUNT FIRST, and this is not belt-and-braces. Read the paragraph above
+      # again: the regression it describes was a test command that matched
+      # nothing, reported `pass 0, fail 0` and exited 0. Running that same
+      # command is therefore not evidence the scaffold ships a test — every
+      # runner here exits 0 over an empty set. `bun run test` with an empty
+      # `test/` gives `tests 0 / pass 0 / fail 0` and exit 0; `cargo test` on a
+      # crate with no `#[test]` does the same. (Only pytest dissents, exiting 5
+      # on "no tests collected" — by luck, not by our design.)
+      #
+      # So the step written to catch that regression could not catch its
+      # recurrence: it would go green again, in the same way, for the same
+      # reason. Assert the DECLARATION exists before running it, and the
+      # green means what its name says.
+      #
+      # Greps, not toolchains: this runs identically on the Windows leg and
+      # needs nothing installed. Each pattern is the declaration itself, not
+      # the file, so a test file emptied of its cases fails too.
+      - name: the scaffold ships a test to run
+        env:
+          LANG_UNDER_TEST: ${{ matrix.lang }}
+        run: |
+          set -euo pipefail
+          work="${WORK//\\//}"
+          cd "$work/rt/demo-plugin"
+          case "$LANG_UNDER_TEST" in
+            rust)       pat='#\[(tokio::)?test\]' ; where='src' ;;
+            python)     pat='def test_'           ; where='tests' ;;
+            typescript) pat='^[[:space:]]*(test|it)\(' ; where='test' ;;
+          esac
+          n=$(grep -rEc "$pat" "$where" 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+          echo "$LANG_UNDER_TEST scaffold declares $n test(s) under $where/"
+          if [ "$n" -lt 1 ]; then
+            echo "FAIL the generated $LANG_UNDER_TEST scaffold declares no test." >&2
+            echo "     §5.6 says every template contains one PASSING test. A" >&2
+            echo "     runner exits 0 over an empty set, so the run below would" >&2
+            echo "     have gone green having asserted nothing — which is how" >&2
+            echo "     the TypeScript scaffold shipped testless once already." >&2
+            echo "     Fix the template in astra-plugin-cli/src/templates/." >&2
+            exit 1
+          fi
+
       - name: the scaffold's own test passes
         env:
           LANG_UNDER_TEST: ${{ matrix.lang }}
