@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: c06c13a1bbaf9f848788739888396d6aab5a4682b4179b7130e3f01d3a4efa8f
+// source-sha256: 333a8839c6452d3767b2c293fb0a4f5deff529deee271786c82ed0a01c6a6196
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -589,6 +589,12 @@ message ConversationEventMsg {
     Timestamp timestamp = 2;
     string source_id = 3;
 
+    // WHY this entry is there. Absent = a daemon older than this field, or an
+    // entry replayed out of a pre-2026 messages.json. That is NOT the same
+    // answer as "the assistant" and NOT the same as `stated == false`: every
+    // entry a current daemon writes carries one.
+    AttributionMsg by = 4;
+
     oneof event {
         UserMessageEvt user_message = 10;
         AssistantStartEvt assistant_start = 11;
@@ -761,6 +767,77 @@ message CommandExecutedEvt {
     // what makes two concurrent fires of one command distinguishable — the
     // name is not enough, and neither is the anchor message.
     string run_id = 7;
+}
+
+// WHY a conversation entry is there: whose decision produced it, through which
+// command, entering at which doorbell.
+//
+// It rides on the ENVELOPE and not on an event arm, because it is a property of
+// the ENTRY. Four consequences the arm form does not have: CommandOutputEvt
+// (which carries no ids at all) can be attributed; one bubble holding entries
+// from two authors is expressible; a Truncate that removes the event removes
+// its provenance with it in one atomic append; and
+// `rebuild_ai_history_from_events` — which already takes `&[Arc<StoredEvent>]`
+// — can rebuild the MODEL's copy of it after a Regenerate.
+//
+// FLAT, and never nested one level deeper than this. Both hand-written mappers
+// build these fields INLINE inside their envelope literal — never via a shared
+// helper, because check-ipc-parity.ts extracts a bounded region and a helper's
+// body is outside it.
+//
+// Every human-readable string is a SNAPSHOT taken when the run started.
+message AttributionMsg {
+    // WHOSE decision. Closed vocabulary, a string not an enum — the same reason
+    // CommandExecutedEvt.status is one: it keeps this on the generic Electron
+    // pass-through, and `carriesUndecodableShape` (check-ipc-parity.ts) returns
+    // non-null for any enum. An unrecognised value renders as the generic
+    // automation row, NEVER as the assistant, never as a raw i18n key.
+    //   "you" | "assistant" | "plugin" | "unattended" | "system"
+    string voice = 1;
+    string voice_id = 2;  // reverse-DNS plugin id when voice=="plugin"; "" otherwise
+    string voice_name = 3;  // plugin display name AT MINT; "" when the voice names itself
+
+    // Which control a person used. "chat"|"voice"|"slash"|"hotkey"|"tray"|"editor"|"overlay".
+    // "" unless voice=="you". Rendered in the DISCLOSURE, never in the header.
+    string surface = 4;
+
+    // The SOURCE whose own thread this belongs to — "scheduler" | "plugin:<id>"
+    // | "command:<uuid>" | "editor". "" when the entry went into a bubble.
+    // A source, never a destination: it names no conversation.
+    string source = 5;
+
+    // THROUGH WHAT. All "" for a turn's own entries and for `of_daemon`.
+    string command_id = 6;
+    string command_name = 7;  // AT MINT
+    string entry_kind = 8;  // "trigger" | "node" | "start" | "named" | ""
+    string entry_id = 9;  // the trigger TYPE, or the node id. NEVER the matched phrase.
+    string entry_label = 10;  // the node's own label AT MINT; "" when it has none
+
+    // THE CHAIN. `run_id` joins CommandExecutedEvt.run_id. `parent_run_id` is
+    // the only edge sent; a client rebuilds what it can from entries it already
+    // holds. `Origin::path` never crosses this wire — which makes the
+    // truncation rule and the privacy rule literally the same rule.
+    string run_id = 11;  // "" for a turn's own entries and for of_daemon
+    string parent_run_id = 12;  // "" at a root
+    uint32 depth = 13;  // hops from the gesture; a turn's own entries are 0
+
+    // Exactly `astra_core::run::OriginRef`. Opaque.
+    // Both "" for of_daemon, which has no Origin.
+    string cause = 14;
+    string link = 15;
+
+    // On whose authority. "local_user" today. Sent from the first day because
+    // `Principal` exists precisely so a second one is found by the compiler,
+    // and a field inside a message already being added costs nothing while a
+    // second message costs a whole cross-repo window.
+    string principal = 16;
+
+    // The ONE loudness verdict, computed by `Origin::stated()` and frozen when
+    // the entry was written. FALSE means "one of this conversation's own voices,
+    // in a bubble" — the ordinary turn, which draws nothing. A client MUST NOT
+    // re-derive this from the fields above; it may only decide how COMPACTLY to
+    // draw something already stated.
+    bool stated = 17;
 }
 
 // Daemon proposed saving (or extending) a command based on an AI turn's

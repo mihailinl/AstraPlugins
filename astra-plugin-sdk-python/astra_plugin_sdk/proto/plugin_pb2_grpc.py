@@ -3,9 +3,9 @@
 import grpc
 import warnings
 
-from . import plugin_pb2 as plugin__pb2
+import plugin_pb2 as plugin__pb2
 
-GRPC_GENERATED_VERSION = '1.75.1'
+GRPC_GENERATED_VERSION = '1.83.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in plugin_pb2_grpc.py depends on'
+        + ' but the generated code in plugin_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class CoreServiceStub(object):
+class CoreServiceStub:
     """============ Core Service ============
 
     """
@@ -78,7 +78,7 @@ class CoreServiceStub(object):
                 _registered_method=True)
 
 
-class CoreServiceServicer(object):
+class CoreServiceServicer:
     """============ Core Service ============
 
     """
@@ -198,7 +198,7 @@ def add_CoreServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class CoreService(object):
+class CoreService:
     """============ Core Service ============
 
     """
@@ -420,7 +420,7 @@ class CoreService(object):
             _registered_method=True)
 
 
-class ChatServiceStub(object):
+class ChatServiceStub:
     """============ Chat Service ============
 
     The event-log-based chat service. No legacy streaming APIs.
@@ -494,7 +494,7 @@ class ChatServiceStub(object):
                 _registered_method=True)
 
 
-class ChatServiceServicer(object):
+class ChatServiceServicer:
     """============ Chat Service ============
 
     The event-log-based chat service. No legacy streaming APIs.
@@ -667,7 +667,7 @@ def add_ChatServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class ChatService(object):
+class ChatService:
     """============ Chat Service ============
 
     The event-log-based chat service. No legacy streaming APIs.
@@ -998,7 +998,7 @@ class ChatService(object):
             _registered_method=True)
 
 
-class VoiceServiceStub(object):
+class VoiceServiceStub:
     """============ Voice Service ============
 
     """
@@ -1186,7 +1186,7 @@ class VoiceServiceStub(object):
                 _registered_method=True)
 
 
-class VoiceServiceServicer(object):
+class VoiceServiceServicer:
     """============ Voice Service ============
 
     """
@@ -1648,7 +1648,7 @@ def add_VoiceServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class VoiceService(object):
+class VoiceService:
     """============ Voice Service ============
 
     """
@@ -2599,7 +2599,7 @@ class VoiceService(object):
             _registered_method=True)
 
 
-class CommandServiceStub(object):
+class CommandServiceStub:
     """============ Command Service ============
 
     """
@@ -2677,7 +2677,7 @@ class CommandServiceStub(object):
                 _registered_method=True)
 
 
-class CommandServiceServicer(object):
+class CommandServiceServicer:
     """============ Command Service ============
 
     """
@@ -2852,7 +2852,7 @@ def add_CommandServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class CommandService(object):
+class CommandService:
     """============ Command Service ============
 
     """
@@ -3209,7 +3209,7 @@ class CommandService(object):
             _registered_method=True)
 
 
-class ConfigServiceStub(object):
+class ConfigServiceStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -3345,7 +3345,7 @@ class ConfigServiceStub(object):
                 _registered_method=True)
 
 
-class ConfigServiceServicer(object):
+class ConfigServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def GetSettings(self, request, context):
@@ -3677,7 +3677,7 @@ def add_ConfigServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class ConfigService(object):
+class ConfigService:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -4356,7 +4356,7 @@ class ConfigService(object):
             _registered_method=True)
 
 
-class MediaServiceStub(object):
+class MediaServiceStub:
     """============ Media Service ============
 
     """
@@ -4394,7 +4394,7 @@ class MediaServiceStub(object):
                 _registered_method=True)
 
 
-class MediaServiceServicer(object):
+class MediaServiceServicer:
     """============ Media Service ============
 
     """
@@ -4470,7 +4470,7 @@ def add_MediaServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class MediaService(object):
+class MediaService:
     """============ Media Service ============
 
     """
@@ -4611,7 +4611,7 @@ class MediaService(object):
             _registered_method=True)
 
 
-class MonitorServiceStub(object):
+class MonitorServiceStub:
     """============ Monitor Service ============
 
     """
@@ -4639,7 +4639,7 @@ class MonitorServiceStub(object):
                 _registered_method=True)
 
 
-class MonitorServiceServicer(object):
+class MonitorServiceServicer:
     """============ Monitor Service ============
 
     """
@@ -4693,7 +4693,7 @@ def add_MonitorServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class MonitorService(object):
+class MonitorService:
     """============ Monitor Service ============
 
     """
@@ -4780,7 +4780,7 @@ class MonitorService(object):
             _registered_method=True)
 
 
-class PluginServiceStub(object):
+class PluginServiceStub:
     """============ Plugin Service (UI-facing, daemon manages plugins) ============
 
     """
@@ -4908,7 +4908,7 @@ class PluginServiceStub(object):
                 _registered_method=True)
 
 
-class PluginServiceServicer(object):
+class PluginServiceServicer:
     """============ Plugin Service (UI-facing, daemon manages plugins) ============
 
     """
@@ -5278,7 +5278,7 @@ def add_PluginServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class PluginService(object):
+class PluginService:
     """============ Plugin Service (UI-facing, daemon manages plugins) ============
 
     """
@@ -5905,7 +5905,7 @@ class PluginService(object):
             _registered_method=True)
 
 
-class PluginHostServiceStub(object):
+class PluginHostServiceStub:
     """============ Plugin Host Service (daemon exposes, plugins call into) ============
 
     """
@@ -5968,7 +5968,7 @@ class PluginHostServiceStub(object):
                 _registered_method=True)
 
 
-class PluginHostServiceServicer(object):
+class PluginHostServiceServicer:
     """============ Plugin Host Service (daemon exposes, plugins call into) ============
 
     """
@@ -6104,7 +6104,7 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class PluginHostService(object):
+class PluginHostService:
     """============ Plugin Host Service (daemon exposes, plugins call into) ============
 
     """
@@ -6380,7 +6380,7 @@ class PluginHostService(object):
             _registered_method=True)
 
 
-class PluginCapabilityServiceStub(object):
+class PluginCapabilityServiceStub:
     """============ Plugin Capability Service (plugin exposes, daemon calls) ============
 
     """
@@ -6518,7 +6518,7 @@ class PluginCapabilityServiceStub(object):
                 _registered_method=True)
 
 
-class PluginCapabilityServiceServicer(object):
+class PluginCapabilityServiceServicer:
     """============ Plugin Capability Service (plugin exposes, daemon calls) ============
 
     """
@@ -6842,7 +6842,7 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class PluginCapabilityService(object):
+class PluginCapabilityService:
     """============ Plugin Capability Service (plugin exposes, daemon calls) ============
 
     """

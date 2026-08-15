@@ -1033,6 +1033,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "string",
               "id": 3
             },
+            "by": {
+              "type": "AttributionMsg",
+              "id": 4
+            },
             "userMessage": {
               "type": "UserMessageEvt",
               "id": 10
@@ -1359,6 +1363,78 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "runId": {
               "type": "string",
               "id": 7
+            }
+          }
+        },
+        "AttributionMsg": {
+          "fields": {
+            "voice": {
+              "type": "string",
+              "id": 1
+            },
+            "voiceId": {
+              "type": "string",
+              "id": 2
+            },
+            "voiceName": {
+              "type": "string",
+              "id": 3
+            },
+            "surface": {
+              "type": "string",
+              "id": 4
+            },
+            "source": {
+              "type": "string",
+              "id": 5
+            },
+            "commandId": {
+              "type": "string",
+              "id": 6
+            },
+            "commandName": {
+              "type": "string",
+              "id": 7
+            },
+            "entryKind": {
+              "type": "string",
+              "id": 8
+            },
+            "entryId": {
+              "type": "string",
+              "id": 9
+            },
+            "entryLabel": {
+              "type": "string",
+              "id": 10
+            },
+            "runId": {
+              "type": "string",
+              "id": 11
+            },
+            "parentRunId": {
+              "type": "string",
+              "id": 12
+            },
+            "depth": {
+              "type": "uint32",
+              "id": 13
+            },
+            "cause": {
+              "type": "string",
+              "id": 14
+            },
+            "link": {
+              "type": "string",
+              "id": 15
+            },
+            "principal": {
+              "type": "string",
+              "id": 16
+            },
+            "stated": {
+              "type": "bool",
+              "id": 17
             }
           }
         },

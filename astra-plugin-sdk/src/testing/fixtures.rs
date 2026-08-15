@@ -107,6 +107,11 @@ fn evt(seq: u64, event: proto::conversation_event_msg::Event) -> proto::Conversa
         timestamp: None,
         source_id: "test".into(),
         event: Some(event),
+        // Attribution — whose decision put this entry in the conversation.
+        // `None` on purpose: a fixture is not attributed to anybody, and the
+        // daemon treats absent as "a daemon older than this field", which is
+        // the case a plugin most needs to handle correctly.
+        by: None,
     }
 }
 
