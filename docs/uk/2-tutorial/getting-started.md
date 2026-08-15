@@ -11,7 +11,33 @@
 
 ## 1 · Встановіть CLI
 
-Один рядок. Займає кілька хвилин і закінчується друком версії.
+**Завантажте бінарник.** Без тулчейна, і закінчується друком версії:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+Покладіть видобутий `astra-plugin` кудись у свій `PATH`, наприклад
+`~/.local/bin`. Беріть архів **musl** на будь-якому Linux — архіву gnu
+потрібен glibc 2.39 або новіший, якого немає в Ubuntu 22.04, Debian 12 і
+RHEL 9. На Windows беріть `astra-plugin-0.2.1-windows-x64.zip`.
+`--ignore-missing` важливий: `SHA256SUMS.txt` перелічує всі три архіви, і
+без нього `sha256sum` виходить з 1 через два, які ви не завантажили.
+
+<!-- doctest: output from="astra-plugin --version" -->
+```
+astra-plugin <version>
+```
+
+Завантажений бінарник `0.2.1` друкує `astra-plugin 0.2.1`.
+
+**Або зберіть із вихідників** — шлях для macOS і ARM Linux, де архіву поки
+немає. Займає кілька хвилин:
 
 <!-- doctest: cli -->
 ```bash
@@ -19,25 +45,21 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 astra-plugin --version
 ```
 
-<!-- doctest: output from="astra-plugin --version" -->
-```
-astra-plugin <version>
-```
-
-Число тут — заповнювач навмисно: `--git` збирає той коміт, який `master`
+Тут число — заповнювач навмисно: `--git` збирає той коміт, який `master`
 несе в момент запуску, тож друкується версія цього коміту, а не обрана
-вами.
+вами. З клонованого репозиторію `cargo install --path astra-plugin-cli
+--locked` робить те саме.
 
-З клонованого репозиторію те саме робить
-`cargo install --path astra-plugin-cli --locked`.
+**Збірці з вихідників потрібен Rust 1.85 або новіший і `protoc` у PATH.**
+Без `protoc` збірка зупиниться на ``Could not find `protoc` ``. Встановіть
+його через `apt install protobuf-compiler`, `pacman -S protobuf`, `brew
+install protobuf` або `winget install Google.Protobuf`, потім виконайте
+рядок знову. Завантаженому бінарнику не потрібне ні те, ні інше.
 
-**Потрібен Rust 1.85 або новіший і `protoc` у PATH.** Без `protoc` збірка
-зупиниться на ``Could not find `protoc` ``. Встановіть його через `apt install
-protobuf-compiler`, `pacman -S protobuf`, `brew install protobuf` або `winget
-install Google.Protobuf`, потім виконайте рядок знову.
-
-**Номер версії не може сказати вам, що ця збірка добра, а `0.2.0` — не
-погана.** `init-ci` раніше закріплював *об'єкт* тега там, де GitHub вимагає
+**При збірці з вихідників номер версії не може сказати вам, що ця збірка
+добра, а `0.2.0` — не погана.** Завантажений бінарник `0.2.1` зібраний з
+тега `cli-v0.2.1` і вже несе виправлення нижче; решта цього абзацу — про
+`--git`. `init-ci` раніше закріплював *об'єкт* тега там, де GitHub вимагає
 коміт, і перший `git push --tags` плагіна вмирав на цьому. Виправлення —
 коміт `5b8ab22`, який потрапив до `master` *раніше*, ніж бамп, що підняв
 число до `0.2.1`; отже, збірка з `master` може нести виправлення і все одно
@@ -49,9 +71,10 @@ install Google.Protobuf`, потім виконайте рядок знову.
 версія:
 [встановлення CLI](../install-cli.md#баг-який-ламає-перший-реліз-і-як-зрозуміти-чи-є-у-вашій-збірці-виправлення).
 
-Одне застереження, яке вас не заблокує: CLI не на crates.io і не має готових
-бінарників, тож збірка — єдиний спосіб його отримати. Готові бінарники
-заплановані. Усі подробиці, включно з тим, що робити, якщо не працює:
+Одне застереження, яке вас не заблокує: CLI не на crates.io, тож `cargo
+install astra-plugin-cli` падає — вона залежить від завендореного крейта за
+шляхом, який cargo не запакує. Завантажте архів або зберіть із git. Усі
+подробиці, включно з тим, як звірити завантажене з його пакетом Sigstore:
 [встановлення CLI](../install-cli.md).
 
 Перевірте машину, перш ніж звинувачувати код:
@@ -425,6 +448,22 @@ GitHub і прикріплює їх до релізу GitHub.
 
 Далі одна заявка, один раз назавжди, і кожен наступний реліз йде без участі
 людини.
+
+**Одна річ, яку варто зробити перед цією заявкою** — єдиний крок, чия
+відсутність отримує відмову для правильного плагіна: закомітьте
+`.well-known/astra-plugin-owner` у дефолтну гілку свого репозиторію з вашим
+логіном GitHub усередині. Саме так реєстр встановлює, що ви контролюєте
+репозиторій, що лістингується, — атестація збірки доводить, звідки взявся
+бандл, а не хто ви. Два рядки, разом із вашим першим пушем:
+
+<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+```
+
+Подробиці і чому автоматичні перевірки не можуть відповісти за вас:
+[Потрапити до каталогу §2](../5-publish/get-listed.md#2--доведіть-що-ви-контролюєте-репозиторій).
 
 Зверніть увагу, чим публікація **не є**: пуш цього репозиторію в GitHub не
 публікує ваш плагін, і надсилання комусь щойно зібраного `.astraplugin`

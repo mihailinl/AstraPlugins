@@ -6,9 +6,9 @@
 danach baust du nie wieder ein Bundle von Hand.
 
 Alles auf dieser Seite startet von der `astra-plugin`-Binärdatei aus. Wenn
-du sie nicht hast, [installiere zuerst die CLI](../install-cli.md) — eine
-`cargo install`-Zeile, eine Rust-Toolchain erforderlich, noch keine
-vorgebauten Binärdateien. Für den ganzen Weg auf einer Seite statt nur
+du sie nicht hast, [installiere zuerst die CLI](../install-cli.md) — lade
+ein vorgebautes Archiv herunter, oder baue aus dem Quellcode, wenn du
+willst. Für den ganzen Weg auf einer Seite statt nur
 diese eine Stufe davon, siehe
 [Ein Plugin veröffentlichen](../publishing.md).
 

@@ -36,7 +36,7 @@ tiene ninguno de los dos.
 | | |
 |---|---|
 | **[Publicar un plugin](publishing.md)** | **Todo el recorrido en una sola página: de directorio vacío a plugin listado, cada comando con su salida. Empieza aquí.** |
-| [Instalar la CLI](install-cli.md) | `astra-plugin` no está en crates.io y todavía no tiene binarios precompilados; así se consigue de todos modos, con honestidad |
+| [Instalar la CLI](install-cli.md) | Descarga un `astra-plugin` precompilado y verifícalo, o compílalo desde el código fuente. No `cargo install` — eso no puede funcionar, y aquí se explica por qué |
 
 Las tres etapas por separado, si prefieres verlas una a una:
 

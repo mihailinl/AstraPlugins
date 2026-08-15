@@ -204,7 +204,8 @@ const REGISTRY_ONLY_CHECKS: &[&str] = &[
     "the build attestation, and that it was produced by the pinned Astra release workflow \
      (a hand-built bundle is refused however good it is)",
     "that the release assets are served from your repository's own release namespace",
-    "that you have admin or maintain on the repository",
+    "that `.well-known/astra-plugin-owner` on your default branch names the account opening \
+     the listing request",
     "that the id and display name do not collide with a listed plugin",
     "that the licence is on the registry's SPDX allowlist",
     "that the version is strictly newer than the listed one",

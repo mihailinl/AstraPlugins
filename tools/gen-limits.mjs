@@ -270,7 +270,8 @@ const ASTRA_RS = process.env.ASTRA_RS_DIR
   : resolve(REPO_ROOT, "..", "Astra", "astra-rs");
 const DAEMON_FILE = join(ASTRA_RS, "astra-daemon", "src", "plugins", "voice_capability.rs");
 
-let daemonNote = `skipped (no Astra checkout at ${DAEMON_FILE}; set $ASTRA_RS_DIR)`;
+let daemonNote = `No Astra checkout at ${DAEMON_FILE}; set $ASTRA_RS_DIR.`;
+let daemonChecked = false;
 if (existsSync(DAEMON_FILE)) {
   const src = readFileSync(DAEMON_FILE, "utf8");
   const begin = src.indexOf(DAEMON_BEGIN);
@@ -286,6 +287,7 @@ if (existsSync(DAEMON_FILE)) {
   const updated = src.slice(0, begin) + daemonBlock() + src.slice(end + DAEMON_END.length);
   outputs.push({ path: DAEMON_FILE, content: updated, whole: false });
   daemonNote = DAEMON_FILE;
+  daemonChecked = true;
 }
 
 let drifted = 0;
@@ -310,7 +312,29 @@ if (CHECK_ONLY) {
     );
     process.exit(1);
   }
-  console.log(`gen-limits: OK — ${limits.length} limits, all generated files current`);
+  // Say what was NOT compared. `--check` is the mode CI runs and the mode
+  // AGENTS.md tells a contributor to run, and until now it answered "all
+  // generated files current" whether or not the daemon block had been looked
+  // at — the daemon block being the entire reason this generator exists. The
+  // note existed; it was printed only on the write path, which nobody runs in
+  // CI. An instruction that says "read the output" is worth nothing when the
+  // output omits the half that was skipped, and it is worse than silence,
+  // because someone who runs it comes away believing they checked.
+  //
+  // Exit stays 0 without a checkout on purpose: Astra is private, so a fork
+  // cannot have one, and failing here would make the documented command
+  // impossible to satisfy rather than honest about its reach.
+  if (daemonChecked) {
+    console.log(`gen-limits: OK — ${limits.length} limits, all generated files current`);
+  } else {
+    console.log(
+      `gen-limits: OK — ${limits.length} limits, the SDK files are current.\n` +
+        `gen-limits: NOT CHECKED — the daemon's block. ${daemonNote}\n` +
+        `gen-limits:              That is the cross-repo half: the STT channel capacity was ` +
+        `500 in the daemon and 32 in the SDK, and this generator exists so the two cannot ` +
+        `disagree again. This run did not compare them.`
+    );
+  }
 } else {
   console.log(
     `gen-limits: ${SPEC_REL} (sha256 ${specSha256.slice(0, 12)}…) -> ${limits.length} limits; ` +

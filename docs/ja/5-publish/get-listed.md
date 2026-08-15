@@ -22,8 +22,12 @@
 issue。レジストリは CI が証明したリリースアセットだけを掲載し、それ
 以外は一切掲載しません。
 
-以下のすべてのコマンドは `astra-plugin` です。持っていなければ、先に
-[CLI をインストールする](../install-cli.md) を行ってください。
+以下のコマンドのほとんどは `astra-plugin` です。例外は
+[ステップ 2](#2--リポジトリを制御していることを証明する) だけで、これは
+あなた自身のリポジトリでの 1 つのファイルと 1 回の `git commit` です。
+CLI を持っていなければ、先に
+[インストールしてください](../install-cli.md) — 今ではビルド済み
+バイナリがあります。
 
 ## 1 · 事前確認する
 
@@ -42,12 +46,18 @@ astra-plugin publish --dry-run
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
   · the declared-vs-called host RPC scan
 ```
+
+**このうち 1 つは前もって片付けられますし、そうすべきです。** 所有権の
+行はそのファイルを名指ししており、それをコミットするのが
+[ステップ 2](#2--リポジトリを制御していることを証明する)です。提出する前に
+これを行っておけば、チェックは 1 回目で通ります。省くと、最初に返って
+くる答えは拒否になります。
 
 ### あなたのリスト掲載がどう見えるか
 
@@ -111,7 +121,103 @@ SVG を出荷する場合は、静的なものにしてください: `<script>` 
 長い README は行の境界で 16 KB に切り詰められ、続きへの GitHub 上の
 リンクが付きます。
 
-## 2 · 提出する
+## 2 · リポジトリを制御していることを証明する
+
+**issue を開く前にこれを行ってください。** 1 つのファイルと 1 回の
+コミットだけで済み、これを省くことこそ、正しく誠実な最初の提出が拒否
+される最も多い原因です。
+
+レジストリは、このページの他の何も答えていない 1 つの問いに答えなければ
+なりません: **このリスト掲載を申請している人物は、掲載されようとしている
+リポジトリを制御しているか?** 証明(attestation)はすでに、バンドルが
+そのリポジトリから出たことを証明しており、リスト掲載はそこに固定されて
+います — しかし、そのどちらの事実も、あなたが誰であるかは語りません。
+このステップがなければ、見知らぬ人が他人のプラグインをリストに掲載し、
+その更新が Astra ユーザーへ届く経路となるアイデンティティになりすまして
+しまう可能性があります。
+
+このファイルをリポジトリの**デフォルトブランチ**にコミットしてください:
+
+<!-- doctest: illustrative reason="the path and content of a file the author writes in their own repository; there is nothing here for a runner to execute" -->
+```
+path      .well-known/astra-plugin-owner
+content   your GitHub login, one per line
+```
+
+それを作成する唯一のコマンドは、あなたのプラグインのリポジトリのルート
+で実行します:
+
+<!-- doctest: illustrative reason="git commands against the author's own repository — the runner has no such repository, and `cli` blocks must contain an astra-plugin command" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+git add .well-known/astra-plugin-owner
+git commit -m "Declare the Astra registry owner for this repository"
+git push
+```
+
+**これが証明すること:** デフォルトブランチに書き込める誰かが、この
+GitHub ログインがこのリポジトリを代表すると主張していること — bot が
+チェックする瞬間にライブで読み取られるため、ファイルからログインを削除
+すれば、その人は新しい掲載リクエストを開くことも `/recheck` を通すことも
+できなくなります。ただし、すでに掲載済みのプラグインには**及びません**:
+[それ以降のすべてのリリース](#5--それ以降のすべてのリリース)は、そのリリースを
+公開したアカウントに対して証明され、掲載自体はいずれにせよこのリポジトリに
+ピン留めされたままです。
+**これが証明しないこと:** あなたのコードについては、誰も読まないので、
+一切何も証明しません; これは署名ではなく、安全性のレビューでもありません。
+
+### フォーマット、正確には
+
+1 行に 1 ログイン。`#` の後ろはすべてコメント、先頭の `@` は問題なく、
+前後の空白は取り除かれ、大文字小文字は区別されません。読み取られるのは
+最初の 4 KB だけです。したがって、このファイルは有効で、1 人の所有者を
+掲載しています:
+
+<!-- doctest: illustrative reason="the contents of a file in the author's repository, not a command" -->
+```
+# owners of this repository
+@Rel0d1x   # primary
+```
+
+このリポジトリを代表して提出または再提出できる人を全員記載してください。
+組織所有のリポジトリでは、通常これは 1 人以上になります。
+
+### レジストリが読み取れることを確認する
+
+bot は、デフォルトブランチ上のこのファイルを GitHub の contents API 経由
+で、認証なしで読み取ります。bot がするのとまったく同じリクエストを自分
+でも行えます:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+これはあなたのログインをそのまま表示するはずです。`Not Found (HTTP
+404)` が表示される場合、ファイルは bot が探している場所にありません —
+よくある原因は、デフォルトブランチ以外のブランチにある、まだコミットも
+push もされていない、あるいはディレクトリが先頭のドットなしで
+`well-known` と書かれている、のいずれかです。
+
+### なぜこれが代替手段ではなくステップなのか
+
+レジストリは制御を確立する 3 つの方法を試み、このファイルが普通の作者
+にとってうまくいく方法です。これは好みではなく構造的なものであり、他の
+2 つは実際の提出で失敗するのが観測されています:
+
+| 方法 | なぜあなたの代わりに答えてくれないのか |
+|---|---|
+| **コラボレーター権限** — 誰が `admin` または `maintain` を持っているかを GitHub に尋ねる | GitHub がそのエンドポイントに答えるのは、リポジトリに対してすでに admin の可視性を持っている呼び出し元に対してだけです。レジストリのトークンはレジストリのものなので、*あなたの*リポジトリに対しては `403` を得ます — これは「あなたには教えない」という意味であり、「いいえ」ではなく、まったくの無回答として扱われます |
+| **リリースの作者** — リリースを公開したアカウント | [CI でリリースする](release-with-ci.md) のリリースワークフローが GitHub Release を作成するため、その作者は人ではなく `github-actions[bot]` になります。文書化された手順に従うことこそが、この方法を無効にしてしまいます |
+| **`.well-known/astra-plugin-owner`** | 何もレジストリに見える必要はなく、何もインストールする必要もありません。これは答えてくれます |
+
+最初の方法での `403` はあなたに不利には働かず、それ単独で拒否になる
+ことは決してありません。拒否が起きるのは 3 つすべてが何も返さない
+場合だけであり、それはまさにこのファイルが存在しないときに起きることです。
+
+## 3 · 提出する
 
 <!-- doctest: cli -->
 ```bash
@@ -137,6 +243,12 @@ dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
 ```
 
+このキャプチャは、自身の git タグを持たないディレクトリで取得したものです。
+タグを取得する前に自分のチェックアウト内で実行すると、段落の上に 1 行が
+追加されます — `Note: this checkout has no tag v0.1.0.` これはエラーではなく
+注意書きです: レジストリはリリースを GitHub から読むので、重要なのはタグが
+push されていて、CI がアセットを添付していることです。
+
 > **その URL の中の `template=plugin-listing.yml` には意味があります。**
 > テンプレートは `labels: ["listing", "needs-triage"]` を宣言しており、
 > レジストリの bot は `listing` を持つ issue に対してのみサブミッション
@@ -160,10 +272,11 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 | フィールド | なぜ読み取りではなく入力なのか |
 |---|---|
 | ソースリポジトリ(`you/dice-roller`) | バンドルは自分がどこから配信されているかを保証できません |
-| リリースタグ(`v0.2.0`) | 同上 |
+| リリースタグ(`v0.1.0`) | 同上 |
 
-加えて 2 つの確認事項: あなたがそのリポジトリの所有者またはメンテナー
-であること、ポリシーを読んだこと。
+加えて 3 つの確認事項(すべて必須): `.well-known/astra-plugin-owner` を
+デフォルトブランチにコミットし、そこに自分のログイン名があること、あなたが
+そのリポジトリの所有者またはメンテナーであること、ポリシーを読んだこと。
 
 **それ以外はすべて証明済みバンドルから読み取られます** — id、
 バージョン、表示名、要約、ライセンス、ケーパビリティ、パーミッション、
@@ -173,7 +286,7 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 違うフォームというものが存在しないため、拒否の理由になり得る一連の
 クラス全体を消し去ってもいます。
 
-## 3 · 提出後に何が起きるか
+## 4 · 提出後に何が起きるか
 
 このセクションは、実在する 2 人の作者が必要としながら持っていなかった
 ものです。ここでは `astra-registry/docs/POLICY.md` と
@@ -186,15 +299,15 @@ bot 自身のコード(`bot/lib/policy.mjs`、`bot/lib/codes.mjs`)から生成
 
 1. **あなたの issue に `listing` と `needs-triage` のラベルが付きます**
    — issue テンプレートから自動的に。これが、何かが起こるかどうかを
-   決めるステップです; §2 の警告を参照してください。
+   決めるステップです; §3 の警告を参照してください。
 2. **bot がそれをトリアージし**、あなたの 2 つの事実を読み、認証なしで
    GitHub からリリースを取得し、そのバイト列に対して
    `docs/BOT-CHECKS.md` にあるすべてのチェックを実行します: 証明と
    どのワークフローがそれを生成したか、アセットの URL があなた自身の
-   リポジトリのリリース名前空間の下にあるか、あなたがそのリポジトリの
-   admin または maintain を持っているか、アーカイブの構造、マニフェスト、
-   ライセンス、バージョンの順序、そして宣言と実際の呼び出しの host RPC
-   スキャン。
+   リポジトリのリリース名前空間の下にあるか、あなたがそのリポジトリを
+   制御しているか([ステップ 2](#2--リポジトリを制御していることを証明する))、
+   アーカイブの構造、マニフェスト、ライセンス、バージョンの順序、そして
+   宣言と実際の呼び出しの host RPC スキャン。
 3. **bot はあなたの issue に**結果、理由、そして — ある場合は — 正確な
    公開時刻をコメントします。どちらに転んでも、あなたには伝えられます。
 
@@ -261,7 +374,7 @@ bot は固定のコードと、それにどう対処すべきかをコメント�
 | `E_RELEASE_NOT_FOUND` | そのリポジトリにそのタグのリリースがない | ドラフトリリースはあなた以外の誰にも見えません。プライベートリポジトリは存在しないものと同じに見えます |
 | `E_WORKFLOW_NOT_ALLOWED` | ビルドが、このレジストリが許可していないワークフローを実行した | Astra の再利用可能ワークフローをコミット SHA でピン留めしてください。`astra-plugin init-ci` があなたの代わりにそれを行います |
 | `E_ASSET_URL_FOREIGN` | アセット URL があなたのリポジトリ自身のリリース配下にない | すべてのダウンロード URL は `https://github.com/<owner>/<repo>/releases/download/<tag>/` の下になければなりません |
-| `E_OWNERSHIP_UNPROVEN` | あなたがそのリポジトリの admin でも maintainer でもない | admin/maintainer である人に issue を開いてもらうか、デフォルトブランチにあなたの GitHub ログインを含む `.well-known/astra-plugin-owner` をコミットして `/recheck` とコメントしてください |
+| `E_OWNERSHIP_UNPROVEN` | あなたがそのリポジトリを制御していることが何も証明されなかった | ほぼ確実に [ステップ 2](#2--リポジトリを制御していることを証明する) を飛ばしています。デフォルトブランチに、あなたの GitHub ログインを含む `.well-known/astra-plugin-owner` をコミットし、それから `/recheck` とコメントしてください — 新しいリリースも新しいタグも不要です |
 | `E_INPUT_REPO` / `E_INPUT_TAG` | リポジトリまたはタグが想定された形式ではない | `you/dice-roller` であって URL ではありません; `v0.2.0` であって、コミット SHA やブランチではありません |
 
 修正した後、同じ issue に **`/recheck`** とコメントしてください。
@@ -323,7 +436,7 @@ bot は正確な公開時刻を述べ、その時計が切れると、取り込�
 GitHub アカウントを乗っ取られた作者が、自分が行っていないリリースを
 目にしてそう言える窓です。
 
-## 4 · それ以降のすべてのリリース
+## 5 · それ以降のすべてのリリース
 
 何もありません。タグを打てば、あとは CI がやってくれます。レジストリ
 がリリースに気づき、インデックスを再生成します。
@@ -337,6 +450,14 @@ astra-plugin publish --notify
 
 これは**すでにリストに掲載されている**プラグイン向けの手動 ping です。
 これがないと、`publish` は最初のリスティング申請を開いてしまいます。
+
+**この経路では所有権は別の問いです。** ping と、その背後にある cron の
+バックストップは、リリースをそれを*公開した*アカウントに対して証明します —
+ping を打った人に対してでも、`.well-known/astra-plugin-owner` に対してでも
+ありません。したがってそのファイルを編集しても、すでに掲載済みのプラグイン
+のリリースを出せる人は変わりません。これを縛っているのは、ping がレジストリ
+に**すでにピン留めされた**リポジトリしか名指しできないという点です:
+リポジトリの変更は定型処理ではなくなり、人の手に戻ります。
 
 ## リスト掲載が意味しないこと
 

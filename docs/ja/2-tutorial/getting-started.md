@@ -11,7 +11,35 @@
 
 ## 1 · CLI をインストールする
 
-1 行です。数分かかり、最後にバージョンを出力して終わります。
+**バイナリをダウンロードします。** ツールチェーン不要で、最後にバージョンを
+出力して終わります:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+展開した `astra-plugin` を、`~/.local/bin` など `PATH` 上のどこかに置いて
+ください。どの Linux でも **musl** アーカイブを使ってください — gnu の
+ほうは Ubuntu 22.04、Debian 12、RHEL 9 にはない glibc 2.39 以降を必要と
+します。Windows では `astra-plugin-0.2.1-windows-x64.zip` を使ってください。
+`--ignore-missing` は重要です: `SHA256SUMS.txt` は 3 つのアーカイブすべてを
+列挙しているため、これがないとダウンロードしなかった 2 つのせいで
+`sha256sum` が終了コード 1 を返します。
+
+<!-- doctest: output from="astra-plugin --version" -->
+```
+astra-plugin <version>
+```
+
+ダウンロードした `0.2.1` バイナリは `astra-plugin 0.2.1` と表示します。
+
+**あるいはソースからビルドします** — アーカイブがまだない macOS と
+ARM Linux での道です。数分かかります:
 
 <!-- doctest: cli -->
 ```bash
@@ -19,42 +47,41 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 astra-plugin --version
 ```
 
-<!-- doctest: output from="astra-plugin --version" -->
-```
-astra-plugin <version>
-```
+そこでの番号は意図的なプレースホルダです。`--git` は実行時点で `master` が
+持っているコミットをビルドするので、表示されるのはあなたが選んだ番号では
+なく、そのコミットのバージョンです。クローンからなら
+`cargo install --path astra-plugin-cli --locked` で同じことができます。
 
-この番号は意図的なプレースホルダです。`--git` は実行時点で `master` が持って
-いるコミットをビルドするので、表示されるのはあなたが選んだ番号ではなく、その
-コミットのバージョンです。
-
-クローンからなら `cargo install --path astra-plugin-cli --locked` で同じ
-ことができます。
-
-**Rust 1.85 以降と、`PATH` 上の `protoc` が必要です。** `protoc` が
-なければ、ビルドは ``Could not find `protoc` `` で止まります。
+**ソースからのビルドには Rust 1.85 以降と、`PATH` 上の `protoc` が必要です。**
+`protoc` がなければ、ビルドは ``Could not find `protoc` `` で止まります。
 `apt install protobuf-compiler`、`pacman -S protobuf`、
 `brew install protobuf`、または `winget install Google.Protobuf` で
-インストールしてから、もう一度この行を実行してください。
+インストールしてから、もう一度この行を実行してください。ダウンロードした
+バイナリにはどちらも不要です。
 
-**バージョン番号ではこのビルドが良いものだと判断できませんし、`0.2.0` が悪い
-ビルドだというわけでもありません。** `init-ci` はかつて、GitHub がコミットを
-必要とする箇所にタグ*オブジェクト*を固定しており、プラグインの最初の
-`git push --tags` はそこで死んでいました。修正はコミット `5b8ab22` で、これは
-番号を `0.2.1` に上げたバージョン更新よりも*前*に `master` へ入りました — つまり
-`master` からのビルドは修正を含みながら `0.2.0` と表示することがあり、修正を
-欠く `0.2.1` は存在しません。今日 `master` からインストールすれば、番号が何で
-あれ修正は入っています。信じるのではなく確かめるには、`astra-plugin init-ci` を
-実行して表示されるピンを読んでください —
+**ソースからのビルドでは、バージョン番号ではこのビルドが良いものだと判断
+できませんし、`0.2.0` が悪いビルドだというわけでもありません。** ダウン
+ロードした `0.2.1` バイナリはタグ `cli-v0.2.1` からビルドされており、
+下記の修正をすでに含んでいます。この段落の残りは `--git` についてです。
+`init-ci` はかつて、GitHub がコミットを必要とする箇所にタグ*オブジェクト*
+を固定しており、プラグインの最初の `git push --tags` はそこで死んでいま
+した。修正はコミット `5b8ab22` で、これは番号を `0.2.1` に上げたバージョン
+更新よりも*前*に `master` へ入りました — つまり `master` からのビルドは
+修正を含みながら `0.2.0` と表示することがあり、修正を欠く `0.2.1` は存在
+しません。今日 `master` からインストールすれば、番号が何であれ修正は入って
+います。信じるのではなく確かめるには、`astra-plugin init-ci` を実行して
+表示されるピンを読んでください —
 `e3329df252a46d747676cb540ae4b986af68a3ad` がコミットで、これが正しいもの。
 `dc1a044876926e9cf1170f034e2eab533ec07641` はタグオブジェクトで、これがバグです。
 詳しい説明:
 [CLI をインストールする](../install-cli.md#最初のリリースを壊すバグと自分のビルドに修正が入っているかの見分け方)。
 
-補足で、これ自体はあなたをブロックしません: CLI は crates.io になく、
-ビルド済みバイナリもないため、ビルドすることが入手する唯一の方法です。
-ビルド済みバイナリは計画されています。うまくいかないときにどうするかを
-含む詳細: [CLI をインストールする](../install-cli.md)。
+補足で、これ自体はあなたをブロックしません: CLI は crates.io にないため、
+`cargo install astra-plugin-cli` は失敗します — vendor されたクレートに
+パスで依存しており、cargo はそれをパッケージ化できません。アーカイブを
+ダウンロードするか、git からビルドしてください。ダウンロードしたものを
+Sigstore バンドルと照合する方法を含む詳細:
+[CLI をインストールする](../install-cli.md)。
 
 コードのせいにする前に、マシンを確認してください。
 
@@ -436,6 +463,23 @@ SHA でピン留めされた `.github/workflows/release.yml` を書き出しま�
 
 その後は 1 回きりの提出で、それ以降のすべてのリリースはノータッチに
 なります。
+
+**その提出の前にやっておくべきこと**があります — これが欠けていると、
+正しいプラグインでも拒否される唯一のステップです: あなたの GitHub ログイン
+を含む `.well-known/astra-plugin-owner` を、リポジトリのデフォルトブランチ
+にコミットしてください。これが、あなたが掲載しようとしているリポジトリを
+制御していることをレジストリが確立する方法です — ビルド証明はバンドルが
+どこから来たかを証明しますが、あなたが誰かは証明しません。最初の push と
+一緒に、2 行だけです:
+
+<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+```
+
+詳細と、自動チェックがなぜあなたの代わりに答えられないかについては:
+[リストに掲載してもらう §2](../5-publish/get-listed.md#2--リポジトリを制御していることを証明する)。
 
 公開が**何ではないか**に注意してください: このリポジトリを GitHub に
 push してもあなたのプラグインは公開されませんし、たった今ビルドした

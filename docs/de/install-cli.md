@@ -7,33 +7,165 @@ die Seite, die dir diesen Befehl verschafft. Die Binärdatei heißt
 **`astra-plugin`** — nicht `astra-plugin-cli`, das ist nur der Name der
 Crate.
 
-## Der ehrliche Stand der Dinge
+## Zwei Wege, und welcher für dich
 
-**Es gibt noch keine vorgebauten Binärdateien, und `astra-plugin-cli` ist
-nicht auf crates.io.** Heute verifiziert:
-`https://index.crates.io/as/tr/astra-plugin-cli` antwortet mit `404`,
-während `astra-plugin-sdk` im selben Index mit `200` antwortet, das ist
-also eine echte Abwesenheit und kein fehlgeschlagenes Nachschlagen.
-`gh release list --repo mihailinl/AstraPlugins` gibt nichts aus.
+**Lade die Binärdatei herunter.** Release [`cli-v0.2.1`][rel] enthält
+vorgebaute Archive für Linux und Windows, eine Prüfsummendatei und ein
+Sigstore-Bundle, das du verifizieren kannst. Nichts muss kompiliert
+werden, und keine Toolchain ist beteiligt. Das ist der Weg, den die
+meisten Leute wollen, und er steht unten.
 
-Der einzige Weg, die CLI zu bekommen, ist also, sie zu bauen, und das
-Bauen braucht eine Rust-Toolchain. Vorgebaute Binärdateien auszuliefern
-ist eine bekannte, separate, ausstehende Aufgabe — die Release-Automation
-dafür wird gerade geschrieben, und diese Seite bekommt eine Download-Zeile
-an dem Tag, an dem es ein Release zum Herunterladen gibt. Bis dahin
-beschreibt sie das Vollständige dessen, was existiert, und nichts hier
-verlangt von dir, irgendetwas herunterzuladen.
+**Oder baue aus dem Quellcode**, was Rust 1.85 oder neuer und `protoc`
+braucht. Nimm diesen Weg, wenn du auf einer Plattform ohne Archiv bist —
+heute macOS und ARM Linux — oder wenn du die CLI auch lesen oder ändern
+willst, nicht nur ausführen.
 
-Diese Kosten sind real, und es lohnt sich zu benennen, warum es sich
-trotzdem zu zahlen lohnt: die CLI ist kein Bequemlichkeits-Wrapper um
-einen anderen, einfacheren Weg. Sie ist das Einzige, was einen korrekten
-Release-Workflow schreibt, das Einzige, was deine Manifeste davon
-abhält, uneins über die Version zu sein, und das Einzige, was eine
-Listing-Anfrage öffnet, die der Bot der Registry tatsächlich sieht. Sie
-zu umgehen ist der Grund, warum zwei echte Einreichungen im Schweigen
-endeten — siehe [was Veröffentlichen ist](publishing.md).
+**`cargo install astra-plugin-cli` ist keiner der Wege und wird nicht
+funktionieren.** Die Crate hängt von einer gevendorten
+`astra-plugin-manifest` über einen Pfad ab
+(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`),
+cargo paketiert nie den Quellcode einer Pfad-Abhängigkeit, und das
+Veröffentlichen schlägt daher fehl mit *all dependencies must have a
+version requirement specified* — die Crate ist also überhaupt nicht auf
+crates.io (`https://index.crates.io/as/tr/astra-plugin-cli` antwortet
+heute mit `404`, während `astra-plugin-sdk` im selben Index mit `200`
+antwortet). Das freizuschalten bedeutet, zuerst die Manifest-Crate von
+Astra zu veröffentlichen, und diese Seite verspricht dafür kein Datum.
 
-## Voraussetzungen
+[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
+
+## Eine Binärdatei herunterladen
+
+### Welches Archiv
+
+| Du bist auf | Nimm |
+|---|---|
+| **Jedem Linux** | `astra-plugin-0.2.1-linux-x64-musl.tar.gz` |
+| Linux, und du willst konkret den glibc-Build | `astra-plugin-0.2.1-linux-x64-gnu.tar.gz` |
+| **Windows** | `astra-plugin-0.2.1-windows-x64.zip` |
+
+**musl ist die sichere Standardwahl, und der Grund ist nicht Geschmack.**
+Der gnu-Build ist dynamisch gelinkt, und seine Symboltabelle verlangt
+**glibc 2.39 oder neuer**, das Ubuntu 22.04 (2.35), Debian 12 (2.36) und
+RHEL 9 (2.34) nicht haben — auf jedem davon startet er nicht, statt
+subtil falsch zu funktionieren. Das musl-Archiv ist eine
+`static-pie`-ausführbare Datei ganz ohne libc-Abhängigkeit, sie läuft
+also auf jedem davon. Nimm gnu nur, wenn du weißt, dass du es willst.
+
+Die vollständige Asset-Liste dieses Releases, also alles Veröffentlichte:
+
+<!-- doctest: output from="gh release view cli-v0.2.1 --repo mihailinl/AstraPlugins --json assets" unrun="reads a GitHub release over the network; re-run the command in the from= to confirm the list, or open the release page" -->
+```
+astra-plugin-0.2.1-linux-x64-gnu.tar.gz     3372607
+astra-plugin-0.2.1-linux-x64-musl.tar.gz    3425289
+astra-plugin-0.2.1-windows-x64.zip          3450755
+SHA256SUMS.txt                                  314
+astra-plugin-0.2.1.sigstore.jsonl             11414
+```
+
+### Holen und prüfen
+
+Linux, über `curl` — hier braucht es weder `gh` noch ein GitHub-Konto:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+Das ist ein reales Transkript dieser Befehle:
+
+<!-- doctest: output from="sha256sum -c --ignore-missing SHA256SUMS.txt" unrun="needs the release archive downloaded next to the checksum file; re-run the two curl lines above and then this one" -->
+```
+astra-plugin-0.2.1-linux-x64-musl.tar.gz: OK
+```
+
+**Benutze `--ignore-missing`.** `SHA256SUMS.txt` listet alle drei Archive
+auf, ein einfaches `sha256sum -c SHA256SUMS.txt` meldet die zwei, die du
+nicht heruntergeladen hast, also als `FAILED open or read` und **beendet
+sich mit 1** — was exakt wie ein beschädigter Download aussieht und keiner
+ist:
+
+<!-- doctest: output from="sha256sum -c SHA256SUMS.txt" unrun="needs one of the three archives present and the other two absent; re-run the curl lines above and then this one to reproduce it" -->
+```
+sha256sum: astra-plugin-0.2.1-linux-x64-gnu.tar.gz: No such file or directory
+astra-plugin-0.2.1-linux-x64-gnu.tar.gz: FAILED open or read
+astra-plugin-0.2.1-linux-x64-musl.tar.gz: OK
+sha256sum: astra-plugin-0.2.1-windows-x64.zip: No such file or directory
+astra-plugin-0.2.1-windows-x64.zip: FAILED open or read
+sha256sum: WARNING: 2 listed files could not be read
+```
+
+Das Archiv entpackt sich in ein Verzeichnis, das die Binärdatei und ihre
+Lizenzdateien enthält:
+
+<!-- doctest: output from="tar tzf astra-plugin-0.2.1-linux-x64-musl.tar.gz" unrun="needs the downloaded archive; re-run the curl line above and then this one" -->
+```
+astra-plugin-0.2.1-linux-x64-musl/
+astra-plugin-0.2.1-linux-x64-musl/LICENSE
+astra-plugin-0.2.1-linux-x64-musl/NOTICE
+astra-plugin-0.2.1-linux-x64-musl/README.md
+astra-plugin-0.2.1-linux-x64-musl/astra-plugin
+```
+
+Verschiebe `astra-plugin` irgendwohin in deinen `PATH` — `~/.local/bin`
+ist die übliche Antwort, und es braucht kein `sudo`:
+
+<!-- doctest: cli -->
+```bash
+mkdir -p ~/.local/bin
+cp astra-plugin-0.2.1-linux-x64-musl/astra-plugin ~/.local/bin/
+astra-plugin --version
+```
+
+Unter Windows lade das `.zip` von der Release-Seite herunter, entpacke
+es, und lege `astra-plugin.exe` in deinen `PATH`. `certutil -hashfile
+<file> SHA256` ist das eingebaute Prüfsummenwerkzeug, und dessen Ausgabe
+wird per Auge mit `SHA256SUMS.txt` verglichen.
+
+### Prüfen, wer sie gebaut hat
+
+Die Prüfsumme beweist, dass die Bytes zu einer im Release benannten Datei
+passen. Sie beweist nicht, wer diese Datei erzeugt hat — dafür gibt es
+ein Sigstore-Bundle, und `gh` prüft es gegen GitHubs Build-Attestation:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+astra-plugin --version
+```
+
+**Ein Erfolg gibt nichts aus, wenn die Ausgabe kein Terminal ist, und
+beendet sich mit `0`.** Das ist beim ersten Mal verwirrend; prüfe `echo
+$?`, statt nach einem Häkchen zu suchen. Ein Fehlschlag ist laut und
+beendet sich mit `1`:
+
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+```
+Error: verifying with issuer "sigstore.dev"
+```
+
+Das entstand durch Anhängen eines Bytes an das Archiv; `--repo` auf ein
+Repository zu zeigen, das es nicht gebaut hat, scheitert identisch. Ein
+Bundle deckt alle drei Archive ab, und was es bezeugt, ist mit
+`--format json` lesbar: der signierende Workflow ist
+`https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`,
+der Issuer ist `https://token.actions.githubusercontent.com`, und die
+drei Subject-Digests sind die drei Zeilen von `SHA256SUMS.txt`. `gh
+attestation verify` braucht Netzwerkzugriff, um die Vertrauenswurzel zu
+holen, aber keinen GitHub-Login.
+
+## Aus dem Quellcode bauen
+
+Nimm diesen Weg für macOS oder ARM Linux, wo es noch kein Archiv gibt,
+oder um an der CLI selbst zu arbeiten. Es ist kein Fallback für einen
+fehlgeschlagenen Download — die Binärdatei oben ist dasselbe Programm.
+
+### Voraussetzungen
 
 | | Warum | Prüfen |
 |---|---|---|
@@ -63,7 +195,7 @@ und der Fehler nennt den Fix:
   Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
 ```
 
-## Installieren
+### Bauen
 
 **Eine Zeile, kein Klon.** Das ist die zu verwendende:
 
@@ -116,6 +248,17 @@ astra-plugin --version
 Ein bloßes `git clone` checkt `master` aus, und `master` ist, wo die
 aktuelle CLI ist — es gibt keinen Branch, den du kennen musst.
 
+Um genau den Code zu bauen, aus dem die veröffentlichten Binärdateien
+gebaut wurden, statt dessen, was `master` heute trägt, checke zuerst das
+Release-Tag aus:
+
+<!-- doctest: cli -->
+```bash
+git clone --branch cli-v0.2.1 https://github.com/mihailinl/AstraPlugins
+cargo install --path AstraPlugins/astra-plugin-cli --locked
+astra-plugin --version
+```
+
 ## Prüfen, dass es funktioniert hat
 
 <!-- doctest: cli -->
@@ -129,17 +272,19 @@ astra-plugin --help
 astra-plugin <version>
 ```
 
-Die Zahl ist ein Platzhalter, weil dich keine der beiden Installationszeilen
-eine auswählen lässt: beide bauen einen Commit, kein Release, du bekommst
-also die Version aus der `Cargo.toml` dieses Commits. `0.2.1` ist der neueste
-Eintrag im [Changelog der CLI](../../astra-plugin-cli/CHANGELOG.md), das
-auch festhält, dass diese Crate keinen Release-Zug hat — kein crates.io,
-kein Tag, keine Binärdateien.
+Eine heruntergeladene Binärdatei gibt `astra-plugin 0.2.1` aus, weil das
+Archiv aus dem Tag `cli-v0.2.1` gebaut ist und aus nichts sonst.
+`<version>` ist nur auf dem Quellcode-Weg ein Platzhalter: `cargo install
+--git` baut, was `master` in diesem Moment trägt, du bekommst also die
+Version aus der `Cargo.toml` dieses Commits, die dem neuesten Release
+voraus sein kann. `0.2.1` ist der neueste Eintrag im
+[Changelog der CLI](../../astra-plugin-cli/CHANGELOG.md).
 
-Wenn die Shell es nicht findet, hat `cargo install` es in `~/.cargo/bin`
-(oder `%USERPROFILE%\.cargo\bin` unter Windows) abgelegt, und dieses
-Verzeichnis ist nicht in deinem `PATH`. `cargo` gibt genau dann eine
-entsprechende Warnung aus.
+Wenn die Shell es nicht findet: eine heruntergeladene Binärdatei liegt
+dort, wohin du sie kopiert hast, und `cargo install` legt eine in
+`~/.cargo/bin` ab (oder `%USERPROFILE%\.cargo\bin` unter Windows). So
+oder so ist dieses Verzeichnis nicht in deinem `PATH`. `cargo` gibt genau
+dann eine entsprechende Warnung aus, wenn das passiert.
 
 ### Der Bug, der ein erstes Release kaputtmacht, und wie du erkennst, ob dein Build den Fix hat
 
@@ -149,11 +294,17 @@ mit `invalid value workflow reference` fehlschlug, bevor irgendein Job
 startete. Das war
 [AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2).
 
+**Die `0.2.1`-Binärdatei herunterzuladen klärt das, und das ist die kurze
+Antwort.** Das Archiv ist aus dem Tag `cli-v0.2.1` gebaut, `5b8ab22` ist
+ein Vorfahre davon, eine heruntergeladene Binärdatei hat den Fix also. Der
+Rest dieses Abschnitts gilt für einen Build aus dem Quellcode, wo die Zahl
+es nicht klärt.
+
 **Der Fix ist der Commit `5b8ab22`, keine Versionsnummer**, und das ist der
-Teil, über den Leute stolpern. Es gibt hier keinen Release-Zug — nichts ist
-veröffentlicht, also installiert niemand eine ausgewählte Version; alle
-bauen den Commit, den sie geklont haben. `5b8ab22` landete auf `master`
-*vor* dem Versionssprung, der die Zahl auf `0.2.1` hob, was bedeutet:
+Teil, über den Leute stolpern. Ein Build aus dem Quellcode installiert den
+Commit, den du geklont hast, nicht ein ausgewähltes Release. `5b8ab22`
+landete auf `master` *vor* dem Versionssprung, der die Zahl auf `0.2.1`
+hob, was bedeutet:
 
 - ein Build von `master` nach `5b8ab22` **hat den Fix und gibt trotzdem
   `0.2.0` aus** — das ist kein kaputter Build;
@@ -234,18 +385,26 @@ Zugangsdatei. Siehe [Gelistet werden](5-publish/get-listed.md).
 
 ## Aktuell halten
 
-Führe dieselbe `cargo install --git`-Zeile erneut aus. Cargo ersetzt die
-Binärdatei an Ort und Stelle. Es gibt kein Self-Update, und es wird auch
-keines geben, bevor es signierte Release-Binärdateien gibt, auf die man
-aktualisieren könnte.
+Hast du eine Binärdatei heruntergeladen, lade das Archiv des nächsten
+Releases herunter und ersetze die Datei — prüfe die Prüfsumme erneut, denn
+ein neues Release bedeutet neue Bytes. Hast du aus dem Quellcode gebaut,
+führe dieselbe `cargo install`-Zeile erneut aus, cargo ersetzt die
+Binärdatei an Ort und Stelle. **Es gibt kein Self-Update**, und nichts in
+dieser Toolchain telefoniert nach Hause, um herauszufinden, dass eine neue
+Version existiert.
 
 ## Was schiefgehen kann
 
 | Symptom | Ursache |
 |---|---|
+| `FAILED open or read` von `sha256sum -c` | Du hast ein Archiv heruntergeladen, und die Datei listet drei auf. Füge `--ignore-missing` hinzu |
+| `Error: verifying with issuer "sigstore.dev"` | Das Archiv passt nicht zum Bundle, oder `--repo` nennt ein Repository, das es nicht gebaut hat. Lade neu herunter, statt darüber nachzudenken |
+| `gh attestation verify` hat überhaupt nichts ausgegeben | Das ist ein Erfolg. Es ist still, wenn die Ausgabe kein Terminal ist; `echo $?` zeigt `0` |
+| Die Binärdatei startet nicht, und der Loader beschwert sich, eine `GLIBC_2.39`-Version wurde nicht gefunden | Du hast das gnu-Archiv auf einem System mit älterem glibc genommen. Nimm das musl-Archiv, es braucht kein libc |
+| `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` kann nicht funktionieren, und das ist, was es dazu sagt. Siehe den Anfang dieser Seite |
 | `Could not find `protoc`` | `protoc` ist nicht im `PATH`. Siehe die Tabelle oben |
 | `feature `edition2024` is required` | Rust älter als 1.85 |
-| `astra-plugin: command not found` nach erfolgreicher Installation | `~/.cargo/bin` ist nicht im `PATH` |
+| `astra-plugin: command not found` nach erfolgreicher Installation | Das Verzeichnis mit der Binärdatei ist nicht im `PATH` — bei einem Build aus dem Quellcode ist das `~/.cargo/bin` |
 | `error: could not find `Cargo.toml`` beim Ausführen von `cargo install --path .` an der Repository-Wurzel | Es gibt an der Wurzel kein Workspace-Manifest. Zeige `--path` auf `astra-plugin-cli/` |
 | `unrecognized subcommand 'new'` | Ein älteres `astra-plugin` liegt vorher in deinem `PATH`. `--version` verrät dir nicht, welches; führe `which astra-plugin` (`where` unter Windows) aus, um zu sehen, welche Datei du tatsächlich ausführst |
 | `invalid value workflow reference`, bei deinem ersten Tag-Push | Die CLI, die `release.yml` geschrieben hat, ist älter als `5b8ab22` und pinnte ein Tag-Objekt. Siehe [wie du erkennst, ob dein Build den Fix hat](#der-bug-der-ein-erstes-release-kaputtmacht-und-wie-du-erkennst-ob-dein-build-den-fix-hat) |

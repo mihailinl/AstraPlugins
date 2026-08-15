@@ -11,7 +11,33 @@
 
 ## 1 · 安装 CLI
 
-一行命令。需要几分钟，最后会打印出一个版本号。
+**下载二进制文件。** 不需要工具链，最后会打印出一个版本号：
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+把解压出来的 `astra-plugin` 放到 `PATH` 中的某个位置，比如
+`~/.local/bin`。任何 Linux 上都用 **musl** 那个归档 —— gnu 那个需要
+glibc 2.39 或更新版本，而 Ubuntu 22.04、Debian 12、RHEL 9 都没有。
+Windows 上用 `astra-plugin-0.2.1-windows-x64.zip`。`--ignore-missing`
+很重要：`SHA256SUMS.txt` 列出了全部三个归档文件，没有它，`sha256sum`
+会因为你没下载的那两个而以退出码 1 结束。
+
+<!-- doctest: output from="astra-plugin --version" -->
+```
+astra-plugin <version>
+```
+
+下载的 `0.2.1` 二进制文件会打印出 `astra-plugin 0.2.1`。
+
+**或者从源码构建** —— 这是 macOS 和 ARM Linux 上的路，那里还没有
+归档文件。需要几分钟：
 
 <!-- doctest: cli -->
 ```bash
@@ -19,25 +45,21 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 astra-plugin --version
 ```
 
-<!-- doctest: output from="astra-plugin --version" -->
-```
-astra-plugin <version>
-```
+这里的数字是有意写成占位符的：`--git` 构建的是你运行时 `master` 上的
+那个 commit，所以打印出来的是那个 commit 的版本，而不是你挑选的版本。
+如果是从克隆开始，`cargo install --path astra-plugin-cli --locked`
+效果一样。
 
-这个数字是有意写成占位符的：`--git` 构建的是你运行时 `master` 上的那个
-commit，所以打印出来的是那个 commit 的版本，而不是你挑选的版本。
-
-如果是从克隆开始，`cargo install --path astra-plugin-cli --locked` 效果
-一样。
-
-**你需要 Rust 1.85 或更新版本，以及 `PATH` 中的 `protoc`。** 没有
-`protoc`，构建会停在 ``Could not find `protoc` `` 处。用
+**从源码构建需要 Rust 1.85 或更新版本，以及 `PATH` 中的 `protoc`。**
+没有 `protoc`，构建会停在 ``Could not find `protoc` `` 处。用
 `apt install protobuf-compiler`、`pacman -S protobuf`、
 `brew install protobuf`，或 `winget install Google.Protobuf` 安装它，
-然后再次运行上面那行命令。
+然后再次运行上面那行命令。下载的二进制文件两样都不需要。
 
-**版本号无法告诉你这个构建是好的，而 `0.2.0` 也不是坏的。** `init-ci`
-曾经在 GitHub 需要 commit 的地方固定住标签*对象*，插件第一次
+**在从源码构建时，版本号无法告诉你这个构建是好的，而 `0.2.0` 也不是
+坏的。** 下载的 `0.2.1` 二进制文件是从标签 `cli-v0.2.1` 构建的，已经
+带有下面说的这个修复；这一段剩下的内容说的是 `--git`。`init-ci` 曾经
+在 GitHub 需要 commit 的地方固定住标签*对象*，插件第一次
 `git push --tags` 就死在那里。修复是提交 `5b8ab22`，它进入 `master` 的
 时间*早于*把版本号提升到 `0.2.1` 的那次提交 —— 所以从 `master` 构建出来
 的东西可以既带修复又显示 `0.2.0`，而且不存在缺少该修复的 `0.2.1`。今天
@@ -48,9 +70,11 @@ commit，所以打印出来的是那个 commit 的版本，而不是你挑选的
 版本见
 [安装 CLI](../install-cli.md#会破坏第一次发布的那个-bug以及如何判断你的构建是否包含修复)。
 
-顺带一提，这不会阻碍你继续：CLI 不在 crates.io 上，也没有预编译二进制
-文件，所以构建它是获取它的唯一方式。预编译二进制文件已经在计划中。完整
-细节，包括不成功时该怎么办：[安装 CLI](../install-cli.md)。
+顺带一提，这不会阻碍你继续：CLI 不在 crates.io 上，所以
+`cargo install astra-plugin-cli` 会失败 —— 它依赖一个以路径方式引入的
+vendor 依赖，而 cargo 不会把它打包。下载一个归档文件，或者从 git 构建。
+完整细节，包括如何用 Sigstore 包核对下载内容：
+[安装 CLI](../install-cli.md)。
 
 在怀疑代码之前，先检查一下这台机器：
 
@@ -410,6 +434,21 @@ astra-plugin version 0.1.1
 并把它们附加到一个 GitHub Release 上。
 
 然后只需要一次性提交一次，此后每一次发布都是零接触的。
+
+**在这次提交之前有一件事要做**，因为缺了这一步是唯一会让一个正确的
+插件被拒绝的原因：把包含你 GitHub 登录名的 `.well-known/astra-plugin-owner`
+提交到你仓库的默认分支上。这正是注册表用来确立你控制着你正在上架的
+这个仓库的方式 —— 构建证明能证明这个包来自哪里，却不能证明你是谁。
+只需要两行，跟你的第一次 push 一起做：
+
+<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+```
+
+详情，以及为什么自动检查无法替你回答这一点：
+[申请上架 §2](../5-publish/get-listed.md#2--证明你控制着这个仓库)。
 
 请注意发布**不是**什么：把这个仓库推送到 GitHub 并不会发布你的插件，
 把你刚刚构建出的 `.astraplugin` 发给别人也不会。注册表固定的是 CI 生成

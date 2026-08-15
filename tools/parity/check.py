@@ -115,7 +115,21 @@ def _region(rel: str, start_re: str, end_re: str | None) -> list[str]:
         )
     if end_re is None:
         return lines[start:]
-    end = next((i for i in range(start + 1, len(lines)) if re.search(end_re, lines[i])), len(lines))
+    # The END anchor refuses too. It used to fall back to `len(lines)`, so a
+    # terminator that stopped matching silently widened the region to the rest
+    # of the file — and every scanner over it collects names it FINDS, so a
+    # wider region yields more bindings and R1 ("a hook marked stable has a
+    # binding") passes more easily. A miss made the check weaker while staying
+    # green, which is the one direction nobody can see. The start anchor has
+    # refused since this file was written; the end anchor was the asymmetry.
+    end = next((i for i in range(start + 1, len(lines)) if re.search(end_re, lines[i])), None)
+    if end is None:
+        raise AnchorError(
+            f"{rel}: found the start anchor /{start_re}/ but not the end anchor "
+            f"/{end_re}/ after it. Refusing rather than scanning to end of file: a "
+            f"widened region finds MORE bindings, so this would have made the parity "
+            f"rules pass more easily instead of failing. Update tools/parity/check.py."
+        )
     return lines[start:end]
 
 
@@ -165,7 +179,19 @@ def _blocks(lines: list[str], head: re.Pattern[str], close: str) -> dict[str, st
             continue
         body.append(line)
     if name is not None:
-        out[name] = "\n".join(body)
+        # Same asymmetry as `_region`'s end anchor, and the docstring above
+        # already argues for refusing here — "a body that does not end that way
+        # is a file whose shape has changed enough to want a human" — while the
+        # code quietly kept the unterminated tail instead of summoning one. A
+        # reasoning written down and not applied at the site it describes reads
+        # as protection and is not.
+        raise AnchorError(
+            f"the block `{name}` is not terminated by {close!r}. These files are "
+            f"rustfmt/black/prettier output, so a method's closing line is exactly "
+            f"that; a body running to end of file means the shape changed. Refusing "
+            f"rather than keeping the tail: the scanners count what they find, so a "
+            f"swollen block makes the parity rules pass more easily."
+        )
     return out
 
 
@@ -198,6 +224,18 @@ def scan_rust_host() -> dict[str, str]:
     for line in region:
         for m in re.finditer(r"\.([a-z_][a-z0-9_]*)\(\s*proto::", line):
             found[m.group(1)] = rel
+    # The module docstring states the rule — "if an anchor stops matching, this
+    # script fails loudly rather than reporting an empty scan as a clean bill of
+    # health" — and six of the seven scanners implement it. This was the seventh.
+    # An argument written once gets implemented once; what catches that is not
+    # re-reading the argument but enumerating the sites it describes.
+    if not found:
+        raise AnchorError(
+            f"{rel}: no `.<rpc>(proto::…)` call found — the host-client shape changed. "
+            f"Refusing rather than returning an empty scan: an empty one would surface as "
+            f"R1 blaming every host hook for having no binding, which is a true statement "
+            f"about a broken scraper and a misleading one about the SDK."
+        )
     return found
 
 
@@ -523,10 +561,24 @@ def rule_R6(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
     if not path.exists():
         return [], f"R6  SKIPPED: {path} does not exist — permissions UNVERIFIED."
     text = path.read_text(encoding="utf-8", errors="replace")
-    _, _, after = text.partition("HOST_RPC_PERMISSIONS")
-    body, _, _ = after.partition("];")
+    # Anchor on the DECLARATION, not on the first mention of the name. The
+    # module doc comment names `HOST_RPC_PERMISSIONS` ~330 lines above the const,
+    # so partitioning on the bare string started the scan inside prose and ran to
+    # the first `];` anywhere after it — sweeping in whatever unrelated code
+    # happened to sit in between. On a tree where that span held nothing shaped
+    # like `("name", Something::Variant)` the bug was invisible; the first branch
+    # to put three `("trigger", ConversationEvent::…)` tuples there produced
+    # `R6  the daemon gates trigger`, which is not a thing the daemon does.
+    #
+    # A check whose anchor can match its own documentation is green for a reason
+    # unrelated to what it is named after, which is worse than a check that
+    # fails: it reports on a region nobody chose.
+    m = re.search(r"^\s*(?:pub\s+)?(?:const|static)\s+HOST_RPC_PERMISSIONS\b", text, re.M)
+    if m is None:
+        return [f"R6  {path}: no `const HOST_RPC_PERMISSIONS` declaration — the anchor moved."], None
+    body, _, _ = text[m.end():].partition("];")
     if not body:
-        return [f"R6  {path}: HOST_RPC_PERMISSIONS not found — the anchor moved."], None
+        return [f"R6  {path}: HOST_RPC_PERMISSIONS is not terminated by `];` — the shape changed."], None
 
     # ("FireTrigger", Some(Permission::FireTrigger)) | ("Register", None)
     daemon: dict[str, str] = {}
@@ -809,6 +861,28 @@ def main(argv: list[str]) -> int:
         failures += r7
         if skip:
             skips.append(skip)
+
+    # Every number on the summary line is a coverage counter, and a coverage
+    # counter that is only printed is one nobody reads until it is too late: a
+    # zero means a scrape stopped matching, and a rule over nothing is green for
+    # the wrong reason. Printing was never the check. Each gets a floor.
+    #
+    # The floor is 1, not the current value: this asserts "something was
+    # scanned", which is what distinguishes a working scraper from a broken one.
+    # A tighter floor would be a second copy of spec/hooks.yaml's row count, and
+    # R1/R2/R3 already compare the sets themselves.
+    for lang in spec.LANGUAGES:
+        if not bindings[lang]:
+            failures.append(
+                f"COVERAGE {lang}: zero bindings scanned. Every rule over this language is "
+                f"then vacuously satisfiable — the scrape found nothing, so nothing can "
+                f"disagree with the spec. One of that language's scanners matched an empty "
+                f"region."
+            )
+    if not doc["hooks"]:
+        failures.append("COVERAGE spec/hooks.yaml parsed to zero rows — every rule is vacuous.")
+    if not proto_rpcs:
+        failures.append(f"COVERAGE {doc['proto']} parsed to zero plugin-facing rpcs — R3 is vacuous.")
 
     counts = ", ".join(
         f"{lang}={len(bindings[lang])}" for lang in spec.LANGUAGES

@@ -6,9 +6,9 @@
 configura, y después de eso nunca vuelves a compilar un paquete a mano.
 
 Todo en esta página parte del binario `astra-plugin`. Si no lo tienes,
-[instala primero la CLI](../install-cli.md) — una línea de
-`cargo install`, se necesita una toolchain de Rust, todavía sin binarios
-precompilados. Para ver todo el recorrido en una sola página en lugar de
+[instala primero la CLI](../install-cli.md) — descarga un archivo
+precompilado, o compílalo desde el código fuente si prefieres. Para ver
+todo el recorrido en una sola página en lugar de
 solo esta etapa, consulta [Publicar un plugin](../publishing.md).
 
 ## ¿Por qué no simplemente `astra-plugin build` y subirlo?

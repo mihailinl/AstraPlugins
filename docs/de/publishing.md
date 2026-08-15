@@ -51,10 +51,12 @@ astra-plugin --version
 ```
 
 Gibt das nichts aus, stopp hier und mach zuerst
-**[Die CLI installieren](install-cli.md)**. Es ist eine
-`cargo install`-Zeile, braucht eine Rust-Toolchain, und es gibt noch
-keine vorgebauten Binärdateien — diese Seite sagt das klar und deutlich
-und sagt dir, was zu installieren ist.
+**[Die CLI installieren](install-cli.md)**. Es gibt jetzt vorgebaute
+Binärdateien — lade ein Archiv für Linux oder Windows herunter, prüfe es
+gegen `SHA256SUMS.txt`, und keine Toolchain ist beteiligt. Aus dem
+Quellcode zu bauen funktioniert weiterhin und ist der Weg auf macOS und
+ARM Linux. `cargo install astra-plugin-cli` ist überhaupt kein Weg; diese
+Seite sagt, warum.
 
 > **Lies die Gesundheit deines Builds nicht an der Versionsnummer ab.**
 > Eine CLI, die vor dem Commit `5b8ab22` gebaut wurde, schreibt einen
@@ -224,10 +226,12 @@ fragt GitHub, ob dein Workflow-Pinning noch das aktuelle ist; standardmäßig
 aus, damit weder `dev` noch CI das Netzwerk brauchen, um eine Prüfung
 auszuführen.
 
-## 4 · Öffentlich pushen
+## 4 · Öffentlich pushen — mit der Owner-Datei
 
 <!-- doctest: cli -->
 ```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
@@ -240,6 +244,23 @@ veröffentlicht das Plugin nicht, und hier aufzuhören ist, wo die zwei
 echten Einreichungen, die diese Seite ausgelöst haben, schiefliefen. Was
 es zu einem veröffentlichten Plugin macht, ist das Tag im nächsten
 Schritt.
+
+**Die zwei zusätzlichen Zeilen oben sind der Ownership-Nachweis, und sie
+sind nicht optional.** `.well-known/astra-plugin-owner`, auf deinem
+Default-Branch, hält deinen GitHub-Login — einen pro Zeile. So stellt die
+Registry fest, dass die Person, die das Listing anfragt, das Repository
+kontrolliert, das gelistet wird — das eine, das die Build-Attestation
+nicht sagen kann. Erstelle sie jetzt, während du ohnehin committest, und
+Schritt 8 besteht beim ersten Versuch.
+
+Lässt du sie aus, wird deine erste Einreichung mit `E_OWNERSHIP_UNPROVEN`
+abgelehnt, weil die zwei stärkeren Prüfungen für ein gewöhnliches
+Repository nicht antworten können: GitHub sagt der Registry `403`, wenn
+sie fragt, wer `admin` auf einem Repository hat, in das sie keine
+Sichtbarkeit hat, und der Release-Autor ist `github-actions[bot]` — der
+Workflow aus Schritt 3 veröffentlicht das Release, nicht du. Die
+vollständige Erklärung ist
+[Gelistet werden §2](5-publish/get-listed.md#2--beweisen-dass-du-das-repository-kontrollierst).
 
 ## 5 · Taggen — das ist das Release
 
@@ -361,7 +382,7 @@ kann, sodass du weißt, was noch unbewiesen ist:
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
   · that the release assets are served from your repository's own release namespace
-  · that you have admin or maintain on the repository
+  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -372,7 +393,27 @@ kann, sodass du weißt, was noch unbewiesen ist:
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
+Von dieser Liste ist die Ownership-Zeile die eine, die deine eigene Arbeit
+entscheidet, und du hast sie in
+[Schritt 4](#4--öffentlich-pushen--mit-der-owner-datei) erledigt. Der Rest
+folgt daraus, dass du ein Release getaggt hast, das der Workflow gebaut
+hat.
+
 ## 8 · Einreichen, ein einziges Mal, für immer
+
+**Bevor du das ausführst**, bestätige, dass die Owner-Datei aus
+[Schritt 4](#4--öffentlich-pushen--mit-der-owner-datei) auf deinem
+Default-Branch liegt. Das ist die eine Prüfung auf dieser Seite, an der du
+scheitern kannst, obwohl du alles andere richtig gemacht hast:
+
+<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
+  --header 'Accept: application/vnd.github.raw+json'
+```
+
+Das sollte deinen Login ausgeben. `Not Found (HTTP 404)` bedeutet, die
+Registry wird sie auch nicht finden.
 
 <!-- doctest: cli -->
 ```bash
@@ -417,16 +458,18 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 > ein Ingest ohne Eingreifen von irgendwem startet.
 
 Die Einreichung trägt **zwei Fakten**: dein Quell-Repository
-(`you/dice-roller`) und das Release-Tag (`v0.1.0`), plus zwei
-Bestätigungen — dass du das Repository besitzt oder pflegst, und dass du
-die Policy gelesen hast. Alles andere wird aus dem bezeugten Bundle
+(`you/dice-roller`) und das Release-Tag (`v0.1.0`), plus drei
+verpflichtende Bestätigungen — dass du `.well-known/astra-plugin-owner` mit
+deinem Login auf den Default-Branch committet hast, dass du das Repository
+besitzt oder pflegst, und dass du die Policy gelesen hast. Alles andere wird
+aus dem bezeugten Bundle
 gelesen, weil alles im Bundle von der Attestation abgedeckt ist und
 daher strikt mehr wert ist als alles in ein Formular Eingetippte.
 
 ## 9 · Was als Nächstes passiert
 
 Detail, einschließlich jedes Grund-Codes:
-[Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#3--was-nach-der-einreichung-passiert).
+[Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#4--was-nach-der-einreichung-passiert).
 Die Kurzfassung:
 
 | Ergebnis | Bedeutet | Wer ist beteiligt |

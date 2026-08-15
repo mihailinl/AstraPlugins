@@ -11,8 +11,35 @@ falsch, ist der Build rot, bevor du ihn liest.
 
 ## 1 · Die CLI installieren
 
-Eine Zeile. Sie dauert ein paar Minuten und endet mit der Ausgabe einer
-Version.
+**Lade die Binärdatei herunter.** Keine Toolchain, und es endet mit der
+Ausgabe einer Version:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+Lege das entpackte `astra-plugin` irgendwo in deinen `PATH`, etwa
+`~/.local/bin`. Nimm das **musl**-Archiv auf jedem Linux — das gnu-Archiv
+braucht glibc 2.39 oder neuer, das Ubuntu 22.04, Debian 12 und RHEL 9
+nicht haben. Unter Windows nimm `astra-plugin-0.2.1-windows-x64.zip`.
+`--ignore-missing` ist wichtig: `SHA256SUMS.txt` listet alle drei Archive
+auf, und ohne es beendet sich `sha256sum` mit 1 wegen der zwei, die du
+nicht heruntergeladen hast.
+
+<!-- doctest: output from="astra-plugin --version" -->
+```
+astra-plugin <version>
+```
+
+Eine heruntergeladene `0.2.1`-Binärdatei gibt `astra-plugin 0.2.1` aus.
+
+**Oder baue aus dem Quellcode** — der Weg auf macOS und ARM Linux, wo es
+noch kein Archiv gibt. Dauert ein paar Minuten:
 
 <!-- doctest: cli -->
 ```bash
@@ -20,42 +47,40 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 astra-plugin --version
 ```
 
-<!-- doctest: output from="astra-plugin --version" -->
-```
-astra-plugin <version>
-```
+Dort ist die Zahl mit Absicht ein Platzhalter: `--git` baut den Commit,
+den `master` beim Ausführen gerade trägt, ausgegeben wird also dessen
+Version und nicht eine, die du ausgewählt hättest. Aus einem Klon heraus
+macht `cargo install --path astra-plugin-cli --locked` dasselbe.
 
-Die Zahl ist mit Absicht ein Platzhalter: `--git` baut den Commit, den
-`master` beim Ausführen gerade trägt, ausgegeben wird also dessen Version
-und nicht eine, die du ausgewählt hättest.
+**Ein Build aus dem Quellcode braucht Rust 1.85 oder neuer und `protoc`
+im PATH.** Ohne `protoc` bleibt der Build bei ``Could not find `protoc` ``
+stehen. Installiere es mit `apt install protobuf-compiler`, `pacman -S
+protobuf`, `brew install protobuf` oder `winget install Google.Protobuf`,
+und führe die Zeile dann erneut aus. Eine heruntergeladene Binärdatei
+braucht keines von beidem.
 
-Aus einem Klon heraus macht `cargo install --path astra-plugin-cli --locked`
-dasselbe.
-
-**Du brauchst Rust 1.85 oder neuer und `protoc` im PATH.** Ohne `protoc`
-bleibt der Build bei ``Could not find `protoc` `` stehen. Installiere es mit
-`apt install protobuf-compiler`, `pacman -S protobuf`, `brew install
-protobuf` oder `winget install Google.Protobuf`, und führe die Zeile dann
-erneut aus.
-
-**Eine Versionsnummer kann dir nicht sagen, dass dieser Build gut ist, und
-ein `0.2.0` ist kein schlechter.** `init-ci` pinnte früher ein Tag-*Objekt*,
-wo GitHub einen Commit braucht, und der erste `git push --tags` eines
-Plugins starb daran. Der Fix ist der Commit `5b8ab22`, der auf `master`
-*vor* dem Versionssprung landete, der die Zahl auf `0.2.1` hob — ein Build
-von `master` kann den Fix also tragen und trotzdem `0.2.0` ausgeben, und
-kein `0.2.1`-Build existiert ohne ihn. Wer heute von `master` installiert,
-bekommt den Fix, egal was die Zahl sagt; um zu prüfen statt zu vertrauen,
-führe `astra-plugin init-ci` aus und lies den ausgegebenen Pin —
+**Bei einem Build aus dem Quellcode kann dir eine Versionsnummer nicht
+sagen, dass dieser Build gut ist, und ein `0.2.0` ist kein schlechter.**
+Eine heruntergeladene `0.2.1`-Binärdatei ist aus dem Tag `cli-v0.2.1`
+gebaut und hat den Fix unten bereits; der Rest dieses Absatzes handelt von
+`--git`. `init-ci` pinnte früher ein Tag-*Objekt*, wo GitHub einen Commit
+braucht, und der erste `git push --tags` eines Plugins starb daran. Der
+Fix ist der Commit `5b8ab22`, der auf `master` *vor* dem Versionssprung
+landete, der die Zahl auf `0.2.1` hob — ein Build von `master` kann den
+Fix also tragen und trotzdem `0.2.0` ausgeben, und kein `0.2.1`-Build
+existiert ohne ihn. Wer heute von `master` installiert, bekommt den Fix,
+egal was die Zahl sagt; um zu prüfen statt zu vertrauen, führe
+`astra-plugin init-ci` aus und lies den ausgegebenen Pin —
 `e3329df252a46d747676cb540ae4b986af68a3ad` ist der Commit und ist richtig,
 `dc1a044876926e9cf1170f034e2eab533ec07641` ist das Tag-Objekt und ist der
 Bug. Lange Fassung:
 [Die CLI installieren](../install-cli.md#der-bug-der-ein-erstes-release-kaputtmacht-und-wie-du-erkennst-ob-dein-build-den-fix-hat).
 
-Ein Nebenpunkt, der dich nicht aufhält: Die CLI ist nicht auf crates.io und
-hat keine vorgebauten Binärdateien, sodass das Bauen der einzige Weg ist, sie
-zu bekommen. Vorgebaute Binärdateien sind geplant. Alle Details,
-einschließlich was zu tun ist, wenn es nicht funktioniert:
+Ein Nebenpunkt, der dich nicht aufhält: Die CLI ist nicht auf crates.io,
+also schlägt `cargo install astra-plugin-cli` fehl — sie hängt von einer
+gevendorten Crate über einen Pfad ab, den cargo nicht paketieren wird.
+Lade ein Archiv herunter oder baue aus git. Alle Details, einschließlich
+wie du das Heruntergeladene gegen sein Sigstore-Bundle prüfst:
 [Die CLI installieren](../install-cli.md).
 
 Prüfe die Maschine, bevor du dem Code die Schuld gibst:
@@ -438,6 +463,24 @@ Build-Provenienz und hängt sie an ein GitHub-Release an.
 
 Dann eine einzige Einreichung, ein einziges Mal, und jedes spätere Release
 läuft ohne weiteres Zutun.
+
+**Eine Sache, die du vor dieser Einreichung erledigen solltest** — der
+einzige Schritt, dessen Fehlen ein korrektes Plugin abgelehnt bekommt:
+committe `.well-known/astra-plugin-owner` auf den Default-Branch deines
+Repositorys, mit deinem GitHub-Login darin. So stellt die Registry fest,
+dass du das Repository kontrollierst, das du listest — die
+Build-Attestation beweist, woher das Bundle kam, nicht, wer du bist. Zwei
+Zeilen, zusammen mit deinem ersten Push:
+
+<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+```
+
+Details, und warum die automatischen Prüfungen das nicht für dich
+beantworten können:
+[Gelistet werden §2](../5-publish/get-listed.md#2--beweisen-dass-du-das-repository-kontrollierst).
 
 Beachte, was Veröffentlichen **nicht** ist: Dieses Repository auf GitHub zu
 pushen veröffentlicht dein Plugin nicht, ebenso wenig jemandem die gerade
