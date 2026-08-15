@@ -1584,13 +1584,15 @@ jobs:
       - name: every relative link in docs/ and every README resolves
         run: python3 docs/tools/linkcheck.py
 
-      # Every locale is a file-for-file mirror of docs/en, as a set equality,
-      # in both directions. The direction that fires is the second one — the
-      # rewrite deleted eight English pages, and a translation whose original is
-      # gone is worse than none, because nothing will correct it again. The
-      # script's docstring records what this deliberately does NOT do (a
-      # changed-English-page gate, and meaning), and why each is a maintainer's
-      # decision rather than a script's.
+      # Every locale is a file-for-file mirror of docs/en, as a set equality, in
+      # both directions, AND carries the same doctest blocks: same runners in
+      # the same order, and every transcript byte-identical to its English
+      # original. The set equality alone was not enough — a correction to an
+      # English transcript once shipped with all six translations still carrying
+      # the claim it retracted, and this step said "0 mismatches", because it
+      # only ever compared filenames. The script's docstring records what it
+      # deliberately does NOT do (a changed-English-page gate, and meaning), and
+      # why each is a maintainer's decision rather than a script's.
       - name: docs/{de,es,ja,ru,uk,zh-CN} mirror docs/en
         run: python3 docs/tools/mirror.py
 

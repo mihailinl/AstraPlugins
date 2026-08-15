@@ -64,7 +64,7 @@ the plugin compatible everywhere. That is correct for a `noarch` plugin and
 wrong for one shipping a native binary. `astra-plugin doctor` says so in exactly
 those terms:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Will this install on the platforms I expect?
          no [platform] block, so the daemon considers it compatible everywhere. Correct for a
@@ -97,7 +97,7 @@ optional.
 `astra-plugin doctor` answers all of this in one command, on the machine you are
 actually on:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Can I build a Rust plugin?
          cargo 1.97.0 (c980f4866 2026-06-30)
@@ -146,7 +146,7 @@ disagree (`astra-plugin-cli/src/daemon.rs`).
 
 Ask, rather than assume — `doctor` prints the path this machine resolved:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [warn] Where does the CLI look for the running daemon?
          /home/you/.config/astra — but there is no daemon.port in it, so the CLI will fall

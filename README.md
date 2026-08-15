@@ -89,19 +89,26 @@ One line, no clone:
 
 ```bash
 cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked
-astra-plugin --version          # astra-plugin 0.2.1
+astra-plugin --version          # astra-plugin <version>
 ```
 
 `--git` builds whatever `master` currently carries, and installs it as
-`astra-plugin-cli v0.2.1 (https://github.com/mihailinl/AstraPlugins#<sha>)`.
+`astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<sha>)`
+— `<version>` being whatever that commit's `Cargo.toml` says, not a number you
+chose.
 
-**Take 0.2.1 or newer.** `0.2.0`'s `init-ci` pinned an annotated tag's object
-SHA instead of the commit it names, so every first release died with `invalid
-value workflow reference` before a job started ([#2]). `0.2.1` fixes exactly
-that and changes nothing else — it is a version bump so that a fixed build can
-be told from a broken one, which `0.2.0` could not be, having shipped on both
-sides of the fix. If `--version` says `0.2.0`, re-run the line above and then
-`astra-plugin init-ci`; the pin is not repaired in place.
+**Do not read the build's health off that number.** `init-ci` used to pin an
+annotated tag's object SHA instead of the commit it names, so every first
+release died with `invalid value workflow reference` before a job started
+([#2]). The fix is **commit `5b8ab22`**, and it landed on `master` *before* the
+bump that raised the number to `0.2.1` — so a build from `master` can carry the
+fix and still print `0.2.0`, and no `0.2.1` build lacks it. Installing from
+`master` today gets you the fix whatever the number says. To check rather than
+trust, run `astra-plugin init-ci` and read the SHA it pins:
+`e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is correct,
+`dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
+and is the bug. The pin is not repaired in place — re-run `init-ci` to rewrite
+it.
 
 [#2]: https://github.com/mihailinl/AstraPlugins/issues/2
 

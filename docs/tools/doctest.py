@@ -48,9 +48,18 @@ THE MARKER
     Runners that do NOT execute, and must say why:
 
       output           a transcript of a real command's output. Requires
-                       `from="<the command that produced it>"`, so a reader —
-                       and the next person to edit the page — can reproduce it.
-      illustrative     everything else. Requires `reason="…"`. Use it for a
+                       `from="<the command that produced it>"`, and `from=` must
+                       be a COMMAND, not a description of one. When it is an
+                       `astra-plugin` line this harness can run — `--version`,
+                       `--help`, `<sub> --help` — it IS run, and the block is
+                       diffed against what it prints, with `<placeholders>`
+                       matching anything. When it is not (it needs a project, a
+                       daemon, the network, a specific machine), the block must
+                       also carry `unrun="<why, and what to re-run by hand>"`:
+                       nothing checks such a transcript, and the marker is where
+                       that is admitted.
+      illustrative     everything else, including a `from=` that is prose rather
+                       than a command. Requires `reason="…"`. Use it for a
                        fragment that cannot compile alone, or for a file this
                        repository does not own.
 
@@ -511,12 +520,124 @@ def run_json(b: Block, env: Env) -> None:
         raise Fail(f"not valid JSON: {e}")
 
 
+#: A `<placeholder>` in a transcript. Lower-case by convention, which is what
+#: keeps it apart from clap's own `<COMMAND>` and `<FILE>` metavariables — those
+#: are literal text in `--help` output and must match literally.
+PLACEHOLDER_RE = re.compile(r"<[a-z][a-z0-9-]*>")
+
+#: Flags that make an `astra-plugin` line safe to execute here: clap answers
+#: them itself and exits before the subcommand touches the filesystem, the
+#: network or a daemon. Anything else — `init-ci`, `doctor .`, `build .` — needs
+#: a project, a machine or a running Astra that this harness does not have, and
+#: is accounted for through `unrun=` instead of being run.
+SELF_ANSWERING = {"--help", "-h", "--version", "-V"}
+
+
+def output_command(b: Block) -> list[str]:
+    """The command in `from=`, as words, with any trailing prose clause cut.
+
+    `from="astra-plugin test . --no-build, in a scaffolded plugin"` is a command
+    plus a note about where it was run. The comma is the seam, and everything
+    before it has to be a command — prose all the way through belongs in an
+    `illustrative` block, which is the distinction this function exists to keep.
+    """
+    text = b.attrs.get("from", "").split(", ", 1)[0].strip()
+    words = text.split()
+    while words and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=\S*", words[0]):
+        words = words[1:]
+    return words
+
+
+def transcript_matches(expected: str, actual: str) -> bool:
+    """The body, with `<placeholders>` standing in for whatever varies."""
+    # Normalise BEFORE escaping: rstrip()ing a line of the finished pattern can
+    # cut the trailing half of an escape sequence and make it uncompilable.
+    norm = lambda s: "\n".join(ln.rstrip() for ln in s.strip().splitlines())
+    parts = PLACEHOLDER_RE.split(norm(expected))
+    pattern = ".+?".join(re.escape(p) for p in parts)
+    return re.fullmatch(pattern, norm(actual), flags=re.DOTALL) is not None
+
+
 def run_output(b: Block, env: Env) -> None:
+    """A transcript. Run the command it names, when running it is possible.
+
+    This used to check only that `from=` was a non-empty string, which meant a
+    transcript could say anything at all and the gate stayed green — and one
+    did: a block marked `from="cargo install … --root <scratch> …"` whose body
+    claimed cargo had installed into `~/.cargo/bin`, which that command cannot
+    print. So `from=` is now executed and diffed whenever the harness can
+    execute it, and where it cannot, the block has to say so out loud rather
+    than being waved through.
+    """
     if not b.attrs.get("from"):
         raise Fail(
             'an `output` block must say what produced it: '
             '<!-- doctest: output from="astra-plugin check" -->'
         )
+    words = output_command(b)
+    if not words:
+        raise Fail("`from=` is empty once the trailing note is removed")
+
+    if words[0] != "astra-plugin":
+        # Not this repository's binary, so the harness has no standing to run
+        # it. It still has to be a command rather than a description.
+        if words[0] not in CLI_CONTEXT:
+            raise Fail(
+                f"`from=\"{b.attrs['from']}\"` does not start with a command "
+                f"(`{words[0]}` is neither astra-plugin nor allowlisted shell "
+                "context). A description of how output was obtained is not a "
+                "command — use an `illustrative` block with a `reason=`."
+            )
+        require_unrun(b)
+        return
+
+    if not set(words[1:]) & SELF_ANSWERING or any(
+        not w.startswith("-") for w in words[1:]
+    ):
+        # A real astra-plugin command, but one that needs a project, a daemon or
+        # a machine state this harness does not have.
+        require_unrun(b)
+        return
+
+    p = subprocess.run(
+        [str(env.cli), *words[1:]], capture_output=True, text=True
+    )
+    actual = p.stdout + p.stderr
+    if not transcript_matches(b.body, actual):
+        raise Fail(
+            f"$ {' '.join(words)}\nthe block does not match what that prints "
+            "(`<placeholders>` match anything):\n"
+            + tail(actual)
+        )
+
+
+def require_unrun(b: Block) -> None:
+    """A transcript this harness will not reproduce must say why, in the marker.
+
+    Without this the un-run case is indistinguishable from the run one in the
+    output, and `0 failed` reads as `every transcript was checked`. It never
+    was: the summary now separates the two counts, and this is what keeps the
+    un-run half honest about being un-run.
+    """
+    why = b.attrs.get("unrun", "")
+    if len(why) < 12:
+        raise Fail(
+            f"`from=\"{b.attrs['from']}\"` names a command this harness cannot "
+            "run here, so the transcript is not checked by anything. Say so in "
+            'the marker: <!-- doctest: output from="…" unrun="why not — what a '
+            'reader should re-run by hand" -->'
+        )
+
+
+def output_was_executed(b: Block) -> bool:
+    """Whether `run_output` really ran the command, for the summary counts."""
+    words = output_command(b)
+    return (
+        bool(words)
+        and words[0] == "astra-plugin"
+        and bool(set(words[1:]) & SELF_ANSWERING)
+        and all(w.startswith("-") for w in words[1:])
+    )
 
 
 def run_illustrative(b: Block, env: Env) -> None:
@@ -539,6 +660,19 @@ RUNNERS = {
     "illustrative": run_illustrative,
 }
 EXECUTED = {"rust-plugin", "toml-manifest", "cli", "python-plugin", "ts-plugin", "json"}
+
+
+def executes(b: Block) -> bool:
+    """Did this block's check actually run something?
+
+    `output` is in both camps: the ones whose `from=` is a self-answering
+    `astra-plugin` line are executed and diffed, the rest are declared un-run.
+    The summary counts them apart, so `0 failed` never has to be read as a
+    claim about blocks nothing ran.
+    """
+    if b.runner in EXECUTED:
+        return True
+    return b.runner == "output" and output_was_executed(b)
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -604,7 +738,7 @@ def main() -> int:
             res.failed.append((b, f"unknown runner `{b.runner}`; have: {', '.join(sorted(RUNNERS))}"))
             print(f"FAIL {b.where}  unknown runner `{b.runner}`")
             continue
-        if b.digest in seen and b.runner in EXECUTED:
+        if b.digest in seen and executes(b):
             # The Russian pages carry the same samples as the English ones.
             # Building the same `main.rs` twice proves nothing and costs a
             # minute; that they are byte-identical is the point.
@@ -622,9 +756,10 @@ def main() -> int:
             print(f"FAIL {b.where:<52} {b.runner}\n{e}")
             continue
         seen.setdefault(b.digest, b.where)
-        if b.runner in EXECUTED:
+        if executes(b):
             res.ok += 1
-            print(f"ok   {b.where:<52} {b.runner}")
+            note = f": {b.attrs['from']}" if b.runner == "output" else ""
+            print(f"ok   {b.where:<52} {b.runner}{note}")
         else:
             res.accounted += 1
             note = b.attrs.get("from") or b.attrs.get("reason", "")
@@ -633,6 +768,11 @@ def main() -> int:
     print(
         f"\n{res.ok} executed · {res.accounted} accounted for (output/illustrative) · "
         f"{len(res.skipped)} skipped · {len(res.failed)} failed"
+    )
+    print(
+        "`accounted for` means a stated reason was checked, not the sample. An "
+        "`output` block\ncounts as executed only when its `from=` is an "
+        "astra-plugin line this harness can run."
     )
     if res.failed:
         print("\nFAILED:")

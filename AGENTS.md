@@ -29,10 +29,22 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 ```
 
 Either takes about a minute and ends with `Installed package … (executable
-astra-plugin)`. The binary is **`astra-plugin`**, not `astra-plugin-cli`. Confirm
-with `astra-plugin --version`: it must say **0.2.1 or newer**. `0.2.0` is the
-build whose `init-ci` pinned a SHA no workflow can use, which broke every first
-release — if you see it, rebuild.
+astra-plugin)`. The binary is **`astra-plugin`**, not `astra-plugin-cli`.
+
+**Do not gate on `astra-plugin --version`.** Both lines above build `master`,
+and `master`'s `Cargo.toml` says `0.2.0` — so a build that carries every fix
+still prints `0.2.0`, and re-running the install line will never change that
+number. The bug worth checking for is `init-ci` pinning an annotated tag's
+*object* SHA where GitHub requires a commit, which broke every first release
+([#2]); its fix is **commit `5b8ab22`**, which landed on `master` *before* the
+bump that named `0.2.1`. So: a `master` build has the fix whatever the number
+says, and no `0.2.1` build lacks it. The check that settles it reads the pin
+rather than the version — run `astra-plugin init-ci` and look at the SHA it
+reports: `e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is
+correct, `dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1`
+tag object and is the bug.
+
+[#2]: https://github.com/mihailinl/AstraPlugins/issues/2
 
 There is **no workspace `Cargo.toml`** at the root, so `cargo build -p …` fails
 with `could not find Cargo.toml`. Every cargo command here needs
@@ -166,11 +178,33 @@ Which repository, and which template:
 
 - A plugin, SDK, CLI, scaffold, example or docs bug → **AstraPlugins**, *Bug
   report*; an idea or a question → *Plugin idea or question*.
-- Getting a plugin listed, or anything about the registry or its bot →
+- Anything about the catalogue →
   **[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry)**,
-  *Plugin listing request* — and it must be that template: the registry's
-  automation only acts on issues labelled `listing`, which only the template
-  applies. `astra-plugin publish` opens it prefilled.
+  where **blank issues are off and every door is a form**. They are four
+  different things and they are not interchangeable:
+
+  | What you have | Form |
+  |---|---|
+  | Get a plugin into the catalogue for the first time | *Plugin listing request* (`plugin-listing.yml`) |
+  | A new release of a plugin **already** in the catalogue | *A release of a plugin that is already listed* (`release-ping.yml`) |
+  | A listed plugin is not what it says it is | *Report a listed plugin* (`report.yml`) |
+  | A yank, delist, deprecation or revocation you think is wrong | *Appeal a decision about a listed plugin* (`appeal.yml`) |
+
+  Only *Plugin listing request* applies the `listing` label, and in that
+  repository the label is an authority token — a labelled issue can drive an
+  ingest of a repository the registry has never seen. Never route a ping, a
+  report or an appeal through it to "make the bot notice"; the other three are
+  deliberately unlabelled. `astra-plugin publish` opens the listing form
+  prefilled, and `publish --notify` opens the release-ping form.
+- A defect in the registry's **bot** — a wrong verdict, a check that misfires, a
+  comment that never arrives — has no form of its own, because blank issues are
+  off. Two right answers: comment on the existing listing issue, where the bot
+  already replies and `/recheck` re-runs every check from scratch; or, for a
+  provable code bug, open a **pull request** against `astra-registry`. Do not
+  file it as a listing request.
+- A security hole — anything that would let somebody ship code to a user — goes
+  to neither: no public issue in either repository. `CONTRIBUTING.md` §Security
+  is the rule and states what is and is not true about the trust model today.
 
 Either way give the exact command, the complete output including the exit code,
 `astra-plugin --version`, your OS and architecture, and what you expected — the

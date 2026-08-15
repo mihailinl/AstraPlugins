@@ -55,7 +55,7 @@ astra-plugin dev . --daemon-addr 127.0.0.1:32000
    the process, mints its auth token and owns its lifecycle from then on;
 4. watches for changes, rebuilds, stop/starts the plugin, and tails its output.
 
-<!-- doctest: output from="astra-plugin dev . with no Astra running" -->
+<!-- doctest: output from="astra-plugin dev . with no Astra running" unrun="needs a machine with no Astra daemon listening, which a CI runner cannot promise either way" -->
 ```
 Dev mode: plugin 'dice-roller'
   Directory: /tmp/dice-roller

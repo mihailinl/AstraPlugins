@@ -86,14 +86,14 @@ checks the in-ZIP `SIGNATURE`/`PUBKEY` pair against a *pinned Astra publisher
 key*, never against the key inside the archive. `astra-plugin build` says so
 every time it runs:
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
 
 and `astra-plugin sign` says so on success, deliberately not buried in `--help`:
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

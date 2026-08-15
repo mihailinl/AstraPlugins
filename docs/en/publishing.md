@@ -20,7 +20,7 @@ These are **not** publishing, and each of them has been tried:
 | Pushing your source to GitHub | The registry never reads your source tree. It reads a `.astraplugin` file attached to a release, and there isn't one |
 | Sending someone a `.zip`, or a bundle you built on your laptop | The bytes carry no build attestation, so the registry refuses them however good the plugin is |
 | Opening an issue asking a maintainer to build it for you | Nobody builds your plugin but your repository's own CI. There is no other builder |
-| Opening an issue on the registry that describes your plugin, outside the listing form | Only the form applies the `listing` label, and only that label starts an ingest. Blank issues are off there now, and an unlabelled request gets a reply naming the label rather than silence — but a reply is not a listing. See [Submit](#8-submit-once-ever) |
+| Opening an issue on the registry that describes your plugin, outside the listing form | Only the form applies the `listing` label, and only that label starts an ingest. Blank issues are off there now, and an unlabelled request gets a reply naming the label rather than silence — but a reply is not a listing. See [Submit](#8--submit-once-ever) |
 
 **Why it has to be that way, in two sentences.** The registry pins your plugin
 by the SHA-256 of the exact file a user will download, and it reads GitHub's
@@ -47,10 +47,13 @@ first. It is one `cargo install` line, it needs a Rust toolchain, and there are
 no prebuilt binaries yet — that page says so plainly and tells you what to
 install.
 
-> **Take `0.2.1` or newer.** `0.2.0` writes a release workflow that GitHub
-> rejects the moment you push your first tag, so a `0.2.0` build cannot finish
-> this page. If `--version` says `0.2.0`, re-run the `cargo install` line on
-> [Install the CLI](install-cli.md) before going further.
+> **Do not read your build's health off the version number.** A CLI built before
+> commit `5b8ab22` writes a release workflow GitHub rejects the moment you push
+> your first tag. That fix landed on `master` *before* the bump to `0.2.1`, so a
+> build can carry it and still print `0.2.0`, and no `0.2.1` lacks it. Installing
+> from `master` today gets the fix whatever the number says. The check that
+> actually settles it is the SHA `init-ci` prints, and this page runs it in
+> [step 3](#3--set-up-the-release-workflow).
 
 You also need a **public** GitHub repository. Attestations are published to a
 public transparency log; on a private repository they need GitHub Enterprise,
@@ -67,7 +70,7 @@ astra-plugin new dice-roller
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller" -->
+<!-- doctest: output from="astra-plugin new dice-roller" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -116,7 +119,7 @@ This is the conformance suite, run against your plugin as a **real process**
 talking to a mock daemon — not against a type in your test file. Truncated to
 its verdict:
 
-<!-- doctest: output from="astra-plugin test ." -->
+<!-- doctest: output from="astra-plugin test ." unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   Registered: port 37173, protocol 1, sdk astra-plugin-sdk-rust 0.6.0
   [ok  ] ListTools                required  1 tool(s)
@@ -149,7 +152,7 @@ You write no YAML. One command does it:
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -169,10 +172,12 @@ forward; it keeps the inputs you set.
 
 **Check the SHA it printed before you go on.** It must be
 `e3329df252a46d747676cb540ae4b986af68a3ad`. If it is
-`dc1a044876926e9cf1170f034e2eab533ec07641`, you are on CLI `0.2.0`: that is the
-*tag object's* SHA, and `uses: …@<sha>` needs a commit, so your first
-`git push --tags` fails with `invalid value workflow reference` before any job
-starts. Re-run the `cargo install` line on [Install the CLI](install-cli.md),
+`dc1a044876926e9cf1170f034e2eab533ec07641`, your CLI predates commit `5b8ab22`:
+that is the `plugin-release/v1` *tag object's* SHA, and `uses: …@<sha>` needs a
+commit, so your first `git push --tags` fails with `invalid value workflow
+reference` before any job starts. This is the one check worth doing; the version
+number cannot answer it, because the fix reached `master` before the number
+changed. Re-run the `cargo install` line on [Install the CLI](install-cli.md),
 then run `astra-plugin init-ci` again — it rewrites the pin and keeps your
 inputs. Nothing is repaired in place, so an existing `release.yml` keeps the bad
 SHA until you re-run it. This is the bug that broke a real author's first
@@ -186,7 +191,7 @@ permissions is required: [Release with CI](5-publish/release-with-ci.md).
 astra-plugin check --strict
 ```
 
-<!-- doctest: output from="astra-plugin check --strict" -->
+<!-- doctest: output from="astra-plugin check --strict" unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
 ```
 Checking plugin at ....
   NOTE: Missing plugin.author
@@ -224,7 +229,7 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -252,7 +257,7 @@ release would be uninstallable.
 `build` matrix that runs your code and holds no write token, and a `publish`
 job that re-derives every digest itself and attests what it hashed. That split
 is the security property, and it is described in
-[Release with CI §3](5-publish/release-with-ci.md#3-what-ci-does).
+[Release with CI §3](5-publish/release-with-ci.md#3--what-ci-does).
 
 When it finishes, your GitHub Release carries:
 
@@ -283,7 +288,7 @@ gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-ro
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2
@@ -324,7 +329,7 @@ It runs every registry check that can be run locally, and then — the half that
 matters — names the ones only the registry can run, so you know what is still
 unproven:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -352,7 +357,7 @@ nothing and holds no credential — there is no `astra-plugin login`, no token i
 your shell history, no keyring to integrate with. `--print-url` prints the link
 instead of opening a browser:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 

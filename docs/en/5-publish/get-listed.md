@@ -30,7 +30,7 @@ It runs every check the registry runs that can be run locally, and then — the
 half that matters — **names the ones only the registry can run**, so you know
 what is still unproven:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -109,7 +109,7 @@ nothing and holds no credential** — there is no `astra-plugin login`, no token
 in your shell history, no keyring to integrate with. `--print-url` prints the
 link instead:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 
