@@ -354,12 +354,15 @@ export const Field = {
 
 // ── daemon events ────────────────────────────────────────────────────────────
 //
-// The daemon serializes `AstraEvent` (astra-core/src/event.rs) with
-// `#[serde(tag = "type", rename_all = "snake_case")]`. `rename_all` on an enum
-// renames the VARIANTS — the value of `"type"` — and leaves the variant's
-// fields exactly as declared, which is snake_case. So the payload keys on the
-// wire are `command_id`, `command_name`, `trigger_text`, and the types below
-// are what `Plugin.dispatchEvent` produces from them.
+// Most daemon events are `serde_json::to_string(&AstraEvent)`
+// (astra-core/src/event.rs) with `#[serde(tag = "type", rename_all =
+// "snake_case")]`: `rename_all` on an enum renames the VARIANTS — the value of
+// `"type"` — and leaves each variant's fields exactly as declared, which is
+// snake_case. The two `command_*` events are NOT: the daemon narrows them in
+// `plugins::event_view::for_plugin`, writing the payload key by key, and two of
+// the values it writes depend on WHO is reading. The keys are `command_id`,
+// `command_name`, `trigger_type`, `run_id`, `fired_by`, and the types below are
+// what `Plugin.dispatchEvent` produces from them.
 
 /** `state_changed`: the daemon moved between core states. */
 export interface StateChangedEvent {
@@ -367,23 +370,60 @@ export interface StateChangedEvent {
   current: string;
 }
 
-/** `command_triggered`: a user command started. */
+/**
+ * `command_triggered`: a user command started.
+ *
+ * **The phrase that started it is not here, and there is nowhere for it to be.**
+ * `trigger_text` was the utterance the user typed or spoke — or, for a plugin's
+ * own fire, the whole payload it sent — and it went to every plugin declaring
+ * `command_triggered`. The daemon removed the field from the event: asking to
+ * hear that commands run is not asking to hear what the user said. What
+ * replaces it is {@link CommandTriggeredEvent.triggerType} (which doorbell rang)
+ * and {@link CommandTriggeredEvent.runId} (what came of it).
+ */
 export interface CommandTriggeredEvent {
   commandId: string;
+  /**
+   * The command's own name — **only for the plugin whose own `fireTrigger`
+   * started this command.**
+   *
+   * A command's name is the user's own writing, so every other reader gets
+   * `""`. The key is always present, which is why this is not optional: the
+   * shape a plugin deserializes must not depend on who is reading it.
+   */
   commandName: string;
   /**
-   * The utterance or text that matched the command's trigger.
+   * Which doorbell rang — the trigger's DECLARED type, resolved off the entry
+   * node, never the phrase that rang it.
    *
-   * This is the daemon's `trigger_text`. There is no `variables` map on this
-   * event in any language — the field the SDKs used to declare could never be
-   * populated, so a plugin that read it read `{}` forever.
+   * The daemon's built-in vocabulary is `text`, `hotkey`, `reminder`,
+   * `calendar_event` and `schedule`; a plugin's own trigger is
+   * `plugin__<id with '-' replaced by '_'>__<event>`.
    */
-  triggerText: string;
+  triggerType: string;
+  /**
+   * The run this fire started, as a UUID string. Stable for the whole run, so a
+   * plugin can correlate its own fire with what came of it.
+   */
+  runId: string;
+  /**
+   * The plugin whose own fire started this command — `null` for every other
+   * reader, so this never enumerates the plugins installed on the machine.
+   *
+   * A non-null value is therefore exactly "this is the answer to MY fire".
+   */
+  firedBy: string | null;
 }
 
 /** `command_completed`: a user command finished. */
 export interface CommandCompletedEvent {
   commandId: string;
+  /**
+   * **Always `""`.** Unlike `command_triggered`, this event carries nothing that
+   * says whose fire it was, so there is no reader the daemon can safely give the
+   * user's own writing to. Correlate by `commandId`, which is the same value the
+   * matching `command_triggered` carried.
+   */
   commandName: string;
   success: boolean;
 }

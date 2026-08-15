@@ -1236,9 +1236,11 @@ export abstract class Plugin {
    *
    * The payload keys are the daemon's, and the daemon's are **snake_case**:
    * `AstraEvent` is `#[serde(tag = "type", rename_all = "snake_case")]`, and
-   * `rename_all` on an enum renames its *variants*, not their fields — so the
-   * wire carries `{"type":"command_triggered","command_id":…,"command_name":…,
-   * "trigger_text":…}` (`astra-core/src/event.rs`). This used to `as`-cast the
+   * `rename_all` on an enum renames its *variants*, not their fields. The two
+   * `command_*` events are narrowed key by key by the daemon's
+   * `plugins::event_view::for_plugin`, so the wire carries
+   * `{"type":"command_triggered","command_id":…,"command_name":…,
+   * "trigger_type":…,"run_id":…,"fired_by":…}`. This used to `as`-cast the
    * payload to a camelCase shape, which the compiler happily agreed was
    * `string` and which was `undefined` on every event forever.
    *
@@ -1259,7 +1261,12 @@ export abstract class Plugin {
         await this.onCommandTriggered({
           commandId: str("command_id"),
           commandName: str("command_name"),
-          triggerText: str("trigger_text"),
+          triggerType: str("trigger_type"),
+          runId: str("run_id"),
+          // `null` and not `""`: the daemon sends JSON null to every reader but
+          // the one whose own fire started this command, and "no plugin" has to
+          // be distinguishable from a plugin whose id is somehow empty.
+          firedBy: typeof payload.fired_by === "string" ? payload.fired_by : null,
         });
         break;
       case "command_completed":

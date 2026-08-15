@@ -29,14 +29,37 @@ The daemon mints a lease when it calls into a plugin and carries it as
 `x-astra-cause`; the SDK echoes it back when the plugin fires. Nothing here
 invents a value, and nothing sends the key when it was not handed one.
 
+### Changed (breaking)
+- **`CommandTriggeredEvent.triggerText` is gone**, because the daemon no longer
+  sends `trigger_text`. It was the phrase the user typed or spoke — or, for a
+  plugin's own fire, the whole payload it sent — delivered to every plugin that
+  declared `command_triggered`. Asking to hear that commands run is not asking
+  to hear what the user said, so the daemon narrows this event now and the
+  field has no place on the wire to ride in. Keeping the property would have
+  produced `""` on every event forever, which is the same "looks like an
+  answer" failure `variables` had before it.
+- **`CommandTriggeredEvent.commandName` is now `""` unless YOUR fire started
+  the command.** A command's name is the user's own writing. The key is always
+  present, so the shape you decode does not depend on who is reading.
+- **`CommandCompletedEvent.commandName` is now `""` for everybody.** That event
+  carries nothing that says whose fire it was, so there is no reader the daemon
+  can safely give the name to. Correlate on `commandId`.
+
 ### Added
+- `CommandTriggeredEvent.triggerType` — WHICH doorbell rang, as a machine
+  identifier: `text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, or
+  `plugin__<id>__<event>` for a plugin's own trigger.
+- `CommandTriggeredEvent.runId` — the run the fire started, so it can be joined
+  to the later `command_completed`.
+- `CommandTriggeredEvent.firedBy` — non-null only when the fire was yours, so
+  it never enumerates the plugins installed on the machine.
 - `fireTriggerCausedBy` on the host client, and the cause carried through the
   call context.
 - Generated limits for the invocation lease.
 
 ### Compatibility
 
-Non-breaking, and deliberately so. `PROTOCOL_VERSION` is unchanged at `1` — a
+Breaking for one payload, non-breaking on the wire. `PROTOCOL_VERSION` is unchanged at `1` — a
 bump would make the daemon refuse every already-published plugin. Existing
 code compiles and runs untouched: `examples/dice-roller` does not change by one
 character. A plugin built against an older SDK simply drops the cause, and the

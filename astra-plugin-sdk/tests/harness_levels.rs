@@ -621,16 +621,20 @@ async fn the_mock_daemons_own_session_gate_refuses_an_untokened_caller() {
 
 /// **Level 1.** The daemon's event payload, decoded by the SDK's own types.
 ///
-/// The JSON below is what `serde_json::to_string(&AstraEvent)` produces:
-/// `astra-core/src/event.rs` is `#[serde(tag = "type", rename_all =
-/// "snake_case")]`, and `rename_all` on an enum renames the *variants* — the
-/// value of `"type"` — leaving each variant's fields exactly as declared. So
-/// the keys are `command_id`, `command_name`, `trigger_text`.
+/// The JSON below is what the daemon's `plugins::event_view::for_plugin`
+/// produces for this variant — a NARROWING, written key by key, not
+/// `serde_json::to_string(&AstraEvent)`. The keys are `command_id`,
+/// `command_name`, `trigger_type`, `run_id` and `fired_by`.
 ///
-/// `trigger_text` used to be `variables`, a `HashMap` the daemon has never sent
-/// in any language. `#[serde(default)]` made it deserialize to `{}` on every
-/// event, so a plugin that read it read an empty map forever and nothing
-/// anywhere said why.
+/// **`trigger_text` is gone from the event itself**, not merely unread: it was
+/// the phrase the user typed or spoke, delivered to every plugin that asked to
+/// hear that commands run, and the daemon removed the field. A plugin still
+/// declaring it would read `""` forever, which is the same "looks like an
+/// answer" failure `variables` had before it.
+///
+/// The two reader-dependent values are asserted here as the daemon sends them
+/// to a plugin that did NOT fire this command: `command_name` is `""` (a
+/// command's name is the user's own writing) and `fired_by` is absent.
 #[tokio::test]
 async fn a_daemon_event_decodes_from_the_daemons_own_key_names() {
     #[derive(Default)]
@@ -650,8 +654,12 @@ async fn a_daemon_event_decodes_from_the_daemons_own_key_names() {
             event: astra_plugin_sdk::events::CommandTriggeredEvent,
         ) {
             self.seen.lock().unwrap().push(format!(
-                "{}/{}/{}",
-                event.command_id, event.command_name, event.trigger_text
+                "{}/{}/{}/{}/{:?}",
+                event.command_id,
+                event.command_name,
+                event.trigger_type,
+                event.run_id,
+                event.fired_by
             ));
         }
     }
@@ -659,12 +667,12 @@ async fn a_daemon_event_decodes_from_the_daemons_own_key_names() {
     let h = Harness::new(Listener::default()).start().await.unwrap();
     h.event(
         "command_triggered",
-        r#"{"type":"command_triggered","command_id":"cmd-1","command_name":"Lights on","trigger_text":"turn the lights on"}"#,
+        r#"{"type":"command_triggered","command_id":"cmd-1","command_name":"","trigger_type":"text","run_id":"5f0a1c62-0000-0000-0000-000000000001","fired_by":null}"#,
     )
     .await;
 
     assert_eq!(
         *h.plugin().seen.lock().unwrap(),
-        ["cmd-1/Lights on/turn the lights on"],
+        ["cmd-1//text/5f0a1c62-0000-0000-0000-000000000001/None"],
     );
 }

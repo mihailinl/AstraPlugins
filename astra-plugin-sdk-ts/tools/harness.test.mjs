@@ -328,19 +328,26 @@ test("OnActiveTriggers reaches the context, and only for the types it names", as
 });
 
 test("a daemon event is decoded from the daemon's own key names", async () => {
-  // The payload below is what `serde_json::to_string(&AstraEvent)` produces —
+  // Most daemon payloads are `serde_json::to_string(&AstraEvent)` —
   // `astra-core/src/event.rs`, `#[serde(tag = "type", rename_all =
   // "snake_case")]`. `rename_all` renames the *variants*; the fields stay as
   // declared, which is snake_case. The SDK used to `as`-cast this object to a
   // camelCase shape, so `event.commandId` was `undefined` on every event
   // forever and the compiler agreed it was a `string`.
+  //
+  // The two `command_*` events are NARROWED by the daemon
+  // (`plugins::event_view::for_plugin`) and written key by key. `trigger_text`
+  // — the phrase the user typed or spoke — is not among those keys any more,
+  // and two of the values below depend on WHO is reading: the payloads here are
+  // what a plugin that did NOT fire this command receives, so `command_name` is
+  // `""` and `fired_by` is null.
   const seen = [];
   class Listener extends Plugin {
     subscribedEvents() {
       return ["command_triggered", "command_completed", "state_changed"];
     }
     async onCommandTriggered(e) {
-      seen.push(["triggered", e.commandId, e.commandName, e.triggerText]);
+      seen.push(["triggered", e.commandId, e.commandName, e.triggerType, e.runId, e.firedBy]);
     }
     async onCommandCompleted(e) {
       seen.push(["completed", e.commandId, e.commandName, e.success]);
@@ -354,20 +361,22 @@ test("a daemon event is decoded from the daemon's own key names", async () => {
   await h.event("command_triggered", {
     type: "command_triggered",
     command_id: "cmd-1",
-    command_name: "Lights on",
-    trigger_text: "turn the lights on",
+    command_name: "",
+    trigger_type: "text",
+    run_id: "5f0a1c62-0000-0000-0000-000000000001",
+    fired_by: null,
   });
   await h.event("command_completed", {
     type: "command_completed",
     command_id: "cmd-1",
-    command_name: "Lights on",
+    command_name: "",
     success: true,
   });
   await h.event("state_changed", { type: "state_changed", previous: "idle", current: "listening" });
 
   assert.deepEqual(seen, [
-    ["triggered", "cmd-1", "Lights on", "turn the lights on"],
-    ["completed", "cmd-1", "Lights on", true],
+    ["triggered", "cmd-1", "", "text", "5f0a1c62-0000-0000-0000-000000000001", null],
+    ["completed", "cmd-1", "", true],
     ["state", "idle", "listening"],
   ]);
 });
