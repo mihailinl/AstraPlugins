@@ -239,17 +239,54 @@ def extract(path: Path) -> tuple[list[Block], list[str]]:
 
 
 def discover(paths: list[str]) -> list[Path]:
+    """Every default root must exist and contribute at least one page.
+
+    `rglob` on a directory that is not there yields nothing and raises
+    nothing, so a root that moved leaves no trace: the walk simply returns a
+    smaller list, every block in it passes, and the run is green. Losing the
+    `de` locale that way costs 24 files and 148 blocks and reports success —
+    measured, by moving the directory and re-running, not supposed.
+
+    The guard is per root rather than a floor on the total. A floor asks "did
+    I find enough?", which needs a number somebody guessed and which a
+    legitimately growing tree makes stale. `INCLUDE` is already an
+    enumeration, so the stronger question is free: did I find *these*. It
+    needs no number, it survives the docs growing, and it names the root that
+    went missing instead of reporting a total that is merely lower than a
+    guess.
+
+    Explicit `paths` from the command line are exempt — asking for one file
+    is not a claim about coverage.
+    """
     out: list[Path] = []
+    defaulted = not paths
     roots = [ROOT / p for p in (paths or INCLUDE)]
+    missing: list[str] = []
     for root in roots:
         if root.is_file():
             out.append(root)
             continue
+        found = 0
         for p in sorted(root.rglob("*.md")):
             rel = str(p.relative_to(ROOT))
             if any(rel == e or rel.startswith(e + "/") for e in EXCLUDE):
                 continue
             out.append(p)
+            found += 1
+        if defaulted and found == 0:
+            why = "does not exist" if not root.is_dir() else "contains no .md outside EXCLUDE"
+            missing.append(f"{root.relative_to(ROOT)} — {why}")
+
+    if missing:
+        raise SystemExit(
+            "doctest: a documentation root named in INCLUDE contributed nothing:\n"
+            + "".join(f"  {m}\n" for m in missing)
+            + "\nThis is refused rather than skipped. Every block that root held\n"
+            "would otherwise go unchecked while this run reported success — the\n"
+            "shape a doc-test can least afford, because its whole claim is that\n"
+            "the samples on the page were executed.\n"
+            "If the page set really did move, update INCLUDE in this file."
+        )
     return out
 
 
