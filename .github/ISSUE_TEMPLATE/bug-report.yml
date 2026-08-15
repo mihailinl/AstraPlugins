@@ -1,0 +1,145 @@
+name: Bug report
+description: Something in the CLI, an SDK, a scaffold, an example or the docs is wrong
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **One issue, one defect.** Five unrelated problems in one issue cannot be
+        triaged, fixed or closed.
+
+        **Not for listing requests.** "Please put my plugin in the store" belongs
+        in [astra-registry](https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml),
+        opened through its own template — an issue there without the `listing`
+        label starts no automation and gets no reply.
+
+        **Redact before you paste.** No tokens, API keys, `.env` contents,
+        private keys or session cookies. Replace the value; do not rely on
+        nobody scrolling.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where is it
+      description: Best guess is fine — it will be re-triaged if wrong.
+      options:
+        - astra-plugin CLI
+        - Rust SDK (astra-plugin-sdk)
+        - Python SDK (astra-plugin-sdk)
+        - TypeScript SDK (astra-plugin-sdk)
+        - Scaffold from `astra-plugin new`
+        - Release workflow / publishing
+        - An example under examples/
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: astra-plugin --version
+      description: >-
+        Paste the output verbatim. If the CLI is not the thing that is broken but
+        you have it installed, paste it anyway — it dates everything else.
+        If you have no CLI, write "not installed".
+
+
+        The CLI is built from source, so the version is the only thing that says
+        which build you have. If this prints `astra-plugin 0.2.0` and your first
+        release failed on the `uses:` line of `release.yml`, that is a known bug
+        fixed in 0.2.1 — rebuild, then re-run `astra-plugin init-ci`.
+      placeholder: "astra-plugin 0.2.1"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      description: The exact version, not just the family.
+      placeholder: "Arch Linux, kernel 6.9, x86_64  ·  or  Windows 11 23H2, x64"
+    validations:
+      required: true
+
+  - type: input
+    id: toolchain
+    attributes:
+      label: Language and toolchain version
+      description: >-
+        `rustc --version`, `python3 --version` or `node --version` — whichever
+        applies to the plugin or SDK involved. Write "n/a" if nothing applies.
+      placeholder: "rustc 1.85.0 (4d91de4e4 2025-02-17)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: transcript
+    attributes:
+      label: What did you run, and what happened
+      description: >-
+        The exact command, copy-pasted, and its complete output including the
+        error and the exit code. `--json` output is ideal — every astra-plugin
+        subcommand accepts it. **An issue with no transcript cannot be
+        reproduced and will not be fixed.**
+      render: console
+      placeholder: |
+        $ astra-plugin check .
+        Checking plugin at ....
+          ERROR: ...
+        $ echo $?
+        1
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: One or two sentences. If a document promised the other behaviour, link it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The shortest path from nothing to the failure. A fresh
+        `astra-plugin new` plus the one thing you changed is the ideal shape.
+        If it does not reproduce reliably, say so here — an intermittent bug is
+        still worth reporting, and saying it is intermittent saves the next
+        person an hour.
+      placeholder: |
+        1. astra-plugin new repro-case
+        2. edit plugin.toml: ...
+        3. astra-plugin test .  -> fails as above
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: >-
+        `astra-plugin doctor` output, `astra-plugin logs`, the relevant part of
+        `plugin.toml`, a link to the repository — whatever you have.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before you submit
+      options:
+        - label: This is one defect, not several.
+          required: true
+        - label: The transcript above is copy-pasted, not retyped or summarised.
+          required: true
+        - label: I have removed every token, key and other secret from what I pasted.
+          required: true
+        - label: >-
+            This is not a request to list a plugin in the store (that goes to
+            astra-registry, through its listing template).
+          required: true

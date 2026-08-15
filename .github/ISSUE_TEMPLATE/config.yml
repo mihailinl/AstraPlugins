@@ -1,0 +1,42 @@
+# Issue-template configuration for AstraPlugins.
+#
+# `blank_issues_enabled: false` is deliberate, and it is the fix for a specific
+# failure. In the registry repository, blank issues were enabled and two real
+# listing requests were opened *around* the template. A blank issue carries no
+# labels; the triage bot only enters the submission path for an issue labelled
+# `listing`; so nothing ran, nothing was posted, and both authors got total
+# silence. The template is the only thing that applies the label, so bypassing
+# the template has to be impossible rather than merely discouraged.
+#
+# The same trap applies to any label named in a template here: GitHub silently
+# DROPS a label that does not exist in the repository. Only these exist today
+# (`gh api repos/mihailinl/AstraPlugins/labels`):
+#
+#     bug  documentation  duplicate  enhancement
+#     good first issue  help wanted  invalid  question  wontfix
+#
+# Before adding a `labels:` value to a form below, create the label in the
+# repository first — otherwise the form looks correct and quietly applies
+# nothing.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Get my plugin listed in the Astra store
+    url: https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml
+    about: >-
+      Listing requests belong in the astra-registry repository, and they must be
+      opened through its template — an issue without the `listing` label starts
+      no automation and gets no reply. Run `astra-plugin publish` and it opens
+      this form prefilled for you.
+
+  - name: How do I write a plugin?
+    url: https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/2-tutorial/getting-started.md
+    about: >-
+      The tutorial, the SDK guides and the generated reference for the CLI, the
+      manifest and the protocol. Read this before opening a question.
+
+  - name: A security vulnerability
+    url: https://github.com/mihailinl/AstraPlugins/blob/master/CONTRIBUTING.md#security
+    about: >-
+      Do not open a public issue for a vulnerability in Astra, the daemon, the
+      registry or the signing chain. Contact the maintainers privately.

@@ -1584,13 +1584,14 @@ jobs:
       - name: every relative link in docs/ and every README resolves
         run: python3 docs/tools/linkcheck.py
 
-      # §7.4's split, as a set equality: docs/ru covers the written tier and
-      # nothing else. The direction that fires is the second one — the rewrite
-      # deleted eight English pages, and a translation whose original is gone
-      # is worse than none, because nothing will correct it again. The script's
-      # docstring records what §7.4 asks for that this deliberately does NOT
-      # do, and why that half is a maintainer's decision rather than a script's.
-      - name: docs/ru mirrors the written tier of docs/en
+      # Every locale is a file-for-file mirror of docs/en, as a set equality,
+      # in both directions. The direction that fires is the second one — the
+      # rewrite deleted eight English pages, and a translation whose original is
+      # gone is worse than none, because nothing will correct it again. The
+      # script's docstring records what this deliberately does NOT do (a
+      # changed-English-page gate, and meaning), and why each is a maintainer's
+      # decision rather than a script's.
+      - name: docs/{de,es,ja,ru,uk,zh-CN} mirror docs/en
         run: python3 docs/tools/mirror.py
 
   # ── conformance (5.7) ──────────────────────────────────────────────────────
