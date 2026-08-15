@@ -2017,20 +2017,20 @@ jobs:
               "tools/docgen/README.md": "none — what the old reference got wrong",
               "tools/docgen/cli.py": "none — the module docstring naming the defect",
               "tools/docgen/manifest.py": "none — the same, plus the rendered rationale",
-              "docs/en/reference/manifest.md": "none — generated; the deny_unknown_fields rationale and the rename table",
+              "AGENTS.md": "none — the worked `astra-plugin check` failure, quoting the error verbatim",
           }
-          # Phase 6 rewrote docs/en and re-cut docs/ru; docs/{de,es,ja,uk,zh-CN}
-          # moved to docs/community/<locale>/ behind a dated banner (§7.4) and
-          # are deliberately frozen, so their hits will never be edited away.
-          # The four English/Russian entries are prose naming the retired names
-          # as the bugs they were — the C6-sanctioned use, hence "none".
-          for lang in ("de", "es", "ja", "uk", "zh-CN"):
-              PENDING[f"docs/community/{lang}/cli.md"] = "none — archived translation, deliberately frozen"
-              PENDING[f"docs/community/{lang}/sdk-typescript.md"] = "none — archived translation, deliberately frozen"
-          for lang in ("en", "ru"):
+          # Every locale carries the same four pages, and they all name a retired
+          # name in order to call it retired — the C6-sanctioned use, hence
+          # "none". `docs/community/` is gone: the five archived translations
+          # moved to `docs/<locale>/` and were re-cut from the rewritten English,
+          # so there is no longer a frozen tier to exempt and no longer an
+          # English/Russian special case. A locale added here without its four
+          # entries fails C6 on the next push, which is the intended alarm.
+          for lang in ("en", "ru", "de", "es", "ja", "uk", "zh-CN"):
               PENDING[f"docs/{lang}/1-orientation/what-is-a-plugin.md"] = "none — names the capability that never existed"
               PENDING[f"docs/{lang}/6-operate/troubleshooting.md"] = "none — the misspelt-capability symptom, keyed to the real error"
-          PENDING["docs/en/migration-0.6.md"] = "none — the 0.6 rename, naming the scope that was never registered"
+              PENDING[f"docs/{lang}/migration-0.6.md"] = "none — the 0.6 rename, naming the scope that was never registered"
+              PENDING[f"docs/{lang}/reference/manifest.md"] = "none — generated; the deny_unknown_fields rationale and the rename table"
 
           tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
                                    check=True).stdout.split()
