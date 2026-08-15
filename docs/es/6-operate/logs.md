@@ -79,7 +79,7 @@ Por defecto es `warn`, y va a **stderr** — la salida orientada al
 usuario de la CLI está en stdout, y una línea de trace ahí corrompería un
 documento `--json`.
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why do I see no trace output from the CLI?
          RUST_LOG is unset, so only warnings and errors are printed.

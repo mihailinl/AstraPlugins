@@ -286,7 +286,7 @@ das Plugin geschrieben wurde.
   begrenzt das Session-Token jedes Plugins auf `PluginHostService`, sodass
   alle sieben Dienste mit `permission_denied` antworten — auch für
   `client = true`-Plugins. Benutze `Host::send_chat_message`. Siehe
-  [`Daemon`](#daemon-im-sdk-vorhanden-vom-daemon-abgelehnt) oben.
+  [`Daemon`](#daemon--im-sdk-vorhanden-vom-daemon-abgelehnt) oben.
 - **`TtsSynthesizeStream` ist gebunden und ungeroutet.** Das SDK bedient
   ihn; es gibt keine Aufrufstelle im Daemon. Implementiere ihn gern —
   niemand ruft ihn auf, bis

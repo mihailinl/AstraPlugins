@@ -289,7 +289,7 @@ astra::main!(Watcher::default());
   いるため、7 つのサービスすべてが — `client = true` のプラグインで
   あっても — `permission_denied` を返します。`Host::send_chat_message`
   を使ってください。上の
-  [`Daemon`](#daemon-sdk-には存在するがデーモンには拒否される) を
+  [`Daemon`](#daemon--sdk-には存在するがデーモンには拒否される) を
   参照してください。
 - **`TtsSynthesizeStream` は結びつけられていますが unrouted です。**
   SDK はこれを提供しますが、デーモン側の呼び出し箇所は存在しません。

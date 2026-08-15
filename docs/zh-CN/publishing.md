@@ -21,7 +21,7 @@
 | 把源码推送到 GitHub | 注册表从不读取你的源码树。它读取的是附加在某个 release 上的 `.astraplugin` 文件，而这个文件并不存在 |
 | 把一个 `.zip`，或者你在自己笔记本上构建出的包发给别人 | 这些字节没有构建证明，不管插件本身写得多好，注册表都会拒绝 |
 | 开一个 issue，请维护者替你构建 | 除了你自己仓库的 CI，没有人会构建你的插件。不存在别的构建者 |
-| 绕开上架表单，在注册表上开一个描述你插件的 issue | 只有表单会打上 `listing` 标签，也只有这个标签会启动摄入。空白 issue 在那边现在已经关掉了，没有标签的申请得到的是一条点名该标签的回复而不是沉默 —— 但回复不等于上架。参见[提交](#8-一次性提交仅此一次) |
+| 绕开上架表单，在注册表上开一个描述你插件的 issue | 只有表单会打上 `listing` 标签，也只有这个标签会启动摄入。空白 issue 在那边现在已经关掉了，没有标签的申请得到的是一条点名该标签的回复而不是沉默 —— 但回复不等于上架。参见[提交](#8--一次性提交仅此一次) |
 
 **为什么必须如此，用两句话说清楚。** 注册表用用户即将下载的那份确切文件的
 SHA-256 来固定你的插件，并读取 GitHub 的构建证明 —— 一个由工作流自身的 OIDC
@@ -45,10 +45,12 @@ astra-plugin --version
 一行 `cargo install`，但需要 Rust 工具链，而且目前还没有预编译二进制文件 ——
 那一页把这一点讲得很清楚，也告诉你该装什么。
 
-> **请使用 `0.2.1` 或更新版本。** `0.2.0` 写出的发布工作流会在你推送第一个标签
-> 的那一刻就被 GitHub 拒绝，所以 `0.2.0` 的构建无法完成本页的流程。如果
-> `--version` 显示 `0.2.0`，请先重新运行
-> [安装 CLI](install-cli.md) 中的 `cargo install` 命令，再继续往下走。
+> **不要从版本号去判断你这个构建是否健康。** 在提交 `5b8ab22` 之前构建的 CLI
+> 会写出一个发布工作流，你推送第一个标签的那一刻它就会被 GitHub 拒绝。这个修复
+> 进入 `master` 的时间*早于*版本号提升到 `0.2.1`，所以一个构建可以既带着它又
+> 显示 `0.2.0`，而且不存在缺少它的 `0.2.1`。今天从 `master` 安装，无论数字是
+> 多少你都会拿到修复。真正能定论的是 `init-ci` 打印出的 SHA，本页会在
+> [第 3 步](#3--设置发布工作流)运行它。
 
 你还需要一个**公开的** GitHub 仓库。构建证明会发布到一个公开的透明日志
 (transparency log)中；在私有仓库上需要 GitHub Enterprise，发布工作流会明确
@@ -64,7 +66,7 @@ astra-plugin new dice-roller
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller" -->
+<!-- doctest: output from="astra-plugin new dice-roller" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -110,7 +112,7 @@ astra-plugin test .
 这是一套一致性(conformance)测试，会把你的插件当作**真实进程**运行，并让它与一个
 模拟守护进程对话 —— 而不是针对你测试文件里的某个类型运行。截取结论部分：
 
-<!-- doctest: output from="astra-plugin test ." -->
+<!-- doctest: output from="astra-plugin test ." unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   Registered: port 37173, protocol 1, sdk astra-plugin-sdk-rust 0.6.0
   [ok  ] ListTools                required  1 tool(s)
@@ -143,7 +145,7 @@ astra-plugin test .
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -162,10 +164,11 @@ astra-plugin init-ci
 
 **在继续之前，检查它打印出的 SHA。** 它必须是
 `e3329df252a46d747676cb540ae4b986af68a3ad`。如果是
-`dc1a044876926e9cf1170f034e2eab533ec07641`，说明你用的是 CLI `0.2.0`：那是
-*标签对象(tag object)*的 SHA，而 `uses: …@<sha>` 需要的是 commit，所以你的第
-一次 `git push --tags` 会在任何 job 启动之前就以 `invalid value workflow reference`
-失败。重新运行 [安装 CLI](install-cli.md) 中的 `cargo install` 命令，然后再次
+`dc1a044876926e9cf1170f034e2eab533ec07641`，说明你的 CLI 早于提交 `5b8ab22`：
+那是 `plugin-release/v1` 的*标签对象(tag object)*的 SHA，而 `uses: …@<sha>`
+需要的是 commit，所以你的第一次 `git push --tags` 会在任何 job 启动之前就以
+`invalid value workflow reference` 失败。这是唯一值得做的检查；版本号回答不了
+它，因为修复到达 `master` 的时间早于数字改变。重新运行 [安装 CLI](install-cli.md) 中的 `cargo install` 命令，然后再次
 运行 `astra-plugin init-ci` —— 它会重写固定值并保留你的输入。它不会就地修复
 文件，所以已存在的 `release.yml` 在你重新运行之前会一直带着错误的 SHA。这正是
 让一位真实作者的第一次发布失败的那个 bug。
@@ -178,7 +181,7 @@ astra-plugin init-ci
 astra-plugin check --strict
 ```
 
-<!-- doctest: output from="astra-plugin check --strict" -->
+<!-- doctest: output from="astra-plugin check --strict" unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
 ```
 Checking plugin at ....
   NOTE: Missing plugin.author
@@ -215,7 +218,7 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -241,7 +244,7 @@ Release it:
 当作数据来读取，绝不运行你的代码；一个 `build` 矩阵，运行你的代码，但不持有
 任何写入令牌；以及一个 `publish` job，它自己重新推导每一个摘要，并对自己
 哈希过的内容出具证明。这种拆分正是安全属性所在，详见
-[用 CI 发布 §3](5-publish/release-with-ci.md#3-ci-做了什么)。
+[用 CI 发布 §3](5-publish/release-with-ci.md#3--ci-做了什么)。
 
 完成后，你的 GitHub Release 会带有：
 
@@ -271,7 +274,7 @@ gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-ro
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2
@@ -311,7 +314,7 @@ astra-plugin publish --dry-run
 它会运行所有能在本地执行的注册表检查，然后 —— 这是更重要的一半 —— 指名
 那些只有注册表才能运行的检查项，让你知道还有什么尚未得到验证：
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -339,7 +342,7 @@ astra-plugin publish
 不会留下 token，也没有需要对接的密钥环(keyring)。`--print-url` 会打印链接，
 而不是打开浏览器：
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 
@@ -372,7 +375,7 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 ## 9 · 接下来会发生什么
 
 详细内容以及每一个原因代码，见
-[申请上架 §提交之后会发生什么](5-publish/get-listed.md#3-提交之后会发生什么)。
+[申请上架 §提交之后会发生什么](5-publish/get-listed.md#3--提交之后会发生什么)。
 简版如下：
 
 | 结果 | 含义 | 涉及谁 |

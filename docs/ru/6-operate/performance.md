@@ -80,7 +80,7 @@ tools = true
 `astra-plugin test` измеряет реальное число на вашей машине и печатает его
 против бюджета:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)

@@ -68,7 +68,7 @@ Un plugin de Python que importa una pila de ML grande en el ámbito del
 módulo puede no llegar a tiempo; importa de forma perezosa dentro del
 hook que lo necesite. `astra-plugin test` mide esto e imprime el número:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -105,7 +105,7 @@ causas, en orden de probabilidad:
 
 `astra-plugin doctor` responde al punto 1 sin ejecutar nada:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -121,7 +121,7 @@ dependencia del scaffold no baja más.
 
 `astra-plugin test` lo verifica de extremo a extremo:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```

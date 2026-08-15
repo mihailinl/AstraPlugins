@@ -27,7 +27,7 @@
 デーモンは 4 つの引数とともにプロセスを spawn します。以下は実際の
 `astra-plugin test` の実行からコピーした、正確なコマンドラインです。
 
-<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 target/release/dice_roller --daemon-addr=127.0.0.1:46495 --plugin-id=dice-roller \
   --auth-token=mock-daemon-spawn-token --capabilities=tools
@@ -81,7 +81,7 @@ bind → register → build ctx → on_config → on_language_changed → on_sta
 
 `astra-plugin test` が起動するモックデーモンに対する実際の実行での登録:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 INFO astra_plugin_sdk::runner: Starting plugin 'dice-roller', connecting to daemon at 127.0.0.1:46495
 INFO astra_plugin_sdk::runner: Plugin gRPC server listening on port 41627

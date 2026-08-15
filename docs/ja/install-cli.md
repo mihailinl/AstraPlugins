@@ -15,8 +15,10 @@
 何も表示しません。
 
 したがって CLI を入手する唯一の方法はビルドすることであり、ビルドには Rust ツールチェーン
-が必要です。ビルド済みの `linux-x64` と `windows-x64` バイナリの配布は既知の、別扱いの、
-未完了のタスクです。それが実現するまで、このページが現状のすべてを説明します。
+が必要です。ビルド済みバイナリの配布は既知の、別扱いの、未完了のタスクです — そのための
+リリース自動化は今まさに書かれているところで、ダウンロードできるリリースが存在した日に
+このページはダウンロード用の 1 行を得ます。それまでは現状のすべてを説明するだけであり、
+ここにはあなたに何かをダウンロードさせる記述はありません。
 
 このコストは実在するものですが、それでも払う価値がある理由をはっきり言っておきます。
 CLI は何か別のもっと簡単な経路の上に乗った便利ラッパーではありません。正しいリリース
@@ -50,7 +52,7 @@ Windows         winget install Google.Protobuf     (or scoop install protobuf)
 これがないと `astra-plugin-sdk` のビルドスクリプトでビルドが失敗し、エラーが修正方法を
 名指しします。
 
-<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release -p astra-plugin-sdk" -->
+<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release, run in astra-plugin-sdk/ — there is no workspace manifest at the repository root, so `-p astra-plugin-sdk` from the root cannot work" unrun="a full SDK build pointed at a protoc that does not exist; minutes long, and it has to fail to print this" -->
 ```
   Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
 ```
@@ -70,16 +72,25 @@ astra-plugin --version
 それとも手元のマシンで破壊的なパッチリリースに突然出会うかの違いです。
 
 `--git` はその時点で `master` が保持しているものをビルドするので、報告されるバージョンと
-コミットは実行した時点で `master` にあるものになります。下の山括弧の 2 か所が、
-あなたの環境で変わる部分です。
+コミットは実行した時点で `master` にあるものになります。下の山括弧の中身はすべて、
+マシンごと・実行ごとに変わります — バージョンと SHA は `master` から、パスはあなたの
+ホームディレクトリから、所要時間はあなたの CPU から来ます。
 
-<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" -->
+<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" unrun="clones over the network and compiles for minutes; a documentation check must not do either" -->
 ```
-   Compiling astra-plugin-cli v<version> (/home/you/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
-    Finished `release` profile [optimized] target(s) in 23.60s
-  Installing /home/you/.cargo/bin/astra-plugin
-   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<sha>)` (executable `astra-plugin`)
+   Compiling astra-plugin-cli v<version> (<home>/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
+    Finished `release` profile [optimized] target(s) in <duration>
+  Installing <scratch>/bin/astra-plugin
+   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<short-sha>)` (executable `astra-plugin`)
+warning: be sure to add `<scratch>/bin` to your PATH to be able to run the installed binaries
 ```
+
+この記録は、採取のために誰かのインストール済みバイナリを上書きしてしまわないよう
+`--root <scratch>` を付けて取得したものです。**`--root` は付けないでください** —
+上のコマンドがそうしているとおりです — そうすると最後の 2 行が変わります。
+`Installing` は `<home>/.cargo/bin/astra-plugin` を指し、`PATH` の警告は
+`~/.cargo/bin` がまだ `PATH` に入っていない場合にのみ出ます。2 つの SHA は同じ
+コミットを長さ違いで表示しているだけで、cargo の仕様であり不一致ではありません。
 
 CLI 自体を読んだり変更したりもしたい場合は、**クローンから**。
 
@@ -103,51 +114,66 @@ astra-plugin --help
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+この番号がプレースホルダなのは、どちらのインストール行でもバージョンを選べないから
+です。どちらもリリースではなくコミットをビルドするので、手に入るのはそのコミットの
+`Cargo.toml` にあるバージョンです。`0.2.1` は
+[CLI の changelog](../../astra-plugin-cli/CHANGELOG.md) の最新エントリで、そこには
+このクレートにリリース列車がないこと — crates.io もタグもバイナリもないこと — も
+記録されています。
 
 シェルが見つけられない場合、`cargo install` は `~/.cargo/bin`(Windows なら
 `%USERPROFILE%\.cargo\bin`)にインストールしており、そのディレクトリが `PATH` に
 入っていません。そうなった場合、`cargo` はその旨をはっきり警告として表示します。
 
-### 0.2.1 以降を使うこと、そしてそれが重要な理由
+### 最初のリリースを壊すバグと、自分のビルドに修正が入っているかの見分け方
 
-**`0.2.0` には最初のリリースを壊すバグがあります。** `astra-plugin init-ci` は、
-GitHub がコミットを要求する箇所に、注釈付きタグの*オブジェクト* SHA を固定して
-しまっていました。そのため最初の `git push --tags` は、ジョブが始まる前に
-`invalid value workflow reference` で失敗していました。これが
-[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2) であり、
-`0.2.1` で修正されています。
+**`astra-plugin init-ci` はかつて、GitHub がコミットを要求する箇所に注釈付きタグの
+*オブジェクト* SHA を固定していました。** そのため最初の `git push --tags` は、
+ジョブが始まる前に `invalid value workflow reference` で失敗していました。これが
+[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2) です。
 
-気まずい部分を率直に言うと、`0.2.0` は修正コミット `5b8ab22` の前後どちらでも
-公開されていたため、しばらくの間はバージョン番号だけでは動くビルドと壊れたビルドを
-区別できませんでした。`0.2.1` はそれを終わらせるために存在します。フラグは増えず API も
-変わりません。唯一変わった振る舞いは `publish --notify` で、そのリンクは
-レジストリがすでに無効化したブランク issue に頼るのをやめ、release-ping
-フォームを名指しするようになりました。
+**修正はコミット `5b8ab22` であって、バージョン番号ではありません。** そしてここが
+人のつまずくところです。ここにリリース列車はありません — 何も公開されていないので、
+誰も選んだバージョンをインストールしません。全員がクローンしたコミットをビルドします。
+`5b8ab22` は、番号を `0.2.1` に上げたバージョン更新よりも*前*に `master` に入りました。
+つまり:
+
+- `5b8ab22` より後の `master` から作ったビルドは、**修正を含みながらそれでも `0.2.0`
+  と表示します** — それは壊れたビルドではありません;
+- `0.2.1` のビルドが修正を*欠く*ことはありえません。`5b8ab22` はバージョン更新
+  コミットの祖先だからです;
+- `5b8ab22` より*前*に作られた `0.2.0` のビルドが壊れたもので、`--version` では
+  最初のケースと区別できません。
+
+ですから `0.2.1` には価値があります — この問いに自力で答えられる最初の番号であり、
+まさにそのために存在します — が、`0.2.0` と表示される `0.2.0` は何の証拠にも
+なりません。`0.2.1` はフラグを増やさず API も変えません。唯一変わった振る舞いは
+`publish --notify` で、そのリンクはレジストリがすでに無効化したブランク issue に
+頼るのをやめ、release-ping フォームを名指しするようになりました。
 
 `--version` が `0.2.0` と表示する場合、まず `which astra-plugin`(Windows では
-`where`)を実行してください。よくある原因は古いバイナリが `PATH` 上で前に来ている
-ことで、`--version` だけではその区別がつきません。それが今インストールしたパスで
-あり、それでもなお `0.2.0` と表示されるなら、ビルド元の `master` はまだ `0.2.1` を
-持っていません — 修正コミット `5b8ab22` は、それを名指しするバージョン更新よりも
-先に `master` に入ったため、修正を含んでいながら `0.2.0` と表示されるビルドが
-ありえます。推測しないでください。下の `init-ci` による確認は CLI が実際に書き込む
-ピンを読みます。バグはまさにそこにありました。
+`where`)を実行してください。最もよくある原因は古いバイナリが `PATH` 上で前に来て
+いることで、`--version` だけではそれを「古いコミットの新しいビルド」と区別できません。
+そのうえで番号から推測するのはやめ、ピンを読んでください — `init-ci` はバグの核心
+そのものを書き込みますし、1 行で答えが出ます。
 
-バージョンをまったく信用せずに確認する方法として、`init-ci` が何を書き込むかを
-見ることもできます。
+これがバージョンにまったく依存しない確認方法です。
 
 <!-- doctest: cli -->
 ```bash
 astra-plugin init-ci
 ```
 
-修正済みのビルドはピン `e3329df252a46d747676cb540ae4b986af68a3ad` — コミット — を
-報告します。`0.2.0` のビルドは `dc1a044876926e9cf1170f034e2eab533ec07641` を報告し、
-これはタグオブジェクトであり、GitHub が拒否するものです。`init-ci` は再実行しても
-安全です。入力値は保持したまま、ピンだけを書き換えます。既存のファイルはその場で
-修復されないため、既存の `release.yml` は再実行するまで悪い SHA を保持し続けます。
+修正が入ったビルドはピン `e3329df252a46d747676cb540ae4b986af68a3ad` — コミット — を
+報告します。入っていないビルドは `dc1a044876926e9cf1170f034e2eab533ec07641` を報告し、
+これは `plugin-release/v1` のタグ*オブジェクト*であり、GitHub が拒否するものです。
+後者が見えたら、上の行で `master` から入れ直し、`init-ci` を再実行してください。
+再実行しても安全です。入力値は保持したまま、ピンだけを書き換えます。既存のファイルは
+その場で修復されないため、既存の `release.yml` は再実行するまで悪い SHA を保持し
+続けます。
 
 コマンド一覧の全体はこちらです。
 
@@ -201,7 +227,7 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 | インストールが成功したのに `astra-plugin: command not found` | `~/.cargo/bin` が `PATH` に入っていない |
 | リポジトリのルートで `cargo install --path .` を実行したときの `error: could not find `Cargo.toml`` | ルートにワークスペースマニフェストが存在しません。`--path` は `astra-plugin-cli/` を指してください |
 | `unrecognized subcommand 'new'` | 古い `astra-plugin` が `PATH` 上でより前にあります。`--version` では区別できないので、`which astra-plugin`(Windows では `where`)で実際に実行されているファイルを確認してください |
-| 最初のタグ push で `invalid value workflow reference` | `release.yml` を書いた CLI が `0.2.0` で、タグオブジェクトを固定してしまっていた。[0.2.1 以降を使うこと](#021-以降を使うことそしてそれが重要な理由) を参照 |
+| 最初のタグ push で `invalid value workflow reference` | `release.yml` を書いた CLI が `5b8ab22` より古く、タグオブジェクトを固定してしまっていた。[自分のビルドに修正が入っているかの見分け方](#最初のリリースを壊すバグと自分のビルドに修正が入っているかの見分け方) を参照 |
 
 ## 次に読む
 

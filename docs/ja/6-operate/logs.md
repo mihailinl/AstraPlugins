@@ -80,7 +80,7 @@ RUST_LOG=debug astra-plugin build
 向け出力は stdout にあり、そこにトレース行があると `--json` のドキュメント
 が壊れてしまうからです。
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why do I see no trace output from the CLI?
          RUST_LOG is unset, so only warnings and errors are printed.

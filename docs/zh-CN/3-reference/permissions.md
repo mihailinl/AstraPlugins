@@ -35,7 +35,7 @@
    在解析阶段，一个拼写错误和一个向前兼容的 id 是无法区分的，所以这是
    一个警告而不是错误，`--strict` 会把它变成一个失败的退出码：
 
-   <!-- doctest: output from="astra-plugin check --strict ." -->
+   <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
      WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
      FAILED: 1 warning(s), and --strict treats warnings as errors
@@ -193,7 +193,7 @@ mod tests {
 在你实际运行清单文件之前，`astra-plugin doctor` 就能回答关于它的同一个
 问题：
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.

@@ -138,7 +138,7 @@ Ding löscht. Die Pro-Hook-Hälfte der Richtlinie ist also eine Spalte in
 
 Machst du dabei einen Fehler, sagt der Checker das, mit der Zeilennummer:
 
-<!-- doctest: output from="python3 tools/parity/check.py on a row whose removed_in violates the policy" -->
+<!-- doctest: illustrative reason="the failure `tools/parity/check.py` prints for a hooks.yaml row that violates the removal policy; no such row exists in the tree, so producing it means editing hooks.yaml first" -->
 ```
 spec/hooks.yaml is malformed:
   hooks.yaml:336: `AiGetModels` is deprecated in 0.6 and removed in 0.7 — the policy is

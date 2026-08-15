@@ -25,7 +25,7 @@ versucht:
 | Deinen Quellcode auf GitHub pushen | Die Registry liest nie deinen Quellbaum. Sie liest eine `.astraplugin`-Datei, die an einem Release hängt, und es gibt keine |
 | Jemandem ein `.zip` schicken, oder ein auf deinem Laptop gebautes Bundle | Die Bytes tragen keine Build-Attestation, die Registry lehnt sie ab, egal wie gut das Plugin ist |
 | Ein Issue öffnen, das einen Maintainer bittet, es für dich zu bauen | Niemand baut dein Plugin außer der eigenen CI deines Repositorys. Es gibt keinen anderen Builder |
-| Ein Issue in der Registry öffnen, das dein Plugin beschreibt, aber am Listing-Formular vorbei | Nur das Formular vergibt das `listing`-Label, und nur dieses Label startet einen Ingest. Leere Issues sind dort inzwischen abgeschaltet, und eine unbeschriftete Anfrage bekommt statt Schweigen eine Antwort, die das Label benennt — eine Antwort ist aber kein Listing. Siehe [Einreichen](#8-einreichen-ein-einziges-mal-für-immer) |
+| Ein Issue in der Registry öffnen, das dein Plugin beschreibt, aber am Listing-Formular vorbei | Nur das Formular vergibt das `listing`-Label, und nur dieses Label startet einen Ingest. Leere Issues sind dort inzwischen abgeschaltet, und eine unbeschriftete Anfrage bekommt statt Schweigen eine Antwort, die das Label benennt — eine Antwort ist aber kein Listing. Siehe [Einreichen](#8--einreichen-ein-einziges-mal-für-immer) |
 
 **Warum das so sein muss, in zwei Sätzen.** Die Registry pinnt dein
 Plugin über den SHA-256 genau der Datei, die ein Nutzer herunterladen
@@ -56,12 +56,15 @@ Gibt das nichts aus, stopp hier und mach zuerst
 keine vorgebauten Binärdateien — diese Seite sagt das klar und deutlich
 und sagt dir, was zu installieren ist.
 
-> **Nimm `0.2.1` oder neuer.** `0.2.0` schreibt einen Release-Workflow,
-> den GitHub in dem Moment ablehnt, in dem du dein erstes Tag pushst, ein
-> `0.2.0`-Build kann diese Seite also nicht abschließen. Sagt
-> `--version` `0.2.0`, führe die `cargo install`-Zeile auf
-> [Die CLI installieren](install-cli.md) erneut aus, bevor du
-> weitermachst.
+> **Lies die Gesundheit deines Builds nicht an der Versionsnummer ab.**
+> Eine CLI, die vor dem Commit `5b8ab22` gebaut wurde, schreibt einen
+> Release-Workflow, den GitHub in dem Moment ablehnt, in dem du dein erstes
+> Tag pushst. Dieser Fix landete auf `master` *vor* dem Sprung auf `0.2.1`,
+> ein Build kann ihn also tragen und trotzdem `0.2.0` ausgeben, und kein
+> `0.2.1` hat ihn nicht. Wer heute von `master` installiert, bekommt den
+> Fix, egal was die Zahl sagt. Was es tatsächlich klärt, ist die SHA, die
+> `init-ci` ausgibt, und diese Seite führt das in
+> [Schritt 3](#3--den-release-workflow-einrichten) aus.
 
 Du brauchst auch ein **öffentliches** GitHub-Repository. Attestations
 werden in ein öffentliches Transparency-Log veröffentlicht; auf einem
@@ -79,7 +82,7 @@ astra-plugin new dice-roller
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller" -->
+<!-- doctest: output from="astra-plugin new dice-roller" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -130,7 +133,7 @@ Das ist die Conformance-Suite, ausgeführt gegen dein Plugin als **echten
 Prozess**, der mit einem Mock-Daemon spricht — nicht gegen einen Typ in
 deiner Testdatei. Auf das Urteil gekürzt:
 
-<!-- doctest: output from="astra-plugin test ." -->
+<!-- doctest: output from="astra-plugin test ." unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   Registered: port 37173, protocol 1, sdk astra-plugin-sdk-rust 0.6.0
   [ok  ] ListTools                required  1 tool(s)
@@ -164,7 +167,7 @@ Du schreibst kein YAML. Ein Befehl erledigt das:
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -185,11 +188,13 @@ um das Pinning voranzutreiben; es behält die von dir gesetzten Inputs.
 
 **Prüfe die ausgegebene SHA, bevor du weitermachst.** Sie muss
 `e3329df252a46d747676cb540ae4b986af68a3ad` sein. Ist es
-`dc1a044876926e9cf1170f034e2eab533ec07641`, benutzt du CLI-`0.2.0`: das
-ist die SHA des *Tag-Objekts*, und `uses: …@<sha>` braucht einen Commit,
-dein erster `git push --tags` scheitert also mit
-`invalid value workflow reference`, bevor irgendein Job startet. Führe
-die `cargo install`-Zeile auf
+`dc1a044876926e9cf1170f034e2eab533ec07641`, ist deine CLI älter als der
+Commit `5b8ab22`: das ist die SHA des *Tag-Objekts* von
+`plugin-release/v1`, und `uses: …@<sha>` braucht einen Commit, dein erster
+`git push --tags` scheitert also mit `invalid value workflow reference`,
+bevor irgendein Job startet. Das ist die eine Prüfung, die sich lohnt; die
+Versionsnummer kann sie nicht beantworten, weil der Fix `master` erreichte,
+bevor sich die Zahl änderte. Führe die `cargo install`-Zeile auf
 [Die CLI installieren](install-cli.md) erneut aus, dann
 `astra-plugin init-ci` erneut — es schreibt das Pinning neu und behält
 deine Inputs. Nichts wird an Ort und Stelle repariert, eine bestehende
@@ -205,7 +210,7 @@ ihrer drei Permissions erforderlich ist:
 astra-plugin check --strict
 ```
 
-<!-- doctest: output from="astra-plugin check --strict" -->
+<!-- doctest: output from="astra-plugin check --strict" unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
 ```
 Checking plugin at ....
   NOTE: Missing plugin.author
@@ -246,7 +251,7 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -276,7 +281,7 @@ liest und nie deinen Code ausführt, eine `build`-Matrix, die deinen Code
 ausführt und kein Schreib-Token hält, und einen `publish`-Job, der jeden
 Digest selbst neu ableitet und bezeugt, was er gehasht hat. Diese
 Aufteilung ist die Sicherheitseigenschaft und wird in
-[Mit CI veröffentlichen §3](5-publish/release-with-ci.md#3-was-ci-tut)
+[Mit CI veröffentlichen §3](5-publish/release-with-ci.md#3--was-ci-tut)
 beschrieben.
 
 Wenn es fertig ist, trägt dein GitHub-Release:
@@ -309,7 +314,7 @@ gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-ro
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2
@@ -351,7 +356,7 @@ Es führt jede Registry-Prüfung aus, die lokal laufen kann, und dann —
 die Hälfte, die zählt — benennt es die, die nur die Registry ausführen
 kann, sodass du weißt, was noch unbewiesen ist:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -380,7 +385,7 @@ Browser. Es lädt nichts hoch und hält keine Zugangsdaten — es gibt kein
 Schlüsselbund, mit dem integriert werden müsste. `--print-url` gibt
 stattdessen den Link aus, statt einen Browser zu öffnen:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 
@@ -421,7 +426,7 @@ daher strikt mehr wert ist als alles in ein Formular Eingetippte.
 ## 9 · Was als Nächstes passiert
 
 Detail, einschließlich jedes Grund-Codes:
-[Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#3-was-nach-der-einreichung-passiert).
+[Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#3--was-nach-der-einreichung-passiert).
 Die Kurzfassung:
 
 | Ergebnis | Bedeutet | Wer ist beteiligt |

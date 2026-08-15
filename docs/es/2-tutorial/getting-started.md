@@ -21,8 +21,12 @@ astra-plugin --version
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+El número es un marcador de posición a propósito: `--git` compila el commit
+que `master` lleve cuando lo ejecutes, así que lo que se imprime es la
+versión de ese commit y no una que hayas elegido tú.
 
 Desde un clon, `cargo install --path astra-plugin-cli --locked` hace lo
 mismo.
@@ -32,9 +36,19 @@ compilación se detiene en ``Could not find `protoc` ``. Instálalo con
 `apt install protobuf-compiler`, `pacman -S protobuf`, `brew install
 protobuf`, o `winget install Google.Protobuf`, y vuelve a ejecutar la línea.
 
-**Toma 0.2.1 o más nuevo.** `0.2.0` escribe un workflow de release que falla
-en tu primer push de etiqueta, así que si `--version` imprime `0.2.0`,
-vuelve a ejecutar la línea de instalación.
+**Un número de versión no puede decirte que esta compilación es buena, y
+un `0.2.0` no es mala.** `init-ci` fijaba un *objeto* de etiqueta donde
+GitHub necesita un commit, y el primer `git push --tags` de un plugin moría
+ahí. El arreglo es el commit `5b8ab22`, que llegó a `master` *antes* del
+salto que subió el número a `0.2.1` — así que una compilación desde
+`master` puede llevar el arreglo y aun así imprimir `0.2.0`, y no existe
+ninguna `0.2.1` sin él. Instalar hoy desde `master` te da el arreglo diga
+lo que diga el número; para comprobarlo en lugar de confiar, ejecuta
+`astra-plugin init-ci` y lee el pin que imprime —
+`e3329df252a46d747676cb540ae4b986af68a3ad` es el commit y es el correcto,
+`dc1a044876926e9cf1170f034e2eab533ec07641` es el objeto de la etiqueta y es
+el bug. Versión larga:
+[Instalar la CLI](../install-cli.md#el-bug-que-rompe-un-primer-release-y-cómo-saber-si-tu-compilación-lleva-el-arreglo).
 
 Un apunte, que no te bloquea: la CLI no está en crates.io y no tiene
 binarios precompilados, así que compilarla es la única manera de
@@ -62,7 +76,7 @@ astra-plugin new dice-roller --lang rust --template tool
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" -->
+<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -76,9 +90,24 @@ Next steps:
   astra-plugin dev .
 ```
 
-Cinco archivos: `plugin.toml`, `Cargo.toml`, `src/main.rs`, `README.md`,
-`.gitignore`. `Cargo.toml` tiene **una** dependencia, y `src/main.rs` son
-quince líneas más un módulo de pruebas.
+Seis archivos:
+
+<!-- doctest: illustrative reason="an annotated tree of what `astra-plugin new` wrote, not a command; the run that produced it is the output block above" -->
+```
+dice-roller/
+├── plugin.toml      el manifiesto — id, versión, capabilities, punto de entrada
+├── Cargo.toml       una dependencia, y un comentario largo sobre por qué solo una
+├── src/main.rs      el plugin: quince líneas, más un módulo de pruebas
+├── README.md        lo que la tienda muestra junto a tu plugin
+├── icon.svg         un icono de marcador de posición, pensado para reemplazarse
+└── .gitignore       `target/` y `*.astraplugin`
+```
+
+`README.md` e `icon.svg` no son decoración: el empaquetador recoge ambos por
+su nombre, y el registro los vuelve a leer del bundle verificado para construir
+la tarjeta y la página de tu listado. Son lo que ve una persona antes de
+decidir instalarte, así que reemplázalos antes de publicar —
+[Aparecer en el listado](../5-publish/get-listed.md) dice qué quiere cada uno.
 
 `--lang` acepta `rust`, `python` o `typescript`; `--template` elige las
 capabilities y el código de ejemplo, y `--capabilities tools,triggers`
@@ -287,7 +316,7 @@ Esto es un nivel por encima de `cargo test`: arranca tu plugin tal como lo
 arranca el daemon, contra un daemon simulado que sirve `PluginHostService`,
 y llama a cada hook entrante que impliquen tus capabilities declaradas.
 
-<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] ListTools                required  1 tool(s)
   [ok  ] GetPluginTriggerTypes    required  0 trigger type(s)
@@ -351,7 +380,7 @@ astra-plugin build
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" -->
+<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
 Building plugin 'dice-roller' v0.1.0 (rust) for linux-x64...
   Running cargo build --release...

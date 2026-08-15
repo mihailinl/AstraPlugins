@@ -73,7 +73,7 @@ arch = ["x86_64"]
 にとっては間違いです。`astra-plugin doctor` はまさにその言葉でそう伝え
 ます。
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Will this install on the platforms I expect?
          no [platform] block, so the daemon considers it compatible everywhere. Correct for a
@@ -106,7 +106,7 @@ CLI は Rust SDK に依存しているため、*`astra-plugin` 自体をイン�
 `astra-plugin doctor` はこれらすべてに、あなたが実際にいるマシン上で、
 1 つのコマンドで答えます。
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Can I build a Rust plugin?
          cargo 1.97.0 (c980f4866 2026-06-30)
@@ -159,7 +159,7 @@ Astra は `directories` クレートを使い、`("com", "astra", "astra")`
 想定するのではなく、尋ねてください — `doctor` はこのマシンが解決した
 パスを出力します。
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [warn] Where does the CLI look for the running daemon?
          /home/you/.config/astra — but there is no daemon.port in it, so the CLI will fall

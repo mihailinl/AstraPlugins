@@ -55,7 +55,7 @@ astra-plugin dev . --daemon-addr 127.0.0.1:32000
    进程、铸造它的认证令牌，并从此掌管它的生命周期；
 4. 监视变更、重新构建、停止/启动插件，并持续输出它的日志。
 
-<!-- doctest: output from="astra-plugin dev . with no Astra running" -->
+<!-- doctest: output from="astra-plugin dev . with no Astra running" unrun="needs a machine with no Astra daemon listening, which a CI runner cannot promise either way" -->
 ```
 Dev mode: plugin 'dice-roller'
   Directory: /tmp/dice-roller

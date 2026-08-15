@@ -65,7 +65,7 @@ arch = ["x86_64"]
 二进制文件的插件来说这就错了。`astra-plugin doctor` 会原原本本地这样
 说明：
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Will this install on the platforms I expect?
          no [platform] block, so the daemon considers it compatible everywhere. Correct for a
@@ -96,7 +96,7 @@ Rust job 里都会安装它（`.github/workflows/ci.yml` 中出现了七次
 
 `astra-plugin doctor` 会在你实际所在的这台机器上，用一条命令回答这一切：
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Can I build a Rust plugin?
          cargo 1.97.0 (c980f4866 2026-06-30)
@@ -145,7 +145,7 @@ Astra 用 `directories` crate，基于 `("com", "astra", "astra")` 来解析
 
 去问，而不是去假设 —— `doctor` 会打印出这台机器实际解析出的路径：
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [warn] Where does the CLI look for the running daemon?
          /home/you/.config/astra — but there is no daemon.port in it, so the CLI will fall

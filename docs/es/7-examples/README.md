@@ -64,7 +64,7 @@ plano en un
 > Léelos por la forma de un plugin cliente — la superficie, el flujo de
 > eventos, el I18n — no como algo que puedas ejecutar de extremo a
 > extremo hoy. Consulta
-> [la sección `Daemon` del SDK de Rust](../4-sdk/rust.md#daemon-presente-en-el-sdk-rechazado-por-el-daemon).
+> [la sección `Daemon` del SDK de Rust](../4-sdk/rust.md#daemon--presente-en-el-sdk-rechazado-por-el-daemon).
 
 | | Lenguaje | Capabilities | Por qué este |
 |---|---|---|---|

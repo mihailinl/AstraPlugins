@@ -15,9 +15,11 @@
 release list --repo mihailinl/AstraPlugins` не друкує нічого.
 
 Тож єдиний спосіб отримати CLI — зібрати її, а для збірки потрібен тулчейн
-Rust. Постачання готових бінарників `linux-x64` і `windows-x64` — відома,
-окрема, незакрита задача; поки вона не виконана, ця сторінка описує все,
-що є.
+Rust. Постачання готових бінарників — відома, окрема, незакрита задача:
+автоматизація релізу для неї пишеться просто зараз, і на цій сторінці
+з'явиться рядок для завантаження того дня, коли з'явиться реліз, який можна
+завантажити. До того вона описує все, що є, і ніщо тут не просить вас
+щось завантажувати.
 
 Ця ціна реальна, і варто назвати, чому її все одно варто платити: CLI — не
 обгортка для зручності навколо якогось простішого шляху. Це єдине, що
@@ -51,7 +53,7 @@ Windows         winget install Google.Protobuf     (or scoop install protobuf)
 Без нього збірка падає у скрипті збірки `astra-plugin-sdk`, і помилка
 називає рішення:
 
-<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release -p astra-plugin-sdk" -->
+<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release, run in astra-plugin-sdk/ — there is no workspace manifest at the repository root, so `-p astra-plugin-sdk` from the root cannot work" unrun="a full SDK build pointed at a protoc that does not exist; minutes long, and it has to fail to print this" -->
 ```
   Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
 ```
@@ -72,16 +74,27 @@ astra-plugin --version
 ламаючий патч-реліз прямо на вашій машині.
 
 `--git` збирає те, що зараз несе `master`, тож версія й коміт, які вона
-повідомляє, — ті, що на `master` у момент запуску; у кутових дужках нижче —
-саме ті дві частини, які у вас будуть іншими:
+повідомляє, — ті, що на `master` у момент запуску. Усе, що в кутових дужках
+нижче, різниться від машини до машини і від запуску до запуску: версія і SHA
+приходять з `master`, шляхи — з вашого домашнього каталогу, тривалість — від
+вашого процесора.
 
-<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" -->
+<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" unrun="clones over the network and compiles for minutes; a documentation check must not do either" -->
 ```
-   Compiling astra-plugin-cli v<version> (/home/you/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
-    Finished `release` profile [optimized] target(s) in 23.60s
-  Installing /home/you/.cargo/bin/astra-plugin
-   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<sha>)` (executable `astra-plugin`)
+   Compiling astra-plugin-cli v<version> (<home>/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
+    Finished `release` profile [optimized] target(s) in <duration>
+  Installing <scratch>/bin/astra-plugin
+   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<short-sha>)` (executable `astra-plugin`)
+warning: be sure to add `<scratch>/bin` to your PATH to be able to run the installed binaries
 ```
+
+Цей запис знято з `--root <scratch>`, щоб його отримання не перезаписало
+чийсь встановлений бінарник. **Не вказуйте `--root`** — як і робить команда
+вище — і останні два рядки зміняться: `Installing` назве
+`<home>/.cargo/bin/astra-plugin`, а попередження про `PATH` з'явиться лише
+якщо `~/.cargo/bin` ще не у вашому `PATH`. Два SHA — це один і той самий
+коміт, надрукований у двох різних довжинах; так робить cargo, це не
+розбіжність.
 
 **З клону**, якщо ви хочете читати або міняти CLI, а не лише запускати її:
 
@@ -105,54 +118,67 @@ astra-plugin --help
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+Число тут — заповнювач, бо жоден із двох рядків встановлення не дає вам
+обрати версію: обидва збирають коміт, а не реліз, тож ви отримуєте версію з
+`Cargo.toml` цього коміту. `0.2.1` — найсвіжіший запис у
+[changelog CLI](../../astra-plugin-cli/CHANGELOG.md), де також записано, що
+в цього крейта немає релізного потяга: ні crates.io, ні тега, ні бінарників.
 
 Якщо оболонка її не знаходить, `cargo install` помістила її в
 `~/.cargo/bin` (або `%USERPROFILE%\.cargo\bin` на Windows), а цього
 каталогу немає у вашому `PATH`. `cargo` друкує попередження про це рівно
 тоді, коли це трапляється.
 
-### Беріть 0.2.1 або новіший, і чому це важливо
+### Баг, який ламає перший реліз, і як зрозуміти, чи є у вашій збірці виправлення
 
-**У `0.2.0` є баг, що ламає ваш перший реліз.** `astra-plugin init-ci`
-закріплював SHA *об'єкта* анотованого тега там, де GitHub вимагає коміт,
-тож перший `git push --tags` падав з `invalid value workflow reference`
-ще до старту будь-якого завдання. Це був
-[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2), і
-він виправлений у `0.2.1`.
+**`astra-plugin init-ci` раніше закріплював SHA *об'єкта* анотованого тега
+там, де GitHub вимагає коміт**, тож перший `git push --tags` падав з
+`invalid value workflow reference` ще до старту будь-якого завдання. Це був
+[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2).
 
-Незручна частина, сказана прямо: `0.2.0` публікувався і до, і після коміту
-з виправленням `5b8ab22`, тож якийсь час версія не могла відрізнити
-робочу збірку від зламаної. `0.2.1` існує, щоб це припинити. Вона не додає прапорців і не змінює API;
-єдина зміна поведінки — `publish --notify`, чиє посилання тепер називає форму
+**Виправлення — це коміт `5b8ab22`, а не номер версії**, і саме на цьому
+люди спотикаються. Тут немає релізного потяга: ніщо не опубліковано, тож
+ніхто не встановлює обрану версію — усі збирають той коміт, який
+склонували. `5b8ab22` потрапив до `master` *раніше*, ніж бамп, що підняв
+число до `0.2.1`, а отже:
+
+- збірка з `master` після `5b8ab22` **містить виправлення і все одно друкує
+  `0.2.0`** — це не зламана збірка;
+- жодна збірка `0.2.1` не може бути *без* виправлення, бо `5b8ab22` —
+  предок коміту з бампом;
+- зламана — це збірка `0.2.0`, зроблена *до* `5b8ab22`, і `--version` не
+  відрізняє її від першого випадку.
+
+Тож `0.2.1` варто мати — це перше число, яке відповідає на питання само по
+собі, саме для цього воно й існує, — але `0.2.0`, що каже `0.2.0`, не
+доводить нічого. `0.2.1` не додає прапорців і не змінює API; єдина зміна
+поведінки — `publish --notify`, чиє посилання тепер називає форму
 release-ping реєстру замість порожнього issue, який реєстр відтоді вимкнув.
 
 Якщо `--version` друкує `0.2.0`, спершу запустіть `which astra-plugin`
-(`where` на Windows): звична причина — старіший бінарник стоїть раніше у
-вашому `PATH`, а сама лише `--version` їх не розрізняє. Якщо це той шлях,
-куди ви щойно встановили, а число все ще `0.2.0`, то `master`, з якого ви
-збирали, ще не несе `0.2.1` — коміт з виправленням `5b8ab22` потрапив до
-`master` раніше, ніж бамп версії, який його називає, тож збірка може
-містити виправлення і все одно казати `0.2.0`. Не вгадуйте: перевірка
-`init-ci` нижче дивиться на пін, який CLI справді записує, а саме в ньому
-і був баг.
+(`where` на Windows): найчастіша причина — старіший бінарник стоїть раніше
+у вашому `PATH`, а сама лише `--version` не відрізняє це від свіжої збірки
+старішого коміту. Далі перестаньте вгадувати за числом і прочитайте пін:
+`init-ci` записує саме те, через що був баг, і відповідає одним рядком.
 
-Ви також можете підтвердити це, взагалі не довіряючи версії, подивившись
-на те, що пише `init-ci`:
+Ось перевірка, яка взагалі не залежить від версії:
 
 <!-- doctest: cli -->
 ```bash
 astra-plugin init-ci
 ```
 
-Виправлена збірка повідомляє закріплення
-`e3329df252a46d747676cb540ae4b986af68a3ad` — коміт. Збірка `0.2.0`
-повідомляє `dc1a044876926e9cf1170f034e2eab533ec07641`, а це об'єкт тега, і
-саме його відхиляє GitHub. `init-ci` безпечно перезапускати: вона зберігає
-ваші вхідні параметри і переписує закріплення. Ніщо не лагодиться на
-місці, тож наявний `release.yml` тримає поганий SHA, поки ви його не
-перезапустите.
+Збірка з виправленням повідомляє закріплення
+`e3329df252a46d747676cb540ae4b986af68a3ad` — коміт. Збірка без нього
+повідомляє `dc1a044876926e9cf1170f034e2eab533ec07641`, а це *об'єкт тега*
+`plugin-release/v1`, і саме його відхиляє GitHub. Якщо ви бачите друге,
+перевстановіть з `master` рядком вище і запустіть `init-ci` знову. Її
+безпечно перезапускати: вона зберігає ваші вхідні параметри і переписує
+закріплення. Ніщо не лагодиться на місці, тож наявний `release.yml` тримає
+поганий SHA, поки ви його не перезапустите.
 
 Повний набір команд:
 
@@ -206,7 +232,7 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 | `astra-plugin: command not found` після успішного встановлення | `~/.cargo/bin` немає в `PATH` |
 | `error: could not find `Cargo.toml`` при запуску `cargo install --path .` в корені репозиторію | У корені немає workspace-маніфесту. Спрямуйте `--path` на `astra-plugin-cli/` |
 | `unrecognized subcommand 'new'` | Старіша `astra-plugin` стоїть раніше у вашому `PATH`. `--version` не допоможе їх розрізнити — запустіть `which astra-plugin` (`where` на Windows), щоб побачити, який файл ви реально запускаєте |
-| `invalid value workflow reference` при першому пуші тега | CLI, що писала `release.yml`, була `0.2.0` і закріпила об'єкт тега. Див. [беріть 0.2.1 або новіший](#беріть-021-або-новіший-і-чому-це-важливо) |
+| `invalid value workflow reference` при першому пуші тега | CLI, що писала `release.yml`, старша за `5b8ab22` і закріпила об'єкт тега. Див. [як зрозуміти, чи є у вашій збірці виправлення](#баг-який-ламає-перший-реліз-і-як-зрозуміти-чи-є-у-вашій-збірці-виправлення) |
 
 ## Далі
 

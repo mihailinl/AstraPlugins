@@ -67,7 +67,7 @@ crates.io **0.6.0**、PyPI **0.5.0**、npm **0.5.0** を持っています。こ
 があります; 必要とするフックの中で遅延インポートしてください。
 `astra-plugin test` はこれを測定し、その数値を出力します:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -105,7 +105,7 @@ crates.io **0.6.0**、PyPI **0.5.0**、npm **0.5.0** を持っています。こ
 
 `astra-plugin doctor` は何も実行せずに 1 に答えます:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -122,7 +122,7 @@ TypeScript は 0.5 から**です。より古い SDK に対しては、すべて
 
 `astra-plugin test` はこれをエンドツーエンドでアサートします:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```

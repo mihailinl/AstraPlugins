@@ -37,7 +37,7 @@ Es führt jede Prüfung aus, die die Registry ausführt und die lokal
 laufen kann, und dann — die Hälfte, die zählt — **benennt es die, die nur
 die Registry ausführen kann**, sodass du weißt, was noch unbewiesen ist:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -126,7 +126,7 @@ lädt nichts hoch und hält keine Zugangsdaten** — es gibt kein
 Schlüsselbund, mit dem integriert werden müsste. `--print-url` gibt
 stattdessen den Link aus:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 

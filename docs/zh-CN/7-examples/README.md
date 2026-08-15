@@ -60,7 +60,7 @@
 > 调用时都会返回 `permission_denied`。请把它们当作客户端插件的形态来
 > 读 —— 界面、事件流、I18n —— 而不是当作今天就能端到端运行的东西。
 > 参见
-> [Rust SDK 的 `Daemon` 一节](../4-sdk/rust.md#daemon-sdk-中存在但会被守护进程拒绝)。
+> [Rust SDK 的 `Daemon` 一节](../4-sdk/rust.md#daemon--sdk-中存在但会被守护进程拒绝)。
 
 | | 语言 | 能力 | 为什么读这个 |
 |---|---|---|---|

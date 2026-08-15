@@ -133,7 +133,7 @@ SemVer, і правило для неї не «читайте changelog», а м
 
 Помилитеся — і перевірник скаже про це, з номером рядка:
 
-<!-- doctest: output from="python3 tools/parity/check.py on a row whose removed_in violates the policy" -->
+<!-- doctest: illustrative reason="the failure `tools/parity/check.py` prints for a hooks.yaml row that violates the removal policy; no such row exists in the tree, so producing it means editing hooks.yaml first" -->
 ```
 spec/hooks.yaml is malformed:
   hooks.yaml:336: `AiGetModels` is deprecated in 0.6 and removed in 0.7 — the policy is

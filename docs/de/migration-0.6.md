@@ -53,7 +53,7 @@ und die 0.5-`HostClient`/`DaemonClient`-Formen, über eine Blanket-Impl auf
 den 0.6-Trait weitergeleitet. Verifiziert am echten 0.5-dice-roller — 255
 Zeilen, unverändert außer dieser Zeile:
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -108,7 +108,7 @@ gegen 0.6 — 15 davon, in fünf Arten.
 
 ### 2.1 `Config` ist ein erforderlicher assoziierter Typ
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -189,7 +189,7 @@ Config-Rewrite mitten in einem Tool-Aufruf kann ihn nicht blockieren.
 
 ### 2.2 Handler nehmen ein `&PluginContext`
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -232,7 +232,7 @@ anderem — gibt `astra_plugin_sdk::ctx()` denselben Kontext zurück.
 
 ### 2.3 `set_host` und `set_daemon_client` sind weg
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -300,7 +300,7 @@ sein `SharedDaemon`-Feld und diese Prüfung:
 > kann. Der Daemon begrenzt das Session-Token jedes Plugins auf
 > `PluginHostService`, Aufrufe über `ctx.daemon()` antworten also derzeit
 > mit `permission_denied` — siehe
-> [die Rust-SDK-Seite](4-sdk/rust.md#daemon-im-sdk-vorhanden-vom-daemon-abgelehnt).
+> [die Rust-SDK-Seite](4-sdk/rust.md#daemon--im-sdk-vorhanden-vom-daemon-abgelehnt).
 > Dieser Abschnitt handelt von der Form der Migration, nicht von einem
 > Pfad, der heute Ende-zu-Ende funktioniert.
 
@@ -315,7 +315,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` sind gelöscht
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```

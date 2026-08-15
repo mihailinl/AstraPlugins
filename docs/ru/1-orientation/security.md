@@ -93,7 +93,7 @@ Linux, токен низкой целостности или AppContainer на W
 ключом Astra*, никогда с ключом внутри архива. `astra-plugin build` говорит об
 этом при каждом запуске:
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
@@ -101,7 +101,7 @@ Linux, токен низкой целостности или AppContainer на W
 а `astra-plugin sign` говорит об этом при успехе, намеренно не спрятав в
 `--help`:
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

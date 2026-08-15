@@ -31,7 +31,7 @@ astra-plugin publish --dry-run
 它会运行所有能在本地执行的注册表检查，然后 —— 这是更重要的一半 ——
 **指名那些只有注册表才能运行的检查**，让你知道还有什么尚未得到验证：
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -107,7 +107,7 @@ astra-plugin publish --print-url
 历史里不会留下 token，也没有需要对接的密钥环(keyring)。`--print-url`
 会改为打印出链接：
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 

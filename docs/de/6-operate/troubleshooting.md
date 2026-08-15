@@ -72,7 +72,7 @@ Python-Plugin, das im Modulbereich einen großen ML-Stack importiert, kann
 das verpassen; importiere träge (lazy), im jeweils benötigten Hook.
 `astra-plugin test` misst das und gibt die Zahl aus:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -109,7 +109,7 @@ Drei Ursachen, nach Wahrscheinlichkeit geordnet:
 
 `astra-plugin doctor` beantwortet 1, ohne irgendetwas auszuführen:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -125,7 +125,7 @@ des Scaffolds nicht niedriger geht.
 
 `astra-plugin test` sichert das Ende-zu-Ende ab:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```

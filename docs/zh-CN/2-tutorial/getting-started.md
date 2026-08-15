@@ -21,8 +21,11 @@ astra-plugin --version
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+这个数字是有意写成占位符的：`--git` 构建的是你运行时 `master` 上的那个
+commit，所以打印出来的是那个 commit 的版本，而不是你挑选的版本。
 
 如果是从克隆开始，`cargo install --path astra-plugin-cli --locked` 效果
 一样。
@@ -33,8 +36,17 @@ astra-plugin 0.2.1
 `brew install protobuf`，或 `winget install Google.Protobuf` 安装它，
 然后再次运行上面那行命令。
 
-**请使用 `0.2.1` 或更新版本。** `0.2.0` 写出的发布工作流会在你第一次
-推送标签时失败，所以如果 `--version` 显示 `0.2.0`，请再次运行安装命令。
+**版本号无法告诉你这个构建是好的，而 `0.2.0` 也不是坏的。** `init-ci`
+曾经在 GitHub 需要 commit 的地方固定住标签*对象*，插件第一次
+`git push --tags` 就死在那里。修复是提交 `5b8ab22`，它进入 `master` 的
+时间*早于*把版本号提升到 `0.2.1` 的那次提交 —— 所以从 `master` 构建出来
+的东西可以既带修复又显示 `0.2.0`，而且不存在缺少该修复的 `0.2.1`。今天
+从 `master` 安装，无论数字是多少你都会拿到修复；想要验证而不是相信，就
+运行 `astra-plugin init-ci` 并读它打印出的 pin ——
+`e3329df252a46d747676cb540ae4b986af68a3ad` 是 commit，是对的；
+`dc1a044876926e9cf1170f034e2eab533ec07641` 是标签对象，是那个 bug。详细
+版本见
+[安装 CLI](../install-cli.md#会破坏第一次发布的那个-bug以及如何判断你的构建是否包含修复)。
 
 顺带一提，这不会阻碍你继续：CLI 不在 crates.io 上，也没有预编译二进制
 文件，所以构建它是获取它的唯一方式。预编译二进制文件已经在计划中。完整
@@ -59,7 +71,7 @@ astra-plugin new dice-roller --lang rust --template tool
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" -->
+<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -73,9 +85,23 @@ Next steps:
   astra-plugin dev .
 ```
 
-五个文件：`plugin.toml`、`Cargo.toml`、`src/main.rs`、`README.md`、
-`.gitignore`。`Cargo.toml` 只有**一个**依赖，`src/main.rs` 除测试模块外
-只有十五行。
+六个文件：
+
+<!-- doctest: illustrative reason="an annotated tree of what `astra-plugin new` wrote, not a command; the run that produced it is the output block above" -->
+```
+dice-roller/
+├── plugin.toml      清单 —— id、版本、能力、入口点
+├── Cargo.toml       只有一个依赖，外加一段解释为何只有一个的长注释
+├── src/main.rs      插件本体：十五行，外加一个测试模块
+├── README.md        商店在你的插件旁边展示的内容
+├── icon.svg         一个占位图标，就是让你替换的
+└── .gitignore       `target/` 和 `*.astraplugin`
+```
+
+`README.md` 和 `icon.svg` 不是装饰：打包器按名字把这两个文件收进去，注册表
+再从校验过的 bundle 里把它们读出来，用于构建你这条listing的卡片和页面。它们
+是别人在决定是否安装你之前会看到的东西，所以发布前请替换掉它们 ——
+[让插件被收录](../5-publish/get-listed.md) 说明了各自的要求。
 
 `--lang` 接受 `rust`、`python` 或 `typescript`；`--template` 决定使用
 哪些能力和示例代码，`--capabilities tools,triggers` 会覆盖模板隐含的
@@ -279,7 +305,7 @@ astra-plugin test
 插件，针对一个提供 `PluginHostService` 的模拟守护进程运行，并调用你已
 声明的能力所隐含的每一个入站钩子。
 
-<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] ListTools                required  1 tool(s)
   [ok  ] GetPluginTriggerTypes    required  0 trigger type(s)
@@ -340,7 +366,7 @@ astra-plugin build
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" -->
+<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
 Building plugin 'dice-roller' v0.1.0 (rust) for linux-x64...
   Running cargo build --release...

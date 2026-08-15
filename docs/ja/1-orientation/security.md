@@ -96,7 +96,7 @@ Astra がそうではないとほのめかしかねない箇所では、必ず�
 発行者鍵* に対して検証するのであって、アーカイブ内の鍵に対してではあり
 ません。`astra-plugin build` は実行するたびにそれを述べます。
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
@@ -104,7 +104,7 @@ Astra がそうではないとほのめかしかねない箇所では、必ず�
 そして `astra-plugin sign` は成功時にそれを述べます。意図的に `--help`
 に埋もれさせていません。
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

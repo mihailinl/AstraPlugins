@@ -21,8 +21,12 @@ astra-plugin --version
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+Число тут — заповнювач навмисно: `--git` збирає той коміт, який `master`
+несе в момент запуску, тож друкується версія цього коміту, а не обрана
+вами.
 
 З клонованого репозиторію те саме робить
 `cargo install --path astra-plugin-cli --locked`.
@@ -32,9 +36,18 @@ astra-plugin 0.2.1
 protobuf-compiler`, `pacman -S protobuf`, `brew install protobuf` або `winget
 install Google.Protobuf`, потім виконайте рядок знову.
 
-**Беріть 0.2.1 або новіший.** `0.2.0` пише workflow релізу, який падає на
-першому ж пуші тега, тож якщо `--version` друкує `0.2.0`, виконайте рядок
-встановлення ще раз.
+**Номер версії не може сказати вам, що ця збірка добра, а `0.2.0` — не
+погана.** `init-ci` раніше закріплював *об'єкт* тега там, де GitHub вимагає
+коміт, і перший `git push --tags` плагіна вмирав на цьому. Виправлення —
+коміт `5b8ab22`, який потрапив до `master` *раніше*, ніж бамп, що підняв
+число до `0.2.1`; отже, збірка з `master` може нести виправлення і все одно
+друкувати `0.2.0`, і не існує `0.2.1` без нього. Встановлення з `master`
+сьогодні дає виправлення, хай би що казало число; а щоб перевірити, а не
+повірити, запустіть `astra-plugin init-ci` і прочитайте надрукований пін:
+`e3329df252a46d747676cb540ae4b986af68a3ad` — коміт, це правильно;
+`dc1a044876926e9cf1170f034e2eab533ec07641` — об'єкт тега, це баг. Довга
+версія:
+[встановлення CLI](../install-cli.md#баг-який-ламає-перший-реліз-і-як-зрозуміти-чи-є-у-вашій-збірці-виправлення).
 
 Одне застереження, яке вас не заблокує: CLI не на crates.io і не має готових
 бінарників, тож збірка — єдиний спосіб його отримати. Готові бінарники
@@ -61,7 +74,7 @@ astra-plugin new dice-roller --lang rust --template tool
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" -->
+<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -75,9 +88,25 @@ Next steps:
   astra-plugin dev .
 ```
 
-П'ять файлів: `plugin.toml`, `Cargo.toml`, `src/main.rs`, `README.md`,
-`.gitignore`. У `Cargo.toml` **одна** залежність, а `src/main.rs` —
-п'ятнадцять рядків плюс тестовий модуль.
+Шість файлів:
+
+<!-- doctest: illustrative reason="an annotated tree of what `astra-plugin new` wrote, not a command; the run that produced it is the output block above" -->
+```
+dice-roller/
+├── plugin.toml      маніфест — id, версія, можливості, точка входу
+├── Cargo.toml       одна залежність і довгий коментар, чому лише одна
+├── src/main.rs      сам плагін: п'ятнадцять рядків плюс тестовий модуль
+├── README.md        те, що крамниця показує поруч із вашим плагіном
+├── icon.svg         іконка-заглушка, яку слід замінити
+└── .gitignore       `target/` і `*.astraplugin`
+```
+
+`README.md` та `icon.svg` — не прикраса: пакувальник бере обидва за іменем, а
+реєстр вичитує їх назад із перевіреного бандла, щоб зібрати картку і сторінку
+вашого лістингу. Це те, що людина бачить, перш ніж вирішити вас встановити,
+тож замініть їх до публікації —
+[як потрапити до каталогу](../5-publish/get-listed.md) каже, що потрібно
+кожному з них.
 
 `--lang` приймає `rust`, `python` або `typescript`; `--template` обирає
 можливості й приклад коду, а `--capabilities tools,triggers` перевизначає те,
@@ -286,7 +315,7 @@ astra-plugin test
 це робить демон, проти мок-демона, що обслуговує `PluginHostService`, і
 викликає кожен вхідний хук, який передбачають оголошені вами можливості.
 
-<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] ListTools                required  1 tool(s)
   [ok  ] GetPluginTriggerTypes    required  0 trigger type(s)
@@ -349,7 +378,7 @@ astra-plugin build
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" -->
+<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
 Building plugin 'dice-roller' v0.1.0 (rust) for linux-x64...
   Running cargo build --release...

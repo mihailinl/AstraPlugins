@@ -77,7 +77,7 @@ RUST_LOG=debug astra-plugin build
 По умолчанию — `warn`, и идёт в **stderr** — пользовательский вывод CLI на
 stdout, и строка трассировки там повредила бы документ `--json`.
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why do I see no trace output from the CLI?
          RUST_LOG is unset, so only warnings and errors are printed.

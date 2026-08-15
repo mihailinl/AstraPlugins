@@ -27,7 +27,7 @@
 Демон запускает процесс с четырьмя аргументами. Это точная командная строка,
 скопированная из реального запуска `astra-plugin test`:
 
-<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 target/release/dice_roller --daemon-addr=127.0.0.1:46495 --plugin-id=dice-roller \
   --auth-token=mock-daemon-spawn-token --capabilities=tools
@@ -77,7 +77,7 @@ bind → register → build ctx → on_config → on_language_changed → on_sta
 Регистрация в реальном запуске против мок-демона, который поднимает
 `astra-plugin test`:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 INFO astra_plugin_sdk::runner: Starting plugin 'dice-roller', connecting to daemon at 127.0.0.1:46495
 INFO astra_plugin_sdk::runner: Plugin gRPC server listening on port 41627

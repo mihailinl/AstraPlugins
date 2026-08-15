@@ -68,7 +68,7 @@ arch = ["x86_64"]
 для того, что поставляет нативный бинарник. `astra-plugin doctor` говорит об
 этом ровно этими словами:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Will this install on the platforms I expect?
          no [platform] block, so the daemon considers it compatible everywhere. Correct for a
@@ -101,7 +101,7 @@ Rust SDK, поэтому он нужен, чтобы *установить са�
 `astra-plugin doctor` отвечает на всё это одной командой, на той машине, на
 которой вы действительно находитесь:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Can I build a Rust plugin?
          cargo 1.97.0 (c980f4866 2026-06-30)
@@ -152,7 +152,7 @@ Astra разрешает свои каталоги через крейт `direct
 Спрашивайте, а не предполагайте — `doctor` печатает путь, который вычислила
 эта машина:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [warn] Where does the CLI look for the running daemon?
          /home/you/.config/astra — but there is no daemon.port in it, so the CLI will fall

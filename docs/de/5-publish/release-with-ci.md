@@ -36,7 +36,7 @@ Siehe [das Sicherheitsmodell](../1-orientation/security.md).
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -128,7 +128,7 @@ Das Tag muss `tag-prefix` plus der Manifest-Version entsprechen, und CI
 stellt das sicher, bevor sie irgendetwas baut. `astra-plugin version`
 gibt das genaue zu verwendende Tag aus:
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -212,7 +212,7 @@ astra-plugin verify dice-roller-0.2.0-linux-x64.astraplugin
 `astra-plugin verify` liest das Bundle selbst und gibt aus, was es
 gefunden hat:
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2

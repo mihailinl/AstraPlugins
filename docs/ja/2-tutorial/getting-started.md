@@ -21,8 +21,12 @@ astra-plugin --version
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+この番号は意図的なプレースホルダです。`--git` は実行時点で `master` が持って
+いるコミットをビルドするので、表示されるのはあなたが選んだ番号ではなく、その
+コミットのバージョンです。
 
 クローンからなら `cargo install --path astra-plugin-cli --locked` で同じ
 ことができます。
@@ -33,9 +37,19 @@ astra-plugin 0.2.1
 `brew install protobuf`、または `winget install Google.Protobuf` で
 インストールしてから、もう一度この行を実行してください。
 
-**`0.2.1` 以降を使ってください。** `0.2.0` は、最初のタグ push で失敗する
-リリースワークフローを書き出すため、`--version` が `0.2.0` と表示する場合
-は、もう一度インストールの行を実行してください。
+**バージョン番号ではこのビルドが良いものだと判断できませんし、`0.2.0` が悪い
+ビルドだというわけでもありません。** `init-ci` はかつて、GitHub がコミットを
+必要とする箇所にタグ*オブジェクト*を固定しており、プラグインの最初の
+`git push --tags` はそこで死んでいました。修正はコミット `5b8ab22` で、これは
+番号を `0.2.1` に上げたバージョン更新よりも*前*に `master` へ入りました — つまり
+`master` からのビルドは修正を含みながら `0.2.0` と表示することがあり、修正を
+欠く `0.2.1` は存在しません。今日 `master` からインストールすれば、番号が何で
+あれ修正は入っています。信じるのではなく確かめるには、`astra-plugin init-ci` を
+実行して表示されるピンを読んでください —
+`e3329df252a46d747676cb540ae4b986af68a3ad` がコミットで、これが正しいもの。
+`dc1a044876926e9cf1170f034e2eab533ec07641` はタグオブジェクトで、これがバグです。
+詳しい説明:
+[CLI をインストールする](../install-cli.md#最初のリリースを壊すバグと自分のビルドに修正が入っているかの見分け方)。
 
 補足で、これ自体はあなたをブロックしません: CLI は crates.io になく、
 ビルド済みバイナリもないため、ビルドすることが入手する唯一の方法です。
@@ -62,7 +76,7 @@ astra-plugin new dice-roller --lang rust --template tool
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" -->
+<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -76,9 +90,24 @@ Next steps:
   astra-plugin dev .
 ```
 
-5 つのファイル: `plugin.toml`、`Cargo.toml`、`src/main.rs`、
-`README.md`、`.gitignore`。`Cargo.toml` には依存が**1 つ**だけあり、
-`src/main.rs` はテストモジュールを除いて 15 行です。
+6 つのファイル:
+
+<!-- doctest: illustrative reason="an annotated tree of what `astra-plugin new` wrote, not a command; the run that produced it is the output block above" -->
+```
+dice-roller/
+├── plugin.toml      マニフェスト — id、バージョン、ケーパビリティ、エントリポイント
+├── Cargo.toml       依存は 1 つ、そしてなぜ 1 つだけなのかの長いコメント
+├── src/main.rs      プラグイン本体: 15 行と、テストモジュール
+├── README.md        ストアがあなたのプラグインの隣に表示するもの
+├── icon.svg         差し替える前提のプレースホルダのアイコン
+└── .gitignore       `target/` と `*.astraplugin`
+```
+
+`README.md` と `icon.svg` は飾りではありません。パッカーは両方を名前で拾い、
+レジストリは検証済みバンドルからそれらを読み出して、あなたのリスティングの
+カードとページを組み立てます。これらは、人がインストールを決める前に目にする
+ものです。公開する前に差し替えてください —
+[一覧に載せる](../5-publish/get-listed.md) がそれぞれに何が必要かを説明します。
 
 `--lang` は `rust`、`python`、`typescript` を取り、`--template` は
 ケーパビリティとサンプルコードを選び、`--capabilities tools,triggers` は
@@ -291,7 +320,7 @@ astra-plugin test
 プラグインを起動し、宣言されたケーパビリティが含意するすべての受信側
 フックを呼び出します。
 
-<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] ListTools                required  1 tool(s)
   [ok  ] GetPluginTriggerTypes    required  0 trigger type(s)
@@ -358,7 +387,7 @@ astra-plugin build
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" -->
+<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
 Building plugin 'dice-roller' v0.1.0 (rust) for linux-x64...
   Running cargo build --release...

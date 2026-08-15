@@ -22,7 +22,7 @@ GitHub リポジトリでリリースにタグを打つと、GitHub の CI が�
 | ソースを GitHub に push する | レジストリはあなたのソースツリーを一切読みません。リリースに添付された `.astraplugin` ファイルを読みますが、それが存在しません |
 | `.zip` を誰かに送る、あるいは自分のラップトップでビルドしたバンドルを送る | そのバイト列にはビルド証明が付いておらず、プラグインの出来がどれだけよくてもレジストリは拒否します |
 | メンテナーに「代わりにビルドしてほしい」という issue を開く | あなたのリポジトリ自身の CI 以外、誰もあなたのプラグインをビルドしません。他にビルドする者はいません |
-| リスティングフォームを通さずに、プラグインの説明を書いた issue をレジストリに開く | `listing` ラベルを付けるのはフォームだけで、取り込みを始めるのはそのラベルだけです。ブランク issue は現在は無効化されており、ラベルなしの申請には沈黙ではなくラベル名を挙げた返信が付きます — ただし返信は掲載ではありません。[提出する](#8-1-回だけ提出する) を参照 |
+| リスティングフォームを通さずに、プラグインの説明を書いた issue をレジストリに開く | `listing` ラベルを付けるのはフォームだけで、取り込みを始めるのはそのラベルだけです。ブランク issue は現在は無効化されており、ラベルなしの申請には沈黙ではなくラベル名を挙げた返信が付きます — ただし返信は掲載ではありません。[提出する](#8--1-回だけ提出する) を参照 |
 
 **なぜそうでなければならないか、2 文で。** レジストリは、ユーザーがダウンロード
 することになる正確なファイルの SHA-256 でプラグインを固定し、GitHub のビルド
@@ -49,11 +49,14 @@ astra-plugin --version
 ビルド済みバイナリはまだありません — そのページにはそのことがはっきり書かれており、
 何をインストールすべきかも書かれています。
 
-> **`0.2.1` 以降を使ってください。** `0.2.0` は、最初のタグを push した瞬間に
-> GitHub が拒否するリリースワークフローを書き出すため、`0.2.0` のビルドではこの
-> ページを完了できません。`--version` が `0.2.0` と表示する場合は、先に進む前に
-> [CLI をインストールする](install-cli.md) の `cargo install` の行を再実行して
-> ください。
+> **ビルドの健全さをバージョン番号から読み取らないでください。** コミット
+> `5b8ab22` より前にビルドされた CLI は、最初のタグを push した瞬間に GitHub が
+> 拒否するリリースワークフローを書き出します。この修正は `0.2.1` への番号更新
+> よりも*前*に `master` へ入ったため、修正を含みながら `0.2.0` と表示する
+> ビルドがありえますし、修正を欠く `0.2.1` は存在しません。今日 `master` から
+> インストールすれば、番号が何であれ修正は入っています。実際に決着をつけるのは
+> `init-ci` が表示する SHA であり、このページでは
+> [ステップ 3](#3--リリースワークフローを設定する) でそれを実行します。
 
 また **公開の** GitHub リポジトリが必要です。証明(attestation)は公開の透明性ログ
 (transparency log)に発行されます。プライベートリポジトリでは GitHub Enterprise
@@ -70,7 +73,7 @@ astra-plugin new dice-roller
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller" -->
+<!-- doctest: output from="astra-plugin new dice-roller" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -120,7 +123,7 @@ astra-plugin test .
 なく、**実際のプロセス**として実行されたあなたのプラグインをモックデーモンと
 対話させて実行します。判定部分だけ抜粋すると次のとおりです。
 
-<!-- doctest: output from="astra-plugin test ." -->
+<!-- doctest: output from="astra-plugin test ." unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   Registered: port 37173, protocol 1, sdk astra-plugin-sdk-rust 0.6.0
   [ok  ] ListTools                required  1 tool(s)
@@ -153,7 +156,7 @@ YAML を自分で書く必要はありません。1 つのコマンドがやっ�
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -173,10 +176,13 @@ astra-plugin init-ci
 
 **先に進む前に、表示された SHA を確認してください。** それは
 `e3329df252a46d747676cb540ae4b986af68a3ad` でなければなりません。もし
-`dc1a044876926e9cf1170f034e2eab533ec07641` であれば、あなたは CLI `0.2.0` を
-使っています。それは*タグオブジェクト*の SHA であり、`uses: …@<sha>` はコミット
-を必要とするため、最初の `git push --tags` はジョブが始まる前に
-`invalid value workflow reference` で失敗します。[CLI をインストールする](install-cli.md)
+`dc1a044876926e9cf1170f034e2eab533ec07641` であれば、あなたの CLI はコミット
+`5b8ab22` より古いものです。それは `plugin-release/v1` の*タグオブジェクト*の
+SHA であり、`uses: …@<sha>` はコミットを必要とするため、最初の
+`git push --tags` はジョブが始まる前に `invalid value workflow reference` で
+失敗します。やる価値があるのはこの確認です。修正は番号が変わるより前に
+`master` に届いたので、バージョン番号ではこの問いに答えられません。
+[CLI をインストールする](install-cli.md)
 の `cargo install` の行を再実行し、それから `astra-plugin init-ci` をもう一度
 実行してください — ピンを書き換え、入力値は保持されます。既存のファイルはその場で
 修復されないため、既存の `release.yml` は再実行するまで悪い SHA を保持し続けます。
@@ -190,7 +196,7 @@ astra-plugin init-ci
 astra-plugin check --strict
 ```
 
-<!-- doctest: output from="astra-plugin check --strict" -->
+<!-- doctest: output from="astra-plugin check --strict" unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
 ```
 Checking plugin at ....
   NOTE: Missing plugin.author
@@ -229,7 +235,7 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -258,7 +264,7 @@ Astra はダウングレードのインストールを拒否するため、そ�
 実行しない `plan` ジョブ、あなたのコードを実行するが書き込みトークンを一切
 持たない `build` マトリクス、そしてすべてのダイジェストを自分で再計算し、
 自らハッシュした内容を証明する `publish` ジョブです。この分割こそがセキュリティ
-特性であり、[CI でリリースする §3](5-publish/release-with-ci.md#3-ci-が行うこと)
+特性であり、[CI でリリースする §3](5-publish/release-with-ci.md#3--ci-が行うこと)
 に説明があります。
 
 完了すると、あなたの GitHub Release には次のものが付きます。
@@ -292,7 +298,7 @@ gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-ro
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2
@@ -333,7 +339,7 @@ astra-plugin publish --dry-run
 重要な半分ですが — レジストリでしかできないチェックを名指しし、まだ証明されて
 いないものが何かをあなたに教えます。
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -361,7 +367,7 @@ astra-plugin publish
 存在せず、シェル履歴にトークンが残ることもなく、連携すべきキーリングもありません。
 `--print-url` はブラウザを開く代わりにリンクを表示します。
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 
@@ -397,7 +403,7 @@ https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.y
 
 ## 9 · そのあと何が起きるか
 
-詳細と理由コードの全一覧は [リストに掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#3-提出後に何が起きるか)
+詳細と理由コードの全一覧は [リストに掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#3--提出後に何が起きるか)
 にあります。要約すると次のとおりです。
 
 | 結果 | 意味 | 誰が関わるか |

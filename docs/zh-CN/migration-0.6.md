@@ -48,7 +48,7 @@
 trait 上。已经在真实的 0.5 版 dice-roller（255 行，除了那一行 import 之外
 没有任何改动）上验证过：
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -99,7 +99,7 @@ warning: `dice_roller` (bin "dice_roller") generated 12 warnings
 
 ### 2.1 `Config` 成为必须的关联类型
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -176,7 +176,7 @@ impl PluginCapability for BadApple {
 
 ### 2.2 处理函数需要接收 `&PluginContext`
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -218,7 +218,7 @@ crate 的回调 —— `astra_plugin_sdk::ctx()` 会返回同一个上下文。
 
 ### 2.3 `set_host` 和 `set_daemon_client` 已被移除
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -283,7 +283,7 @@ fn fire_roll_values(&self, ctx: &PluginContext, results: &[u32], sides: u32) {
 > `Some` 说的是这个句柄本身，而不是它能到达哪里。守护进程把每个插件的
 > 会话令牌都限定在 `PluginHostService` 范围内，所以目前通过
 > `ctx.daemon()` 发出的调用会返回 `permission_denied` —— 参见
-> [Rust SDK 页面](4-sdk/rust.md#daemon-sdk-中存在但会被守护进程拒绝)。
+> [Rust SDK 页面](4-sdk/rust.md#daemon--sdk-中存在但会被守护进程拒绝)。
 > 这一节讲的是迁移的形态，不是今天就能端到端跑通的路径。
 
 <!-- doctest: illustrative reason="a before/after fragment of one item, quoted from the example named above it; it does not compile on its own" -->
@@ -297,7 +297,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` 已被删除
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```

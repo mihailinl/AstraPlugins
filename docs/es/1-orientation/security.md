@@ -96,7 +96,7 @@ comprueba el par `SIGNATURE`/`PUBKEY` dentro del ZIP contra una *clave de
 publicador de Astra fijada (pinned)*, nunca contra la clave dentro del
 archivo. `astra-plugin build` lo dice cada vez que se ejecuta:
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
@@ -104,7 +104,7 @@ archivo. `astra-plugin build` lo dice cada vez que se ejecuta:
 y `astra-plugin sign` lo dice al tener éxito, deliberadamente no escondido
 en `--help`:
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

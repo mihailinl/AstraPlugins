@@ -23,7 +23,7 @@
 | Пуш ваших вихідників у GitHub | Реєстр ніколи не читає ваше дерево вихідників. Він читає файл `.astraplugin`, прикріплений до релізу, а його немає |
 | Надсилання комусь `.zip` або бандла, зібраного на вашому ноутбуці | Ці байти не несуть атестації збірки, тож реєстр їх відхилить, яким би хорошим не був плагін |
 | Відкриття issue з проханням до мейнтейнера зібрати його за вас | Ніхто не збирає ваш плагін, крім власного CI вашого репозиторію. Іншого збирача немає |
-| Відкриття issue в реєстрі з описом плагіна в обхід форми лістингу | Мітку `listing` ставить лише форма, і лише ця мітка запускає прийом. Порожні issue там тепер вимкнені, а заявка без мітки отримує відповідь із назвою мітки замість тиші — але відповідь це не лістинг. Див. [Відправка](#8-надішліть-заявку-один-раз-назавжди) |
+| Відкриття issue в реєстрі з описом плагіна в обхід форми лістингу | Мітку `listing` ставить лише форма, і лише ця мітка запускає прийом. Порожні issue там тепер вимкнені, а заявка без мітки отримує відповідь із назвою мітки замість тиші — але відповідь це не лістинг. Див. [Відправка](#8--надішліть-заявку-один-раз-назавжди) |
 
 **Чому це має бути саме так, у двох реченнях.** Реєстр закріплює ваш
 плагін за SHA-256 того самого файлу, який завантажить користувач, і читає
@@ -51,11 +51,14 @@ astra-plugin --version
 потрібен тулчейн Rust, і готових бінарників поки немає — та сторінка каже
 про це прямо і пояснює, що встановити.
 
-> **Беріть `0.2.1` або новіший.** `0.2.0` пише workflow релізу, який
-> GitHub відхиляє в момент пушу вашого першого тега, тож збірка `0.2.0`
-> не може пройти цю сторінку до кінця. Якщо `--version` повідомляє
-> `0.2.0`, перезапустіть рядок `cargo install` зі [встановлення
-> CLI](install-cli.md), перш ніж продовжувати.
+> **Не судіть про здоров'я вашої збірки за номером версії.** CLI, зібрана
+> до коміту `5b8ab22`, пише workflow релізу, який GitHub відхиляє в момент
+> пушу вашого першого тега. Це виправлення потрапило до `master` *раніше*,
+> ніж бамп до `0.2.1`, тож збірка може нести його і все одно друкувати
+> `0.2.0`, і жодного `0.2.1` без нього не буває. Встановлення з `master`
+> сьогодні дає виправлення, хай би що казало число. Питання по-справжньому
+> вирішує SHA, який друкує `init-ci`, і ця сторінка запускає його в
+> [кроці 3](#3--налаштуйте-workflow-релізу).
 
 Також потрібен **публічний** репозиторій GitHub. Атестації публікуються в
 публічний журнал прозорості; у приватному репозиторії для них потрібен
@@ -72,7 +75,7 @@ astra-plugin new dice-roller
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller" -->
+<!-- doctest: output from="astra-plugin new dice-roller" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -121,7 +124,7 @@ astra-plugin test .
 **справжнього процесу**, що спілкується з мок-демоном, — а не проти типу у
 вашому тестовому файлі. Обрізано до вердикту:
 
-<!-- doctest: output from="astra-plugin test ." -->
+<!-- doctest: output from="astra-plugin test ." unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   Registered: port 37173, protocol 1, sdk astra-plugin-sdk-rust 0.6.0
   [ok  ] ListTools                required  1 tool(s)
@@ -154,7 +157,7 @@ astra-plugin test .
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci" -->
+<!-- doctest: output from="astra-plugin init-ci" unrun="writes .github/workflows/release.yml into the working directory; re-run it in your own plugin" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
@@ -175,10 +178,13 @@ workflow `plugin-release/v1`, і це один із SHA, що допускают
 
 **Перевірте надрукований SHA, перш ніж продовжувати.** Він зобов'язаний
 бути `e3329df252a46d747676cb540ae4b986af68a3ad`. Якщо це
-`dc1a044876926e9cf1170f034e2eab533ec07641`, ви на CLI `0.2.0`: це SHA
-*об'єкта тега*, а `uses: …@<sha>` вимагає коміт, тож ваш перший `git push
---tags` провалиться з `invalid value workflow reference` ще до старту
-будь-якого завдання. Перезапустіть рядок `cargo install` зі
+`dc1a044876926e9cf1170f034e2eab533ec07641`, ваша CLI старша за коміт
+`5b8ab22`: це SHA *об'єкта тега* `plugin-release/v1`, а `uses: …@<sha>`
+вимагає коміт, тож ваш перший `git push --tags` провалиться з
+`invalid value workflow reference` ще до старту будь-якого завдання. Це та
+сама перевірка, яку варто зробити; номер версії на це питання не
+відповідає, бо виправлення дісталося `master` раніше, ніж змінилося число.
+Перезапустіть рядок `cargo install` зі
 [встановлення CLI](install-cli.md), потім запустіть `astra-plugin
 init-ci` знову — вона перепише закріплення і збереже ваші параметри. Ніщо
 не лагодиться на місці, тож наявний `release.yml` тримає поганий SHA,
@@ -193,7 +199,7 @@ init-ci` знову — вона перепише закріплення і зб
 astra-plugin check --strict
 ```
 
-<!-- doctest: output from="astra-plugin check --strict" -->
+<!-- doctest: output from="astra-plugin check --strict" unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
 ```
 Checking plugin at ....
   NOTE: Missing plugin.author
@@ -233,7 +239,7 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-<!-- doctest: output from="astra-plugin version 0.2.0" -->
+<!-- doctest: output from="astra-plugin version 0.2.0" unrun="rewrites every manifest in a plugin project; re-run it in your own plugin" -->
 ```
 Setting version to 0.2.0 (plugin.toml was 0.1.0)
   plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
@@ -262,7 +268,7 @@ Release it:
 код, матрицю `build`, що запускає ваш код і не тримає токена на запис, і
 завдання `publish`, що перераховує кожен дайджест самостійно і засвідчує
 те, що захешувала. Цей розподіл і є властивістю безпеки, він описаний у
-[реліз через CI §3](5-publish/release-with-ci.md#3-що-робить-ci).
+[реліз через CI §3](5-publish/release-with-ci.md#3--що-робить-ci).
 
 Коли все завершиться, ваш реліз GitHub несе:
 
@@ -293,7 +299,7 @@ gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-ro
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" -->
+<!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```
 dice-roller-0.1.0-linux-x64.astraplugin
   schema:          astra.bundle/2
@@ -334,7 +340,7 @@ astra-plugin publish --dry-run
 потім — та половина, що важлива, — називає ті, що може виконати лише
 реєстр, тож ви знаєте, що ще не доведено:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -363,7 +369,7 @@ astra-plugin publish
 інтегрувати з keyring'ом. `--print-url` друкує посилання замість
 відкриття браузера:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 

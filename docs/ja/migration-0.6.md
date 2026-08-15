@@ -53,7 +53,7 @@ git 上に存在し、そこから引用しています。
 転送します。実際の 0.5 版 dice-roller(255 行、この 1 行以外は無変更)で
 検証済みです。
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -107,7 +107,7 @@ warning: `dice_roller` (bin "dice_roller") generated 12 warnings
 
 ### 2.1 `Config` は必須の関連型になった
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -187,7 +187,7 @@ impl PluginCapability for BadApple {
 
 ### 2.2 ハンドラは `&PluginContext` を受け取る
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -231,7 +231,7 @@ TTS も同時に 4 つの引数を 1 つの `TtsRequest` にまとめました �
 
 ### 2.3 `set_host` と `set_daemon_client` は廃止
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -299,7 +299,7 @@ not ready」という分岐はすべて不要になります。telegram-client �
 > ではありません。デーモンはすべてのプラグインのセッショントークンを
 > `PluginHostService` にスコープしているため、`ctx.daemon()` 経由の呼び出しは
 > 現在のところ `permission_denied` を返します — 詳しくは
-> [Rust SDK のページ](4-sdk/rust.md#daemon-sdk-には存在するがデーモンには拒否される)
+> [Rust SDK のページ](4-sdk/rust.md#daemon--sdk-には存在するがデーモンには拒否される)
 > を参照してください。この節は移行の形についての説明であり、今日エンド
 > ツーエンドで動く経路についての説明ではありません。
 
@@ -314,7 +314,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` は削除された
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```

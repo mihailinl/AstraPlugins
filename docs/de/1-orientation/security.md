@@ -99,7 +99,7 @@ untrusted wie ein unsigniertes. Der Daemon prüft das In-ZIP-Paar
 niemals gegen den Schlüssel im Archiv selbst. `astra-plugin build` sagt das
 bei jedem Lauf:
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
@@ -107,7 +107,7 @@ bei jedem Lauf:
 und `astra-plugin sign` sagt das bei Erfolg, absichtlich nicht in `--help`
 versteckt:
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

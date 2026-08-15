@@ -16,9 +16,11 @@ responde `200`, así que es una ausencia real y no una búsqueda fallida.
 `gh release list --repo mihailinl/AstraPlugins` no imprime nada.
 
 Así que la única forma de conseguir la CLI es compilarla, y compilarla
-necesita una toolchain de Rust. Distribuir binarios precompilados de
-`linux-x64` y `windows-x64` es una tarea conocida, separada, pendiente;
-hasta que llegue, esta página describe la totalidad de lo que existe.
+necesita una toolchain de Rust. Distribuir binarios precompilados es una
+tarea conocida, separada, pendiente — la automatización de release para
+ello se está escribiendo ahora, y esta página tendrá una línea de descarga
+el día que exista un release que descargar. Hasta entonces describe la
+totalidad de lo que existe, y nada aquí te pide descargar nada.
 
 Ese costo es real, y vale la pena nombrar por qué merece pagarse de
 todos modos: la CLI no es un envoltorio de conveniencia sobre alguna
@@ -53,7 +55,7 @@ Windows         winget install Google.Protobuf     (or scoop install protobuf)
 Sin él, la compilación falla en el script de build de
 `astra-plugin-sdk`, y el error nombra la solución:
 
-<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release -p astra-plugin-sdk" -->
+<!-- doctest: output from="PROTOC=/nonexistent/protoc cargo build --release, run in astra-plugin-sdk/ — there is no workspace manifest at the repository root, so `-p astra-plugin-sdk` from the root cannot work" unrun="a full SDK build pointed at a protoc that does not exist; minutes long, and it has to fail to print this" -->
 ```
   Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
 ```
@@ -75,17 +77,27 @@ funcionó aquí y una que se topa en tu máquina con un release de parche
 que rompe algo.
 
 `--git` compila lo que `master` lleve en ese momento, así que la versión y
-el commit que reporta son lo que haya en `master` cuando lo ejecutes; los
-marcadores entre ángulos de abajo son las dos partes que en tu máquina
-cambian:
+el commit que reporta son lo que haya en `master` cuando lo ejecutes. Todo
+lo que va entre ángulos abajo cambia según la máquina y según la ejecución
+— la versión y el SHA vienen de `master`, las rutas de tu directorio
+personal, la duración de tu CPU:
 
-<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" -->
+<!-- doctest: output from="cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --root <scratch> --locked" unrun="clones over the network and compiles for minutes; a documentation check must not do either" -->
 ```
-   Compiling astra-plugin-cli v<version> (/home/you/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
-    Finished `release` profile [optimized] target(s) in 23.60s
-  Installing /home/you/.cargo/bin/astra-plugin
-   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<sha>)` (executable `astra-plugin`)
+   Compiling astra-plugin-cli v<version> (<home>/.cargo/git/checkouts/astraplugins-341ed6441d668bfa/<short-sha>/astra-plugin-cli)
+    Finished `release` profile [optimized] target(s) in <duration>
+  Installing <scratch>/bin/astra-plugin
+   Installed package `astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<short-sha>)` (executable `astra-plugin`)
+warning: be sure to add `<scratch>/bin` to your PATH to be able to run the installed binaries
 ```
+
+Esa transcripción se produjo con `--root <scratch>` para que capturarla no
+sobrescribiera el binario instalado de nadie. **Deja `--root` fuera** —
+como hace el comando de arriba — y las dos últimas líneas cambian:
+`Installing` nombra `<home>/.cargo/bin/astra-plugin`, y el aviso de `PATH`
+aparece solo si `~/.cargo/bin` no está ya en tu `PATH`. Los dos SHA son el
+mismo commit impreso con dos longitudes distintas, cosa de cargo, no una
+discrepancia.
 
 **Desde un clon**, si quieres leer o modificar la CLI además de
 ejecutarla:
@@ -110,57 +122,73 @@ astra-plugin --help
 
 <!-- doctest: output from="astra-plugin --version" -->
 ```
-astra-plugin 0.2.1
+astra-plugin <version>
 ```
+
+El número es un marcador de posición porque ninguna de las dos líneas de
+instalación te deja elegir uno: ambas compilan un commit, no un release,
+así que lo que obtienes es la versión que está en el `Cargo.toml` de ese
+commit. `0.2.1` es la entrada más reciente en
+[el changelog de la CLI](../../astra-plugin-cli/CHANGELOG.md), que también
+deja constancia de que este crate no tiene tren de releases — ni
+crates.io, ni etiqueta, ni binarios.
 
 Si la shell no lo encuentra, `cargo install` lo puso en `~/.cargo/bin`
 (o `%USERPROFILE%\.cargo\bin` en Windows) y ese directorio no está en tu
 `PATH`. `cargo` imprime un aviso exactamente sobre eso cuando ocurre.
 
-### Toma 0.2.1 o más nuevo, y por qué importa
+### El bug que rompe un primer release, y cómo saber si tu compilación lleva el arreglo
 
-**`0.2.0` tiene un bug que rompe tu primer release.**
-`astra-plugin init-ci` fijaba el SHA del *objeto* de una etiqueta
-anotada donde GitHub requiere un commit, así que el primer
-`git push --tags` fallaba con `invalid value workflow reference` antes
-de que arrancara ningún job. Eso fue
-[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2), y
-está arreglado en `0.2.1`.
+**`astra-plugin init-ci` fijaba el SHA del *objeto* de una etiqueta anotada
+donde GitHub requiere un commit**, así que el primer `git push --tags`
+fallaba con `invalid value workflow reference` antes de que arrancara
+ningún job. Eso fue
+[AstraPlugins#2](https://github.com/mihailinl/AstraPlugins/issues/2).
 
-La parte incómoda, dicha con claridad: `0.2.0` se publicó tanto antes
-como después del commit de la solución `5b8ab22`, así que durante un
-tiempo la versión no podía distinguir una compilación funcional de una
-rota. `0.2.1` existe para acabar con eso. No añade ningún flag ni cambia
-ninguna API; el único comportamiento que sí cambió es `publish --notify`,
-cuyo enlace ahora nombra el formulario de release-ping del registro en
-lugar de apoyarse en un issue en blanco que el registro ya ha
-desactivado.
+**El arreglo es el commit `5b8ab22`, no un número de versión**, y esta es
+la parte con la que la gente tropieza. Aquí no hay tren de releases — nada
+está publicado, así que nadie instala una versión elegida; todo el mundo
+compila el commit que clonó. `5b8ab22` llegó a `master` *antes* del salto
+que subió el número a `0.2.1`, lo que significa que:
+
+- una compilación hecha desde `master` después de `5b8ab22` **lleva el
+  arreglo y aun así imprime `0.2.0`** — eso no es una compilación rota;
+- ninguna compilación `0.2.1` puede *carecer* del arreglo, porque
+  `5b8ab22` es ancestro del commit del salto de versión;
+- una compilación `0.2.0` hecha *antes* de `5b8ab22` es la rota, y
+  `--version` no puede distinguirla del primer caso.
+
+Así que `0.2.1` merece la pena — es el primer número que responde la
+pregunta por sí solo, que es exactamente para lo que existe — pero un
+`0.2.0` que dice `0.2.0` no es evidencia de nada. `0.2.1` no añade ningún
+flag ni cambia ninguna API; el único comportamiento que sí cambió es
+`publish --notify`, cuyo enlace ahora nombra el formulario de release-ping
+del registro en lugar de apoyarse en un issue en blanco que el registro ya
+ha desactivado.
 
 Si `--version` imprime `0.2.0`, ejecuta primero `which astra-plugin`
-(`where` en Windows): la causa habitual es un binario más antiguo por
-delante en tu `PATH`, y `--version` por sí sola no los distingue. Si esa es
-la ruta que acabas de instalar y el número sigue siendo `0.2.0`, entonces
-el `master` desde el que compilaste todavía no lleva `0.2.1` — el commit de
-la solución `5b8ab22` llegó a `master` antes que el salto de versión que lo
-nombra, así que una compilación puede tener el arreglo y aun así decir
-`0.2.0`. No lo adivines: la comprobación de `init-ci` de abajo mira el pin
-que la CLI escribe de verdad, que es justo de lo que iba el bug.
+(`where` en Windows): la causa más común es un binario más antiguo por
+delante en tu `PATH`, y `--version` por sí sola no puede distinguir eso de
+una compilación reciente de un commit más antiguo. Después deja de
+adivinar por el número y lee el pin — `init-ci` escribe exactamente aquello
+de lo que iba el bug, y responde en una línea.
 
-También puedes confirmarlo sin confiar en la versión en absoluto,
-mirando lo que escribe `init-ci`:
+Esta es la comprobación que no depende de la versión en absoluto:
 
 <!-- doctest: cli -->
 ```bash
 astra-plugin init-ci
 ```
 
-Una compilación arreglada reporta el fijado
-`e3329df252a46d747676cb540ae4b986af68a3ad` — un commit. Una compilación
-`0.2.0` reporta `dc1a044876926e9cf1170f034e2eab533ec07641`, que es el
-objeto de la etiqueta y es lo que GitHub rechaza. `init-ci` se puede
-volver a ejecutar sin riesgo: conserva tus entradas y reescribe el
-fijado. Nada se repara en su sitio, así que un `release.yml` existente
-conserva el SHA malo hasta que lo vuelvas a ejecutar.
+Una compilación con el arreglo reporta el fijado
+`e3329df252a46d747676cb540ae4b986af68a3ad` — un commit. Una sin él reporta
+`dc1a044876926e9cf1170f034e2eab533ec07641`, que es el *objeto* de la
+etiqueta `plugin-release/v1` y es lo que GitHub rechaza. Si ves el
+segundo, reinstala desde `master` con la línea de arriba y ejecuta
+`init-ci` otra vez. Se puede volver a ejecutar sin riesgo: conserva tus
+entradas y reescribe el fijado. Nada se repara en su sitio, así que un
+`release.yml` existente conserva el SHA malo hasta que lo vuelvas a
+ejecutar.
 
 El conjunto de comandos, completo:
 
@@ -215,7 +243,7 @@ actualizar.
 | `astra-plugin: command not found` tras una instalación exitosa | `~/.cargo/bin` no está en el `PATH` |
 | `error: could not find `Cargo.toml`` al ejecutar `cargo install --path .` en la raíz del repositorio | No hay ningún manifiesto de workspace en la raíz. Apunta `--path` a `astra-plugin-cli/` |
 | `unrecognized subcommand 'new'` | Un `astra-plugin` más antiguo aparece antes en tu `PATH`. `--version` no te dirá cuál es cuál — ejecuta `which astra-plugin` (`where` en Windows) para ver qué archivo estás ejecutando realmente |
-| `invalid value workflow reference`, en tu primer push de etiqueta | La CLI que escribió `release.yml` era la 0.2.0 y fijó un objeto de etiqueta. Consulta [toma 0.2.1 o más nuevo](#toma-021-o-más-nuevo-y-por-qué-importa) |
+| `invalid value workflow reference`, en tu primer push de etiqueta | La CLI que escribió `release.yml` es anterior a `5b8ab22` y fijó un objeto de etiqueta. Consulta [cómo saber si tu compilación lleva el arreglo](#el-bug-que-rompe-un-primer-release-y-cómo-saber-si-tu-compilación-lleva-el-arreglo) |
 
 ## Siguiente
 

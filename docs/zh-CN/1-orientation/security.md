@@ -83,14 +83,14 @@ Windows 上的低完整性令牌或 AppContainer、rlimits。在那之前，"已
 `SIGNATURE`/`PUBKEY` 对，比对的是一个*固定的 Astra 发布者密钥*，而不是
 压缩包内自带的那个密钥。`astra-plugin build` 每次运行都会这么说：
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
 
 `astra-plugin sign` 在成功时也会这么说，而且是故意不藏在 `--help` 里的：
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 

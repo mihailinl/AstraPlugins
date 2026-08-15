@@ -273,7 +273,7 @@ SDK 拥有这个方法；如果你正在移植使用过它的代码，请改用
   插件的会话令牌都限定在了 `PluginHostService` 范围内，所以全部七个
   服务都会返回 `permission_denied` —— 即便是 `client = true` 的插件
   也一样。请使用 `Host::send_chat_message`。参见上面的
-  [`Daemon`](#daemon-sdk-中存在但会被守护进程拒绝)。
+  [`Daemon`](#daemon--sdk-中存在但会被守护进程拒绝)。
 - **`TtsSynthesizeStream` 已经被绑定，但是 unrouted 的。** SDK 提供了
   它；但守护进程侧不存在任何调用点。如果你愿意可以实现它 —— 但在
   [对照表](../reference/parity.md)显示 `live` 之前，不会有任何东西去

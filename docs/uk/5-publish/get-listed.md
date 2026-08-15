@@ -34,7 +34,7 @@ astra-plugin publish --dry-run
 — та половина, що важлива, — **називає ті, які може виконати лише реєстр**,
 тож ви знаєте, що ще не доведено:
 
-<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --dry-run --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
@@ -114,7 +114,7 @@ astra-plugin publish --print-url
 `astra-plugin login`, немає токена в історії вашої оболонки, нічого
 інтегрувати з keyring'ом. `--print-url` натомість друкує посилання:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
 ```
 dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
 

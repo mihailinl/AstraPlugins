@@ -66,7 +66,7 @@ ML-стек на уровне модуля, может в него не улож
 внутри того хука, которому это нужно. `astra-plugin test` это измеряет и
 печатает число:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -102,7 +102,7 @@ ML-стек на уровне модуля, может в него не улож
 
 `astra-plugin doctor` отвечает на пункт 1, ничего не запуская:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -118,7 +118,7 @@ Rust, 0.5 в Python и TypeScript**. Против более старого SDK 
 
 `astra-plugin test` проверяет это от начала до конца:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```

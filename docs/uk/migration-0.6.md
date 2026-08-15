@@ -52,7 +52,7 @@ TypeScript — на 0.5.0. Див. [versioning.md](versioning.md), чому чи
 (blanket) реалізацію. Перевірено на реальному 0.5 dice-roller — 255
 рядків, незмінених, крім цього рядка:
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -106,7 +106,7 @@ harness 0.6, в `astra-plugin-sdk/src/capability.rs` (`mod compat::tests`).
 
 ### 2.1 `Config` — обов'язковий асоційований тип
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -186,7 +186,7 @@ impl PluginCapability for BadApple {
 
 ### 2.2 Обробники приймають `&PluginContext`
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -229,7 +229,7 @@ tone-tts перейшов від `(&self, text, voice_id, speed, _pitch)` до
 
 ### 2.3 `set_host` і `set_daemon_client` зникли
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -295,7 +295,7 @@ client not ready» зникає. telegram-client позбувся поля `Shar
 > `Some` — про сам хендл, а не про те, чого він може досягти. Демон
 > обмежує токен сесії кожного плагіна `PluginHostService`, тож виклики
 > через `ctx.daemon()` сьогодні відповідають `permission_denied` — див.
-> [сторінку Rust SDK](4-sdk/rust.md#daemon-присутній-у-sdk-відхиляється-демоном).
+> [сторінку Rust SDK](4-sdk/rust.md#daemon--присутній-у-sdk-відхиляється-демоном).
 > Цей розділ про форму міграції, а не про шлях, який сьогодні працює від
 > початку до кінця.
 
@@ -310,7 +310,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` видалені
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```

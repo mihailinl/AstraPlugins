@@ -84,7 +84,7 @@ das er einmal wartet.
 `astra-plugin test` misst die reale Zahl auf deiner Maschine und gibt sie
 gegen das Budget aus:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)

@@ -60,7 +60,7 @@ Astra*确实*在运行，那就是它解析出的配置目录和 CLI 解析出�
 请把导入延迟到真正需要它的那个钩子内部。`astra-plugin test` 会测量
 这个时间并打印出具体数字：
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -95,7 +95,7 @@ Astra*确实*在运行，那就是它解析出的配置目录和 CLI 解析出�
 
 `astra-plugin doctor` 不需要运行任何东西就能回答第 1 种情况：
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -111,7 +111,7 @@ host 调用都会以这种方式失败，这也是为什么脚手架的依赖下
 
 `astra-plugin test` 会端到端地断言这一点：
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```

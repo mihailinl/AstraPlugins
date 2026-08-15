@@ -65,7 +65,7 @@ verweigert.
 > `permission_denied`. Lies sie für die Form eines Client-Plugins — die
 > Surface, den Event-Fluss, das I18n — nicht als etwas, das du heute
 > Ende-zu-Ende ausführen kannst. Siehe
-> [den `Daemon`-Abschnitt des Rust-SDK](../4-sdk/rust.md#daemon-im-sdk-vorhanden-vom-daemon-abgelehnt).
+> [den `Daemon`-Abschnitt des Rust-SDK](../4-sdk/rust.md#daemon--im-sdk-vorhanden-vom-daemon-abgelehnt).
 
 | | Sprache | Capabilities | Warum dieses |
 |---|---|---|---|

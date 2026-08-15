@@ -54,7 +54,7 @@ reenviadas al trait 0.6 mediante una implementación general (blanket
 impl). Verificado en el dice-roller 0.5 real — 255 líneas, sin
 modificar salvo esa línea:
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 warning: use of deprecated trait `astra_plugin_sdk::compat::PluginCapability`: implement
 `astra_plugin_sdk::PluginCapability` (0.6): handlers take a `&PluginContext`, return
@@ -109,7 +109,7 @@ modificar contra 0.6 — 15 de ellos, en cinco tipos.
 
 ### 2.1 `Config` es un tipo asociado obligatorio
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0046]: not all trait items implemented, missing: `Config`
   --> src/main.rs:92:1
@@ -190,7 +190,7 @@ llamada de tool no puede bloquearla.
 
 ### 2.2 Los handlers toman un `&PluginContext`
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0050]: method `call_tool` has 3 parameters but the declaration in trait
               `astra_plugin_sdk::PluginCapability::call_tool` has 4
@@ -234,7 +234,7 @@ un `Drop`, un callback del crate de otra persona —
 
 ### 2.3 `set_host` y `set_daemon_client` desaparecieron
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0407]: method `set_host` is not a member of trait `PluginCapability`
   --> src/main.rs:95:5
@@ -301,7 +301,7 @@ esta comprobación:
 > limita el token de sesión de cada plugin a `PluginHostService`, así
 > que las llamadas hechas a través de `ctx.daemon()` responden
 > actualmente `permission_denied` — consulta
-> [la página del SDK de Rust](4-sdk/rust.md#daemon-presente-en-el-sdk-rechazado-por-el-daemon).
+> [la página del SDK de Rust](4-sdk/rust.md#daemon--presente-en-el-sdk-rechazado-por-el-daemon).
 > Esta sección trata sobre la forma de la migración, no sobre una vía
 > que funcione de extremo a extremo hoy.
 
@@ -316,7 +316,7 @@ if self.daemon.lock().await.is_none() {
 
 ### 2.4 `ToolResult` / `ActionResult` / `UiCallResult` se eliminaron
 
-<!-- doctest: output from="cargo build of a 0.5 plugin against the 0.6 SDK" -->
+<!-- doctest: illustrative reason="a rustc diagnostic from building a 0.5-era plugin against the 0.6 SDK; `from=` was prose, not a command, and no plugin in this tree is still on 0.5 to reproduce it from" -->
 ```
 error[E0433]: cannot find type `ToolResult` in this scope
 ```

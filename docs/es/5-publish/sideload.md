@@ -61,7 +61,7 @@ astra-plugin dev . --daemon-addr 127.0.0.1:32000
 4. observa cambios, recompila, detiene/arranca el plugin, y sigue su
    salida.
 
-<!-- doctest: output from="astra-plugin dev . with no Astra running" -->
+<!-- doctest: output from="astra-plugin dev . with no Astra running" unrun="needs a machine with no Astra daemon listening, which a CI runner cannot promise either way" -->
 ```
 Dev mode: plugin 'dice-roller'
   Directory: /tmp/dice-roller

@@ -42,7 +42,7 @@ R6.
    предупреждение, а не ошибка, а `--strict` превращает его в неуспешный
    выход:
 
-   <!-- doctest: output from="astra-plugin check --strict ." -->
+   <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
      WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
      FAILED: 1 warning(s), and --strict treats warnings as errors
@@ -204,7 +204,7 @@ mod tests {
 `astra-plugin doctor` отвечает на этот же вопрос про манифест ещё до того,
 как вы его хоть раз запустите:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.

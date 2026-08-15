@@ -89,7 +89,7 @@
 Astra*, ніколи з ключем всередині архіву. `astra-plugin build` каже про це
 при кожному запуску:
 
-<!-- doctest: output from="astra-plugin build ." -->
+<!-- doctest: output from="astra-plugin build ." unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
   Unsigned. Local keys are not a trust signal in Astra — trust comes from the registry.
 ```
@@ -97,7 +97,7 @@ Astra*, ніколи з ключем всередині архіву. `astra-plu
 а `astra-plugin sign` каже про це при успіху, навмисно не сховавши в
 `--help`:
 
-<!-- doctest: output from="astra-plugin sign <bundle>" -->
+<!-- doctest: output from="astra-plugin sign <bundle>" unrun="needs a built bundle and an Ed25519 keypair, neither of which is in this tree" -->
 ```
 This signature is an optional second factor, not a trust signal.
 
