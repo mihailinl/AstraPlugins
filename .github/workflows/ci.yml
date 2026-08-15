@@ -2046,8 +2046,25 @@ jobs:
           vocab = set(re.findall(r'"([a-z_]+)"', m.group(1))) if m else set()
           check(len(vocab) == 10, f"C5 the CLI knows {len(vocab)} capabilities", repr(sorted(vocab)))
 
+          # The glob is seeded by the examples directory, so the directory IS
+          # the enumeration — use it, instead of trusting the glob to have
+          # matched. `unknown` is a NEGATIVE assertion over whatever the glob
+          # returned: nought manifests means nought unknown capabilities means
+          # green, and the same holds for any example that quietly lost its
+          # plugin.toml. That is also a defect worth naming on its own, since
+          # an example without a manifest is not an example.
+          example_dirs = sorted(d for d in ROOT.glob("examples/*") if d.is_dir())
+          manifests = sorted(ROOT.glob("examples/*/plugin.toml"))
+          check(bool(example_dirs), "C5 examples/ holds example directories at all",
+                "the glob found none — the directory moved, and every check over it is vacuous")
+          missing_manifest = [str(d.name) for d in example_dirs
+                              if not (d / "plugin.toml").is_file()]
+          check(not missing_manifest,
+                f"C5 all {len(example_dirs)} example(s) carry a plugin.toml",
+                repr(missing_manifest))
+
           used: dict[str, set[str]] = {}
-          for m in sorted(ROOT.glob("examples/*/plugin.toml")):
+          for m in manifests:
               caps = tomllib.loads(m.read_text(encoding="utf-8")).get("capabilities", {})
               for k in caps:
                   used.setdefault(k, set()).add(str(m))
@@ -2193,15 +2210,27 @@ jobs:
           # loaded from there. check-proto.sh finds stray FILES; nothing found
           # these, and one of them still described a ChatService that had been
           # migrated away, so every TS client plugin threw during registration.
-          inline = []
+          # `inline` is another negative assertion over a glob, so an empty
+          # scrape is indistinguishable from a clean one — and `astra-plugin-sdk*`
+          # is a PREFIX, which is the fragile kind: rename a directory and the
+          # check keeps passing while covering one SDK fewer. The three SDKs are
+          # a closed set, so require each to have contributed a file.
+          SDK_DIRS = ("astra-plugin-sdk", "astra-plugin-sdk-python", "astra-plugin-sdk-ts")
+          inline, scanned = [], {d: 0 for d in SDK_DIRS}
           for pat in ("*.ts", "*.py", "*.rs", "*.mjs", "*.js"):
               for p in ROOT.glob(f"astra-plugin-sdk*/**/{pat}"):
                   if any(part in {"node_modules", "dist", "target", "build", ".venv"}
                          for part in p.parts):
                       continue
+                  top = p.relative_to(ROOT).parts[0]
+                  if top in scanned:
+                      scanned[top] += 1
                   t = p.read_text(encoding="utf-8", errors="ignore")
                   if 'syntax = "proto3"' in t or "syntax = 'proto3'" in t:
                       inline.append(str(p))
+          blind = [d for d, n in scanned.items() if n == 0]
+          check(not blind, f"C9 scanned all three SDKs ({', '.join(f'{d}={n}' for d, n in scanned.items())})",
+                f"scanned no source at all under: {blind} — C9 passes over them vacuously")
           check(not inline, "C9 no inline proto source in any SDK", repr(inline))
 
           # ── C10  no build output is tracked ────────────────────────────────
