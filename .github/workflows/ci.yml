@@ -1057,9 +1057,23 @@ jobs:
               cd demo-plugin
               python -m pip install --disable-pip-version-check \
                 --find-links "$work/wheels" -r requirements.txt
-              # The scaffold's declared range must have resolved to THIS tree's
-              # SDK, not to whatever the registry happens to carry — otherwise
-              # the leg proves nothing about the SDK it is meant to gate.
+              # Then force this tree's SDK over whatever the range resolved to.
+              # The rust leg above gets this for free: `[patch.crates-io]`
+              # overrides a dependency REGARDLESS of the declared range, so it
+              # tests this tree even when the scaffold pins a released version.
+              # pip has no equivalent — it honours the range, so between a
+              # version bump and its publish it would fetch the older released
+              # SDK from PyPI and this leg would silently stop testing the tree
+              # it exists to gate. Installing the built wheel explicitly makes
+              # the two legs mean the same thing.
+              #
+              # Whether the pin's ARITHMETIC is right is C11's question, and C11
+              # knows about the release window. This leg's question is only
+              # whether a scaffolded project builds and runs against this tree.
+              python -m pip install --disable-pip-version-check \
+                --force-reinstall --no-deps "$work"/wheels/astra_plugin_sdk-*.whl
+              # The SDK now installed must be THIS tree's — otherwise the leg
+              # proves nothing about the SDK it is meant to gate.
               python - "$ws" <<'PY'
           import pathlib, sys, astra_plugin_sdk
           want = {}
