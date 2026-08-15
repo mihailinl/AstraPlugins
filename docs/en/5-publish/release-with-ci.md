@@ -3,13 +3,24 @@
 **A tag is the whole release process.** One command sets it up, and after that
 you never hand-build a bundle again.
 
+Everything on this page starts from the `astra-plugin` binary. If you do not
+have it, [install the CLI](../install-cli.md) first — one `cargo install` line,
+a Rust toolchain required, no prebuilt binaries yet. For the whole journey in
+one page rather than this one tier of it, see
+[Publishing a plugin](../publishing.md).
+
 ## Why not just `astra-plugin build` and upload it?
 
 Because nothing vouches for a file you built on your laptop. The registry reads
 GitHub's **build attestation** — a Sigstore keyless signature, minted from the
 workflow's OIDC identity — which says *these exact bytes came from that workflow,
 at that commit, in that repository*. A hand-built bundle carries no such thing
-and is refused however good it is.
+and is refused however good it is — with `E_ATTESTATION_MISSING`, by name.
+
+For the same reason, **pushing your source to GitHub is not releasing** and
+neither is sending someone the `.astraplugin` you built locally. The registry
+never reads your source tree; it reads the assets on a tagged release, and it
+pins them by digest.
 
 You do not need, and are not asked for, a signing key. See
 [the security model](../1-orientation/security.md).
@@ -21,62 +32,35 @@ You do not need, and are not asked for, a signing key. See
 astra-plugin init-ci
 ```
 
-<!-- doctest: output from="astra-plugin init-ci ." -->
+<!-- doctest: output from="astra-plugin init-ci" -->
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned 985ad7ebab49957cc4e000edd814a62605579ff0 (default branch)
+    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
-
-  Note: 'plugin-release/v1' does not exist in mihailinl/AstraPlugins yet, so this pins the
-  current head of its default branch. Re-run `astra-plugin init-ci` once the
-  tag exists to move onto a released workflow.
-
-  Not verified: whether .github/workflows/plugin-release.yml exists at that commit. If
-  the tag push fails with 'invalid value workflow reference', it does not;
-  pin one that does with `astra-plugin init-ci --ref <commit>`.
 
   Next: commit this file, then release with
     astra-plugin version <semver>
 ```
 
-> **Releasing does not work yet, and this is the page that has to say so.**
-> `plugin-release.yml` is not on `mihailinl/AstraPlugins`'s default branch. It
-> exists only on the branch that carries this documentation, which has not been
-> pushed — `git ls-remote origin` lists `master` and one feature branch, and
-> neither tree contains the file. So the commit `init-ci` resolves is a real,
-> immutable commit that **does not contain the workflow it names**, and a tag
-> pushed today fails in GitHub Actions before any job starts:
->
-> ```
-> invalid value workflow reference: no version found for owner mihailinl
-> repo AstraPlugins workflow .github/workflows/plugin-release.yml
-> ```
->
-> Nothing is built, nothing is attested, and no release assets appear — which
-> means [get listed](get-listed.md) cannot be reached either, since its
-> prerequisite is a release that CI built.
->
-> This becomes true the moment this work lands on the default branch, or is
-> tagged `plugin-release/v1`; re-run `init-ci` then and it will repin to a
-> commit that has the file. Until then the only pin that runs is one you name
-> yourself, at a commit you have checked carries it:
->
-> ```bash
-> astra-plugin init-ci --ref <40-hex commit containing plugin-release.yml>
-> ```
->
-> `init-ci` says "Not verified" about exactly this, and it cannot do better:
-> it resolves the ref with `git ls-remote`, which answers with commits and
-> knows nothing about the files in them
-> (`astra-plugin-cli/src/commands/init_ci.rs`).
+**This works today, and each half of that is checkable.**
+`.github/workflows/plugin-release.yml` is on `mihailinl/AstraPlugins`'s default
+branch — `git ls-tree -r master --name-only .github/workflows` lists it — and
+the released tag exists: `git ls-remote --tags origin` resolves
+`plugin-release/v1` to `e3329df252a46d747676cb540ae4b986af68a3ad`. Because the
+tag exists, `init-ci` pins that commit rather than a moving branch head, and it
+no longer prints the "Not verified" caveat earlier versions of this page quoted.
 
-The note in the output above is about the pin's *provenance*, and is true
-whenever you read it: with no `plugin-release/v1` tag, `init-ci` pins the
-default branch's head commit instead. What the tag adds is a promise that the
-thing it points at does not change shape. Re-run `init-ci` when the tag exists;
-it keeps your inputs and only moves the pin.
+That SHA is the same one the registry's root-signed `trust.json` allows in a
+build attestation — `node tools/sign-trust.mjs --verify registry/v1/trust.json`
+in `astra-registry` prints it under *reusable-workflow SHAs it allows*. A build
+produced by any other workflow is refused at ingest with
+`E_WORKFLOW_NOT_ALLOWED`, so the pin is not a nicety; it is what makes your
+attestation mean something the registry can act on.
+
+Re-run `init-ci` whenever a newer `plugin-release/vN` is published; it keeps
+your inputs and only moves the pin.
 
 That is the entire author-side CI. It is short because it delegates:
 
@@ -97,11 +81,11 @@ permissions:
 
 jobs:
   release:
-    # Pinned by commit SHA, not by a moving tag: whoever can move a tag in
-    # mihailinl/AstraPlugins would otherwise own the build step of every plugin
-    # that trusts it — and that build step runs in YOUR repository with the
-    # token above. `astra-plugin init-ci` keeps this line current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@985ad7eb…
+    # Pinned by commit SHA, not by a moving tag: whoever can move
+    # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
+    # step of every plugin that trusts it — and that build step runs in YOUR
+    # repository with the token above. `astra-plugin init-ci` keeps this current.
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"
@@ -130,13 +114,30 @@ they cannot disagree. It refuses a version that sorts below the current one
 unless you pass `--allow-downgrade`, because Astra refuses to install a
 downgrade and such a release would be uninstallable.
 
-The tag must match `tag-prefix` plus the manifest version, and CI asserts it.
+The tag must match `tag-prefix` plus the manifest version, and CI asserts it
+before it builds anything. `astra-plugin version` prints the exact tag to use:
+
+<!-- doctest: output from="astra-plugin version 0.2.0" -->
+```
+Setting version to 0.2.0 (plugin.toml was 0.1.0)
+  plugin.toml                    [plugin] version           0.1.0 -> 0.2.0
+  Cargo.toml                     [package] version          0.1.0 -> 0.2.0
+  2 file(s) rewritten
+
+Release it:
+  git commit -am "release 0.2.0"
+  git tag v0.2.0
+  git push && git push --tags
+
+  The tag must be exactly 'v0.2.0': the release workflow asserts it
+  against plugin.toml before it builds anything.
+```
 
 ## 3 · What CI does
 
 This section describes `.github/workflows/plugin-release.yml` as it is written
-in this repository. Read it with the note in §1 in hand: until that file is on
-the default branch, this is what *will* happen, not what happens today.
+in this repository, on `master`, at the commit `plugin-release/v1` points at —
+which is the commit your `release.yml` calls.
 
 Three jobs, and the split is the security property.
 
@@ -203,14 +204,15 @@ dice-roller-0.1.0-linux-x64.astraplugin
   capabilities:    tools
   entry:           ./bin/dice_roller
   permissions:     sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
-  artifact sha256: d7dd70c5b2c4341af51a9ec29e63adc25f5a31d6b5d8f189c1d39e4f77780eb4
-  manifest digest: 7d66d26977a939f849f998009eb48b12ac7c741b69338be1cc6247a5ed64df6c
-  size:            2730385 bytes (2666.4 KB)
+  artifact sha256: 7f77e3f02a83fdcad96e62b9748c3265b6506e9800e432d0270009bdb4c9fbc3
+  manifest digest: a2cc2e1bd38538ca5f087fd0f00efd74328b5b5852c6144ead3849c74e86980d
+  size:            2730916 bytes (2666.9 KB)
   legacy in-ZIP signature: absent
 
-  3 listed files:
-    0644        210  206e62245f5205c3  README.md
-    0755    8727528  d8b2a8fa76e520bd  bin/dice_roller
+  4 listed files:
+    0644       1063  a9288520e75b02d6  README.md
+    0755    8729640  982348bb71764594  bin/dice_roller
+    0644       2509  70e9035f388492b0  icon.svg
     0644       1334  acb85afb406f182c  plugin.toml
   1 unlisted entries: MANIFEST.json
 
@@ -237,5 +239,7 @@ Once. → [Get listed](get-listed.md).
 | The bundle is unattested | The repository is private |
 | `MODULE_NOT_FOUND` at first launch | A TypeScript dependency the bundler could not follow. CI asserts against this; check the bundler's externals |
 | A glibc error on a user's machine | Something in the archive needs a symbol above `GLIBC_2.39`. CI asserts this too |
+| `invalid value workflow reference` before any job starts | The pin names a commit that does not carry `plugin-release.yml`. Re-run `astra-plugin init-ci` to repin to `plugin-release/v1` |
+| The registry refuses the release with `E_WORKFLOW_NOT_ALLOWED` | The build did not run the pinned Astra reusable workflow. Re-run `init-ci`, retag, and let CI rebuild |
 
 More: [troubleshooting](../6-operate/troubleshooting.md).

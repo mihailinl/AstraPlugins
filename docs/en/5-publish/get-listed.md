@@ -4,15 +4,20 @@
 CI build and attest, and the registry picks it up.
 
 Prerequisite: [a release built by CI](release-with-ci.md), on a **public**
-repository, with the `.astraplugin` assets attached and attested.
+repository, with the `.astraplugin` assets attached and attested. That
+prerequisite is met by tagging — the reusable workflow is on
+`mihailinl/AstraPlugins`'s default branch and released as `plugin-release/v1`,
+so a tag push builds and attests. Everything on this page assumes you have done
+that; if you have not, do [Release with CI](release-with-ci.md) first, or read
+[Publishing a plugin](../publishing.md), which is the whole journey in one page.
 
-**That prerequisite cannot be met today.** The reusable workflow `init-ci`
-points your repository at is not on `mihailinl/AstraPlugins`'s default branch,
-so a tag push fails before any job runs and no release assets are produced —
-[the note in §1 of "Release with CI"](release-with-ci.md#1-write-the-workflow)
-has the detail and the workaround. Everything below is the shape of the process
-and is worth reading now; submitting a listing for a release that does not exist
-is not.
+**What does not substitute for it**, because each of these has been tried: a
+repository containing your source, a `.zip` sent to somebody, a bundle you built
+on your laptop, or an issue asking a maintainer to build it. The registry lists
+release assets that CI attested, and nothing else.
+
+Every command below is `astra-plugin`. If you do not have it,
+[install the CLI](../install-cli.md) first.
 
 ## 1 · Preflight
 
@@ -101,7 +106,36 @@ astra-plugin publish --print-url
 
 It opens a prefilled issue on the registry in your browser. **It uploads
 nothing and holds no credential** — there is no `astra-plugin login`, no token
-in your shell history, no keyring to integrate with.
+in your shell history, no keyring to integrate with. `--print-url` prints the
+link instead:
+
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" -->
+```
+dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
+
+  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI
+  build and attest, and the registry picks it up. Everything on the store card —
+  name, summary, licence, capabilities, permissions, digests — is read out of the
+  attested bundle, so there is nothing else to fill in and nothing to keep in sync.
+
+https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
+```
+
+> **`template=plugin-listing.yml` in that URL is load-bearing.** The template
+> declares `labels: ["listing", "needs-triage"]`, and the registry's bot enters
+> the submission path only for an issue carrying `listing`. Nothing else applies
+> that label — not even the bot, on purpose: there it is an authority token, not
+> a category, so a bot that stamped it on anything form-shaped would hand the
+> exemption to anyone who can copy a form.
+>
+> Two real listing requests were lost exactly this way: they arrived unlabelled,
+> triage returned `mode: "none"`, the check, publish and comment steps were all
+> skipped, and the authors got **no answer at all, not even a refusal**. That is
+> fixed on both sides now. Blank issues are disabled on the registry, so the
+> *New issue* page offers only forms; and an unlabelled request that does arrive
+> gets a comment saying exactly what is missing, plus the one click — a
+> maintainer adding `listing` — that starts verification on that same issue with
+> nothing retyped. Opening it from this link still skips all of that.
 
 The submission carries **two facts**:
 
@@ -120,22 +154,97 @@ the bundle is covered by the attestation, which makes it strictly more
 trustworthy than anything typed into a form. It also deletes a whole class of
 rejection, because there is no form for `plugin.toml` to disagree with.
 
-## 3 · What happens next
+## 3 · What happens after you submit
 
-Four outcomes:
+This section is the one two real authors needed and did not have. It describes
+the registry's flow as `astra-registry/docs/POLICY.md` and `docs/BOT-CHECKS.md`
+define it; both are generated from or asserted against the bot's own code
+(`bot/lib/policy.mjs`, `bot/lib/codes.mjs`), so the numbers here cannot quietly
+drift from the code that keeps them.
+
+### The sequence
+
+1. **Your issue gets the `listing` and `needs-triage` labels** — from the issue
+   template, automatically. This is the step that decides whether anything
+   happens at all; see the warning in §2.
+2. **The bot triages it**, reads your two facts, fetches the release from GitHub
+   unauthenticated, and runs every check in `docs/BOT-CHECKS.md` against the
+   bytes: the attestation and which workflow produced it, that the asset URLs sit
+   under your own repository's release namespace, that you have admin or maintain
+   on the repository, the archive's structure, the manifest, the licence, the
+   version ordering, and the declared-versus-called host RPC scan.
+3. **The bot comments on your issue** with the outcome, the reason, and — when
+   there is one — the exact time it will publish. You are told either way.
+
+If nothing has commented within an hour, check the issue's labels. No `listing`
+label means step 1 did not happen and nothing downstream ran.
+
+### The four outcomes
 
 | Outcome | Means | Who is involved |
 |---|---|---|
 | **Published** | Committed, and in the catalogue on the next index build | nobody |
 | **Delayed** | Everything passed; it publishes itself at a stated time | nobody |
 | **Held** | A decision the registry is not entitled to make automatically | a maintainer, within 48 h |
-| **Refused** | A check failed | you: fix it and comment `/recheck` |
+| **Refused** | A check failed. The policy never got a say | you: fix it and comment `/recheck` |
 
 A release publishes itself with no human when all of these hold: it comes from
 the repository already listed for that plugin, every bot check is green, the
 version is strictly newer, it asks for no high-risk permission it did not
 already have, and it asks for no new permission or capability at all. Drop only
 the last and it still self-publishes, after a delay.
+
+**A first listing is never one of those.** It is held for a person by
+definition — see below — so the answer to "how long until my first plugin is
+listed" is *up to 48 hours after the bot comments*, not *minutes*.
+
+### How a hold is cleared
+
+Nothing is required of you. A maintainer comments **`/approve`** on your issue,
+and the entire ingest then runs again from scratch against the bytes as they are
+at that moment — an approval is a "a person said yes, at this time" marker and
+carries no cached verdict, so approving something does not skip a single check.
+**`/reject <reason>`** is the other half, and it must carry a reason, which is
+posted to you. Both commands are permission-checked against the registry
+repository: the commenter needs `admin` or `maintain` there, re-proved through
+GitHub's API at the moment the command is read rather than trusted from the
+event payload, and a command from anyone else is answered rather than ignored.
+
+You do not type either command, and you do not need to do anything while you
+wait. They are documented here only so that "held for a maintainer" names a
+mechanism rather than a silence.
+
+*One caveat, stated because this page's rule is to state them:* this
+maintainer-command path is landing in the registry at the same time as this
+page. If your hold predates it, the outcome is the same and the SLA is the same
+— a maintainer still decides — but the decision may be recorded by hand rather
+than by the command.
+
+### What a refusal looks like
+
+The bot comments with a fixed code and what to do about it. A refusal is not a
+verdict on your plugin; it is a named, fixable condition. The ones authors hit
+most:
+
+| Code | What it means | Fix |
+|---|---|---|
+| `E_ATTESTATION_MISSING` | The bundle has no build attestation | You uploaded a bundle you built yourself. Let CI build it: [release with CI](release-with-ci.md) |
+| `E_NO_BUNDLE_ASSETS` | The release carries no `.astraplugin` asset | The workflow did not run, or ran and failed. Check the Actions tab on your repository |
+| `E_RELEASE_NOT_FOUND` | That repository has no release with that tag | A draft release is invisible to everyone but you, and a private repository looks identical to a missing one |
+| `E_WORKFLOW_NOT_ALLOWED` | The build ran a workflow this registry does not allow | Pin the Astra reusable workflow by commit SHA. `astra-plugin init-ci` does it for you |
+| `E_ASSET_URL_FOREIGN` | An asset URL is not under your repository's own releases | Every download URL must sit under `https://github.com/<owner>/<repo>/releases/download/<tag>/` |
+| `E_OWNERSHIP_UNPROVEN` | You are not an admin or maintainer of that repository | Have someone who is open the issue, or commit `.well-known/astra-plugin-owner` on the default branch containing your GitHub login and comment `/recheck` |
+| `E_INPUT_REPO` / `E_INPUT_TAG` | The repository or tag is not in the form expected | `you/dice-roller`, not a URL; `v0.2.0`, not a commit SHA or a branch |
+
+After you fix it, comment **`/recheck`** on the same issue. Every check runs
+again from scratch against the bytes as they are at that moment; nothing is
+resumed and nothing queued is trusted. The full list, with the exact wording of
+each failure, is `docs/BOT-CHECKS.md` in the registry.
+
+The bot's own exit codes are `0` listed · `1` refused · `3` held for a
+maintainer · `2` the bot itself failed. The last is deliberately distinct: "your
+plugin is bad" and "our tooling is bad" must never render as the same comment to
+a stranger.
 
 ### The three things that need a person
 
@@ -154,8 +263,32 @@ alike, because the section you declare them in is not the point. `push_to_ui`
 gets a consent checkbox but not a review: it draws inside a panel your plugin
 already owns.
 
+A check may separately hand a decision to a person — a name one edit away from a
+listed plugin, a display name that collides with one. That arrives as
+`R_CHECK_HELD`, is not one of the three, and carries the same SLA.
+
 **The SLA is 48 hours** for those, from the moment the bot comments. There is
-one maintainer, which is precisely why the list is three items long.
+one maintainer, which is precisely why the list is three items long. The
+registry publishes what happens when that slips, rather than only the promise:
+past 96 hours the maintainer must either publish the queue or move the
+triggering event out of the blocking set, in a reviewed commit that also edits
+the paragraph making the promise.
+
+### When a release waits instead
+
+Some releases pass everything and still do not publish immediately:
+
+| Situation | Code | Delay |
+|---|---|---|
+| The plugin holds **any** high-risk permission, whether or not this release changed it | `P_DELAY_HIGH_RISK` | 24 h |
+| The release asks for a permission or capability the previous one did not, inside the non-high-risk set | `P_DELAY_WIDENED` | 24 h |
+| Either of the above, from an author with **5 clean** releases in this registry | `P_TRUSTED_AUTHOR` | 6 h |
+
+The bot states the exact publication time, and when the clock runs out the
+entire ingest runs again from scratch against the bytes as they are then. The
+delay buys one thing and the registry does not claim more: a window in which an
+author whose GitHub account was taken over can see a release they did not make
+and say so.
 
 ## 4 · Every release after that
 
@@ -183,22 +316,31 @@ is no sandbox. See [the security model](../1-orientation/security.md).
 
 One thing a reader deserves to know before following this page.
 
-**The signing chain is not anchored.** The root keys exist — `root.json` carries
-`"status": "provisioned"` and the daemon compiles in the same two — but a root
-key does not sign a catalogue. It signs `trust.json`, which delegates to an
-index-signing key, and no `trust.json` has been signed yet. With nothing
-delegated, every catalogue classifies as unsigned and the bot stops each ingest
-at `E_TRUST_UNPROVISIONED`. See
-[`spec/registry-index.md` §0.1](../spec/registry-index.md).
+**The signing chain is anchored down to the delegation, and not yet through the
+catalogue.** Precisely, and each part is checkable:
 
-The repository itself is live at
-[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry), so
-the submission path on this page works today: your issue is read, the checks run
-and the bot answers. What is still pending is the last link of the chain that
-lets Astra *install* from what it publishes.
+- the root keys exist on both sides — `registry/v1/root.json` carries
+  `"status": "provisioned"` with two Ed25519 keys, and the daemon's
+  `PRODUCTION_ROOT_KEYS` compiles in the same two;
+- `registry/v1/trust.json` **is now signed** by `astra-root-2026a` and delegates
+  to an index-signing key, `astra-index-2026a`. The registry's own
+  `node tools/sign-trust.mjs --verify registry/v1/trust.json` confirms it and
+  prints the one reusable-workflow SHA the bot will accept in an attestation,
+  `e3329df252a46d747676cb540ae4b986af68a3ad` — the commit `plugin-release/v1`
+  points at. So `E_TRUST_UNPROVISIONED`, which used to stop every ingest, no
+  longer fires;
+- **the catalogue itself is still unsigned.** `registry/v1/index.json` and
+  `revocations.json` carry `"signatures": []`, so a default Astra build has no
+  signature to check, classifies every catalogue as unsigned, and fails closed.
+  Revocation enforcement is not live either, for the same reason.
 
-Nothing on this page changes when that lands — a signed `trust.json` appears and
-the index it delegates to starts carrying a signature.
+See [`spec/registry-index.md` §0.1](../spec/registry-index.md) and
+[the security model](../1-orientation/security.md).
+
+What that means for you: the submission path on this page works end to end
+today — your issue is read, the checks run, the bot answers, and a listing is
+committed. What is still pending is the signature that lets Astra *install* from
+what the registry publishes. Nothing on this page changes when it lands.
 
 ## See also
 

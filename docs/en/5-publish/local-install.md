@@ -6,6 +6,12 @@ release is not listed yet. It is not how plugins are installed;
 [that is the store](get-listed.md), where the artifact is pinned by digest and
 verification failures are hard blocks.
 
+> **Handing someone this file is not publishing your plugin.** A bundle you
+> built and sent carries no build attestation and no registry record, so it
+> installs at a reduced tier on the one machine you sent it to and reaches
+> nobody else. Publishing is a tagged release that CI builds and attests, plus
+> one listing request — [the whole journey is one page](../publishing.md).
+
 ## What it is
 
 `PluginService.ImportPluginFile` takes a **path to a `.astraplugin` file** —
@@ -14,7 +20,8 @@ not the bytes, and not a directory. Astra's UI calls it when you pick a file.
 The bundle is a ZIP with `MANIFEST.json` as its first, stored entry. The daemon
 re-derives every digest, checks the file list is exhaustive in both directions,
 and rejects anything that does not match. `astra-plugin verify` runs the same
-checks locally, and you should run it before you import a file someone sent you:
+checks locally, and you should run it before you import a file someone sent you
+([install the CLI](../install-cli.md) if you do not have it):
 
 <!-- doctest: cli -->
 ```bash

@@ -43,9 +43,10 @@ not.
 
 ## Two things that are true today and will not be softened
 
-### The trust chain is specified, implemented, and not anchored
+### The trust chain is specified, implemented, and anchored one link short
 
-The root keys exist. **The link below them does not**, so nothing verifies.
+The root keys exist, and the delegation below them now does too. **The
+catalogue's own signature does not**, so nothing verifies on a user's machine.
 Concretely ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 
 - the registry's `root.json` carries `"status": "provisioned"` and two Ed25519
@@ -53,19 +54,25 @@ Concretely ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 - the daemon's `PRODUCTION_ROOT_KEYS` lists the same two — that file exists so a
   third party can read them without disassembling a binary, and so a
   disagreement between the two is visible;
-- but a root key does not sign a catalogue. It signs `trust.json`, which
-  delegates to an index-signing key, **and no `trust.json` has been signed
-  yet**. With nothing delegated there is no key to check a signature against, so
-  every catalogue still classifies as `UNSIGNED` with reason `NoTrustAnchor`;
-- `registry/v1/index.json` carries `"signatures": []` — by design, since that
-  repository holds no signing key and CI signs the deploy candidate — so it
-  would be unsigned even once a key were delegated;
+- a root key does not sign a catalogue: it signs `trust.json`, which delegates
+  to an index-signing key. **That document is now signed.**
+  `registry/v1/trust.json` verifies under `astra-root-2026a`, delegates to
+  `astra-index-2026a`, and names the single reusable-workflow commit the
+  registry's bot will accept in a build attestation. The registry's own
+  `node tools/sign-trust.mjs --verify registry/v1/trust.json` prints all of
+  that. So the ingest-side block `E_TRUST_UNPROVISIONED` no longer fires;
+- **but `registry/v1/index.json` still carries `"signatures": []`**, and so does
+  `revocations.json`. With no signature on the catalogue there is nothing for
+  the delegated key to check, and every catalogue still classifies as
+  `UNSIGNED` — with reason **`NoSignatures`**, not `NoTrustAnchor`: the anchor
+  arrived, the signatures did not. `NoTrustAnchor` is the older and worse case,
+  and means no verified `trust.json` reached the build at all;
 - and because withdrawal lists are verified strictly, an unsigned one is
   refused, so **revocation enforcement is not live either**.
 
-A default build therefore fails closed. Nothing here is a promise about a
-guarantee you have today; the mechanism starts carrying weight when a signed
-`trust.json` and a signed index exist, and not before.
+A default build therefore still fails closed. Nothing here is a promise about a
+guarantee you have today; the mechanism starts carrying weight for a user when a
+signed index exists, and not before.
 
 ### A local signing key confers no trust at all
 

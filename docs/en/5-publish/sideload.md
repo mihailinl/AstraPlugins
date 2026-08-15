@@ -8,7 +8,12 @@
 >
 > Users install from inside Astra. Authors publish with
 > [`init-ci` and a tag](release-with-ci.md) and then
-> [get listed once](get-listed.md).
+> [get listed once](get-listed.md) — [the whole journey is one
+> page](../publishing.md).
+>
+> Telling someone to clone your repository and sideload it is not publishing.
+> It asks them to run unsigned code as themselves, and it reaches exactly the
+> people you can talk to.
 
 Never sideload a plugin you did not write or audit. If someone sends you a
 directory and instructions to turn on Developer Mode, they are asking you to run
@@ -32,6 +37,8 @@ Settings — the daemon says Privacy, the CLI says Safety. The **setting key is
 `safety.allow_unsigned_plugins`** and that is the thing to search for.
 
 ## Using it
+
+One command, from [the CLI](../install-cli.md):
 
 <!-- doctest: cli -->
 ```bash
