@@ -1,2 +1,12 @@
 target/
-Cargo.lock
+
+# Cargo.lock IS committed here, deliberately, and the neighbouring
+# astra-plugin-sdk/.gitignore is right to do the opposite. The rule is what the
+# crate produces, not what it is written in: a library's lockfile binds nobody,
+# because the application downstream resolves its own; a binary's lockfile is
+# the difference between "built from this tag" and "built from this tag and
+# whatever the registry happened to hold that morning".
+#
+# release-cli.yml builds every leg with --locked and refuses to start without
+# this file, so ignoring it made the first release fail in `plan` before any
+# job ran. That assertion is the reason the mistake was cheap.
