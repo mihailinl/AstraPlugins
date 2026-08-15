@@ -1,0 +1,97 @@
+name: Plugin idea or question
+description: An idea for a plugin or an SDK feature, or a question about how something works
+title: "[question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for "can a plugin do X?", "how do I ...?", and "the SDK should
+        have ...". If something is **broken** — a command that fails, an SDK that
+        misbehaves — use the *Bug report* template instead; it asks for the
+        transcript that makes a fix possible.
+
+        **Not for listing requests.** "Please put my plugin in the store" belongs
+        in [astra-registry](https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml),
+        through its own template.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of issue is this
+      options:
+        - A question — how do I do X?
+        - An idea for a plugin I want to build
+        - A feature the SDK or CLI should have
+        - A documentation gap — something is missing or unclear
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What you want to do
+      description: >-
+        Describe the outcome, not the API you imagine. "I want a plugin that
+        turns the lights off when a command finishes" is more answerable than
+        "I need a post-command callback" — often the answer is a hook that
+        already exists under another name.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have already read or tried
+      description: >-
+        Which docs pages, which examples under `examples/`, which commands. This
+        is the difference between an answer and a link you have already seen.
+        Paste any command output that seemed relevant.
+      render: console
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: astra-plugin --version
+      description: >-
+        Verbatim, if you have the CLI installed — the answer often depends on
+        the version. Write "not installed" if you have not got it yet.
+      placeholder: "astra-plugin 0.2.1"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      description: >-
+        Native plugins ship per-platform (`linux-x64`, `windows-x64`; `noarch`
+        for Python and TypeScript), so the answer can depend on this.
+      placeholder: "Arch Linux, x86_64  ·  or  Windows 11, x64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: lang
+    attributes:
+      label: Which SDK
+      options:
+        - Rust
+        - Python
+        - TypeScript
+        - Not decided yet / not language-specific
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: >-
+        Links, sketches, a `plugin.toml` you are working from. If you are
+        proposing a feature, say what you would do without it — a workable
+        workaround is useful information, and so is the absence of one.
+    validations:
+      required: false

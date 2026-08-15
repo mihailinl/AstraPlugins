@@ -269,7 +269,7 @@ care what language wrote the plugin.
 - **`ctx.daemon()` / `DaemonClient` is non-functional.** The daemon scopes every
   plugin's session token to `PluginHostService`, so all seven services answer
   `permission_denied` — including for `client = true` plugins. Use
-  `Host::send_chat_message`. See [`Daemon`](#daemon-present-in-the-sdk-refused-by-the-daemon)
+  `Host::send_chat_message`. See [`Daemon`](#daemon--present-in-the-sdk-refused-by-the-daemon)
   above.
 - **`TtsSynthesizeStream` is bound and unrouted.** The SDK serves it; no daemon
   call site exists. Implement it if you like — nothing will call it until

@@ -76,7 +76,15 @@ def slug(text: str) -> str:
     text = INLINE.sub(lambda m: m.group("text"), text)  # links keep their text
     text = text.lower()
     text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
-    return re.sub(r"\s+", "-", text.strip())
+    # Each space becomes its own dash — runs are NOT collapsed. GitHub's
+    # slugger deletes the punctuation and then does the equivalent of
+    # `.replace(/ /g, "-")`, so `## 3 · Set up …` slugs with the two spaces
+    # that flank the removed `·` intact: `3--set-up-…`. Collapsing `\s+` to a
+    # single dash here rejected correct links into every `N · Title` heading
+    # in publishing.md. Confirmed against the real renderer:
+    #   $ gh api /markdown -f mode=markdown -f text='## 3 · Set up the release workflow'
+    #   … href="#3--set-up-the-release-workflow" …
+    return re.sub(r"[^\S ]", " ", text.strip()).replace(" ", "-")
 
 
 def anchors(path: Path) -> set[str]:

@@ -25,16 +25,28 @@ does not exist` — which is correct: nothing has produced the binary yet.
 **`ERROR: No matching distribution found for astra-plugin-sdk<0.6,>=0.5`**
 **`error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)`**
 
-Three languages, one cause: `astra-plugin new` pins the SDK version this
-documentation describes, and the registries still carry the previous one —
-crates.io 0.5.0, PyPI 0.4.0, npm 0.4.0. Nothing is misconfigured on your
-machine, and neither `doctor` nor `check` will mention it, because both read the
-manifest and the pin lives in the language's build file. Point the project at
-this repository's copy of the SDK; the three fragments are in
-[Getting started §2](../2-tutorial/getting-started.md). Do not relax the bound
-instead: 0.6 is the first Rust release whose `HostClient` attaches
-`x-session-token`, so an older SDK trades this error for `unauthenticated` on
-every host call — the section below.
+Three languages, one shape of error — and the SDK's absence is no longer the
+cause of it. `astra-plugin new` pins `astra-plugin-sdk` `0.6` for Rust,
+`>=0.5,<0.6` for Python and `^0.5.0` for TypeScript, and the public registries
+carry crates.io **0.6.0**, PyPI **0.5.0** and npm **0.5.0**. Every one of those
+pins resolves in a fresh project with nothing configured, so if yours does not,
+the cause is between your machine and the registry:
+
+- **A stale index, a lockfile, or a mirror that has not synced.** The resolver
+  is answering from a cached view of the registry that predates the release, or
+  from a company proxy that does. `cargo update -p astra-plugin-sdk`;
+  `pip install --upgrade --no-cache-dir -r requirements.txt`; for npm, delete
+  `node_modules` and the lockfile and install again. `cargo --offline` and
+  `npm --offline` produce this error by design.
+- **A bound somebody relaxed.** A pin edited down to `0.5` (Rust) or `0.4`
+  (Python, TypeScript) asks for something no registry offers under that
+  constraint. Put the scaffold's pin back rather than widening it further: 0.6
+  is the first Rust release whose `HostClient` attaches `x-session-token`, so an
+  older SDK trades this error for `unauthenticated` on every host call — the
+  section below.
+
+Neither `doctor` nor `check` mentions any of this, because both read
+`plugin.toml` and the pin lives in the language's own build file.
 
 ## The plugin will not start
 
@@ -50,7 +62,7 @@ plugin that imports a large ML stack at module scope can miss it; import lazily
 inside the hook that needs it. `astra-plugin test` measures this and prints the
 number:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] the plugin says something before the daemon gives up: first line on stdout after 792.4µs
          (the daemon waits 20s, spec/limits.yaml plugin_start_timeout_secs)
@@ -84,7 +96,7 @@ causes, in order of likelihood:
 
 `astra-plugin doctor` answers 1 without running anything:
 
-<!-- doctest: output from="astra-plugin doctor ." -->
+<!-- doctest: output from="astra-plugin doctor ." unrun="reports this machine's toolchains, daemon and config paths, so its output differs on every machine" -->
 ```
   [ok  ] Why is a host call coming back `permission_denied`?
          [permissions] grants: none. Every declared capability has the host rpc it needs.
@@ -99,7 +111,7 @@ why the scaffold's dependency bound does not go lower.
 
 `astra-plugin test` asserts it end to end:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] every host call carried the session token: no host call was refused for want of `x-session-token`
 ```
@@ -132,10 +144,11 @@ override**, and each names which of two things happened.
 Plugins page instead, or read [local install](../5-publish/local-install.md) for
 what importing it costs.
 
-Today the trust chain is **not anchored** — the root keys exist, but no
-root-signed `trust.json` delegates an index-signing key yet, so there is nothing
-to check a catalogue signature against. A catalogue therefore classifies as
-unsigned and revocation is not enforced. See
+Today the trust chain is anchored **one link short**: the root keys exist and
+the root-signed `trust.json` delegating an index-signing key now exists too, but
+`registry/v1/index.json` and `revocations.json` still carry `"signatures": []`.
+With no signature on the catalogue there is nothing for the delegated key to
+check, so a catalogue classifies as unsigned and revocation is not enforced. See
 [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## A tool call fails in a way the model cannot fix

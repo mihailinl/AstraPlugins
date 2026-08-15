@@ -78,37 +78,63 @@ someone you are willing to run code from.
 
 ### 1. Get the CLI
 
-`astra-plugin-cli` is **not on crates.io yet** (verified: `index.crates.io` has
-no entry for it). Build it from this repository:
+`astra-plugin-cli` is **not on crates.io** and there are **no prebuilt
+binaries** — verified today: `https://index.crates.io/as/tr/astra-plugin-cli`
+answers `404` where `astra-plugin-sdk` answers `200`, and
+`gh release list --repo mihailinl/AstraPlugins` prints nothing. So installing it
+means building it, which means a Rust toolchain. Prebuilt `linux-x64` and
+`windows-x64` binaries are a known, separate, pending task.
+
+One line, no clone:
 
 ```bash
-git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
-cargo install --path AstraPlugins/astra-plugin-cli
-astra-plugin --version          # must print 0.2.0
+cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked
+astra-plugin --version          # astra-plugin <version>
 ```
 
-> **Check that version.** Everything on this page is `astra-plugin 0.2.0`. The
-> repository's **default branch still carries 0.1.3**, whose entire command set
-> is `create`, `dev`, `build`, `validate`, `keygen` — so a bare
-> `git clone` (which checks out the default branch) installs a CLI where the
-> very next command, `astra-plugin new`, fails with
-> `unrecognized subcommand 'new'`, and so does every other command below.
-> Verified with `git show master:astra-plugin-cli/Cargo.toml`.
->
-> `feat/plugin-production` is the branch that carries this work and it is **not
-> pushed yet** — `git ls-remote origin` lists `master` and one unrelated feature
-> branch. Until it is, this repository is only usable from a local checkout of
-> that branch. Delete this note once it is on the default branch.
+`--git` builds whatever `master` currently carries, and installs it as
+`astra-plugin-cli v<version> (https://github.com/mihailinl/AstraPlugins#<sha>)`
+— `<version>` being whatever that commit's `Cargo.toml` says, not a number you
+chose.
 
-Building needs Rust 1.85+ **and `protoc` on PATH** — the SDK's `build.rs`
-compiles `proto/plugin.proto` with tonic-build, which calls an external
-`protoc`. `apt install protobuf-compiler` / `pacman -S protobuf` /
-`brew install protobuf`.
+**Do not read the build's health off that number.** `init-ci` used to pin an
+annotated tag's object SHA instead of the commit it names, so every first
+release died with `invalid value workflow reference` before a job started
+([#2]). The fix is **commit `5b8ab22`**, and it landed on `master` *before* the
+bump that raised the number to `0.2.1` — so a build from `master` can carry the
+fix and still print `0.2.0`, and no `0.2.1` build lacks it. Installing from
+`master` today gets you the fix whatever the number says. To check rather than
+trust, run `astra-plugin init-ci` and read the SHA it pins:
+`e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is correct,
+`dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
+and is the bug. The pin is not repaired in place — re-run `init-ci` to rewrite
+it.
+
+[#2]: https://github.com/mihailinl/AstraPlugins/issues/2
+
+From a clone instead, if you want to read the CLI as well as run it:
+
+```bash
+git clone https://github.com/mihailinl/AstraPlugins
+cargo install --path AstraPlugins/astra-plugin-cli --locked
+```
+
+A bare `git clone` checks out `master`, and `master` carries the current CLI —
+there is no branch you need to know about.
+
+Building needs Rust 1.85+ **and `protoc` on PATH** — the CLI depends on
+`astra-plugin-sdk`, whose `build.rs` compiles `proto/plugin.proto` with
+tonic-build, which calls an external `protoc`. `apt install protobuf-compiler` /
+`pacman -S protobuf` / `brew install protobuf` / `winget install
+Google.Protobuf`.
 
 Every crate here is `edition = "2024"`, so the floor is whatever Rust first
 supported that edition — 1.85. No crate declares a `rust-version`, and CI builds
 on `stable`, so that is the only bound that is actually enforced. The installed
 binary is called `astra-plugin`, not `astra-plugin-cli`.
+
+Longer version, including what to do when it does not work:
+[`docs/en/install-cli.md`](docs/en/install-cli.md).
 
 ### 2. Scaffold
 
@@ -146,8 +172,10 @@ passes on a fresh scaffold.
 
 **Before you `cargo add` / `pip install` / `npm install` anything by hand, read
 [Publication state](#publication-state) below.** The versions the scaffolds pin
-are not on the public registries yet, and the versions that *are* there fail
-every host call.
+are on the public registries — Rust 0.6.0, Python 0.5.0, TypeScript 0.5.0,
+verified against `index.crates.io`, PyPI and the npm registry — but every
+*older* version there fails every host call, which is why those pins have lower
+bounds and are not worth relaxing.
 
 ### 3. Iterate
 
@@ -164,18 +192,29 @@ defaulting to `127.0.0.1:32000`.
 
 ### 4. Release
 
+**Publishing a plugin means one specific thing: a tagged release that GitHub's
+CI builds and attests, plus one listing request, ever.** Pushing your source to
+GitHub is not publishing. Sending someone a zip is not publishing. Asking a
+maintainer to build your plugin is not publishing. The registry pins your plugin
+by the digest of the exact file a user downloads and reads GitHub's build
+attestation to learn which workflow, at which commit, in which repository
+produced those bytes — and a file you built on your laptop carries neither.
+
 You write no YAML.
 
 ```bash
 astra-plugin init-ci      # writes .github/workflows/release.yml, pinned by commit SHA
 astra-plugin version 0.2.0
+git commit -am "release 0.2.0"
 git tag v0.2.0 && git push --tags
 ```
 
 The tag starts your `release.yml`, which calls the reusable
-[`plugin-release.yml`](.github/workflows/plugin-release.yml) in this repository.
-That workflow builds one `.astraplugin` per platform, creates the GitHub Release
-and has GitHub **attest** each asset, so anyone can run
+[`plugin-release.yml`](.github/workflows/plugin-release.yml) in this repository —
+on `master`, released as the tag `plugin-release/v1`, which `init-ci` resolves
+and pins by commit SHA. That workflow builds one `.astraplugin` per platform,
+creates the GitHub Release and has GitHub **attest** each asset, so anyone can
+run
 
 ```bash
 gh attestation verify <file>.astraplugin --repo <owner>/<repo>
@@ -196,10 +235,22 @@ astra-plugin publish             # opens a prefilled listing request
 asset from scratch, and lists it. After that, a new tag is the whole release —
 the registry notices it (`astra-plugin publish --notify` is the manual nudge if
 it does not). Astra then installs from **your** GitHub Release, with the digest
-pinned by a signed index.
+pinned by the index.
+
+**Use the URL `publish` gives you.** It targets the registry's issue template,
+which applies the `listing` label, and the registry's bot only starts an ingest
+for an issue carrying that label. Two real listing requests once arrived
+unlabelled and got no answer at all, not even a refusal. Both halves of that are
+closed now: the registry has turned blank issues off, so the form is the only
+door, and a request that still reaches the bot unlabelled gets a comment naming
+the label instead of silence. The template link is the one that starts
+verification with nobody having to intervene.
 
 There is no `astra-plugin login`. Nothing in this toolchain asks you for a
 credential.
+
+**→ [The whole journey in one page](docs/en/publishing.md)**, from an empty
+directory to a listed plugin, with every command and its output.
 
 ---
 
@@ -211,7 +262,7 @@ credential.
 | `astra-plugin-sdk` (PyPI) | 0.5.0 | 0.5.0 | `pip install "astra-plugin-sdk>=0.5,<0.6"` |
 | `astra-plugin-sdk` (npm) | 0.5.0 | 0.5.0 | `npm install astra-plugin-sdk` |
 | `astra-plugin-macros` (crates.io) | 0.6.0 | 0.6.0 | arrives with the SDK |
-| `astra-plugin-cli` (crates.io) | 0.2.0 | **not published** | build from this repository |
+| `astra-plugin-cli` (crates.io) | 0.2.1 | **not published, and no prebuilt binaries** | `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
 
 **Take those versions or newer.** The daemon requires an `x-session-token` on
 every host RPC but `Register`, and the first SDK release that attaches one is
@@ -220,21 +271,26 @@ Rust 0.6.0 / Python 0.5.0 / TypeScript 0.5.0. Anything older answers
 — the plugin starts, serves inbound hooks, and cannot say a word back. That is
 why the scaffold's pins have lower bounds and why they are not worth relaxing.
 
-One other thing that does not exist yet, so that no document here implies
-otherwise:
+Two other things, stated exactly, so that no document here implies more than is
+true:
 
-- **No `trust.json` has been signed.** The root ceremony ran on 2026-08-11:
-  `astra-registry/registry/v1/root.json` publishes two Ed25519 keys and
-  `astra-daemon/src/plugins/trust.rs` (`PRODUCTION_ROOT_KEYS`) compiles in the
-  same two. But a root key does not sign a catalogue — it signs `trust.json`,
-  which delegates to an index-signing key, and that document does not exist. So
-  no catalogue signature verifies, and a default build still fails closed.
-  Nothing here promises a trust guarantee that is not yet anchored.
+- **`trust.json` is signed; the catalogue is not.** The root ceremony ran on
+  2026-08-11: `astra-registry/registry/v1/root.json` publishes two Ed25519 keys
+  and `astra-daemon/src/plugins/trust.rs` (`PRODUCTION_ROOT_KEYS`) compiles in
+  the same two. `registry/v1/trust.json` is now signed by `astra-root-2026a`,
+  delegates to the index key `astra-index-2026a`, and names the one
+  reusable-workflow commit the registry accepts in an attestation
+  (`e3329df…`, which is what `plugin-release/v1` points at). **But
+  `registry/v1/index.json` and `revocations.json` still carry
+  `"signatures": []`** — so no catalogue signature verifies, a default build
+  still fails closed, and revocation is not enforced.
+- **Prebuilt CLI binaries do not exist.** Installing the CLI requires Rust and
+  `protoc`. See §1.
 
 `astra-plugin publish` targets
 [`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry),
-which is public and answering — the submission path works; what the missing link
-above blocks is Astra *installing* from what it publishes.
+which is public and answering — the submission path works end to end; what the
+missing catalogue signature blocks is Astra *installing* from what it publishes.
 
 ---
 

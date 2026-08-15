@@ -1,0 +1,75 @@
+# Issue-template configuration for AstraPlugins.
+#
+# `blank_issues_enabled: false` is deliberate, and it is the fix for a specific
+# failure. In the registry repository, blank issues were enabled and two real
+# listing requests were opened *around* the template. A blank issue carries no
+# labels; the triage bot only enters the submission path for an issue labelled
+# `listing`; so nothing ran, nothing was posted, and both authors got total
+# silence. The template is the only thing that applies the label, so bypassing
+# the template has to be impossible rather than merely discouraged.
+#
+# The same trap applies to any label named in a template here: GitHub silently
+# DROPS a label that does not exist in the repository. Only these exist today
+# (`gh api repos/mihailinl/AstraPlugins/labels`):
+#
+#     bug  documentation  duplicate  enhancement
+#     good first issue  help wanted  invalid  question  wontfix
+#
+# Before adding a `labels:` value to a form below, create the label in the
+# repository first — otherwise the form looks correct and quietly applies
+# nothing.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Get my plugin listed in the Astra store
+    url: https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml
+    about: >-
+      For a plugin that is not in the catalogue yet. Listing requests belong in
+      the astra-registry repository, and they must be opened through its
+      template — an issue without the `listing` label starts no automation and
+      gets no reply. Run `astra-plugin publish` and it opens this form prefilled
+      for you.
+
+  - name: Tell the registry about a new release of a plugin already listed
+    url: https://github.com/mihailinl/astra-registry/issues/new?template=release-ping.yml
+    about: >-
+      Not the listing form. This one carries no `listing` label and needs none:
+      an unlabelled ping is honoured only for a repository already in the
+      catalogue, which is why it needs no authority. `astra-plugin publish
+      --notify` opens it prefilled.
+
+  - name: Report a listed plugin, or appeal a decision about one
+    url: https://github.com/mihailinl/astra-registry/issues/new/choose
+    about: >-
+      A plugin in the catalogue that is not what it says it is, or a yank,
+      delist, deprecation or revocation you think is wrong. Both have their own
+      form there — Report a listed plugin, and Appeal a decision about a listed
+      plugin. Do not route either through the listing form.
+
+  - name: How do I write a plugin?
+    url: https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/2-tutorial/getting-started.md
+    about: >-
+      The tutorial, the SDK guides and the generated reference for the CLI, the
+      manifest and the protocol. Read this before opening a question.
+
+  # The `#security` anchor is real: `CONTRIBUTING.md` carries a `## Security`
+  # heading, which GitHub slugs to `#security`. Both this file and that one
+  # reach the default branch in the same change, so the link resolves as soon as
+  # anything can render it — contact_links are only ever read off the default
+  # branch.
+  #
+  # KNOWN GAP, and it is not this file's to close: that section says "contact
+  # the maintainers privately" and names no channel. There is no SECURITY.md,
+  # no security@ address, and GitHub private vulnerability reporting is DISABLED
+  # on both repositories (`gh api repos/mihailinl/AstraPlugins/private-vulnerability-reporting`
+  # → `{"enabled":false}`; the registry answers the same). Turn that on, or add
+  # an address to CONTRIBUTING.md §Security, and then point this link at it.
+  # Until one of those happens a reporter is told what not to do and not what to
+  # do, so do not add an advisory URL here before the setting is on: the button
+  # it names is not shown to anyone but a maintainer.
+  - name: A security vulnerability
+    url: https://github.com/mihailinl/AstraPlugins/blob/master/CONTRIBUTING.md#security
+    about: >-
+      Do not open a public issue for a vulnerability in Astra, the daemon, the
+      registry or the signing chain. That page says what to do instead, and what
+      the trust model does and does not promise today.

@@ -5,30 +5,120 @@ plugin for Astra.
 
 Repository: <https://github.com/mihailinl/AstraPlugins>
 
-## Installing today
+## Install
 
-**Not on crates.io.** `index.crates.io` has no entry for `astra-plugin-cli`, so
-`cargo install astra-plugin-cli` fails. Build it from this repository:
+The crate is `astra-plugin-cli`; the binary it installs is **`astra-plugin`**.
+
+**Today, building from source is the only way to get it.** There are no
+releases yet — verified: `gh release list --repo mihailinl/AstraPlugins` prints
+nothing and no `cli-v*` tag exists — and the crate is not on crates.io either
+(`https://index.crates.io/as/tr/astra-plugin-cli` answers `404`). So you need a
+Rust toolchain. The release automation that will end that is in this repository
+already, at `.github/workflows/release-cli.yml`; **[Prebuilt
+binaries](#prebuilt-binaries--from-the-first-cli-v-tag-onward)** below describes
+what it will publish, and applies from the first `cli-v` tag onward, not before.
+
+### From source (the only path that works today)
+
+You need Rust **1.85 or newer** (`edition = "2024"`), and `protoc` on PATH — the
+crate depends on `astra-plugin-sdk`, whose `build.rs` compiles
+`proto/plugin.proto` with tonic-build and shells out to a real `protoc`.
+
+One line, no clone:
 
 ```bash
-git clone -b feat/plugin-production https://github.com/mihailinl/AstraPlugins
-cargo install --path AstraPlugins/astra-plugin-cli
-astra-plugin --version          # must print 0.2.0
+cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked
+astra-plugin --version
 ```
 
-> **The branch matters.** A bare `git clone` checks out the default branch,
-> where this crate is **0.1.3** and its whole command set is `create`, `dev`,
-> `build`, `validate`, `keygen` — none of the commands in the table below exist
-> there. Verified with `git show master:astra-plugin-cli/src/main.rs`.
-> `feat/plugin-production` is not pushed yet (`git ls-remote origin`), so for
-> now this means a local checkout of that branch. Delete this note once it is
-> the default.
+Or from a clone, if you want to read the CLI as well as run it:
 
-Verified against this checkout. The crate is `astra-plugin-cli`; the binary it
-installs is **`astra-plugin`**. `edition = "2024"`, so Rust 1.85 or newer, and
-`protoc` must be on PATH — the crate depends on `astra-plugin-sdk`, whose
-`build.rs` compiles `proto/plugin.proto` with tonic-build and calls an external
-`protoc`.
+```bash
+git clone https://github.com/mihailinl/AstraPlugins
+cargo install --path AstraPlugins/astra-plugin-cli --locked
+astra-plugin --version
+```
+
+Both build whatever `master` carries when you run them, so the version they
+print is that commit's, not one you picked. `master`'s `Cargo.toml` currently
+says `0.2.0` even though this crate's newest changelog entry is `0.2.1` — the
+version is bumped on the branch that will release it, so do not treat the number
+as a health check. What matters is the fix commit `5b8ab22`: any `master` build
+has it. To confirm, run `astra-plugin init-ci` and read the SHA it pins —
+`e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is right,
+`dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
+and is the bug that broke first releases.
+
+**`cargo install astra-plugin-cli` does not work**, and will not until the
+manifest crate this one parses `plugin.toml` with is published. `plugin.toml` is
+parsed by the daemon's own `astra-plugin-manifest`, vendored into
+`vendor/astra-plugin-manifest/` (see [below](#where-the-manifest-types-come-from)
+for why), and cargo does not package a path dependency's source — verified with
+`cargo package --list`, in which `vendor/` does not appear. So the published
+tarball would name a crate that is not on crates.io.
+
+### Prebuilt binaries — from the first `cli-v` tag onward
+
+**None of this applies yet.** It describes what
+`.github/workflows/release-cli.yml` publishes once a `cli-v<version>` tag is
+pushed; until then <https://github.com/mihailinl/AstraPlugins/releases> is
+empty, and every command below would 404. Check the releases page before
+following any of it.
+
+Once a release exists it is tagged `cli-v<version>` and carries five files on a
+public repository — the three archives, their digests, and the attestation
+bundle (a private or internal fork cannot publish to the transparency log, so it
+gets four):
+
+| Asset | For |
+|---|---|
+| `astra-plugin-<version>-linux-x64-musl.tar.gz` | **Any x86-64 Linux.** Statically linked, no libc requirement. Take this one if unsure. |
+| `astra-plugin-<version>-linux-x64-gnu.tar.gz` | x86-64 Linux with glibc **2.39 or newer** (Ubuntu 24.04+), built against the same libc as the Astra daemon |
+| `astra-plugin-<version>-windows-x64.zip` | Windows x86-64 |
+| `SHA256SUMS.txt` | The digest of each of the three |
+| `astra-plugin-<version>.sigstore.jsonl` | The build attestation, for verifying offline or from a mirror |
+
+Each archive holds the binary plus `LICENSE`, `NOTICE` and this README, under a
+single top-level directory named after the archive.
+
+Linux:
+
+```bash
+V=<version>        # the tag is cli-v$V — see the releases page
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v$V/astra-plugin-$V-linux-x64-musl.tar.gz
+tar -xzf astra-plugin-$V-linux-x64-musl.tar.gz
+sudo install -m 0755 astra-plugin-$V-linux-x64-musl/astra-plugin /usr/local/bin/astra-plugin
+astra-plugin --version          # astra-plugin $V
+```
+
+Swap `-musl` for `-gnu` if you would rather have the glibc build. The musl one
+is static, so it runs on Debian 12, Ubuntu 22.04, RHEL 9 and Amazon Linux 2023,
+none of which have the glibc 2.39 the `-gnu` archive needs.
+
+Windows (PowerShell):
+
+```powershell
+$V = "<version>"
+Invoke-WebRequest -Uri "https://github.com/mihailinl/AstraPlugins/releases/download/cli-v$V/astra-plugin-$V-windows-x64.zip" -OutFile astra-plugin.zip
+Expand-Archive astra-plugin.zip -DestinationPath $HOME\astra-plugin
+$env:Path += ";$HOME\astra-plugin\astra-plugin-$V-windows-x64"
+astra-plugin --version
+```
+
+That `$env:Path` line lasts for the session. To keep it, add the same directory
+under **Settings → System → About → Advanced system settings → Environment
+Variables**.
+
+Checking what you downloaded:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+gh attestation verify astra-plugin-<version>-linux-x64-musl.tar.gz --repo mihailinl/AstraPlugins
+```
+
+The attestation names the repository, workflow and commit the archive was built
+from, over the sha256 of the whole file. It proves where the file came from. It
+does not prove the code is safe.
 
 There is **no `astra-plugin login`**. Nothing here holds a credential or uploads
 a file — see [Release](#release) below for why that is a design choice rather
@@ -125,9 +215,9 @@ submission carries only `owner/repo` and a tag — which is exactly why it can b
 a URL you open in a browser you are already signed in to, rather than a token
 this program would have to be trusted with.
 
-**The registry repository does not exist yet.** `publish` targets
-`mihailinl/astra-registry`, which returns 404 today. `--dry-run` is fully
-useful now; the submission URL is not.
+`publish` targets `mihailinl/astra-registry`, which is public and open for
+submissions. (An earlier note here said that repository returned 404. It does
+not — checked with `gh repo view mihailinl/astra-registry`.)
 
 ## About `sign` and `keygen`
 
@@ -152,6 +242,30 @@ an error that names the correct key.
 `astra-plugin test` reuses `astra_plugin_sdk::testing::MockDaemon` — the same
 service, the same session-token gate, the same permission gate the SDK's own
 `WireHarness` runs against — rather than a second mock that could drift.
+
+## Releasing this CLI (maintainers)
+
+`.github/workflows/release-cli.yml` builds and publishes every binary above. A
+tag is the whole process:
+
+```bash
+# set version = "0.2.2" in astra-plugin-cli/Cargo.toml
+git commit -am "cli 0.2.2"
+git tag cli-v0.2.2 && git push origin cli-v0.2.2
+```
+
+The `cli-` prefix is not decoration: this repository also releases plugins under
+`v*` and SDKs under their own tags, so `v0.2.2` is already taken.
+
+The tag must match `astra-plugin-cli/Cargo.toml`, and the workflow asserts that
+before it builds anything — then asserts a third time that the binary it is
+about to archive answers `--version` with the same number. 0.2.0 shipped a
+broken `init-ci`, the fix shipped, and `astra-plugin --version` said `0.2.0` on
+both sides of it; that is the failure those three checks exist to end.
+
+Read the header comment in that file before the first run — it lists the one
+secret a maintainer has to create (`CARGO_REGISTRY_TOKEN`, for crates.io only)
+and why the crates.io step is inert until the manifest crate is published.
 
 ## License
 

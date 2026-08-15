@@ -62,8 +62,10 @@ astra-plugin-sdk = "0.6"
 # not to have. Adding serde yourself is still supported — do that and
 # `use serde::Deserialize;` shadows the prelude's name.
 #
-# Developing against an unreleased SDK? Swap the line above for one of these:
-#   astra-plugin-sdk = {{ git = "https://github.com/mihailinl/AstraPlugins", branch = "main" }}
+# Developing against an unreleased SDK? Swap the line above for one of these.
+# The branch is `master` — AstraPlugins has no `main`, and cargo's error for a
+# branch that does not exist on the remote reads like the repository moved:
+#   astra-plugin-sdk = {{ git = "https://github.com/mihailinl/AstraPlugins", branch = "master" }}
 #   astra-plugin-sdk = {{ path = "../AstraPlugins/astra-plugin-sdk" }}
 "#
     )

@@ -1,8 +1,8 @@
 # `docs/tools` — the three checks that keep the docs honest
 
 `doctest.py` proves the **samples** are true. `linkcheck.py` proves the
-**navigation** is. `mirror.py` proves `docs/ru` still covers what §7.4 says it
-covers. All three run in the `docs (samples execute)` job in
+**navigation** is. `mirror.py` proves the six translations still carry
+English's pages and English's samples. All three run in the `docs (samples execute)` job in
 `.github/workflows/ci.yml`.
 
 <!-- doctest: cli -->
@@ -14,7 +14,7 @@ python3 docs/tools/doctest.py --only rust-plugin,ts-plugin
 python3 docs/tools/doctest.py docs/en/2-tutorial
 python3 docs/tools/linkcheck.py               # every relative link resolves
 python3 docs/tools/linkcheck.py docs/ru       # one subtree
-python3 docs/tools/mirror.py                  # docs/ru covers the written tier, exactly
+python3 docs/tools/mirror.py                  # every locale carries en's pages and en's samples
 astra-plugin --version
 ```
 
@@ -59,8 +59,27 @@ use astra_plugin_sdk::prelude::*;
 
 | Runner | Required attribute |
 |---|---|
-| `output` | `from="<the command that produced it>"` |
+| `output` | `from="<the command that produced it>"` — and it must be a *command*, not a description of one |
 | `illustrative` | `reason="<why it cannot run>"`, at least twelve characters |
+
+`output` is only half a non-runner. When `from=` is an `astra-plugin` line the
+harness can answer on its own — `--version`, `--help`, `<subcommand> --help` —
+the command **is** run and the block is diffed against what it prints, with
+`<lower-case-placeholders>` matching anything. `<COMMAND>` and the other clap
+metavariables are upper-case and stay literal.
+
+When `from=` names something this harness will not run — it needs a project, a
+daemon, the network, a particular machine — the block must also carry
+`unrun="<why, and what a reader should re-run by hand>"`. Nothing checks such a
+transcript, and the marker is where that is admitted rather than assumed. The
+summary counts the two apart, so `0 failed` never has to be read as a claim
+about a block nothing ran.
+
+This is not decoration. `run_output` used to check only that `from=` was a
+non-empty string, and a fabricated transcript rode that all the way to review:
+a block marked `from="cargo install … --root <scratch> …"` whose body said cargo
+had installed into `~/.cargo/bin`, which that command cannot print. Six
+translations carried the same block, and the gate was green for all seven.
 
 ## How `cli` blocks are checked without side effects
 
@@ -95,8 +114,9 @@ runs, so a second run costs an incremental `cargo build`.
    error whose `Display` lacked the substring the test asserted, a constructor
    taking an options object rather than a string, a property read as a method.
 
-Identical blocks are executed once: the Russian pages carry the same samples as
-the English ones, and that they are byte-identical is the point.
+Identical blocks are executed once: the translated pages carry the same samples
+as the English ones, and that they are byte-identical is the point.
+`mirror.py` enforces it — see below.
 
 ## `linkcheck.py`
 
@@ -120,18 +140,29 @@ module docstring; add to that list only with a reason of the same kind.
 
 ## `mirror.py`
 
-`docs/ru` covers `README.md`, `1-orientation/`, `2-tutorial/`, `5-publish/` and
-`6-operate/` — the written tier — and nothing else. This asserts that as a set
-equality in both directions, so a Russian page whose English original was
-deleted fails the build instead of quietly outliving it.
+Two assertions, both against `docs/en`, for each of the six translations.
+
+**The page set.** Same relative paths, in both directions, so a translated page
+whose English original was deleted fails the build instead of quietly outliving
+it — nothing will ever correct it again and a reader has no way to tell.
+
+**The samples.** The sequence of `<!-- doctest: … -->` runners on a page must
+match English, every `output` block's body must be byte-identical to its English
+original, and the `from=`, `unrun=` and `reason=` attributes must match too. A
+transcript is a machine's words, so translating one is always a mistake; the
+attributes are notes to the next editor, written in English throughout the tree.
+
+Bodies of `rust-plugin`, `python-plugin`, `ts-plugin` and `toml-manifest` blocks
+are **not** compared — they are code, `doctest.py` executes each of them in every
+language, and a comment inside one is fair to translate. Their positions are
+still compared.
+
+The second assertion exists because the first was not enough. A correction to an
+English transcript shipped with all six translations still carrying the retracted
+claim, and this tool reported "0 mismatches" — it only ever read filenames.
 
 It does **not** implement the rest of §7.4's gate ("CI fails when `docs/en/**`
-changes without a matching `docs/ru/**` touch"): that needs a base ref, and it
-blocks an English-only typo fix until somebody touches a Russian file, which is
+changes without a matching translation touch"): that needs a base ref, and it
+blocks an English-only typo fix until somebody touches six other files, which is
 a policy decision rather than a script's. The docstring says so at the point
 where a contributor would otherwise assume it is covered.
-
-The other half of that story needs no policy: `doctest.py` executes each fenced
-block once and reports the Russian copies as `identical to` their English
-original, so a sample that drifts between languages stops being deduplicated
-and shows up as a second execution.

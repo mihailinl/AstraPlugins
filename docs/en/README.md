@@ -21,14 +21,27 @@ There are two journeys here, and everything on this page belongs to one of them.
 
 ## Publishing a plugin
 
-The canonical path, and the only one users see:
+**Publishing is a tagged release that GitHub's CI builds and attests, plus one
+listing request, ever.** Pushing your source to GitHub is not publishing;
+sending someone a zip is not publishing; asking a maintainer to build your
+plugin is not publishing. The registry pins your plugin by the digest of the
+exact file a user downloads and reads GitHub's build attestation to learn which
+workflow, commit and repository produced those bytes — and a file built on your
+laptop carries neither.
+
+| | |
+|---|---|
+| **[Publishing a plugin](publishing.md)** | **The whole journey in one page: empty directory to listed plugin, every command with its output. Start here.** |
+| [Install the CLI](install-cli.md) | `astra-plugin` is not on crates.io and has no prebuilt binaries yet; this is how to get it, honestly |
+
+The three tiers of it, if you want one at a time:
 
 1. [Release with CI](5-publish/release-with-ci.md) — `astra-plugin init-ci`, then a tag. GitHub builds and attests the bundle.
 2. [Get listed](5-publish/get-listed.md) — one submission, once, ever. After that, releases are zero-touch.
 3. Users install from inside Astra, with the artifact pinned by digest.
 
-Two other ways to get a plugin onto a machine exist. Both are for developers,
-both cost something, and both say what:
+Two other ways to get a plugin onto a machine exist. **Neither is publishing.**
+Both are for developers, both cost something, and both say what:
 
 - [Install a local file](5-publish/local-install.md) — a `.astraplugin` received out of band. Four permissions are refused outright.
 - [Sideload a source directory](5-publish/sideload.md) — the authoring loop. Requires Developer Mode, runs unsigned code with your full user account.
@@ -66,11 +79,17 @@ rather than a plugin: [bundle v2](spec/bundle-v2.md) ·
 
 ## Languages
 
-English is authoritative. [Русский](../ru/README.md) covers the written pages
-and is reviewed. Five older translations — `de`, `es`, `ja`, `uk`, `zh-CN` —
-are in [`docs/community/`](../community/), last synchronised 2026-04-17, behind
-a banner saying so. They are not current and are not maintained; corrections
-are welcome anyway.
+English is authoritative. Six translations sit beside it, each a file-for-file
+mirror of these pages — same files, same headings, same order:
+
+[Deutsch](../de/README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh-CN/README.md)
+
+CI checks the shape of a translation: that it has exactly the pages `docs/en` has,
+that every link in it resolves, and that every code sample in it still runs —
+identical samples are executed once and reported as `identical to` the English
+original, so one that drifted in translation is re-run on its own merits. CI cannot check that a sentence still means what the English
+sentence meant. So English wins on any disagreement, every translated page says
+so at the top, and a correction to any of them is welcome.
 
 ## Two things the whole of this documentation is careful about
 
@@ -80,9 +99,13 @@ permissions answer *what the daemon will do when the plugin asks*. Neither
 answers what the process can do to your machine. See
 [the security model](1-orientation/security.md).
 
-**The trust chain is specified and not yet anchored.** The root keys exist and
-match on both sides; the root-signed `trust.json` that delegates to an
-index-signing key does not, so a default build has nothing to check a catalogue
-signature against, fails closed, and classifies every catalogue as unsigned.
-This is written down in [`spec/registry-index.md` §0.1](spec/registry-index.md)
-and repeated wherever it matters, rather than being quietly implied away.
+**The trust chain is anchored down to the delegation, and not yet through the
+catalogue.** The root keys exist and match on both sides, and the root-signed
+`trust.json` that delegates to an index-signing key now exists too — it verifies
+under `astra-root-2026a` and names the one reusable-workflow commit the registry
+will accept in a build attestation. What is still missing is the catalogue's own
+signature: `registry/v1/index.json` and `revocations.json` carry
+`"signatures": []`, so a default build has nothing to check, fails closed, and
+classifies every catalogue as unsigned. This is written down in
+[`spec/registry-index.md` §0.1](spec/registry-index.md) and repeated wherever it
+matters, rather than being quietly implied away.
