@@ -39,6 +39,16 @@ pub const REGISTRY_REPO: &str = "mihailinl/astra-registry";
 /// The issue template a first listing uses.
 pub const LISTING_TEMPLATE: &str = "plugin-listing.yml";
 
+/// The issue template a release ping uses.
+///
+/// Both links name a template, and neither may stop doing so. The registry sets
+/// `blank_issues_enabled: false` in `.github/ISSUE_TEMPLATE/config.yml`, so a
+/// bare `issues/new?title=…&body=…` no longer opens an editor — GitHub
+/// redirects it to `/issues/new/choose` and drops every prefilled parameter on
+/// the way. The result was an empty template picker and an author left to
+/// retype the `/release` line from memory.
+pub const RELEASE_PING_TEMPLATE: &str = "release-ping.yml";
+
 pub struct PublishOptions<'a> {
     pub path: &'a str,
     /// `owner/name`. Default: parsed from the `origin` remote.
@@ -98,9 +108,10 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
         (
             "release ping",
             format!(
-                "https://github.com/{REGISTRY_REPO}/issues/new?title={}&body={}",
+                "https://github.com/{REGISTRY_REPO}/issues/new?template={RELEASE_PING_TEMPLATE}\
+                 &title={}&command={}",
                 encode(&format!("[release] {repo} {tag}")),
-                encode(&release_ping_body(&repo, &tag, &id, &version)),
+                encode(&release_ping_command(&repo, &tag, &id, &version)),
             ),
         )
     } else {
@@ -292,20 +303,25 @@ fn warn_if_tag_is_missing(dir: &Path, tag: &str) {
 
 // ── the ping ────────────────────────────────────────────────────────────────
 
-/// The body of a release ping.
+/// What goes in the release-ping form's one field.
+///
+/// It fills the `command` textarea of `release-ping.yml` — GitHub prefills an
+/// issue form from query parameters named after each field's `id` — and not a
+/// `body=` parameter, which that form has no room for.
 ///
 /// The first line is the machine-readable part and has to be exactly that: the
-/// registry's `bot/triage.mjs` reads `/release <owner/repo> <tag>` from the
-/// first line and nothing else, so a sentence above it turns the ping into an
-/// ordinary issue nobody acts on.
-pub fn release_ping_body(repo: &str, tag: &str, id: &str, version: &str) -> String {
+/// registry's `bot/lib/notify.mjs` reads `/release <owner/repo> <tag>` from the
+/// first line a person wrote and nothing else, so a sentence above it turns the
+/// ping into an ordinary issue nobody acts on. GitHub renders a form field as
+/// `### <label>`, a blank line, then the value; `firstWrittenLine` skips
+/// exactly those two things, so the command still lands on line 1 as far as the
+/// parser is concerned. Anything *below* it is free, which is where the
+/// human-readable half goes.
+pub fn release_ping_command(repo: &str, tag: &str, id: &str, version: &str) -> String {
     format!(
         "/release {repo} {tag}\n\
          \n\
-         `{id}` {version} is released and the registry has not picked it up yet.\n\
-         \n\
-         This carries the repository and the tag and nothing else — every check runs again from \
-         scratch against the release itself, so nothing here is trusted. Sent by \
+         `{id}` {version} is released and the registry has not picked it up yet. Sent by \
          `astra-plugin publish --notify`.\n"
     )
 }
@@ -425,12 +441,23 @@ mod tests {
 
     #[test]
     fn the_ping_is_machine_readable_on_its_first_line() {
-        let body = release_ping_body("you/dice-roller", "v0.2.0", "dice-roller", "0.2.0");
+        let body = release_ping_command("you/dice-roller", "v0.2.0", "dice-roller", "0.2.0");
         assert_eq!(
             body.lines().next().unwrap(),
             "/release you/dice-roller v0.2.0",
             "the registry reads the first line and nothing else",
         );
+    }
+
+    #[test]
+    fn both_submission_links_name_a_template() {
+        // The registry disables blank issues, so a link with no `template=`
+        // lands on the chooser and GitHub discards every prefilled field. The
+        // ping link lost its title and its `/release` line that way, and the
+        // symptom — an empty template picker — does not look like a bug in this
+        // command, which is why it needs a test rather than a comment.
+        assert_eq!(LISTING_TEMPLATE, "plugin-listing.yml");
+        assert_eq!(RELEASE_PING_TEMPLATE, "release-ping.yml");
     }
 
     #[test]

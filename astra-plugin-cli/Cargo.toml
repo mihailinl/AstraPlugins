@@ -3,7 +3,19 @@ name = "astra-plugin-cli"
 # 0.2.0, not 0.1.4: `validate` became `check`, `create` became `new`, and `dev`
 # stopped self-spawning the plugin in favour of driving the daemon. Every one of
 # those breaks a script written against 0.1.x.
-version = "0.2.0"
+#
+# 0.2.1 carries two fixes and no API change: the `init-ci` annotated-tag fix
+# (5b8ab22), and `publish --notify`, whose URL now names the registry's
+# release-ping issue template — the registry disabled blank issues, and a link
+# without a `template=` is redirected to the chooser with every prefilled field
+# dropped.
+#
+# It is a version bump *because* a build cannot otherwise be told apart from a
+# broken one: 0.2.0 pinned a tag object where a commit was required, every
+# author's first release died, and `astra-plugin --version` said `0.2.0` on both
+# sides of the fix. A user reporting that bug, and a maintainer reading the
+# report, need one number that answers "which build is this".
+version = "0.2.1"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"
