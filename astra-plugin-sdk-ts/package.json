@@ -1,6 +1,6 @@
 {
   "name": "astra-plugin-sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TypeScript SDK for building Astra plugins",
   "type": "commonjs",
   "main": "./dist/index.js",
@@ -65,5 +65,10 @@
     "url": "git+https://github.com/mihailinl/AstraPlugins.git",
     "directory": "astra-plugin-sdk-ts"
   },
-  "keywords": ["astra", "plugin", "sdk", "grpc"]
+  "keywords": [
+    "astra",
+    "plugin",
+    "sdk",
+    "grpc"
+  ]
 }

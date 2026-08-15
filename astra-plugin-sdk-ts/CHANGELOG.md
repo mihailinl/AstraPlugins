@@ -15,7 +15,41 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.5.0] — unreleased
+## [0.6.0] — unreleased
+
+A trigger a plugin fires from inside a call now names the call that caused it.
+
+A plugin action runs inside a command run the user started by typing. When the
+plugin fires a trigger, that starts a second run — and until now the second run
+had no idea what caused it, so its output was filed into a fresh conversation
+the user never saw. With two chats driving one plugin at once, nothing on the
+wire told them apart.
+
+The daemon mints a lease when it calls into a plugin and carries it as
+`x-astra-cause`; the SDK echoes it back when the plugin fires. Nothing here
+invents a value, and nothing sends the key when it was not handed one.
+
+### Added
+- `fireTriggerCausedBy` on the host client, and the cause carried through the
+  call context.
+- Generated limits for the invocation lease.
+
+### Compatibility
+
+Non-breaking, and deliberately so. `PROTOCOL_VERSION` is unchanged at `1` — a
+bump would make the daemon refuse every already-published plugin. Existing
+code compiles and runs untouched: `examples/dice-roller` does not change by one
+character. A plugin built against an older SDK simply drops the cause, and the
+daemon treats absent, unknown, expired and exhausted the same way — the event
+becomes a root event rather than an error. **Correct but unattributed, never
+wrong.**
+
+Retiring next release, named here so nobody meets it as silence: the event
+types `tts_request`, `tts_stream_start`, `tts_stream_chunk`, `tts_stream_end`
+and `stop_speaking`. The daemon validates a manifest's `event_types` at
+registration against the live set and answers a retired one by name.
+
+## [0.5.0] — 2026-08-11
 
 Breaking. **Every 0.4.0 plugin is broken against the current daemon** — the
 0.4.0 clients pass no `grpc.Metadata`, so every host RPC but `Register` comes

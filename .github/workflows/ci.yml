@@ -2148,11 +2148,33 @@ jobs:
           check(not artifacts, "C10 no build artifacts are tracked", repr(artifacts))
 
           # ── C11  the CLI's SDK pins accept the SDKs in this tree ───────────
-          # The templates pin released versions. Until release-sdks.yml has run,
-          # none of those versions exists on a registry — but the pin must at
-          # least be satisfiable BY WHAT WILL BE PUBLISHED, or the first release
-          # ships a scaffold that cannot resolve. scaffold-roundtrip proves the
-          # build; this proves the arithmetic, and names the file to edit.
+          # A scaffold resolves its pin against a REGISTRY, so the pin must name
+          # a version that exists there. scaffold-roundtrip proves the build;
+          # this proves the arithmetic, and names the file to edit.
+          #
+          # There is a window where the in-tree version is deliberately AHEAD of
+          # the pin: between the version bump and the publish. The bump lands
+          # first so a git-built SDK reports a version distinguishable from the
+          # released one; the template cannot be repinned until the publish, or
+          # `a fresh scaffold builds from the published SDKs` resolves a version
+          # no registry has. Both checks are right; only the window makes them
+          # look contradictory.
+          #
+          # So C11 asks the CHANGELOG, which already records which versions are
+          # out. A pin may lag the tree ONLY while the tree's version is still
+          # `unreleased` there, and only if it accepts the newest DATED version.
+          # The moment that heading gets its date, the pin must accept the new
+          # version — so forgetting the post-publish repin fails here rather
+          # than in an author's first `astra-plugin new`.
+          def changelog_versions(path: str) -> tuple[set[str], list[str]]:
+              """(versions marked unreleased, released versions newest-first)."""
+              unreleased, released = set(), []
+              for m in re.finditer(r"^## \[([^\]]+)\]\s*[—-]\s*(.+)$",
+                                   read(path), re.M):
+                  ver, when = m.group(1), m.group(2).strip().lower()
+                  (unreleased.add(ver) if when.startswith("unreleased")
+                   else released.append(ver))
+              return unreleased, released
           def cargo_caret(req: str, v: tuple[int, int, int]) -> bool:
               parts = [int(x) for x in req.split(".")]
               lo = tuple(parts + [0] * (3 - len(parts)))
@@ -2175,21 +2197,40 @@ jobs:
               return True
 
           tup = lambda s: tuple(int(x) for x in s.split("-")[0].split(".")[:3])
-          for name, tmpl, pat, ver, sat in (
+          for name, tmpl, pat, ver, sat, chlog in (
               ("rust", "astra-plugin-cli/src/templates/rust.rs",
-               r'astra-plugin-sdk = "([^"]+)"', rust_v, cargo_caret),
+               r'astra-plugin-sdk = "([^"]+)"', rust_v, cargo_caret,
+               "astra-plugin-sdk/CHANGELOG.md"),
               ("python", "astra-plugin-cli/src/templates/python.rs",
-               r'"?astra-plugin-sdk(>=[^"\n,]+(?:,<[^"\n]+)?)"?', py_pyproject, pep_range),
+               r'"?astra-plugin-sdk(>=[^"\n,]+(?:,<[^"\n]+)?)"?', py_pyproject, pep_range,
+               "astra-plugin-sdk-python/CHANGELOG.md"),
               ("ts", "astra-plugin-cli/src/templates/typescript.rs",
-               r'"astra-plugin-sdk": "([^"]+)"', ts_v, npm_caret),
+               r'"astra-plugin-sdk": "([^"]+)"', ts_v, npm_caret,
+               "astra-plugin-sdk-ts/CHANGELOG.md"),
           ):
               m = re.search(pat, read(tmpl))
               check(m is not None, f"C11 the {name} template still declares an SDK pin", tmpl)
-              if m:
-                  req = m.group(1)
-                  check(sat(req, tup(ver)),
+              if not m:
+                  continue
+              req = m.group(1)
+              unreleased, released = changelog_versions(chlog)
+              if sat(req, tup(ver)):
+                  check(True, f"C11 the {name} scaffold's pin {req!r} accepts {ver}")
+              elif ver in unreleased and released and sat(req, tup(released[0])):
+                  # The documented window. Say so out loud on every run, because a
+                  # release left half-done is the failure this branch permits.
+                  check(True,
+                        f"C11 the {name} scaffold's pin {req!r} accepts the released "
+                        f"{released[0]}; {ver} is unreleased in {chlog}")
+                  print(f"       repin {tmpl} to {ver} once it is published")
+              else:
+                  why = (f"{ver} is marked released in {chlog}, so the pin must accept it"
+                         if ver not in unreleased else
+                         f"{ver} is unreleased, but the pin does not accept the newest "
+                         f"released version either ({released[0] if released else 'none'})")
+                  check(False,
                         f"C11 the {name} scaffold's pin {req!r} accepts {ver}",
-                        f"edit {tmpl}, or the SDK version")
+                        f"{why} — edit {tmpl}, or the SDK version")
 
           print()
           if fails:
