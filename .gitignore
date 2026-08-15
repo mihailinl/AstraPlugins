@@ -14,6 +14,15 @@ dist/
 __pycache__/
 *.pyc
 
+# The two directories `.github/workflows/release-cli.yml` builds in the
+# workspace: `stage/<stem>/` is the archive's contents laid out as they ship,
+# `dist/` is the finished archive. `dist/` was already here; `stage/` was not,
+# and a local run of those steps left 11 MB of it — an unignored copy of the
+# CLI binary plus files byte-identical to tracked ones — sitting in the tree
+# where `git add -A` would have taken it, and where the docs link checker
+# scanned its README.md as if it were a real page.
+stage/
+
 # `astra-plugin test --report` output, written by CI's conformance job into the
 # workspace so the reports can be uploaded as an artifact. Never committed: it is
 # a record of one run, and a stale one in the tree would be a conformance claim

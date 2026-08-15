@@ -1,0 +1,898 @@
+name: astra-plugin CLI release
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ships `astra-plugin` as a BINARY, so getting the CLI stops requiring a Rust
+# toolchain.
+#
+# Today the only way to obtain it is `cargo install --path` or `--git` from a
+# clone. That asks a plugin author to install Rust before they can scaffold a
+# Python or TypeScript plugin, and two authors have already routed around the
+# CLI rather than do it. Worse, a from-source install has no version identity a
+# bug report can name: 0.2.0 shipped a broken `init-ci`, the fix landed, and
+# `astra-plugin --version` said `0.2.0` on both sides of it.
+#
+# A tag is the whole release process:
+#
+#     # in astra-plugin-cli/Cargo.toml, set version = "0.2.2"
+#     git commit -am "cli 0.2.2"
+#     git tag cli-v0.2.2 && git push origin cli-v0.2.2
+#
+# The `cli-` prefix exists because this repository already releases plugins and
+# SDKs under their own tag namespaces. `v0.2.2` is not free.
+#
+# ── WHAT THE MAINTAINER MUST CREATE BEFORE THE FIRST RUN ───────────────────
+#
+# For the BINARIES: nothing. The `GITHUB_TOKEN` this workflow is handed is
+# enough to create the Release, attest the archives and upload them.
+#
+# For CRATES.IO, one repository secret:
+#
+#     Settings → Secrets and variables → Actions → New repository secret
+#     Name:  CARGO_REGISTRY_TOKEN
+#     Value: a crates.io API token with `publish-update` scoped to
+#            `astra-plugin-cli` (crates.io → Account Settings → API Tokens)
+#
+# While that secret does not exist the `crates-io` job runs, says so, and stops.
+# It is deliberately NOT gated with `if: ${{ secrets.X != '' }}` — the secrets
+# context is unavailable in an `if`, and GitHub rejects such a workflow at parse
+# time, so the whole file would fail to load. The gate is a job-level `env:`
+# hoist plus a step that tests the environment variable, which is the supported
+# shape.
+#
+# ── KNOWN BLOCKER ON THE CRATES.IO LEG (the binaries are unaffected) ────────
+#
+# `cargo publish` cannot succeed for this crate today, with or without the
+# token. Verified on 2026-08-15 with `cargo publish --dry-run` at 0.2.1:
+#
+#     error: failed to verify manifest at `astra-plugin-cli/Cargo.toml`
+#     Caused by:
+#       all dependencies must have a version requirement specified when
+#       publishing. dependency `astra-plugin-manifest` does not specify a
+#       version
+#
+# `astra-plugin-manifest` is a deliberately VENDORED copy of the daemon's crate
+# (see `astra-plugin-cli/vendor/astra-plugin-manifest/Cargo.toml`), and it is not
+# on crates.io. Adding a version requirement here would not fix it: `cargo
+# package --list` shows `vendor/` is not in the published tarball at all — cargo
+# never packages a path dependency's source — so the failure would only move to
+# the upload, where the crate it names does not exist to depend on.
+#
+# The fix is upstream's call, and it is one of two: publish
+# `astra-plugin-manifest` from `Astra/astra-rs` (it is MPL-2.0 and already
+# self-contained), or fold its source into this crate as a module and drop the
+# dependency. Until one of those happens, leave `CARGO_REGISTRY_TOKEN` unset.
+# The binary archives below are the supported install path and none of this
+# touches them.
+#
+# ── WHY FOUR JOBS, AND WHY THE SPLIT IS EXACTLY HERE ───────────────────────
+#
+# The same rule `plugin-release.yml` is built on: the job that runs code must
+# not hold a write token. `cargo build` executes the `build.rs` of every
+# dependency in the graph — `prost-build`, `tonic-build`, `ring` and the rest —
+# which is arbitrary code from crates.io running on the runner. `build` is
+# therefore `permissions: {contents: read}` and is handed no secrets at all.
+#
+# `plan` and `publish` hold the write token and run no third-party code. `plan`
+# reads `Cargo.toml` as DATA with a TOML parser. `publish` moves bytes that
+# `build` produced and never executes one of them.
+#
+# `crates-io` is last, after the binaries exist and the Release is out, because
+# a crates.io publish is IRREVERSIBLE: a version can be yanked but never
+# replaced or deleted. A failed build must never leave a half-released version
+# that can only be apologised for.
+#
+# ── WHY THERE ARE TWO LINUX ARCHIVES ───────────────────────────────────────
+#
+# Astra's own release matrix is `linux-x64` on ubuntu-24.04 with a declared
+# glibc floor of 2.39, and this workflow matches it — but that floor is an
+# argument about the machines Astra RUNS on, and this binary runs on the
+# machines plugin authors DEVELOP on. glibc 2.39 is Ubuntu 24.04 and newer. It
+# excludes Ubuntu 22.04 LTS (2.35), Debian 12 stable (2.36), RHEL/Alma/Rocky 9
+# (2.34) and Amazon Linux 2023 (2.34) — a large share of the developer machines
+# and CI images that would want this tool, all of which would get
+# `GLIBC_2.39 not found` and no way forward but installing Rust, which is the
+# exact problem this file exists to remove.
+#
+# So the Linux legs are:
+#
+#   linux-x64-musl   x86_64-unknown-linux-musl, statically linked, no libc
+#                    requirement at all. THE ONE TO TAKE IF UNSURE.
+#   linux-x64-gnu    x86_64-unknown-linux-gnu on ubuntu-24.04, matching Astra's
+#                    matrix exactly, for anyone who wants the same libc the
+#                    daemon is built against.
+#
+# musl's costs are real and they are all irrelevant here: its allocator is
+# slower under threaded churn (this is a CLI that runs for a second), and a
+# static binary cannot dlopen NSS, so `getaddrinfo` sees only /etc/hosts and DNS
+# (this CLI's only network client is gRPC to an IP literal — 127.0.0.1:32000,
+# read from `<config>/daemon.port`). Verified locally: the musl build links
+# static-pie with no dynamic dependency, and runs.
+#
+# NOTE there is no bare `linux-x64` asset, on purpose. `astra-plugin build
+# --target linux-x64` already means "a plugin bundle for Astra's glibc runtime",
+# and reusing that exact string for a workstation download with a different libc
+# would be one word meaning two things. Both Linux assets name their libc.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      # Deliberately a loose glob with a strict assertion behind it. A narrow
+      # glob that a typo'd tag misses is a push that silently does nothing and
+      # a maintainer waiting on a run that will never start; `cli-v0.2.2.1`
+      # gets caught in `plan` and says what is wrong with it.
+      - "cli-v*"
+
+# The default for every job. `plan` and `publish` raise their own.
+permissions:
+  contents: read
+
+concurrency:
+  # Per tag, and never cancelled: half of a published Release is worse than a
+  # queued run.
+  group: astra-plugin-cli-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # PLAN — assert the tag against Cargo.toml, name every asset, open the draft.
+  #
+  # This runs before anything is built, which is the entire point. The failure
+  # this prevents is a tag that says 0.2.2 over a crate that says 0.2.1: the
+  # archives would be named for a version the binary inside them does not
+  # report, and the next bug report would name a build nobody can identify.
+  # ───────────────────────────────────────────────────────────────────────────
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      tag: ${{ steps.parse.outputs.tag }}
+      matrix: ${{ steps.parse.outputs.matrix }}
+      assets: ${{ steps.parse.outputs.assets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assert the tag matches Cargo.toml, and plan the matrix
+        id: parse
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          TAG_PREFIX: "cli-v"
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys, tomllib
+
+          fail = []
+          crate = "astra-plugin-cli"
+
+          with open(f"{crate}/Cargo.toml", "rb") as fh:
+              data = tomllib.load(fh)
+
+          pkg = data.get("package") or {}
+          name = str(pkg.get("name", ""))
+          ver = str(pkg.get("version", ""))
+
+          # The asset names below are built from the BINARY name, not the crate
+          # name, because that is what a user types. They differ here
+          # (`astra-plugin-cli` ships `astra-plugin`) and a rename of either
+          # would otherwise produce archives full of a binary that is not the
+          # one the filename promises.
+          bins = data.get("bin") or []
+          binname = str(bins[0].get("name", "")) if bins else ""
+
+          if name != crate:
+              fail.append(f"[package].name is '{name}', expected '{crate}'")
+          if binname != "astra-plugin":
+              fail.append(f"[[bin]].name is '{binname}', expected 'astra-plugin'")
+
+          SEMVER = (
+              r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+              r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+              r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
+          )
+          if not re.fullmatch(SEMVER, ver):
+              fail.append(f"{crate} version '{ver}' is not semver (e.g. 1.2.3, 1.2.3-rc.1)")
+
+          prefix = os.environ["TAG_PREFIX"]
+          want = f"{prefix}{ver}"
+          tag = os.environ["REF_NAME"]
+          if os.environ["REF_TYPE"] != "tag":
+              fail.append(
+                  f"this workflow runs on a tag push; got {os.environ['REF_TYPE']} '{tag}'"
+              )
+          elif tag != want:
+              # The `cli-v*` glob is loose on purpose, so this is where a
+              # mistyped tag lands. Telling someone whose tag reads
+              # `cli-v0.2.2.1` to "set version = 0.2.2.1" would be advice that
+              # cannot be taken, so the two cases are separated: a tag that is
+              # not a version at all, and a tag that is a different version.
+              typed = tag[len(prefix):] if tag.startswith(prefix) else ""
+              if not re.fullmatch(SEMVER, typed):
+                  fail.append(
+                      f"tag '{tag}' is not a release tag for this CLI. It must read "
+                      f"'{prefix}<semver>' — this crate is at {ver}, so '{want}'."
+                  )
+              else:
+                  fail.append(
+                      f"tag '{tag}' does not match {crate}/Cargo.toml — expected '{want}'. "
+                      f"Either set version = \"{typed}\" in {crate}/Cargo.toml and "
+                      f"re-tag, or delete this tag and push '{want}'."
+                  )
+
+          # `--locked` in every build step is a promise this file has to be able
+          # to keep. Without a lockfile in the crate it is an error, not a
+          # resolve, and every leg would fail identically after minutes of setup.
+          if not os.path.isfile(f"{crate}/Cargo.lock"):
+              fail.append(
+                  f"{crate}/Cargo.lock is missing, and every build here runs "
+                  "--locked. Commit the lockfile: a released binary must be "
+                  "reproducible from the tag alone."
+              )
+
+          if fail:
+              for f in fail:
+                  print(f"::error::{f}")
+              sys.exit(1)
+
+          # target       the string in the asset name, and how a human picks
+          # runner       must stay in step with Astra's own release matrix
+          # rust-target  the actual rustc triple
+          # archive      tar.gz on Linux, zip on Windows: what each platform's
+          #              default double-click and default one-liner understand
+          legs = [
+              {
+                  "target": "linux-x64-musl",
+                  "runner": "ubuntu-24.04",
+                  "rust-target": "x86_64-unknown-linux-musl",
+                  "archive": "tar.gz",
+              },
+              {
+                  "target": "linux-x64-gnu",
+                  "runner": "ubuntu-24.04",
+                  "rust-target": "x86_64-unknown-linux-gnu",
+                  "archive": "tar.gz",
+              },
+              {
+                  "target": "windows-x64",
+                  "runner": "windows-2022",
+                  "rust-target": "x86_64-pc-windows-msvc",
+                  "archive": "zip",
+              },
+          ]
+
+          for leg in legs:
+              leg["exe"] = binname + (".exe" if leg["target"].startswith("windows") else "")
+              # `astra-plugin-0.2.1-linux-x64-musl.tar.gz`. Sortable, greppable,
+              # and every field a downloader needs is in the name: tool,
+              # version, platform, libc.
+              leg["stem"] = f"{binname}-{ver}-{leg['target']}"
+              leg["asset"] = f"{leg['stem']}.{leg['archive']}"
+
+          out = {
+              "version": ver,
+              "tag": tag,
+              "matrix": json.dumps({"include": legs}, separators=(",", ":")),
+              "assets": json.dumps([leg["asset"] for leg in legs], separators=(",", ":")),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              for k, v in out.items():
+                  fh.write(f"{k}={v}\n")
+
+          print(f"{crate} {ver}  →  {tag}")
+          for leg in legs:
+              print(f"leg  {leg['target']:<15} {leg['runner']:<14} {leg['asset']}")
+          PY
+
+      # Draft, so the assets are never visible half-uploaded. `publish` flips it
+      # live once every file is attached. `--verify-tag` refuses to invent a
+      # Release for a tag that is not really in the repository.
+      - name: Create the draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.parse.outputs.tag }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Reuse only a DRAFT. The draft is the property this step exists to
+            # provide — `publish` uploads four or five files one at a time and
+            # then un-drafts, so on an already-published Release those files
+            # appear one by one on a page people can already see, which is the
+            # half-uploaded state the comment above promises cannot happen.
+            # A published Release at this tag is a human's doing or a previous
+            # run's leftover, and either way overwriting it is not this
+            # workflow's call to make.
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "::error::Release $TAG already exists and is NOT a draft."
+              echo "::error::Refusing to publish into a live Release. Delete it (gh release delete $TAG) or pick a new version."
+              exit 1
+            fi
+            echo "Draft Release $TAG already exists — reusing it."
+            exit 0
+          fi
+          notes=$(cat <<EOF
+          \`astra-plugin\` $VERSION — the CLI for developing Astra plugins, built by
+          GitHub Actions from \`${GITHUB_SHA}\`.
+
+          ### Install
+
+          No Rust toolchain required.
+
+          **Linux** — take the \`musl\` archive if you are unsure; it is statically
+          linked and runs on any x86-64 Linux. The \`gnu\` archive is built on
+          Ubuntu 24.04 and needs glibc 2.39 or newer.
+
+          \`\`\`bash
+          curl -fsSLO https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/astra-plugin-$VERSION-linux-x64-musl.tar.gz
+          tar -xzf astra-plugin-$VERSION-linux-x64-musl.tar.gz
+          sudo install -m 0755 astra-plugin-$VERSION-linux-x64-musl/astra-plugin /usr/local/bin/astra-plugin
+          astra-plugin --version    # astra-plugin $VERSION
+          \`\`\`
+
+          **Windows** (PowerShell) — unzip and put the folder on your PATH:
+
+          \`\`\`powershell
+          Invoke-WebRequest -Uri https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/astra-plugin-$VERSION-windows-x64.zip -OutFile astra-plugin.zip
+          Expand-Archive astra-plugin.zip -DestinationPath \$HOME\astra-plugin
+          \$env:Path += ";\$HOME\astra-plugin\astra-plugin-$VERSION-windows-x64"
+          astra-plugin --version
+          \`\`\`
+
+          ### Verify what you downloaded
+
+          \`SHA256SUMS.txt\` lists every archive's digest:
+
+          \`\`\`bash
+          sha256sum -c SHA256SUMS.txt --ignore-missing
+          \`\`\`
+
+          Each archive is also attested — the attestation names this repository,
+          this workflow and this commit, over the sha256 of the whole file:
+
+          \`\`\`bash
+          gh attestation verify astra-plugin-$VERSION-linux-x64-musl.tar.gz --repo ${GITHUB_REPOSITORY}
+          \`\`\`
+
+          An attestation proves where a file came from. It does not prove the code
+          is safe.
+
+          Every archive also carries \`LICENSE\` and \`NOTICE\`: this tool is
+          GPL-3.0-or-later, and redistributing it means keeping both.
+          EOF
+          )
+
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "astra-plugin $VERSION" \
+            --notes "$notes"
+          echo "Created draft Release $TAG"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # BUILD — one leg per target. Runs third-party build.rs code, holds no token.
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.target }})
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      # One platform failing should still show you the state of the others; the
+      # draft Release stays a draft either way, because `publish` demands the
+      # complete set.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        # Git Bash on the Windows runner, so one script shape works everywhere.
+        shell: bash
+    env:
+      # Astra's declared floor. Asserted rather than assumed: if this workflow's
+      # runner is ever bumped past ubuntu-24.04, the glibc leg would quietly
+      # start requiring a newer libc than the daemon does, and the first person
+      # to find out would be an author on a stable distro.
+      GLIBC_FLOOR_MAX: "2.39"
+      VERSION: ${{ needs.plan.outputs.version }}
+      RUST_TARGET: ${{ matrix.rust-target }}
+      EXE: ${{ matrix.exe }}
+      STEM: ${{ matrix.stem }}
+      ASSET: ${{ matrix.asset }}
+      # A release build has nothing to gain from incremental compilation and
+      # something to lose: it is the one input that makes the same source
+      # produce different object code run to run.
+      CARGO_INCREMENTAL: "0"
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      # `astra-plugin-cli` depends on `astra-plugin-sdk`, whose build.rs compiles
+      # `proto/plugin.proto` with tonic-build and shells out to a real `protoc`.
+      # Without this the build dies in a dependency with a message about a
+      # missing binary, which reads like a broken machine rather than a missing
+      # setup step. Same action and same pin as plugin-release.yml.
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ github.token }}
+
+      - name: cargo build --release --locked
+        working-directory: astra-plugin-cli
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --target "$RUST_TARGET"
+
+      # LICENSE and NOTICE ride along because they have to: this tool is
+      # GPL-3.0-or-later, and NOTICE is an additional term under section 7(b).
+      # A bare binary in a tarball is a redistribution that drops both.
+      #
+      # Staging happens BEFORE stripping, and every assertion below runs on the
+      # staged copy, for two reasons. `cargo build` hardlinks
+      # `release/<bin>` and `release/deps/<bin>-<hash>` to one inode, so
+      # stripping in place also strips the cached dependency artifact — `cp`
+      # breaks the link first. And an assertion is only worth making about the
+      # exact bytes that ship, which is this copy, after the strip.
+      - name: Stage the archive contents
+        working-directory: astra-plugin-cli
+        run: |
+          set -euo pipefail
+          bin="target/$RUST_TARGET/release/$EXE"
+          test -x "$bin" || {
+            echo "::error::cargo produced no binary at astra-plugin-cli/$bin"
+            ls -la "target/$RUST_TARGET/release" || true
+            exit 1
+          }
+          # `../stage`, not "$GITHUB_WORKSPACE/stage": on the Windows runner
+          # GITHUB_WORKSPACE is a backslash path (D:\a\repo\repo) and this step
+          # runs in Git Bash, where mixing that with forward slashes leans on
+          # MSYS path conversion for no benefit. This step's working directory
+          # is `astra-plugin-cli` and every later step runs at the workspace
+          # root, so `..` here and `stage/` there name the same directory.
+          dir="../stage/$STEM"
+          mkdir -p "$dir"
+          cp "$bin" "$dir/$EXE"
+          cp LICENSE NOTICE README.md "$dir/"
+          chmod 0755 "$dir/$EXE"
+          ls -l "$dir"
+
+      # Halves the download. objdump reads the dynamic symbol table, which
+      # survives stripping, so the glibc assertion below is unaffected.
+      - name: Strip
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          bin="stage/$STEM/$EXE"
+          before=$(stat -c%s "$bin")
+          strip "$bin"
+          after=$(stat -c%s "$bin")
+          echo "  stripped $before → $after bytes"
+
+      - name: Assert the musl build is actually static
+        if: matrix.target == 'linux-x64-musl'
+        run: |
+          set -euo pipefail
+          bin="stage/$STEM/$EXE"
+          # Without this, the two `|| true` guards below turn "objdump could not
+          # open the file" into two empty strings and the step reports a missing
+          # binary as statically linked.
+          test -f "$bin" || { echo "::error::nothing staged at $bin"; exit 1; }
+          needed=$(objdump -p "$bin" | grep -E '^\s+NEEDED' || true)
+          interp=$(objdump -p "$bin" | grep -E 'INTERP|interpreter' || true)
+          if [ -n "$needed" ] || [ -n "$interp" ]; then
+            echo "::error::the musl archive is the one that is supposed to run anywhere, and this build is dynamically linked:"
+            echo "$needed"
+            echo "$interp"
+            exit 1
+          fi
+          file "$bin"
+          echo "static: no NEEDED entry, no program interpreter"
+
+      - name: Assert the glibc floor
+        if: matrix.target == 'linux-x64-gnu'
+        run: |
+          set -euo pipefail
+          bin="stage/$STEM/$EXE"
+          max=$(objdump -T "$bin" | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
+                | sed 's/GLIBC_//' | sort -uV | tail -n1)
+          if [ -z "${max:-}" ]; then
+            echo "::error::no GLIBC_ version symbols in a glibc build — is $bin really dynamically linked?"
+            exit 1
+          fi
+          echo "  requires GLIBC_$max (floor GLIBC_$GLIBC_FLOOR_MAX)"
+          if [ "$(printf '%s\n%s\n' "$max" "$GLIBC_FLOOR_MAX" | sort -V | tail -n1)" != "$GLIBC_FLOOR_MAX" ]; then
+            echo "::error::this build needs GLIBC_$max, above Astra's floor GLIBC_$GLIBC_FLOOR_MAX."
+            echo "Either the runner image moved, or a dependency started using a newer libc."
+            exit 1
+          fi
+
+      # The last thing to touch the binary was `strip`, so this runs the file
+      # that is about to be archived, not the one cargo left in target/. It is
+      # the check that would have caught the 0.2.0 → 0.2.1 confusion: a tag, a
+      # crate version and a shipped binary that disagree.
+      - name: Assert the staged binary reports the version on the tag
+        run: |
+          set -euo pipefail
+          got=$("./stage/$STEM/$EXE" --version)
+          want="astra-plugin $VERSION"
+          echo "  stage/$STEM/$EXE --version → $got"
+          if [ "$got" != "$want" ]; then
+            echo "::error::the binary about to be archived reports '$got', but this release is '$want'"
+            exit 1
+          fi
+
+      # --sort/--owner/--group/--numeric-owner/--mtime: nothing about who built
+      # it or when should end up in the bytes. Two runs of the same commit
+      # should give the same archive.
+      - name: Archive (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar --sort=name \
+              --owner=0 --group=0 --numeric-owner \
+              --mtime='UTC 1980-01-01' \
+              -C stage -czf "dist/$ASSET" "$STEM"
+
+      # Compress-Archive rather than tar/zip: it is the one archiver guaranteed
+      # present on windows-2022, and it produces a zip that Explorer's built-in
+      # extractor opens without a third-party tool.
+      - name: Archive (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "stage/$env:STEM" -DestinationPath "dist/$env:ASSET" -CompressionLevel Optimal
+
+      # An archive step can fail after it has already created the file — a
+      # truncated `.tar.gz` is still a readable gzip stream of nothing, and the
+      # digest step downstream would hash it without complaint. These two steps
+      # open the finished archive and check that the four things it promises are
+      # really in it, which is also the only place the packaging is checked from
+      # the outside rather than from the staging directory that produced it.
+      - name: Assert the tarball contains what it promises
+        if: matrix.archive == 'tar.gz'
+        run: |
+          set -euo pipefail
+          listing=$(tar -tzf "dist/$ASSET")
+          echo "$listing"
+          for want in "$STEM/$EXE" "$STEM/LICENSE" "$STEM/NOTICE" "$STEM/README.md"; do
+            printf '%s\n' "$listing" | grep -qxF "$want" || {
+              echo "::error::$ASSET does not contain $want"
+              exit 1
+            }
+          done
+
+      - name: Assert the zip contains what it promises
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $out = Join-Path $env:RUNNER_TEMP "unpacked"
+          Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
+          Expand-Archive -Path "dist/$env:ASSET" -DestinationPath $out
+          $root = Join-Path $out $env:STEM
+          foreach ($want in @($env:EXE, "LICENSE", "NOTICE", "README.md")) {
+            $p = Join-Path $root $want
+            if (-not (Test-Path $p)) {
+              Write-Output "::error::$env:ASSET does not contain $env:STEM/$want"
+              exit 1
+            }
+            Write-Output "  $env:STEM/$want"
+          }
+          # Round-trip: the copy a Windows user actually ends up with, run.
+          $got = & (Join-Path $root $env:EXE) --version
+          $want = "astra-plugin $env:VERSION"
+          Write-Output "  unpacked --version → $got"
+          if ($got -ne $want) {
+            Write-Output "::error::the unpacked binary reports '$got', expected '$want'"
+            exit 1
+          }
+
+      - name: Digest
+        run: |
+          set -euo pipefail
+          test -f "dist/$ASSET" || { echo "::error::no archive at dist/$ASSET"; ls -la dist; exit 1; }
+          sum=$(sha256sum "dist/$ASSET" | cut -d' ' -f1)
+          size=$(stat -c%s "dist/$ASSET" 2>/dev/null || stat -f%z "dist/$ASSET")
+          echo "  $sum  $size  $ASSET"
+          echo "\`$ASSET\` — sha256 \`$sum\` ($size bytes)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PUBLISH — checksum, attest, upload, un-draft. Holds the write token, runs
+  # none of the code that was compiled above.
+  # ───────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write      # create the Release and upload assets
+      id-token: write      # mint the OIDC token that makes signing keyless
+      attestations: write  # store the attestation on GitHub
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          merge-multiple: true
+          path: dist
+
+      # The set is asserted, not globbed. `fail-fast: false` means a leg can
+      # fail while the others succeed, and a Release quietly missing the Windows
+      # zip is worse than no Release: the docs would name a file that is not
+      # there.
+      - name: Check the file set and write SHA256SUMS.txt
+        env:
+          EXPECTED: ${{ needs.plan.outputs.assets }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, sys
+
+          dist = pathlib.Path("dist")
+          expected = sorted(json.loads(os.environ["EXPECTED"]))
+          got = sorted(p.name for p in dist.iterdir() if p.is_file())
+          if got != expected:
+              print(f"::error::expected {expected}, got {got}")
+              sys.exit(1)
+
+          lines = []
+          for name in expected:
+              p = dist / name
+              h = hashlib.sha256(p.read_bytes()).hexdigest()
+              lines.append(f"{h}  {name}\n")
+              print(f"  {h}  {p.stat().st_size:>10}  {name}")
+
+          # Two spaces between digest and name: the exact format
+          # `sha256sum -c` reads, so verifying is a paste, not a procedure.
+          (dist / "SHA256SUMS.txt").write_text("".join(lines), encoding="utf-8")
+          PY
+
+      # An attestation is written to a public transparency log, which a private
+      # repository cannot do without GitHub Enterprise. Resolved rather than
+      # assumed, so a fork does not fail here.
+      - name: Resolve repository visibility
+        id: vis
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FROM_EVENT: ${{ github.event.repository.visibility }}
+        run: |
+          set -euo pipefail
+          v="${FROM_EVENT:-}"
+          if [ -z "$v" ]; then
+            v=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .visibility)
+          fi
+          case "$v" in
+            public|private|internal) ;;
+            *) echo "::error::could not determine repository visibility (got '$v')"; exit 1 ;;
+          esac
+          echo "visibility=$v" >> "$GITHUB_OUTPUT"
+          echo "repository is $v"
+
+      - name: Attest the archives
+        id: attest
+        if: steps.vis.outputs.visibility == 'public'
+        uses: actions/attest-build-provenance@v2
+        with:
+          # The archives themselves, not the binaries inside them: the file a
+          # user downloads is the file whose provenance they can check.
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+      - name: Note that no attestation was made
+        if: steps.vis.outputs.visibility != 'public'
+        env:
+          VISIBILITY: ${{ steps.vis.outputs.visibility }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### No build attestation"
+            echo
+            echo "\`${GITHUB_REPOSITORY}\` is **${VISIBILITY}**."
+            echo "Build attestations are published to a public transparency log; on a"
+            echo "private repository they require GitHub Enterprise. The archives below"
+            echo "are unattested."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach the attestation bundle
+        if: steps.attest.outputs.bundle-path != ''
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          # `gh attestation verify` fetches this from the API on its own; the
+          # copy on the Release is for verifying offline, or from a mirror.
+          cp "$BUNDLE" "dist/astra-plugin-${VERSION}.sigstore.jsonl"
+
+      - name: Upload the assets and publish the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" dist/* --clobber
+
+          # The file-set assertion above checked `dist/`, not the Release.
+          # `--clobber` overwrites a matching name but deletes nothing, so an
+          # asset that was on the draft before this run survives into the
+          # published Release — outside SHA256SUMS.txt, outside the attestation,
+          # and indistinguishable to a downloader from the files that are in
+          # both. Check the Release itself before making it visible.
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess, sys
+
+          tag = os.environ["TAG"]
+          expected = {p.name for p in pathlib.Path("dist").iterdir() if p.is_file()}
+          got = {
+              a["name"]
+              for a in json.loads(
+                  subprocess.run(
+                      ["gh", "release", "view", tag, "--json", "assets"],
+                      check=True, capture_output=True, text=True,
+                  ).stdout
+              )["assets"]
+          }
+          extra = sorted(got - expected)
+          if extra:
+              for name in extra:
+                  print(f"::error::{tag} carries `{name}`, which this run did not "
+                        "build. It is in no digest and under no attestation.")
+              print("::error::Remove it (gh release delete-asset "
+                    f"{tag} <name>) and re-run, or delete the Release.")
+              sys.exit(1)
+          print(f"{tag} carries exactly the {len(got)} planned file(s).")
+          PY
+
+          gh release edit "$TAG" --draft=false
+          echo "Published $TAG"
+          {
+            echo "### Released \`$TAG\`"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # CRATES-IO — the last gate, because it is the only irreversible one.
+  #
+  # `cargo install astra-plugin-cli` will never be the primary install path (it
+  # needs the toolchain this whole workflow exists to avoid), but it is the one
+  # people with Rust already reach for first, and an empty crates.io entry is
+  # how `astra-plugin-cli` gets squatted.
+  # ───────────────────────────────────────────────────────────────────────────
+  crates-io:
+    name: Publish to crates.io
+    needs: [plan, publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    # NOTE: `CARGO_REGISTRY_TOKEN` is deliberately NOT hoisted to this job's
+    # `env:`. A job-level secret is in the environment of every step, including
+    # the two third-party setup actions below — and `cargo publish` compiles the
+    # whole dependency graph, running every crate's `build.rs`, which is the same
+    # reason `build` above holds no secrets at all. The token is attached to
+    # exactly the three steps that need it: the gate, the dry run and the
+    # publish. Anything added between them gets it only if it is added on
+    # purpose.
+    steps:
+      - name: Is there a token?
+        id: gate
+        # THE GATE. `if: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}` is not an
+        # option: the `secrets` context does not exist in an `if`, and GitHub
+        # rejects the whole workflow file at parse time if you write one. Putting
+        # the secret in a step environment and testing the variable is the
+        # supported way to ask "has the maintainer created it yet". An absent
+        # secret expands to the empty string.
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "CARGO_REGISTRY_TOKEN is set — publishing to crates.io."
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### crates.io: skipped"
+              echo
+              echo "No \`CARGO_REGISTRY_TOKEN\` repository secret, so nothing was"
+              echo "published to crates.io. The binary archives on the Release are"
+              echo "unaffected and are the supported way to install this CLI."
+              echo
+              echo "To enable it: Settings → Secrets and variables → Actions →"
+              echo "New repository secret, named \`CARGO_REGISTRY_TOKEN\`, holding a"
+              echo "crates.io API token scoped to \`publish-update\` on"
+              echo "\`astra-plugin-cli\`. Read the KNOWN BLOCKER note at the top of"
+              echo "this file first — as of 0.2.1 the publish cannot succeed."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          persist-credentials: false
+
+      # Pinned by commit SHA, unlike the rest of this repository's workflows, and
+      # only in this job: `@stable` is a mutable *branch* on dtolnay's
+      # repository and `@v3` a mutable branch on arduino's, so whoever controls
+      # either can change what runs here. Everywhere else that costs a build;
+      # here it would run beside a live crates.io publish token. Pinning by SHA
+      # means `rust-toolchain` can no longer read the toolchain out of the ref
+      # name, so it is named explicitly.
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c  # stable
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          toolchain: stable
+
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b  # v3
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          version: "27.x"
+          repo-token: ${{ github.token }}
+
+      # Dry run first. It packages and compiles the crate exactly as the real
+      # publish does, and it is where the `astra-plugin-manifest` path-dependency
+      # blocker surfaces — with a legible error, before anything irreversible.
+      #
+      # It gets the token because `--dry-run` still authenticates against the
+      # registry; it is also the step that runs every dependency's `build.rs`,
+      # which is why the token stops here rather than covering the job.
+      - name: cargo publish --dry-run
+        if: steps.gate.outputs.publish == 'true'
+        working-directory: astra-plugin-cli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --dry-run --locked
+
+      - name: cargo publish
+        if: steps.gate.outputs.publish == 'true'
+        working-directory: astra-plugin-cli
+        # Through the environment rather than interpolated into the script, the
+        # way every other job here does it. `plan` has already proved this is
+        # semver, so it is not dangerous — it is just the house style, and the
+        # style exists so nobody has to check.
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Already-published is success, not failure: re-running this workflow
+          # on a tag whose crates.io upload went through must not go red.
+          if cargo publish --locked; then
+            echo "published astra-plugin-cli $VERSION"
+          else
+            rc=$?
+            if cargo search astra-plugin-cli --limit 1 \
+               | grep -qF "astra-plugin-cli = \"$VERSION\""; then
+              echo "astra-plugin-cli $VERSION is already on crates.io — nothing to do."
+              exit 0
+            fi
+            exit $rc
+          fi

@@ -29,6 +29,26 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/mihailinl/AstraPlugins"
 homepage = "https://github.com/mihailinl/AstraPlugins"
 documentation = "https://github.com/mihailinl/AstraPlugins/tree/master/docs/en"
+# Everything below is metadata a crates.io publish wants and this crate did not
+# have. It changes nothing about the build.
+#
+# `readme` is what crates.io renders as the crate's front page. Cargo would
+# default to README.md anyway; it is spelled out because the file is load-bearing
+# — it is the install instructions, and it is also shipped inside every binary
+# archive `.github/workflows/release-cli.yml` builds.
+readme = "README.md"
+# The graph's own floor, not a guess: `edition = "2024"` requires Rust 1.85, and
+# the highest `rust-version` declared by anything in Cargo.lock is also 1.85
+# (hashbrown 0.17.1, clap 4.6.1, indexmap 2.14.0 — `cargo metadata --locked`).
+# Without this field, an author on an older toolchain gets a parse error inside a
+# dependency; with it, cargo says which version is needed before compiling
+# anything.
+rust-version = "1.85"
+# crates.io search. Five is the maximum; `astra` and `plugin` are what someone
+# who has been handed a plugin to fix would actually type.
+keywords = ["astra", "plugin", "cli", "scaffold", "sdk"]
+# From crates.io's fixed category list — an unknown slug is rejected at upload.
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "astra-plugin"
