@@ -545,10 +545,24 @@ def rule_R6(doc, astra_dir: Path | None) -> tuple[list[str], str | None]:
     if not path.exists():
         return [], f"R6  SKIPPED: {path} does not exist — permissions UNVERIFIED."
     text = path.read_text(encoding="utf-8", errors="replace")
-    _, _, after = text.partition("HOST_RPC_PERMISSIONS")
-    body, _, _ = after.partition("];")
+    # Anchor on the DECLARATION, not on the first mention of the name. The
+    # module doc comment names `HOST_RPC_PERMISSIONS` ~330 lines above the const,
+    # so partitioning on the bare string started the scan inside prose and ran to
+    # the first `];` anywhere after it — sweeping in whatever unrelated code
+    # happened to sit in between. On a tree where that span held nothing shaped
+    # like `("name", Something::Variant)` the bug was invisible; the first branch
+    # to put three `("trigger", ConversationEvent::…)` tuples there produced
+    # `R6  the daemon gates trigger`, which is not a thing the daemon does.
+    #
+    # A check whose anchor can match its own documentation is green for a reason
+    # unrelated to what it is named after, which is worse than a check that
+    # fails: it reports on a region nobody chose.
+    m = re.search(r"^\s*(?:pub\s+)?(?:const|static)\s+HOST_RPC_PERMISSIONS\b", text, re.M)
+    if m is None:
+        return [f"R6  {path}: no `const HOST_RPC_PERMISSIONS` declaration — the anchor moved."], None
+    body, _, _ = text[m.end():].partition("];")
     if not body:
-        return [f"R6  {path}: HOST_RPC_PERMISSIONS not found — the anchor moved."], None
+        return [f"R6  {path}: HOST_RPC_PERMISSIONS is not terminated by `];` — the shape changed."], None
 
     # ("FireTrigger", Some(Permission::FireTrigger)) | ("Register", None)
     daemon: dict[str, str] = {}
