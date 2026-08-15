@@ -980,14 +980,34 @@ jobs:
       # fixtures precisely because a Linux runner cannot discover them by
       # running anything, and the matrix gives them a real Windows filesystem
       # for free.
+      # `--locked` here is not tidiness, it is the only place CI resolves the
+      # CLI the way a release does. release-cli.yml builds every leg with
+      # --locked; nothing in this workflow did, so CI could be green on a tree
+      # the release cannot build — and the failure would surface at a
+      # `cli-v*` tag, which is the worst place to find it.
+      #
+      # The concrete case: the SDK bump to 0.7.0 moved this crate's dependency
+      # requirement and left the committed lockfile pinning 0.6.0. Every job
+      # here re-resolved it silently and stayed green. `cargo metadata
+      # --locked` on that pair refuses outright.
+      #
+      # So the invariant is: the committed lockfile satisfies the committed
+      # manifest, asserted by the CLI's own job, on the same terms the release
+      # will use. If this step fails after a version bump, the fix is `cargo
+      # update -p astra-plugin-sdk --manifest-path astra-plugin-cli/Cargo.toml`
+      # and commit the lockfile — not dropping the flag.
       - name: cargo test (the CLI, including the shared bundle vectors)
         if: matrix.lang == 'rust'
-        run: cargo test --manifest-path astra-plugin-cli/Cargo.toml --all-targets
+        run: cargo test --locked --manifest-path astra-plugin-cli/Cargo.toml --all-targets
 
+      # Same flag, same reason as above, and this is the exact command
+      # release-cli.yml runs — so a green leg here means that leg's release
+      # build resolves too. The test step above is gated on the rust leg; this
+      # one runs everywhere, which is where the cheap coverage comes from.
       - name: build the CLI
         run: |
           set -euo pipefail
-          cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
+          cargo build --release --locked --manifest-path astra-plugin-cli/Cargo.toml
           echo "$GITHUB_WORKSPACE/astra-plugin-cli/target/release" >> "$GITHUB_PATH"
 
       # ── THE UNPUBLISHED-SDK PROBLEM ────────────────────────────────────────
