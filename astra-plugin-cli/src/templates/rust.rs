@@ -524,7 +524,7 @@ mod tests {
                 !t.is_empty() && !t.starts_with('#') && !t.starts_with('[')
             })
             .collect();
-        assert_eq!(deps, ["astra-plugin-sdk = \"0.6\""], "{toml}");
+        assert_eq!(deps, ["astra-plugin-sdk = \"0.7\""], "{toml}");
     }
 
     /// The macro infers `tools` from `#[tool]`, so saying so again would be
