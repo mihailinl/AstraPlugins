@@ -14,7 +14,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.0] — unreleased
+## [0.7.0] — 2026-08-16
 
 A trigger a plugin fires from inside a call now names the call that caused it.
 

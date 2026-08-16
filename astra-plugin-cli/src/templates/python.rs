@@ -309,7 +309,7 @@ pub fn generate_requirements() -> String {
     // flow. A bare name resolves to whatever PyPI has, including 0.4.x, whose
     // host stubs send no `x-session-token` and get `unauthenticated` on every
     // call — a scaffold that cannot work.
-    r#"astra-plugin-sdk>=0.5,<0.6
+    r#"astra-plugin-sdk>=0.6,<0.7
 grpcio>=1.60.0
 grpcio-tools>=1.60.0
 protobuf>=4.25.0
@@ -326,7 +326,7 @@ version = "0.1.0"
 description = "An Astra plugin"
 requires-python = ">=3.10"
 dependencies = [
-    "astra-plugin-sdk>=0.5,<0.6",
+    "astra-plugin-sdk>=0.6,<0.7",
     "grpcio>=1.60.0",
     "protobuf>=4.25.0",
 ]

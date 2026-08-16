@@ -39,7 +39,7 @@ edition = "2024"
 # 0.6 is the first release whose HostClient attaches `x-session-token`; 0.5 and
 # earlier get `unauthenticated` from the daemon on every host call, so do not
 # relax this bound.
-astra-plugin-sdk = "0.6"
+astra-plugin-sdk = "0.7"
 
 # Taking structured tool arguments? Mark the argument struct `#[astra::args]`:
 #
