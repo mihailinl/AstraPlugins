@@ -154,6 +154,36 @@ ist auch, wo `getConfig()`, `getDaemonInfo()`, `subscribeEvents()` und
 `setVariable`, `pushToUi` und der UI-Aufrufpfad existieren alle und sind
 gebunden; ältere Dokumentation sagte etwas anderes, weil sie spät kamen.
 
+## Wohin die Ausgabe eines ausgelösten Triggers geht
+
+Ein Trigger, den Sie während der Bearbeitung eines Aufrufs von Astra auslösen,
+wird diesem Aufruf zugeordnet. Alles, was er bewirkt, landet damit in genau dem
+Gespräch, das die Person gerade vor sich hat. **Sie schreiben dafür nichts**,
+und es gilt über `await`, `setTimeout` und Promise-Ketten hinweg — auch über
+`ctx.fireTrigger`, `ctx.host.fireTrigger` und `this.fireTrigger` auf einer
+`Plugin`-Unterklasse, die alle denselben Transport erreichen.
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+Ein Trigger, der von irgendwo sonst ausgelöst wird, ist ein **Wurzelereignis**:
+Der Daemon legt ihn im eigenen Automatisierungsstrang dieses Plugins ab, statt
+ein Gespräch zu erraten. Das gilt für einen außerhalb eines Handlers gestarteten
+Timer, für einen `child_process`, für einen `worker_threads`-Worker und für
+einen von einem nativen Addon geplanten Rückruf. Das ist die richtige Antwort,
+keine abgeschwächte — das falsche Gespräch ist schlimmer als gar keines.
+
+`MockDaemon.firedTriggers()` meldet `causedBy` — `undefined` für ein
+Wurzelereignis —, sodass Ihre eigenen Tests die beiden unterscheiden können, und
+`wire.callTool(name, args, { causedBy })` stellt einen Aufruf so aus, wie der
+Daemon es tun wird.
+
 ## Fehler
 
 `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

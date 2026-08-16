@@ -155,6 +155,36 @@ if (require.main === module) app.run();
 подключено; более старая документация утверждала обратное, потому что они
 появились позже.
 
+## Куда уходит результат сработавшего триггера
+
+Триггер, который вы зажигаете, пока обрабатываете вызов от Astra, приписывается
+этому вызову. Поэтому всё, что он вызовет, попадёт именно в тот разговор,
+который человек сейчас перед собой видит. **Вам для этого писать нечего**, и это
+держится через `await`, `setTimeout` и цепочки промисов — в том числе через
+`ctx.fireTrigger`, `ctx.host.fireTrigger` и `this.fireTrigger` у наследника
+`Plugin`: все они доходят до одного и того же транспорта.
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+Триггер, зажжённый откуда-либо ещё, — это **корневое событие**: демон подошьёт
+его к собственной ветке автоматизации этого плагина, вместо того чтобы гадать о
+разговоре. Сюда попадают таймер, запущенный вне обработчика, `child_process`,
+рабочий поток `worker_threads` и обратный вызов, запланированный нативным
+дополнением. Это верный ответ, а не ухудшенный: не тот разговор хуже, чем
+никакой.
+
+`MockDaemon.firedTriggers()` сообщает `causedBy` — у корневого события это
+`undefined`, — так что ваши тесты отличают одно от другого, а
+`wire.callTool(name, args, { causedBy })` выдаёт вызов так же, как это сделает
+демон.
+
 ## Ошибки
 
 `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

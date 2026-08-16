@@ -155,6 +155,36 @@ donde viven `getConfig()`, `getDaemonInfo()`, `subscribeEvents()` y
 vinculadas; documentación anterior decía lo contrario porque llegaron
 tarde.
 
+## Adónde va lo que produce un disparador activado
+
+Un disparador que activas mientras atiendes una llamada de Astra queda
+atribuido a esa llamada, así que todo lo que provoque aterriza en la
+conversación que la persona tiene delante. **No escribes nada para esto**, y se
+mantiene a través de `await`, `setTimeout` y cadenas de promesas — incluso a
+través de `ctx.fireTrigger`, `ctx.host.fireTrigger` y `this.fireTrigger` en una
+subclase de `Plugin`, que llegan todos al mismo transporte.
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+Un disparador activado desde cualquier otro sitio es un **evento raíz**: el
+daemon lo archiva en el hilo de automatización del propio plugin en lugar de
+adivinar una conversación. Eso cubre un temporizador lanzado fuera de un
+manejador, un `child_process`, un worker de `worker_threads` y una devolución de
+llamada programada por un complemento nativo. Es la respuesta correcta, no una
+degradada: la conversación equivocada es peor que ninguna.
+
+`MockDaemon.firedTriggers()` informa de `causedBy` — `undefined` para un evento
+raíz — así que tus propias pruebas pueden distinguir uno de otro, y
+`wire.callTool(name, args, { causedBy })` emite una llamada tal como la hará el
+daemon.
+
 ## Errores
 
 `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

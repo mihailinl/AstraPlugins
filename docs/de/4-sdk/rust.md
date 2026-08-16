@@ -182,6 +182,37 @@ config, media, monitor — mit Methoden wie `submit_user_message`,
 `start_listening`, `execute_command`, `get_settings`,
 `get_system_stats`. Es heißt `submit_user_message`, nicht `send_message`.
 
+## Wohin die Ausgabe eines ausgelösten Triggers geht
+
+Ein Trigger, den Sie über `ctx.host()` während der Bearbeitung eines Aufrufs von
+Astra auslösen, wird diesem Aufruf zugeordnet. Alles, was er bewirkt, landet
+damit in genau dem Gespräch, das die Person gerade vor sich hat. **Sie schreiben
+dafür nichts**, und die ausgelieferte Redewendung funktioniert unverändert
+weiter:
+
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+Deshalb begrenzt Rust den *Handle* und benutzt kein Task-Local: ein
+`tokio::task_local!` überquert `tokio::spawn` nicht, und das Referenz-Plugin
+spawnt. Klonen Sie `ctx` oder `ctx.host()` so oft Sie mögen — beide tragen es
+mit.
+
+Ein Trigger, der von irgendwo sonst ausgelöst wird, ist ein **Wurzelereignis**:
+Der Daemon legt ihn im eigenen Automatisierungsstrang dieses Plugins ab, statt
+ein Gespräch zu erraten. Das gilt für `astra_plugin_sdk::ctx()`, für einen bei
+`on_start` gespeicherten Host und für einen rohen `std::thread`. Das ist die
+richtige Antwort, keine abgeschwächte — das falsche Gespräch ist schlimmer als
+gar keines.
+
+`testing::FiredTrigger::caused_by` ist `None` für ein Wurzelereignis, sodass
+Ihre eigenen Tests die beiden unterscheiden können.
+
 ## Fehler
 
 Handler geben `Result<_, ToolError>` zurück (`ActionError` ist ein Alias

@@ -135,6 +135,48 @@ Para cuando llegue el lado del daemon: es **`submit_user_message`**, no
 `on_daemon_client_ready(client)`, y solo a los plugins que declaran
 `client = true` y devuelven `True` desde `is_client()`.
 
+## Adónde va lo que produce un disparador activado
+
+Un disparador que activas mientras atiendes una llamada de Astra queda
+atribuido a esa llamada, así que todo lo que provoque — la ejecución de un
+comando, una línea hablada, un mensaje de chat — aterriza en la conversación que
+la persona tiene delante. **No escribes nada para esto.** El SDK lleva por ti
+una concesión opaca desde la llamada entrante hasta el `FireTrigger` saliente:
+
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+Un disparador activado desde cualquier otro sitio es un **evento raíz**: el
+daemon lo archiva en el hilo de automatización del propio plugin en lugar de
+adivinar una conversación. Eso cubre una tarea en segundo plano lanzada en
+`on_start`, un temporizador, una devolución de llamada desde una extensión en C
+y cualquier cosa en un hilo que hayas creado tú. Es la respuesta correcta, no
+una degradada: la conversación equivocada es peor que ninguna.
+
+El mecanismo es un `contextvars.ContextVar`, así que sigue a `await`,
+`asyncio.create_task` y `asyncio.gather`. **`loop.run_in_executor` no copia el
+contexto**, de modo que el trabajo entregado a un grupo de hilos pierde la
+atribución:
+
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+Activa desde la corrutina cuando puedas; copia el contexto cuando no puedas.
+
+Tus propias pruebas pueden comprobar todo esto: `FiredTrigger.caused_by` es
+`None` para un evento raíz, y `WireHarness.lease("...")` emite una llamada tal
+como la hará el daemon.
+
 ## Errores
 
 Lánzalos; el SDK los mapea a los mismos códigos de cable que los otros dos

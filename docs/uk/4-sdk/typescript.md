@@ -152,6 +152,35 @@ await ctx.fireTrigger(...) } catch {}`.
 `setVariable`, `pushToUi` і шлях UI-виклику — все це існує і підключено;
 старіша документація стверджувала протилежне, тому що вони з'явилися пізніше.
 
+## Куди потрапляє результат спрацьованого тригера
+
+Тригер, який ви запалюєте, поки обробляєте виклик від Astra, приписується цьому
+викликові. Тому все, що він спричинить, потрапить саме в ту розмову, яку людина
+зараз бачить перед собою. **Вам для цього писати нічого не треба**, і це
+тримається через `await`, `setTimeout` і ланцюжки промісів — зокрема через
+`ctx.fireTrigger`, `ctx.host.fireTrigger` і `this.fireTrigger` у нащадка
+`Plugin`: усі вони доходять до того самого транспорту.
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+Тригер, запалений будь-де ще, — це **кореневa подія**: демон підошиє її до
+власної гілки автоматизації цього плагіна, замість того щоб вгадувати розмову.
+Сюди належать таймер, запущений поза обробником, `child_process`, робочий потік
+`worker_threads` і зворотний виклик, запланований нативним доповненням. Це
+правильна відповідь, а не погіршена: не та розмова гірша за жодну.
+
+`MockDaemon.firedTriggers()` повідомляє `causedBy` — у кореневої події це
+`undefined`, — тож ваші тести відрізняють одне від одного, а
+`wire.callTool(name, args, { causedBy })` видає виклик так само, як це зробить
+демон.
+
 ## Помилки
 
 `BadArguments`, `NotFound`, `NotConfigured`, `Unauthorized`, `RateLimited`,

@@ -177,6 +177,35 @@ config, media, monitor — з методами включно з `submit_user_me
 `start_listening`, `execute_command`, `get_settings`, `get_system_stats`. Це
 `submit_user_message`, а не `send_message`.
 
+## Куди потрапляє результат спрацьованого тригера
+
+Тригер, який ви запалюєте через `ctx.host()`, поки обробляєте виклик від Astra,
+приписується цьому викликові. Тому все, що він спричинить, потрапить саме в ту
+розмову, яку людина зараз бачить перед собою. **Вам для цього писати нічого не
+треба**, і вже розіслана ідіома працює далі без змін:
+
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+Саме тому Rust обмежує *дескриптор*, а не користується task-local:
+`tokio::task_local!` не переживає `tokio::spawn`, а взірцевий плагін якраз
+спавнить. Клонуйте `ctx` або `ctx.host()` скільки завгодно — прив'язку несуть
+обидва.
+
+Тригер, запалений будь-де ще, — це **кореневa подія**: демон підошиє її до
+власної гілки автоматизації цього плагіна, замість того щоб вгадувати розмову.
+Сюди належать `astra_plugin_sdk::ctx()`, хост, збережений у `on_start`, і голий
+`std::thread`. Це правильна відповідь, а не погіршена: не та розмова гірша за
+жодну.
+
+У кореневої події `testing::FiredTrigger::caused_by` дорівнює `None`, тож ваші
+тести відрізняють одне від одного.
+
 ## Помилки
 
 Обробники повертають `Result<_, ToolError>` (`ActionError` — псевдонім того

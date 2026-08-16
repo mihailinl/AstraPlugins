@@ -157,6 +157,35 @@ if (require.main === module) app.run();
 います; 古いドキュメントはそうではないと言っていましたが、それらは遅れて
 実装されたためです。
 
+## 発火したトリガーの出力はどこへ行くか
+
+Astra からの呼び出しを処理している最中に発火したトリガーは、その呼び出しに帰属
+します。したがって、それが引き起こすものは利用者がいま実際に見ている会話に着地
+します。**そのために書くコードはありません。**これは `await`、`setTimeout`、
+Promise チェーンをまたいで成り立ち、同じトランスポートに届く
+`ctx.fireTrigger`、`ctx.host.fireTrigger`、`Plugin` サブクラスの
+`this.fireTrigger` のいずれを使っても変わりません。
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+それ以外の場所から発火したトリガーは**ルートイベント**です。デーモンは会話を推測
+せず、このプラグイン自身の自動化スレッドに記録します。これはハンドラの外で開始し
+たタイマー、`child_process`、`worker_threads` のワーカー、ネイティブアドオンが
+スケジュールしたコールバックが該当します。これは劣化した答えではなく正しい答え
+です — 間違った会話に出るくらいなら、どこにも出ないほうがましだからです。
+
+`MockDaemon.firedTriggers()` は `causedBy` を報告し、ルートイベントでは
+`undefined` になります。これで自分のテストから両者を区別でき、
+`wire.callTool(name, args, { causedBy })` はデーモンと同じやり方で呼び出しを
+発行します。
+
 ## エラー
 
 `BadArguments`、`NotFound`、`NotConfigured`、`Unauthorized`、

@@ -184,6 +184,35 @@ config、media、monitor の 7 つのサービスに到達し、
 `get_settings`、`get_system_stats` を含むメソッドを持ちます。
 `send_message` ではなく `submit_user_message` です。
 
+## 発火したトリガーの出力はどこへ行くか
+
+Astra からの呼び出しを処理している最中に `ctx.host()` 経由で発火したトリガーは、
+その呼び出しに帰属します。したがって、それが引き起こすものは利用者がいま実際に
+見ている会話に着地します。**そのために書くコードはありません。**出荷済みの書き方
+はそのまま動き続けます。
+
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+Rust がタスクローカルではなく*ハンドル*のほうを束ねているのはこのためです。
+`tokio::task_local!` は `tokio::spawn` を越えられず、参照プラグインは spawn し
+ます。`ctx` でも `ctx.host()` でも好きなだけクローンしてください — どちらも帰属を
+運びます。
+
+それ以外の場所から発火したトリガーは**ルートイベント**です。デーモンは会話を推測
+せず、このプラグイン自身の自動化スレッドに記録します。これは
+`astra_plugin_sdk::ctx()`、`on_start` で保存しておいたホスト、そして生の
+`std::thread` が該当します。これは劣化した答えではなく正しい答えです — 間違った
+会話に出るくらいなら、どこにも出ないほうがましだからです。
+
+ルートイベントでは `testing::FiredTrigger::caused_by` が `None` になるので、
+自分のテストで両者を区別できます。
+
 ## エラー
 
 ハンドラは `Result<_, ToolError>` を返します(`ActionError` は同じ型の

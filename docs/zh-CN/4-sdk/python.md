@@ -135,6 +135,43 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 `on_daemon_client_ready(client)`，但只针对声明了 `client = true` 且
 `is_client()` 返回 `True` 的插件。
 
+## 触发器点燃后，产出去了哪里
+
+在处理来自 Astra 的调用时点燃的触发器，会被归属到那次调用。因此它引发的一切——
+一次命令运行、一句朗读、一条聊天消息——都会落在用户此刻正看着的那段对话里。
+**为此你不需要写任何代码。** SDK 会替你把一份不透明的租约，从进来的调用一直带到
+出去的 `FireTrigger`：
+
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+从别处点燃的触发器是**根事件**：守护进程会把它归入本插件自己的自动化线程，而不是
+去猜是哪段对话。这包括在 `on_start` 里启动的后台任务、定时器、来自 C 扩展的回调，
+以及你自己开的线程上的任何东西。这是正确答案，不是降级的答案——落错对话比不落更
+糟。
+
+其机制是 `contextvars.ContextVar`，所以它会跟着 `await`、`asyncio.create_task`
+和 `asyncio.gather` 走。**`loop.run_in_executor` 不会复制上下文**，因此交给线程池
+的工作会丢失归属：
+
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+能在协程里点燃就在协程里点燃；不能的地方，就把上下文复制过去。
+
+这些你自己的测试都能检验：根事件的 `FiredTrigger.caused_by` 是 `None`，而
+`WireHarness.lease("...")` 会按守护进程的方式发出调用。
+
 ## 错误
 
 抛出(raise)它们；SDK 会把它们映射为和另外两个 SDK 相同的传输层错误码。

@@ -152,6 +152,32 @@ if (require.main === module) app.run();
 `setVariable`、`pushToUi` 以及 UI 调用路径现在都已经存在并且完成了
 绑定；旧文档说的不是这样，是因为它们落地得比较晚。
 
+## 触发器点燃后，产出去了哪里
+
+在处理来自 Astra 的调用时点燃的触发器，会被归属到那次调用。因此它引发的一切都会
+落在用户此刻正看着的那段对话里。**为此你不需要写任何代码**，而且它在 `await`、
+`setTimeout` 和 promise 链上都成立——包括通过 `ctx.fireTrigger`、
+`ctx.host.fireTrigger`，以及 `Plugin` 子类上的 `this.fireTrigger`，它们都到达
+同一条传输通道。
+
+<!-- doctest: illustrative reason="one property of a tool object, not a module: it needs the enclosing `plugin({ tools: { … } })` the ts-plugin blocks above type-check. The behaviour is executed by tools/causality.test.mjs, against a real gRPC handshake." -->
+```ts
+run: async ({ count }, ctx) => {
+  const results = roll(count);
+  await ctx.fireTrigger("on_roll_value", { value: results[0] });  // attributed
+  return `rolled ${results}`;
+},
+```
+
+从别处点燃的触发器是**根事件**：守护进程会把它归入本插件自己的自动化线程，而不是
+去猜是哪段对话。这包括在处理器之外启动的定时器、`child_process`、
+`worker_threads` 的 worker，以及由原生扩展安排的回调。这是正确答案，不是降级的
+答案——落错对话比不落更糟。
+
+`MockDaemon.firedTriggers()` 会报告 `causedBy`——根事件为 `undefined`——所以你
+自己的测试能把两者区分开，而 `wire.callTool(name, args, { causedBy })` 会按
+守护进程的方式发出调用。
+
 ## 错误
 
 `BadArguments`、`NotFound`、`NotConfigured`、`Unauthorized`、

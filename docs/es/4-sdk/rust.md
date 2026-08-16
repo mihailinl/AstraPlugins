@@ -182,6 +182,34 @@ command, config, media, monitor — con métodos que incluyen
 `get_settings`, `get_system_stats`. Es `submit_user_message`, no
 `send_message`.
 
+## Adónde va lo que produce un disparador activado
+
+Un disparador que activas a través de `ctx.host()` mientras atiendes una llamada
+de Astra queda atribuido a esa llamada, así que todo lo que provoque aterriza en
+la conversación que la persona tiene delante. **No escribes nada para esto**, y
+el modismo que ya se distribuye sigue funcionando sin cambios:
+
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+Por eso Rust acota el *manejador* en lugar de usar un task-local: un
+`tokio::task_local!` no cruza `tokio::spawn`, y el plugin de referencia hace
+spawn. Clona `ctx` o `ctx.host()` cuanto quieras: ambos lo llevan.
+
+Un disparador activado desde cualquier otro sitio es un **evento raíz**: el
+daemon lo archiva en el hilo de automatización del propio plugin en lugar de
+adivinar una conversación. Eso cubre `astra_plugin_sdk::ctx()`, un host que
+guardaste en `on_start` y un `std::thread` crudo. Es la respuesta correcta, no
+una degradada: la conversación equivocada es peor que ninguna.
+
+`testing::FiredTrigger::caused_by` es `None` para un evento raíz, así que tus
+propias pruebas pueden distinguir uno de otro.
+
 ## Errores
 
 Los handlers devuelven `Result<_, ToolError>` (`ActionError` es un alias

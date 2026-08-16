@@ -175,6 +175,31 @@ spawn 出的一个 `std::thread` —— `astra_plugin_sdk::ctx()` 会返回正�
 `execute_command`、`get_settings`、`get_system_stats`。是
 `submit_user_message`，不是 `send_message`。
 
+## 触发器点燃后，产出去了哪里
+
+在处理来自 Astra 的调用时通过 `ctx.host()` 点燃的触发器，会被归属到那次调用。
+因此它引发的一切都会落在用户此刻正看着的那段对话里。**为此你不需要写任何代码**，
+并且已经发布的写法照旧可用：
+
+<!-- doctest: illustrative reason="a fragment from inside a handler: `ctx` and `payload` are the handler's own bindings, and the rust-plugin blocks on this page are what supply them. The behaviour is executed by tests/causality.rs." -->
+```rust
+let host = ctx.host().clone();          // the cause rides inside the Arc
+tokio::spawn(async move {
+    host.fire_trigger("on_roll_value", &payload).await   // still attributed
+});
+```
+
+这正是 Rust 限定*句柄*而不使用 task-local 的原因：`tokio::task_local!` 跨不过
+`tokio::spawn`，而参考插件恰恰会 spawn。`ctx` 和 `ctx.host()` 想克隆多少次都
+可以——两者都带着归属。
+
+从别处点燃的触发器是**根事件**：守护进程会把它归入本插件自己的自动化线程，而不是
+去猜是哪段对话。这包括 `astra_plugin_sdk::ctx()`、你在 `on_start` 里存下的 host，
+以及裸的 `std::thread`。这是正确答案，不是降级的答案——落错对话比不落更糟。
+
+根事件的 `testing::FiredTrigger::caused_by` 是 `None`，所以你自己的测试能把两者
+区分开。
+
 ## 错误
 
 处理函数返回 `Result<_, ToolError>`（`ActionError` 是同一类型的别名）。

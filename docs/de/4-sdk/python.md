@@ -135,6 +135,51 @@ Für wenn die Daemon-Seite ankommt: Es ist **`submit_user_message`**, nicht
 `on_daemon_client_ready(client)` übergeben, und nur an Plugins, die
 `client = true` deklarieren und `True` von `is_client()` zurückgeben.
 
+## Wohin die Ausgabe eines ausgelösten Triggers geht
+
+Ein Trigger, den Sie während der Bearbeitung eines Aufrufs von Astra auslösen,
+wird diesem Aufruf zugeordnet. Alles, was er bewirkt — ein Befehlslauf, eine
+gesprochene Zeile, eine Chat-Nachricht — landet damit in genau dem Gespräch, das
+die Person gerade vor sich hat. **Sie schreiben dafür nichts.** Das SDK trägt
+eine undurchsichtige Lease vom eingehenden Aufruf bis zum ausgehenden
+`FireTrigger` für Sie:
+
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+Ein Trigger, der von irgendwo sonst ausgelöst wird, ist ein **Wurzelereignis**:
+Der Daemon legt ihn im eigenen Automatisierungsstrang dieses Plugins ab, statt
+ein Gespräch zu erraten. Das gilt für eine Hintergrundaufgabe, die bei
+`on_start` gestartet wurde, für einen Timer, für einen Rückruf aus einer
+C-Erweiterung und für alles auf einem selbst erzeugten Thread. Das ist die
+richtige Antwort, keine abgeschwächte — das falsche Gespräch ist schlimmer als
+gar keines.
+
+Der Mechanismus ist eine `contextvars.ContextVar`, folgt also `await`,
+`asyncio.create_task` und `asyncio.gather`. **`loop.run_in_executor` kopiert den
+Kontext nicht**, sodass an einen Thread-Pool übergebene Arbeit die Zuordnung
+verliert:
+
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+Lösen Sie dort aus, wo Sie in der Koroutine sind; kopieren Sie den Kontext
+hinüber, wo Sie es nicht können.
+
+Ihre eigenen Tests können all das prüfen: `FiredTrigger.caused_by` ist `None`
+für ein Wurzelereignis, und `WireHarness.lease("...")` stellt einen Aufruf so
+aus, wie der Daemon es tun wird.
+
 ## Fehler
 
 Wirf sie; das SDK bildet sie auf dieselben Wire-Codes ab wie die beiden

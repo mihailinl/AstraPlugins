@@ -139,6 +139,47 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 `client = true` を宣言し、`is_client()` から `True` を返すプラグインに
 対してのみです。
 
+## 発火したトリガーの出力はどこへ行くか
+
+Astra からの呼び出しを処理している最中に発火したトリガーは、その呼び出しに帰属
+します。したがって、それが引き起こすもの — コマンドの実行、読み上げ、チャット
+メッセージ — は、利用者がいま実際に見ている会話に着地します。**そのために書く
+コードはありません。** SDK が、受信した呼び出しから送信する `FireTrigger` まで、
+不透明なリースを代わりに運びます。
+
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+それ以外の場所から発火したトリガーは**ルートイベント**です。デーモンは会話を推測
+せず、このプラグイン自身の自動化スレッドに記録します。これは `on_start` で開始し
+たバックグラウンドタスク、タイマー、C 拡張からのコールバック、そして自分で作った
+スレッド上のあらゆるものが該当します。これは劣化した答えではなく正しい答えです —
+間違った会話に出るくらいなら、どこにも出ないほうがましだからです。
+
+仕組みは `contextvars.ContextVar` なので、`await`、`asyncio.create_task`、
+`asyncio.gather` を追いかけます。**`loop.run_in_executor` はコンテキストを
+コピーしません**。そのためスレッドプールに渡した処理は帰属を失います。
+
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+できるところではコルーチンから発火し、できないところではコンテキストを写して
+渡してください。
+
+これらはすべて自分のテストで確認できます。ルートイベントでは
+`FiredTrigger.caused_by` が `None` になり、`WireHarness.lease("...")` は
+デーモンと同じやり方で呼び出しを発行します。
+
 ## エラー
 
 送出(raise)してください。SDK はそれらを他の 2 つの SDK と同じ wire

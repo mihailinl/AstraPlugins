@@ -133,6 +133,46 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 клієнт передається в `on_daemon_client_ready(client)`, і лише для плагінів,
 що оголошують `client = true` і повертають `True` з `is_client()`.
 
+## Куди потрапляє результат спрацьованого тригера
+
+Тригер, який ви запалюєте, поки обробляєте виклик від Astra, приписується цьому
+викликові. Тому все, що він спричинить — запуск команди, вимовлену репліку,
+повідомлення в чаті, — потрапить саме в ту розмову, яку людина зараз бачить
+перед собою. **Вам для цього писати нічого не треба.** SDK сам переносить
+непрозору оренду від вхідного виклику до вихідного `FireTrigger`:
+
+<!-- doctest: illustrative reason="a method fragment, not a plugin: it needs the enclosing `class(Plugin)` the python-plugin block at the top of this page already executes. The behaviour it claims is executed by tests/test_causality.py, which drives a real plugin over a real socket." -->
+```python
+@tool("Roll dice")
+async def roll_dice(self, count: int = 1):
+    results = self.roll(count)
+    await self.fire_trigger("on_roll_value", {"value": results[0]})  # attributed
+    return f"rolled {results}"
+```
+
+Тригер, запалений будь-де ще, — це **кореневa подія**: демон підошиє її до
+власної гілки автоматизації цього плагіна, замість того щоб вгадувати розмову.
+Сюди належать фонове завдання, запущене в `on_start`, таймер, зворотний виклик з
+розширення на C і все, що живе в створеному вами потоці. Це правильна відповідь,
+а не погіршена: не та розмова гірша за жодну.
+
+Механізм — `contextvars.ContextVar`, тож він іде слідом за `await`,
+`asyncio.create_task` і `asyncio.gather`. **`loop.run_in_executor` контекст не
+копіює**, тому робота, віддана в пул потоків, втрачає прив'язку:
+
+<!-- doctest: illustrative reason="three lines out of the middle of a coroutine; there is no `loop` or `work` here to bind. The workaround is executed by test_a_context_copied_across_the_executor_carries_the_cause, so this cannot become a rumour." -->
+```python
+loop = asyncio.get_running_loop()
+ctx = contextvars.copy_context()
+await loop.run_in_executor(None, lambda: ctx.run(work))   # keeps it
+```
+
+Запалюйте з корутини там, де можете; переносьте контекст туди, де не можете.
+
+Усе це перевіряється вашими ж тестами: у кореневої події
+`FiredTrigger.caused_by` дорівнює `None`, а `WireHarness.lease("...")` видає
+виклик так само, як це зробить демон.
+
 ## Помилки
 
 Кидайте їх; SDK відображає їх на ті самі коди дроту, що й два інші SDK.
