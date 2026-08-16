@@ -9,16 +9,33 @@ the build is red before you read it.
 
 ## 1 · Install the CLI
 
-The SDKs publish to crates.io, PyPI and npm; `astra-plugin` itself does not yet
-— `cargo install astra-plugin-cli` fails, because the crate is not on crates.io.
-Install it from source. It builds on Linux and Windows with a stable Rust
-toolchain (1.85 or newer — the tree is edition 2024) **and `protoc` on PATH**.
-The CLI depends on the Rust SDK, whose `build.rs` compiles `proto/plugin.proto`
-with tonic-build, and tonic-build calls an external `protoc` rather than
-shipping one. Without it the command below stops at `error: failed to run custom
-build command for astra-plugin-sdk` → `Could not find `protoc``. Install it with
-`apt install protobuf-compiler`, `pacman -S protobuf`, `brew install protobuf`
-or `winget install Google.Protobuf`.
+**Download the binary.** No toolchain, and it ends by printing a version:
+
+<!-- doctest: cli -->
+```bash
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+./astra-plugin-0.2.1-linux-x64-musl/astra-plugin --version
+```
+
+Put the extracted `astra-plugin` somewhere on your `PATH`, such as
+`~/.local/bin`. Take the **musl** archive on any Linux — the gnu one needs glibc
+2.39 or newer, which Ubuntu 22.04, Debian 12 and RHEL 9 do not have. On Windows
+take `astra-plugin-0.2.1-windows-x64.zip`. `--ignore-missing` matters:
+`SHA256SUMS.txt` lists all three archives, and without it `sha256sum` exits 1
+over the two you did not download.
+
+<!-- doctest: output from="astra-plugin --version" -->
+```
+astra-plugin <version>
+```
+
+A downloaded `0.2.1` binary prints `astra-plugin 0.2.1`.
+
+**Or build from source** — the path on macOS and ARM Linux, where there is no
+archive yet. It takes a few minutes:
 
 <!-- doctest: cli -->
 ```bash
@@ -26,15 +43,36 @@ cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli -
 astra-plugin --version
 ```
 
-From a clone, `cargo install --path astra-plugin-cli --locked` does the same.
+There the number is a placeholder on purpose: `--git` builds whatever commit
+`master` carries when you run it, so what prints is that commit's version rather
+than one you chose. From a clone, `cargo install --path astra-plugin-cli
+--locked` does the same.
 
-**Read that version before going on.** This page is written against
-`astra-plugin 0.2.0`, and `--git` builds whatever the repository's default
-branch carries. If it prints 0.1.x you have a CLI older than this page: its
-whole command set is `create`, `dev`, `build`, `validate`, `keygen`, so the very
-next command fails with `unrecognized subcommand 'doctor'`, and so does every
-step from §2 on. Install from a clone of the branch that carries this
-documentation instead.
+**A source build needs Rust 1.85 or newer and `protoc` on your PATH.** Without
+`protoc` the build stops at ``Could not find `protoc` ``. Install it with `apt
+install protobuf-compiler`, `pacman -S protobuf`, `brew install protobuf`, or
+`winget install Google.Protobuf`, then run the line again. A downloaded binary
+needs neither.
+
+**On a source build, a version number cannot tell you the build is good, and a
+`0.2.0` is not a bad one.** A downloaded `0.2.1` binary is built from the
+`cli-v0.2.1` tag and has the fix below; the rest of this paragraph is about
+`--git`. `init-ci` used to pin a tag *object* where GitHub needs a commit, and
+a plugin's first `git push --tags` died on it. The fix is commit `5b8ab22`,
+which landed on `master` *before* the bump that raised the number to `0.2.1` —
+so a build from `master` can carry the fix and still print `0.2.0`, and no
+`0.2.1` build exists without it. Installing from `master` today gets you the fix
+whatever the number says; to check rather than trust, run `astra-plugin init-ci`
+and read the pin it prints — `e3329df252a46d747676cb540ae4b986af68a3ad` is the
+commit and is right, `dc1a044876926e9cf1170f034e2eab533ec07641` is the tag
+object and is the bug. Long version:
+[Install the CLI](../install-cli.md#the-bug-that-breaks-a-first-release-and-how-to-tell-whether-your-build-has-the-fix).
+
+One aside, which does not block you: the CLI is not on crates.io, so
+`cargo install astra-plugin-cli` fails — it depends on a vendored crate by path,
+which cargo will not package. Download an archive or build from git. Full
+detail, including how to verify the download against its Sigstore bundle:
+[Install the CLI](../install-cli.md).
 
 Check the machine before you blame the code:
 
@@ -56,7 +94,7 @@ astra-plugin new dice-roller --lang rust --template tool
 cd dice-roller
 ```
 
-<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" -->
+<!-- doctest: output from="astra-plugin new dice-roller --lang rust --template tool" unrun="creates a directory tree; re-run it in an empty directory of your own" -->
 ```
 Created plugin project 'dice-roller' at dice-roller/
 Language: rust
@@ -70,9 +108,24 @@ Next steps:
   astra-plugin dev .
 ```
 
-Five files: `plugin.toml`, `Cargo.toml`, `src/main.rs`, `README.md`,
-`.gitignore`. `Cargo.toml` has **one** dependency, and `src/main.rs` is fifteen
-lines plus a test module.
+Six files:
+
+<!-- doctest: illustrative reason="an annotated tree of what `astra-plugin new` wrote, not a command; the run that produced it is the output block above" -->
+```
+dice-roller/
+├── plugin.toml      the manifest — id, version, capabilities, entry point
+├── Cargo.toml       one dependency, and a long comment explaining why only one
+├── src/main.rs      the plugin: fifteen lines, plus a test module
+├── README.md        what the store shows next to your plugin
+├── icon.svg         a placeholder icon, meant to be replaced
+└── .gitignore       `target/` and `*.astraplugin`
+```
+
+`README.md` and `icon.svg` are not decoration: the packer picks both up by name,
+and the registry reads them back out of the verified bundle to build your
+listing's card and page. They are what a person sees before deciding to install
+you, so replace them before you publish —
+[Get listed](../5-publish/get-listed.md) says what each one wants.
 
 `--lang` takes `rust`, `python` or `typescript`; `--template` picks the
 capabilities and the example code, and `--capabilities tools,triggers` overrides
@@ -275,7 +328,7 @@ This is a level above `cargo test`: it starts your plugin the way the daemon
 starts it, against a mock daemon serving `PluginHostService`, and calls every
 inbound hook your declared capabilities imply.
 
-<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in the dice-roller project this page builds (the plugin's own tracing lines, which go to stderr, are left out)" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
   [ok  ] ListTools                required  1 tool(s)
   [ok  ] GetPluginTriggerTypes    required  0 trigger type(s)
@@ -337,7 +390,7 @@ astra-plugin build
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
 
-<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" -->
+<!-- doctest: output from="astra-plugin build ., in the dice-roller project this page builds (the size and the two digests are properties of your build, not constants)" unrun="needs a scaffolded, compiled plugin on disk; re-run it in the project this page builds" -->
 ```
 Building plugin 'dice-roller' v0.1.0 (rust) for linux-x64...
   Running cargo build --release...
@@ -383,7 +436,31 @@ provenance, and attaches them to a GitHub Release.
 
 Then one submission, once ever, and every later release is zero-touch.
 
-→ [Release with CI](../5-publish/release-with-ci.md) →
+**One thing to do before that submission**, because it is the only step whose
+absence gets a correct plugin refused: commit `.well-known/astra-plugin-owner`
+to your repository's default branch, containing your GitHub login. It is how the
+registry establishes that you control the repository you are listing — the build
+attestation proves where the bundle came from, not who you are. Two lines,
+alongside your first push:
+
+<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+```bash
+mkdir -p .well-known
+echo 'your-github-login' > .well-known/astra-plugin-owner
+```
+
+Details, and why the automatic checks cannot answer it for you:
+[Get listed §2](../5-publish/get-listed.md#2--prove-you-control-the-repository).
+
+Note what publishing is **not**: pushing this repository to GitHub does not
+publish your plugin, and neither does sending someone the `.astraplugin` you
+just built. The registry pins the digest of a file CI produced and reads the
+build attestation attached to it, and a file built on your laptop carries
+neither.
+
+**→ [Publishing a plugin](../publishing.md)** — the whole journey in one page,
+from here to a listed plugin, with every command and its expected output. The
+tier pages behind it: [Release with CI](../5-publish/release-with-ci.md) ·
 [Get listed](../5-publish/get-listed.md)
 
 ## The same thing in Python

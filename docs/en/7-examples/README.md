@@ -58,7 +58,7 @@ surface. It is a high-risk capability, and it is refused outright to a
 > against answers `permission_denied` on every call. Read them for the shape of
 > a client plugin — the surface, the event flow, the I18n — not as something you
 > can run end-to-end today. See
-> [the Rust SDK's `Daemon` section](../4-sdk/rust.md#daemon-present-in-the-sdk-refused-by-the-daemon).
+> [the Rust SDK's `Daemon` section](../4-sdk/rust.md#daemon--present-in-the-sdk-refused-by-the-daemon).
 
 | | Language | Capabilities | Why this one |
 |---|---|---|---|

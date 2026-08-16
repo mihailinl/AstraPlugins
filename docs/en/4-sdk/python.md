@@ -221,9 +221,11 @@ the code the daemon acts on.
 - **`ai_get_models` is deprecated** (0.5.0, removable 0.7.0 for the dict form;
   the hook itself is retired in 0.8) and nothing calls it.
 - **`tts_synthesize_stream` is bound and unrouted** — no daemon call site.
-- **The Python SDK is not published at 0.5.0 yet.** PyPI is at 0.4.0, so a fresh
-  scaffold does not resolve until the release train runs. Until then, install
-  the SDK from this repository.
+- **The Python SDK is published at 0.5.0**, so a fresh scaffold resolves from
+  PyPI (verified against `https://pypi.org/pypi/astra-plugin-sdk/json`). Take
+  0.5.0 or newer: it is the first release that attaches the `x-session-token`
+  the daemon requires on every host RPC but `Register`, and anything older
+  answers `unauthenticated` on every log line and every host call.
 
 ## See also
 

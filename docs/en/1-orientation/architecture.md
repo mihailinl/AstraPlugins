@@ -25,7 +25,7 @@ gRPC services carries which call.
 The daemon spawns the process with four arguments. This is the exact command
 line, copied from a real `astra-plugin test` run:
 
-<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" -->
+<!-- doctest: output from="astra-plugin test . --no-build, in a scaffolded plugin" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 target/release/dice_roller --daemon-addr=127.0.0.1:46495 --plugin-id=dice-roller \
   --auth-token=mock-daemon-spawn-token --capabilities=tools
@@ -73,7 +73,7 @@ Two numbers bound this, both declared once in
 
 Registration, in a real run against the mock daemon `astra-plugin test` starts:
 
-<!-- doctest: output from="astra-plugin test . --no-build" -->
+<!-- doctest: output from="astra-plugin test . --no-build" unrun="starts a real plugin process and runs the conformance suite against it; needs a built plugin" -->
 ```
 INFO astra_plugin_sdk::runner: Starting plugin 'dice-roller', connecting to daemon at 127.0.0.1:46495
 INFO astra_plugin_sdk::runner: Plugin gRPC server listening on port 41627

@@ -41,11 +41,24 @@ required to say "same author as before" and never "verified build".
   so a disagreement between the two is visible; the private halves were never on
   a networked machine.
 * **A root key does not sign a catalogue.** It signs `trust.json`, which
-  delegates to an index-signing key, and **no `trust.json` has been signed yet**.
-* Therefore, today: no `trust.json` verifies → there are no delegated index keys
-  → every catalogue is classified `UNSIGNED` with reason `NoTrustAnchor`, and
-  the registry bot stops every ingest at `E_TRUST_UNPROVISIONED`. The reason code
-  is the one it always was; what moved is which link is missing.
+  delegates to an index-signing key. **That document is now signed.**
+  `registry/v1/trust.json` verifies under `astra-root-2026a`, delegates to the
+  index-signing key `astra-index-2026a`, and names the single reusable-workflow
+  commit the bot will accept in a build attestation
+  (`e3329df252a46d747676cb540ae4b986af68a3ad`, which is what the tag
+  `plugin-release/v1` points at). The registry's own
+  `node tools/sign-trust.mjs --verify registry/v1/trust.json` prints all three
+  facts. So `E_TRUST_UNPROVISIONED` no longer fires at ingest.
+* Therefore, today: `trust.json` verifies and an index key is delegated, but
+  **nothing has signed the catalogue with it**. Every catalogue is still
+  classified `UNSIGNED`, and the ceremony changed the reason it carries — from
+  `NoTrustAnchor` to **`NoSignatures`**. The daemon's `classify_signature`
+  separates the two exactly: `NoTrustAnchor` means no verified `trust.json`
+  reached the build, so there is no key to check any signature against, and the
+  catalogue may well be signed; `NoSignatures` means the anchor is there and the
+  catalogue itself carries none. What moved is which link is missing: the gap is
+  now between the delegated key and the index, not between the root and the
+  delegation.
 * `registry/v1/index.json` and `registry/v1/revocations.json` are committed with
   `"signatures": []` — "unsigned" said out loud, where an absent member could not
   be told from a stripped one.
@@ -56,9 +69,11 @@ required to say "same author as before" and never "verified build".
   `RevocationFreshness::NotEnforced` until a signature-valid list is fetched
   once.
 
-Everything below describes the format and the algorithm. When the ceremony runs,
-nothing in this document changes; two public keys appear in two places and the
-chain starts carrying weight.
+Everything below describes the format and the algorithm, and none of it changes
+when the remaining link lands. The root ceremony has already run and the
+delegation is signed; what is left is for a signature to appear in the
+`signatures` array of a published `index.json`, at which point the chain starts
+carrying weight on a user's machine.
 
 ## 1. The envelope
 
@@ -501,9 +516,11 @@ Step 4 is what makes a mutable `@v1` tag unusable as a supply chain: a tag can b
 repointed at any commit and the attestation would still name the right repository
 and workflow file. Changing that allowlist is a root-key ceremony.
 
-With no signed `trust.json` there is no allowlist, so every ingest currently
-stops at `E_TRUST_UNPROVISIONED` — the same fail-closed state the daemon reaches
-by the same route. The roots exist; nothing they would vouch for does yet.
+That allowlist now exists: the signed `trust.json` names exactly one commit,
+`e3329df252a46d747676cb540ae4b986af68a3ad`. So `E_TRUST_UNPROVISIONED` no longer
+stops ingest, and step 4 is live — a build produced by any other workflow is
+refused with `E_WORKFLOW_NOT_ALLOWED`. The daemon-side half is still fail-closed
+for a different reason: the catalogue itself carries no signature (§0.1).
 
 ### 7.2 Not implemented: the per-release countersignature
 
@@ -632,11 +649,11 @@ downloaded file, and confirm its `MANIFEST.json` `plugin_id`, `version`,
 |---|---|
 | document formats, envelope, signing construction, JCS profile | implemented on both ends, cross-tested by fixture |
 | root keys | **provisioned** 2026-08-11 — the same two on both sides |
-| `trust.json` | **no signed document exists yet** — so nothing is delegated, and the chain is fail-closed here |
-| `index.json` / `revocations.json` signatures | empty arrays in the committed tree |
+| `trust.json` | **signed** under `astra-root-2026a`, delegating to `astra-index-2026a` and allowlisting one workflow commit |
+| `index.json` / `revocations.json` signatures | empty arrays in the committed tree — **this is now the missing link** |
 | catalogue verdicts, serial floors, freshness, clock handling | implemented in the daemon and under test |
 | revocation vocabulary, matching, five enforcement points | implemented; **inert until a signature-valid list is fetched once** |
-| build attestation check at ingest | implemented; blocked at `E_TRUST_UNPROVISIONED` |
+| build attestation check at ingest | implemented and live; the workflow allowlist comes from the signed `trust.json` |
 | per-release countersignature | specified in the plan only; **no implementation** |
 | `audit-index.sh` | does not exist; §8 is the manual procedure |
 

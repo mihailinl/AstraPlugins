@@ -1,92 +1,199 @@
 #!/usr/bin/env python3
-"""`docs/ru` covers the written tier of `docs/en`, exactly — no more, no less.
+"""Every translation of `docs/en` carries exactly its pages — no more, no less.
 
-§7.4 of the production plan makes English canonical and Russian second-tier,
-covering the *written* pages only: orientation, the tutorial, publish, operate,
-and the index. The generated tiers (`reference/`, `hooks/`, `parity.md`), the
-normative specs, the SDK pages and the examples index are rendered or reviewed
-in English alone and are deliberately not translated.
+English is canonical. The six translations beside it — `de`, `es`, `ja`, `ru`,
+`uk`, `zh-CN` — are file-for-file mirrors: same relative paths, same page set.
+This script asserts that as a set equality, per locale, in both directions:
 
-This script asserts that split as a set equality, in both directions:
-
-* every page under `docs/en/{README.md,1-orientation,2-tutorial,5-publish,
-  6-operate}` has a Russian counterpart at the same relative path, and
-* every page under `docs/ru/` corresponds to an English page that still exists.
+* every page under `docs/en/` has a counterpart at the same relative path in
+  every locale, and
+* every page in a locale corresponds to an English page that still exists.
 
 The second direction is the one that actually fires. The rewrite deleted eight
 English pages; a translation whose original is gone is worse than no
 translation, because nothing will ever correct it again and a reader has no way
 to tell.
 
+This replaced a narrower rule. Until the six locales were re-cut from the
+current English pages, only `docs/ru` was checked, and only over a "written
+tier" of five paths — the generated and normative tiers were English-only, so a
+Russian copy of `reference/cli.md` was an error. All six locales now cover the
+whole tree, so the check covers the whole tree, for all of them.
+
+Page sets were once all this checked, and that was not enough. A correction to
+an English transcript passed CI with the six translations still carrying the
+retracted claim, because matching filenames was the whole test — the summary
+line said "0 mismatches" about a tree in which six of seven languages disagreed
+with English on a fact. So the samples are compared too:
+
+* the sequence of `<!-- doctest: … -->` runners on a page must be the same in
+  every language, and
+* an `output` block — a transcript of a real command — must be byte-identical
+  to its English original, `from=` and `unrun=` attributes included.
+
+A transcript is a machine's words, not an author's, so translating one is
+always a mistake, and drift in one is exactly the failure this tool missed.
+`illustrative` reasons are compared too: they are notes to the next editor
+about why a block cannot run, they are written in English throughout the tree,
+and a translated one is a copy that will not be updated when the English is.
+
 WHAT THIS DOES NOT CHECK, AND WHY IT IS SAID OUT LOUD
 
-§7.4 asks for more than this: "CI fails when `docs/en/**` changes without a
-matching `docs/ru/**` touch". That gate needs a base ref to diff against, and —
-more to the point — it blocks an English-only typo fix until someone touches a
-Russian file, which is a policy the maintainer should choose rather than
-inherit from a script. It is not implemented here. What IS enforced is the part
-that is objectively true or false from the tree alone and has no false
-positives.
+Meaning. Nothing here, and nothing anywhere in CI, can tell that a translated
+sentence still says what the English one says — that would need a reader of the
+language, and it is the whole reason English is authoritative rather than merely
+first. What is enforced is the part that is objectively true or false from the
+tree alone and has no false positives.
 
-The other half of the drift story is already covered without any policy:
-`doctest.py` executes each fenced block once and reports the Russian copies as
-`identical to` their English original, so a sample that drifts between the two
-languages stops being deduplicated and shows up as a second execution.
+Prose inside a `rust-plugin`, `python-plugin`, `ts-plugin` or `toml-manifest`
+block is not compared. Those bodies are code, every one of them is executed by
+`doctest.py` in every language, and a comment inside one is fair to translate.
+Their runner *positions* are still compared, so a block that disappears from a
+translation is still caught.
+
+The production plan also asks for "CI fails when `docs/en/**` changes without a
+matching translation touch". That gate needs a base ref to diff against, and —
+more to the point — it blocks an English-only typo fix until someone touches six
+other files, which is a policy the maintainer should choose rather than inherit
+from a script. It is not implemented here.
 
 USAGE
 
     python3 docs/tools/mirror.py
 
-Exit 0 when the two sets agree, 1 when they do not.
+Exit 0 when every locale agrees with `docs/en`, 1 when any does not.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-EN = ROOT / "docs/en"
-RU = ROOT / "docs/ru"
-
-# The written tier, as §7.4 defines it. A new top-level directory under
-# docs/en is NOT added here automatically: deciding whether it is translated is
-# a decision, and this list is where it is recorded.
-MIRRORED = ("README.md", "1-orientation", "2-tutorial", "5-publish", "6-operate")
+DOCS = ROOT / "docs"
+EN = DOCS / "en"
 
 
-def pages(base: Path, restrict: bool) -> set[str]:
-    out: set[str] = set()
+def _doctest_module():
+    """`docs/tools/doctest.py`, loaded under a name that is not `doctest`.
+
+    A plain `import doctest` would find the standard library's, and naming this
+    file's sibling anything else would break every reference to it in the docs.
+    Its block extractor is the one thing needed here, and having two copies of a
+    markdown fence parser is how they drift.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "_docs_doctest", Path(__file__).with_name("doctest.py")
+    )
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+DT = _doctest_module()
+
+#: Runners whose body must be identical in every language. A transcript is what
+#: a program printed, so there is nothing in it to translate.
+VERBATIM_BODIES = {"output"}
+
+#: Marker attributes that must be identical in every language, per runner. They
+#: are notes to the next editor rather than prose for a reader.
+VERBATIM_ATTRS = {
+    "output": ("from", "unrun"),
+    "illustrative": ("reason",),
+}
+
+
+def samples(path: Path) -> list:
+    return DT.extract(path)[0] if path.is_file() else []
+
+
+def compare_samples(rel: str, loc: str, en_page: Path, loc_page: Path) -> int:
+    """Every doctest block on one translated page, against its English original."""
+    en, got = samples(en_page), samples(loc_page)
+    en_runners = [b.runner for b in en]
+    got_runners = [b.runner for b in got]
+    if en_runners != got_runners:
+        print(
+            f"SAMPLES  docs/{loc}/{rel}  — {len(got)} doctest block(s) "
+            f"[{', '.join(got_runners) or 'none'}], but docs/en/{rel} has "
+            f"{len(en)} [{', '.join(en_runners) or 'none'}]"
+        )
+        return 1
+
+    bad = 0
+    for a, b in zip(en, got):
+        if a.runner in VERBATIM_BODIES and a.body != b.body:
+            print(
+                f"DRIFT    docs/{loc}/{rel}:{b.line}  — this {a.runner} block "
+                f"differs from docs/en/{rel}:{a.line}. A transcript is what a "
+                f"command printed; it is the same in every language"
+            )
+            bad += 1
+        for name in VERBATIM_ATTRS.get(a.runner, ()):
+            if a.attrs.get(name) != b.attrs.get(name):
+                print(
+                    f"DRIFT    docs/{loc}/{rel}:{b.line}  — {name}= differs from "
+                    f"docs/en/{rel}:{a.line}\n"
+                    f"           en: {a.attrs.get(name)!r}\n"
+                    f"           {loc}: {b.attrs.get(name)!r}"
+                )
+                bad += 1
+    return bad
+
+# The translations. A new locale is NOT picked up automatically: adding one is a
+# decision to maintain it, and this list is where that decision is recorded.
+LOCALES = ("de", "es", "ja", "ru", "uk", "zh-CN")
+
+
+def pages(base: Path) -> set[str]:
     if not base.is_dir():
-        return out
-    for p in sorted(base.rglob("*.md")):
-        rel = p.relative_to(base)
-        if restrict and rel.parts[0] not in MIRRORED:
-            continue
-        out.add(rel.as_posix())
-    return out
+        return set()
+    return {p.relative_to(base).as_posix() for p in base.rglob("*.md")}
 
 
 def main() -> int:
-    en = pages(EN, restrict=True)
-    ru = pages(RU, restrict=False)
+    en = pages(EN)
+    if not en:
+        print("mirror: FAIL — docs/en has no pages", file=sys.stderr)
+        return 1
 
-    missing_ru = sorted(en - ru)
-    orphan_ru = sorted(ru - en)
+    bad = 0
+    drift = 0
+    for loc in LOCALES:
+        base = DOCS / loc
+        if not base.is_dir():
+            print(f"MISSING  docs/{loc}/  — the locale directory does not exist")
+            bad += 1
+            continue
+        got = pages(base)
+        for rel in sorted(en - got):
+            print(f"MISSING  docs/{loc}/{rel}  — docs/en/{rel} exists and has "
+                  f"no {loc} counterpart")
+            bad += 1
+        for rel in sorted(got - en):
+            print(f"ORPHAN   docs/{loc}/{rel}  — no docs/en/{rel}; either the "
+                  f"English page moved and this one did not, or it was never "
+                  f"an English page")
+            bad += 1
+        # Only pages that exist in both: a page reported MISSING above has
+        # nothing to compare, and saying so twice helps nobody.
+        here = sum(
+            compare_samples(rel, loc, EN / rel, base / rel)
+            for rel in sorted(en & got)
+        )
+        drift += here
+        if got == en and not here:
+            print(f"ok       docs/{loc}/  — {len(got)} page(s), same set and "
+                  f"same samples as docs/en")
 
-    for rel in missing_ru:
-        print(f"MISSING  docs/ru/{rel}  — docs/en/{rel} is in the translated "
-              f"tier and has no Russian counterpart")
-    for rel in orphan_ru:
-        print(f"ORPHAN   docs/ru/{rel}  — no docs/en/{rel}; either the English "
-              f"page moved and this one did not, or it is outside the "
-              f"translated tier (see MIRRORED in this file)")
-
-    bad = len(missing_ru) + len(orphan_ru)
-    verdict = "ok" if not bad else "FAIL"
-    print(f"mirror: {verdict} — {len(en)} English page(s) in the translated "
-          f"tier, {len(ru)} Russian page(s), {bad} mismatch(es)")
-    return 1 if bad else 0
+    verdict = "ok" if not (bad or drift) else "FAIL"
+    print(f"mirror: {verdict} — {len(en)} English page(s), "
+          f"{len(LOCALES)} locale(s), {bad} page-set mismatch(es), "
+          f"{drift} sample drift(s)")
+    return 1 if (bad or drift) else 0
 
 
 if __name__ == "__main__":
