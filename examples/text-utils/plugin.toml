@@ -3,7 +3,7 @@ id = "text-utils"
 name = "Text Utils"
 version = "0.1.2"
 description = "Word count, case conversion, regex matching — with actions and triggers"
-author = "Astra Team"
+author = "Mihailin"
 license = "MIT"
 
 [entry]

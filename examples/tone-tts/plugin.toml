@@ -3,7 +3,7 @@ id = "tone-tts"
 name = "Tone TTS"
 version = "0.1.0"
 description = "Test TTS plugin — synthesizes a sine tone per word. For wiring tests, not for listening."
-author = "Astra Team"
+author = "Mihailin"
 license = "MIT"
 
 [entry]

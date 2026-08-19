@@ -3,7 +3,7 @@ id = "companion-cat"
 name = "Companion Cat"
 version = "0.1.5"
 description = "A cat that flies around the UI and says random things"
-author = "Astra Team"
+author = "Mihailin"
 license = "MIT"
 
 [entry]

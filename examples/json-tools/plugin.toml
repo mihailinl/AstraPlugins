@@ -3,7 +3,7 @@ id = "json-tools"
 name = "JSON Tools"
 version = "0.1.2"
 description = "Format, query, and diff JSON — with actions and triggers"
-author = "Astra Team"
+author = "Mihailin"
 license = "MIT"
 
 [entry]
