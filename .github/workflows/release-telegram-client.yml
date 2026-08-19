@@ -28,4 +28,4 @@ jobs:
     with:
       plugin-dir: examples/telegram-client
       tag-prefix: "telegram-client-v"
-      linux-packages: "pkg-config libssl-dev"
+      linux-packages: ""
