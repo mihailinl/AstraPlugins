@@ -513,11 +513,22 @@ jobs:
           PACKAGES: ${{ inputs.linux-packages }}
         run: |
           set -euo pipefail
+          # `DPkg::Lock::Timeout` and not bare apt-get: a runner image runs
+          # unattended-upgrades of its own, and an apt that meets that lock
+          # waits for it FOREVER with no output. Two independent releases of
+          # telegram-client wedged here for half an hour each and had to be
+          # force-cancelled — a hang, not a failure, which is worse, because
+          # nothing goes red and nobody is told.
+          #
+          # 300 s is longer than any upgrade the image starts and far shorter
+          # than the six-hour job ceiling, so a genuinely stuck lock now ends
+          # as a named error instead of a mystery.
+          export DEBIAN_FRONTEND=noninteractive
           # Word-split deliberately: this input is a package list.
           # shellcheck disable=SC2086
-          sudo apt-get update -qq
+          sudo apt-get -o DPkg::Lock::Timeout=300 update -qq
           # shellcheck disable=SC2086
-          sudo apt-get install -y --no-install-recommends $PACKAGES
+          sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
 
       # Keyed on the workflow commit, so a new pin rebuilds the CLI and an
       # unchanged pin never does. The cache lives in the CALLER's cache scope
@@ -585,6 +596,27 @@ jobs:
       - name: astra-plugin check --strict
         working-directory: ${{ env.PLUGIN_DIR }}
         run: astra-plugin check --strict .
+
+      # A TypeScript plugin's bundler is a devDependency, and nothing here had
+      # ever installed one — so `bun run build` met `esbuild: command not found`
+      # and every TypeScript release failed at the same line. It went unseen
+      # because no TypeScript plugin had ever been released: the first one to
+      # try was the first to find out.
+      #
+      # ci.yml missed it for the reason worth remembering — its scaffold job
+      # runs `bun install` as a step of its own, so the check exercised a road
+      # beside the one the goods travel.
+      #
+      # `--frozen-lockfile`: a release must build what the lockfile pins, not
+      # whatever resolved this morning. A plugin without a committed lockfile
+      # fails here, loudly, which is the right answer for something about to be
+      # signed and handed to strangers.
+      - name: Install the plugin's dependencies (TypeScript)
+        if: matrix.language == 'typescript'
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
 
       # --no-sign: this job holds no key, by design. Provenance is the
       #   attestation `publish` makes over sha256(whole file), not an Ed25519
@@ -735,11 +767,31 @@ jobs:
           // `\brequire(` and not `require(`: esbuild's CommonJS interop emits
           // `__require(...)` shims, and matching those would fail every single
           // bundle it produces.
+          // Anchored, newline-free, and shape-checked — because the loose
+          // version matched PROSE. `\bfrom\s*"…"` finds the `" from " + addr`
+          // string concatenations inside @grpc/grpc-js, and every TypeScript
+          // plugin bundles grpc-js, so this step refused json-tools with five
+          // "specifiers" that were paragraphs of somebody else's source. Zero
+          // were real. A guard that cannot pass a correct bundle is not strict,
+          // it is broken, and it made the whole TypeScript release path
+          // impossible.
+          //
+          // Three narrowings, each closing one way prose got in:
+          //   * the specifier may not contain a newline — the false positives
+          //     all spanned lines, because they were never specifiers;
+          //   * `from` must be preceded by `import`/`export` in the same
+          //     statement, which is what makes it an import rather than an
+          //     English word;
+          //   * the capture must LOOK like a module specifier, checked below.
           const patterns = [
-            /\brequire\(\s*["']([^"']+)["']\s*\)/g,          // require("x")
-            /\bfrom\s*["']([^"']+)["']/g,                     // import … from "x"
-            /\bimport\(\s*["']([^"']+)["']\s*\)/g,            // import("x")
+            /\brequire\(\s*["']([^"'\n]+)["']\s*\)/g,                              // require("x")
+            /(?:^|[;{}()\s])(?:import|export)\b[^;"'\n]*?\bfrom\s*["']([^"'\n]+)["']/g, // import … from "x"
+            /\bimport\(\s*["']([^"'\n]+)["']\s*\)/g,                               // import("x")
           ];
+
+          // A real specifier is a package name, optionally scoped, optionally
+          // with a subpath. Anything else the regexes drag in is text.
+          const SPECIFIER = /^(?:@[a-z0-9._~-]+\/)?[a-z0-9._~-]+(?:\/[a-z0-9._~-]+)*$/i;
 
           const bad = [];
           for (const f of files) {
@@ -749,6 +801,9 @@ jobs:
                 const spec = m[1];
                 if (spec.startsWith(".") || spec.startsWith("/")) continue;
                 if (isBuiltin(spec)) continue;
+                // Not a specifier at all -> it came out of a string or a
+                // comment, and reporting it would fail a correct bundle.
+                if (!SPECIFIER.test(spec)) continue;
                 bad.push(`${path.relative(root, f)}: ${spec}`);
               }
             }
