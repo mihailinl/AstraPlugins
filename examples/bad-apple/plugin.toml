@@ -1,7 +1,7 @@
 [plugin]
 id = "bad-apple"
 name = "Bad Apple"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bad Apple!! with ASCII, CRT, particle, and silhouette render modes"
 author = "Astra Team"
 license = "MIT"

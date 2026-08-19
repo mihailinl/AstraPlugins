@@ -84,7 +84,7 @@ dependencies = [
 
 [[package]]
 name = "astra-plugin-macros"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "astra-plugin-sdk"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2134,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "telegram_client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "astra-plugin-sdk",

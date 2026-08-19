@@ -1,0 +1,31 @@
+name: Release text-utils
+
+# One caller per plugin, because this repository is a MONOREPO of plugins and a
+# tag can only mean one of them. The prefix below is what separates them: a tag
+# `text-utils-v0.2.0` releases this plugin and starts nothing else.
+#
+# `on.push.tags` and `tag-prefix` must stay in step. Wider than the prefix and
+# this workflow starts on a sibling's tag and fails its version assertion;
+# narrower and it never starts at all — and a release that silently does
+# nothing is the worse of the two.
+on:
+  push:
+    tags: ["text-utils-v*"]
+
+# Required here rather than below: a reusable workflow can only reduce the
+# permissions its caller granted, never grant itself more.
+permissions:
+  contents: write       # create the Release and upload assets
+  id-token: write       # mint the OIDC token that makes signing keyless
+  attestations: write   # store the build attestation on GitHub
+
+jobs:
+  release:
+    # Pinned by commit SHA, and it must be a sha `trust.json` allowlists — the
+    # registry verifies the attestation names exactly this workflow at exactly
+    # this commit, and refuses a build signed by anything else.
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    with:
+      plugin-dir: examples/text-utils
+      tag-prefix: "text-utils-v"
+      linux-packages: ""

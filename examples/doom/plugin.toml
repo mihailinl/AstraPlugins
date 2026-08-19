@@ -1,7 +1,7 @@
 [plugin]
 id = "doom"
 name = "Doom"
-version = "0.1.0"
+version = "0.1.1"
 description = "Play DOOM (1993 shareware) inside Astra via js-dos"
 author = "Astra Team"
 license = "MIT"
