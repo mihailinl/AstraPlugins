@@ -49,4 +49,4 @@ remembering when testing install progress, extraction caps and download policy.
 ## Licensing
 
 See the licensing section of [README.md](README.md) before distributing a build.
-The engine is GPL-2.0 and `plugin.toml` currently says MIT.
+The engine is GPL-2.0-or-later and `plugin.toml` now says so too.

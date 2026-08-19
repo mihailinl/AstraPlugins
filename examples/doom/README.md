@@ -50,11 +50,22 @@ The bundle contains two pieces of other people's work:
   `chocolate-doom.data`), under a **modified BSD** licence — freely
   redistributable. No commercial DOOM WAD is included.
 
-`plugin.toml` currently declares `license = "MIT"`, which describes `src/` and
-`ui/doom.js` and **not** the engine build sitting next to them. A distributed
-bundle that mixes GPL-2.0 binaries under an MIT label is a licensing problem, not
-a formatting one. This needs resolving before this example is published anywhere
-users can install it.
+`plugin.toml` declares **`GPL-2.0-or-later`**, and that is a statement about
+the BUNDLE rather than about `src/`. Chocolate Doom's own source headers carry
+the ordinary "either version 2 of the License, or (at your option) any later
+version" boilerplate, so the engine is GPL-2.0-or-later and an aggregate that
+ships it is distributed on those terms.
+
+It said `MIT` until 2026-08-19, and this section said that had to be resolved
+before anyone could install it. It was not: the plugin was published to the
+catalogue twice with the wrong label, and delisted the same day once this
+paragraph was read. The label is now the honest one and the listing is back.
+
+What that does NOT touch: the Rust and JavaScript in `src/` and `ui/doom.js`
+remain the authors' to license as they like at the source level — the GPL term
+is on the combined thing that is distributed. It reaches no other plugin, and
+it does not reach Astra: a plugin is a separate process speaking gRPC over
+loopback, which is the arm's-length boundary this architecture was built with.
 
 ## Build it yourself
 
