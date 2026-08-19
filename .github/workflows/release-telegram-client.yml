@@ -24,7 +24,7 @@ jobs:
     # Pinned by commit SHA, and it must be a sha `trust.json` allowlists — the
     # registry verifies the attestation names exactly this workflow at exactly
     # this commit, and refuses a build signed by anything else.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@c3f342469d186ef48458992930bf1b7c583c78d4  # plugin-release/v1
     with:
       plugin-dir: examples/telegram-client
       tag-prefix: "telegram-client-v"
