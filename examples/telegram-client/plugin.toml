@@ -1,7 +1,7 @@
 [plugin]
 id = "telegram-client"
 name = "Telegram Bot"
-version = "0.1.1"
+version = "0.1.2"
 description = "Bridge Telegram bot topics to Astra conversations with full sync and streaming"
 author = "Mihailin"
 license = "MIT"
@@ -11,6 +11,9 @@ command = "target/release/telegram_client"
 
 [capabilities]
 client = true
+
+[permissions]
+client = { reason = "Bridges Telegram topics to Astra conversations, which means holding a client session with the daemon" }
 
 [config]
 schema = """

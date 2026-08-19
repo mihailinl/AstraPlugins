@@ -1,7 +1,7 @@
 [plugin]
 id = "companion-cat"
 name = "Companion Cat"
-version = "0.1.5"
+version = "0.1.6"
 description = "A cat that flies around the UI and says random things"
 author = "Mihailin"
 license = "MIT"
@@ -12,3 +12,6 @@ command = "target/release/companion"
 [capabilities]
 ui_contributions = true
 dom_access = true
+
+[permissions]
+dom_access = { reason = "Flies the cat around the Astra interface, which means running its own JavaScript inside the Astra window" }

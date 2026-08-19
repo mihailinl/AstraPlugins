@@ -1,7 +1,7 @@
 [plugin]
 id = "doom"
 name = "Doom"
-version = "0.1.1"
+version = "0.1.2"
 description = "Play DOOM (1993 shareware) inside Astra via js-dos"
 author = "Mihailin"
 license = "MIT"
@@ -12,6 +12,9 @@ command = "target/release/doom"
 [capabilities]
 ui_contributions = true
 dom_access = true
+
+[permissions]
+dom_access = { reason = "Runs the js-dos emulator inside the Astra window, which is what playing DOOM in a panel requires" }
 
 [config]
 schema = """

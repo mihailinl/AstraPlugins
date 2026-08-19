@@ -1,7 +1,7 @@
 [plugin]
 id = "bad-apple"
 name = "Bad Apple"
-version = "0.1.1"
+version = "0.1.2"
 description = "Bad Apple!! with ASCII, CRT, particle, and silhouette render modes"
 author = "Mihailin"
 license = "MIT"
@@ -12,6 +12,9 @@ command = "target/release/bad_apple"
 [capabilities]
 ui_contributions = true
 dom_access = true
+
+[permissions]
+dom_access = { reason = "Draws the animation behind the Astra interface, which means running its own JavaScript inside the Astra window" }
 
 [config]
 schema = """
