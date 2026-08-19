@@ -353,7 +353,7 @@ pub fn generate_package_json(name: &str) -> String {
   "description": "An Astra plugin",
   "main": "dist/index.js",
   "scripts": {{
-    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js",
+    "build": "bun install --frozen-lockfile && esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js",
     "pretest": "esbuild src/index.ts --bundle --platform=node --format=cjs --external:astra-plugin-sdk --outfile=dist/plugin.cjs",
     "test": "node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit",
