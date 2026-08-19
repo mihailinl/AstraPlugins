@@ -134,7 +134,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "reminderResolved",
                 "lockStateChanged",
                 "backgroundJobsChanged",
-                "commandTriggered"
+                "creditsChanged",
+                "commandTriggered",
+                "mcpServerChanged",
+                "mcpToolsChanged"
               ]
             }
           },
@@ -231,9 +234,53 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "BackgroundJobsChangedEvent",
               "id": 26
             },
+            "creditsChanged": {
+              "type": "CreditsChangedEvent",
+              "id": 31
+            },
             "commandTriggered": {
               "type": "CommandTriggeredEvent",
               "id": 27
+            },
+            "mcpServerChanged": {
+              "type": "McpServerChangedEvent",
+              "id": 29
+            },
+            "mcpToolsChanged": {
+              "type": "McpToolsChangedEvent",
+              "id": 30
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 28
+            }
+          }
+        },
+        "McpServerChangedEvent": {
+          "fields": {
+            "serverId": {
+              "type": "string",
+              "id": 1
+            },
+            "serverName": {
+              "type": "string",
+              "id": 2
+            },
+            "status": {
+              "type": "string",
+              "id": 3
+            },
+            "error": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "McpToolsChangedEvent": {
+          "fields": {
+            "serverId": {
+              "type": "string",
+              "id": 1
             }
           }
         },
@@ -3678,6 +3725,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "threshold"
               ]
+            },
+            "_strictness": {
+              "oneof": [
+                "strictness"
+              ]
             }
           },
           "fields": {
@@ -3698,6 +3750,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "threshold": {
               "type": "float",
               "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "strictness": {
+              "type": "string",
+              "id": 7,
               "options": {
                 "proto3_optional": true
               }
@@ -4429,6 +4488,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "reasoningDefault": {
               "type": "string",
               "id": 4
+            },
+            "gated": {
+              "type": "bool",
+              "id": 5
+            },
+            "gateTier": {
+              "type": "string",
+              "id": 6
             }
           }
         },
@@ -5378,6 +5445,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "TtsProviderInfo",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -5416,6 +5487,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "SttProviderInfo",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -5579,6 +5654,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "AiProviderInfo",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -6131,6 +6210,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "PluginStatusMsg",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -6473,6 +6556,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "readme": {
               "type": "string",
               "id": 17
+            },
+            "publisher": {
+              "type": "string",
+              "id": 18
+            },
+            "publisherTier": {
+              "type": "string",
+              "id": 19
+            },
+            "publisherDisplayName": {
+              "type": "string",
+              "id": 20
+            },
+            "publisherDescription": {
+              "type": "string",
+              "id": 21
             }
           }
         },
@@ -7622,6 +7721,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "PluginUiContributionWithMeta",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -7672,6 +7775,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "PluginThemeContribution",
               "id": 1
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -7789,6 +7896,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "BackgroundJobsChangedEvent": {
+          "fields": {}
+        },
+        "CreditsChangedEvent": {
           "fields": {}
         }
       }

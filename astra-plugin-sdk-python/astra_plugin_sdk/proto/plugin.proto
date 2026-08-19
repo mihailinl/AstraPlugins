@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 333a8839c6452d3767b2c293fb0a4f5deff529deee271786c82ed0a01c6a6196
+// source-sha256: 58b8f15be31b385bb0fcb0397c2f9c2dbc38af2ee35bcb0a9c5bb9b25be1b2a5
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -111,8 +111,47 @@ message AstraEvent {
         ReminderResolvedEvent reminder_resolved = 24;
         LockStateChangedEvent lock_state_changed = 25;
         BackgroundJobsChangedEvent background_jobs_changed = 26;
+        // astra-api settled a turn: what the account may spend has changed.
+        // Empty by design — the figures come from the daemon's own
+        // `AuthService/GetCredits`, and a payload here would be a second copy
+        // of them free to disagree with the first.
+        CreditsChangedEvent credits_changed = 31;
         CommandTriggeredEvent command_triggered = 27;
+        McpServerChangedEvent mcp_server_changed = 29;
+        McpToolsChangedEvent mcp_tools_changed = 30;
     }
+
+    // Which set of capabilities the daemon could serve when this event was
+    // emitted — "<boot-uuid>.<seq>", see astra_core::event::CapabilityEpoch.
+    //
+    // Stamped on the ENVELOPE, in one line at the `yield` inside
+    // CoreService.SubscribeEvents, and NOT in the arm of some particular event.
+    // That is the whole point: convergence stops being a property of one
+    // correctly-classified message and becomes a property of TRAFFIC. A client
+    // that missed `plugin_status_changed` is repaired by the next
+    // `widget_data_changed`, `settings_changed` or TTS edge that happens to
+    // come along, and there is no arm anybody can forget to write.
+    //
+    // The boot half means a daemon RESTART is not a special case: the successor
+    // mints an id the client has never seen, so every capability document the
+    // client cached is stale by the ordinary rule.
+    string capability_epoch = 28;
+}
+
+// An MCP server started, stopped or failed. Reaches clients because an MCP
+// server's tools are a THIRD of the AI tool catalogue: while these two events
+// were daemon-internal, the AI page's tool section could never converge on a
+// server the user had just started, no matter how correct the client was.
+message McpServerChangedEvent {
+    string server_id = 1;
+    string server_name = 2;
+    string status = 3;  // "running" | "stopped" | "error" | …
+    string error = 4;  // empty when there is none
+}
+
+// An MCP server refreshed its tool list.
+message McpToolsChangedEvent {
+    string server_id = 1;
 }
 
 // A command run STARTED — the counterpart to CommandExecutedEvent, which says
@@ -126,11 +165,13 @@ message AstraEvent {
 // reachable by any subscribed plugin, and the trigger text is the user's own
 // words; the type says which surface fired without quoting the person.
 //
-// No daemon converter arm exists yet: `AstraEvent::CommandTriggered`'s audience
-// is still `Internal` (astra-core/src/event.rs), so nothing publishes this on
-// the wire. The member lands here, in the effort's ONE proto window, because
-// both shells must be able to CARRY it before the audience flips — a member
-// added later would need a second window on a repo other people push to.
+// `AstraEvent::CommandTriggered`'s audience is `Monitor` (astra-core/src/
+// event.rs) and `astra_event_to_proto` has its arm, so this DOES go on the
+// wire. (It landed here one wave ahead of that flip, on the reasoning that both
+// shells must be able to CARRY a member before the audience changes — a member
+// added later would need a second proto window on a repo other people push to.
+// `McpServerChangedEvent` / `McpToolsChangedEvent` are here for the same
+// reason, one wave ahead of their converter arm.)
 message CommandTriggeredEvent {
     string command_id = 1;
     string command_name = 2;
@@ -1869,6 +1910,12 @@ message SemanticSettings {
     optional bool enabled = 1;  // command-match fuzzy/phonetic fallback
     optional string model_id = 2;  // memory embedding model id
     optional float threshold = 3;  // fuzzy-match threshold (command match)
+
+    // How much of a message a trigger phrase must explain before the command
+    // fires: "loose" | "normal" | "strict" (default "normal"). A string, not an
+    // enum, so this block stays on the generic Electron pass-through; an
+    // unrecognised value is read as "normal".
+    optional string strictness = 7;
     reserved 4, 5, 6;
     reserved "mode", "llm_model_id", "memory_enabled";
 }
@@ -2215,6 +2262,21 @@ message ModelInfo {
     // The rung that applies when no parameter is sent, for rendering
     // "Inherited: …". Never put on the wire to a provider.
     string reasoning_default = 4;
+
+    // This caller's plan does not include this model: show it, badge it, refuse
+    // to select it.
+    //
+    // The polarity is deliberate and load-bearing. `false` is proto3's default,
+    // so every model from every other provider — and every model from a daemon
+    // that predates this field — is selectable without anyone having to say so.
+    // An `allowed` flag would have defaulted to "forbidden" and silently emptied
+    // every picker in the app.
+    bool gated = 5;
+
+    // The cheapest OFFERED plan that includes it, as the SERVER names it. For a
+    // tooltip; the badge itself is a fixed word. Empty when unknown, which is
+    // every provider but astra.
+    string gate_tier = 6;
 }
 
 // One selectable reasoning rung, ready to render.
@@ -2672,6 +2734,9 @@ message TtsProviderInfo {
 
 message TtsProvidersResponse {
     repeated TtsProviderInfo providers = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse.
+    string capability_epoch = 2;
 }
 
 message SttProviderInfo {
@@ -2694,6 +2759,9 @@ message SttProviderInfo {
 
 message SttProvidersResponse {
     repeated SttProviderInfo providers = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse.
+    string capability_epoch = 2;
 }
 
 // ===== Supertonic local TTS model status =====
@@ -2784,6 +2852,11 @@ message AiProviderInfo {
 
 message AiProvidersResponse {
     repeated AiProviderInfo providers = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse. A plugin can
+    // contribute an AI provider (`plugin__*`), so this list grows and shrinks
+    // with the loaded plugin set exactly like the tool catalogue does.
+    string capability_epoch = 2;
 }
 
 // ===== Widget Data =====
@@ -3297,6 +3370,9 @@ message PluginStatusMsg {
 
 message PluginListResponse {
     repeated PluginStatusMsg plugins = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse.
+    string capability_epoch = 2;
 }
 
 message PluginIdRequest {
@@ -3660,6 +3736,60 @@ message PluginRegistryEntry {
     // catalogue entry reaches the same component, so the component may not
     // depend on that having happened.
     string readme = 17;
+
+    // ── Who published this, and whether the registry vouches for them ───────
+    //
+    // The badge attaches to the PUBLISHER, not to the plugin, and NOT to
+    // `author` above: `author` is read out of the plugin's own manifest inside
+    // the bundle, so any author can type "Astra Team" into it and a badge keyed
+    // on it is forged by a one-line edit. This is the one identity the system
+    // actually establishes — the GitHub owner the registry's ownership check
+    // proved — and it rides inside the catalogue's `signed` block, so the
+    // existing signature verification covers it with no second trust path.
+    //
+    // The proven GitHub owner login. Empty when the catalogue names none.
+    string publisher = 18;
+
+    // `official` (published by the Astra project) or `verified` (the registry
+    // confirmed who the account is, by a written procedure) — and EMPTY for
+    // everything else, including a tier this daemon does not recognise.
+    //
+    // **A client draws a badge on this being exactly one of those two values,
+    // never on it being present, non-empty, or not-some-default.** The daemon
+    // has already dropped anything else and the client tests membership again;
+    // that is written twice on purpose, so a future daemon which stops
+    // filtering cannot badge something silently. The failure has a precedent
+    // one field up: the consent sheet once rendered an absent permission list
+    // as the affirmative claim "this plugin asks for nothing" when what it
+    // meant was "we do not know".
+    //
+    // It is NOT a safety claim. "We know who published this" is not "this code
+    // is safe", and a client that lets a badge stand in for the permission
+    // sheet has made the user worse off.
+    string publisher_tier = 19;
+
+    // The publisher's own name, joined DAEMON-side from the one record per
+    // publisher in the catalogue, so no client carries a join and a rename is
+    // one edit rather than N that can disagree.
+    //
+    // Note this is the opposite choice from a conversation byline, where every
+    // human-readable string is frozen at mint so a rename cannot rewrite six
+    // months of transcript. A badge is a claim about a live account NOW; history
+    // has no stake in it.
+    string publisher_display_name = 20;
+
+    // One line the PUBLISHER wrote about themselves, reviewed and capped by the
+    // registry and signed with the catalogue. Empty renders nothing — never a
+    // default sentence.
+    //
+    // It answers a different question from the tier: the tier says what kind of
+    // claim the registry is making, this says who the publisher is, and only one
+    // of them is about the publisher. Which is also why a client must render it
+    // in a voice visibly NOT its own — free text beside a trust mark is exactly
+    // where an impersonation would live, and a record reading "Verified by Astra
+    // Security" set in the same weight and colour as Astra's own copy would read
+    // as something Astra wrote.
+    string publisher_description = 21;
 }
 
 // Which plugin's provenance to report.
@@ -4420,6 +4550,9 @@ message PluginUiContributionWithMeta {
 
 message AllUiContributionsResponse {
     repeated PluginUiContributionWithMeta contributions = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse.
+    string capability_epoch = 2;
 }
 
 message PluginThemeContribution {
@@ -4436,6 +4569,9 @@ message PluginThemeContribution {
 
 message ActiveThemesResponse {
     repeated PluginThemeContribution themes = 1;
+
+    // Capability document — see ActionTypeDefinitionsResponse.
+    string capability_epoch = 2;
 }
 
 // ── UI Calls (bidirectional plugin UI ↔ backend communication) ──
@@ -4502,3 +4638,5 @@ message PluginHealthResponse {
 // client that missed an event still converges. Output is DEBOUNCED daemon-side;
 // status changes are not.
 message BackgroundJobsChangedEvent {}
+
+message CreditsChangedEvent {}
