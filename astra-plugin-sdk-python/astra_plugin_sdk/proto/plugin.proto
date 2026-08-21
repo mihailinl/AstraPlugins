@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 58b8f15be31b385bb0fcb0397c2f9c2dbc38af2ee35bcb0a9c5bb9b25be1b2a5
+// source-sha256: 99a86955a228076a20e8e83c928c6ec0016c2d8fd14158aebffa0a0c5fc93118
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -583,12 +583,34 @@ message SubmitUserMessageRequest {
     // compatible: adding a key needs no proto change, only a scope that reads
     // it. Replaces the stored context wholesale on every submit.
     map<string, string> scope_context = 9;
+
+    // What this message's arrival MEANS for the turn it lands in.
+    //
+    // An OPEN vocabulary, and `""` is the value that matters: it means "the
+    // caller did not say", and the daemon queues the message behind whatever
+    // this conversation is already answering instead of killing it. Only
+    // `"supersede"` asks for the old behaviour — stop the turn in flight and
+    // send now — which is what Stop already is as a separate RPC.
+    //
+    // A client that predates the field therefore gets the queue for free, and
+    // a daemon that predates it ignores the field and behaves as it always
+    // did: skew is free in both directions with no version probe.
+    string arrival = 10;
 }
 
 message SubmitUserMessageResponse {
     string conversation_id = 1;
     string message_id = 2;
     uint64 seq = 3;  // seq of the UserMessage event that was appended
+
+    // The message is WAITING behind a turn and has not been sent.
+    //
+    // `message_id` is still the id it will really carry, so a client draws a
+    // grey row now and reconciles it to the real bubble when the `UserMessage`
+    // arrives on the event stream with the same id. `seq` stays 0 until then —
+    // 0 is not a valid seq, and this bool is what says which it is rather than
+    // leaving a client to infer it.
+    bool queued = 4;
 }
 
 // Re-roll an assistant response. The daemon truncates the log at the
@@ -1979,6 +2001,12 @@ message VoiceSettings {
     string stt_model = 1;  // tiny, base, small, medium, large
     string stt_language = 2;  // Auto-detect if empty
     float vad_threshold = 3;  // 0.0 to 1.0
+
+    // VAD segment framing only — how much trailing silence ends a speech
+    // segment. NOT the post-wake end-of-turn wait; see
+    // `triggered_silence_extra_ms` (field 25). It has no UI control: the
+    // slider that carried it was deleted 2026-08-21 because its label
+    // described field 25's job. The field stays so existing settings load.
     int32 silence_duration_ms = 4;
 
     // STT provider id (e.g. "whisper", "plugin__echo_stt"); empty = default.
@@ -2030,9 +2058,13 @@ message VoiceSettings {
     // value are seen. Default 0.25.
     float wake_word_rearm_threshold = 24;
 
-    // Extra silence (ms) past `silence_duration_ms` the WakewordGate
-    // waits before closing the STT input once Triggered. Default 700
-    // (total 1.2s post-wake silence-to-close).
+    // Extra silence (ms) past a hardcoded 500 ms base that the WakewordGate
+    // waits before closing the STT input. Default 700 → a 1.2 s total
+    // post-wake silence-to-close, measured from the last VOICED chunk.
+    // That total is the WHOLE wait: the VAD's own segment window (field 4)
+    // is not charged in front of it. Until 2026-08-21 this comment said the
+    // value was added on top of field 4 — copied from a doc comment in
+    // astra-core that contradicted itself four lines later.
     int32 triggered_silence_extra_ms = 25;
 
     // Plateau confirmation: how many of the last 10 detector scores must
@@ -3641,6 +3673,16 @@ message PluginBrowseRequest {
     string sort = 3;  // "popular", "newest", "updated"
     int32 page = 4;
     int32 page_size = 5;
+
+    // Forget the cached catalogue and fetch before answering.
+    //
+    // The daemon holds the index for an hour, which is right for browsing and
+    // wrong for the case the store exists to serve: an author who has just
+    // published wants to install what they built, and before this the only way
+    // to pick up a moved catalogue was to restart Astra. Set by an explicit
+    // refresh gesture, never by opening a page — a fetch per tab visit is a
+    // request to the registry for every glance.
+    bool refresh = 6;
 }
 
 message PluginBrowseResponse {
@@ -3790,6 +3832,26 @@ message PluginRegistryEntry {
     // Security" set in the same weight and colour as Astra's own copy would read
     // as something Astra wrote.
     string publisher_description = 21;
+
+    // WHY the permissions could not be read, when `permissions_known` is false.
+    // Empty when they WERE read.
+    //
+    // `no_build` — the listing is a placeholder and nothing has been released,
+    // so there is no artifact and no permissions block because there is no
+    // build. Waiting may help.
+    // `no_declaration` — a real, signed, attested build whose manifest declared
+    // `[capabilities]` and no `[permissions]`. The bytes exist and verify; the
+    // declaration is what is missing, so waiting will NEVER help and only a new
+    // release from the author can.
+    //
+    // The two were one sentence advising a catalogue refresh, which is right for
+    // the first and misleading for the second — an author lost an afternoon to
+    // it. An OPEN vocabulary, like `CreditWindow.cap`: render the sentence you
+    // know, fall back to the generic one otherwise, and never enumerate.
+    //
+    // It does not soften the refusal. Astra still will not install a plugin
+    // whose permissions it could not read; only the diagnosis is two.
+    string permissions_absence = 22;
 }
 
 // Which plugin's provenance to report.
@@ -4238,7 +4300,16 @@ message PluginEventMsg {
 message PluginChatRequest {
     string text = 1;
     string source_id = 2;  // Plugin ID as source
-    string conversation_id = 3;  // Empty = active conversation
+
+    // `""` = this plugin's own durable thread — one per plugin, rotated by the
+    // daemon. A UUID addresses that conversation instead. **There is no "active
+    // conversation"**: the daemon has no such notion and never had one, and the
+    // comment that claimed it here was false in four repositories at once.
+    //
+    // A UUID that names no conversation is REFUSED, rather than silently
+    // starting a turn with an empty history whose reply lands somewhere no
+    // client can open.
+    string conversation_id = 3;
     bool voice_enabled = 4;
 }
 
@@ -4256,6 +4327,13 @@ message PluginChatChunk {
     // Outside the oneof for the same reason: a field inside it would displace
     // `error` on the wire and an old SDK would see no error at all.
     PluginError error_detail = 5;
+
+    // Which conversation this reply is being written into.
+    //
+    // **Informational: do NOT cache it and send it back.** `""` is routed to
+    // your thread every time and follows it across rotation; a cached id pins
+    // you to a thread the daemon has retired and will eventually delete.
+    string conversation_id = 6;
 }
 
 message PluginFireTriggerRequest {

@@ -287,6 +287,15 @@ export interface ChatChunk {
   messageId?: string;
   /** Structured failure detail (§5.2), set alongside `error`. */
   errorDetail?: PluginErrorDetail;
+  /**
+   * The conversation this reply is being written into.
+   *
+   * Informational, and safe to show a user or log. It is NOT a value to cache
+   * and send back on a later call — see `sendChatMessage`'s `conversationId`
+   * for why a stored id stops naming anything. Absent on a daemon older than
+   * the one that added it, which is the normal reason to find it empty.
+   */
+  conversationId?: string;
 }
 
 /** Builder for UI contributions. */

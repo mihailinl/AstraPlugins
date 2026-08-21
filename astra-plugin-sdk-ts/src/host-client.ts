@@ -344,7 +344,23 @@ export class HostClient implements Host {
    * `DaemonClient`/`ChatService` route is `permission_denied` by construction.
    * Requires the `send_chat_message` permission.
    *
-   * `conversationId` empty means the active conversation.
+   * **`conversationId`**
+   *
+   * Where the message lands. Pass the EMPTY STRING and it goes to this plugin's
+   * own durable thread: one thread per plugin, kept across calls, so a series of
+   * messages reads as one conversation. That is the right choice for almost every
+   * plugin, and it is what you get by default.
+   *
+   * Pass an id ONLY to answer inside a conversation you were told about in this
+   * same exchange — `PluginChatChunk.conversation_id`, on the chunks of a reply you
+   * are streaming right now. Do NOT store one and send it back later. Threads
+   * rotate and are pruned, so a stored id eventually names a conversation that is
+   * gone, and what happens then depends on the age of the daemon the user is
+   * running: older builds accept it silently and write the exchange where nobody
+   * can see it, newer ones refuse it. Neither is something a plugin can recover
+   * from. Leave it empty and let the daemon place the message.
+   *
+   * There is deliberately no way to ask which conversation the user is looking at.
    */
   sendChatMessage(
     text: string,

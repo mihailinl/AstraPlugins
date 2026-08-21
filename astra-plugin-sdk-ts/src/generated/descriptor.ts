@@ -944,6 +944,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "keyType": "string",
               "type": "string",
               "id": 9
+            },
+            "arrival": {
+              "type": "string",
+              "id": 10
             }
           }
         },
@@ -960,6 +964,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "seq": {
               "type": "uint64",
               "id": 3
+            },
+            "queued": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -6457,6 +6465,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "pageSize": {
               "type": "int32",
               "id": 5
+            },
+            "refresh": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
@@ -6572,6 +6584,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "publisherDescription": {
               "type": "string",
               "id": 21
+            },
+            "permissionsAbsence": {
+              "type": "string",
+              "id": 22
             }
           }
         },
@@ -7103,6 +7119,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "errorDetail": {
               "type": "PluginError",
               "id": 5
+            },
+            "conversationId": {
+              "type": "string",
+              "id": 6
             }
           }
         },
