@@ -79,6 +79,75 @@ gate.
 it, read [the security model](../1-orientation/security.md) first and be sure
 `push_to_ui` into your own panel will not do.
 
+## Sending a chat message
+
+`send_chat_message` is the only path a plugin has into a conversation, and two
+things decide what your call actually does: **where the message lands**, and
+**what happens if Astra is already busy**.
+
+### Where it lands
+
+**Leave `conversation_id` empty.** The message goes to your plugin's own durable
+thread — one thread per plugin, kept across calls — so a series of messages
+reads as one conversation instead of a pile of one-line chats.
+
+Say plainly what this replaces, because a version of this contract you may have
+read said the opposite. `conversation_id` was documented, in the protocol and in
+two of the three SDKs, as *"empty = the active conversation"*. There has never
+been an active conversation to send to: Astra deliberately exposes no way to ask
+which conversation the user is looking at, and an empty id was read as *start a
+new one*. So every message a plugin sent opened its own chat, titled with that
+message, and the model answered each one holding no memory of the one before.
+The plugin that surfaced it was a Minecraft bridge: every sentence a player
+typed in game chat became its own Astra thread.
+
+Pass an id **only** to answer inside a conversation you were told about in the
+same exchange — `conversation_id` arrives on the chunks of a reply you are
+streaming right now. **Do not store one and send it back later.** Threads rotate
+and are pruned, so a stored id eventually names a conversation that is gone, and
+what happens then depends on how old the daemon in front of you is. Leaving the
+field empty is correct on every version.
+
+### What happens if Astra is busy
+
+An arriving message declares an **intent**; the turn in flight names the
+**boundary**. Nothing is injected into a turn that is already running — a
+message you send mid-turn begins the *next* one. Your call resolves exactly once,
+in one of three shapes, and they are distinguishable without a flag:
+
+| What you see | What it means | What to do |
+|---|---|---|
+| The stream opens and stays quiet, then answers | Queued behind work in flight. It will be delivered at the turn boundary | Nothing. Carry on as normal |
+| The stream opens and ends with an error chunk naming a reason | Parked, then dropped. It will not be delivered | Report it. Do not retry blindly |
+| No stream at all — the call fails before one appears | Refused outright | Back off |
+
+The three demand opposite reactions, which is why they are three shapes and not
+one status field: *queued* means wait, *dropped* means say so, *refused* means
+slow down.
+
+A drop names its reason. **`Evicted`** — the conversation's parked queue was
+full and the **oldest** waiting message was discarded, not the newest, because
+the newest line is the one the model needs and the one somebody is still waiting
+on. **`ConversationDeleted`** and **`NotStarted`** are what they say.
+
+**`Locked`** is the one worth reading twice: a locked Astra answers your message
+with a refusal rather than holding it. That looks harsh and is the kinder
+choice. A locked daemon starts no turns at all, so "the next boundary" is the
+first turn *after* the user comes back and types their code — your line would
+surface in the middle of something else, hours later, with nothing on screen
+having said it was still pending.
+
+The parked queue holds **8 messages per conversation**, and the small number is
+deliberate. A queue is a person who has decided to wait, and a person does not
+type nine things while waiting for one answer. Nine is reachable only by a
+client in a loop, and the ceiling exists so that a loop cannot turn into
+unbounded memory holding somebody's words.
+
+**The pattern that is right on every daemon**: wait for `done` before sending
+again. On builds older than the queue, a message sent while a turn was running
+cut that turn short — a tool call in flight was abandoned and its result never
+reached the log. Waiting for `done` was the fix then and costs nothing now.
+
 ## Arguments
 
 Two ids take arguments, and both narrow what you get.
