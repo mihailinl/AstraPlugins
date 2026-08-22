@@ -5,6 +5,12 @@
 English's pages and English's samples. All three run in the `docs (samples execute)` job in
 `.github/workflows/ci.yml`.
 
+`locales.py` is not a check. It is the one place the set of translated
+languages is written down — `doctest.py`, `mirror.py` and the `couplings` job
+all import it, and C14 in that job holds it against `spec/locales.yaml` and
+against the directories that are actually under `docs/`. All three used to keep
+their own copy, and all three said `zh-CN`.
+
 <!-- doctest: cli -->
 ```bash
 python3 docs/tools/doctest.py                 # run every sample

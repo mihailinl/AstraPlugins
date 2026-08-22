@@ -301,6 +301,27 @@ jobs:
           echo
           echo "NOTE: upstream was NOT contacted. This is the degraded check."
 
+      # The other half of C12, and the half a fork PR actually sees. There is no
+      # degraded equivalent of the comparison — no lock file records the daemon's
+      # language list — so this prints what was not verified and exits 0. A skip
+      # that looks like a pass is the failure mode this whole job is arranged
+      # around; the script names the ten codes it took on trust, and names the
+      # two checks that DID run without a checkout, so the line is usable rather
+      # than merely present.
+      - name: C12 the locale vocabulary was NOT compared (degraded mode)
+        if: env.MODE == 'degraded'
+        run: |
+          set -euo pipefail
+          out=$(python3 tools/check-locales.py --rules C12)
+          echo "$out"
+          {
+            echo "### locales: **C12 NOT VERIFIED — the vocabulary was not compared with the daemon's**"
+            echo
+            echo '```'
+            echo "$out"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # ── full mode ────────────────────────────────────────────────────────
       #
       # `ref` is a repository variable, not a hard-coded branch. The slicer
@@ -358,6 +379,38 @@ jobs:
             }
           done
           echo "ok   Astra@$ref carries the slicer and its surface file"
+
+      # C12 — spec/locales.yaml is the ten codes `Settings::validate` accepts.
+      #
+      # FIRST of the full-mode comparisons, and deliberately ahead of every
+      # toolchain and build step: it needs the checkout and a python3, nothing
+      # else. Every other cross-repo check in this job sits behind the slicer
+      # build and the slice diff, so an unrelated protocol drift takes all of
+      # them out at once — which is exactly what happened on the pull request
+      # that added this step, and is why it is not sitting there too.
+      #
+      # Those ten strings are the complete set of values that can reach a plugin
+      # in `PluginRegisterRequest.language` or `LanguageChangedMsg.language`, and
+      # therefore the only names a bundle's `locales/<code>.json` may take: the
+      # daemon selects with `instance.locales.get(language)` on a HashMap and all
+      # three SDKs do the same, so a file named anything else is packed,
+      # digested, signed, shipped and read by nothing, with no error anywhere.
+      #
+      # Drift is silent in both directions. A code we declare and the daemon
+      # refuses is a locale an author is invited to write that will never be
+      # read; a code the daemon gains and we do not is a language `astra-plugin`
+      # would refuse to pack for. This is the only job with both trees, so this
+      # is the only place the comparison can be made — and it is exactly the
+      # reason C13 exists in the CLI's own test suite, where it runs on every
+      # fork PR with nothing checked out.
+      - name: C12 (full) spec/locales.yaml == the daemon's SUPPORTED_LANGUAGES
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          python3 tools/check-locales.py --rules C12 --astra-dir _astra/astra-rs
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
+          ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary
+          MSG
 
       - uses: dtolnay/rust-toolchain@stable
         if: env.MODE == 'full'
@@ -1669,7 +1722,14 @@ jobs:
       # only ever compared filenames. The script's docstring records what it
       # deliberately does NOT do (a changed-English-page gate, and meaning), and
       # why each is a maintainer's decision rather than a script's.
-      - name: docs/{de,es,ja,ru,uk,zh-CN} mirror docs/en
+      #
+      # This step used to name the six locales in its title, which made it a
+      # fourth copy of a list that was wrong in all four: it announced
+      # `docs/zh-CN`, a directory named for a language Astra cannot be set to.
+      # A step name is read by no program, so nothing could ever have caught it.
+      # The set lives in docs/tools/locales.py now, and C14 in the `couplings`
+      # job is what compares it with the directories that are actually there.
+      - name: every locale mirrors docs/en, page for page and sample for sample
         run: python3 docs/tools/mirror.py
 
   # ── conformance (5.7) ──────────────────────────────────────────────────────
@@ -1959,6 +2019,25 @@ jobs:
           node testdata/bundles/generate.mjs --check
           bash tools/vendor-testdata.sh --check
 
+      # C14 — the documentation's locale directories are languages Astra can
+      # actually be set to, and something knows they are there.
+      #
+      # Two failures in one rule, because they are the same mistake seen from
+      # two sides. `docs/zh-CN` was a directory named for a code the daemon
+      # refuses; an author reading the docs tree learns that name and writes
+      # `locales/zh-CN.json`, which is packed, hashed, signed, installed and
+      # read by nothing, with no error at any point. And a locale directory that
+      # nothing declares is invisible to mirror.py and doctest.py both — they
+      # iterate a tuple, not the filesystem — so a `docs/fr` dropped in tomorrow
+      # would be checked by linkcheck.py alone and by nothing that reads it.
+      #
+      # This is the rule with no skip in it: no checkout, no secret, no token.
+      # C12, the comparison of spec/locales.yaml against the daemon's own list,
+      # needs the private Astra repository and lives in `proto-upstream`, where
+      # it says out loud that it did not run rather than passing quietly.
+      - name: C14 the docs locales are languages Astra can be set to
+        run: python3 tools/check-locales.py --rules C14
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail
@@ -2109,6 +2188,21 @@ jobs:
               "publish-rust.yml": "deleted by task 1.10; the release train is release-sdks.yml",
               "publish-python.yml": "deleted by task 1.10; the release train is release-sdks.yml",
               "publish-ts.yml": "deleted by task 1.10; the release train is release-sdks.yml",
+              # A PATH SEGMENT, not the bare string. `zh-CN` appears in prose in
+              # eight files that name it in order to call it wrong, and an
+              # exception list longer than the set of real hits is a mute with
+              # extra steps. What must never come back is the *path* — a link or
+              # a directory — because that is the form an author copies into
+              # `locales/zh-CN.json`, which is packed, digested, signed and read
+              # by nothing.
+              #
+              # The other form it took — a brace list enumerating the locales, in
+              # a step name here, in mirror.py and in doctest.py — is designed
+              # out rather than pattern-matched: the set is written down once, in
+              # docs/tools/locales.py, and C14 compares it with the directories
+              # that are actually there. There is no longer a copy to be wrong.
+              "zh-CN/":
+                  "our old spelling of Chinese; the code is `zh` (spec/locales.yaml), and no region tag exists anywhere in this system",
           }
           # path -> reason. Keep these keyed to the task that removes them.
           PENDING = {
@@ -2148,9 +2242,20 @@ jobs:
           # "none". `docs/community/` is gone: the five archived translations
           # moved to `docs/<locale>/` and were re-cut from the rewritten English,
           # so there is no longer a frozen tier to exempt and no longer an
-          # English/Russian special case. A locale added here without its four
-          # entries fails C6 on the next push, which is the intended alarm.
-          for lang in ("en", "ru", "de", "es", "ja", "uk", "zh-CN"):
+          # English/Russian special case.
+          #
+          # The locale list is imported rather than written out. It used to be
+          # written out here, in mirror.py and in doctest.py, and all three said
+          # `zh-CN` — a code the daemon cannot be set to, in the file that tells
+          # authors what a locale is called. Importing it also changes what the
+          # alarm is: a locale added to locales.py whose four pages do not name
+          # the retired name now fails "every pending exception is still needed",
+          # which is the same failure from the other side.
+          sys.path.insert(0, str(ROOT / "docs" / "tools"))
+          from locales import LOCALES as DOC_LOCALES
+          sys.path.pop(0)
+
+          for lang in DOC_LOCALES:
               PENDING[f"docs/{lang}/1-orientation/what-is-a-plugin.md"] = "none — names the capability that never existed"
               PENDING[f"docs/{lang}/6-operate/troubleshooting.md"] = "none — the misspelt-capability symptom, keyed to the real error"
               PENDING[f"docs/{lang}/migration-0.6.md"] = "none — the 0.6 rename, naming the scope that was never registered"

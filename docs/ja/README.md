@@ -83,7 +83,7 @@ zip を誰かに送ることも公開ではありません。メンテナーに�
 英語が正式版です。その隣に 6 つの翻訳があり、いずれもこのドキュメントを
 ファイル単位でミラーしたものです — 同じファイル、同じ見出し、同じ順序:
 
-[Deutsch](../de/README.md) · [Español](../es/README.md) · [日本語](README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh-CN/README.md)
+[Deutsch](../de/README.md) · [Español](../es/README.md) · [日本語](README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh/README.md)
 
 CI が検査するのは翻訳の「形」です。`docs/en` とまったく同じページが揃っていること、
 すべてのリンクが解決すること、そしてコードブロックが今も動くこと。

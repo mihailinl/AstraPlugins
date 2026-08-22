@@ -90,13 +90,19 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-ROOT = Path(__file__).resolve().parents[2]
+# Every language `docs/` carries. `en` is authoritative; the rest are
+# file-for-file mirrors of it, so a sample is checked in each of them too —
+# identical bytes are executed once and reported as `identical to` the English
+# original, which is exactly how a sample that drifted in translation shows up.
+#
+# The tuple itself is in `locales.py` and only there. It used to be written out
+# here, in `mirror.py` and in `ci.yml`, and all three spelled Chinese `zh-CN` —
+# a code Astra cannot be set to and an author cannot ship. This script is run as
+# `python3 docs/tools/doctest.py`, so its own directory is `sys.path[0]` and the
+# import needs no path juggling.
+from locales import LOCALES
 
-#: Every language `docs/` carries. `en` is authoritative; the rest are
-#: file-for-file mirrors of it, so a sample is checked in each of them too —
-#: identical bytes are executed once and reported as `identical to` the English
-#: original, which is exactly how a sample that drifted in translation shows up.
-LOCALES = ("en", "de", "es", "ja", "ru", "uk", "zh-CN")
+ROOT = Path(__file__).resolve().parents[2]
 
 #: Pages whose samples this script checks. Everything else under `docs/` is
 #: either generated (and checked by its own generator's `--check`) or owned by

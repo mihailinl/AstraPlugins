@@ -89,7 +89,7 @@ Englisch ist maßgeblich. Sechs Übersetzungen liegen daneben, jede eine
 Datei-für-Datei-Spiegelung dieser Seiten — dieselben Dateien, dieselben
 Überschriften, dieselbe Reihenfolge:
 
-[Deutsch](README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh-CN/README.md)
+[Deutsch](README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh/README.md)
 
 Die CI prüft die Form einer Übersetzung: dass sie genau die Seiten hat, die
 `docs/en` hat, dass jeder Link darin auflöst und dass jedes Codebeispiel darin noch läuft —
