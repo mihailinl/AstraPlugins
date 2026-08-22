@@ -1,0 +1,75 @@
+# The languages Astra can be set to — and therefore the only names a plugin's
+# `locales/<code>.json` may take.
+#
+# Mirrored from Astra/astra-rs/astra-core/src/config.rs `SUPPORTED_LANGUAGES`,
+# which `Settings::validate` refuses anything outside of. Those ten strings are
+# the only values that can ever arrive in `PluginRegisterRequest.language`,
+# `PluginDaemonInfoResponse.language` or `LanguageChangedMsg.language`.
+#
+# Bare ISO-639-1. NO REGION TAGS EXIST ANYWHERE IN THIS SYSTEM: `zh`, never
+# `zh-CN`; `ru`, never `ru-RU`. Language matching is exact string equality —
+# the daemon's `PluginManager::get_config_schema` does
+# `instance.locales.get(language)` on a `HashMap`, and all three SDKs do the
+# same — so a locale file named anything else is packed, digested, signed,
+# shipped, and read by nothing, with no error at any point. Nothing warns, and
+# the author's only symptom is a store card and a settings page that stay
+# English for a language they translated. That is why this list is a file
+# rather than a habit: this repository spelled Chinese `zh-CN` in its own docs
+# tree for months, which is exactly the name an author would have copied.
+#
+# `en` is first because it is the base every other locale falls back to.
+#
+# `maintained` marks the subset whose Astra UI translation is held complete
+# (Astra/astra-rs/astra-core/src/i18n.rs, `MAINTAINED_LANGUAGES`); the other
+# seven fall back to English per key inside Astra's own shell. It is NOT
+# permission for a plugin to leave a locale incomplete, and it is NOT the set
+# `docs/` is translated into. Three different subsets of the same ten codes
+# exist in this system and conflating any two of them is how an unselectable
+# locale file gets shipped.
+#
+# HOW TO CHANGE THIS LIST
+#   1. Astra changes `SUPPORTED_LANGUAGES` and ships
+#      `astra-ui/src/i18n/locales/<code>.json`.
+#   2. Mirror it here. C12 — a step in the `proto-upstream` job — compares this
+#      file with the daemon's own list whenever that job can see the Astra
+#      checkout. It CANNOT on a pull request from a fork, where GitHub
+#      withholds `ASTRA_REPO_TOKEN` by design, and it says so out loud there
+#      instead of passing quietly.
+#   3. `cargo test --manifest-path astra-plugin-cli/Cargo.toml` — `LOCALE_CODES`
+#      in `astra-plugin-cli/src/locales.rs` mirrors this file and its test reads
+#      THIS FILE at test time. That one runs on every fork PR with no secret and
+#      no second checkout, so it is the check that actually holds. There is no
+#      workspace manifest at the repository root, so `cargo test -p …` does not
+#      work here; the `--manifest-path` is not optional.
+#   4. `docs/` is a separate decision. `docs/tools/locales.py` declares which of
+#      these codes the documentation is translated into — a proper subset, and
+#      a commitment to maintain each one — and C14 in the `couplings` job
+#      compares it against the directories actually under `docs/` and against
+#      this file. A directory under `docs/` is not a locale a plugin may ship.
+#   5. The registry does not read this list yet. When it does — `bot/lib/locales.mjs`
+#      and the `propertyNames` enums in `schema/plugin-v1.json` and
+#      `schema/index-v1.json` — add the step here and the check there. Until
+#      then nothing in `astra-registry` knows that a locale code exists at all.
+#
+# FORMAT — one language per line: the code, the endonym, and the literal word
+# `maintained` as the LAST field on the rows that carry it. `#` comments, blank
+# lines ignored. No nesting, no quotes; every reader splits on whitespace, takes
+# the first field as the code and compares the last field with `maintained`, and
+# none of them takes a dependency to do it.
+#
+# The endonyms are Astra's own (`astra-ui/src/i18n/I18nContext.tsx`, `ENDONYMS`).
+# Nothing in this repository renders them — they are here so that whoever edits
+# this list can see which language a code is without leaving the file — but C12
+# compares them anyway, because an unpinned copy of somebody else's string is
+# the shape of bug this whole directory exists to prevent.
+
+en   English      maintained
+ru   Русский      maintained
+uk   Українська   maintained
+de   Deutsch
+fr   Français
+es   Español
+pt   Português
+ja   日本語
+zh   中文
+ko   한국어

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Every translation of `docs/en` carries exactly its pages — no more, no less.
 
-English is canonical. The six translations beside it — `de`, `es`, `ja`, `ru`,
-`uk`, `zh-CN` — are file-for-file mirrors: same relative paths, same page set.
-This script asserts that as a set equality, per locale, in both directions:
+English is canonical. The translations beside it — `docs/tools/locales.py`
+declares which, and that file is the only place the set is written down — are
+file-for-file mirrors: same relative paths, same page set. This script asserts
+that as a set equality, per locale, in both directions:
 
 * every page under `docs/en/` has a counterpart at the same relative path in
   every locale, and
@@ -69,6 +70,15 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+
+# The translations. A new locale is still NOT picked up automatically — adding
+# one is a decision to maintain it — but the decision is recorded in
+# `locales.py`, and only there. It used to live in three files at once, with a
+# comment in THIS one claiming to be the place it was recorded; all three
+# spelled Chinese `zh-CN`, which is not a language Astra can be set to. C14 in
+# the `couplings` job compares that file with `spec/locales.yaml` and with the
+# directories that are actually under `docs/`.
+from locales import TRANSLATIONS
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
@@ -143,11 +153,6 @@ def compare_samples(rel: str, loc: str, en_page: Path, loc_page: Path) -> int:
                 bad += 1
     return bad
 
-# The translations. A new locale is NOT picked up automatically: adding one is a
-# decision to maintain it, and this list is where that decision is recorded.
-LOCALES = ("de", "es", "ja", "ru", "uk", "zh-CN")
-
-
 def pages(base: Path) -> set[str]:
     if not base.is_dir():
         return set()
@@ -162,7 +167,7 @@ def main() -> int:
 
     bad = 0
     drift = 0
-    for loc in LOCALES:
+    for loc in TRANSLATIONS:
         base = DOCS / loc
         if not base.is_dir():
             print(f"MISSING  docs/{loc}/  — the locale directory does not exist")
@@ -191,7 +196,7 @@ def main() -> int:
 
     verdict = "ok" if not (bad or drift) else "FAIL"
     print(f"mirror: {verdict} — {len(en)} English page(s), "
-          f"{len(LOCALES)} locale(s), {bad} page-set mismatch(es), "
+          f"{len(TRANSLATIONS)} locale(s), {bad} page-set mismatch(es), "
           f"{drift} sample drift(s)")
     return 1 if (bad or drift) else 0
 

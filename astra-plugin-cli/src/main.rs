@@ -25,6 +25,7 @@
 mod bundle;
 mod commands;
 mod daemon;
+mod locales;
 mod output;
 mod templates;
 mod toolchain;

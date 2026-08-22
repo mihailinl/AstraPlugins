@@ -82,7 +82,7 @@ rather than a plugin: [bundle v2](spec/bundle-v2.md) ·
 English is authoritative. Six translations sit beside it, each a file-for-file
 mirror of these pages — same files, same headings, same order:
 
-[Deutsch](../de/README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh-CN/README.md)
+[Deutsch](../de/README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh/README.md)
 
 CI checks the shape of a translation: that it has exactly the pages `docs/en` has,
 that every link in it resolves, and that every code sample in it still runs —

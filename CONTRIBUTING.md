@@ -86,6 +86,7 @@ bash tools/check-manifest-crate.sh           # plugin.toml has exactly one defin
 python3 tools/parity/gen.py --check          # the generated parity docs are current
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 node tools/gen-limits.mjs --check            # the generated limit constants are current
+python3 tools/check-locales.py               # the locale vocabulary, C12 and C14
 ```
 
 Plus the crate you touched:
@@ -106,7 +107,7 @@ cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
 python3 tools/docgen/gen.py --check          # reads that binary; it never builds it for you
 ```
 
-Three of these behave in ways worth knowing before you read a green tick as
+Four of these behave in ways worth knowing before you read a green tick as
 proof:
 
 - `tools/check-manifest-crate.sh` **skips, and exits 0**, when there is no
@@ -123,6 +124,17 @@ proof:
   this repository's three generated files, which is what CI does. Never "fix"
   that drift by running the generator without `--check` — it writes into the
   other repository.
+- `python3 tools/check-locales.py` runs two rules and only one of them can
+  always run. **C14** — the `docs/` locale directories against
+  `docs/tools/locales.py` and `spec/locales.yaml` — needs nothing. **C12** —
+  `spec/locales.yaml` against the daemon's own `SUPPORTED_LANGUAGES` — needs an
+  `Astra` checkout, finds one at `../Astra/astra-rs` or `$ASTRA_RS_DIR`, and
+  prints `C12 NOT VERIFIED` and the ten codes it took on trust when there is
+  none. It exits 0 either way, and the last line says which of the two you
+  got. The third rule of that set, **C13**, is not here at all: it is a
+  `#[test]` in `astra-plugin-cli`, so it runs under `cargo test` with no
+  checkout and no secret, which is why it is the one the vocabulary actually
+  rests on.
 
 Paste the output of what you ran into the pull request. The PR template asks
 for it.

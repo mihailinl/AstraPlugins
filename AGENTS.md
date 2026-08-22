@@ -136,8 +136,8 @@ are the source of truth** — for the 35 hooks, and for the numbers that must be
 identical in the daemon and the SDKs. Both are shared with `Astra`, so changing
 either is an *issue first* change (§6).
 
-**Run these from the repository root before proposing anything** — all five were
-run for this file, all five exit 0:
+**Run these from the repository root before proposing anything** — all six were
+run for this file, all six exit 0:
 
 ```bash
 bash tools/check-proto.sh                    # one protocol, vendored copies in sync
@@ -145,9 +145,10 @@ bash tools/check-manifest-crate.sh           # plugin.toml has exactly one defin
 python3 tools/parity/gen.py --check          # the generated parity docs are current
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 ASTRA_RS_DIR=/nonexistent node tools/gen-limits.mjs --check
+python3 tools/check-locales.py               # the locale vocabulary (C12, C14)
 ```
 
-Three exit 0 while skipping something, so read the output, not just the code —
+Four exit 0 while skipping something, so read the output, not just the code —
 [`CONTRIBUTING.md`](CONTRIBUTING.md#then-run-the-checks) says which and why, and
 why `ASTRA_RS_DIR=/nonexistent` is not decoration. Touched a CLI flag, the
 manifest crate, the proto or an SDK error type? Then also `cargo build --release

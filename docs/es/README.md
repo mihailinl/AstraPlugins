@@ -89,7 +89,7 @@ El inglés es la versión autoritativa. Seis traducciones viven junto a ella, ca
 una un espejo archivo por archivo de estas páginas — los mismos archivos, los
 mismos encabezados, el mismo orden:
 
-[Deutsch](../de/README.md) · [Español](README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh-CN/README.md)
+[Deutsch](../de/README.md) · [Español](README.md) · [日本語](../ja/README.md) · [Русский](../ru/README.md) · [Українська](../uk/README.md) · [简体中文](../zh/README.md)
 
 La CI comprueba la forma de una traducción: que tenga exactamente las páginas que
 tiene `docs/en`, que todos sus enlaces resuelvan y que cada bloque de código suyo siga
