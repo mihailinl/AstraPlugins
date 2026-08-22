@@ -6,8 +6,9 @@ files it is pointed at actually use:
   * `#[derive(..., Deserialize)] pub struct Name { ... }` with `#[serde(...)]`
     attributes and `///` doc comments on the fields;
   * `pub enum Name { Variant, ... }`, likewise;
-  * `pub const NAME: &[&str] = &["a", "b"];` and
-    `pub const NAME: &[Type] = &[Type::A, Type::B];`;
+  * `pub const NAME: &[&str] = &["a", "b"];`,
+    `pub const NAME: &[Type] = &[Type::A, Type::B];`, and an element that is a
+    `pub const OTHER: &str = "…";` declared beside the list;
   * `fn name() -> T { <literal> }`, for serde's `default = "fn"`.
 
 Text and not `syn` for the same reason `tools/parity/check.py` reads sources as
@@ -20,12 +21,19 @@ every lookup here is *asked for by name* by a caller that knows the item exists,
 and returns nothing only if the item moved — at which point the caller raises
 and generation fails. There is no path where a silent parse failure produces a
 page that merely omits something.
+
+Nor one where it produces a page that states the wrong thing. That is the
+narrower hazard and the one this reader was actually bitten by: see
+`_const_element`, where an unrecognised token used to be passed through and put
+a Rust identifier on the page in the place a value belongs.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+
+from common import DocgenError
 
 
 @dataclass
@@ -147,8 +155,54 @@ def item(text: str, kind: str, name: str) -> Item | None:
     )
 
 
+def const_str(text: str, name: str) -> str | None:
+    """`pub const NAME: &str = "value";` as its value."""
+    match = re.search(rf"const\s+{name}\s*:\s*&\s*(?:'static\s+)?str\s*=\s*\"([^\"]*)\"", text)
+    return match.group(1) if match else None
+
+
+def _const_element(text: str, const_name: str, part: str) -> str:
+    """One element of a `const NAME: &[...]`, as the VALUE it denotes.
+
+    Three shapes, all of them shapes the sources use: a string literal; a path
+    (`Type::Variant`), rendered as its last segment; and a bare identifier,
+    which is a `&str` const declared beside the list and is resolved here to
+    the string it holds.
+
+    The third shape is in this reader because it arrived as a **wrong answer
+    rather than a missing one**, which is the failure this whole directory is
+    arranged against. `RESERVED_PLATFORM_KEYS` in `astra-plugin-manifest` held
+    the literal `"noarch"` until Astra extracted it into `NOARCH_PLATFORM_KEY`;
+    this function's predecessor stripped quotes and otherwise passed the token
+    through, so `docs/en/reference/manifest.md` regenerated clean and told
+    plugin authors the reserved platform key is spelled `NOARCH_PLATFORM_KEY`.
+    Nothing was empty and no check was red — the page simply said something
+    untrue about the interface it exists to describe.
+
+    So an identifier that cannot be resolved raises. A fallback that prints the
+    identifier is precisely the behaviour being removed, and a fallback that
+    drops the element would put this back in the "quietly omits" class the
+    module docstring rules out.
+    """
+    if part.startswith('"'):
+        return part.strip('"')
+    if "::" in part:
+        return part.strip('"').rpartition("::")[2]
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", part):
+        value = const_str(text, part)
+        if value is None:
+            raise DocgenError(
+                f"`{const_name}` names `{part}`, which is neither a string literal nor a "
+                f"`const {part}: &str = \"…\";` in the same file. docgen cannot say which "
+                f"value it stands for, and printing the identifier would put a Rust name "
+                f"on the page where the value an author has to type belongs."
+            )
+        return value
+    return part.strip('"')
+
+
 def const_list(text: str, name: str) -> list[str] | None:
-    """`pub const NAME: &[...] = &[ ... ];` as a list of stripped elements."""
+    """`pub const NAME: &[...] = &[ ... ];` as a list of the values it holds."""
     match = re.search(rf"const\s+{name}\s*:\s*[^=]+=\s*&\[", text)
     if not match:
         return None
@@ -160,7 +214,7 @@ def const_list(text: str, name: str) -> list[str] | None:
         part = part.strip()
         if not part:
             continue
-        out.append(part.strip('"').rpartition("::")[2] if "::" in part else part.strip('"'))
+        out.append(_const_element(text, name, part))
     return out
 
 

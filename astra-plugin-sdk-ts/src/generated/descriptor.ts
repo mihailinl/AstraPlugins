@@ -137,7 +137,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "creditsChanged",
                 "commandTriggered",
                 "mcpServerChanged",
-                "mcpToolsChanged"
+                "mcpToolsChanged",
+                "memoryChanged"
               ]
             }
           },
@@ -250,9 +251,29 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "McpToolsChangedEvent",
               "id": 30
             },
+            "memoryChanged": {
+              "type": "MemoryChangedEvent",
+              "id": 32
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
+            }
+          }
+        },
+        "MemoryChangedEvent": {
+          "fields": {
+            "added": {
+              "type": "uint32",
+              "id": 1
+            },
+            "updated": {
+              "type": "uint32",
+              "id": 2
+            },
+            "removed": {
+              "type": "uint32",
+              "id": 3
             }
           }
         },
@@ -3819,6 +3840,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "GeneralSettings": {
           "oneofs": {
+            "_aiMemoryEnabled": {
+              "oneof": [
+                "aiMemoryEnabled"
+              ]
+            },
             "_weatherLocationName": {
               "oneof": [
                 "weatherLocationName"
@@ -3842,6 +3868,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "_browser": {
               "oneof": [
                 "browser"
+              ]
+            },
+            "_aiMemoryAutoExtract": {
+              "oneof": [
+                "aiMemoryAutoExtract"
               ]
             }
           },
@@ -3876,7 +3907,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "aiMemoryEnabled": {
               "type": "bool",
-              "id": 8
+              "id": 8,
+              "options": {
+                "proto3_optional": true
+              }
             },
             "excludedPaths": {
               "rule": "repeated",
@@ -3938,6 +3972,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "browser": {
               "type": "string",
               "id": 20,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "aiMemoryAutoExtract": {
+              "type": "bool",
+              "id": 21,
               "options": {
                 "proto3_optional": true
               }
@@ -4129,6 +4170,23 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "CustomAiProviderMsg",
               "id": 18
+            },
+            "backgroundModel": {
+              "type": "string",
+              "id": 19
+            },
+            "subagentProvider": {
+              "type": "string",
+              "id": 20
+            },
+            "backgroundProvider": {
+              "type": "string",
+              "id": 21
+            },
+            "providerCredentials": {
+              "rule": "repeated",
+              "type": "AiProviderCredentialsMsg",
+              "id": 22
             }
           },
           "reserved": [
@@ -4141,6 +4199,25 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               10,
               10
             ]
+          ]
+        },
+        "AiProviderCredentialsMsg": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 2
+            }
+          },
+          "reserved": [
+            [
+              3,
+              3
+            ],
+            "api_key"
           ]
         },
         "CustomAiProviderMsg": {

@@ -54,8 +54,20 @@ pub const RESERVED_PLATFORM_KEYS: &[&str] = &[
     "macos-arm64",
     // Reserved for validators; expanded to the supported keys by the index
     // generator rather than looked up at install time.
-    "noarch",
+    NOARCH_PLATFORM_KEY,
 ];
+
+/// The key an interpreted plugin (TypeScript, Python) publishes ONE bundle
+/// under, for every host at once.
+///
+/// Named because three places have to agree about the spelling and two of them
+/// are not this crate: the daemon falls back to it when the host key has no
+/// artifact (`server::services::plugin`), and the publishing document tells a
+/// TypeScript or Python author that a single such bundle is a complete release.
+/// A document that spelled it would keep telling authors "publish for
+/// `linux-x64` and `windows-x64`" — advice that reads, to somebody whose CI
+/// produces one portable bundle, as "your release is uninstallable".
+pub const NOARCH_PLATFORM_KEY: &str = "noarch";
 
 /// The `os` values `[platform] os = [...]` may name, in the vocabulary
 /// [`current_platform`] speaks.
