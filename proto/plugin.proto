@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 99a86955a228076a20e8e83c928c6ec0016c2d8fd14158aebffa0a0c5fc93118
+// source-sha256: 65d10bc0832cad73aad0f273d55a20a6991c7627dbc4178ad006a95f4d3c6bc6
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -119,6 +119,7 @@ message AstraEvent {
         CommandTriggeredEvent command_triggered = 27;
         McpServerChangedEvent mcp_server_changed = 29;
         McpToolsChangedEvent mcp_tools_changed = 30;
+        MemoryChangedEvent memory_changed = 32;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -142,6 +143,18 @@ message AstraEvent {
 // server's tools are a THIRD of the AI tool catalogue: while these two events
 // were daemon-internal, the AI page's tool section could never converge on a
 // server the user had just started, no matter how correct the client was.
+// The daemon added, rewrote or retired facts in the user's long-term memory.
+//
+// COUNTS ONLY — never the fact itself. A stored memory is the most personal
+// thing the daemon holds, and plugins receive un-narrowed events verbatim; the
+// content is read back through MemoryService, which is behind the ordinary
+// auth gate. The UI's memory manager treats this as "reload your list".
+message MemoryChangedEvent {
+    uint32 added = 1;
+    uint32 updated = 2;
+    uint32 removed = 3;
+}
+
 message McpServerChangedEvent {
     string server_id = 1;
     string server_name = 2;
@@ -1961,7 +1974,13 @@ message GeneralSettings {
     string ui_preference = 5;  // "winui" or "tauri"
     string indexing_mode = 6;  // "none", "windows", "astra"
     bool location_allowed = 7;
-    bool ai_memory_enabled = 8;
+
+    // The AI-memory master switch. `optional` for presence semantics, like
+    // prefer_discrete_gpu and browser below, and for exactly their reason: the
+    // default is TRUE since 2026-08-21, so a partial UpdateSettings that omits
+    // the field — OOBE completion builds one — would send a proto3 `false` and
+    // silently switch the user's memory off.
+    optional bool ai_memory_enabled = 8;
     repeated string excluded_paths = 9;  // folders excluded from indexing
     string wind_speed_unit = 10;  // "kmh", "ms", "mph"
     string temperature_unit = 11;  // "celsius", "fahrenheit"
@@ -1994,6 +2013,16 @@ message GeneralSettings {
     // !x.is_empty()` guard used by its neighbours cannot express it — without
     // presence, picking "System default" could never be saved back.
     optional string browser = 20;
+
+    // Whether the daemon reads finished conversations and extracts durable
+    // facts about the user on its own. A DIFFERENT axis from
+    // ai_memory_enabled, which is the master switch: with this off, memory
+    // still works, but only what the assistant is asked to remember is stored.
+    //
+    // `optional` for presence semantics, like its neighbours above: the
+    // default is true, so a proto3 plain bool absent from a partial
+    // UpdateSettings (OOBE does exactly that) would silently turn it off.
+    optional bool ai_memory_auto_extract = 21;
 }
 
 message VoiceSettings {
@@ -2139,6 +2168,61 @@ message AiSettings {
     // client that has never heard of it would wipe every entry. Changes go
     // through the granular `ai.custom_providers` path instead.
     repeated CustomAiProviderMsg custom_providers = 18;
+
+    // Model used for work the USER DID NOT ASK FOR — today, the long-term
+    // memory digest that reads a finished conversation and extracts facts from
+    // it. Empty = the chat's own model.
+    //
+    // Same shape as subagent_model: ONLY the model changes; the provider comes
+    // from background_provider below, empty meaning the chat's own.
+    string background_model = 19;
+
+    // The provider a delegated sub-agent (`run_agent`) runs on. Empty = the
+    // chat's own, which is exactly what subagent_model alone has always meant.
+    //
+    // Set it and the sub-agent gets its own endpoint AND its own key (from
+    // provider_credentials below) — a frontier chat model delegating
+    // reconnaissance to a local Ollama, which is the whole point. A model id is
+    // scoped to the endpoint that can route it, so the model-only override
+    // could not express this.
+    //
+    // A provider named here that is uninstalled, keyless or signed out degrades
+    // to the chat's at RESOLVE time and is logged. It is deliberately NOT
+    // validated: rejecting it would fail the WRITE of every other setting
+    // beside it.
+    string subagent_provider = 20;
+
+    // The provider background work runs on — the memory digest and the intake
+    // reconcile. Empty = the chat's own. Same shape as subagent_provider.
+    string background_provider = 21;
+
+    // Per-provider endpoint + key, for every provider that is NOT the active
+    // chat one — whose own still live in api_key / api_base_url above. This is
+    // the store a ROLE's provider draws on, and the daemon-side replacement for
+    // the per-provider key map the AI page used to keep in browser localStorage.
+    //
+    // Read-only here in practice, exactly like custom_providers above and for
+    // the same reason: UpdateSettings does NOT apply it, because a writer that
+    // does not manage the list (OOBE, astra-tui, any client older than this
+    // field) sends it empty, and an empty list applied here deletes every
+    // credential in it. Changes go through the granular
+    // `ai.provider_credentials` path.
+    repeated AiProviderCredentialsMsg provider_credentials = 22;
+}
+
+// One provider's saved endpoint, as a CLIENT sees it.
+//
+// There is deliberately no api_key field, for the same reason CustomAiProviderMsg
+// has none: the key is write-only. It reaches the daemon through the granular
+// `ai.provider_credentials` settings path and never comes back, so no client can
+// leak, log or accidentally echo it — what a client needs in order to render the
+// field is AiProviderInfo.has_api_key, a bool, which the daemon now computes for
+// built-in ids too. Field 3 is reserved so nobody re-adds it by accident.
+message AiProviderCredentialsMsg {
+    string provider = 1;  // a built-in id: "openai", "ollama", "custom", …
+    string api_base_url = 2;  // API ROOT only; "/v1" is added downstream
+    reserved 3;
+    reserved "api_key";
 }
 
 // One saved endpoint, as a CLIENT sees it.

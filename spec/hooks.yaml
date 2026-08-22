@@ -476,7 +476,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/instance.rs:1310"
+    daemon_calls: "src/plugins/instance.rs:1315"
     summary: "Stop cleanly; the process group is killed after the grace period."
     note: "Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit."
     rust: stable

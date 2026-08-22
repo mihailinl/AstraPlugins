@@ -29,6 +29,7 @@ export const descriptor: ProtoDescriptorJson = descriptorJson as ProtoDescriptor
 export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> = {
   "astra.SemanticSettings": ["mode", "llm_model_id", "memory_enabled"],
   "astra.AiSettings": ["use_thinking"],
+  "astra.AiProviderCredentialsMsg": ["api_key"],
   "astra.CustomAiProviderMsg": ["api_key"],
   "astra.HotkeySettings": ["toggle_listen", "stop_speaking", "open_chat"],
 };
@@ -37,7 +38,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "3f6833294d4db9903da76147936bf7f0a7c1e2ee32b204a2f543aa4d4f883698";
+export const PROTO_SHA256 = "3d121700b2abf58bbe70918a3e8f30e88ad1be75d09a00d5889a77fa7726a94a";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
