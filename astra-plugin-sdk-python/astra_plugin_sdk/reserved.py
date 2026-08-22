@@ -75,6 +75,10 @@ REGISTRY: Mapping[str, frozenset[str]] = {
     # `AiProviderInfo.has_api_key`, a bool. Reviving the name here would put a
     # secret back on a wire every installed plugin can read.
     "CustomAiProviderMsg": frozenset({"api_key"}),
+    # The same promise, made a second time for the built-in providers' saved
+    # endpoints. Astra added this message with `reserved 3; reserved "api_key";`
+    # already in it — the name has never been live and never will be.
+    "AiProviderCredentialsMsg": frozenset({"api_key"}),
 }
 
 

@@ -56,8 +56,8 @@ pub use permissions::{
     Permissions, TIER2_REFUSED_PERMISSIONS, explain_unknown_permission,
 };
 pub use platform::{
-    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PlatformRequirements, RESERVED_PLATFORM_KEYS,
-    UnsupportedHost, current_platform, host_platform_key, platform_key_for,
+    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, NOARCH_PLATFORM_KEY, PlatformRequirements,
+    RESERVED_PLATFORM_KEYS, UnsupportedHost, current_platform, host_platform_key, platform_key_for,
 };
 
 /// The version of Astra this build validates `min_astra_version` against, or
