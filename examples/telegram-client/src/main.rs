@@ -31,7 +31,10 @@ impl Default for TelegramBotPlugin {
         Self {
             config: Arc::new(RwLock::new(BotConfig::default())),
             state: Arc::new(RwLock::new(BotState::load(&BotState::state_file_path()))),
-            i18n: Arc::new(I18n::load(std::path::Path::new("locales"))),
+            // `discover()`: $ASTRA_PLUGIN_DIR/locales when the daemon sets it,
+            // else ./locales. The bare path worked only because the daemon
+            // happens to spawn a plugin with its install directory as the cwd.
+            i18n: Arc::new(I18n::discover()),
             telegram: Arc::new(Mutex::new(None)),
             shutdown_tx: Arc::new(Mutex::new(None)),
             polling_handle: Arc::new(Mutex::new(None)),

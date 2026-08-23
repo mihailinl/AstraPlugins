@@ -28,14 +28,16 @@ Per-SDK hook tables, rendered from the same spec:
 
 ## Written — reviewed by a person
 
-Two pages describe things no generator can read off a type: what a permission
-*means* to the user who is asked to grant it, and how the three different things
-called "config" fit together.
+Three pages describe things no generator can read off a type: what a permission
+*means* to the user who is asked to grant it, how the three different things
+called "config" fit together, and which process turns a plugin's string into the
+sentence a user reads.
 
 | Page | |
 |---|---|
 | [Permissions](permissions.md) | Each id, what it grants, and how to write a `reason` |
 | [Config and settings fields](config-fields.md) | `[config]`, typed settings, and the TTS/STT field hooks |
+| [Localisation](localisation.md) | `locales/<code>.json`, the `$key` marker, and where the English gate fires |
 
 Every code sample on both is executed in CI by
 [`docs/tools/doctest.py`](../../tools/doctest.py).

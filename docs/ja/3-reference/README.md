@@ -40,6 +40,7 @@
 |---|---|
 | [パーミッション](permissions.md) | 各 id、それが何を許可するか、`reason` の書き方 |
 | [設定とフィールド](config-fields.md) | `[config]`、型付き設定、TTS/STT のフィールドフック |
+| [ローカライズ](localisation.md) | `locales/<code>.json`、`$key` マーカー、英語ゲートが働く場所 — **英語のみ** |
 
 どちらのページのすべてのコードサンプルも、CI で
 [`docs/tools/doctest.py`](../../tools/doctest.py) によって実行されます。

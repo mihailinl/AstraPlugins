@@ -6,11 +6,14 @@ to describe the code as it stands.
 | Language | Status |
 |---|---|
 | [English](en/README.md) | **Canonical.** Half of it is generated from the code and drift-checked in CI; every code sample is executed |
-| [Deutsch](de/README.md) · [Español](es/README.md) · [日本語](ja/README.md) · [Русский](ru/README.md) · [Українська](uk/README.md) · [简体中文](zh/README.md) | Translations of the current English pages. Same 37 files, same structure, checked for structure — not for meaning |
+| [Deutsch](de/README.md) · [Español](es/README.md) · [日本語](ja/README.md) · [Русский](ru/README.md) · [Українська](uk/README.md) · [简体中文](zh/README.md) | Translations of the current English pages. Same 38 files, same structure, checked for structure — not for meaning |
 
 Six translations, all cut from the English pages as they stand today. Each is a
-file-for-file mirror: same 37 pages, same paths, same headings, same order. Every
-page opens by saying it is a translation and that English wins on disagreement.
+file-for-file mirror: same 38 pages, same paths, same headings, same order. Every
+page opens by saying whether it is a translation and that English wins on
+disagreement — one of the 38 says the opposite, that it has no translation yet
+and is shown in English in every language, which is the honest form of the same
+banner rather than an exception to it.
 
 ## What CI can and cannot tell you about a translation
 

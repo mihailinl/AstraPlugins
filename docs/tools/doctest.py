@@ -34,7 +34,11 @@ THE MARKER
                        scaffolded project whose SDK is patched to this tree.
                        `test=1` additionally runs `cargo test`.
       toml-manifest    a complete `plugin.toml`. Run through
-                       `astra-plugin check --strict`.
+                       `astra-plugin check --strict`. `locales=1` additionally
+                       writes a `locales/en.json` covering every `$key` the
+                       manifest references — without it a manifest that uses
+                       the localisation mechanism fails on `[E7]`, because the
+                       runner writes `plugin.toml` and nothing beside it.
       cli              shell lines. Every `astra-plugin …` line is re-parsed by
                        the real binary (`--help` appended: clap validates the
                        subcommand and every flag, then exits before doing
@@ -57,10 +61,11 @@ THE MARKER
       output           a transcript of a real command's output. Requires
                        `from="<the command that produced it>"`, and `from=` must
                        be a COMMAND, not a description of one. When it is an
-                       `astra-plugin` line this harness can run — `--version`,
-                       `--help`, `<sub> --help` — it IS run, and the block is
-                       diffed against what it prints, with `<placeholders>`
-                       matching anything. When it is not (it needs a project, a
+                       `astra-plugin` line carrying `--help`, `-h`, `--version`
+                       or `-V` — `<sub> --help` included, which this sentence
+                       claimed for a year while the predicate refused it — it IS
+                       run, and the block is diffed against what it prints, with
+                       `<placeholders>` matching anything. When it is not (it needs a project, a
                        daemon, the network, a specific machine), the block must
                        also carry `unrun="<why, and what to re-run by hand>"`:
                        nothing checks such a transcript, and the marker is where
@@ -87,6 +92,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -335,25 +341,76 @@ class Env:
 
     @property
     def rust_project(self) -> Path:
+        """A scaffolded project whose SDK is THIS tree's, rebuilt when it is not.
+
+        Two things go wrong here and both are quiet, so both are handled rather
+        than described.
+
+        **The scratch project outlives the CLI that made it.** `$TMPDIR/astra-doctest`
+        is reused between runs so a second run costs an incremental build. That
+        also means a project scaffolded by last week's binary is reused by
+        today's: a template change, a dependency change or a pin bump does not
+        reach it until somebody deletes the directory. It happened while this
+        docstring was being written — a cached `Cargo.toml` still pinned SDK
+        `"0.6"` five commits after the scaffold moved to `"0.7"`, so the samples
+        on every page were being checked against a scaffold that no longer
+        exists. The stamp below is what makes that re-scaffold instead.
+
+        **`[patch.crates-io]` is conditional, and its failure is a warning.**
+        Cargo drops a patch whose version does not satisfy the declared
+        requirement, prints `patch … was not used in the crate graph`, and
+        resolves from the registry — it does NOT override a dependency
+        regardless of the range, which is what the comment beside the same
+        trick in `scaffold-roundtrip` claims. Today the pin (`"0.7"`) and the
+        tree (0.7.0) agree, and C11 is what keeps them agreeing; the window
+        where they do not is real and has been open before — between an SDK
+        version bump and the repin that follows the publish, every Rust sample
+        would be checked against the last released SDK, in a green run, with a
+        warning nobody reads.
+
+        So the dependency line is REPLACED rather than patched. Whether the
+        scaffold's pin is arithmetically right is C11's question and it is
+        asked, loudly, somewhere the answer matters; a doc sample's question is
+        only ever whether it compiles against the SDK in this repository.
+        """
         if self._rust_project is not None:
             return self._rust_project
         proj = self.workdir / "rust"
-        if not (proj / "Cargo.toml").is_file():
+        cli = self.cli
+        stamp_file = proj / ".doctest-stamp"
+        st = cli.stat()
+        stamp = f"{cli}\0{st.st_mtime_ns}\0{st.st_size}\0sdk-path-dep-v1\n"
+        current = (
+            stamp_file.read_text(encoding="utf-8")
+            if stamp_file.is_file()
+            else None
+        )
+        if current != stamp:
             if shutil.which("cargo") is None:
                 raise Skip("cargo is not on PATH")
             proj.parent.mkdir(parents=True, exist_ok=True)
             shutil.rmtree(proj, ignore_errors=True)
-            run([str(self.cli), "new", "rust", "--lang", "rust", "--template", "tool",
+            run([str(cli), "new", "rust", "--lang", "rust", "--template", "tool",
                  "--output", str(proj)], cwd=self.workdir)
-            # The scaffold pins the RELEASED SDK, which is not published yet.
-            # Redirect resolution at this tree while leaving the declared range
-            # alone — the same trick, and for the same reason, as the
-            # scaffold-roundtrip job in .github/workflows/ci.yml.
-            with (proj / "Cargo.toml").open("a", encoding="utf-8") as fh:
-                fh.write(
-                    "\n[patch.crates-io]\n"
-                    f'astra-plugin-sdk = {{ path = "{(ROOT / "astra-plugin-sdk").as_posix()}" }}\n'
+            cargo_toml = proj / "Cargo.toml"
+            text = cargo_toml.read_text(encoding="utf-8")
+            path = (ROOT / "astra-plugin-sdk").as_posix()
+            # A redirect that matched nothing is the failure being avoided, so
+            # it is an error rather than a silent no-op.
+            text, n = re.subn(
+                r"(?m)^astra-plugin-sdk = .*$",
+                f'astra-plugin-sdk = {{ path = "{path}" }}',
+                text,
+            )
+            if n != 1:
+                raise Skip(
+                    f"the rust scaffold's Cargo.toml has {n} `astra-plugin-sdk = …` "
+                    "lines to point at this tree, not 1, so a rust sample would be "
+                    "checked against whatever the registry happens to hold. "
+                    "Fix this redirect rather than letting it match nothing."
                 )
+            cargo_toml.write_text(text, encoding="utf-8")
+            stamp_file.write_text(stamp, encoding="utf-8")
         self._rust_project = proj
         return proj
 
@@ -467,11 +524,71 @@ def run_rust_plugin(b: Block, env: Env) -> None:
         run(["cargo", "test", "--release", "--quiet"], cwd=proj)
 
 
+def synthesised_en_locale(manifest: str) -> str:
+    """`locales/en.json` for a manifest sample that references `$keys`.
+
+    A manifest is only half of the localisation mechanism: `astra-plugin check`
+    refuses a `$key` that is in no locale file, which is the whole point of the
+    rule. So a page that documents the mechanism cannot show a working manifest
+    in a `toml-manifest` block — the runner writes `plugin.toml` and nothing
+    else, and the sample fails on the very rule it is demonstrating.
+
+    Rather than demote that sample to `illustrative` and check nothing, the
+    block says `locales=1` and this builds the other half: the two reserved
+    `listing.*` keys, from `[plugin]` so they agree with it, plus one entry per
+    `$`-marked string anywhere in the manifest.
+
+    **What is collected is every string that starts with a single `$`** — the
+    marker, and only the marker. It is deliberately not the daemon's key-shape
+    predicate: a superset always satisfies the rule, and copying that predicate
+    into a test harness would be one more place for it to rot. `$$` is the
+    escape for a literal dollar and is skipped for the same reason the CLI
+    skips it.
+
+    An empty walk cannot pass quietly. If this returns nothing for a manifest
+    that does use keys, `check` fails on `[E7]` naming each one — the sample
+    goes red as a sample, which is the behaviour a silent scan would have cost.
+    """
+    man = tomllib.loads(manifest)
+    plugin = man.get("plugin", {})
+    out = {
+        "listing.name": plugin.get("name", ""),
+        "listing.description": plugin.get("description", ""),
+    }
+
+    def walk(value) -> None:
+        if isinstance(value, str):
+            if value.startswith("$") and not value.startswith("$$"):
+                out[value[1:]] = f"sample value for {value[1:]}"
+        elif isinstance(value, dict):
+            for v in value.values():
+                walk(v)
+        elif isinstance(value, list):
+            for v in value:
+                walk(v)
+
+    walk(man)
+    # `[config] schema` is a JSON document inside a TOML string, so the walk
+    # above sees one long string and none of the keys in it.
+    schema = man.get("config", {}).get("schema")
+    if isinstance(schema, str):
+        try:
+            walk(json.loads(schema))
+        except json.JSONDecodeError:
+            pass  # `check` is about to report it better than this could.
+    return json.dumps(out, indent=2, ensure_ascii=False) + "\n"
+
+
 def run_toml_manifest(b: Block, env: Env) -> None:
     d = env.workdir / "toml" / b.digest
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
     (d / "plugin.toml").write_text(b.body, encoding="utf-8")
+    if b.attrs.get("locales"):
+        (d / "locales").mkdir()
+        (d / "locales/en.json").write_text(
+            synthesised_en_locale(b.body), encoding="utf-8"
+        )
     run([str(env.cli), "check", str(d), "--strict"], cwd=d)
 
 
@@ -621,6 +738,27 @@ PLACEHOLDER_RE = re.compile(r"<[a-z][a-z0-9-]*>")
 SELF_ANSWERING = {"--help", "-h", "--version", "-V"}
 
 
+def self_answering(words: list[str]) -> bool:
+    """Can this harness run `from=` itself and diff the transcript?
+
+    ONE predicate, called by `run_output` and by `output_was_executed`. It was
+    two copies of the same expression, which is how a transcript comes to be
+    executed and then counted as un-run, or the reverse.
+
+    A SUBCOMMAND before the flag is fine — `astra-plugin locale --help` is run,
+    and the docstring at the top of this file has always said so while the
+    predicate refused any word that was not a flag. That is the same class of
+    defect as a build step described in a comment and never written: the claim
+    read as coverage for a year, and the subcommand help transcripts — the
+    single most rot-prone thing a CLI page carries — were all quietly un-run.
+
+    Running one is as safe as the `cli` runner, which appends `--help` to every
+    line in every `cli` block for exactly this reason: clap answers the flag and
+    exits before the subcommand touches a file, a socket or a daemon.
+    """
+    return bool(words) and words[0] == "astra-plugin" and bool(set(words[1:]) & SELF_ANSWERING)
+
+
 def output_command(b: Block) -> list[str]:
     """The command in `from=`, as words, with any trailing prose clause cut.
 
@@ -679,9 +817,7 @@ def run_output(b: Block, env: Env) -> None:
         require_unrun(b)
         return
 
-    if not set(words[1:]) & SELF_ANSWERING or any(
-        not w.startswith("-") for w in words[1:]
-    ):
+    if not self_answering(words):
         # A real astra-plugin command, but one that needs a project, a daemon or
         # a machine state this harness does not have.
         require_unrun(b)
@@ -719,13 +855,7 @@ def require_unrun(b: Block) -> None:
 
 def output_was_executed(b: Block) -> bool:
     """Whether `run_output` really ran the command, for the summary counts."""
-    words = output_command(b)
-    return (
-        bool(words)
-        and words[0] == "astra-plugin"
-        and bool(set(words[1:]) & SELF_ANSWERING)
-        and all(w.startswith("-") for w in words[1:])
-    )
+    return self_answering(output_command(b))
 
 
 def run_illustrative(b: Block, env: Env) -> None:

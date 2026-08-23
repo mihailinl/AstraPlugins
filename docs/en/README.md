@@ -72,6 +72,7 @@ and it is always the one that is wrong.
 | [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 35 hooks in all three SDKs |
 | [Permissions](3-reference/permissions.md) | written: each permission, what it grants, how to write a reason |
 | [Config fields](3-reference/config-fields.md) | written: settings UI, `[config]`, and the TTS/STT field hooks |
+| [Localisation](3-reference/localisation.md) | written: `locales/<code>.json`, the `$key` marker, and where the English gate fires |
 
 Normative specifications, for someone implementing a verifier or a registry
 rather than a plugin: [bundle v2](spec/bundle-v2.md) ·

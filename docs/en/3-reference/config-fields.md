@@ -254,7 +254,12 @@ Their parameter fields use the same `FieldDef` vocabulary as above.
 
 ## Localisation
 
-`label`, `placeholder` and `description` may be i18n keys rather than literals.
-The SDK ships `I18n` for the plugin's own strings, and `OnLanguageChanged` tells
-you the UI language changed so anything user-visible can be re-rendered. The
-language is also on the context from the first moment: `ctx.language()`.
+`title`, `description`, `label` and `placeholder` may be `$keys` rather than
+literals: the daemon resolves them per request out of your `locales/<code>.json`,
+so the settings form follows the user's language with nothing to re-render. Your
+own strings — chat text, notifications, anything with a count in it — are yours
+to resolve, with `ctx.i18n()`. The language is on the context from the first
+moment (`ctx.language()`), and `OnLanguageChanged` says when it changes.
+
+Which strings go in which file, what `$$` means, and where the English gate
+fires: [Localisation](localisation.md).

@@ -40,6 +40,7 @@ zusammenpassen.
 |---|---|
 | [Permissions](permissions.md) | Jede ID, was sie gewährt, und wie man einen `reason` schreibt |
 | [Config- und Settings-Felder](config-fields.md) | `[config]`, typisierte Einstellungen, und die TTS/STT-Feld-Hooks |
+| [Lokalisierung](localisation.md) | `locales/<code>.json`, der `$key`-Marker, und wo das Englisch-Gate greift — **nur auf Englisch** |
 
 Jedes Codebeispiel auf beiden Seiten wird in der CI von
 [`docs/tools/doctest.py`](../../tools/doctest.py) ausgeführt.

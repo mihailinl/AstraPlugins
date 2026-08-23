@@ -1973,6 +1973,58 @@ jobs:
       - name: build the CLI
         run: cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
 
+      # Every example passes the locale gate — the rules `astra-plugin build`
+      # refuses a bundle over, run on the eleven plugins this repository holds
+      # up as the way to write one.
+      #
+      # `locale check` rather than `check --strict`: five of the eleven fail
+      # the full strict check today for a reason that has nothing to do with
+      # locales (they have no release workflow of their own, so the repo's
+      # `release-bad-apple.yml` is reported as pointing somewhere else), and a
+      # step that is red for an unrelated reason is a step people learn to
+      # ignore. That is a separate defect, recorded rather than smuggled in
+      # here.
+      #
+      # THE FLOOR, and it is not decoration. This loop reports what it FOUND,
+      # so a glob that stops matching prints nothing and exits 0 — the shape
+      # that reads exactly like a clean bill of health. Eleven is what exists
+      # today; a deleted example lowers it in the same commit.
+      - name: every example passes the locale gate
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          n=0
+          bad=0
+          for m in examples/*/plugin.toml; do
+            n=$((n + 1))
+            d="$(dirname "$m")"
+            if out=$("$CLI" locale check --path "$d" 2>&1); then
+              echo "ok   $d"
+            else
+              { echo "FAIL $d — the locale rules refuse this example."
+                printf '%s\n' "$out" | sed 's/^/       /'
+                echo "     The examples are the de-facto documentation of what a plugin looks"
+                echo "     like. One that astra-plugin build would refuse to pack teaches the"
+                echo "     failure to everybody who copies it."
+                echo "     fix: astra-plugin locale check --path $d, and do what it says."
+              } >&2
+              bad=1
+            fi
+          done
+          if [ "$n" -lt 11 ]; then
+            { echo "FAIL the SCAN broke, not the rule: examples/*/plugin.toml matched $n"
+              echo "     manifest(s), below the floor of 11 that existed when this step was"
+              echo "     written. Nothing above has been verified — this loop only ever"
+              echo "     reports what it found, so finding less reads exactly like finding"
+              echo "     no problem."
+              echo "     Either an example was deleted (lower the floor in that same commit)"
+              echo "     or the layout moved and this glob no longer reaches it."
+            } >&2
+            exit 1
+          fi
+          [ "$bad" -eq 0 ] || exit 1
+          echo "ok   $n example(s) pass the locale gate"
+
       - name: run the conformance suite on the reference plugins
         run: |
           set -euo pipefail
@@ -2151,6 +2203,41 @@ jobs:
             exit 1
           fi
           echo "ok    ASTRA_TOOLING_REF $ref is an ancestor and carries the CLI"
+
+          # …and it carries the CLI's locale gate.
+          #
+          # This is deliberately a CAPABILITY and not a freshness threshold. The
+          # workflow's own comment is right that "is this pin current?" needs a
+          # network call and a notion of current, and refuses to answer it from
+          # a literal — but that argument was read as "pin age cannot be checked
+          # at all", and the pin then sat 83 commits and eleven days behind
+          # while every author's release built with a CLI that had never heard
+          # of `locales/`. The English gate was in the tree, in CI, in the docs,
+          # and in force for nobody.
+          #
+          # A capability has none of that ambiguity: either the pinned commit
+          # contains the file or it does not, both answers are local, and the
+          # failure names what stopped being enforced rather than a number
+          # somebody guessed.
+          if ! git cat-file -e "$ref:astra-plugin-cli/src/commands/locale.rs" 2>/dev/null; then
+            echo "::error::ASTRA_TOOLING_REF $ref predates the CLI's locale gate."
+            echo "Every plugin release builds astra-plugin at that commit, so a pin from"
+            echo "before astra-plugin-cli/src/commands/locale.rs means E1-E17/E20 refuse"
+            echo "nothing on the one path where a bundle is actually sealed: no English"
+            echo "base, no key parity, no listing.* agreement, for any real release."
+            echo "Move the pin forward. It is only ever moved forward."
+            exit 1
+          fi
+          echo "ok    that commit carries the CLI's locale gate"
+
+          # Informational, and it costs nothing: how far back the pin is, in
+          # this repository's own history. Not a gate — there is no honest
+          # threshold — but a number in the log of every run, so "the pin is
+          # old" is something a reader can see rather than something somebody
+          # has to go and measure after a release has already gone out wrong.
+          behind=$(git rev-list --count "$ref..HEAD")
+          when=$(git log -1 --format=%cs "$ref")
+          echo "note  the pin is $behind commit(s) behind this commit, dated $when."
 
           # …and the step that puts the source where the build expects it still
           # exists. It did not, for the whole life of this file: the build's

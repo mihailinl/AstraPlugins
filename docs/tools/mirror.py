@@ -108,11 +108,17 @@ DT = _doctest_module()
 #: a program printed, so there is nothing in it to translate.
 VERBATIM_BODIES = {"output"}
 
-#: Marker attributes that must be identical in every language, per runner. They
-#: are notes to the next editor rather than prose for a reader.
+#: Marker attributes that must be identical in every language, per runner. Most
+#: are notes to the next editor rather than prose for a reader; `locales=` is
+#: not a note at all.
 VERBATIM_ATTRS = {
     "output": ("from", "unrun"),
     "illustrative": ("reason",),
+    # `locales=1` changes what `run_toml_manifest` puts on disk before
+    # `astra-plugin check` sees the sample. A translation that drops it turns
+    # that page's manifest sample red on `[E7]` in one language only, six pages
+    # away from whoever last touched English.
+    "toml-manifest": ("locales",),
 }
 
 

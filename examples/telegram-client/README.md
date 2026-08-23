@@ -70,7 +70,10 @@ astra-plugin build
 - `src/bot.rs`, `src/commands.rs` — update handling and the two commands.
 - `src/sync.rs` — the firehose: Astra events to Telegram, streamed.
 - `src/state.rs` — the topic mapping, persisted.
-- `locales/` — English and Russian.
+- `locales/` — English and Russian, and both planes in one plugin: the
+  `$config.*` keys `plugin.toml` references, which the daemon resolves for
+  the settings form, and the `bot.*` keys this process resolves itself with
+  `I18n`. See [the localisation page](../../docs/en/3-reference/localisation.md).
 - `icon.svg` — the store icon, hand-drawn SVG.
 
 MIT licensed.
