@@ -285,5 +285,14 @@ else
     cp -f "$tmp/ASTRA_PROTO.lock" "$REPO_ROOT/$LOCK_REL"
     printf 'gen-proto-lock: wrote %s\n' "$LOCK_REL"
 fi
-printf '                protocol=%s plugin=%s… astra=%s…\n' \
-    "$protocol" "${plugin_sha:0:12}" "${astra_sha:0:12}"
+# The summary names surface before plugin, because surface is the number a
+# reader can act on. `astra=` appears only when there IS one — an ellipsis after
+# an empty value reads as a truncated hash rather than as an absence, which is
+# the same trick as a check that skips quietly, in one line of output.
+if [ -n "$astra_sha" ]; then
+    printf '                protocol=%s surface=%s… plugin=%s… astra=%s…\n' \
+        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}" "${astra_sha:0:12}"
+else
+    printf '                protocol=%s surface=%s… plugin=%s… (no source-sha256 in this slice)\n' \
+        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}"
+fi
