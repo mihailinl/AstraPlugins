@@ -22,13 +22,25 @@ C12 — spec/locales.yaml vs the daemon's own list.
     `ci.yml` calls that the normal state. Without a checkout this rule prints
     what it did not verify and exits 0. It does not pass quietly.
 
-C20 — spec/listing-limits.yaml vs astra-registry's own numbers.
-    Four length caps that belong to another repository and are enforced HERE, at
-    pack time, because the alternative is an author discovering them at ingest
-    after a tag is pushed. A copy nobody compares is a guess, so this compares
-    them — against `policy/limits.json` and `schema/version-v1.json` — whenever
-    an astra-registry checkout is reachable, and says out loud that it did not
-    when there is none.
+C20 — spec/listing-limits.yaml vs astra-registry's own numbers, both ways.
+    Seven caps that belong to another repository and are checked HERE, at pack
+    time, because the alternative is an author discovering them at ingest after
+    a tag is pushed. A copy nobody compares is a guess, so this compares them —
+    against `policy/limits.json` and `schema/version-v1.json` — whenever an
+    astra-registry checkout is reachable, and says out loud that it did not when
+    there is none.
+
+    **Both ways since 2026-08-23**, and the second way is the one that had teeth
+    to grow. The first asks, of each row in `spec/listing-limits.yaml`, *does
+    this name a real registry constant and equal it?* That question has the same
+    answer whether the registry holds four author-facing caps or forty, so when
+    `max_locale_bytes`, `max_locale_keys` and `max_listing_i18n_bytes` landed
+    over there — hours after this file was written, enforced at ingest as
+    blocking errors from the first commit — both halves of C20 went on passing
+    and neither could have done anything else. A check that enumerates one
+    side's members reports only on that side's members. The reverse half reads
+    the `<name>_mirrored_by` siblings the registry now carries and asks whether
+    the copy each names is really here.
 
 C22 — has a RELEASED Astra started resolving plugin labels?
     `astra-plugin new` scaffolds LITERAL English action, trigger and UI labels,
@@ -406,8 +418,37 @@ def rule_C14(fails: Fails) -> None:
 LISTING_LIMITS = ROOT / "spec" / "listing-limits.yaml"
 
 #: The fewest rows `spec/listing-limits.yaml` may have before this reader
-#: concludes its own parse broke. A floor, not the real count.
-MIN_LIMIT_ROWS = 4
+#: concludes something is wrong. A floor, not a target: growth is expected and
+#: passes, and shrinkage is the deliberate act that has to be argued for.
+#:
+#: It sits AT today's count rather than below it, and that is what covers
+#: `max_permission_reason_chars` — the one row whose upstream is a JSON pointer
+#: into `schema/version-v1.json` rather than a key in `policy/limits.json`, so
+#: the reverse direction below (which enumerates `policy/limits.json`) cannot
+#: see it. Deleting that row would otherwise leave six rows, a floor of four,
+#: and nothing anywhere noticing that the CLI had stopped checking permission
+#: reasons against the schema that refuses them.
+MIN_LIMIT_ROWS = 7
+
+#: The sibling key in `astra-registry/policy/limits.json` by which a cap over
+#: there declares that a copy of it lives HERE.
+#:
+#: The reverse direction, and the one C20 did not have. Everything above asks,
+#: of each row in `spec/listing-limits.yaml`, *does this name a real registry
+#: constant and equal it?* Nothing asked the opposite: **does the registry hold
+#: a cap an author can trip that we do not mirror at all?** Three did — the two
+#: locale-file caps and the per-listing card budget — for a day, and neither
+#: reader could see them, because both enumerate the rows this repository
+#: happens to carry. A check that enumerates one side's members can only ever
+#: report on that side's members.
+MIRRORED_BY_SUFFIX = "_mirrored_by"
+
+#: The fewest `_mirrored_by` declarations `policy/limits.json` may carry before
+#: this reader concludes IT broke rather than that the registry stopped
+#: mirroring. Written before the comparison and not derived from it: a regex
+#: that stops matching enumerates nothing, and an empty enumeration is the one
+#: shape of green that means nothing at all.
+MIN_MIRRORED_BY = 3
 
 
 def read_listing_limits() -> tuple[dict[str, int], dict[str, str]]:
@@ -429,7 +470,17 @@ def read_listing_limits() -> tuple[dict[str, int], dict[str, str]]:
             continue
         if not line or line.startswith("#"):
             continue
-        m = re.match(r"([a-z_]+)\s*:\s*([0-9_]+)", line)
+        # `[a-z0-9_]`, not `[a-z_]`. A digit in a cap NAME is legal and this
+        # reader used to drop the row silently: `max_listing_i18n_bytes` parsed
+        # as nothing, so the file appeared to hold one fewer cap than it did and
+        # that cap was compared against the registry by nobody. The other two
+        # readers of this same file never had the bug — `validate.mjs` matches
+        # `[a-z0-9_]+` and the CLI's parser splits on the first colon and takes
+        # whatever is left of it — so the three disagreed about what a row IS,
+        # which is a worse kind of drift than disagreeing about a number.
+        # Found by the reverse direction below, on its first run against a real
+        # registry: it asked for a row the forward reader had thrown away.
+        m = re.match(r"([a-z0-9_]+)\s*:\s*([0-9_]+)", line)
         if m:
             values[m.group(1)] = int(m.group(2).replace("_", ""))
             if pending:
@@ -486,8 +537,12 @@ def rule_C20(fails: Fails) -> None:
         len(values) >= MIN_LIMIT_ROWS,
         f"C20 spec/listing-limits.yaml parses to at least {MIN_LIMIT_ROWS} caps "
         f"({len(values)} found)",
-        "that file's FORMAT paragraph promises `name: <integer>` per line — if it\n"
-        "still looks like that, this reader is what broke and not the list.",
+        "TWO CAUSES, opposite fixes. That file's FORMAT paragraph promises\n"
+        "`name: <integer>` per line: if it still looks like that, THIS READER is what\n"
+        "broke and the list is fine — which has happened, once, over a digit in a cap\n"
+        "name. If it does not look like that, rows were deleted, and every one of them\n"
+        "is a cap `astra-plugin` has stopped checking while the registry goes on\n"
+        "enforcing it at ingest on an author who has already pushed a tag.",
     )
     missing_source = sorted(n for n in values if n not in sources)
     fails.check(
@@ -507,10 +562,15 @@ def rule_C20(fails: Fails) -> None:
         for name, value in sorted(values.items()):
             print(f"        {name} = {value} taken on trust "
                   f"(mirrors {sources.get(name, 'nothing stated')})")
-        print("        `astra-plugin check` REFUSES a manifest over these numbers, so a")
-        print("        value too low here refuses a listing the registry would have taken,")
-        print("        and one too high lets an author through to a refusal at ingest they")
-        print("        cannot act on. Neither is visible from this repository alone.")
+        print("        `astra-plugin check` refuses a manifest over SOME of these — not all,")
+        print("        and the row says which. A value too low here refuses a listing the")
+        print("        registry would have taken, and one too high lets an author through to a")
+        print("        refusal at ingest they cannot act on. Neither is visible from here alone.")
+        print("        Nor is the REVERSE question, which needs the same checkout: whether")
+        print("        astra-registry has since gained a cap an author can trip that this file")
+        print("        does not mirror at all. That is how these three arrived — enforced")
+        print("        there, mirrored nowhere, and invisible to a check that only ever walked")
+        print("        the rows this repository already had.")
         fails.skip("C20", "no astra-registry checkout")
         return
 
@@ -567,6 +627,88 @@ def rule_C20(fails: Fails) -> None:
         "`cargo test --manifest-path astra-plugin-cli/Cargo.toml` for the CLI's own\n"
         "vendored copy of this file.",
     )
+
+    _c20_reverse(fails, policy, values)
+
+
+def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int]) -> None:
+    """Every cap astra-registry says we mirror, we actually mirror.
+
+    The direction the rule above cannot see. It walks `spec/listing-limits.yaml`
+    and asks of each row *"is this a real registry constant?"* — a question that
+    has the same answer whether the registry holds four author-facing caps or
+    forty. `max_locale_bytes`, `max_locale_keys` and `max_listing_i18n_bytes`
+    landed in `policy/limits.json` a few hours after this file was written, were
+    enforced at ingest as blocking errors from the moment they landed, and were
+    invisible to both halves of C20 for a day: an author's oversized `en.json`
+    passed `astra-plugin check` with `OK` and died in a repository they had
+    never opened, after a tag they could not move — which is the sentence at the
+    top of `spec/listing-limits.yaml`, describing itself.
+
+    **The declaration is on the registry's side on purpose.** It owns the
+    numbers, so it is the file somebody is editing when a new cap is born, and
+    the question *"can an author trip this from their own tree?"* has to be
+    answered there or it is answered nowhere. `policy/limits.json` holds one of
+    four siblings per cap — `_mirrors`, `_mirrored_by`, `_not_author_facing`,
+    `_unmirrored` — and `tools/validate.mjs` over there refuses a cap that
+    carries none. This half reads the `_mirrored_by` ones and checks the copy
+    they name is really here.
+
+    **Which side does a failure here tell you to edit?** This one. The registry
+    has already decided the cap is author-facing and said so in writing; the
+    missing half is the copy, and the copy lives here. The wrong repair — and it
+    is one keystroke — is to delete the `_mirrored_by` sibling over there, which
+    greens both halves by unpinning the number and puts an author back in front
+    of a refusal they cannot act on.
+    """
+    declared: dict[str, str] = {}
+    for key, value in policy.items():
+        if key.endswith(MIRRORED_BY_SUFFIX) and isinstance(value, str):
+            declared[key[: -len(MIRRORED_BY_SUFFIX)]] = value
+
+    if not fails.check(
+        len(declared) >= MIN_MIRRORED_BY,
+        f"C20 astra-registry declares at least {MIN_MIRRORED_BY} cap(s) as mirrored here "
+        f"({len(declared)} found)",
+        "`policy/limits.json` is expected to carry a `<name>_mirrored_by` sibling for every\n"
+        "cap an author can trip from their own source tree. Finding fewer than the floor\n"
+        "means one of two opposite things and they need opposite fixes:\n"
+        "  * that convention was removed or renamed over there, and THIS READER is what\n"
+        "    broke — nothing is unmirrored, the enumeration is;\n"
+        "  * or the declarations really were deleted, in which case nothing on either\n"
+        "    side is pinning those numbers any more and the caps below are unguarded.\n"
+        "Read policy/limits.json before deciding which. Do not raise the floor to match.",
+    ):
+        return
+
+    missing = sorted(n for n in declared if n not in ours)
+    fails.check(
+        not missing,
+        f"C20 every cap astra-registry says we mirror is in spec/listing-limits.yaml "
+        f"({len(declared)} declared)",
+        "\n".join(
+            f"{n}: policy/limits.json says `{n}{MIRRORED_BY_SUFFIX}: {declared[n]}` "
+            f"and spec/listing-limits.yaml has no `{n}` row"
+            for n in missing
+        )
+        + "\n"
+        "THIS repository is the copy, and the copy is what is missing. Add a row with a\n"
+        "`# mirrors: astra-registry/policy/limits.json <name>` comment above it, mirror it\n"
+        "into astra-plugin-cli/src/listing-limits.yaml, and run\n"
+        "`cargo test --manifest-path astra-plugin-cli/Cargo.toml`.\n"
+        "\n"
+        "Do NOT fix this by deleting the `_mirrored_by` sibling over there. That greens\n"
+        "both halves of C20 in one keystroke by unpinning the number, and the cap goes on\n"
+        "being enforced at ingest either way — on an author who has already pushed a tag.\n"
+        "If the cap genuinely is not one a source tree can trip, it wants `_not_author_facing`\n"
+        "with the sentence saying why, which is a claim somebody can disagree with.",
+    )
+
+    # A row here whose value differs from the registry's is already caught by
+    # the forward comparison above, so this half only has to answer the
+    # question that one structurally cannot: is the row there at all.
+    print(f"        the reverse direction compared {len(declared)} declaration(s): "
+          f"{' '.join(sorted(declared))}")
 
 
 # ── C22 ──────────────────────────────────────────────────────────────────────

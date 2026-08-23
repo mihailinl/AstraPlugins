@@ -1,11 +1,12 @@
-# The registry's length caps, mirrored — and mirrored is exactly what they are.
+# The registry's caps on what an author writes, mirrored — and mirrored is
+# exactly what they are.
 #
-# These four numbers belong to `astra-registry`. Nothing in Astra reads them and
-# nothing here is free to change them: they are the caps a listing record is
-# validated against at ingest, in another repository, AFTER an author has pushed
-# a tag. A plugin whose permission reason is 141 characters builds cleanly,
-# releases cleanly, and is refused by a JSON Schema in a repository the author
-# has never opened, with no way back but a new version number.
+# These seven numbers belong to `astra-registry`. Nothing in Astra reads them
+# and nothing here is free to change them: they are the caps a listing record
+# is validated against at ingest, in another repository, AFTER an author has
+# pushed a tag. A plugin whose permission reason is 141 characters builds
+# cleanly, releases cleanly, and is refused by a JSON Schema in a repository the
+# author has never opened, with no way back but a new version number.
 #
 # So they are checked here, at pack time, where the author can still fix it —
 # and this file exists so that "checked here" does not mean "guessed here".
@@ -13,32 +14,62 @@
 # WHY THIS IS A SEPARATE FILE FROM spec/limits.yaml
 #   `spec/limits.yaml` is integers-only AND Astra-shared: every value in it is
 #   mirrored into the daemon and changing one is an issue-first, three-repository
-#   change. None of these four is a number the daemon has ever heard of. Putting
-#   them there would make `gen-limits.mjs` generate four constants into three
-#   SDKs that have no use for them, and would put a registry policy decision
-#   behind an Astra review.
+#   change. None of these seven is a number the daemon has ever heard of.
+#   Putting them there would make `gen-limits.mjs` generate seven constants into
+#   three SDKs that have no use for them, and would put a registry policy
+#   decision behind an Astra review.
 #
 # WHY EACH LINE NAMES ITS SOURCE
-#   `astra-registry/policy/limits.json` already has this convention: a value with
-#   a `<name>_mirrors` sibling must equal the constant it names, and
+#   `astra-registry/policy/limits.json` already has this convention: a value
+#   with a `<name>_mirrors` sibling must equal the constant it names, and
 #   `tools/validate.mjs` compares them for real when the other checkout is
 #   reachable and prints that it did not when it is not. This is that convention
-#   pointing the other way. A declared copy with a check beats both a silent copy
-#   and a bare pointer — and the reason it is a copy at all rather than a
-#   pointer is that something HERE executes on it. `astra-plugin check` refuses
-#   a manifest over one of these. That is a local behaviour, not an echo, and
-#   the unit it counts in is stated below because it is not obvious.
+#   pointing the other way, and since 2026-08-23 it is declared on that side
+#   too: a cap over there carries `<name>_mirrored_by` naming THIS file, and a
+#   cap with no copy here carries a written sentence saying why. Neither
+#   direction is a silence any more — see WHAT THIS FILE MUST CONTAIN below.
 #
-# THE UNIT IS UNICODE SCALAR VALUES (Rust `char`), which is what the registry's
-# own `checkMetadata` counts with `[...value].length` — code points, not UTF-16
-# units and not bytes. A Russian summary at the cap is ~200 characters and ~370
-# bytes, and a check that counted bytes would refuse it. `summarise()` in the
-# bot cuts on code points for the same reason.
+# THE UNITS ARE NOT ALL THE SAME, and each row says which one it is.
+#   Four of them count UNICODE SCALAR VALUES (Rust `char`), which is what the
+#   registry's own `checkMetadata` counts with `[...value].length` — code
+#   points, not UTF-16 units and not bytes. A Russian summary at the cap is
+#   ~200 characters and ~370 bytes, and a check that counted bytes would refuse
+#   it. `summarise()` in the bot cuts on code points for the same reason.
+#   Two count UTF-8 BYTES, because what they bound is a file the bot must
+#   refuse without reading and a document every client downloads whole. One
+#   counts KEYS. Reading a byte cap as a character cap refuses correct CJK;
+#   reading a character cap as a byte cap does the same. The row says which.
+#
+# WHAT THIS FILE MUST CONTAIN
+#   Every cap in `astra-registry/policy/limits.json` that carries a
+#   `<name>_mirrored_by` sibling naming this file. That is the direction C20
+#   did not run in until 2026-08-23: it asked "does every row here name a real
+#   registry constant?" and never "does the registry hold a cap an author can
+#   trip that we do not mirror?" All three locale caps landed on the far side
+#   the same evening this file was written, and for a day nothing on either
+#   side could see that they were missing.
+#
+# WHEN A CHECK OVER THIS FILE GOES RED, WHICH FILE DO YOU EDIT?
+#   Almost always this one. These are the registry's numbers; this is the copy.
+#   The temptation runs the other way — the fastest way to green a mirror check
+#   is to edit whichever of the two files is on screen — and doing that here
+#   inverts the check while looking exactly like maintenance:
+#
+#     * a cap LOWERED here refuses a listing the registry would have accepted,
+#       and the author cannot tell that from a real rule;
+#     * a cap RAISED here lets an author through to a refusal at ingest, after
+#       a tag they cannot move, which is the entire failure this file exists to
+#       prevent;
+#     * deleting a `# mirrors:` line, or the `_mirrored_by` sibling over there,
+#       makes both checks pass by unpinning the number — the one repair that
+#       destroys what it was protecting.
+#
+#   If the registry's number is genuinely what is wrong, change it THERE first
+#   and mirror it here in the same breath: between the two commits every author
+#   is checked against a cap the registry does not enforce.
 #
 # HOW TO CHANGE THIS FILE
-#   1. Change it in astra-registry first. These are its numbers; a lower value
-#      here refuses a listing the registry would have accepted, and a higher one
-#      lets an author through to a refusal they cannot act on.
+#   1. Change it in astra-registry first. These are its numbers.
 #   2. Mirror it here.
 #   3. `cargo test --manifest-path astra-plugin-cli/Cargo.toml` — the CLI keeps a
 #      vendored copy at `astra-plugin-cli/src/listing-limits.yaml` (this file
@@ -47,30 +78,92 @@
 #      `the_listing_limits_are_the_ones_the_spec_declares` reads THIS FILE at
 #      test time. That check runs on every fork PR with no second checkout.
 #   4. `python3 tools/check-locales.py --rules C20` — C20 compares this file
-#      with astra-registry's own when that checkout is reachable, and says out
-#      loud that it did not when it is not.
+#      with astra-registry's own, in BOTH directions, when that checkout is
+#      reachable, and says out loud that it did not when it is not.
+#   5. On the registry side, `node tools/validate.mjs` runs the same comparison
+#      from the other end and is the half that actually executes in CI: this
+#      repository's `couplings` job has no astra-registry checkout, and
+#      astra-registry's `build-index.yml` checks THIS repository out at the
+#      `ASTRA_PLUGINS_REF` pin. A row added here reaches that comparison when
+#      the pin moves, not when this merges.
+#
+# NOT EVERY ROW IS ENFORCED HERE, and the ones that are not say so in their own
+# comment. A row that nothing local executes on is still worth carrying — it is
+# what makes the reverse check above able to say "this cap has a copy" — but do
+# not read the presence of a row as proof that `astra-plugin check` refuses
+# over it. Read the row.
 #
 # FORMAT — `name: <integer>` per line, `#` comments, blank lines ignored. The
 # `mirrors` line above each value is a comment ON PURPOSE: it is read by a human
 # and by C20's regex, and by nothing that would break if it were reworded.
 
 # mirrors: astra-registry/policy/limits.json max_name_length
+# UNIT: characters (Unicode scalar values).
 # The store card's title, and `listing.name` in every locale block.
+# ENFORCED HERE: E14 in `astra-plugin check`, on plugin.toml and per locale.
 max_name_length: 64
 
 # mirrors: astra-registry/policy/limits.json max_summary_length
+# UNIT: characters (Unicode scalar values).
 # The one-line summary the bot DERIVES from the description with `summarise()`.
-# Nothing in this repository is refused for exceeding it — the derivation
-# truncates rather than refusing — so it is here to be read, not enforced.
+# NOT ENFORCED HERE — the derivation truncates rather than refusing, so it is
+# here to be read, and to bound the card text `max_listing_i18n_bytes` budgets.
 max_summary_length: 200
 
 # mirrors: astra-registry/policy/limits.json max_description_length
+# UNIT: characters (Unicode scalar values).
 # `plugin.description`, and `listing.description` in every locale block.
+# ENFORCED HERE: E14 in `astra-plugin check`, on plugin.toml and per locale.
 max_description_length: 4000
 
 # mirrors: astra-registry/schema/version-v1.json $.properties.permissions.patternProperties.*.properties.reason maxLength
+# UNIT: characters (Unicode scalar values).
 # A permission reason, which is the text a user reads on the consent sheet and
 # whose exact bytes are inside `permissions_hash`. This one is a schema
 # `maxLength` rather than a policy number, which is why its mirror line names a
 # JSON pointer instead of a key.
+# ENFORCED HERE: E13 in `astra-plugin check`.
 max_permission_reason_chars: 140
+
+# mirrors: astra-registry/policy/limits.json max_locale_bytes
+# UNIT: UTF-8 BYTES, not characters. 256 KiB.
+# One `locales/<code>.json` in a bundle, measured on the raw bytes BEFORE the
+# parse — which is the only place a runaway one can be stopped cheaply, and the
+# reason this row is in bytes when four others are in characters. The bot
+# materialises every file a bundle lists bounded only by `max_extract_bytes`
+# (500 MB); a flat-but-valid 200 MB `en.json` compresses to nothing and would
+# take the ingest runner out mid-derivation, leaving the submitter's issue with
+# no verdict at all.
+# NOT ENFORCED HERE YET — E18 is the rule that would, and it is not written.
+# Until it is, an `en.json` of any size passes `astra-plugin check` with `OK`
+# and is refused at ingest as `E_LOCALE_TOO_LARGE`. Reproduced 2026-08-23 at
+# 521,032 bytes: exit 0 here, blocking error there.
+max_locale_bytes: 262144
+
+# mirrors: astra-registry/policy/limits.json max_locale_keys
+# UNIT: KEYS in one file, counted after the parse.
+# The parity rules compare key sets pairwise across every locale a bundle
+# ships, so the bot's work is quadratic in this number and the findings it can
+# produce are linear in it. Both are bounded here rather than discovered on a
+# runner.
+# NOT ENFORCED HERE YET — the other half of E18. Reproduced 2026-08-23 at 6,004
+# keys in 107,032 bytes: `OK` here, `E_LOCALE_TOO_LARGE` there.
+max_locale_keys: 5000
+
+# mirrors: astra-registry/policy/limits.json max_listing_i18n_bytes
+# UNIT: UTF-8 BYTES of the whole `i18n` member of ONE listing.
+# Every locale block of one plugin together, as the registry DERIVES them:
+# `{name, summary}` per code, name from `listing.name` and summary from
+# `summarise(listing.description, max_summary_length)`, with stale blocks
+# demoted to English and blocks identical to the English card dropped.
+# NOT ENFORCED HERE YET — E19 is the rule that would.
+#
+# It is NOT unreachable from a tree this repository passes, which is the thing
+# to know before writing E19 and the thing that made it look un-actionable.
+# `max_name_length` and `max_description_length` are enforced per locale in
+# CHARACTERS; this cap is in BYTES; so nine locales of astral-plane text at
+# exactly the character caps are 9,775 bytes against a budget of 8,192.
+# Constructed 2026-08-23 from a real scaffold, nine `locale add`s and one
+# `locale sync`: `astra-plugin check` returned `OK … 0 warning(s)` and the
+# registry's own `deriveLocaleText` returned `E_LOCALE_CARD_TOO_LARGE`.
+max_listing_i18n_bytes: 8192
