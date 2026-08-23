@@ -94,7 +94,12 @@ export class RecordingHost implements Host {
     /** What `getConfig()` answers with. */
     public configJson = "{}",
     /** What `getDaemonInfo()` answers with. */
-    public daemonInfo: DaemonInfo = { version: "0.0.0-test", state: "running", grpcPort: 0 }
+    public daemonInfo: DaemonInfo = {
+      version: "0.0.0-test",
+      state: "running",
+      grpcPort: 0,
+      language: "en",
+    }
   ) {}
 
   // ── failure injection ──

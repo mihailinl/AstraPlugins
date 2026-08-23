@@ -1118,7 +1118,7 @@ pub mod compat {
     pub use crate::context::{ActiveTriggers, Daemon, Host, PluginContext};
     pub use crate::error::{ActionError, ToolError};
     pub use crate::events::{CommandCompletedEvent, CommandTriggeredEvent, StateChangedEvent};
-    pub use crate::i18n::I18n;
+    pub use crate::i18n::{I18n, key};
     pub use crate::{CapabilityAuth, RunConfig, run, run_with};
     pub use async_trait::async_trait;
 

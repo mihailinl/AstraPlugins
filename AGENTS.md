@@ -126,6 +126,8 @@ fails on the drift. Change the source, re-run the generator, commit both.
 | `docs/en/reference/*.md` | `python3 tools/docgen/gen.py` (reads the built CLI binary) |
 | `docs/en/parity.md`, `docs/en/hooks/*.md`, `spec/generated/conformance.json` | `python3 tools/parity/gen.py` |
 | `astra-plugin-sdk*/…/limits.{rs,py,ts}` | `node tools/gen-limits.mjs` |
+| `astra-plugin-sdk*/…/plural.{rs,py,ts}` | `node tools/gen-i18n.mjs` |
+| `astra-plugin-sdk-python/…/proto/plugin_pb2{,_grpc}.py` | `grpc_tools.protoc` + one `sed` (see that directory's `__init__.py`); `tools/check-python-stubs.py` compares |
 | `proto/plugin.proto` + its two vendored copies | `tools/sync-proto.sh` (source is in `Astra`) |
 | `astra-plugin-sdk-ts/src/generated/*` | `bun run generate` in `astra-plugin-sdk-ts/` |
 | `astra-plugin-cli/vendor/astra-plugin-manifest/src/**` | `tools/check-manifest-crate.sh --sync` (source is in `Astra`) |
@@ -136,8 +138,10 @@ are the source of truth** — for the 35 hooks, and for the numbers that must be
 identical in the daemon and the SDKs. Both are shared with `Astra`, so changing
 either is an *issue first* change (§6).
 
-**Run these from the repository root before proposing anything** — all six were
-run for this file, all six exit 0:
+**Run these from the repository root before proposing anything** — all eight were
+run for this file, all eight exit 0. `check-python-stubs.py` needs the exact
+`grpcio-tools` its own message names; a different one is reported as a toolchain
+mismatch and never as drift:
 
 ```bash
 bash tools/check-proto.sh                    # one protocol, vendored copies in sync
@@ -145,7 +149,9 @@ bash tools/check-manifest-crate.sh           # plugin.toml has exactly one defin
 python3 tools/parity/gen.py --check          # the generated parity docs are current
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 ASTRA_RS_DIR=/nonexistent node tools/gen-limits.mjs --check
+node tools/gen-i18n.mjs --check              # the generated plural tables (C17)
 python3 tools/check-locales.py               # the locale vocabulary (C12, C14)
+python3 tools/check-python-stubs.py          # plugin_pb2*.py vs plugin.proto (gap 8)
 ```
 
 Four exit 0 while skipping something, so read the output, not just the code —

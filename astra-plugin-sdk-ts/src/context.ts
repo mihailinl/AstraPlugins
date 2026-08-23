@@ -24,6 +24,7 @@
  */
 
 import type { Host } from "./host.js";
+import type { I18n } from "./i18n.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 
 /** What a handler is given. Cheap to hold: it reads through to the plugin. */
@@ -38,6 +39,15 @@ export interface PluginContext {
   readonly activeTriggers: ReadonlySet<string>;
   /** The daemon, or `null` before registration / in a level-1 harness with none. */
   readonly host: Host | null;
+  /**
+   * This plugin's translations, for the **runtime** plane.
+   *
+   * Loaded from `locales/` on first use and kept on this context's current
+   * language, so a handler never has to call `setLanguage` itself. For
+   * anything the DAEMON renders — action labels, config-field titles, `[ui]`
+   * labels — use `key()` instead; see the `i18n` module docs for why.
+   */
+  readonly i18n: I18n;
 
   /** Read one config key, with the type you assert and a fallback. */
   configValue<T>(key: string, fallback: T): T;
@@ -65,6 +75,7 @@ export interface ContextSource {
   readonly config: Record<string, unknown>;
   readonly language: string;
   readonly activeTriggers: Set<string>;
+  readonly i18n: I18n;
 }
 
 /** Raised when a handler reaches for the daemon before there is one. */
@@ -97,6 +108,9 @@ export class PluginContextImpl implements PluginContext {
   }
   get host(): Host | null {
     return this.source.host;
+  }
+  get i18n(): I18n {
+    return this.source.i18n;
   }
 
   configValue<T>(key: string, fallback: T): T {

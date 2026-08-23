@@ -80,6 +80,7 @@ pub mod i18n;
 pub mod limits;
 pub mod logging;
 pub mod panics;
+pub mod plural;
 pub mod protocol;
 mod runner;
 pub mod testing;
@@ -94,7 +95,7 @@ pub use context::{
 pub use daemon_client::DaemonClient;
 pub use error::{ActionError, HookUnimplemented, ToolError, ToolErrorCode, unimplemented};
 pub use host_client::HostClient;
-pub use i18n::I18n;
+pub use i18n::{I18n, key};
 pub use panics::Panicked;
 pub use protocol::{EXIT_PROTOCOL_INCOMPATIBLE, MIN_SUPPORTED_DAEMON_PROTOCOL, PROTOCOL_VERSION};
 pub use runner::{RunConfig, run, run_with};
@@ -297,7 +298,7 @@ pub mod prelude {
     pub use crate::error::{ActionError, ToolError, ToolErrorCode};
     pub use crate::events::{CommandCompletedEvent, CommandTriggeredEvent, StateChangedEvent};
     pub use crate::host_client::HostClient;
-    pub use crate::i18n::I18n;
+    pub use crate::i18n::{I18n, key};
     pub use crate::{CapabilityAuth, RunConfig, run, run_with};
     pub use async_trait::async_trait;
 

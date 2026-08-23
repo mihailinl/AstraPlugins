@@ -1,0 +1,175 @@
+# What a plugin's `locales/<code>.json` means, and what all three SDKs must do
+# with it. The declared semantics; `spec/locales.yaml` declares the vocabulary.
+#
+# Three SDKs shipped an `I18n` before this file existed and none of them had a
+# test. Re-reading them found three disagreements, all silent, all reachable by
+# an ordinary plugin:
+#
+#   * `tf` replaced EVERY `{0}` in Rust and Python and only the FIRST in
+#     TypeScript. Russian and Ukrainian repeat a noun in two cases routinely,
+#     so the second occurrence rendered as the literal `{0}`.
+#   * `""` was a valid translation in Rust and TypeScript and was treated as
+#     missing in Python's `or` chain. An absent key is how "missing" is said;
+#     `""` is the only way to blank a string in one locale.
+#   * Rust deserialised `HashMap<String,String>` and dropped the whole file on
+#     any non-string value — which is what the DAEMON does. TypeScript accepted
+#     any object and Python any dict, so a nested `{"config": {"token": …}}`
+#     gave a plugin whose own tests passed while the daemon silently dropped
+#     the file and every `$config.token.title` rendered literally.
+#
+# The daemon's parser is the authority in all three cases, because it is the
+# thing the user's screen is drawn from. `testdata/i18n/vectors.json` is the
+# shared answer — one file of cases, read by one test in each SDK, so the three
+# are held to one behaviour instead of three.
+#
+# HOW TO CHANGE THIS FILE
+#   1. Edit it here.
+#   2. `node tools/gen-i18n.mjs` — rewrites the generated plural tables in all
+#      three SDKs. CI re-runs it with `--check` (C17).
+#   3. Add or amend a case in `testdata/i18n/vectors.json`. A semantic change
+#      with no vector is a change no test can see.
+#   4. The generator refuses to run if the codes below are not exactly the ones
+#      `spec/locales.yaml` declares. Add a language there first.
+#
+# FORMAT — three kinds of line, `#` comments and blank lines ignored:
+#
+#     rule:  <key> = <value>            the settled semantics, one per line
+#     plural <code> <category> <condition>
+#
+# `rule:` values are read as opaque text by the generator and are emitted into
+# each SDK's generated module as documentation. Nothing parses them; they are
+# here so the answer to "what does an empty value mean?" lives in one file
+# rather than in three doc comments that can drift apart.
+#
+# <condition> is a deliberately tiny grammar and NOTHING else parses. A term is
+#
+#     always
+#     n [% <int>] ==      <int>
+#     n [% <int>] !=      <int>
+#     n [% <int>] in      <int>..<int>
+#     n [% <int>] not in  <int>..<int>
+#
+# and a condition is one term, or several joined by `&&`, or several joined by
+# `||`. Mixing the two in one line is a parse error naming the line rather than
+# a precedence guess — three languages would have to agree about the guess.
+#
+# `n` is the ABSOLUTE VALUE of the count, as CLDR defines the operand. That is
+# not a detail: `%` is truncated in Rust and JavaScript and floored in Python,
+# so `-1 % 10` is `-1` in two of the three SDKs and `9` in the other, and a
+# rule written against a signed `n` would put the same count in two different
+# categories depending on which language the plugin happens to be written in.
+# `n` is also an INTEGER: a count is a whole number of things, so CLDR's
+# fractional cases have no source here and no implementation has to agree
+# about `1.5`.
+
+# ── the settled semantics ────────────────────────────────────────────────────
+
+# Two steps, never three, and then the key. There is nothing to truncate: no
+# region tag exists anywhere in this system (spec/locales.yaml).
+rule: lookup_chain = <active language>, then en, then the key itself
+
+# Per KEY, not per file. The daemon currently falls back per FILE
+# (`instance.locales.get(language).or_else(|| … get("en"))`, one whole map
+# chosen and then walked), which is Ask 3 to the Astra half. Until that lands
+# the two behaviours are held indistinguishable by the CLI's key-parity errors,
+# and an SDK that copied the daemon's per-file rule would make the difference
+# unobservable rather than merely unenforced.
+rule: fallback_granularity = per key
+
+# An ABSENT key is how "this locale does not translate that" is said. `""` is a
+# present translation and wins — it is the only way to blank a string in one
+# locale, and a plugin that wants the English text back deletes the key.
+rule: empty_value = a translation, not a miss
+
+# The daemon deserialises `HashMap<String,String>` and drops the WHOLE file on
+# any non-string value, silently, at install time. An SDK that accepted a
+# nested object would let an author's own tests pass on a file the user's
+# machine never loads.
+rule: non_string_value = rejects the whole file, and load_errors() names it
+
+# `load` and `discover` never throw and never exit. A plugin must start: a
+# missing or malformed locale file is a rendering problem, not a startup
+# failure. Everything the loader could not use is reachable through
+# `load_errors()` / `loadErrors()`, which `astra-plugin test` prints.
+rule: load_failure = never fatal, always reachable through load_errors()
+
+# `$ASTRA_PLUGIN_DIR/locales` if that variable is set and names a directory,
+# else `./locales`. TWO candidates, both plugin-owned, and no third: an exe-dir
+# chain would have a TypeScript plugin (`node dist/index.js`) and a Python one
+# (`python -m src.plugin`) stat `/usr/bin/locales`, which is a directory the
+# plugin does not own. `./locales` works today only because the daemon spawns
+# with `.current_dir(&working_dir)`; ASTRA_PLUGIN_DIR is Ask 6 and does not
+# exist yet, which is why it is first and optional rather than required.
+rule: discover_chain = $ASTRA_PLUGIN_DIR/locales, else ./locales
+
+# `{0}`, `{1}`, … replaced by position; EVERY occurrence, not the first. An
+# index with no argument is left exactly as it stands, because a half-formatted
+# sentence is easier to see than a blank.
+rule: tf_placeholder = {0} {1} … , every occurrence, missing index left intact
+
+# `{name}` replaced by name; every occurrence; an unreferenced name is left
+# intact, for the same reason.
+rule: ta_placeholder = {name}, every occurrence, unknown name left intact
+
+# `tn(key, n, args)` resolves `<key>.<category>` where the category comes from
+# the ACTIVE language's rules below, then falls back `<key>.other`, `<key>`,
+# and finally the key text. `{n}` is NOT substituted automatically — pass it in
+# `args` — because a count that formats itself is a count the author cannot
+# localise.
+rule: tn_key_chain = <key>.<category>, then <key>.other, then <key>, then the key
+
+# A language this file does not name gets `other` and nothing else. It cannot
+# arrive from the daemon (Settings::validate refuses it) so this is about a
+# plugin that set the language itself.
+rule: unknown_language_category = other
+
+# `key("a.b")` returns `"$a.b"` — a marker for the DAEMON to resolve at serve
+# time, for anything the daemon renders. Never `t()` there: definitions are
+# cached unresolved and resolved per request, so a value resolved once is
+# frozen in the language it was resolved in.
+rule: declared_plane_marker = key(k) returns "$" + k
+
+# ── the plural rules ─────────────────────────────────────────────────────────
+#
+# CLDR cardinal categories, first match wins, and the LAST line for a code is
+# always `other always`. Every code in spec/locales.yaml has at least one line:
+# a code with none is a parse error here rather than a silent `other`, so a
+# language added to the vocabulary arrives as a visible blank in this file.
+
+en   one    n == 1
+en   other  always
+
+de   one    n == 1
+de   other  always
+
+es   one    n == 1
+es   other  always
+
+# French and Portuguese put zero with the singular.
+fr   one    n in 0..1
+fr   other  always
+
+pt   one    n in 0..1
+pt   other  always
+
+# Russian and Ukrainian: 1, 21, 31 … one; 2-4, 22-24 … few; 0, 5-9, 11-14 …
+# many. `other` is unreachable for an integer count and is kept as the terminal
+# row anyway, so that every code ends the same way and `<key>.other` is always
+# a legal thing for a translator to write.
+ru   one    n % 10 == 1 && n % 100 != 11
+ru   few    n % 10 in 2..4 && n % 100 not in 12..14
+ru   many   n % 10 == 0 || n % 10 in 5..9 || n % 100 in 11..14
+ru   other  always
+
+uk   one    n % 10 == 1 && n % 100 != 11
+uk   few    n % 10 in 2..4 && n % 100 not in 12..14
+uk   many   n % 10 == 0 || n % 10 in 5..9 || n % 100 in 11..14
+uk   other  always
+
+# Japanese, Chinese and Korean do not inflect for number: one row each, and one
+# row in the locale file.
+ja   other  always
+
+zh   other  always
+
+ko   other  always
