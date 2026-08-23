@@ -138,7 +138,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "commandTriggered",
                 "mcpServerChanged",
                 "mcpToolsChanged",
-                "memoryChanged"
+                "memoryChanged",
+                "characterLibraryChanged"
               ]
             }
           },
@@ -255,6 +256,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "MemoryChangedEvent",
               "id": 32
             },
+            "characterLibraryChanged": {
+              "type": "CharacterLibraryChangedEvent",
+              "id": 33
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
@@ -274,6 +279,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "removed": {
               "type": "uint32",
               "id": 3
+            }
+          }
+        },
+        "CharacterLibraryChangedEvent": {
+          "fields": {
+            "generation": {
+              "type": "uint32",
+              "id": 1
             }
           }
         },
@@ -5521,6 +5534,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "activated": {
               "type": "bool",
               "id": 12
+            },
+            "requiresActivation": {
+              "type": "bool",
+              "id": 13
             }
           }
         },
@@ -6197,6 +6214,38 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "circuitOpen": {
               "type": "bool",
               "id": 8
+            },
+            "missingRuntime": {
+              "type": "PluginRuntimeRequirement",
+              "id": 9
+            }
+          }
+        },
+        "PluginRuntimeRequirement": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "displayName": {
+              "type": "string",
+              "id": 2
+            },
+            "command": {
+              "type": "string",
+              "id": 3
+            },
+            "wingetId": {
+              "type": "string",
+              "id": 4
+            },
+            "downloadUrl": {
+              "type": "string",
+              "id": 5
+            },
+            "installable": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
