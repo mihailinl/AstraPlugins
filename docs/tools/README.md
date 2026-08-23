@@ -2,7 +2,7 @@
 
 `doctest.py` proves the **samples** are true. `linkcheck.py` proves the
 **navigation** is. `mirror.py` proves the six translations still carry
-English's pages and English's samples. All three run in the `docs (samples execute)` job in
+English's pages, English's samples and English's table names. All three run in the `docs (samples execute)` job in
 `.github/workflows/ci.yml`.
 
 `locales.py` is not a check. It is the one place the set of translated
@@ -20,7 +20,7 @@ python3 docs/tools/doctest.py --only rust-plugin,ts-plugin
 python3 docs/tools/doctest.py docs/en/2-tutorial
 python3 docs/tools/linkcheck.py               # every relative link resolves
 python3 docs/tools/linkcheck.py docs/ru       # one subtree
-python3 docs/tools/mirror.py                  # every locale carries en's pages and en's samples
+python3 docs/tools/mirror.py                  # every locale carries en's pages, samples and table names
 astra-plugin --version
 ```
 
@@ -179,7 +179,10 @@ module docstring; add to that list only with a reason of the same kind.
 
 ## `mirror.py`
 
-Two assertions, both against `docs/en`, for each of the six translations.
+Three assertions, all against `docs/en`, for each of the six translations. Each
+one exists because the one before it was not enough, and that is the pattern
+worth carrying away: every time, what was not compared was the part a machine
+had written and a human had copied.
 
 **The page set.** Same relative paths, in both directions, so a translated page
 whose English original was deleted fails the build instead of quietly outliving
@@ -198,9 +201,36 @@ still compared, and so is `toml-manifest`'s `locales=` attribute: that one is no
 a note to an editor but an instruction to the runner, and a translation that drops
 it turns that page's manifest sample red in one language only.
 
+**The table rows.** A row whose *first* cell is one inline-code span with no
+whitespace in it — an rpc name, a manifest key, a flag — is a row a machine
+wrote. It is keyed on that name, it must appear the same number of times in the
+translation as in English, and every other whitespace-free code cell in it must
+be byte-identical. A code span *with* whitespace is a phrase, not a name, and is
+left alone: `spec/registry-index.md` has `issued_at + 30 days` in a cell, and
+`issued_at + 30 Tage` is the correct German for it. So are plain cells —
+`yes`/`ja` and `**none**`/`**keine**` are translations, not drift.
+
+Rows are keyed by name rather than compared by position on purpose, and the
+consequence is worth stating: a whole section that exists in English and in no
+translation is **not** a failure here. Three sections of
+`3-reference/permissions.md` and one table of `reference/cli.md` are in exactly
+that state today. Making those red is the same policy decision as the gate in
+the last paragraph — the maintainer's, not this script's.
+
 The second assertion exists because the first was not enough. A correction to an
 English transcript shipped with all six translations still carrying the retracted
 claim, and this tool reported "0 mismatches" — it only ever read filenames.
+
+The third exists because the second was not enough either. `docs/en/parity.md`
+is generated from `spec/hooks.yaml`; its six translations are hand-maintained
+snapshots by declared policy, as are the six of `docs/en/reference/parity.md`.
+Twelve copies of a generated table that nothing regenerated and nothing read.
+All twelve named `manager.rs:3624` in the `Daemon call site` column where English
+named `3924` — 33 rows each, 396 cells, both doc tiers — and this tool printed
+"0 mismatches" again, because a table body is neither a filename nor a doctest
+block. The same commit stopped printing the daemon *line* in that column at all,
+in every language; it lives in `spec/hooks.yaml`, where parity rule R5 checks it
+against a live call site and nothing on a page ever did.
 
 It does **not** implement the rest of §7.4's gate ("CI fails when `docs/en/**`
 changes without a matching translation touch"): that needs a base ref, and it
