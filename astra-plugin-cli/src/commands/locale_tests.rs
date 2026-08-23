@@ -102,15 +102,6 @@ const NO_FIXTURE: &[(&str, &str)] = &[
          5,001-key file committed here and sparse-checked-out by the ingest job on every run. \
          Witnessed by `an_oversized_locale_file_is_refused_before_it_is_parsed` below.",
     ),
-    (
-        "E19",
-        "same missing mapping: the registry raises `E_LOCALE_CARD_TOO_LARGE`. The rule is also \
-         about a whole listing's blocks TOGETHER rather than one file, which is the one shape a \
-         per-case corpus fixture reads least well. Witnessed by \
-         `the_listing_i18n_budget_is_the_registrys_own_number` below, whose byte count was \
-         compared against the bot's own `deriveLocaleText` on the same tree — 9,775 on both \
-         sides.",
-    ),
 ];
 
 fn manifest_at(dir: &Path) -> PluginManifest {
