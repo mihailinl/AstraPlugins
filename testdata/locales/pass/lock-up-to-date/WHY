@@ -1,0 +1,12 @@
+The positive control, and the two cases above are worth nothing
+without it.
+
+Every digest here is the real sha256 of the English beside it, including the two
+plural rows English cannot carry, which are anchored on "msg.done.other". So a
+correct reader reports zero stale, zero seeded-stale and no N3 or N15 — and a
+reader that has started calling everything stale, or that stopped looking at the
+family rows and calls everything fresh, is caught by exactly one of these three
+fixtures rather than by none of them.
+
+"listing.name" is byte-identical to English on purpose: a seed whose English has
+NOT moved is fresh, not stale, and it carries a lock entry like every other key.

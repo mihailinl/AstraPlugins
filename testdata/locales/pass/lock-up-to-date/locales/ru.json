@@ -1,0 +1,8 @@
+{
+  "listing.name": "Fixture",
+  "listing.description": "Набор для проверки правил локализации",
+  "msg.done.one": "{n} ход сыгран",
+  "msg.done.few": "{n} хода сыграно",
+  "msg.done.many": "{n} ходов сыграно",
+  "msg.done.other": "{n} хода сыграно"
+}

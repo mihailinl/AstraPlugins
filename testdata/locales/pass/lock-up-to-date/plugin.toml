@@ -1,0 +1,11 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "A fixture whose lock is entirely up to date"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true

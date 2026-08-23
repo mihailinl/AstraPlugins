@@ -1,0 +1,14 @@
+Both English rows of a plural family were rewritten, and all FOUR
+Russian rows are stale — not two.
+
+`en.json` cannot legally carry "msg.done.few" or "msg.done.many": E15 holds each
+language to exactly the CLDR categories it needs, and English needs one and
+other. So a staleness reader keyed on `en.keys.get(key)` finds nothing for the
+two Russian-only rows, skips them, and reports two of the four. The other two
+ship describing English nobody writes any more, and `sync --accept` clears the
+whole family in one gesture.
+
+The two rows English cannot carry are anchored on "msg.done.other" instead —
+the one category every language has. The digests here are real sha256 over the
+English those Russian rows were made against, so this fixture also pins the
+digest itself and not merely the comparison.

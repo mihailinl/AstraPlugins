@@ -1,0 +1,14 @@
+{
+  "schema": "astra.plugin.locales/1",
+  "source": "en",
+  "locales": {
+    "ru": {
+      "listing.name": "2ab25f10948b",
+      "listing.description": "9cc6ca9e98e0",
+      "msg.done.one": "4c4da057c076",
+      "msg.done.few": "cebf7dcf32e8",
+      "msg.done.many": "cebf7dcf32e8",
+      "msg.done.other": "cebf7dcf32e8"
+    }
+  }
+}

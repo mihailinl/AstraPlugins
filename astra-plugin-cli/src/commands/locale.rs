@@ -621,15 +621,62 @@ pub fn digest(english: &str) -> String {
     out.iter().take(6).map(|b| format!("{b:02x}")).collect()
 }
 
-/// One translated key's standing against the lock.
+/// The English one key of a non-English locale is measured against.
+///
+/// Normally `en.json`'s value for the same key. The exception is a plural
+/// FAMILY member English cannot legally carry — `ru`'s `few` and `many`, which
+/// `locale add ru` writes and E15 requires — and those are anchored on
+/// `<base>.other`: the one category every language has, and the row English
+/// always carries for a family.
+///
+/// **This is why the lock now covers a whole plural family.** It used to be a
+/// bare `en.keys.get(key)` at three call sites, each of which `continue`d on a
+/// miss, so `ru`'s `few` and `many` got no lock entry, were never counted as
+/// seeded, and could never be reported stale. Editing both English rows of a
+/// four-row Russian family reported **two** stale; `sync --accept` then cleared
+/// it and the family shipped two-thirds updated and reading fresh.
+///
+/// The digest recorded for such a key is still the first 12 hex of sha256 over
+/// exact English UTF-8 bytes — the bytes of `<base>.other`. That keeps the
+/// lock's single rule intact, which matters because a second implementation in
+/// another repository reads these values (coupling C19, and gap 9 is that
+/// nothing compares the two).
+fn english_for<'a>(
+    en: &'a LocaleFile,
+    key: &str,
+    families: &BTreeSet<String>,
+) -> Option<&'a String> {
+    if let Some(v) = en.keys.get(key) {
+        return Some(v);
+    }
+    if let (base, Some(_)) = split_category(key)
+        && families.contains(base)
+    {
+        return en.keys.get(&format!("{base}.other"));
+    }
+    None
+}
+
+/// One key's standing against the lock.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Freshness {
-    /// The value is byte-identical to English — not translated yet.
+    /// The value is byte-identical to TODAY's English — seeded, not translated.
+    ///
+    /// **It still gets a lock entry**, and that is the fix this enum exists to
+    /// carry: recording the English a seed was copied from is what lets a later
+    /// English edit turn the seed stale, exactly as it turns a translation
+    /// stale. Leaving it unrecorded is what let `sync` stamp today's digest onto
+    /// yesterday's English and call it a translation.
     Untranslated,
     /// Translated, and the lock records the English it was made against.
     Fresh,
-    /// Translated, no lock entry — newly translated since the last `sync`.
+    /// Differs from English and the lock has never seen this key — a key the
+    /// author added by hand since the last `sync`.
     New,
+    /// The value hashes to the English the lock recorded for it, so the value
+    /// **is** that English: nobody translated this, and the base moved out from
+    /// under the seed.
+    SeededStale,
     /// Translated, and the English has changed since. The reader gets a
     /// confidently wrong sentence and nothing ever tells them.
     Stale,
@@ -643,28 +690,55 @@ fn freshness(lock: Option<&Lock>, code: &str, key: &str, english: &str, theirs: 
     match recorded {
         None => Freshness::New,
         Some(d) if *d == digest(english) => Freshness::Fresh,
+        // The value hashes to the English the lock recorded against it, which
+        // means the value never stopped being that English. Naming this apart
+        // from `Stale` costs one arm and buys the author a true sentence: there
+        // is no translation here to have gone wrong.
+        Some(d) if *d == digest(theirs) => Freshness::SeededStale,
         Some(_) => Freshness::Stale,
     }
 }
 
-/// Every stale key, per code.
-fn stale_keys(set: &LocaleSet) -> BTreeMap<String, Vec<String>> {
-    let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+/// What the lock says has moved out from under a locale file, per code.
+#[derive(Default)]
+struct LockDrift {
+    /// Translated against English that has since changed. N3.
+    stale: BTreeMap<String, Vec<String>>,
+    /// Never translated: still the English it was seeded from, and that English
+    /// has since changed. N15.
+    seeded: BTreeMap<String, Vec<String>>,
+}
+
+fn lock_drift(set: &LocaleSet) -> LockDrift {
+    let mut out = LockDrift::default();
     let Some(en) = set.get("en").filter(|f| f.error.is_none()) else {
         return out;
     };
+    let families = plural_families(set);
     for file in set.real() {
         if file.code == "en" {
             continue;
         }
         for (key, theirs) in &file.keys {
-            let Some(english) = en.keys.get(key) else { continue };
-            if freshness(set.lock.as_ref(), &file.code, key, english, theirs) == Freshness::Stale {
-                out.entry(file.code.clone()).or_default().push(key.clone());
+            let Some(english) = english_for(en, key, &families) else { continue };
+            match freshness(set.lock.as_ref(), &file.code, key, english, theirs) {
+                Freshness::Stale => {
+                    out.stale.entry(file.code.clone()).or_default().push(key.clone());
+                }
+                Freshness::SeededStale => {
+                    out.seeded.entry(file.code.clone()).or_default().push(key.clone());
+                }
+                _ => {}
             }
         }
     }
     out
+}
+
+/// Every stale TRANSLATION, per code — N3's input, and `locale ls`'s column.
+#[cfg(test)]
+fn stale_keys(set: &LocaleSet) -> BTreeMap<String, Vec<String>> {
+    lock_drift(set).stale
 }
 
 // ── the rules ────────────────────────────────────────────────────────────────
@@ -1304,11 +1378,15 @@ fn check_parity(set: &LocaleSet, f: &mut Findings) {
             );
         }
 
-        // N4 — the file exists and is still English.
+        // N4 — the file exists and is still English. Measured through
+        // `english_for`, so the plural rows `locale add ru` writes and English
+        // cannot carry are counted as seeded like every other row; counting
+        // them against a missing `en.json` key made a four-row Russian family
+        // report two seeded values and hid the other two.
         let untranslated: Vec<&String> = file
             .keys
             .iter()
-            .filter(|(k, v)| en.keys.get(*k).is_some_and(|e| e == *v) && !v.is_empty())
+            .filter(|(k, v)| english_for(en, k, &families).is_some_and(|e| e == *v) && !v.is_empty())
             .map(|(k, _)| k)
             .collect();
         if !untranslated.is_empty() {
@@ -1516,7 +1594,9 @@ fn check_lock(set: &LocaleSet, gate: Gate, f: &mut Findings) {
         );
     }
 
-    for (code, keys) in stale_keys(set) {
+    let drift = lock_drift(set);
+
+    for (code, keys) in drift.stale {
         let msg = format!(
             "locales/{code}.json: {} stale translation(s) ({}).\n\
              \x20       The English these were translated from has changed since. A published \
@@ -1535,6 +1615,38 @@ fn check_lock(set: &LocaleSet, gate: Gate, f: &mut Findings) {
         } else {
             f.note("N3", msg);
         }
+    }
+
+    // N15 — the same lock entry going out of date, on a value nobody ever
+    // translated. It is a NOTE at BOTH gates, deliberately, and the reason is
+    // the harm and not the mechanism: an N3 key puts a confidently wrong
+    // sentence in front of a reader in their own language, which is why `build`
+    // refuses it. An N15 key puts English in front of a reader who was always
+    // going to get English — out-of-date English, which is worth saying and is
+    // not worth refusing somebody's release over a file they never claimed to
+    // have translated.
+    for (code, keys) in drift.seeded {
+        f.note(
+            "N15",
+            format!(
+                "locales/{code}.json: {} value(s) that were never translated, and the English \
+                 they were seeded from has changed ({}).\n\
+                 \x20       Each is byte-identical to the English {LOCK_FILE} recorded for it, so \
+                 there is no\n\
+                 \x20       translation here to have gone wrong — it is an older en.json sitting \
+                 in a {code}\n\
+                 \x20       file. A {code} reader gets English either way; this says out loud \
+                 that it is\n\
+                 \x20       English you have since rewritten.\n\
+                 \x20       Fix: translate them, or copy today's en.json value in. `astra-plugin \
+                 locale sync\n\
+                 \x20            --accept {code}` records them as correct as they stand, which is \
+                 a promise\n\
+                 \x20            that this English is the right {code} text.",
+                keys.len(),
+                preview(&keys.iter().collect::<Vec<_>>())
+            ),
+        );
     }
 }
 
@@ -1600,7 +1712,7 @@ fn ls(dir: &Path, _m: &PluginManifest) -> Result<Verdict> {
 
     let families = plural_families(&set);
     let en_ids = set.get("en").map(|e| family_ids(e, &families)).unwrap_or_default();
-    let stale = stale_keys(&set);
+    let LockDrift { stale, seeded } = lock_drift(&set);
 
     let mut rows = Vec::new();
     for file in &set.files {
@@ -1613,13 +1725,18 @@ fn ls(dir: &Path, _m: &PluginManifest) -> Result<Verdict> {
         let missing = en_ids.difference(&ids).count();
         let extra = ids.difference(&en_ids).count();
         let stale_here = stale.get(&file.code).map(Vec::len).unwrap_or(0);
+        let seeded_here = seeded.get(&file.code).map(Vec::len).unwrap_or(0);
         hprintln!(
             "  {:<6} {:>4} key(s), {:>3} famil{}   missing {missing}, extra {extra}, stale \
-             {stale_here}{}",
+             {stale_here}{}{}",
             file.code,
             file.keys.len(),
             ids.len(),
             if ids.len() == 1 { "y " } else { "ies" },
+            // Appended only when it is not zero: this column is the one an
+            // author reads for a verdict, and a permanent `, seeded-stale 0`
+            // would be noise on every well-kept plugin.
+            if seeded_here > 0 { format!(", seeded-stale {seeded_here}") } else { String::new() },
             if LOCALE_CODES.contains(&file.code.as_str()) {
                 ""
             } else if file.code == PSEUDO_CODE {
@@ -1635,6 +1752,7 @@ fn ls(dir: &Path, _m: &PluginManifest) -> Result<Verdict> {
             "missing": missing,
             "extra": extra,
             "stale": stale_here,
+            "seeded_stale": seeded_here,
             "selectable": LOCALE_CODES.contains(&file.code.as_str()),
         }));
     }
@@ -1811,14 +1929,28 @@ fn sync(dir: &Path, m: &PluginManifest, accept: &[String]) -> Result<Verdict> {
 
 /// Derive the lock from what is on disk. Returns the line to print.
 ///
-/// `sync` DERIVES state and never asks the author to assert it: value equals
-/// English → untranslated, no entry; value differs and no entry → newly
-/// translated, stamp today's digest; entry matches → fresh; entry does not
-/// match → stale, and re-stamping one takes an explicit `--accept`.
+/// `sync` DERIVES state and never asks the author to assert it. **Every key in
+/// every non-English locale gets an entry**, including one whose value is still
+/// byte-identical to English: entry matches today's English → fresh (or seeded,
+/// which is the same entry and a different report); entry matches the value
+/// itself → the seed's English moved and nothing was ever translated; entry
+/// matches neither → stale; no entry at all → a key the author added by hand,
+/// stamped with today's digest.
+///
+/// **Recording the seeds is the whole point.** A value equal to English used to
+/// get no entry, so the next `sync` after an English edit saw "differs from
+/// English, no entry", read it as *newly translated*, and stamped it with the
+/// digest of the **new** English. The staleness gate could then never fire for
+/// that key on either side of the release, and the registry published the
+/// plugin's previous English text as its Russian and Japanese store card.
+///
+/// Re-stamping a stale or seeded entry takes an explicit `--accept`, which is
+/// the author's word landing in a diff somebody can review.
 fn rewrite_lock(dir: &Path, set: &LocaleSet, accept: &[String]) -> Result<String> {
     let Some(en) = set.get("en").filter(|x| x.error.is_none()) else {
         return Ok(format!("{LOCK_FILE} not written: locales/en.json is missing or unreadable."));
     };
+    let families = plural_families(set);
 
     let accept_all: BTreeSet<&str> =
         accept.iter().filter(|a| !a.contains(':')).map(String::as_str).collect();
@@ -1829,6 +1961,7 @@ fn rewrite_lock(dir: &Path, set: &LocaleSet, accept: &[String]) -> Result<String
     let mut fresh = 0usize;
     let mut newly = 0usize;
     let mut refused: Vec<String> = Vec::new();
+    let mut seeded_stale: Vec<String> = Vec::new();
     let mut accepted: Vec<String> = Vec::new();
     let mut untranslated = 0usize;
 
@@ -1838,9 +1971,17 @@ fn rewrite_lock(dir: &Path, set: &LocaleSet, accept: &[String]) -> Result<String
         }
         let mut per = BTreeMap::new();
         for (key, theirs) in &file.keys {
-            let Some(english) = en.keys.get(key) else { continue };
-            match freshness(set.lock.as_ref(), &file.code, key, english, theirs) {
-                Freshness::Untranslated => untranslated += 1,
+            let Some(english) = english_for(en, key, &families) else { continue };
+            let state = freshness(set.lock.as_ref(), &file.code, key, english, theirs);
+            match state {
+                // Seeded, and the seed is today's English. Stamped like every
+                // other key: what is recorded is the English this value was
+                // copied from, and a copy is exactly the thing an English edit
+                // must be able to invalidate.
+                Freshness::Untranslated => {
+                    untranslated += 1;
+                    per.insert(key.clone(), digest(english));
+                }
                 Freshness::Fresh => {
                     fresh += 1;
                     per.insert(key.clone(), digest(english));
@@ -1849,17 +1990,22 @@ fn rewrite_lock(dir: &Path, set: &LocaleSet, accept: &[String]) -> Result<String
                     newly += 1;
                     per.insert(key.clone(), digest(english));
                 }
-                Freshness::Stale => {
+                Freshness::Stale | Freshness::SeededStale => {
                     let ok = accept_all.contains(file.code.as_str())
                         || accept_one.contains(&(file.code.as_str(), key.as_str()));
                     if ok {
                         accepted.push(format!("{}:{key}", file.code));
                         per.insert(key.clone(), digest(english));
                     } else {
-                        refused.push(format!("{}:{key}", file.code));
-                        // The OLD digest is kept, so the entry stays stale and
-                        // `build` keeps refusing. A sync that quietly re-stamped
-                        // would turn a caught problem into a silent one.
+                        if state == Freshness::SeededStale {
+                            seeded_stale.push(format!("{}:{key}", file.code));
+                        } else {
+                            refused.push(format!("{}:{key}", file.code));
+                        }
+                        // The OLD digest is kept, so the entry stays out of date
+                        // and `build` keeps refusing (N3) or `check` keeps
+                        // saying so (N15). A sync that quietly re-stamped would
+                        // turn a caught problem into a silent one.
                         if let Some(old) =
                             set.lock.as_ref().and_then(|l| l.locales.get(&file.code)).and_then(
                                 |m| m.get(key),
@@ -1889,9 +2035,22 @@ fn rewrite_lock(dir: &Path, set: &LocaleSet, accept: &[String]) -> Result<String
              --accept {r}`"
         );
     }
+    for s in &seeded_stale {
+        hprintln!(
+            "  NEVER TRANSLATED and the English moved: {s} — it is still the English it was \
+             seeded from. Translate it, or `astra-plugin locale sync --accept {s}`"
+        );
+    }
+    // The seeded count is appended only when it is not zero, so the ordinary
+    // line stays the four numbers every author and every doc sample knows.
+    let seeded_clause = if seeded_stale.is_empty() {
+        String::new()
+    } else {
+        format!(", {} seeded against English that has since changed", seeded_stale.len())
+    };
     Ok(format!(
         "{LOCK_FILE}: {fresh} fresh, {newly} newly translated, {untranslated} untranslated, {} \
-         stale.",
+         stale{seeded_clause}.",
         refused.len()
     ))
 }

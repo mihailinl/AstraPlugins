@@ -382,6 +382,18 @@ jobs:
           # The slicer reads astra.proto and plugin-surface.toml only; no history
           # is needed and the repo is large.
           fetch-depth: 1
+          # C22 below reads a RELEASE — `git show <newest v* tag>:<path>` — and
+          # `actions/checkout` fetches NO TAGS unless told to. So `git tag --list
+          # 'v*'` came back empty on every run this job has ever had, C22 took
+          # its "no release to look inside" branch every time, and the step went
+          # green: run 32617598679, step "C12, C22 (full)", MODE full,
+          # HAVE_TOKEN yes, `C22 NOT VERIFIED`. A tripwire that has never once
+          # read the thing it watches.
+          #
+          # Tags at depth 1 are cheap — one commit and its tree per tag, which is
+          # all `git show <tag>:<path>` needs — so this stays a shallow checkout
+          # rather than the `fetch-depth: 0` the `couplings` job needs for C0.
+          fetch-tags: true
 
       # A missing slicer must not surface as `cargo: manifest path … does not
       # exist`. That error names a path and no cause, and the cause here is
@@ -454,13 +466,32 @@ jobs:
       # scaffold's flip becoming due, and it fails so that nobody has to remember
       # it. Same shape as ARCHIVE_PENDING in scaffold-roundtrip: an exception
       # that cannot outlive the work it was waiting for.
+      #
+      # `--require C22` is what makes the skip red. This job has an Astra
+      # checkout by construction — it is gated on `MODE == 'full'`, which is
+      # gated on the token — so C22 reporting NOT VERIFIED here does not mean
+      # "nothing to see", it means this step was handed something broken. That
+      # is astra-registry's `build-index.yml` gate in a different form: it greps
+      # its validator's output for `NOT verified` and turns it into `::error::`.
+      # A flag rather than a grep because prose gets reworded, and a gate a
+      # reword can silently disarm is the shape of check this repository keeps
+      # getting bitten by.
+      #
+      # `--astra-ref` is the NAMED ref C22 proves its own constants against
+      # before it believes a tag; `actions/checkout` writes
+      # refs/remotes/origin/<ref> for the branch it took. It reaches the shell
+      # through `env` and never through `${{ }}` interpolated into the script,
+      # for the reason the slicer step above states at length.
       - name: C12, C22 (full) the vocabulary, and whether the scaffold's flip is due
         if: env.MODE == 'full'
+        env:
+          ASTRA_REF: ${{ vars.ASTRA_REF || 'main' }}
         run: |
           set -euo pipefail
-          python3 tools/check-locales.py --rules C12,C22 --astra-dir _astra/astra-rs
+          python3 tools/check-locales.py --rules C12,C22 --require C22 \
+            --astra-dir _astra/astra-rs --astra-ref "origin/${ASTRA_REF}"
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
-          ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary
+          ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary, and C22 read a real release tag
           MSG
 
       - uses: dtolnay/rust-toolchain@stable
