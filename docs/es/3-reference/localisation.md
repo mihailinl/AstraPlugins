@@ -265,6 +265,14 @@ alone** — a key you invent in `ru.json` alone is an error, in both directions,
 because a language whose key set differs from English's is a language in which
 some label has nothing to fall back to.
 
+`add` never overwrites a translated value, and it names every key it removes
+rather than removing it quietly. If `en.json` can no longer seed a key — because
+the key was renamed or dropped — and a translation of the old name is still
+present, `add` **refuses** instead of guessing: it cannot tell a rename from a
+deletion, and a translation is the one thing in `locales/` that cannot be
+regenerated. `--prune` is how you say "delete them, I meant it". Reach for it
+only after reading the names it printed.
+
 `add` refuses a code Astra cannot be set to. `zh-CN` is the one people reach for
 and it is not a thing here: Chinese is `zh`, there are no region tags anywhere,
 and a `locales/zh-CN.json` would be packed, digested, signed, installed, and
