@@ -430,6 +430,29 @@ def test_the_command_editor_labels_are_literal_english_and_not_keys(h):
     )
 
 
+def _manifest_plugin_strings():
+    """`[plugin]`'s quoted scalars, without `tomllib`.
+
+    `tomllib` is 3.11 and this plugin declares 3.10 — importing it here would
+    be a red job on the oldest interpreter the manifest promises to run on,
+    which is the one this repository's CI uses. These two values are quoted
+    scalars in a section this plugin owns, so a five-line reader is enough; the
+    caller asserts it found both, so a reader that stops matching fails as a
+    broken reader rather than as a clean bill of health.
+    """
+    out, section = {}, None
+    for raw in (PLUGIN_DIR / "plugin.toml").read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("["):
+            section = line
+        elif section == "[plugin]" and "=" in line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            v = v.strip()
+            if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+                out[k.strip()] = v[1:-1]
+    return out
+
+
 def test_the_store_cards_english_is_the_manifests_english():
     """C18, from the plugin's own side.
 
@@ -439,9 +462,12 @@ def test_the_store_cards_english_is_the_manifests_english():
     has never opened. `astra-plugin locale sync` is what keeps them equal; this
     is what notices when somebody edits one of the two by hand.
     """
-    import tomllib
-
-    manifest = tomllib.loads((PLUGIN_DIR / "plugin.toml").read_bytes().decode())
+    plugin = _manifest_plugin_strings()
+    assert {"name", "description"} <= set(plugin), (
+        f"read {sorted(plugin)} out of [plugin]. If plugin.toml still carries "
+        '`name = "…"` and `description = "…"` there, this reader is what broke '
+        "and this test is measuring nothing."
+    )
     en = json.loads((PLUGIN_DIR / "locales" / "en.json").read_text(encoding="utf-8"))
-    assert en["listing.name"] == manifest["plugin"]["name"]
-    assert en["listing.description"] == manifest["plugin"]["description"]
+    assert en["listing.name"] == plugin["name"]
+    assert en["listing.description"] == plugin["description"]
