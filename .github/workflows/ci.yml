@@ -2204,6 +2204,41 @@ jobs:
           fi
           echo "ok    ASTRA_TOOLING_REF $ref is an ancestor and carries the CLI"
 
+          # …and it carries the CLI's locale gate.
+          #
+          # This is deliberately a CAPABILITY and not a freshness threshold. The
+          # workflow's own comment is right that "is this pin current?" needs a
+          # network call and a notion of current, and refuses to answer it from
+          # a literal — but that argument was read as "pin age cannot be checked
+          # at all", and the pin then sat 83 commits and eleven days behind
+          # while every author's release built with a CLI that had never heard
+          # of `locales/`. The English gate was in the tree, in CI, in the docs,
+          # and in force for nobody.
+          #
+          # A capability has none of that ambiguity: either the pinned commit
+          # contains the file or it does not, both answers are local, and the
+          # failure names what stopped being enforced rather than a number
+          # somebody guessed.
+          if ! git cat-file -e "$ref:astra-plugin-cli/src/commands/locale.rs" 2>/dev/null; then
+            echo "::error::ASTRA_TOOLING_REF $ref predates the CLI's locale gate."
+            echo "Every plugin release builds astra-plugin at that commit, so a pin from"
+            echo "before astra-plugin-cli/src/commands/locale.rs means E1-E17/E20 refuse"
+            echo "nothing on the one path where a bundle is actually sealed: no English"
+            echo "base, no key parity, no listing.* agreement, for any real release."
+            echo "Move the pin forward. It is only ever moved forward."
+            exit 1
+          fi
+          echo "ok    that commit carries the CLI's locale gate"
+
+          # Informational, and it costs nothing: how far back the pin is, in
+          # this repository's own history. Not a gate — there is no honest
+          # threshold — but a number in the log of every run, so "the pin is
+          # old" is something a reader can see rather than something somebody
+          # has to go and measure after a release has already gone out wrong.
+          behind=$(git rev-list --count "$ref..HEAD")
+          when=$(git log -1 --format=%cs "$ref")
+          echo "note  the pin is $behind commit(s) behind this commit, dated $when."
+
           # …and the step that puts the source where the build expects it still
           # exists. It did not, for the whole life of this file: the build's
           # `working-directory` named a path nothing created.
