@@ -1,0 +1,752 @@
+{
+  "schema": "astra.i18n.vectors/1",
+  "why": [
+    "Three SDKs shipped an `I18n` and none of them had a test. Re-reading them",
+    "found three silent disagreements — `tf` replacing one occurrence in",
+    "TypeScript and all of them elsewhere, `\"\"` treated as a miss in Python",
+    "alone, and a nested object accepted by two of the three when the daemon",
+    "drops the whole file on it. This file is the one answer all three are held",
+    "to. `spec/i18n.yaml` says what the answer IS; this says what it looks like.",
+    "Read by astra-plugin-sdk/tests/i18n_vectors.rs,",
+    "astra-plugin-sdk-python/tests/test_i18n_vectors.py and",
+    "astra-plugin-sdk-ts/tools/i18n.test.mjs. Coupling C17.",
+    "",
+    "Every reader asserts a FLOOR on what it loaded before it asserts anything",
+    "else: an empty vector file must fail as an empty vector file, not pass as",
+    "a clean run."
+  ],
+  "spec": "spec/i18n.yaml",
+  "how_to_read_this": {
+    "fixtures": "name -> { files: { <filename>: <exact file text> } }. Write each one into an empty directory and load it with the SDK's I18n.",
+    "loads": "what loading a fixture must produce: the languages it ends up with (sorted), how many load errors, and substrings every error list must between them contain. A row whose fixture is `MISSING` is not a fixture: point the loader at a directory that was never created. A loader that throws there is a loader that stops a plugin from starting.",
+    "cases": "one call. `call` is t | has | tf | ta | tn | count_prefixed | key. `args` is positional (tf), `named` is by name (ta, tn), `n` is the count (tn). `expect` is the exact result.",
+    "plural": "the CLDR cardinal category for a count in a language, straight from the generated table. `qps` is not a language Astra can be set to; it is here because an undeclared code must answer `other` rather than throw."
+  },
+  "fixtures": {
+    "basic": {
+      "note": "Three languages, unequal key sets, on purpose. `ja` carries only the `other` row its plural rules allow, and nothing else — which is what makes the per-KEY fallback observable.",
+      "files": {
+        "en.json": "{\n  \"listing.name\": \"Chess\",\n  \"greeting\": \"Hello, {name}!\",\n  \"repeat\": \"{0} and {0} and {1}\",\n  \"blank\": \"not blank in en\",\n  \"only.en\": \"English only\",\n  \"msg.done.one\": \"Handled {n} item\",\n  \"msg.done.other\": \"Handled {n} items\"\n}\n",
+        "ru.json": "{\n  \"listing.name\": \"Шахматы\",\n  \"greeting\": \"Привет, {name}!\",\n  \"repeat\": \"{0} и {0} и {1}\",\n  \"blank\": \"\",\n  \"msg.done.one\": \"{n} ход\",\n  \"msg.done.few\": \"{n} хода\",\n  \"msg.done.many\": \"{n} ходов\",\n  \"msg.done.other\": \"{n} хода\"\n}\n",
+        "ja.json": "{\n  \"msg.done.other\": \"{n} 件\"\n}\n"
+      }
+    },
+    "nested": {
+      "note": "The shape every other JSON config invites, and the one the daemon drops the whole file on. Two of the three SDKs used to accept it, so the author's own tests passed while every $config.token.title rendered literally on the user's screen.",
+      "files": {
+        "en.json": "{\n  \"config\": {\n    \"token\": {\n      \"title\": \"API Token\"\n    }\n  }\n}\n"
+      }
+    },
+    "one-bad-value": {
+      "note": "One number among the strings rejects en.json ENTIRELY, not just that key — so `ok` falls back to nothing and renders as its key under `en`, while `ru` is unaffected. Whole-file, like the daemon.",
+      "files": {
+        "en.json": "{\n  \"ok\": \"fine\",\n  \"count\": 3\n}\n",
+        "ru.json": "{\n  \"ok\": \"ладно\"\n}\n"
+      }
+    },
+    "unselectable-name": {
+      "note": "`zh-CN` is a spelling this repository used in its own docs tree for months. The daemon can never be set to it, so the file is packed, digested, signed, shipped and read by nothing. It LOADS here — a refusal would differ from the daemon — and is reported.",
+      "files": {
+        "en.json": "{\n  \"a\": \"A\"\n}\n",
+        "zh-CN.json": "{\n  \"a\": \"B\"\n}\n"
+      }
+    },
+    "not-json": {
+      "note": "A trailing comma is the commonest way a hand-edited locale file stops being JSON, and the daemon says nothing at all about it.",
+      "files": {
+        "en.json": "{\n  \"a\": \"A\",\n}\n"
+      }
+    },
+    "top-level-array": {
+      "note": "A locale file is a flat OBJECT. An array parses as JSON and is still not one.",
+      "files": {
+        "en.json": "[1, 2, 3]\n"
+      }
+    }
+  },
+  "loads": [
+    {
+      "name": "three languages load and are listed in order",
+      "fixture": "basic",
+      "languages": [
+        "en",
+        "ja",
+        "ru"
+      ],
+      "error_count": 0,
+      "errors_contain": []
+    },
+    {
+      "name": "a nested object rejects the file whole",
+      "fixture": "nested",
+      "languages": [],
+      "error_count": 1,
+      "errors_contain": [
+        "en.json",
+        "config",
+        "not a string"
+      ]
+    },
+    {
+      "name": "one non-string value rejects that file and only that file",
+      "fixture": "one-bad-value",
+      "languages": [
+        "ru"
+      ],
+      "error_count": 1,
+      "errors_contain": [
+        "en.json",
+        "count",
+        "not a string"
+      ]
+    },
+    {
+      "name": "a locale Astra cannot select loads and is reported",
+      "fixture": "unselectable-name",
+      "languages": [
+        "en",
+        "zh-CN"
+      ],
+      "error_count": 1,
+      "errors_contain": [
+        "zh-CN",
+        "not a language Astra can be set to"
+      ]
+    },
+    {
+      "name": "invalid JSON is reported, not thrown",
+      "fixture": "not-json",
+      "languages": [],
+      "error_count": 1,
+      "errors_contain": [
+        "en.json"
+      ]
+    },
+    {
+      "name": "a top-level array is not a locale file",
+      "fixture": "top-level-array",
+      "languages": [],
+      "error_count": 1,
+      "errors_contain": [
+        "en.json",
+        "not an object"
+      ]
+    },
+    {
+      "name": "a directory that is not there is reported, and nothing throws",
+      "fixture": "MISSING",
+      "languages": [],
+      "error_count": 1,
+      "errors_contain": []
+    }
+  ],
+  "cases": [
+    {
+      "name": "the active language wins",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "t",
+      "key": "listing.name",
+      "expect": "Шахматы"
+    },
+    {
+      "name": "English is the base",
+      "fixture": "basic",
+      "language": "en",
+      "call": "t",
+      "key": "listing.name",
+      "expect": "Chess"
+    },
+    {
+      "name": "a language with no file at all falls back to English",
+      "fixture": "basic",
+      "language": "de",
+      "call": "t",
+      "key": "listing.name",
+      "expect": "Chess"
+    },
+    {
+      "name": "fallback is PER KEY, not per file: ja loads and still shows English here",
+      "fixture": "basic",
+      "language": "ja",
+      "call": "t",
+      "key": "listing.name",
+      "expect": "Chess"
+    },
+    {
+      "name": "a key in no locale is shown as itself",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "t",
+      "key": "no.such.key",
+      "expect": "no.such.key"
+    },
+    {
+      "name": "a key only English has",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "t",
+      "key": "only.en",
+      "expect": "English only"
+    },
+    {
+      "name": "an empty value is a TRANSLATION and wins over English",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "t",
+      "key": "blank",
+      "expect": ""
+    },
+    {
+      "name": "...and `has` agrees it is present",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "has",
+      "key": "blank",
+      "expect": true
+    },
+    {
+      "name": "a key nothing carries is not present",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "has",
+      "key": "no.such.key",
+      "expect": false
+    },
+    {
+      "name": "English still reads its own value",
+      "fixture": "basic",
+      "language": "en",
+      "call": "t",
+      "key": "blank",
+      "expect": "not blank in en"
+    },
+    {
+      "name": "tf replaces every occurrence, not the first",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tf",
+      "key": "repeat",
+      "args": [
+        "A",
+        "B"
+      ],
+      "expect": "A and A and B"
+    },
+    {
+      "name": "tf in a language that repeats the noun",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tf",
+      "key": "repeat",
+      "args": [
+        "A",
+        "B"
+      ],
+      "expect": "A и A и B"
+    },
+    {
+      "name": "an index with no argument is left exactly as it stands",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tf",
+      "key": "repeat",
+      "args": [
+        "A"
+      ],
+      "expect": "A and A and {1}"
+    },
+    {
+      "name": "tf on a missing key formats the key text",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tf",
+      "key": "no.such.key",
+      "args": [
+        "A"
+      ],
+      "expect": "no.such.key"
+    },
+    {
+      "name": "ta substitutes by name",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "ta",
+      "key": "greeting",
+      "named": {
+        "name": "Мир"
+      },
+      "expect": "Привет, Мир!"
+    },
+    {
+      "name": "an unreferenced name is left intact",
+      "fixture": "basic",
+      "language": "en",
+      "call": "ta",
+      "key": "greeting",
+      "named": {},
+      "expect": "Hello, {name}!"
+    },
+    {
+      "name": "an argument nothing references changes nothing",
+      "fixture": "basic",
+      "language": "en",
+      "call": "ta",
+      "key": "greeting",
+      "named": {
+        "other": "x"
+      },
+      "expect": "Hello, {name}!"
+    },
+    {
+      "name": "tn: English singular",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 1,
+      "named": {
+        "n": "1"
+      },
+      "expect": "Handled 1 item"
+    },
+    {
+      "name": "tn: English plural",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 2,
+      "named": {
+        "n": "2"
+      },
+      "expect": "Handled 2 items"
+    },
+    {
+      "name": "tn: Russian one",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 1,
+      "named": {
+        "n": "1"
+      },
+      "expect": "1 ход"
+    },
+    {
+      "name": "tn: Russian few",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 3,
+      "named": {
+        "n": "3"
+      },
+      "expect": "3 хода"
+    },
+    {
+      "name": "tn: Russian many",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 5,
+      "named": {
+        "n": "5"
+      },
+      "expect": "5 ходов"
+    },
+    {
+      "name": "tn: Russian 11 is many, not one",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 11,
+      "named": {
+        "n": "11"
+      },
+      "expect": "11 ходов"
+    },
+    {
+      "name": "tn: Russian 21 is one",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 21,
+      "named": {
+        "n": "21"
+      },
+      "expect": "21 ход"
+    },
+    {
+      "name": "tn: Russian zero is many",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 0,
+      "named": {
+        "n": "0"
+      },
+      "expect": "0 ходов"
+    },
+    {
+      "name": "tn: the count is taken as an absolute value, so -3 is still few",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "tn",
+      "key": "msg.done",
+      "n": -3,
+      "named": {
+        "n": "3"
+      },
+      "expect": "3 хода"
+    },
+    {
+      "name": "tn: a language with only `other` uses it for every count",
+      "fixture": "basic",
+      "language": "ja",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 3,
+      "named": {
+        "n": "3"
+      },
+      "expect": "3 件"
+    },
+    {
+      "name": "tn: an untranslated language takes its OWN category and English's text",
+      "fixture": "basic",
+      "language": "de",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 1,
+      "named": {
+        "n": "1"
+      },
+      "expect": "Handled 1 item"
+    },
+    {
+      "name": "tn: ...and the plural row for a count its own rules call `other`",
+      "fixture": "basic",
+      "language": "de",
+      "call": "tn",
+      "key": "msg.done",
+      "n": 7,
+      "named": {
+        "n": "7"
+      },
+      "expect": "Handled 7 items"
+    },
+    {
+      "name": "tn on a key nothing carries yields the key text",
+      "fixture": "basic",
+      "language": "en",
+      "call": "tn",
+      "key": "no.such.key",
+      "n": 2,
+      "named": {
+        "n": "2"
+      },
+      "expect": "no.such.key"
+    },
+    {
+      "name": "count_prefixed counts the UNION of every loaded locale",
+      "fixture": "basic",
+      "language": "en",
+      "call": "count_prefixed",
+      "key": "msg.done",
+      "expect": 4
+    },
+    {
+      "name": "...and is unchanged by the active language",
+      "fixture": "basic",
+      "language": "ja",
+      "call": "count_prefixed",
+      "key": "msg.done",
+      "expect": 4
+    },
+    {
+      "name": "count_prefixed over a namespace",
+      "fixture": "basic",
+      "language": "en",
+      "call": "count_prefixed",
+      "key": "listing.",
+      "expect": 1
+    },
+    {
+      "name": "count_prefixed over nothing",
+      "fixture": "basic",
+      "language": "en",
+      "call": "count_prefixed",
+      "key": "zzz",
+      "expect": 0
+    },
+    {
+      "name": "a rejected file leaves its keys resolving to themselves",
+      "fixture": "nested",
+      "language": "en",
+      "call": "t",
+      "key": "config.token.title",
+      "expect": "config.token.title"
+    },
+    {
+      "name": "the other file in the same directory is untouched",
+      "fixture": "one-bad-value",
+      "language": "ru",
+      "call": "t",
+      "key": "ok",
+      "expect": "ладно"
+    },
+    {
+      "name": "...and the rejected one gives back the key, not the value beside the bad one",
+      "fixture": "one-bad-value",
+      "language": "en",
+      "call": "t",
+      "key": "ok",
+      "expect": "ok"
+    },
+    {
+      "name": "key() marks a string for the daemon to resolve",
+      "fixture": "basic",
+      "language": "en",
+      "call": "key",
+      "key": "action.roll.label",
+      "expect": "$action.roll.label"
+    },
+    {
+      "name": "key() does not look anything up",
+      "fixture": "basic",
+      "language": "ru",
+      "call": "key",
+      "key": "listing.name",
+      "expect": "$listing.name"
+    }
+  ],
+  "plural": [
+    {
+      "language": "en",
+      "n": 0,
+      "expect": "other"
+    },
+    {
+      "language": "en",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "en",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "en",
+      "n": 11,
+      "expect": "other"
+    },
+    {
+      "language": "de",
+      "n": 0,
+      "expect": "other"
+    },
+    {
+      "language": "de",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "de",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "es",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "es",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "fr",
+      "n": 0,
+      "expect": "one"
+    },
+    {
+      "language": "fr",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "fr",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "pt",
+      "n": 0,
+      "expect": "one"
+    },
+    {
+      "language": "pt",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "pt",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "ru",
+      "n": 0,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "ru",
+      "n": 2,
+      "expect": "few"
+    },
+    {
+      "language": "ru",
+      "n": 4,
+      "expect": "few"
+    },
+    {
+      "language": "ru",
+      "n": 5,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 10,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 11,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 12,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 14,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 15,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 21,
+      "expect": "one"
+    },
+    {
+      "language": "ru",
+      "n": 22,
+      "expect": "few"
+    },
+    {
+      "language": "ru",
+      "n": 25,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": 101,
+      "expect": "one"
+    },
+    {
+      "language": "ru",
+      "n": 111,
+      "expect": "many"
+    },
+    {
+      "language": "ru",
+      "n": -1,
+      "expect": "one"
+    },
+    {
+      "language": "ru",
+      "n": -2,
+      "expect": "few"
+    },
+    {
+      "language": "ru",
+      "n": -5,
+      "expect": "many"
+    },
+    {
+      "language": "uk",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "uk",
+      "n": 3,
+      "expect": "few"
+    },
+    {
+      "language": "uk",
+      "n": 5,
+      "expect": "many"
+    },
+    {
+      "language": "uk",
+      "n": 11,
+      "expect": "many"
+    },
+    {
+      "language": "ja",
+      "n": 0,
+      "expect": "other"
+    },
+    {
+      "language": "ja",
+      "n": 1,
+      "expect": "other"
+    },
+    {
+      "language": "ja",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "zh",
+      "n": 1,
+      "expect": "other"
+    },
+    {
+      "language": "ko",
+      "n": 1,
+      "expect": "other"
+    },
+    {
+      "language": "qps",
+      "n": 1,
+      "expect": "other"
+    },
+    {
+      "language": "qps",
+      "n": 2,
+      "expect": "other"
+    }
+  ]
+}

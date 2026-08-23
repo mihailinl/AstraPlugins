@@ -43,6 +43,7 @@ import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits.js";
 import { DaemonClient } from "./daemon-client.js";
 import type { Host } from "./host.js";
 import { PluginContextImpl, type PluginContext } from "./context.js";
+import { I18n } from "./i18n.js";
 import { installConsoleBridge, installFatalHandlers } from "./logging.js";
 
 /**
@@ -135,7 +136,39 @@ export abstract class Plugin {
   config: Record<string, unknown> = {};
 
   /** Current daemon UI language (e.g. "en", "ru", "uk"). */
-  language: string = "en";
+  get language(): string {
+    return this._language;
+  }
+  set language(value: string) {
+    // Setting it moves `i18n` too, if anything has asked for it yet, so that
+    // the runtime plane follows the user's language whether or not the author
+    // has implemented `onLanguageChanged`. That hook stays advisory: an
+    // optional override an author has to write is not a mechanism a user's
+    // language can depend on.
+    this._language = value;
+    if (this._i18n !== null) this._i18n.setLanguage(value);
+  }
+  private _language = "en";
+
+  /**
+   * This plugin's translations, for the **runtime** plane.
+   *
+   * Loaded from `locales/` on first use — see {@link I18n.discover} for where
+   * it looks — and kept on this plugin's current language from then on. Lazy
+   * because most plugins ship no locale files and would otherwise pay a
+   * `readdirSync` on every start for nothing.
+   *
+   * For anything the DAEMON renders (action labels, config-field titles,
+   * `[ui]` labels) use `key()` instead.
+   */
+  get i18n(): I18n {
+    if (this._i18n === null) {
+      this._i18n = I18n.discover();
+      this._i18n.setLanguage(this._language);
+    }
+    return this._i18n;
+  }
+  private _i18n: I18n | null = null;
 
   /** Set of active trigger types (auto-updated by daemon). */
   activeTriggers: Set<string> = new Set();
@@ -317,13 +350,21 @@ export abstract class Plugin {
             console.log("DaemonClient connected (plugin has client capability)");
           }
 
-          // Lifecycle, in the order all three SDKs use:
+          // Lifecycle:
           //   bind → register → ctx → onConfigChanged → onLanguageChanged
           //   → onStart → serve
           // Config first because `onLanguageChanged` and `onStart` are both
           // entitled to read it; `onStart` last because it is the hook that may
           // open sockets and spawn timers, and it must not do that against a
           // half-initialised plugin.
+          //
+          // This used to say "the order all three SDKs use". It is the order
+          // the Rust runner uses (runner.rs, `# Startup order`). The Python
+          // SDK runs language BEFORE config, and has since it was written — so
+          // the sentence was a claim about another repository's file that
+          // nothing compared, and it was wrong. Neither ordering is a protocol
+          // requirement; a plugin that depends on which of the two hooks runs
+          // first is depending on something no SDK promises.
           if (response.configJson) {
             try {
               this.config = JSON.parse(response.configJson);

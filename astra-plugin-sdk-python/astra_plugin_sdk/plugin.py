@@ -34,6 +34,7 @@ from astra_plugin_sdk.capability_types import (
 )
 from astra_plugin_sdk.errors import NotFound, PluginError
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
+from astra_plugin_sdk.i18n import I18n
 from astra_plugin_sdk.logging_bridge import install_logging_bridge
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.types import (
@@ -107,6 +108,14 @@ def _overrides(plugin: "Plugin", name: str) -> bool:
     return own is not None and own is not base
 
 
+#: How long `_run_async` waits for the logging bridge to deliver what it still
+#: holds, on the way out. The whole tidy path has to fit inside
+#: `limits.PLUGIN_STOP_GRACE_SECS` (5s) — 0.1s to hand off from `Shutdown`,
+#: this, then the capability server's own 2s grace — or the daemon SIGKILLs the
+#: process group and the tidy path was pointless.
+LOG_DRAIN_SECS = 1.0
+
+
 class Plugin:
     """Base class for Astra plugins.
 
@@ -127,12 +136,16 @@ class Plugin:
         self.host: HostClient | None = None
         self.daemon = None  # DaemonClient, set if plugin has "client" capability
         self.config: dict = {}
-        self.language: str = "en"
+        self._language: str = "en"
         self.active_triggers: set[str] = set()
         self._server: grpc.aio.Server | None = None
         self._log_handler = None  # PluginLogHandler, installed by `_run_async`
         self.port: int | None = None  # set once the capability server binds
+        #: Released to make `_run_async` return. Created BEFORE the capability
+        #: server starts serving — see `_run_async`, which says why.
         self._stop_event: asyncio.Event | None = None
+        #: `locales/`, read on first use. Lazy because most plugins ship none.
+        self._i18n: I18n | None = None
 
         # `stt_transcribe` gained an `options` parameter in 0.6 (§5.4). Asking
         # the signature once, here, is what lets a 0.5-era two-argument override
@@ -166,6 +179,41 @@ class Plugin:
     #: (never mutated) by the decorators, so a subclass cannot append into its
     #: base's list.
     _astra_ui_contributions: list[UiContribution] = []
+
+    @property
+    def language(self) -> str:
+        """The daemon's UI language: ``"en"``, ``"ru"``, ``"uk"``, …"""
+        return self._language
+
+    @language.setter
+    def language(self, value: str) -> None:
+        # Setting it moves `i18n` too, if anything has asked for it yet, so
+        # that the runtime plane follows the user's language whether or not the
+        # author has implemented `on_language_changed`. That hook stays
+        # advisory: an optional override an author has to write is not a
+        # mechanism a user's language can depend on.
+        self._language = value
+        if self._i18n is not None:
+            self._i18n.set_language(value)
+
+    @property
+    def i18n(self) -> I18n:
+        """This plugin's translations, for the **runtime** plane.
+
+        Loaded from ``locales/`` on first use — see :meth:`I18n.discover` for
+        where it looks — and kept on this plugin's current language from then
+        on, so a handler never has to remember to call ``set_language``::
+
+            await self.chat_send(self.i18n.tn("msg.done", n, n=str(n)))
+
+        For anything the DAEMON renders (action labels, config-field titles,
+        ``[ui]`` labels) use :func:`astra_plugin_sdk.key` instead. See the
+        :mod:`astra_plugin_sdk.i18n` module docstring for why it matters.
+        """
+        if self._i18n is None:
+            self._i18n = I18n.discover()
+            self._i18n.set_language(self._language)
+        return self._i18n
 
     def run(self):
         """Parse CLI args, start gRPC server, register with daemon, serve until shutdown."""
@@ -267,6 +315,27 @@ class Plugin:
         #: level-2 harness (§5.6) dials it, and so does anyone debugging with
         #: `grpcurl`.
         self.port = port
+
+        # BEFORE the server serves, not a hundred lines after it.
+        #
+        # `Shutdown`'s handler asks `is _stop_event set up yet?` to tell "a run
+        # loop is parked behind me, hand off to it" from "nobody is, do the
+        # tidying myself". That event used to be created down at `# Wait for
+        # shutdown`, after registration, after `on_language_changed` and
+        # `on_config_changed` — so for the whole of startup the answer was
+        # wrongly "nobody is", while the port was already accepting calls.
+        #
+        # A `Shutdown` arriving in that window took the embedded branch: it ran
+        # `on_shutdown`, stopped the SERVER, answered Empty — and never
+        # released `_run_async`, which then parked on this event for ever. The
+        # process outlived `plugin_stop_grace_secs` and the daemon SIGKILLed
+        # the process group, so the plugin's tidy path never ran. It reached us
+        # as a flaky `conformance (R7)`: the Python `ui` scaffold is the
+        # fastest template to reach `Shutdown`, and on a loaded runner the
+        # daemon's probes overtook the plugin's own registration continuation.
+        # Same SHA, two runs, opposite results.
+        self._stop_event = asyncio.Event()
+
         await self._server.start()
         print(f"Plugin gRPC server listening on port {port}", flush=True)
 
@@ -367,11 +436,11 @@ class Plugin:
             print(f"Subscribing to events: {event_types}", flush=True)
             asyncio.create_task(self._event_loop(event_types))
 
-        # Wait for shutdown
-        stop_event = asyncio.Event()
-        #: Set it to make `_run_async` return. The level-2 harness (§5.6) owns
-        #: the loop the plugin runs on and has no signals to send it.
-        self._stop_event = stop_event
+        # Wait for shutdown. The event was created before the server started
+        # serving; `Shutdown` may already have set it, in which case this
+        # returns at once, which is the whole point.
+        assert self._stop_event is not None
+        stop_event = self._stop_event
 
         def _signal_handler():
             stop_event.set()
@@ -395,6 +464,27 @@ class Plugin:
 
         print("Shutting down...")
         await self.on_shutdown()
+
+        # Deliver what the bridge still holds before taking it away. Without
+        # this the last lines a plugin logs — including the SDK's own
+        # "Registered with Astra …", which is every plugin's first and often
+        # only host call — are cancelled with the drain task and never reach
+        # the daemon. `astra-plugin test` reports that as "this plugin made no
+        # host calls at all", which is true and says nothing about why.
+        #
+        # Bounded, and bounded well inside `plugin_stop_grace_secs`: the whole
+        # tidy path (0.1s hand-off + this + the server's 2s grace) has to
+        # finish before the daemon kills the process group.
+        if self._log_handler is not None:
+            undelivered = await self._log_handler.drain(LOG_DRAIN_SECS)
+            if undelivered:
+                print(
+                    f"astra-plugin-sdk: {undelivered} log line(s) did not reach the "
+                    f"daemon within {LOG_DRAIN_SECS}s of shutdown",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
         await self._server.stop(grace=2)
         # Detach the log bridge from the root logger: its drain task belongs to
         # the loop that is about to go away, and a handler left behind would be

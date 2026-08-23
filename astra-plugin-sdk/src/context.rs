@@ -355,6 +355,13 @@ struct Inner {
     /// not, and nothing later can grant one. An `ArcSwap` here would suggest a
     /// plugin could become client-capable at runtime, which is not true.
     daemon: Option<Arc<dyn Daemon>>,
+    /// This plugin's `locales/`, read once, on first use.
+    ///
+    /// Lazy rather than eager because most plugins ship no locale files and
+    /// would pay a `read_dir` on every start for nothing — and because
+    /// `PluginContext::new` is public API a test calls with a fake host, in a
+    /// working directory that is nobody's plugin.
+    i18n: std::sync::OnceLock<crate::I18n>,
 }
 
 impl PluginContext {
@@ -377,6 +384,7 @@ impl PluginContext {
                 active_triggers: ActiveTriggers::new(),
                 host,
                 daemon: None,
+                i18n: std::sync::OnceLock::new(),
             }),
         }
     }
@@ -474,8 +482,42 @@ impl PluginContext {
     }
 
     /// Set the UI language. Called by the SDK on `OnLanguageChanged`.
+    ///
+    /// Also moves [`i18n`](Self::i18n), if anything has asked for it yet, so
+    /// that the runtime plane follows the user's language whether or not the
+    /// author has heard of `OnLanguageChanged`. That hook stays advisory: an
+    /// optional override an author has to implement is not a mechanism a
+    /// user's language can depend on.
     pub fn set_language(&self, language: impl Into<String>) {
-        self.inner.language.store(Arc::new(language.into()));
+        let language = language.into();
+        if let Some(i18n) = self.inner.i18n.get() {
+            i18n.set_language(&language);
+        }
+        self.inner.language.store(Arc::new(language));
+    }
+
+    /// This plugin's translations, for the **runtime** plane.
+    ///
+    /// Loaded from `locales/` on first use — see [`I18n::discover`] for where
+    /// it looks — and kept on the context's current language from then on, so
+    /// a handler never has to remember to call `set_language`.
+    ///
+    /// For anything the DAEMON renders (action labels, config-field titles,
+    /// `[ui]` labels) use [`crate::key`] instead. See the [`crate::i18n`]
+    /// module docs for why the difference matters.
+    ///
+    /// ```rust,no_run
+    /// # use astra_plugin_sdk::PluginContext;
+    /// # fn f(ctx: &PluginContext, n: i64) -> String {
+    /// ctx.i18n().tn("msg.done", n, &[("n", &n.to_string())])
+    /// # }
+    /// ```
+    pub fn i18n(&self) -> &crate::I18n {
+        self.inner.i18n.get_or_init(|| {
+            let i18n = crate::I18n::discover();
+            i18n.set_language(&self.language());
+            i18n
+        })
     }
 }
 

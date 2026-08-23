@@ -212,11 +212,21 @@ class Harness:
         return self
 
     def start(self) -> "Harness":
-        """Run the lifecycle the daemon runs: host → config → language.
+        """Run the startup hooks: host → config → language.
 
-        Same order as `Plugin._run_async` and as the Rust runner: a plugin that
-        works here and not in Astra because of ordering is a harness bug, and
-        this is the line that prevents it.
+        This docstring used to say "same order as `Plugin._run_async` and as
+        the Rust runner … this is the line that prevents it". It is the Rust
+        and TypeScript order. `Plugin._run_async` runs **language before
+        config**, and has since it was written — so the sentence named a
+        hazard, claimed to be the guard against it, and was itself the drift.
+        Nothing compared the two, and nothing does now.
+
+        Neither ordering is a protocol requirement, so this is not a bug you
+        can be bitten by unless a hook of yours reads state the other one sets:
+        a plugin whose `on_config_changed` reads `self.language` sees the real
+        language here and in production, and one whose `on_language_changed`
+        reads `self.config` sees it here and not in production. If you need
+        both, read them in `on_start`, which runs after both everywhere.
         """
         if self._started:
             return self

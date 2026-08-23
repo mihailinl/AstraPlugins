@@ -127,7 +127,7 @@ export {
 } from "./logging.js";
 export type { LogLevel } from "./logging.js";
 export { DaemonClient } from "./daemon-client.js";
-export { I18n } from "./i18n.js";
+export { I18n, key, PLUGIN_DIR_ENV } from "./i18n.js";
 export { Field, UiContrib } from "./types.js";
 export type {
   ToolDef,
@@ -163,4 +163,5 @@ export { assertNoReservedNames, descriptorProblems, RETIRED_NAMES } from "./rese
 export type { DescriptorProblem } from "./reserved.js";
 export { PROTO_SHA256, PROTO_SOURCE, RESERVED_FIELD_NAMES, SERVICE_METHODS } from "./generated/index.js";
 export * as limits from "./generated/limits.js";
+export * as plural from "./generated/plural.js";
 export * as wire from "./generated/wire.js";
