@@ -211,11 +211,24 @@ left alone: `spec/registry-index.md` has `issued_at + 30 days` in a cell, and
 `yes`/`ja` and `**none**`/`**keine**` are translations, not drift.
 
 Rows are keyed by name rather than compared by position on purpose, and the
-consequence is worth stating: a whole section that exists in English and in no
-translation is **not** a failure here. Three sections of
-`3-reference/permissions.md` and one table of `reference/cli.md` are in exactly
-that state today. Making those red is the same policy decision as the gate in
-the last paragraph — the maintainer's, not this script's.
+consequence needs stating carefully, because the short version of it was wrong
+here until it was measured. A whole section that exists in English and in no
+translation is **not** a failure — **unless it contains a table whose rows lead
+with a name**, and then it is six failures. Appending an English-only section of
+prose leaves this green; appending one with a single row
+`| ``--brand-new`` | does a thing |` gives six TABLE findings and exit 1.
+
+A name-keyed row is derived data and exists in every language or in none; prose
+is not and does not. Three sections of `3-reference/permissions.md` and one
+table of `reference/cli.md` are absent from six translations today and are not
+failures **because their rows are absent on both sides** — there is nothing to
+compare. Add a row to the English copy of one of them and this script asks for
+it in six files.
+
+Whether an English edit should be blocked until somebody translates it is still
+the maintainer's decision, as in the last paragraph. This paragraph is only
+about what the script does today, which is what a contributor needs before
+writing the section rather than after CI tells them.
 
 The second assertion exists because the first was not enough. A correction to an
 English transcript shipped with all six translations still carrying the retracted

@@ -74,14 +74,28 @@ block is not compared. Those bodies are code, every one of them is executed by
 Their runner *positions* are still compared, so a block that disappears from a
 translation is still caught.
 
-A whole SECTION that exists in English and in no translation. Table rows are
-keyed by name, not by position, precisely so that this does not turn into a
-failure here: `3-reference/permissions.md` has three sections and
-`reference/cli.md` one table that six translations do not have today, and
-holding every future English edit hostage to translating them is the same
-policy decision as the paragraph below — the maintainer's, not this script's.
-What is enforced is that the rows which exist in BOTH agree on every name in
-them.
+A whole SECTION that exists in English and in no translation — **unless it
+contains a table whose rows lead with a name, in which case it IS a failure.**
+That sentence used to stop at the dash, and it was wrong in the half that
+matters. Measured on this tree: appending an English-only section of prose
+leaves `mirror.py` green; appending one containing a single row
+`| ``--brand-new`` | does a thing |` produces six TABLE findings and exit 1.
+
+The distinction is not a special case, it is the rule stated properly. Table
+rows are keyed by name rather than position, and a name-keyed row is derived
+data: it exists in every language or in none. Prose is not. So an English-only
+section costs nothing until it carries a table, and then it costs six edits.
+
+What is grandfathered rather than allowed: `3-reference/permissions.md`'s three
+sections and `reference/cli.md`'s one table are absent from six translations
+today and are not failures, because their rows are absent on both sides —
+nothing to compare. Add a row to the English copy of one of those and this
+script will ask for it in six files.
+
+The policy question below — whether an English edit should be blocked until
+somebody translates it — is still the maintainer's. This paragraph is only about
+what the script does today, which a contributor needs to know BEFORE writing the
+section rather than after CI tells them.
 
 The production plan also asks for "CI fails when `docs/en/**` changes without a
 matching translation touch". That gate needs a base ref to diff against, and —
