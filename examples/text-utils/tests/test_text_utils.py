@@ -133,10 +133,24 @@ def test_the_transform_action(h, operation, text, expected):
     assert h.execute_action("transform_text", operation=operation, input_text=text).result == expected
 
 
-def test_health_reports_how_much_work_it_has_done(h):
-    h.call_tool("word_count", text="one")
-    h.call_tool("word_count", text="two")
-    healthy, status = h.health()
+def test_health_reports_how_much_work_it_has_done(localised):
+    """Uses `localised`, not `h`, and that is the whole point of this line.
+
+    `health_check` went through `i18n.tn()` in this commit's parent, so its
+    string now depends on `locales/` being found — and `I18n.discover()` falls
+    back to a RELATIVE `./locales` when `$ASTRA_PLUGIN_DIR` is unset. This test
+    kept the plain `h` fixture and so passed from `examples/text-utils` and
+    failed from the repository root, where `tn` returned the bare key
+    `health.ok` and `"2 operations" in status` was false.
+
+    Nothing caught it: every gate in this PR was run from inside the plugin
+    directory. In production the daemon sets both the working directory and
+    `ASTRA_PLUGIN_DIR` (`instance.rs:1186` and `:1242`), so no user was ever
+    exposed — which is exactly why a test is the only place this could show.
+    """
+    localised.call_tool("word_count", text="one")
+    localised.call_tool("word_count", text="two")
+    healthy, status = localised.health()
     assert healthy and "2 operations" in status
 
 
