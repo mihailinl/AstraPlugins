@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 65d10bc0832cad73aad0f273d55a20a6991c7627dbc4178ad006a95f4d3c6bc6
+// source-sha256: 0e1e19eed220eb1970ba5d1a90cacb40c90298b8bde375b1f3acca2cd5b5073f
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1174,6 +1174,8 @@ message Voice {
     // built-in "astra" voices); EMPTY when `name` is real data. Same contract
     // as `VoiceSearchResult.name_key` — render `name_key ? t(name_key) : name`
     // — so the two voice RPCs cannot name one voice two different ways.
+    // That field's comment carries the reasoning, including why this shape is
+    // NOT the one to copy for a string a plugin wrote.
     string name_key = 6;
 }
 
@@ -2770,9 +2772,22 @@ message VoiceSearchResult {
     //
     // A consumer renders `name_key ? t(name_key) : name`. `name`/`description`
     // stay populated either way so a consumer with no catalogue (the TUI, a log
-    // line, an older UI) still shows English rather than a raw key. The daemon
+    // line, an older UI) still shows English rather than a raw key.
+    //
+    // This comment used to justify the key-on-the-wire choice with "the daemon
     // cannot translate these itself: `astra_core::i18n` embeds only en/ru/uk
-    // while the UI ships ten locales.
+    // while the UI ships ten locales". That has not been true since all ten
+    // locale files were embedded (`astra-core/src/i18n.rs`, `LOCALES`), and the
+    // catalogues are the SAME FILES the React bundle imports, so daemon-side and
+    // UI-side resolution of one key are byte-identical in every language.
+    //
+    // The choice is still right, for a different and better reason: these are
+    // Astra's OWN strings, and the UI is the side that owns Astra's catalogue.
+    // The general rule is the opposite one — the daemon renders in the user's
+    // language and clients display verbatim, as `CommandExecutedEvt.text` does
+    // and as every PLUGIN-authored string now does (`plugins::i18n::resolve`),
+    // because no client will ever hold a plugin's catalogue. Do not copy this
+    // field's shape for anything a plugin wrote.
     string name_key = 9;
     string description_key = 10;
 }
@@ -3840,9 +3855,16 @@ message PluginRegistryEntry {
     bool permissions_known = 16;
 
     // The listing's long-form description — the bundle's own `README.md` as the
-    // registry derived it: GitHub-flavoured markdown, at most 16384 characters,
-    // raw HTML stripped, and every image already an absolute `https://` URL
-    // pinned to the attested commit. Empty when the listing published none.
+    // registry derived it: GitHub-flavoured markdown, bounded, raw HTML
+    // stripped, and every image already an absolute `https://` URL pinned to the
+    // attested commit. Empty when the listing published none.
+    //
+    // The bound's NUMBER AND UNIT are the registry's, published in its
+    // `icon-readme-contract.md`, and are deliberately not restated here — this
+    // comment said "16384 characters" while other comments describing the same
+    // cap said "16 KiB", which are different limits, and the registry has since
+    // found its own two statements disagreeing by six bytes on a shipped file.
+    // A consumer must not size a buffer from this sentence.
     //
     // Inline in the signed index for the same two reasons `icon_url` is: the
     // bytes are then covered by the index signature like everything else, and
