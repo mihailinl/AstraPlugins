@@ -2008,13 +2008,23 @@ jobs:
       # deliberately does NOT do (a changed-English-page gate, and meaning), and
       # why each is a maintainer's decision rather than a script's.
       #
+      # Samples were not enough either. A table row that leads with a NAME — an
+      # rpc, a manifest key, a flag — is derived data, and every name in it is
+      # compared across the seven languages now. `tools/parity/gen.py` writes
+      # docs/en/parity.md and writes no translation of it, so all six carried
+      # `manager.rs:3624` where English said `3924`, in both doc tiers, and this
+      # step was green on every run of it: a table body is neither a page set
+      # nor a doctest block. That column no longer prints a line number at all
+      # (the line lives in spec/hooks.yaml, where R5 checks it), which is what
+      # keeps this comparison from going red on every daemon refactor.
+      #
       # This step used to name the six locales in its title, which made it a
       # fourth copy of a list that was wrong in all four: it announced
       # `docs/zh-CN`, a directory named for a language Astra cannot be set to.
       # A step name is read by no program, so nothing could ever have caught it.
       # The set lives in docs/tools/locales.py now, and C14 in the `couplings`
       # job is what compares it with the directories that are actually there.
-      - name: every locale mirrors docs/en, page for page and sample for sample
+      - name: every locale mirrors docs/en — page, sample and table row
         run: python3 docs/tools/mirror.py
 
   # ── conformance (5.7) ──────────────────────────────────────────────────────

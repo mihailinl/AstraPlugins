@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -44,10 +45,23 @@ def _status_cell(hook: dict, lang: str) -> str:
     return STATUS_MARK[status]
 
 
+#: `daemon_calls` is `file:line` on every `routing: live` row — `spec.py` refuses
+#: anything else — and the page prints the FILE only. The line stays in the spec,
+#: where R5 checks it against a real call site and `--fix-provenance` re-points
+#: it; a line printed on a page is checked by nothing and rots on every daemon
+#: commit. See the `Daemon call site` legend row rendered below for the rest of
+#: the argument, and the git history of this line for the failure that produced
+#: it: six translations carried `manager.rs:3624` for months while this page
+#: said `3924`, because a hand-mirrored copy of a generated number is a copy
+#: nobody regenerates.
+_LINE_SUFFIX = re.compile(r":\d+$")
+
+
 def _provenance(doc: dict, hook: dict) -> str:
     if hook["daemon_calls"] == "none":
         return "**none**"
-    return f"`{doc['astra_daemon_root']}/{hook['daemon_calls']}`"
+    path = _LINE_SUFFIX.sub("", str(hook["daemon_calls"]))
+    return f"`{doc['astra_daemon_root']}/{path}`"
 
 
 def _by_service(doc: dict, service: str) -> list[dict]:
@@ -140,6 +154,7 @@ def render_parity(doc: dict) -> str:
         "| **Permission** | `PluginHostService` only. The `[permissions]` key the daemon gates the call on (§5.6), or `none` if every plugin may always call it. **Not the same question as Capability:** the capability says which feature the call is part of, the permission is what the user consented to, and the daemon answers out of the *granted* permission set. Verified against the daemon's `HOST_RPC_PERMISSIONS` by rule R6. |",
         "| **Req** | `required` — the capability does not work without the hook. `optional` — the daemon carries on when it is absent. |",
         "| **Routing** | `live` — the daemon really calls it, and the call site is named. `unrouted` — declared in the proto, called by nobody. `deprecated` — being retired. |",
+        "| **Daemon call site** | The file the daemon calls this hook from, or **none** when nothing does. The line number is deliberately not printed here. It lives in `spec/hooks.yaml`, where rule R5 checks it against a real call site and `--fix-provenance` re-points it; on a page it is checked by nothing, it rots on every daemon commit, and a rotted pointer reads exactly like a correct one — one of these had drifted onto a different rpc's call site before anyone noticed. Look for the rpc's snake_case name in the file named here. |",
         "| `stable` | The SDK binds this rpc to a handler that does work — verified against its source by `tools/parity/check.py` rule R1, which resolves the dispatch target (TypeScript's `.bind(this)`, Python's servicer method, Rust's `async fn`) and reads *that* body. Whether the binding reaches anything when a real plugin process is driven through it is rule R7's question, not R1's. |",
         "| `planned` | Committed, not shipped. The date is the grace deadline; rule R4 fails the build once it passes. |",
         "| `n/a` | Not implemented and not committed. A registered handler whose body only answers `UNIMPLEMENTED` counts as `n/a`, because on the wire that *is* an absent hook — R1 reads the handler body for exactly this. |",
