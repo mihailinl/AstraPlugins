@@ -1,0 +1,31 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "A fixture for the shared locale rule corpus"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "notes": {
+      "type": "string",
+      "title": "$config.notes.title",
+      "default": "$HOME/notes"
+    },
+    "currency": {
+      "type": "string",
+      "title": "$$5 and up",
+      "enum": ["usd"],
+      "enumNames": ["$USD"]
+    }
+  }
+}
+"""

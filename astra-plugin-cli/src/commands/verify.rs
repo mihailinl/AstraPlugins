@@ -252,6 +252,33 @@ mod roundtrip {
             "every bundle carries plugin.toml"
         );
 
+        // The packer's ROOT ALLOWLIST, asserted on a real scaffold.
+        //
+        // `build` sweeps a whole directory only for the unknown-language arm;
+        // for rust, typescript and python the root is an explicit list of
+        // names. `locales.lock.json` sits at the root precisely because it must
+        // NOT be inside `locales/` — every top-level `*.json` in there is loaded
+        // as a locale keyed on its stem — and that placement walked it straight
+        // into the list's blind spot: it was in no real bundle at all, silently,
+        // while the registry's staleness demotion read a lock that had never
+        // shipped.
+        //
+        // ci.yml's archive inspector asserts the same thing across two operating
+        // systems and all three languages, which is the coverage that matters.
+        // This is here because reverting the allowlist left `cargo test`
+        // ENTIRELY GREEN — the packer had no unit-level witness at all, so the
+        // one-line regression would have travelled to a runner before anything
+        // said a word.
+        for want in ["locales/en.json", crate::commands::locale::LOCK_FILE] {
+            assert!(
+                bundle.manifest.files.iter().any(|f| f.path == want),
+                "{want} is not in the bundle. Root files are packed by an explicit allowlist in \
+                 commands::build; a scaffolded plugin reaches it by name or not at all. \
+                 Bundle carries: {:?}",
+                bundle.manifest.files.iter().map(|f| &f.path).collect::<Vec<_>>()
+            );
+        }
+
         // Both published numbers, re-derived from the file by a path that does
         // not go through the reader that produced them.
         let path = tmp.join("roundtrip-plugin.astraplugin");

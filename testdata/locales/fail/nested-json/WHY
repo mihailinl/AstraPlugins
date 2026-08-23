@@ -1,0 +1,3 @@
+`astra-plugin build` packs `locales/` recursively and the daemon reads only the
+top level. This file is packed, digested, signed, shipped, installed — and
+opened by nothing, with no error at any point.

@@ -63,7 +63,7 @@
 //!   Read off [`MockDaemon`]'s own record, which counts both the calls that
 //!   arrived and the ones it refused.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::OnceLock;
@@ -333,6 +333,7 @@ pub async fn run(opts: TestOptions<'_>) -> Result<Verdict> {
         &daemon,
         &mut child,
         first_output,
+        &dir,
         &plugin_id,
         &language,
         &capabilities,
@@ -415,6 +416,7 @@ async fn drive(
     daemon: &MockDaemon,
     child: &mut Child,
     mut first_output: FirstOutput,
+    dir: &Path,
     plugin_id: &str,
     language: &str,
     capabilities: &[String],
@@ -585,6 +587,11 @@ async fn drive(
         });
     }
 
+    // ── locale-round-trip ──
+    findings
+        .checks
+        .extend(locale_round_trip(&mut client, dir, &declared).await);
+
     // The daemon set `ASTRA_PLUGIN_CAPABILITY_AUTH=require` on this spawn, so a
     // capability call carrying no `x-plugin-token` must be refused. This is the
     // one check here that tests something the plugin does *not* do, and it is
@@ -641,21 +648,25 @@ async fn drive(
     for hook in teardown {
         let started = Instant::now();
         let sent = probe_call!(client, &hook.rpc, shutdown(proto::Empty {}));
+        // The ACKNOWLEDGEMENT, measured here — before the wait for the process
+        // to actually go. These used to be one number taken after both, and the
+        // report then said "acknowledged in 5.0s" about a plugin that answered
+        // in 120 ms and then hung: the same sentence for a slow handler and for
+        // a wedged process, which need opposite fixes. It cost a real
+        // investigation, reading a hung process as a slow one.
+        let acknowledged = started.elapsed();
+        // A SECOND clock, started after the acknowledgement, and it is
+        // deliberate: `shutdown_check` takes "how long the RPC took" and "how
+        // long we then waited", which are measured from two different origins.
+        // The bug this replaces was one `elapsed` used for both, so the shape of
+        // it — one number standing in for two — is not expressible here any
+        // more.
+        let waiting = Instant::now();
         let grace = Duration::from_secs(PLUGIN_STOP_GRACE_SECS);
         let exited = tokio::time::timeout(grace, child.wait()).await;
-        let elapsed = started.elapsed();
+        let waited = waiting.elapsed();
 
-        let (status, detail) = match &sent {
-            // A plugin that exits while answering `Shutdown` drops the
-            // response, and tonic reports that as a broken transport. That is
-            // the *correct* behaviour being reported as an error, so it is not
-            // one — what matters is whether the process is gone.
-            Err(s) if s.code() == tonic::Code::Unimplemented => (
-                Status::Unimplemented,
-                "answered UNIMPLEMENTED".to_string(),
-            ),
-            _ => (Status::Ok, format!("acknowledged in {elapsed:.1?}")),
-        };
+        let (status, detail) = shutdown_probe(&sent, acknowledged);
         findings.probes.push(Probe {
             rpc: hook.rpc.clone(),
             capability: hook.capability.clone(),
@@ -663,26 +674,7 @@ async fn drive(
             status,
             detail,
         });
-
-        findings.checks.push(match exited {
-            Ok(_) => (
-                "Shutdown is honoured within the grace period".into(),
-                true,
-                format!(
-                    "the process exited {elapsed:.1?} after Shutdown (grace is \
-                     {PLUGIN_STOP_GRACE_SECS}s, spec/limits.yaml plugin_stop_grace_secs)"
-                ),
-            ),
-            Err(_) => (
-                "Shutdown is honoured within the grace period".into(),
-                false,
-                format!(
-                    "the process was still running {PLUGIN_STOP_GRACE_SECS}s after Shutdown. The \
-                     daemon kills the process group at that point, so this plugin's tidy path \
-                     never runs on a user's machine (spec/limits.yaml plugin_stop_grace_secs)"
-                ),
-            ),
-        });
+        findings.checks.push(shutdown_check(exited.is_ok(), acknowledged, waited));
     }
 
     // ── what the plugin said back, and whether the daemon could hear it ──
@@ -735,6 +727,353 @@ async fn first_line_check(first: &mut FirstOutput) -> (String, bool, String) {
             ),
         ),
     }
+}
+
+/// How the `Shutdown` RPC itself answered, and how quickly.
+///
+/// Split out with [`shutdown_check`] so the two timings can be driven directly
+/// by a test. The pair they replace shared one `elapsed`, which made the two
+/// interesting states — *answered slowly* and *answered at once and then hung*
+/// — print the same sentence.
+fn shutdown_probe(
+    sent: &Result<proto::Empty, tonic::Status>,
+    acknowledged: Duration,
+) -> (Status, String) {
+    match sent {
+        // A plugin that exits while answering `Shutdown` drops the response,
+        // and tonic reports that as a broken transport. That is the *correct*
+        // behaviour being reported as an error, so it is not one — what matters
+        // is whether the process is gone, which is `shutdown_check`'s business.
+        Err(s) if s.code() == tonic::Code::Unimplemented => {
+            (Status::Unimplemented, "answered UNIMPLEMENTED".to_string())
+        }
+        _ => (Status::Ok, format!("acknowledged in {acknowledged:.1?}")),
+    }
+}
+
+/// Did the process actually go, and how do the two timings read together?
+///
+/// **Both numbers, always, and never the same number twice.** `acknowledged` is
+/// how long the RPC took; `waited` is how much longer the process then took to
+/// go, measured from a **separate clock started after the acknowledgement**. A
+/// plugin that answers in 120 ms and then wedges has a tiny first number and a
+/// second one equal to the grace — and reporting one number for both described
+/// it as a slow acknowledgement, which sent somebody looking inside the shutdown
+/// handler for latency that was never there.
+///
+/// The two origins are why the parameters are `acknowledged` and `waited`
+/// rather than `acknowledged` and `total`: there is no single `elapsed` a caller
+/// could pass for both, so the bug cannot be rewritten by accident.
+fn shutdown_check(exited: bool, acknowledged: Duration, waited: Duration) -> (String, bool, String) {
+    let name = "Shutdown is honoured within the grace period".to_string();
+    let total = acknowledged + waited;
+    if exited {
+        return (
+            name,
+            true,
+            format!(
+                "acknowledged in {acknowledged:.1?}, process gone {total:.1?} after Shutdown \
+                 (grace is {PLUGIN_STOP_GRACE_SECS}s, spec/limits.yaml plugin_stop_grace_secs)"
+            ),
+        );
+    }
+    (
+        name,
+        false,
+        format!(
+            "Shutdown was acknowledged in {acknowledged:.1?} and the process was STILL RUNNING \
+             {PLUGIN_STOP_GRACE_SECS}s later. The RPC returning is not the plugin stopping: \
+             something after the acknowledgement is not finishing — a task that is not \
+             cancelled, a thread that is not joined, a runtime that is not shut down. The daemon \
+             kills the process group at the grace, so this plugin's tidy path never runs on a \
+             user's machine (spec/limits.yaml plugin_stop_grace_secs)."
+        ),
+    )
+}
+
+/// The capabilities whose definitions the DAEMON renders — the declared plane.
+///
+/// A plugin that declares none of these contributes no labelled surface at all,
+/// so the probe below is skipped rather than reporting an empty scan. Derived
+/// from the manifest and not from a flag: an author cannot forget to pass it,
+/// and a plugin that gains `actions` gains the probe with no edit.
+const LABELLED_CAPABILITIES: &[&str] = &["actions", "triggers", "ui_contributions"];
+
+/// **locale-round-trip** — drive every language and read what comes back.
+///
+/// `OnLanguageChanged` was driven with `"en"` and only ever `"en"`, at a plugin
+/// whose default is `"en"`. A plugin with ten locales and a plugin with none
+/// produced identical output, so nothing here had ever exercised the feature
+/// this whole batch is about.
+///
+/// Two properties, and both are about what the PLUGIN returns rather than about
+/// what a daemon would then render — this is a mock daemon, and asserting on a
+/// rendered label would be asserting on our own resolver:
+///
+/// 1. **No unresolvable key.** A `$`-prefixed label whose key is in no locale
+///    file reaches the user as the bare key, which reads on screen like a
+///    deliberate identifier rather than a mistake. `$$` is the escape and is
+///    not a key.
+/// 2. **The declared plane is language-INVARIANT.** The daemon caches a
+///    definition unresolved and resolves it per request, so a plugin must
+///    return the same bytes whatever language it was last told about. A label
+///    that changes between two passes is an author who called `t()` where they
+///    needed `key()` — and on a real daemon that label is frozen in whichever
+///    language won the race at startup, for as long as the definition is
+///    cached.
+///
+/// Property 2 replaces the "label equals an `en.json` value" rule the plan
+/// asked for, which cannot work: this repository's own scaffold deliberately
+/// emits literal English labels that also appear in `en.json`, so that rule
+/// would fail every fresh plugin `astra-plugin new` produces.
+async fn locale_round_trip(
+    client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+    dir: &Path,
+    declared: &BTreeSet<&str>,
+) -> Vec<(String, bool, String)> {
+    let name = "labels survive a language round trip".to_string();
+
+    let labelled: Vec<&str> = LABELLED_CAPABILITIES
+        .iter()
+        .copied()
+        .filter(|c| declared.contains(c))
+        .collect();
+    if labelled.is_empty() {
+        return vec![(
+            name,
+            true,
+            "skipped: this plugin declares no actions, triggers or ui_contributions, so it \
+             contributes no label the daemon renders."
+                .into(),
+        )];
+    }
+
+    // The plugin's own locales/, read with the SDK's loader — the same one the
+    // plugin process uses and the same rules the daemon's does.
+    let i18n = astra_plugin_sdk::I18n::load(&dir.join("locales"));
+    let english: BTreeSet<String> = locale_keys(dir, "en");
+
+    // code -> (where, label), for every language in the vocabulary — including
+    // the seven a realistic plugin has not translated, because that is where
+    // the fallback lives.
+    let mut seen: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut definitions = 0usize;
+    let mut slots = 0usize;
+
+    for code in crate::locales::LOCALE_CODES {
+        // Counted on the FIRST pass only. Summing across ten languages would
+        // report "20 definitions" about a plugin with two, and a floor is worth
+        // nothing if the number it floors is inflated tenfold.
+        let counting = *code == crate::locales::LOCALE_CODES[0];
+        // Optional hook: a plugin that does not serve it is not broken, and the
+        // rest of the pass still says something.
+        let _ = probe_call!(
+            client,
+            "OnLanguageChanged",
+            on_language_changed(proto::LanguageChangedMsg { language: (*code).into() })
+        );
+
+        let mut per: BTreeMap<String, String> = BTreeMap::new();
+        if declared.contains("actions")
+            && let Ok(r) = probe_call!(client, "GetPluginActionTypes", get_plugin_action_types(proto::Empty {}))
+        {
+            if counting {
+                definitions += r.types.len();
+            }
+            for ty in &r.types {
+                per.insert(format!("action '{}' label", ty.r#type), ty.label.clone());
+                per.insert(format!("action '{}' ai_description", ty.r#type), ty.ai_description.clone());
+                if counting {
+                    slots += 2;
+                }
+                collect_field_labels(&format!("action '{}'", ty.r#type), &ty.fields, &mut per, counting.then_some(&mut slots));
+            }
+        }
+        if declared.contains("triggers")
+            && let Ok(r) = probe_call!(client, "GetPluginTriggerTypes", get_plugin_trigger_types(proto::Empty {}))
+        {
+            if counting {
+                definitions += r.types.len();
+            }
+            for ty in &r.types {
+                per.insert(format!("trigger '{}' label", ty.r#type), ty.label.clone());
+                if counting {
+                    slots += 1;
+                }
+                collect_field_labels(&format!("trigger '{}'", ty.r#type), &ty.fields, &mut per, counting.then_some(&mut slots));
+            }
+        }
+        if declared.contains("ui_contributions")
+            && let Ok(r) = probe_call!(client, "GetUiContributions", get_ui_contributions(proto::Empty {}))
+        {
+            if counting {
+                definitions += r.contributions.len();
+            }
+            for c in &r.contributions {
+                per.insert(format!("ui contribution '{}' label", c.id), c.label.clone());
+                if counting {
+                    slots += 1;
+                }
+            }
+        }
+        seen.insert((*code).to_string(), per);
+    }
+
+    let mut out = Vec::new();
+    let mut problems = round_trip_problems(&seen, &english);
+
+    // The anti-vacuous guard. Two floors, because they fail for different
+    // reasons: nothing came back at all, or something came back and this probe
+    // stopped reading the fields off it.
+    if definitions == 0 {
+        problems.push(format!(
+            "locale-round-trip got 0 definition(s) back across {} language(s) from a plugin that \
+             declares {}. This probe now proves nothing — either those hooks return nothing, or \
+             the probe has stopped matching them.",
+            crate::locales::LOCALE_CODES.len(),
+            labelled.join(", ")
+        ));
+    } else if slots == 0 {
+        problems.push(format!(
+            "locale-round-trip saw {definitions} definition(s) and examined 0 label field(s). \
+             The definitions arrived and this probe read nothing off them, which is a broken \
+             probe reporting a clean plugin."
+        ));
+    }
+
+    // At most three examples and then a count: a plugin with forty labels and
+    // one bad `en.json` would otherwise render its whole definition set at
+    // somebody who wanted a verdict.
+    let total = problems.len();
+    if total > 3 {
+        problems.truncate(3);
+        problems.push(format!("…and {} further finding(s) not shown.", total - 3));
+    }
+
+    out.push(if problems.is_empty() {
+        (
+            name,
+            true,
+            format!(
+                "{slots} label slot(s) on {definitions} definition(s), identical across all {} \
+                 languages, every $key resolvable",
+                crate::locales::LOCALE_CODES.len()
+            ),
+        )
+    } else {
+        (name, false, problems.join("  |  "))
+    });
+
+    // Whatever the loader could not use, said rather than swallowed. This is
+    // where an author is told that `locales/zh-CN.json` will never be selected.
+    //
+    // ONLY when `locales/` exists. A plugin that ships no translations at all is
+    // every plugin in the catalogue today, and `I18n::load` reports the missing
+    // directory as a load error — which is correct for a loader and would be a
+    // failed conformance run for a plugin that is doing nothing wrong. Whether
+    // a plugin OUGHT to have a `locales/` is `astra-plugin check`'s N1, at
+    // authoring time, as a note.
+    if dir.join("locales").is_dir() {
+        for e in i18n.load_errors() {
+            out.push(("the plugin's locale files all load".into(), false, e.clone()));
+        }
+    }
+    out
+}
+
+/// The two properties, over what came back — pure, so a test can drive it.
+///
+/// Property (1) is collapsed across languages before anything is printed. A
+/// label is supposed to be language-invariant, so ONE misspelt key produces the
+/// same finding ten times over, and ten identical paragraphs is an enumeration
+/// wearing a report's clothes.
+fn round_trip_problems(
+    seen: &BTreeMap<String, BTreeMap<String, String>>,
+    english: &BTreeSet<String>,
+) -> Vec<String> {
+    let mut problems = Vec::new();
+
+    // (1) unresolvable keys.
+    let mut unresolvable: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    for (code, per) in seen {
+        for (at, value) in per {
+            let Some(rest) = value.strip_prefix('$') else { continue };
+            if rest.starts_with('$') {
+                continue; // `$$` is the escape for a literal dollar.
+            }
+            if !english.contains(rest) {
+                unresolvable
+                    .entry((at.as_str(), value.as_str()))
+                    .or_default()
+                    .push(code.as_str());
+            }
+        }
+    }
+    for ((at, value), codes) in &unresolvable {
+        problems.push(format!(
+            "{at} came back as `{value}` under {} of the {} languages probed, and `{}` is in no \
+             locale file. The daemon looks it up, finds nothing, and puts the bare key on the \
+             user's screen — which reads like a deliberate identifier rather than a mistake.",
+            codes.len(),
+            crate::locales::LOCALE_CODES.len(),
+            value.trim_start_matches('$'),
+        ));
+    }
+
+    // (2) language invariance.
+    let base = seen.get("en").cloned().unwrap_or_default();
+    for (code, per) in seen {
+        if code == "en" {
+            continue;
+        }
+        for (at, value) in per {
+            let Some(was) = base.get(at) else { continue };
+            if was != value {
+                problems.push(format!(
+                    "{at} is {was:?} under `en` and {value:?} under `{code}`. The daemon caches a \
+                     definition UNRESOLVED and resolves it per request, so a plugin must return \
+                     the same bytes whatever language it was last told about — this one resolved \
+                     it itself. Use `key(\"…\")` here and `t(\"…\")` only for strings this \
+                     process prints."
+                ));
+            }
+        }
+    }
+    problems
+}
+
+fn collect_field_labels(
+    owner: &str,
+    fields: &[proto::FieldDefinitionMsg],
+    per: &mut BTreeMap<String, String>,
+    mut slots: Option<&mut usize>,
+) {
+    for f in fields {
+        per.insert(format!("{owner} field '{}' label", f.id), f.label.clone());
+        per.insert(format!("{owner} field '{}' placeholder", f.id), f.placeholder.clone());
+        per.insert(format!("{owner} field '{}' description", f.id), f.description.clone());
+        if let Some(n) = slots.as_deref_mut() {
+            *n += 3;
+        }
+        for (i, o) in f.options.iter().enumerate() {
+            per.insert(format!("{owner} field '{}' option {i} label", f.id), o.label.clone());
+            if let Some(n) = slots.as_deref_mut() {
+                *n += 1;
+            }
+        }
+    }
+}
+
+/// Every key in one `locales/<code>.json`, or nothing.
+///
+/// Read directly rather than through `I18n`, which exposes lookups and not the
+/// key set of one specific language — and `en` is what property (1) is about.
+fn locale_keys(dir: &Path, code: &str) -> BTreeSet<String> {
+    std::fs::read_to_string(dir.join("locales").join(format!("{code}.json")))
+        .ok()
+        .and_then(|t| serde_json::from_str::<std::collections::HashMap<String, String>>(&t).ok())
+        .map(|m| m.into_keys().collect())
+        .unwrap_or_default()
 }
 
 /// What reached the daemon, and whether it was allowed to.
@@ -1485,6 +1824,155 @@ mod tests {
         assert!(checks[0].1, "{}", checks[0].2);
         assert!(!checks[1].1, "an unauthenticated host call must fail the check");
         assert!(checks[1].2.contains("log"), "{}", checks[1].2);
+    }
+
+    /// The two shutdown states must not print the same sentence.
+    ///
+    /// The bug: `elapsed` was taken AFTER `timeout(grace, child.wait())`, and
+    /// then used for both the probe's "acknowledged in {elapsed}" and the
+    /// check's "the process exited {elapsed} after Shutdown". A plugin that
+    /// answered in 120 ms and then hung was therefore reported as
+    /// *"acknowledged in 5.0s"* — a slow handler, which is a completely
+    /// different defect with a completely different fix. It cost a real
+    /// investigation: a flake read as latency inside the shutdown handler when
+    /// the handler had returned instantly and the process was wedged after it.
+    #[test]
+    fn a_hung_plugin_does_not_read_as_a_slow_acknowledgement() {
+        let quick = Duration::from_millis(120);
+        let grace = Duration::from_secs(PLUGIN_STOP_GRACE_SECS);
+
+        // Answered at once, then hung: 120 ms of RPC and a full grace of
+        // waiting. This is the case that used to lie.
+        let (_, ok, hung) = shutdown_check(false, quick, grace);
+        assert!(!ok);
+        assert!(hung.contains("120.0ms"), "the ACK time must survive: {hung}");
+        assert!(hung.contains("STILL RUNNING"), "{hung}");
+        assert!(
+            !hung.contains("acknowledged in 5.0s"),
+            "this is the exact sentence the bug printed: {hung}"
+        );
+
+        // Answered at once and exited at once — the healthy case.
+        let (_, ok, fine) = shutdown_check(true, quick, Duration::from_millis(20));
+        assert!(ok);
+        assert!(fine.contains("120.0ms") && fine.contains("140.0ms"), "{fine}");
+        // 120 ms of RPC plus 20 ms of waiting: the TOTAL is derived, never passed.
+
+        // A genuinely slow acknowledgement, which is the state the bug's
+        // message CLAIMED. It has to be distinguishable from the first case,
+        // and the two share no wording that would let them be confused.
+        let slow = Duration::from_millis(4_800);
+        let (_, ok, slow_ack) = shutdown_check(true, slow, Duration::from_millis(100));
+        assert!(ok);
+        assert!(slow_ack.contains("4.8s"), "{slow_ack}");
+        assert_ne!(slow_ack, hung);
+        assert!(!slow_ack.contains("STILL RUNNING"), "{slow_ack}");
+
+        // The probe line carries the ACK only: it is about the RPC, and the
+        // process's fate is the check's business.
+        let (status, detail) = shutdown_probe(&Ok(proto::Empty {}), quick);
+        assert_eq!(status, Status::Ok);
+        assert_eq!(detail, "acknowledged in 120.0ms");
+        let (status, detail) =
+            shutdown_probe(&Err(tonic::Status::unimplemented("no")), quick);
+        assert_eq!(status, Status::Unimplemented);
+        assert_eq!(detail, "answered UNIMPLEMENTED");
+    }
+
+    /// `$$` is the daemon's escape and is never a key — including here, where
+    /// property (1) of `locale-round-trip` would otherwise fail a plugin whose
+    /// label is legitimately "$5 and up".
+    #[test]
+    fn the_round_trip_reads_locale_keys_off_disk_and_honours_the_escape() {
+        let dir = std::env::temp_dir().join(format!("astra-rt-keys-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("locales")).unwrap();
+        std::fs::write(
+            dir.join("locales/en.json"),
+            r#"{"action.roll.label":"Roll","listing.name":"X"}"#,
+        )
+        .unwrap();
+
+        let keys = locale_keys(&dir, "en");
+        assert!(keys.contains("action.roll.label"), "{keys:?}");
+        assert!(locale_keys(&dir, "ru").is_empty(), "an absent locale has no keys");
+
+        // The same predicate the probe applies, spelled out here so the escape
+        // cannot be quietly dropped from it.
+        for (label, is_key) in [
+            ("$action.roll.label", true),
+            ("$$5 and up", false),
+            ("Roll", false),
+        ] {
+            let looks = label
+                .strip_prefix('$')
+                .is_some_and(|rest| !rest.starts_with('$'));
+            assert_eq!(looks, is_key, "{label}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The two properties `locale-round-trip` asserts, and the one shape it
+    /// must NOT report ten times.
+    ///
+    /// Verified against a live plugin too — a `.with_label(&self.i18n.t(…))`
+    /// on the companion example produced exactly the property-2 finding, and a
+    /// `key("ui.cat.labl")` with no such key produced property 1. What that run
+    /// also produced was the same paragraph ten times over, once per language,
+    /// which is what the collapse below exists to stop.
+    #[test]
+    fn the_round_trip_collapses_a_finding_that_is_true_in_every_language() {
+        let english: BTreeSet<String> = ["ui.cat.label".to_string()].into_iter().collect();
+
+        let mut seen: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        for code in crate::locales::LOCALE_CODES {
+            let mut per = BTreeMap::new();
+            // A misspelt key, invariant across languages — which is what a
+            // correctly written declared-plane label looks like.
+            per.insert("ui 'cat' label".to_string(), "$ui.cat.labl".to_string());
+            // …and one that resolves, plus the `$$` escape, neither of which
+            // may be reported at all.
+            per.insert("ui 'cat' hint".to_string(), "$ui.cat.label".to_string());
+            per.insert("ui 'cat' price".to_string(), "$$5 and up".to_string());
+            seen.insert((*code).to_string(), per);
+        }
+
+        let problems = round_trip_problems(&seen, &english);
+        assert_eq!(
+            problems.len(),
+            1,
+            "one misspelt key must produce ONE finding, not one per language:\n{}",
+            problems.join("\n")
+        );
+        assert!(problems[0].contains("10 of the 10 languages"), "{}", problems[0]);
+        assert!(problems[0].contains("ui.cat.labl"), "{}", problems[0]);
+        assert!(!problems[0].contains("$5 and up"), "the `$$` escape is not a key");
+
+        // Property 2: a label that changes between languages.
+        seen.get_mut("ru")
+            .unwrap()
+            .insert("ui 'cat' label".to_string(), "$ui.cat.labl.ru".to_string());
+        let problems = round_trip_problems(&seen, &english);
+        assert!(
+            problems.iter().any(|p| p.contains("under `ru`") && p.contains("resolved \
+                 it itself")),
+            "a label that differs between two passes is the `t()`-instead-of-`key()` \
+             defect:\n{}",
+            problems.join("\n")
+        );
+
+        // A plugin whose labels are plain English and language-invariant says
+        // nothing at all — the case every scaffold produces.
+        let mut clean: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        for code in crate::locales::LOCALE_CODES {
+            clean.insert(
+                (*code).to_string(),
+                [("ui 'cat' label".to_string(), "Companion Cat".to_string())]
+                    .into_iter()
+                    .collect(),
+            );
+        }
+        assert!(round_trip_problems(&clean, &english).is_empty());
     }
 
     #[test]

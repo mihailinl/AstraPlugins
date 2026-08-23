@@ -1,0 +1,8 @@
+The live failure this whole project was filed from, byte for byte: a listing that
+reached the catalogue through the correct zero-touch path because nothing in the
+system had ever asked what language a listing was in.
+
+This is a SCRIPT check, not a language detector. It catches a card written
+entirely in another alphabet and cannot tell English from French — and it says so
+in its own last paragraph, because a gate that overstates its reach is one people
+route around.

@@ -1,0 +1,3 @@
+A key in `en.json` and not in `ru.json`. Astra's RELEASED daemon selects one
+whole locale map and then resolves, so the missing key is not filled in from
+English — the user reads the key.

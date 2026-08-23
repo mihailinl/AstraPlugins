@@ -443,11 +443,22 @@ jobs:
       # is the only place the comparison can be made — and it is exactly the
       # reason C13 exists in the CLI's own test suite, where it runs on every
       # fork PR with nothing checked out.
-      - name: C12 (full) spec/locales.yaml == the daemon's SUPPORTED_LANGUAGES
+      # C22 rides along because this is the only job with an Astra checkout, and
+      # it is the only place the question can be asked at all: has a RELEASED
+      # Astra started resolving a plugin's action, trigger and UI labels?
+      #
+      # `astra-plugin new` scaffolds LITERAL English on that surface, on purpose:
+      # the resolver is on Astra's `main` and is in no tag, so a `$key` there
+      # would be shown to a user as it stands on every daemon in the world. C22
+      # FAILS the day a tag carries it — which is not a regression, it is the
+      # scaffold's flip becoming due, and it fails so that nobody has to remember
+      # it. Same shape as ARCHIVE_PENDING in scaffold-roundtrip: an exception
+      # that cannot outlive the work it was waiting for.
+      - name: C12, C22 (full) the vocabulary, and whether the scaffold's flip is due
         if: env.MODE == 'full'
         run: |
           set -euo pipefail
-          python3 tools/check-locales.py --rules C12 --astra-dir _astra/astra-rs
+          python3 tools/check-locales.py --rules C12,C22 --astra-dir _astra/astra-rs
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary
           MSG
@@ -1305,6 +1316,17 @@ jobs:
               ;;
           esac
 
+          # A second locale, added the way an author adds one, before the
+          # build. This is the only place `locale add` runs end to end on a
+          # real project on both operating systems: it has to read en.json,
+          # write the four plural rows Russian needs (which `en.json` cannot
+          # legally contain), update the lock, and leave a tree that
+          # `astra-plugin check --strict` still accepts. The merged design's
+          # raw-key parity rule failed exactly here — on a file the CLI itself
+          # had just written and recommended.
+          astra-plugin locale add ru
+          astra-plugin locale ls
+
           astra-plugin check . --strict
           astra-plugin build .
           ls -l ./*.astraplugin
@@ -1526,6 +1548,50 @@ jobs:
           # ── order ─────────────────────────────────────────────────────────
           results["order"] = ([] if names == sorted(names)
                               else [f"entries are not sorted: {names} != {sorted(names)}"])
+
+          # ── locales ───────────────────────────────────────────────────────
+          #
+          # THE ASSERTION THAT WOULD HAVE CAUGHT THE PACKER, across the matrix
+          # that makes it worth having. `build.rs` packs root
+          # files by an explicit ALLOWLIST — icons, README.md, LICENSE — and
+          # sweeps a whole directory only for the `_ =>` unknown-language arm.
+          # So `locales.lock.json`, which sits at the root precisely because it
+          # must NOT be inside `locales/` (every top-level *.json in there is
+          # loaded as a locale keyed on its stem), matched nothing for rust,
+          # typescript OR python and was simply absent from every real bundle.
+          # Silently: no error, no warning, and the registry's staleness
+          # demotion reading a lock that was never shipped.
+          #
+          # Three languages take three different paths through the packer and
+          # only the fourth, which nothing scaffolds, would have passed. That is
+          # why this is asserted on every leg of the matrix rather than once —
+          # `commands::verify::roundtrip` carries the same assertion in the CLI's
+          # own suite, but it builds ONE language on whatever OS is running it,
+          # and the whole shape of this defect was "green for the arm you tested".
+          problems = []
+          for want in ("locales/en.json", "locales/ru.json", "locales.lock.json"):
+              if want not in names:
+                  problems.append(
+                      f"{want} is not in the archive. Root files are packed by an ALLOWLIST in "
+                      f"astra-plugin-cli/src/commands/build.rs and locales/ is packed by a "
+                      f"directory walk; a {lang} bundle reaches neither by accident.")
+          # …and readable after extraction, which is a separate fact from being
+          # present: a mode-0 entry is in the namelist and unopenable.
+          for i in z.infolist():
+              if i.filename in ("locales/en.json", "locales/ru.json", "locales.lock.json"):
+                  mode = (i.external_attr >> 16) & 0o7777
+                  if mode and not mode & 0o444:
+                      problems.append(f"{i.filename} is mode {mode:04o} — not readable "
+                                      f"after extraction")
+          # The daemon reads ONLY the top level of locales/. A nested file is
+          # packed, digested, signed and opened by nothing; E5 refuses one at
+          # pack time, and this is the other end of that rule.
+          for n in names:
+              if n.startswith("locales/") and n.count("/") > 1:
+                  problems.append(f"{n} is below locales/'s top level, which the daemon does "
+                                  f"not read. `astra-plugin check` should have refused this "
+                                  f"(E5) before the packer ever saw it.")
+          results["locales"] = problems
 
           # ── verdict ───────────────────────────────────────────────────────
           failed = False
@@ -2207,8 +2273,14 @@ jobs:
       # C12, the comparison of spec/locales.yaml against the daemon's own list,
       # needs the private Astra repository and lives in `proto-upstream`, where
       # it says out loud that it did not run rather than passing quietly.
-      - name: C14 the docs locales are languages Astra can be set to
-        run: python3 tools/check-locales.py --rules C14
+      # C20 rides along, and its two halves land differently here. The in-repo
+      # half — the file parses, and every cap names the upstream constant it
+      # mirrors — runs for real. The comparison against astra-registry's own
+      # numbers cannot: this job checks out one repository. It prints the four
+      # values it took on trust and says it did not verify them, which is the
+      # only honest thing a mirror check can do with one side missing.
+      - name: C14, C20 the docs locales and the mirrored listing caps
+        run: python3 tools/check-locales.py --rules C14,C20
 
       - name: C2-C11 the couplings nothing else checks
         run: |

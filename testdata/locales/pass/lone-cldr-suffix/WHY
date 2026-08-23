@@ -1,0 +1,15 @@
+Two keys that END in a CLDR cardinal category name and are not plurals.
+
+A plural family is a base carrying at least TWO distinct categories somewhere in
+the union of the loaded files. One is not enough, and that threshold is the whole
+reason this case exists: collapse `thing.other` into a family named `thing` and
+E15 goes on to demand a `thing.one` of English, which is this CLI refusing a
+plugin that works perfectly well.
+
+`menu.zero` is the same trap from the other end — `zero` is a CLDR category name
+that no language in `spec/i18n.yaml` actually uses, so a base keyed on it can
+never be a real plural family and must never be treated as one.
+
+The rule is still allowed to SAY something: both of these get a note pointing at
+`tn()` in case the author meant a plural and stopped after one row. A note is not
+a refusal, which is the difference this case is about.

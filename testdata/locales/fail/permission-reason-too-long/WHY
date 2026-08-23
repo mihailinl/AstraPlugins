@@ -1,0 +1,5 @@
+`astra-registry/schema/version-v1.json` caps a permission reason at 140
+characters. Over it, the version record fails schema validation at ingest — in
+another repository, after the tag is pushed, with nothing to do but cut a new
+version. The number is mirrored in `spec/listing-limits.yaml`, with C20
+comparing the two.

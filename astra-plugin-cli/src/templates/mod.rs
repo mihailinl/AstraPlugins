@@ -36,17 +36,10 @@ pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> Strin
         _ => ("./plugin".into(), String::new(), String::new()),
     };
 
-    let name_title = name
-        .split('-')
-        .map(|w| {
-            let mut c = w.chars();
-            match c.next() {
-                None => String::new(),
-                Some(f) => f.to_uppercase().to_string() + c.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+    // The same function `generate_locales` uses, because `en.json`'s
+    // `listing.name` must equal this byte for byte — E8 compares them here and
+    // the registry compares them again at ingest, after the tag.
+    let name_title = title_case(name);
 
     format!(
         r#"[plugin]
@@ -166,6 +159,66 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 }
 
 /// Generate a README.md.
+/// `locales/en.json` and `locales.lock.json` for a fresh scaffold.
+///
+/// **Scaffolded rather than documented, for the reason this file already gives
+/// about the icon: a file that exists gets replaced, a file that has to be
+/// created from nothing does not.** An author who never sees a `locales/`
+/// directory writes their store card once, in whatever language they think in,
+/// and finds out at ingest.
+///
+/// # Why the labels in the generated source are LITERAL ENGLISH
+///
+/// The daemon resolving `$keys` for action labels, trigger labels and UI
+/// contributions is **new code on Astra's `main` and is in no Astra release**.
+/// The newest tag is `v0.2.0` (2026-08-16); the resolver merged on 2026-08-22.
+/// So a scaffold that emitted `key("action.example.label")` would hand every
+/// author created between now and that release a plugin whose command editor
+/// reads `$action.example.label` on a fresh install — on every daemon in the
+/// world, with nothing the author can do about it and no error anywhere to
+/// explain it.
+///
+/// The two keys below are the ones that work TODAY on every daemon:
+/// `listing.*` is read by the registry's ingest bot straight out of the bundle
+/// (no daemon involved at all), and `msg.done.*` is the runtime plane, which is
+/// the plugin's own `I18n` and has never needed anything from the host.
+///
+/// **What would change this**, precisely: an Astra RELEASE whose tag contains
+/// the label resolver. At that point this function emits `key(...)` in the
+/// generated source and `generate_manifest` starts writing a
+/// `min_astra_version` naming that release — which it does not write today,
+/// because there is no number to write. `tools/check-locales.py --rules C22`
+/// watches for exactly that and fails when it happens, so the flip is a red
+/// build rather than a paragraph somebody has to remember.
+pub fn generate_locales(name: &str) -> (String, String) {
+    let title = title_case(name);
+    let en = format!(
+        r#"{{
+  "listing.name": "{title}",
+  "listing.description": "An Astra plugin",
+  "msg.done.one": "Handled {{n}} item",
+  "msg.done.other": "Handled {{n}} items"
+}}
+"#
+    );
+    // The lock is EMPTY and that is correct: it records which translations were
+    // made against which English, and there are no translations yet. It is
+    // scaffolded anyway so that `astra-plugin locale add ru` has something to
+    // update rather than something to invent, and so that the file is in the
+    // bundle from the first build — `build.rs`'s root allowlist has to name it,
+    // and an allowlist nobody exercises is an allowlist with a hole in it.
+    let lock = format!(
+        r#"{{
+  "schema": "{}",
+  "source": "en",
+  "locales": {{}}
+}}
+"#,
+        crate::commands::locale::LOCK_SCHEMA
+    );
+    (en, lock)
+}
+
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {
     let name_title = title_case(name);
 
@@ -326,6 +379,12 @@ pub fn generate_icon(name: &str) -> String {
 }
 
 /// `dice-roller` → `Dice Roller`.
+///
+/// Three callers now, and that is the point of it being one function: the
+/// icon's `<title>`, `plugin.toml`'s `name`, and `locales/en.json`'s
+/// `listing.name`. The last two must be byte-identical — E8 compares them, and
+/// the registry compares them again at ingest, after the tag. `generate_manifest`
+/// used to carry its own inlined copy of this loop.
 fn title_case(name: &str) -> String {
     name.split('-')
         .map(|w| {

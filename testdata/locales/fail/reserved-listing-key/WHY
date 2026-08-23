@@ -1,0 +1,3 @@
+The `listing.` namespace is reserved and closed: the ingest bot reads exactly two
+keys out of a bundle. A third is one an author expects on the store card and
+which will never appear there.

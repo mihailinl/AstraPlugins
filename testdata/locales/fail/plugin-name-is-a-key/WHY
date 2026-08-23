@@ -1,0 +1,5 @@
+The registry derives the store card from the PACKED `plugin.toml`, unresolved,
+and `MANIFEST.json` carries the same bytes. A key here is the literal text a user
+reads on the store card — on every Astra that has ever existed, including the
+ones that resolve keys perfectly well everywhere else. Unlike E17 this is NOT
+gated on `min_astra_version`, because the reader that breaks is not a daemon.

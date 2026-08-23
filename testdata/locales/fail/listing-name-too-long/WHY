@@ -1,0 +1,2 @@
+64 characters is the registry's cap on a listing name. Same failure shape as the
+reason above: refused in another repository, after the tag.

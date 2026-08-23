@@ -1,0 +1,12 @@
+Three shapes that must NOT be refused, and one of them is Ask 2's own example.
+
+  "$HOME/notes"  in a `default` — a VALUE, not a label, and not key-shaped. The
+                 daemon leaves it exactly as it stands. A rule that refused a
+                 `$` in a default would refuse a plugin that works.
+  "$$5 and up"   in a title — `$$` is the daemon's escape for a literal leading
+                 dollar. Nothing here may read it as a key reference.
+  "$USD"         in `enumNames`, with a locale key genuinely named `USD`. The
+                 daemon looks up EVERY `$`-prefixed string and only the
+                 strip-on-miss fallback is shape-gated, so this resolves. A CLI
+                 rule of the form "a $key must look like a.b.c" would refuse at
+                 pack time something that works at run time.

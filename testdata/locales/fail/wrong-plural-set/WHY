@@ -1,0 +1,6 @@
+Russian needs one / few / many / other and this file carries one / other. A count
+that lands in `few` falls back to `msg.done.other`, so the wrong noun form
+reaches a user in a language nobody in this repository can proof-read. E15 is the
+sole rule policing WHICH categories a code carries, in both directions — parity
+above has no exception in it, because an exception inside a parity check is where
+parity checks stop being checks.

@@ -73,6 +73,7 @@ impl Commands {
             Commands::Version { .. } => "version",
             Commands::Publish { .. } => "publish",
             Commands::Keygen { .. } => "keygen",
+            Commands::Locale { .. } => "locale",
         }
     }
 }
@@ -347,6 +348,78 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Manage `locales/` — the plugin's translations, and its store card's text.
+    ///
+    /// A plugin ships one flat `locales/<code>.json` per language beside
+    /// `plugin.toml`. `astra-plugin check` and `astra-plugin build` enforce the
+    /// rules over that directory; these commands are how you satisfy them
+    /// without reading them.
+    Locale {
+        #[command(subcommand)]
+        command: LocaleCommands,
+
+        /// Path to plugin directory (default: current directory)
+        #[arg(long, default_value = ".", global = true)]
+        path: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum LocaleCommands {
+    /// The vocabulary, what this plugin ships, key counts and deltas.
+    ///
+    /// Always prints how many codes `spec/locales.yaml` declares beside how
+    /// many this plugin ships, so an empty result reads as empty rather than
+    /// as a pass.
+    Ls,
+
+    /// Seed a locale from `en.json`, with the plural rows that code needs.
+    ///
+    /// Keeps every value already translated. Refuses a code Astra cannot be
+    /// set to — `zh-CN` is packed, digested, signed and read by nothing.
+    Add {
+        /// A language code from `spec/locales.yaml`, e.g. `ru`.
+        code: String,
+    },
+
+    /// Rewrite `locales.lock.json`, and `en.json`'s two `listing.*` keys.
+    ///
+    /// State is DERIVED from what is on disk, never asserted: a value equal to
+    /// English is untranslated, a value that differs is stamped with a digest
+    /// of the English it was made against, and a digest that no longer matches
+    /// is stale. A stale entry is not re-stamped without `--accept`.
+    Sync {
+        /// `ru` or `ru:msg.done.other` — accept a stale translation as still
+        /// correct. Prints what it accepted, and lands in a committed diff.
+        #[arg(long, value_name = "CODE[:KEY]")]
+        accept: Vec<String>,
+    },
+
+    /// The locale rules alone, without the rest of `astra-plugin check`.
+    Check,
+
+    /// Which `$keys` in `plugin.toml` are absent from `locales/en.json`.
+    Extract,
+
+    /// Walk `[config] schema` locally and print every string, marking which
+    /// are `$` references and which are hardcoded literals.
+    ///
+    /// This is the half `locale pseudo` structurally cannot reach: `qps` is
+    /// not a language `Settings::validate` accepts, so the daemon can never be
+    /// asked for a `qps` config schema.
+    Render {
+        /// The language to render as. Falls back to English per key.
+        #[arg(long, default_value = "en")]
+        lang: String,
+    },
+
+    /// Write `locales/qps.json` — every English string, bracketed and padded.
+    ///
+    /// Run the plugin against it and anything still in plain English is a
+    /// string that never reached a locale file. `astra-plugin build` refuses a
+    /// bundle carrying it.
+    Pseudo,
 }
 
 #[tokio::main]
@@ -585,6 +658,19 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             commands::keygen::run(force)?;
             output::emit("keygen", &Verdict::Pass, serde_json::json!({}));
             Ok(Verdict::Pass)
+        }
+        Commands::Locale { command, path } => {
+            use commands::locale::Sub;
+            let sub = match command {
+                LocaleCommands::Ls => Sub::Ls,
+                LocaleCommands::Add { code } => Sub::Add { code },
+                LocaleCommands::Sync { accept } => Sub::Sync { accept },
+                LocaleCommands::Check => Sub::Check,
+                LocaleCommands::Extract => Sub::Extract,
+                LocaleCommands::Render { lang } => Sub::Render { lang },
+                LocaleCommands::Pseudo => Sub::Pseudo,
+            };
+            commands::locale::run(&path, sub)
         }
     }
 }

@@ -364,6 +364,7 @@ Commands:
   version  Set the version in plugin.toml and every other manifest at once
   publish  Get a release listed: preflight it, or open a prefilled submission
   keygen   Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses
+  locale   Manage `locales/` — the plugin's translations, and its store card's text
   help     Print this message or the help of the given subcommand(s)
 
 Options:

@@ -1,0 +1,6 @@
+A permission reason is rendered on the consent sheet BEFORE the plugin is
+installed, and its exact bytes are inside `permissions_hash`, which three
+implementations compute and the registry countersigns. A key resolved after
+install is resolved out of the plugin's own install directory — which the plugin
+process can write, because plugins are not sandboxed. That is text nobody
+countersigned, shown as though they had.

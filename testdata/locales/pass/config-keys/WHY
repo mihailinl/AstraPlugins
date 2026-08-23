@@ -1,0 +1,5 @@
+The shape the daemon has resolved since before any of this existed: `$key` in a
+config schema's `title` and `description`, defined in every locale the plugin
+ships. The lock is present and empty, which is what `sync` writes when every
+translation is still being worked on — an empty `locales` member is not a
+missing lock.

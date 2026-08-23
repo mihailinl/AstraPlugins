@@ -1,0 +1,4 @@
+`zh-CN` is the spelling this repository used in its own documentation tree for
+months. Astra's Chinese is `zh`; language matching is exact string equality and
+no region tags exist anywhere in this system. The file is packed, digested,
+signed, installed, and read by nothing.

@@ -1,0 +1,14 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "A fixture for the shared locale rule corpus"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true
+
+[permissions]
+fire_trigger = { reason = "$permission.fire_trigger.reason" }
