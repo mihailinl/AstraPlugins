@@ -102,6 +102,18 @@ const NO_FIXTURE: &[(&str, &str)] = &[
          5,001-key file committed here and sparse-checked-out by the ingest job on every run. \
          Witnessed by `an_oversized_locale_file_is_refused_before_it_is_parsed` below.",
     ),
+    (
+        "E21",
+        "same shape as E18, and for now the same reason: `CORPUS_RULE_IDS` in \
+         astra-registry/bot/lib/locales.mjs maps no id to it and `CORPUS_NOT_IMPLEMENTED` does \
+         not exempt it, so a fixture expecting `E21` makes that repository's corpus reader raise \
+         `expects E21, which this repository neither implements nor exempts` — a red catalogue \
+         build for a fixture added here. The exemption it wants is already written, in E7's: an \
+         empty English LABEL is a run-time defect on the user's machine and not a listing \
+         defect, because the card reads `listing.name`/`listing.description` and never a config \
+         schema. This becomes a fixture the day that line lands there. Witnessed by \
+         `an_empty_english_label_is_refused_rather_than_shipped_blank` below.",
+    ),
 ];
 
 fn manifest_at(dir: &Path) -> PluginManifest {
@@ -1171,6 +1183,98 @@ fn an_oversized_locale_file_is_refused_before_it_is_parsed() {
     fs::write(dir.join("locales/ru.json"), r#"{"listing.name":"Фикстура"}"#).unwrap();
     let f = findings(&dir, &m, Gate::Check);
     assert!(!f.errors.iter().any(|e| e.starts_with("[E18]")), "{:?}", f.errors);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// E21 — the paste block `locale extract` prints, pasted.
+///
+/// **The loop this closes, because it is the whole reason for the rule.**
+/// `astra-plugin locale extract` ends with
+///
+/// ```text
+/// Add them to locales/en.json:
+///   "config.max_text_length.title": "",
+/// ```
+///
+/// and before this rule, pasting exactly that gave `locale check` exit 0 with
+/// one N11 note, `check --strict` exit 0, and a bundle `astra-plugin build`
+/// packed without a word — whose settings form has a label with no text on it,
+/// in all ten languages, because the other nine fall back to the English blank.
+/// The CLI printed the snippet and then agreed with the result.
+///
+/// It is `en.json` alone. `""` in `ru.json` is a deliberate blank in one
+/// language, which is the case `spec/i18n.yaml`'s `empty_value` rule exists to
+/// protect and which N11 keeps visible.
+#[test]
+fn an_empty_english_label_is_refused_rather_than_shipped_blank() {
+    let dir = scratch("e21");
+    let manifest = format!(
+        "{FIXTURE_MANIFEST}\n[config]\nschema = \"\"\"\n{}\n\"\"\"\n",
+        r#"{"type":"object","properties":{"token":{"type":"string",
+           "title":"$config.token.title","default":"$$literal"}}}"#
+    );
+    fs::write(dir.join("plugin.toml"), &manifest).unwrap();
+    let m: PluginManifest = toml::from_str(&manifest).unwrap();
+    fs::create_dir_all(dir.join("locales")).unwrap();
+
+    // Exactly what `locale extract`'s paste block produces.
+    fs::write(
+        dir.join("locales/en.json"),
+        r#"{"listing.name":"Fixture","listing.description":"A fixture","config.token.title":""}"#,
+    )
+    .unwrap();
+    let f = findings(&dir, &m, Gate::Check);
+    let e21: Vec<&String> = f.errors.iter().filter(|e| e.starts_with("[E21]")).collect();
+    assert_eq!(e21.len(), 1, "{:?}", f.errors);
+    assert!(e21[0].contains("config.token.title"), "{}", e21[0]);
+    assert!(e21[0].contains("[E7]"), "the message must name what the wrong fix costs: {}", e21[0]);
+    // The note stays too — the blank is still a blank, and N11 is what says so
+    // for every other file. What changed is that it is no longer the ONLY thing
+    // said about the English one.
+    assert!(f.notes.iter().any(|n| n.starts_with("[N11]")), "{:?}", f.notes);
+
+    // The fix.
+    fs::write(
+        dir.join("locales/en.json"),
+        r#"{"listing.name":"Fixture","listing.description":"A fixture","config.token.title":"Token"}"#,
+    )
+    .unwrap();
+    let f = findings(&dir, &m, Gate::Check);
+    assert!(f.errors.is_empty(), "{:?}", f.errors);
+
+    // The WRONG fix — delete the key — is not the fastest green. It is E7, and
+    // E7's message names the same repair.
+    fs::write(
+        dir.join("locales/en.json"),
+        r#"{"listing.name":"Fixture","listing.description":"A fixture"}"#,
+    )
+    .unwrap();
+    let f = findings(&dir, &m, Gate::Check);
+    assert!(
+        f.errors.iter().any(|e| e.starts_with("[E7]")),
+        "deleting the key must not be a way out: {:?}",
+        f.errors
+    );
+
+    // `""` in another language is a deliberate blank and stays a note. Its
+    // English is present and non-empty, which is what E21 measures.
+    fs::write(
+        dir.join("locales/en.json"),
+        r#"{"listing.name":"Fixture","listing.description":"A fixture","config.token.title":"Token"}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.join("locales/ru.json"),
+        r#"{"listing.name":"Фикстура","listing.description":"Фикстура","config.token.title":""}"#,
+    )
+    .unwrap();
+    let f = findings(&dir, &m, Gate::Check);
+    assert!(
+        !f.errors.iter().any(|e| e.starts_with("[E21]")),
+        "an empty value in ru.json is a translation, not this rule's business: {:?}",
+        f.errors
+    );
+    assert!(f.notes.iter().any(|n| n.starts_with("[N11]")), "{:?}", f.notes);
     let _ = fs::remove_dir_all(&dir);
 }
 

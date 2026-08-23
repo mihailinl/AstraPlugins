@@ -1,0 +1,26 @@
+{
+  "locales": {
+    "ru": {
+      "config.max_text_length.description": "86efe793ca68",
+      "config.max_text_length.title": "b73e0e5cf041",
+      "health.ok.few": "2359cb83983a",
+      "health.ok.many": "2359cb83983a",
+      "health.ok.one": "13fc75c5c68e",
+      "health.ok.other": "2359cb83983a",
+      "listing.description": "f45ca673f21d",
+      "listing.name": "4639c631d425"
+    },
+    "uk": {
+      "config.max_text_length.description": "86efe793ca68",
+      "config.max_text_length.title": "b73e0e5cf041",
+      "health.ok.few": "2359cb83983a",
+      "health.ok.many": "2359cb83983a",
+      "health.ok.one": "13fc75c5c68e",
+      "health.ok.other": "2359cb83983a",
+      "listing.description": "f45ca673f21d",
+      "listing.name": "4639c631d425"
+    }
+  },
+  "schema": "astra.plugin.locales/1",
+  "source": "en"
+}
