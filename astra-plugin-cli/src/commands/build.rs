@@ -292,11 +292,14 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         }
     }
 
-    match language.as_str() {
-        "rust" => {} // binary already handled above
-        "typescript" | "ts" => add_typescript_artifacts(&dir, &mut builder)?,
-        "python" | "py" => add_python_artifacts(&dir, &mut builder)?,
-        _ => add_directory_recursive(&dir, &mut builder, &dir)?,
+    for root in packed_source_roots(&language) {
+        let path = if *root == "." { dir.clone() } else { dir.join(root) };
+        if path.exists() {
+            add_directory_recursive(&path, &mut builder, &dir)?;
+        }
+    }
+    if matches!(language.as_str(), "python" | "py") {
+        add_python_lockfiles(&dir, &mut builder)?;
     }
 
     // The plugin's face: whatever picture the author put next to plugin.toml,
@@ -906,23 +909,33 @@ fn cargo_release_binary(dir: &Path) -> Result<PathBuf> {
         .join(format!("{name}{}", std::env::consts::EXE_SUFFIX)))
 }
 
-fn add_typescript_artifacts(dir: &Path, builder: &mut BundleBuilder) -> Result<()> {
-    let dist_dir = dir.join("dist");
-    if dist_dir.exists() {
-        add_directory_recursive(&dist_dir, builder, dir)?;
+/// Which directory roots `build` walks for this language, beside `ui/` and
+/// `locales/` and the root allowlist.
+///
+/// `"."` is the whole project directory. `rust` is EMPTY on purpose: what ships
+/// is the compiled binary added above, and nothing under `src/` or `tests/`
+/// reaches the bundle at all.
+///
+/// It is a list rather than four arms of a `match` because a second reader
+/// needs it. `commands::locale`'s N1 tells an author whether a locale-shaped
+/// file outside `locales/` ships — the answer is "yes" for Python's `src/` and
+/// "no" for the same path in a Rust project — and a message that restates the
+/// packer's rules is a message that goes wrong the first time they change.
+pub fn packed_source_roots(language: &str) -> &'static [&'static str] {
+    match language {
+        "rust" => &[],
+        // `package.json` is deliberately not packed. `dist/index.js` is CJS, and
+        // Node decides a `.js` file's module type from the nearest package.json —
+        // shipping one that says `"type": "module"` would break the very bundle it
+        // came with. Its dependencies are already inlined by the bundler.
+        "typescript" | "ts" => &["dist"],
+        "python" | "py" => &["src"],
+        // No build convention to read: pack the directory as it stands.
+        _ => &["."],
     }
-    // `package.json` is deliberately not packed. `dist/index.js` is CJS, and
-    // Node decides a `.js` file's module type from the nearest package.json —
-    // shipping one that says `"type": "module"` would break the very bundle it
-    // came with. Its dependencies are already inlined by the bundler.
-    Ok(())
 }
 
-fn add_python_artifacts(dir: &Path, builder: &mut BundleBuilder) -> Result<()> {
-    let src_dir = dir.join("src");
-    if src_dir.exists() {
-        add_directory_recursive(&src_dir, builder, dir)?;
-    }
+fn add_python_lockfiles(dir: &Path, builder: &mut BundleBuilder) -> Result<()> {
     for name in &["requirements.lock", "requirements.txt"] {
         let p = dir.join(name);
         if p.exists() && !builder.contains(name) {

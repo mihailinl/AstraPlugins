@@ -376,11 +376,22 @@ enum LocaleCommands {
 
     /// Seed a locale from `en.json`, with the plural rows that code needs.
     ///
-    /// Keeps every value already translated. Refuses a code Astra cannot be
+    /// Keeps every value already translated, and NAMES every key it removes
+    /// because `en.json` no longer declares it. Refuses a code Astra cannot be
     /// set to — `zh-CN` is packed, digested, signed and read by nothing.
     Add {
         /// A language code from `spec/locales.yaml`, e.g. `ru`.
         code: String,
+
+        /// Delete translated values `en.json` cannot seed, instead of refusing.
+        ///
+        /// Needed only when a key was renamed or dropped out of `en.json` and
+        /// the translation of the old one is still here. Without it those
+        /// values are a refusal, because this command cannot tell a rename
+        /// from a deletion and a translation is the one thing in `locales/`
+        /// that cannot be regenerated.
+        #[arg(long)]
+        prune: bool,
     },
 
     /// Rewrite `locales.lock.json`, and `en.json`'s two `listing.*` keys.
@@ -663,7 +674,7 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             use commands::locale::Sub;
             let sub = match command {
                 LocaleCommands::Ls => Sub::Ls,
-                LocaleCommands::Add { code } => Sub::Add { code },
+                LocaleCommands::Add { code, prune } => Sub::Add { code, prune },
                 LocaleCommands::Sync { accept } => Sub::Sync { accept },
                 LocaleCommands::Check => Sub::Check,
                 LocaleCommands::Extract => Sub::Extract,

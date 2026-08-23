@@ -134,10 +134,12 @@ max_permission_reason_chars: 140
 # (500 MB); a flat-but-valid 200 MB `en.json` compresses to nothing and would
 # take the ingest runner out mid-derivation, leaving the submitter's issue with
 # no verdict at all.
-# NOT ENFORCED HERE YET — E18 is the rule that would, and it is not written.
-# Until it is, an `en.json` of any size passes `astra-plugin check` with `OK`
-# and is refused at ingest as `E_LOCALE_TOO_LARGE`. Reproduced 2026-08-23 at
-# 521,032 bytes: exit 0 here, blocking error there.
+# ENFORCED HERE: E18 in `astra-plugin check`, on the file's size on disk and
+# BEFORE the parse — an oversized file that is also malformed is E18 as well as
+# E6, because the size is the finding that survives the file being unreadable.
+# Until 2026-08-23 an `en.json` of any size passed `check` with `OK` and was
+# refused at ingest as `E_LOCALE_TOO_LARGE`; reproduced then at 521,032 bytes,
+# and again at 462,225 when the rule went in.
 max_locale_bytes: 262144
 
 # mirrors: astra-registry/policy/limits.json max_locale_keys
@@ -146,8 +148,9 @@ max_locale_bytes: 262144
 # ships, so the bot's work is quadratic in this number and the findings it can
 # produce are linear in it. Both are bounded here rather than discovered on a
 # runner.
-# NOT ENFORCED HERE YET — the other half of E18. Reproduced 2026-08-23 at 6,004
-# keys in 107,032 bytes: `OK` here, `E_LOCALE_TOO_LARGE` there.
+# ENFORCED HERE: the other half of E18, counted after the parse. Reproduced
+# 2026-08-23 at 6,004 keys in 107,032 bytes: `OK` here and
+# `E_LOCALE_TOO_LARGE` there, until the rule went in the same day.
 max_locale_keys: 5000
 
 # mirrors: astra-registry/policy/limits.json max_listing_i18n_bytes
@@ -156,7 +159,13 @@ max_locale_keys: 5000
 # `{name, summary}` per code, name from `listing.name` and summary from
 # `summarise(listing.description, max_summary_length)`, with stale blocks
 # demoted to English and blocks identical to the English card dropped.
-# NOT ENFORCED HERE YET — E19 is the rule that would.
+# ENFORCED HERE: E19 in `astra-plugin check`, which derives the blocks the way
+# the bot does — stale demoted to English, a block identical to the English card
+# dropped — and computes the same byte count. It does that ONLY in the window
+# where `summarise()` is provably the identity (no whitespace to flatten, inside
+# max_summary_length, no formatting control the bot may replace); outside it the
+# rule computes nothing and says so as N16, because a budget that guesses at
+# another repository's derivation refuses listings the registry accepts.
 #
 # It is NOT unreachable from a tree this repository passes, which is the thing
 # to know before writing E19 and the thing that made it look un-actionable.

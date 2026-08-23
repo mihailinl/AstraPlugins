@@ -31,13 +31,13 @@
 /// Every language Astra can be set to, in `spec/locales.yaml`'s order.
 ///
 /// `en` is first because it is the base every other locale falls back to.
-// Nothing consumes this yet — `astra-plugin locale` and the `locales/` rules in
-// `check` are the next commit, and this list is what both will refuse an
-// unknown code against. The declaration lands first, with its test, because a
-// vocabulary that arrives with its consumer arrives unchecked: this is the file
-// the rest of the feature is measured against, and it is worth exactly as much
-// as the test below.
-#[allow(dead_code)]
+// This list is what every rule that refuses an unknown code refuses it
+// against; `grep -rn LOCALE_CODES src/` is the current set of readers, and it
+// has never been the number written here. The sentence this replaces said
+// "nothing consumes this yet — the consumers are the next commit", which was
+// true for one commit and then sent every later reader looking for work that
+// was already done. What the list is WORTH is a separate question from who
+// reads it, and the answer to that is the test below.
 pub const LOCALE_CODES: &[&str] = &[
     "en", "ru", "uk", "de", "fr", "es", "pt", "ja", "zh", "ko",
 ];

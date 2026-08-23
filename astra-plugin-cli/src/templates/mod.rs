@@ -178,10 +178,19 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 /// world, with nothing the author can do about it and no error anywhere to
 /// explain it.
 ///
-/// The two keys below are the ones that work TODAY on every daemon:
+/// The keys below are the ones that work TODAY on every daemon:
 /// `listing.*` is read by the registry's ingest bot straight out of the bundle
 /// (no daemon involved at all), and `msg.done.*` is the runtime plane, which is
 /// the plugin's own `I18n` and has never needed anything from the host.
+///
+/// # Why `msg.done.*` is conditional
+///
+/// It used to be unconditional, and no generated source referenced it in any
+/// language — two keys an author finds in a file, cannot trace to anything, and
+/// reasonably deletes. The generated source now resolves them where the
+/// scaffold has somewhere to resolve them, [`uses_runtime_plane`] is the
+/// predicate that says where, and a scaffold outside it gets the two
+/// `listing.*` keys and no invented ones.
 ///
 /// **What would change this**, precisely: an Astra RELEASE whose tag contains
 /// the label resolver. At that point this function emits `key(...)` in the
@@ -190,14 +199,17 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 /// because there is no number to write. `tools/check-locales.py --rules C22`
 /// watches for exactly that and fails when it happens, so the flip is a red
 /// build rather than a paragraph somebody has to remember.
-pub fn generate_locales(name: &str) -> (String, String) {
+pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
     let title = title_case(name);
+    let runtime = if uses_runtime_plane(capabilities) {
+        ",\n  \"msg.done.one\": \"Handled {n} item\",\n  \"msg.done.other\": \"Handled {n} items\""
+    } else {
+        ""
+    };
     let en = format!(
         r#"{{
   "listing.name": "{title}",
-  "listing.description": "An Astra plugin",
-  "msg.done.one": "Handled {{n}} item",
-  "msg.done.other": "Handled {{n}} items"
+  "listing.description": "An Astra plugin"{runtime}
 }}
 "#
     );
@@ -217,6 +229,19 @@ pub fn generate_locales(name: &str) -> (String, String) {
         crate::commands::locale::LOCK_SCHEMA
     );
     (en, lock)
+}
+
+/// Does the generated source for these capabilities resolve `msg.done.*`?
+///
+/// One predicate, read by the seed above and by the three code generators, so
+/// a key in `en.json` and a `tn(…)` in the source cannot arrive separately —
+/// which is exactly how the two used to disagree.
+///
+/// `actions` and not `tools`: every language's scaffolded tool returns a string
+/// its own generated test asserts byte-for-byte, and a scaffold whose first
+/// `cargo test` fails would be a worse trade than two unused keys ever were.
+pub fn uses_runtime_plane(capabilities: &[&str]) -> bool {
+    capabilities.contains(&"actions")
 }
 
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {

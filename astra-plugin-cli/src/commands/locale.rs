@@ -43,17 +43,20 @@
 //! screen. `$$` is the daemon's escape for a literal leading dollar and is
 //! treated as a literal everywhere below.
 //!
-//! # What is deliberately not implemented
+//! # The registry's caps, and which of them refuse here
 //!
-//! The plan this batch came from numbers rules E1–E19. `E18` (a locale file
-//! over `max_locale_bytes` / `max_locale_keys`) and `E19` (a per-listing
-//! `max_listing_i18n_bytes` budget) are **not here**, and that is a decision
-//! rather than an omission: those three numbers exist in no repository yet.
-//! They are proposals for `astra-registry/policy/limits.json`. Mirroring a
-//! number the registry has never agreed to would make this CLI the *origin* of
-//! a limit it does not own, which is the one thing `spec/listing-limits.yaml`
-//! and its `mirrors:` lines are arranged to prevent. `E13` and `E14` are here
-//! because their numbers *do* exist upstream and are mirrored with a check.
+//! Every cap this module enforces is read at run time from the vendored
+//! `listing-limits.yaml`, and **that file's rows are the answer** to which of
+//! them `astra-plugin check` refuses over: each row names the registry constant
+//! it mirrors, its unit, and whether anything local executes on it. Read the
+//! rows.
+//!
+//! Not a paragraph, because the paragraph this replaces was one. It said the
+//! three locale caps "exist in no repository yet" and called their absence a
+//! decision; they landed upstream two and a half hours later, and the sentence
+//! went on explaining why the rules could not be written for a day after they
+//! could. A restatement of another file's state is a hostage — the rows and the
+//! `cap()` accessor are the thing itself.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -175,6 +178,14 @@ pub struct LocaleFile {
     /// The filename stem, which is the language code the daemon will key on.
     pub code: String,
     pub path: PathBuf,
+    /// The file's size in bytes, read from the filesystem and NOT derived from
+    /// the parse.
+    ///
+    /// E18's byte half has to fire on a file that does not parse, because the
+    /// registry's cap runs *before* `JSON.parse` — it is the one refusal that
+    /// exists to avoid reading the file at all. A size taken from `keys` would
+    /// be 0 for exactly the files that matter.
+    pub bytes: u64,
     /// Empty when [`error`](Self::error) is set — the daemon drops the whole
     /// file on any problem, and so does this.
     pub keys: BTreeMap<String, String>,
@@ -289,6 +300,7 @@ impl LocaleSet {
                     .file_stem()
                     .map(|s| s.to_string_lossy().into_owned())
                     .unwrap_or_default();
+                let bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
                 let (keys, error) = match fs::read_to_string(&path) {
                     Err(e) => (BTreeMap::new(), Some(format!("not readable ({e})"))),
                     Ok(text) => match parse_flat(&text) {
@@ -296,7 +308,7 @@ impl LocaleSet {
                         Err(why) => (BTreeMap::new(), Some(why)),
                     },
                 };
-                set.files.push(LocaleFile { code, path, keys, error });
+                set.files.push(LocaleFile { code, path, bytes, keys, error });
             }
         }
 
@@ -398,11 +410,16 @@ fn parse_flat(text: &str) -> std::result::Result<BTreeMap<String, String>, Strin
                 out.insert(k.clone(), s.to_string());
             }
             None => {
+                // The hint is built on the FAMILY base, not on the key as
+                // written: `{"msg.done.one": {...}}` used to be answered with
+                // `("msg.done.one.one", "msg.done.one.other")`, which is a
+                // suggestion no reader of this file would ever have wanted.
+                let (base, _) = split_category(k);
                 return Err(format!(
                     "\"{k}\" is {}, not a string. The daemon drops the WHOLE file on one \
                      non-string value — not just that key — so every other translation in \
                      this file is lost too. Plurals are key suffixes \
-                     (\"{k}.one\", \"{k}.other\"), never nested objects",
+                     (\"{base}.one\", \"{base}.other\"), never nested objects",
                     kind_of(v)
                 ));
             }
@@ -766,6 +783,7 @@ pub fn findings(dir: &Path, manifest: &PluginManifest, gate: Gate) -> Findings {
     check_parity(&set, &mut f);
     check_listing_keys(manifest, &set, &mut f);
     check_lock(&set, gate, &mut f);
+    check_listing_i18n_budget(manifest, &set, &mut f);
     check_strays(dir, &set, &mut f);
     f
 }
@@ -1102,6 +1120,15 @@ fn check_typescript_locale_import(dir: &Path, f: &mut Findings) {
 /// a locale-shaped file is sitting somewhere else in the packed tree, which is
 /// the Python author who wrote `src/locales/en.json`, got working runtime
 /// strings, shipped both files, and got nothing from the daemon.
+///
+/// # Both halves of the escalation, because dropping them cost a Rust author
+///
+/// The plan's rule was an ERROR for a locale-shaped file **in the packed tree**
+/// and **with no top-level `locales/`**. Both conditions were dropped, so any
+/// `<anything>/locales/<code>.json` was fatal — and a Rust plugin with a
+/// `tests/locales/ru.json` fixture could not be checked, built or dev-run,
+/// over a file its bundle does not contain. `commands::build` is asked what
+/// ships rather than told.
 fn check_absent_locales(dir: &Path, set: &LocaleSet, f: &mut Findings) {
     let strays = stray_locale_files(dir, set);
     if strays.is_empty() {
@@ -1114,18 +1141,54 @@ fn check_absent_locales(dir: &Path, set: &LocaleSet, f: &mut Findings) {
         return;
     }
     for (rel, in_locales_dir) in strays {
-        let msg = format!(
-            "{rel} is named for a language Astra can be set to, and there is no locales/ \
-             directory beside plugin.toml. The daemon reads ONLY <plugin>/locales/*.json, so \
-             this file is packed, digested, signed, installed — and read by nothing. Move it to \
-             locales/."
-        );
-        if in_locales_dir {
-            f.err("N1", msg);
+        let packed = is_packed(dir, &rel);
+        if in_locales_dir && packed {
+            f.err(
+                "N1",
+                format!(
+                    "{rel} is named for a language Astra can be set to, and there is no locales/ \
+                     directory beside plugin.toml. The daemon reads ONLY \
+                     <plugin>/locales/*.json, so this file ships in your bundle and is read by \
+                     nothing. Move it to locales/."
+                ),
+            );
         } else {
-            f.note("N1", msg);
+            f.note("N1", stray_note(dir, &rel, packed));
         }
     }
+}
+
+/// The note for a locale-shaped file the daemon will not read.
+///
+/// Whether it ships is asked of the packer, never asserted here: the same path
+/// under `src/` is packed in a Python project and absent from a Rust one, and
+/// the sentence that gets that wrong is the one an author acts on.
+fn stray_note(dir: &Path, rel: &str, packed: bool) -> String {
+    let language = crate::commands::build::detect_language(dir);
+    format!(
+        "{rel} is named for a language, and is not the locales/ directory the daemon reads — \
+         which is only <plugin>/locales/*.json, beside plugin.toml. {} If it is a test fixture \
+         or your own data file, this note is all it needs to be.",
+        if packed {
+            format!("`astra-plugin build` packs it into a {language} bundle, where nothing opens it.")
+        } else {
+            format!("A {language} bundle does not contain it, so it is a file only your own code can read.")
+        }
+    )
+}
+
+/// Does `astra-plugin build` put this path in the bundle?
+///
+/// Delegated to `commands::build`, which owns the answer. `ui/` and `locales/`
+/// ship for every language; everything else depends on the language's roots.
+fn is_packed(dir: &Path, rel: &str) -> bool {
+    if rel.starts_with("ui/") || rel.starts_with("locales/") {
+        return true;
+    }
+    let language = crate::commands::build::detect_language(dir);
+    crate::commands::build::packed_source_roots(&language)
+        .iter()
+        .any(|root| *root == "." || rel.starts_with(&format!("{root}/")))
 }
 
 /// `*.json` elsewhere in the tree whose stem is a language code.
@@ -1181,20 +1244,241 @@ fn stray_locale_files(dir: &Path, set: &LocaleSet) -> Vec<(String, bool)> {
     out
 }
 
-/// The same scan, run when `locales/` DOES exist — a second copy of a locale
-/// tree is packed and unread exactly as the first case is.
+/// The same scan, run when `locales/` DOES exist.
+///
+/// A NOTE in every case, and that is the second half of the plan's rule: the
+/// plugin's translations are already where the daemon reads them, so a second
+/// locale-shaped tree is a duplicate or a fixture rather than the mistake N1
+/// exists to catch. Escalating it refused a legitimate layout.
 fn check_strays(dir: &Path, set: &LocaleSet, f: &mut Findings) {
-    for (rel, in_locales_dir) in stray_locale_files(dir, set) {
-        let msg = format!(
-            "{rel} is named for a language, and is not in the locales/ directory the daemon \
-             reads. It is packed, digested and signed, and selected by nothing."
-        );
-        if in_locales_dir {
-            f.err("N1", msg);
-        } else {
-            f.note("N1", msg);
-        }
+    for (rel, _) in stray_locale_files(dir, set) {
+        let packed = is_packed(dir, &rel);
+        f.note("N1", stray_note(dir, &rel, packed));
     }
+}
+
+/// **E18 — one locale file over the registry's size caps.**
+///
+/// Both halves are the registry's numbers (`spec/listing-limits.yaml`), and
+/// both are refused at ingest, in another repository, after a tag the author
+/// cannot move: a 431 KB `en.json` passed `astra-plugin check` with `OK` and
+/// came back `E_LOCALE_TOO_LARGE`.
+///
+/// **The byte half runs before the parse half and does not depend on it.** The
+/// registry checks `entry.bytes.length` before `JSON.parse` precisely so a
+/// runaway file is refused without being read, so an oversized file that also
+/// fails to parse is E18 *and* E6 here rather than E6 alone — the size is the
+/// finding the author has to act on, and it is the one that survives the file
+/// being unreadable.
+fn check_locale_size(file: &LocaleFile, f: &mut Findings) {
+    let max_bytes = cap("max_locale_bytes") as u64;
+    if file.bytes > max_bytes {
+        f.err(
+            "E18",
+            format!(
+                "locales/{}.json is {} bytes; the registry refuses a locale file over {} \
+                 (spec/listing-limits.yaml max_locale_bytes).\n\
+                 \x20       That cap is checked BEFORE the file is parsed — the bot must be able \
+                 to refuse a\n\
+                 \x20       runaway file without reading it — so no amount of valid JSON gets \
+                 past it, and\n\
+                 \x20       the refusal happens at ingest, after your tag.",
+                file.code, file.bytes, max_bytes
+            ),
+        );
+    }
+    let max_keys = cap("max_locale_keys");
+    if file.keys.len() > max_keys {
+        f.err(
+            "E18",
+            format!(
+                "locales/{}.json declares {} keys; the registry refuses a locale file over {} \
+                 (spec/listing-limits.yaml max_locale_keys).\n\
+                 \x20       The parity rules compare key sets pairwise across every locale a \
+                 bundle ships, so\n\
+                 \x20       this number bounds work the ingest runner has to do rather than \
+                 anything a user sees.",
+                file.code,
+                file.keys.len(),
+                max_keys
+            ),
+        );
+    }
+}
+
+/// **E19 — every locale block together, against the listing's byte budget.**
+///
+/// The `i18n` member of ONE listing record, as the registry DERIVES it: one
+/// `{name, summary}` per code, a stale block demoted to English, a block that
+/// comes out identical to the English card dropped. `max_listing_i18n_bytes`
+/// bounds the lot, in BYTES.
+///
+/// # Why this is reachable from a tree that passes every other rule here
+///
+/// E14 bounds `listing.name` and `listing.description` per locale in
+/// CHARACTERS, because that is what the registry's own `checkMetadata` counts.
+/// This budget is in BYTES. Nine locales of astral-plane text sitting exactly
+/// at the character caps come to 9,775 bytes against a budget of 8,192 — so
+/// "every rule green" and "refused at ingest" are the same tree.
+///
+/// # The window, and why the skip is loud
+///
+/// The registry derives `summary` with `summarise(description,
+/// max_summary_length)`, which flattens whitespace and may cut. Re-implementing
+/// that cut here would be a second implementation of the one predicate that
+/// already caused a catalogue-wide refusal when it existed twice. So this rule
+/// computes the budget only in the window where `summarise` is provably the
+/// identity — no run of whitespace, and inside the summary cap — and where no
+/// value carries a formatting control the registry may replace. Outside that
+/// window it says so, by name, and computes nothing: a budget check that
+/// quietly guesses is worse than one that admits it cannot look.
+fn check_listing_i18n_budget(m: &PluginManifest, set: &LocaleSet, f: &mut Findings) {
+    let Some(en) = set.get("en").filter(|x| x.error.is_none()) else {
+        return;
+    };
+    let summary_cap = cap("max_summary_length");
+    let mut blocked: Vec<String> = Vec::new();
+    // `summarise` is the identity exactly when it neither flattens nor cuts.
+    // Returning WHY rather than a bool is what lets the skip name itself.
+    let unstable = |text: &str| -> Option<&'static str> {
+        if text.chars().count() > summary_cap {
+            Some("is over max_summary_length, so the bot re-cuts it")
+        } else if text.split_whitespace().collect::<Vec<_>>().join(" ") != text.trim() {
+            Some("carries whitespace the bot flattens")
+        } else {
+            None
+        }
+    };
+
+    // The English card, which every block is compared against and which fills a
+    // missing half. `plugin.toml` and not `en.json`: the registry derives the
+    // card's English from the manifest, and C18/E8 are what hold the two equal.
+    let english_name = m.plugin.name.clone();
+    let english_summary = m.plugin.description.clone();
+    if let Some(why) = unstable(&english_summary) {
+        note_unbudgeted(&[format!("plugin.toml's description {why}")], f);
+        return;
+    }
+
+    let mut blocks: BTreeMap<String, (String, String)> = BTreeMap::new();
+    for file in set.real() {
+        if file.code == "en" || !LOCALE_CODES.contains(&file.code.as_str()) {
+            continue;
+        }
+        let mut name: Option<String> = None;
+        let mut summary: Option<String> = None;
+        for (key, is_summary) in [("listing.name", false), ("listing.description", true)] {
+            let (Some(english), Some(theirs)) = (en.keys.get(key), file.keys.get(key)) else {
+                continue;
+            };
+            // Staleness DEMOTES rather than refusing, on both sides, so the
+            // bytes budgeted are the bytes that ship.
+            let value = match freshness(set.lock.as_ref(), &file.code, key, english, theirs) {
+                Freshness::Stale | Freshness::SeededStale => english,
+                _ => theirs,
+            };
+            if has_format_control(value) {
+                blocked.push(format!(
+                    "locales/{}.json's \"{key}\" carries a formatting control the registry \
+                     replaces",
+                    file.code
+                ));
+                continue;
+            }
+            if is_summary {
+                if let Some(why) = unstable(value) {
+                    blocked.push(format!("locales/{}.json's \"{key}\" {why}", file.code));
+                    continue;
+                }
+                summary = Some(value.clone());
+            } else {
+                name = Some(value.clone());
+            }
+        }
+        if name.is_none() && summary.is_none() {
+            continue;
+        }
+        let name = name.unwrap_or_else(|| english_name.clone());
+        let summary = summary.unwrap_or_else(|| english_summary.clone());
+        // A block identical to the English card renders identically to no block
+        // at all, and the registry drops it rather than paying for it in a
+        // document every install downloads whole.
+        if name == english_name && summary == english_summary {
+            continue;
+        }
+        blocks.insert(file.code.clone(), (name, summary));
+    }
+
+    if !blocked.is_empty() {
+        note_unbudgeted(&blocked, f);
+        return;
+    }
+    if blocks.is_empty() {
+        return;
+    }
+
+    let rendered = Value::Object(
+        blocks
+            .iter()
+            .map(|(code, (name, summary))| {
+                (code.clone(), json!({ "name": name, "summary": summary }))
+            })
+            .collect::<Map<String, Value>>(),
+    );
+    let size = serde_json::to_string(&rendered).map(|s| s.len()).unwrap_or(0);
+    let budget = cap("max_listing_i18n_bytes");
+    if size > budget {
+        f.err(
+            "E19",
+            format!(
+                "{} locale block(s) come to {size} bytes; the registry's budget for one \
+                 listing's translations is {budget}\n\
+                 \x20       (spec/listing-limits.yaml max_listing_i18n_bytes). Over it the \
+                 whole `i18n` member is\n\
+                 \x20       refused and every language falls back to the English card.\n\
+                 \x20       This is a BYTE budget and E14's per-locale caps are in CHARACTERS, \
+                 so a listing\n\
+                 \x20       can satisfy every other rule here and still be over it — shorten \
+                 the names and\n\
+                 \x20       descriptions in locales/<code>.json, or ship fewer languages on the \
+                 card.",
+                blocks.len()
+            ),
+        );
+    }
+}
+
+/// The loud half of E19's skip: what stopped it computing, by name.
+fn note_unbudgeted(blocked: &[String], f: &mut Findings) {
+    f.note(
+        "N16",
+        format!(
+            "the registry's max_listing_i18n_bytes budget was NOT checked here: {}. That \
+             derivation is the bot's (`summarise`, and the unsafe-text rule), and guessing at it \
+             would refuse a listing the registry accepts. The budget is still enforced at \
+             ingest.",
+            preview(blocked)
+        ),
+    );
+}
+
+/// A formatting or control character the registry may refuse or replace.
+///
+/// **A conservativeness guard, not a copy of a rule.** `unsafeDisplayText` in
+/// the bot decides what is refused; this only decides whether E19 can claim to
+/// know what the derived block will contain. Anything on this list makes it say
+/// it cannot, which is why a superset is the right shape and why nothing here
+/// is a finding on its own.
+fn has_format_control(s: &str) -> bool {
+    s.chars().any(|c| {
+        c.is_control()
+            || matches!(c,
+                '\u{200B}'..='\u{200F}'
+                | '\u{202A}'..='\u{202E}'
+                | '\u{2060}'..='\u{2064}'
+                | '\u{2066}'..='\u{2069}'
+                | '\u{FEFF}')
+    })
 }
 
 /// **E1 / E4 / E5 / E6 / N8 / N10 / N11 — the files themselves.**
@@ -1230,6 +1514,7 @@ fn check_files(set: &LocaleSet, gate: Gate, f: &mut Findings) {
     }
 
     for file in &set.files {
+        check_locale_size(file, f);
         if let Some(why) = &file.error {
             f.err("E6", format!("locales/{}.json: {why}", file.code));
             continue;
@@ -1349,9 +1634,14 @@ fn check_parity(set: &LocaleSet, f: &mut Findings) {
                      resolves — so a\n\
                      \x20       key missing here is not filled in from English; the user reads \
                      the key.\n\
-                     \x20       Fix: astra-plugin locale add {} (it seeds from en.json and \
-                     leaves what is\n\
-                     \x20            already translated alone)",
+                     \x20       Fix: astra-plugin locale add {} — it seeds the missing keys \
+                     from en.json and\n\
+                     \x20            keeps every value you have translated. It also rewrites \
+                     the file, so it\n\
+                     \x20            NAMES anything en.json can no longer seed; if you renamed \
+                     an English key,\n\
+                     \x20            move that translation onto the new name before you run \
+                     it.",
                     file.code,
                     missing.len(),
                     preview(&missing),
@@ -1432,7 +1722,12 @@ fn check_parity(set: &LocaleSet, f: &mut Findings) {
                          \x20       so the wrong noun form reaches a user in a language nobody \
                          here can\n\
                          \x20       proof-read.\n\
-                         \x20       Fix: astra-plugin locale add {} rewrites exactly these rows.",
+                         \x20       Fix: astra-plugin locale add {} rewrites exactly these \
+                         rows. A row it has to\n\
+                         \x20            DELETE is named, and one somebody translated needs \
+                         --prune — a category\n\
+                         \x20            this language never selects is text no user can ever \
+                         reach.",
                         file.code,
                         present.iter().copied().collect::<Vec<_>>(),
                         file.code,
@@ -1667,7 +1962,7 @@ fn preview<S: AsRef<str>>(items: &[S]) -> String {
 
 pub enum Sub {
     Ls,
-    Add { code: String },
+    Add { code: String, prune: bool },
     Sync { accept: Vec<String> },
     Check,
     Extract,
@@ -1687,7 +1982,7 @@ pub fn run(path: &str, sub: Sub) -> Result<Verdict> {
 
     match sub {
         Sub::Ls => ls(dir, &manifest),
-        Sub::Add { code } => add(dir, &manifest, &code),
+        Sub::Add { code, prune } => add(dir, &manifest, &code, prune),
         Sub::Sync { accept } => sync(dir, &manifest, &accept),
         Sub::Check => check(dir, &manifest),
         Sub::Extract => extract(dir, &manifest),
@@ -1778,8 +2073,129 @@ fn ls(dir: &Path, _m: &PluginManifest) -> Result<Verdict> {
     Ok(Verdict::Pass)
 }
 
+/// One key `locale add` is about to delete out of a locale file.
+struct Removal {
+    key: String,
+    /// The value is not one `en.json` could have seeded, so a person wrote it.
+    translated: bool,
+    why: RemovalReason,
+}
+
+enum RemovalReason {
+    /// `en.json` declares neither this key nor a plural family of that name.
+    NotDeclared,
+    /// The family survives; this CATEGORY is one `code` can never select.
+    WrongCategory(String),
+}
+
+/// What rewriting `<code>.json` from the base would delete.
+///
+/// The `translated` half is the load-bearing one, and it is deliberately
+/// conservative in the direction that keeps text: a seed is by construction a
+/// byte-for-byte copy of an English value, so a value that is still one of
+/// `en.json`'s values is one this command wrote and may rewrite. Anything else
+/// is treated as somebody's work — including the case where the English was
+/// renamed AND retyped, where nothing on disk can prove it either way.
+fn removals(
+    existing: Option<&BTreeMap<String, String>>,
+    out: &BTreeMap<String, String>,
+    base: &BTreeMap<String, String>,
+    families: &BTreeSet<String>,
+    _code: &str,
+) -> Vec<Removal> {
+    let english: BTreeSet<&str> = base.values().map(String::as_str).collect();
+    let surviving: BTreeSet<String> = out.keys().map(|k| family_id(k, families)).collect();
+    let mut removed = Vec::new();
+    for (key, value) in existing.into_iter().flatten() {
+        if out.contains_key(key) {
+            continue;
+        }
+        let why = match split_category(key) {
+            (fam, Some(cat)) if families.contains(fam) && surviving.contains(fam) => {
+                RemovalReason::WrongCategory(cat.to_string())
+            }
+            _ => RemovalReason::NotDeclared,
+        };
+        removed.push(Removal {
+            key: key.clone(),
+            translated: !english.contains(value.as_str()),
+            why,
+        });
+    }
+    removed
+}
+
+/// One line per removal, capped — `key — why`.
+///
+/// Capped at six because this is read by somebody deciding whether to type
+/// `--prune`, and a hundred lines is an enumeration wearing a report's clothes.
+/// The count is always exact even when the list is not.
+fn removal_lines(removed: &[&Removal], code: &str) -> Vec<String> {
+    const SHOWN: usize = 6;
+    let mut lines: Vec<String> = removed
+        .iter()
+        .take(SHOWN)
+        .map(|r| {
+            let why = match &r.why {
+                RemovalReason::NotDeclared => {
+                    "locales/en.json does not declare it".to_string()
+                }
+                RemovalReason::WrongCategory(cat) => format!(
+                    "`{code}` never selects the `{cat}` plural category (spec/i18n.yaml)"
+                ),
+            };
+            format!("{} — {why}", r.key)
+        })
+        .collect();
+    if removed.len() > SHOWN {
+        lines.push(format!("…and {} more", removed.len() - SHOWN));
+    }
+    lines
+}
+
+/// The English base for `locale add en` on a plugin that has no `en.json`.
+///
+/// Returns the seed map, and which file each borrowed value came from.
+///
+/// The values are **not English** and this cannot make them so — they are the
+/// only text that exists for those keys, and the alternative (an empty string,
+/// or the key itself) throws away the one thing the author needs in order to
+/// write the English. So they are copied, and `add` says per file that it did.
+fn english_base_from_union(
+    m: &PluginManifest,
+    set: &LocaleSet,
+) -> (BTreeMap<String, String>, Vec<(String, String)>) {
+    let mut base = BTreeMap::new();
+    base.insert("listing.name".to_string(), m.plugin.name.clone());
+    base.insert("listing.description".to_string(), m.plugin.description.clone());
+    let mut borrowed = Vec::new();
+    for file in set.real() {
+        for (key, value) in &file.keys {
+            if base.contains_key(key) {
+                continue;
+            }
+            base.insert(key.clone(), value.clone());
+            borrowed.push((key.clone(), file.code.clone()));
+        }
+    }
+    (base, borrowed)
+}
+
 /// Seed a locale from `en.json`, with the plural rows that code needs.
-fn add(dir: &Path, m: &PluginManifest, code: &str) -> Result<Verdict> {
+///
+/// # What it removes, and why that has to be said out loud
+///
+/// The output is built from the English base, so a key the target file holds
+/// and the base does not is **deleted** — `write_locale` overwrites. That
+/// pruning is wanted: `locale add ja` correctly strips a `few` row Japanese can
+/// never select, and E3 exists to refuse a key `en.json` does not declare.
+///
+/// It is also how an ordinary rename ate four Russian plurals in silence. This
+/// command cannot tell a correction from a destruction — the two are the same
+/// operation on the same bytes, and only the author knows which one they meant.
+/// So every removal is named, and one whose value is not still the English seed
+/// is refused until `--prune` says so.
+fn add(dir: &Path, m: &PluginManifest, code: &str, prune: bool) -> Result<Verdict> {
     if code != PSEUDO_CODE && !LOCALE_CODES.contains(&code) {
         let hint = did_you_mean(code)
             .map(|c| format!("\n       Did you mean `astra-plugin locale add {c}`?"))
@@ -1802,23 +2218,21 @@ fn add(dir: &Path, m: &PluginManifest, code: &str) -> Result<Verdict> {
 
     let set = LocaleSet::read(dir);
 
-    // `locale add en` on a plugin with no en.json bootstraps the base from
-    // plugin.toml, which is the only place the two reserved keys can come from.
-    if code == "en" && set.get("en").is_none() {
-        let mut seed = BTreeMap::new();
-        seed.insert("listing.name".to_string(), m.plugin.name.clone());
-        seed.insert("listing.description".to_string(), m.plugin.description.clone());
-        write_locale(&target, &seed)?;
-        hprintln!("Created locales/en.json — {} key(s) from plugin.toml.", seed.len());
-        hprintln!("  Add your own keys, then `astra-plugin locale add ru` to translate them.");
-        return Ok(Verdict::Pass);
-    }
-
-    let Some(en) = set.get("en").filter(|x| x.error.is_none()) else {
-        anyhow::bail!(
+    // The English base every other locale is seeded from.
+    //
+    // `locale add en` on a plugin with no en.json BUILDS it instead of reading
+    // it: the two reserved keys from plugin.toml, and every other key from the
+    // union of the locales that survived. Seeding the two alone is what left
+    // E1's own printed fix standing on E3 and E15 — one error told the author
+    // to run this command, and running it produced two more, for every key the
+    // languages they already had were carrying.
+    let (base, borrowed) = match set.get("en").filter(|x| x.error.is_none()) {
+        Some(en) => (en.keys.clone(), Vec::new()),
+        None if code == "en" => english_base_from_union(m, &set),
+        None => anyhow::bail!(
             "locales/en.json is missing or unreadable, and every other locale is seeded from it. \
              Run `astra-plugin locale add en` first."
-        );
+        ),
     };
 
     let existing = set.get(code).filter(|x| x.error.is_none()).map(|x| x.keys.clone());
@@ -1829,26 +2243,25 @@ fn add(dir: &Path, m: &PluginManifest, code: &str) -> Result<Verdict> {
     let mut seeded = 0usize;
     let mut plural_rows: Vec<String> = Vec::new();
 
-    for (key, english) in &en.keys {
+    for (key, english) in &base {
         match split_category(key) {
-            (base, Some(_)) if families.contains(base) => {
+            (family, Some(_)) if families.contains(family) => {
                 // One family, rewritten into exactly the categories this code
                 // needs — which is what E15 will hold it to.
                 for cat in &want {
-                    let k = format!("{base}.{cat}");
+                    let k = format!("{family}.{cat}");
                     if out.contains_key(&k) {
                         continue;
                     }
                     let kept = existing.as_ref().and_then(|e| e.get(&k)).cloned();
                     let is_new = kept.is_none();
                     let value = kept.unwrap_or_else(|| {
-                        en.keys
-                            .get(&k)
-                            .or_else(|| en.keys.get(&format!("{base}.other")))
+                        base.get(&k)
+                            .or_else(|| base.get(&format!("{family}.other")))
                             .cloned()
                             .unwrap_or_else(|| english.clone())
                     });
-                    if is_new && !en.keys.contains_key(&k) {
+                    if is_new && !base.contains_key(&k) {
                         plural_rows.push(k.clone());
                     }
                     if is_new {
@@ -1867,19 +2280,84 @@ fn add(dir: &Path, m: &PluginManifest, code: &str) -> Result<Verdict> {
         }
     }
 
+    // ── what this rewrite would DELETE ──
+    //
+    // Everything above builds `out` from the base; `write_locale` overwrites.
+    // So a key the target file has and `out` does not is gone, and until this
+    // block existed it was gone without a word — `4 key(s) added, 2 kept` was
+    // printed over four deleted Russian sentences.
+    let removed = removals(existing.as_ref(), &out, &base, &families, code);
+    let destructive: Vec<&Removal> = removed.iter().filter(|r| r.translated).collect();
+    if !destructive.is_empty() && !prune {
+        anyhow::bail!(
+            "locales/{code}.json holds {} translated value(s) that locales/en.json cannot seed, \
+             and this\n\
+             \x20      command rewrites the file from en.json — so they would be deleted:\n\
+             \x20        {}\n\
+             \x20      Nothing here can tell a rename from a deletion. A translation is the one \
+             thing in\n\
+             \x20      this directory that cannot be regenerated, so it is not deleted on a \
+             guess:\n\
+             \x20        * want the text? move it onto a key locales/en.json declares first; or\n\
+             \x20        * meant it? astra-plugin locale add {code} --prune  (deletes them, and \
+             names each one)",
+            destructive.len(),
+            removal_lines(&destructive, code).join("\n\x20        "),
+        );
+    }
+
     let existed = target.exists();
     write_locale(&target, &out)?;
 
     if existed {
         hprintln!(
-            "Updated locales/{code}.json — {seeded} key(s) added, {} kept.",
-            out.len() - seeded
+            "Updated locales/{code}.json — {seeded} key(s) added, {} kept{}.",
+            out.len() - seeded,
+            if removed.is_empty() {
+                String::new()
+            } else {
+                format!(", {} REMOVED", removed.len())
+            }
+        );
+    } else if code == "en" {
+        // Not "seeded from en.json, values still English": this IS en.json, and
+        // the values that came out of another locale are in that locale.
+        hprintln!(
+            "Created locales/en.json — {} key(s): the two the store card needs, from \
+             plugin.toml, and\n\
+             \x20 every key your other locales already carry.",
+            out.len()
         );
     } else {
         hprintln!(
             "Created locales/{code}.json — {} key(s) seeded from locales/en.json, values still \
              English.",
             out.len()
+        );
+    }
+    for line in removal_lines(&removed.iter().collect::<Vec<_>>(), code) {
+        hprintln!("  REMOVED  {line}");
+    }
+    if !borrowed.is_empty() {
+        // Said every time, because these values are NOT English and nothing
+        // downstream can tell: E11 reads plugin.toml, not this file, and every
+        // untranslated language falls back to whatever is written here.
+        let mut by_code: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for (key, from) in &borrowed {
+            by_code.entry(from.as_str()).or_default().push(key.as_str());
+        }
+        for (from, keys) in by_code {
+            hprintln!(
+                "  {} value(s) were copied from locales/{from}.json and are NOT English: {}.",
+                keys.len(),
+                preview(&keys)
+            );
+        }
+        hprintln!(
+            "  Rewrite them in English — en.json is what every language you have not \
+             translated shows.\n\
+             \x20 Until you do, `astra-plugin check` reports them as untranslated in the file \
+             they came from."
         );
     }
     if !plural_rows.is_empty() {
@@ -1896,32 +2374,69 @@ fn add(dir: &Path, m: &PluginManifest, code: &str) -> Result<Verdict> {
     Ok(Verdict::Pass)
 }
 
+/// The two reserved keys beside the manifest values they are a copy of.
+fn reserved_pairs<'a>(name: &'a str, description: &'a str) -> [(&'static str, &'a str); 2] {
+    [("listing.name", name), ("listing.description", description)]
+}
+
+/// Which reserved keys `locales/en.json` disagrees with `plugin.toml` about.
+///
+/// E8's input, and E10's — a missing key disagrees too. Exposed so that
+/// `check --fix` can ask before it writes anything: a fixer that rewrites the
+/// lock on a plugin that needed nothing is a fixer that reports "nothing was
+/// fixable" over a modified file.
+pub fn listing_keys_out_of_date(dir: &Path, name: &str, description: &str) -> Vec<&'static str> {
+    let set = LocaleSet::read(dir);
+    let Some(en) = set.get("en").filter(|x| x.error.is_none()) else {
+        return Vec::new();
+    };
+    reserved_pairs(name, description)
+        .into_iter()
+        .filter(|(key, want)| en.keys.get(*key).map(String::as_str) != Some(*want))
+        .map(|(key, _)| key)
+        .collect()
+}
+
+/// `locale sync`'s body, without the printing.
+///
+/// `check --fix` calls THIS and not a copy of it. E8/E10 are the only purely
+/// mechanical errors in this module — one fact in two files, one of which is by
+/// definition the copy — and they are the ones that fire on the first edit
+/// every author makes.
+///
+/// Returns which reserved keys were rewritten, and the lock's own report line.
+pub fn sync_from_manifest(
+    dir: &Path,
+    name: &str,
+    description: &str,
+    accept: &[String],
+) -> Result<(Vec<&'static str>, String)> {
+    let changed = listing_keys_out_of_date(dir, name, description);
+    if !changed.is_empty() {
+        let set = LocaleSet::read(dir);
+        if let Some(en) = set.get("en").filter(|x| x.error.is_none()) {
+            let mut keys = en.keys.clone();
+            for (key, want) in reserved_pairs(name, description) {
+                keys.insert(key.to_string(), want.to_string());
+            }
+            write_locale(&en.path, &keys)?;
+        }
+    }
+    let set = LocaleSet::read(dir);
+    let written = rewrite_lock(dir, &set, accept)?;
+    Ok((changed, written))
+}
+
 /// Rewrite `locales.lock.json`, and refuse to re-stamp a stale entry.
 fn sync(dir: &Path, m: &PluginManifest, accept: &[String]) -> Result<Verdict> {
     // The two reserved keys are by definition a copy of plugin.toml, so there
     // is nothing to lose by rewriting them — and E8 would otherwise fire on the
     // very first edit every author makes.
-    let set = LocaleSet::read(dir);
-    if let Some(en) = set.get("en").filter(|x| x.error.is_none()) {
-        let mut keys = en.keys.clone();
-        let mut changed = Vec::new();
-        for (key, want) in [
-            ("listing.name", &m.plugin.name),
-            ("listing.description", &m.plugin.description),
-        ] {
-            if keys.get(key) != Some(want) {
-                keys.insert(key.to_string(), want.clone());
-                changed.push(key);
-            }
-        }
-        if !changed.is_empty() {
-            write_locale(&en.path, &keys)?;
-            hprintln!("Rewrote locales/en.json's {} from plugin.toml.", changed.join(" and "));
-        }
+    let (changed, written) =
+        sync_from_manifest(dir, &m.plugin.name, &m.plugin.description, accept)?;
+    if !changed.is_empty() {
+        hprintln!("Rewrote locales/en.json's {} from plugin.toml.", changed.join(" and "));
     }
-
-    let set = LocaleSet::read(dir);
-    let written = rewrite_lock(dir, &set, accept)?;
     hprintln!("{written}");
     crate::output::emit("locale sync", &Verdict::Pass, json!({ "path": dir.display().to_string() }));
     Ok(Verdict::Pass)
@@ -2126,14 +2641,29 @@ fn extract(dir: &Path, m: &PluginManifest) -> Result<Verdict> {
             if looks_like_key(&r.key) { "" } else { "   (not key-shaped — probably a literal)" }
         );
     }
-    if !missing.is_empty() {
+    // The heading is printed only when something goes under it. `Add them to
+    // locales/en.json:` over nothing at all is what an author sees when the
+    // only miss is `$HOME/notes` — a heading promising a list, followed by the
+    // end of the output.
+    let addable: Vec<&&Reference> = missing.iter().filter(|r| looks_like_key(&r.key)).collect();
+    if !addable.is_empty() {
         hprintln!();
         hprintln!("Add them to locales/en.json:");
-        for r in &missing {
-            if looks_like_key(&r.key) {
-                hprintln!("  \"{}\": \"\",", r.key);
-            }
+        for r in &addable {
+            hprintln!("  \"{}\": \"\",", r.key);
         }
+    } else if !missing.is_empty() {
+        hprintln!();
+        hprintln!(
+            "Nothing to add: {}, so {} a value that begins with a dollar rather than a\n\
+             \x20 reference. `$$` is the escape that keeps one literal for good.",
+            if missing.len() == 1 {
+                "that one is not key-shaped"
+            } else {
+                "none of these is key-shaped"
+            },
+            if missing.len() == 1 { "it is" } else { "each is" }
+        );
     }
     crate::output::emit(
         "locale extract",
@@ -2156,6 +2686,24 @@ fn extract(dir: &Path, m: &PluginManifest) -> Result<Verdict> {
 /// daemon cannot: a local walk showing a hardcoded literal sitting in a label
 /// position, with no daemon and no round trip.
 fn render(dir: &Path, m: &PluginManifest, lang: &str) -> Result<Verdict> {
+    // `--lang klingon` used to print "as a klingon user reads it" and exit 0,
+    // while `locale add klingon` refused with five lines. One of the two is
+    // teaching a spelling, and it is not the one that writes a file.
+    if lang != PSEUDO_CODE && !LOCALE_CODES.contains(&lang) {
+        anyhow::bail!(
+            "'{lang}' is not a language Astra can be set to.\n\
+             \x20      Astra's languages are: {} (spec/locales.yaml), plus `{PSEUDO_CODE}` for \
+             the pseudo-locale.\n\
+             \x20      This flag names the language a user's Astra is SET to, and matching is \
+             exact string\n\
+             \x20      equality — so rendering '{lang}' would be a screen no user can ever \
+             see.{}",
+            LOCALE_CODES.join(" "),
+            did_you_mean(lang)
+                .map(|c| format!("\n\x20      Did you mean `--lang {c}`?"))
+                .unwrap_or_default()
+        );
+    }
     let set = LocaleSet::read(dir);
     let Some(config) = m.config.as_ref().filter(|c| !c.schema.trim().is_empty()) else {
         hprintln!("This plugin declares no [config] schema, so there is nothing to render.");

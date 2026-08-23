@@ -34,7 +34,49 @@ pub fn apply(dir: &Path, manifest_path: &Path) -> Result<Vec<String>> {
     }
 
     applied.extend(versions_agree(dir, &doc)?);
+    applied.extend(listing_keys_agree(dir, &doc)?);
     Ok(applied)
+}
+
+/// `locales/en.json`'s two reserved keys, rewritten from `plugin.toml`.
+///
+/// The one purely mechanical error the locale rules have, and the one that
+/// fires on the first edit every author makes: `plugin.toml`'s `description`
+/// and `en.json`'s `listing.description` are one fact in two files because the
+/// manifest crate is byte-locked to Astra and cannot hold a locale table. One
+/// of the two is by definition the copy, so there is exactly one correct value
+/// and no judgement to make — which is this file's bar.
+///
+/// It runs LAST, after `plugin.toml` has been written, because it reads the
+/// manifest's values and must read the ones that survived the other fixes.
+///
+/// **Not wired in before `locale sync` stopped stamping a seed as a fresh
+/// translation.** Until that landed, this would have made a bogus digest
+/// automatic on every `--fix`, which is the difference between a defect an
+/// author can hit and one a tool commits for them.
+fn listing_keys_agree(dir: &Path, doc: &DocumentMut) -> Result<Vec<String>> {
+    let field = |name: &str| {
+        doc.get("plugin")
+            .and_then(|p| p.get(name))
+            .and_then(Item::as_str)
+            .map(str::to_string)
+    };
+    let (Some(name), Some(description)) = (field("name"), field("description")) else {
+        return Ok(vec![]);
+    };
+    let changed = crate::commands::locale::listing_keys_out_of_date(dir, &name, &description);
+    if changed.is_empty() {
+        return Ok(vec![]);
+    }
+    // `--accept` is deliberately empty: re-stamping a stale translation is the
+    // author's word, and `--fix` is not the author.
+    let (rewritten, lock) =
+        crate::commands::locale::sync_from_manifest(dir, &name, &description, &[])?;
+    Ok(vec![format!(
+        "locales/en.json {}: rewritten from plugin.toml, which is the authority for the store \
+         card's English. {lock}",
+        rewritten.join(" and ")
+    )])
 }
 
 /// `entry.command = "target/release/foo.exe"` → `"target/release/foo"`.
@@ -298,6 +340,73 @@ mod tests {
             "a permission was granted for a capability the manifest turns off - that is a \
              consent prompt the user would see for a feature that does not exist"
         );
+    }
+
+    /// `--fix` closes E8/E10, which is the one purely mechanical locale error
+    /// and the one that fires on the first edit every author makes.
+    ///
+    /// It printed `nothing was mechanically fixable` at an error whose own
+    /// message names the command that fixes it. The ordering matters and is
+    /// asserted here by consequence: the lock is re-derived by the same code
+    /// `locale sync` runs, which does not re-stamp a seeded or stale entry, so
+    /// a `--fix` cannot launder an untranslated string into a fresh one.
+    #[test]
+    fn fix_closes_the_one_mechanical_locale_error() {
+        let dir = std::env::temp_dir().join(format!("astra-fix-locale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("locales")).unwrap();
+        let manifest = "[plugin]\nid = \"f\"\nname = \"Chess\"\nversion = \"0.1.0\"\n\
+                        description = \"Play chess against a local bot\"\n\
+                        [entry]\ncommand = \"./f\"\n";
+        std::fs::write(dir.join("plugin.toml"), manifest).unwrap();
+        // E8 on the description, E10 on the missing name.
+        std::fs::write(
+            dir.join("locales/en.json"),
+            r#"{"listing.description":"An Astra plugin"}"#,
+        )
+        .unwrap();
+
+        // Through `apply`, not through the function directly: what this pins
+        // is that `check --fix` reaches it at all, which is the whole finding.
+        let applied = apply(&dir, &dir.join("plugin.toml")).unwrap();
+        let line = applied
+            .iter()
+            .find(|l| l.contains("locales/en.json"))
+            .unwrap_or_else(|| panic!("--fix said nothing about en.json: {applied:?}"));
+        assert!(line.contains("listing.name"), "{line}");
+        assert!(line.contains("listing.description"), "{line}");
+
+        let en: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("locales/en.json")).unwrap())
+                .unwrap();
+        assert_eq!(en["listing.name"], "Chess");
+        assert_eq!(en["listing.description"], "Play chess against a local bot");
+
+        // Idempotent, and silent when there is nothing to do — a fixer that
+        // reports a change it did not make is a fixer nobody can read.
+        assert!(
+            apply(&dir, &dir.join("plugin.toml"))
+                .unwrap()
+                .iter()
+                .all(|l| !l.contains("locales/en.json"))
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A plugin with no `locales/en.json` is not one this can fix: there is
+    /// nothing to bring into line, and writing the file would be inventing a
+    /// locale directory the author never asked for.
+    #[test]
+    fn fix_leaves_a_plugin_without_locales_alone() {
+        let dir = std::env::temp_dir().join(format!("astra-fix-nolocale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let manifest = "[plugin]\nid = \"f\"\nname = \"F\"\nversion = \"0.1.0\"\n\
+                        description = \"d\"\n[entry]\ncommand = \"./f\"\n";
+        std::fs::write(dir.join("plugin.toml"), manifest).unwrap();
+        assert!(apply(&dir, &dir.join("plugin.toml")).unwrap().is_empty());
+        assert!(!dir.join("locales").exists(), "and it created nothing");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

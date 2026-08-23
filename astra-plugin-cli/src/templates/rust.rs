@@ -131,7 +131,11 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     #[action(label = "Do Something")]
     async fn do_something(&self, ctx: &PluginContext) -> Result<String, ActionError> {
         ctx.host().log_info("do_something ran").await?;
-        Ok("done".into())
+        // RUNTIME plane, unlike the label above: the plugin produces this
+        // string, so the plugin translates it. The label is DECLARED and stays
+        // literal English until a released Astra resolves plugin keys.
+        let n = 1;
+        Ok(ctx.i18n().tn("msg.done", n, &[("n", &n.to_string())]))
     }"#,
         ));
     }
