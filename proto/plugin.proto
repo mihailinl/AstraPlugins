@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// source-sha256: 0e1e19eed220eb1970ba5d1a90cacb40c90298b8bde375b1f3acca2cd5b5073f
+// source-sha256: 4cc4e709beaa5fd3d490c1d514b321b03e864137233f0806be0efbd30ff1bf71
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -120,6 +120,7 @@ message AstraEvent {
         McpServerChangedEvent mcp_server_changed = 29;
         McpToolsChangedEvent mcp_tools_changed = 30;
         MemoryChangedEvent memory_changed = 32;
+        CharacterLibraryChangedEvent character_library_changed = 33;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -153,6 +154,31 @@ message MemoryChangedEvent {
     uint32 added = 1;
     uint32 updated = 2;
     uint32 removed = 3;
+}
+
+// The companion's character library changed on disk — the engine rewrote
+// `<state_dir>/library.json`, or a companion (re)connected and the daemon has no
+// way to know whether the file moved while nothing was listening.
+//
+// It fires for changes the daemon did not cause. The engine watches its
+// characters root, so `mkdir characters/foo && $EDITOR` — which the shipped
+// `companion.toml` calls THE way to add one — reaches the index with no RPC
+// involved, and a hot reload publishes too. A notification that only followed
+// router ops would leave hand-authoring invisible to Astra until something
+// unrelated happened to fire it.
+//
+// `generation` is the engine's own counter when the daemon has one, carried so a
+// client that already holds it (a `ListCharacters` that raced ahead of the
+// event) can skip a redundant refetch. Carrying it is not a second copy of the
+// list — the list is still fetched, this only says which one.
+//
+// **`0` means the daemon cannot say which generation this is, and a client must
+// refetch.** That is the (re)subscribe case: the engine re-sends `capabilities`
+// on every successful subscribe but does NOT re-send `library_changed`, so a
+// reconnect after any gap would otherwise leave every open tab showing a library
+// from before the gap with nothing to say so.
+message CharacterLibraryChangedEvent {
+    uint32 generation = 1;
 }
 
 message McpServerChangedEvent {
@@ -2842,25 +2868,29 @@ message TtsProviderInfo {
     //                   Voice page renders only while the provider is selected, so
     //                   blocking selection would trap the user with no way back.
     //   "gpu_unknown" — no probe result yet; UI stays optimistic.
-    //   "needs_activation" — the host CAN run it, but the one-time licensed-voice
-    //                   activation has not happened here (no container, or no
+    //   "needs_activation" — the host CAN run it, but the one-time local-voice
+    //                   install has not happened here (no container, or no
     //                   machine-bound key). Ranked AFTER the GPU verdicts on purpose:
-    //                   never ask someone to buy an entitlement and download ~396 MB
-    //                   on a machine that would refuse afterwards.
+    //                   never ask someone to download ~396 MB on a machine that
+    //                   would refuse afterwards.
     // In every non-"available" case the provider still refuses at synth with
     // FAILED_PRECONDITION, so the UI verdict is a courtesy, never the enforcement.
     // Empty ("") is treated as "available" (old daemons / providers with no gate).
     string availability = 11;
 
-    // Is the one-time licensed-voice activation complete on THIS machine?
+    // Is the one-time local-voice install/activation complete on THIS machine?
     //
     // Deliberately its own field rather than `availability == "available"`, because
     // those are two independent facts and collapsing them was a real defect: on any
     // machine whose GPU probe returned nothing the verdict is `gpu_unknown` REGARDLESS
-    // of activation, so a user who had already paid, downloaded and activated was shown
+    // of activation, so a user who had already downloaded and activated was shown
     // the "Activate Astra voice" button again on the next launch — inviting a redundant
     // ~396 MB re-download. False for every provider that has nothing to activate.
     bool activated = 12;
+
+    // Whether this provider needs an explicit one-time install/activation action.
+    // Independent of subscription: a free local voice may still need a download.
+    bool requires_activation = 13;
 }
 
 message TtsProvidersResponse {
@@ -3361,8 +3391,9 @@ message PluginFailure {
     // switches on and what a docs anchor is named after, so it does not change
     // once shipped. Known values, by phase:
     //   verify:    tampered, revoked
-    //   spawn:     entry_not_found, not_executable, wrong_architecture,
-    //              cwd_escape, start_timeout, exited_during_start, spawn_failed
+    //   spawn:     entry_not_found, runtime_missing, not_executable,
+    //              wrong_architecture, cwd_escape, start_timeout,
+    //              exited_during_start, spawn_failed
     //   handshake: registration_rejected
     //   runtime:   process_exited, unresponsive
     // An unknown code must render as `message` and nothing else — never as the
@@ -3402,6 +3433,44 @@ message PluginFailure {
     // cannot tell "still coming back" from "given up on", and both look
     // identical — a stopped plugin with an error under it.
     bool circuit_open = 8;
+
+    // The program this plugin runs ON — Node.js, Python — when THAT is what is
+    // missing, rather than anything belonging to the plugin.
+    //
+    // Absent for every other failure, and absent for a runtime Astra has no
+    // entry for: a plugin that ships its own binary needs none, and inventing a
+    // requirement for an unknown command would offer an install that cannot
+    // help. Set means "the machine is missing a prerequisite Astra can name",
+    // which is the difference between a broken plugin and a one-click fix.
+    PluginRuntimeRequirement missing_runtime = 9;
+}
+
+// A prerequisite the machine does not have, named well enough to act on.
+//
+// Carried on the failure rather than looked up by the UI from the runtime list:
+// the mapping from `node` to "Node.js" and to `OpenJS.NodeJS.LTS` lives in the
+// daemon (`runtimes.rs`), and a client that rebuilt it would be a second copy of
+// the runtime table — drifting the first time a runtime is added.
+message PluginRuntimeRequirement {
+    // The id `McpService.InstallRuntime` takes: "nodejs", "python", "uv",
+    // "bun", "docker". Same vocabulary as `RuntimeStatusMsg.id`, deliberately —
+    // it is what lets the Plugins page reuse the install the MCP panel already
+    // has instead of growing a parallel one.
+    string id = 1;
+
+    // What a person calls it: "Node.js". Not localised — it is a product name.
+    string display_name = 2;
+
+    // The command that could not be run: "node", "npx", "python3". Shown so the
+    // sentence names the same thing the error message did.
+    string command = 3;
+    string winget_id = 4;
+    string download_url = 5;
+
+    // Astra can fetch it here, unattended. False where there is no winget, and
+    // a UI must then offer `download_url` INSTEAD of an install button — a
+    // button that starts an install which cannot happen is worse than no button.
+    bool installable = 6;
 }
 
 message PluginStatusMsg {
