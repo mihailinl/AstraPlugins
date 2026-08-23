@@ -1,7 +1,7 @@
 # The registry's caps on what an author writes, mirrored — and mirrored is
 # exactly what they are.
 #
-# These seven numbers belong to `astra-registry`. Nothing in Astra reads them
+# These numbers belong to `astra-registry`. Nothing in Astra reads them
 # and nothing here is free to change them: they are the caps a listing record
 # is validated against at ingest, in another repository, AFTER an author has
 # pushed a tag. A plugin whose permission reason is 141 characters builds
@@ -14,8 +14,9 @@
 # WHY THIS IS A SEPARATE FILE FROM spec/limits.yaml
 #   `spec/limits.yaml` is integers-only AND Astra-shared: every value in it is
 #   mirrored into the daemon and changing one is an issue-first, three-repository
-#   change. None of these seven is a number the daemon has ever heard of.
-#   Putting them there would make `gen-limits.mjs` generate seven constants into
+#   change. None of them is a number the daemon has ever heard of — checked
+#   against the Astra tree on 2026-08-23, `max_artifact_bytes` included.
+#   Putting them there would make `gen-limits.mjs` generate constants into
 #   three SDKs that have no use for them, and would put a registry policy
 #   decision behind an Astra review.
 #
@@ -30,15 +31,24 @@
 #   direction is a silence any more — see WHAT THIS FILE MUST CONTAIN below.
 #
 # THE UNITS ARE NOT ALL THE SAME, and each row says which one it is.
-#   Four of them count UNICODE SCALAR VALUES (Rust `char`), which is what the
+#   Some count UNICODE SCALAR VALUES (Rust `char`), which is what the
 #   registry's own `checkMetadata` counts with `[...value].length` — code
 #   points, not UTF-16 units and not bytes. A Russian summary at the cap is
 #   ~200 characters and ~370 bytes, and a check that counted bytes would refuse
 #   it. `summarise()` in the bot cuts on code points for the same reason.
-#   Two count UTF-8 BYTES, because what they bound is a file the bot must
-#   refuse without reading and a document every client downloads whole. One
-#   counts KEYS. Reading a byte cap as a character cap refuses correct CJK;
-#   reading a character cap as a byte cap does the same. The row says which.
+#   Others count BYTES, because what they bound is a file the bot must refuse
+#   without reading, a document every client downloads whole, and an archive
+#   nobody is going to read to measure. One counts KEYS. Reading a byte cap as
+#   a character cap refuses correct CJK; reading a character cap as a byte cap
+#   does the same. The row says which.
+#
+#   THE PARAGRAPH ABOVE USED TO COUNT THEM — "Four of them", "Two count",
+#   "seven numbers" three times over. The counts came out on 2026-08-23 with
+#   the eighth row rather than being incremented, because a count in prose
+#   beside a table is a second copy of the table: it is right until the next
+#   row lands and then it is a sentence nothing checks, disagreeing with the
+#   rows one screen below it. `MIN_LIMIT_ROWS` in tools/check-locales.py is
+#   where a count belongs — a reader executes it.
 #
 # WHAT THIS FILE MUST CONTAIN
 #   Every cap in `astra-registry/policy/limits.json` that carries a
@@ -176,3 +186,49 @@ max_locale_keys: 5000
 # `locale sync`: `astra-plugin check` returned `OK … 0 warning(s)` and the
 # registry's own `deriveLocaleText` returned `E_LOCALE_CARD_TOO_LARGE`.
 max_listing_i18n_bytes: 8192
+
+# ── the bundle, rather than the text inside it ───────────────────────────────
+# Every row above bounds a string an author types. The one below bounds the
+# FILE `astra-plugin build` writes, and that difference is why it is the only
+# row here that `astra-plugin check` cannot execute on: at check time the file
+# does not exist yet. Its rule lives in `build`. Do not go looking for an E-code.
+
+# mirrors: astra-registry/policy/limits.json max_artifact_bytes
+# UNIT: BYTES of the finished `.astraplugin` on disk — COMPRESSED, the size a
+# user downloads and the number a version record's `artifacts.<key>.size`
+# carries. 256 MiB.
+# The largest bundle the registry will list. Over it, `bot/ingest.mjs` refuses
+# at the download step and `tools/validate.mjs` refuses the declared `size` —
+# both AFTER the author has pushed the tag the artifact hangs off, and a tag is
+# the one thing in this pipeline that cannot be moved. The way out at that
+# point is a new version number.
+#
+# NOT THE SAME CAP AS spec/limits.yaml's `max_extract_bytes`, and the gap
+# between them is the whole reason this row is worth carrying. That one is
+# 524,288,000 bytes UNCOMPRESSED, belongs to the daemon, and `bundle.rs` has
+# always refused past it at pack time. So a bundle can be under the daemon's
+# cap and over the registry's, and the window is exact: an unpacked total
+# between 256 MiB and 500 MiB at a compression ratio under about 1.95:1. That
+# is not a corner — it is what a bundle whose payload is ALREADY COMPRESSED
+# looks like: model weights, audio, video, a packed game data file. The largest
+# example in this repository is `examples/doom` at 15,638,822 bytes compressed
+# from about 36 MB, a ratio of 2.3:1 on a payload that is mostly one packed
+# data file; swap Freedoom for a 300 MiB model and the ratio goes to 1.0 and
+# the bundle lands inside the window.
+#
+# CONSTRUCTED, 2026-08-23, rather than argued: a scaffolded python plugin plus
+# one 314,572,800-byte incompressible file in `ui/`. It packed to 314,628,268
+# bytes — LARGER than its contents, because deflate on random bytes expands
+# slightly and the zip framing costs the rest — so the unpacked total of
+# 314,579,059 passed `max_extract_bytes` with 200 MiB to spare while the archive
+# sat 44.1 MiB over this cap. Before this row existed that bundle built, and the
+# refusal waited at the registry's download step.
+#
+# ENFORCED HERE: `astra-plugin build`, and only `build`. Over the cap is a
+# refusal — exit 1, naming the size, the cap, the overage and the largest
+# entries. At or over HALF the cap it is a printed warning rather than a `check`
+# finding, deliberately: `check --strict` is fatal on the release path, and a
+# 200 MiB bundle is legal, so making this strict-fatal would refuse a plugin
+# the registry accepts. Half, because a bundle already at half cannot take one
+# more payload the size of the one it is carrying.
+max_artifact_bytes: 268435456

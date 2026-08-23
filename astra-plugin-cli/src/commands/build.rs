@@ -395,9 +395,183 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
             crate::bundle::REPRODUCIBLE_COMPRESSION_LEVEL
         );
     }
+    check_artifact_size(&output_path, &verified)?;
     print_trust_note();
 
     Ok(())
+}
+
+// ── the registry's cap on the finished file ──────────────────────────────────
+
+/// The fraction of `max_artifact_bytes` at which `build` starts saying
+/// something, expressed as its reciprocal: `size * 2 >= cap`.
+///
+/// **Half, and the reason is not a feeling about headroom.** A bundle at half
+/// the cap cannot take one more payload the size of the one it is already
+/// carrying. Below half it can; above the cap it is refused. That is the only
+/// threshold in the range with a sentence attached, and a threshold without one
+/// is a number somebody will move because it fired on them once.
+///
+/// It is also, honestly, a line nothing in this repository comes near: the
+/// largest example bundle is `examples/doom` at 15,638,822 bytes, 5.8% of the
+/// cap. That is an argument for the warning being quiet, not for it being
+/// absent — the plugins that reach 128 MiB are the ones vendoring a model or a
+/// runtime, and they get there in the single commit that adds the file, not by
+/// drifting.
+const ARTIFACT_WARN_RECIPROCAL: u64 = 2;
+
+/// What `build` has to say about a finished artifact's size.
+#[derive(Debug, PartialEq, Eq)]
+enum ArtifactVerdict {
+    /// Under the warning line. `build` says nothing. This is the normal case:
+    /// every bundle this repository produces is a low single-digit percent of
+    /// the cap, and the largest, `examples/doom`, is 5.8%.
+    Quiet,
+    /// At or over half the cap, at or under the cap. Legal, and worth a word.
+    Near,
+    /// Over the cap. The registry will not list it.
+    Over,
+}
+
+/// The threshold arithmetic, split out so it can be tested without a 300 MiB
+/// fixture.
+///
+/// The end-to-end proof of this rule needs an archive bigger than the cap, and
+/// building one costs 600 MB of scratch and a full deflate pass over
+/// incompressible bytes — so
+/// it was done by hand, once, and written down in `spec/listing-limits.yaml`
+/// rather than run on every CI job. What CI can hold is the boundary, which is
+/// the half of this that a later edit is likely to get wrong: `>` and `>=` are
+/// one keystroke apart and both look right.
+fn artifact_verdict(size: u64, cap: u64) -> ArtifactVerdict {
+    if size > cap {
+        ArtifactVerdict::Over
+    } else if size.saturating_mul(ARTIFACT_WARN_RECIPROCAL) >= cap {
+        ArtifactVerdict::Near
+    } else {
+        ArtifactVerdict::Quiet
+    }
+}
+
+/// **`max_artifact_bytes`, refused here instead of after the tag.**
+///
+/// The registry will not list a `.astraplugin` over 256 MiB. Until 2026-08-23
+/// nothing in this repository named that number, so an oversized bundle built
+/// cleanly, released cleanly, and died at `bot/ingest.mjs`'s download step — in
+/// a repository the author had never opened, against a tag that had already
+/// been pushed and cannot be moved. Gap 13 in the ops register.
+///
+/// **Why this is not simply covered by `max_extract_bytes`.** `bundle.rs`
+/// already refuses an archive that unpacks past 500 MiB, and it is tempting to
+/// read that as the real ceiling. It is not the same ceiling and it is not even
+/// in the same unit: that one is UNCOMPRESSED and the daemon's, this one is
+/// COMPRESSED and the registry's. The window where this fires and that one does
+/// not is an unpacked total between 256 MiB and 500 MiB at a compression ratio
+/// under about 1.95:1 — which is what a bundle carrying already-compressed
+/// bytes has. Measured on this builder rather than assumed: a scaffold plus one
+/// 314,572,800-byte incompressible file in `ui/` packed to 314,628,268 bytes —
+/// bigger than its own contents, deflate on random bytes expanding slightly and
+/// the zip framing costing the rest. The unpacked total, 314,579,059, cleared
+/// `max_extract_bytes` by 200 MiB. The archive was 44.1 MiB over this cap.
+///
+/// **Why the file is left on disk.** `build`'s other refusal says "Nothing was
+/// written" and means it — it runs before the language build step. This one
+/// cannot: the compressed size is not knowable until the bytes exist. So the
+/// bundle is on disk, the message says where, and the author can open it to
+/// find out what is big. Deleting it would take away the only evidence.
+///
+/// **Why the warning is not a `check` finding.** `astra-plugin check` never
+/// sees an artifact — at check time there is no file to measure — and
+/// `plugin-release.yml` runs `check --strict`, where a warning is fatal. A
+/// 200 MiB bundle is legal, so a strict-fatal warning at half the cap would
+/// refuse a plugin the registry accepts, which is the direction a gate must
+/// never be wrong in.
+fn check_artifact_size(output_path: &Path, verified: &Bundle) -> Result<()> {
+    // Through `cap()` rather than a constant here: that reader is the one the
+    // vendored-copy test pins to `spec/listing-limits.yaml`, and a second
+    // private copy of the number is the whole failure this row exists to end.
+    let cap = crate::commands::locale::cap("max_artifact_bytes") as u64;
+    let size = verified.artifact_size;
+    let verdict = artifact_verdict(size, cap);
+    if verdict == ArtifactVerdict::Quiet {
+        return Ok(());
+    }
+
+    let unpacked: u64 = verified
+        .manifest
+        .files
+        .iter()
+        .fold(0u64, |acc, f| acc.saturating_add(f.size));
+
+    if verdict == ArtifactVerdict::Over {
+        return Err(crate::output::Rejected::err(format!(
+            "refusing this bundle: {size} bytes, over max_artifact_bytes ({cap}).\n\n\
+             \x20 {} is on disk — the bytes exist, which is the only way their compressed\n\
+             \x20 size could be known — and it is what a release workflow would upload.\n\
+             \x20 It is {} over the {} the registry will list\n\
+             \x20 (spec/listing-limits.yaml max_artifact_bytes, mirrored from\n\
+             \x20 astra-registry/policy/limits.json).\n\n\
+             {}\n\n\
+             \x20 Unpacked, the listed files total {unpacked} bytes, UNDER the daemon's\n\
+             \x20 {} extraction cap (spec/limits.yaml max_extract_bytes). The two caps are\n\
+             \x20 different numbers in different units and this is the one you are over: that\n\
+             \x20 one measures what is unpacked, this one measures what is downloaded.\n\n\
+             \x20 What to do: ship the large payload outside the bundle and fetch it on first\n\
+             \x20 run, or split the plugin. What NOT to do: raise the number in\n\
+             \x20 spec/listing-limits.yaml. It is a copy of the registry's, the registry goes\n\
+             \x20 on refusing the download either way, and all a higher copy buys is the\n\
+             \x20 refusal moving back to after your tag — which is where it was before this\n\
+             \x20 rule existed.",
+            output_path.display(),
+            human_bytes(size - cap),
+            human_bytes(cap),
+            largest_entries(verified),
+            human_bytes(crate::bundle::MAX_EXTRACT_BYTES),
+        )));
+    }
+
+    hprintln!(
+        "  Warning: {} of the registry's {} cap on a published bundle\n\
+         \x20          (spec/listing-limits.yaml max_artifact_bytes). Over that cap the\n\
+         \x20          registry refuses the artifact at its download step, which happens\n\
+         \x20          AFTER your tag exists; a tag cannot be moved. At half the cap this\n\
+         \x20          bundle can no longer take another payload the size of the one it has.\n\
+         {}",
+        human_bytes(size),
+        human_bytes(cap),
+        largest_entries(verified),
+    );
+    Ok(())
+}
+
+/// The five biggest listed files, uncompressed, largest first.
+///
+/// Uncompressed because that is the number the manifest carries and the only
+/// per-entry size a bundle records; the compressed total is the cap, but "which
+/// file is enormous" is answered the same way by either.
+fn largest_entries(verified: &Bundle) -> String {
+    let mut files: Vec<&crate::bundle::FileEntry> = verified.manifest.files.iter().collect();
+    files.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.path.cmp(&b.path)));
+    let mut out = String::from("  Largest entries, uncompressed:");
+    for f in files.iter().take(5) {
+        out.push_str(&format!("\n    {:>10}  {}", human_bytes(f.size), f.path));
+    }
+    out
+}
+
+/// Bytes as the unit an author reads them in, with the exact figure kept
+/// alongside wherever this is used — a rounded number alone cannot be compared
+/// with a cap.
+fn human_bytes(n: u64) -> String {
+    const MIB: f64 = 1024.0 * 1024.0;
+    const KIB: f64 = 1024.0;
+    if n as f64 >= MIB {
+        format!("{:.1} MiB", n as f64 / MIB)
+    } else if n as f64 >= KIB {
+        format!("{:.1} KiB", n as f64 / KIB)
+    } else {
+        format!("{n} B")
+    }
 }
 
 /// What `build` says about trust, on every build, signed or not.
@@ -996,6 +1170,159 @@ fn add_directory_recursive(target: &Path, builder: &mut BundleBuilder, base: &Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The boundary of `max_artifact_bytes`, which is the half of that rule a
+    /// later edit can get wrong without anyone noticing.
+    ///
+    /// The rule itself was proved the only way it can be — by building an
+    /// archive over the cap, once, by hand: a scaffolded python plugin with one
+    /// 314,572,800-byte incompressible file in `ui/` packed to 314,628,268
+    /// bytes and `build` exited 1. That is not something to run on every CI
+    /// job. What IS worth running is the arithmetic, because `>` and `>=` are
+    /// one keystroke apart, both read as correct, and getting either wrong
+    /// turns a refusal into a warning or a warning into a refusal — the first
+    /// silently restores the failure this rule exists to end, and the second
+    /// refuses a legal 128 MiB plugin.
+    #[test]
+    fn the_artifact_cap_refuses_over_and_warns_at_half() {
+        let cap = crate::commands::locale::cap("max_artifact_bytes") as u64;
+        assert_eq!(
+            cap, 268_435_456,
+            "the cap moved. astra-registry owns this number — if it really changed there, this \
+             literal and the row in spec/listing-limits.yaml both follow it, and \
+             `tools/check-locales.py --rules C20` is what compares the two repositories."
+        );
+
+        assert_eq!(
+            artifact_verdict(cap + 1, cap),
+            ArtifactVerdict::Over,
+            "one byte over the cap must be refused. The registry's comparison is \
+             `head.size > max_artifact_bytes` in bot/ingest.mjs; a `build` one byte more \
+             permissive than that hands the author back the post-tag refusal this rule exists \
+             to move. Fix the comparison in `artifact_verdict`, not this line."
+        );
+        assert_eq!(
+            artifact_verdict(cap, cap),
+            ArtifactVerdict::Near,
+            "a bundle EXACTLY at the cap is legal — the registry refuses `> cap`, not `>= cap`. \
+             Refusing it here refuses a plugin the registry accepts, which is the direction a \
+             pack-time gate must never be wrong in. Fix `artifact_verdict`, not this line."
+        );
+
+        // Half warns, one byte under half does not.
+        assert_eq!(
+            artifact_verdict(cap / 2, cap),
+            ArtifactVerdict::Near,
+            "the warning is at HALF the cap, inclusive, because at half a bundle can no longer \
+             take one more payload the size of the one it is carrying. To move the threshold, \
+             move ARTIFACT_WARN_RECIPROCAL and rewrite the sentence attached to it — a \
+             threshold with no sentence is a number the next person deletes."
+        );
+        assert_eq!(
+            artifact_verdict(cap / 2 - 1, cap),
+            ArtifactVerdict::Quiet,
+            "one byte under half must be silent. This prints on every build of a plugin that \
+             size, and a warning an author cannot act on is one they learn to skip past."
+        );
+
+        // The case every real plugin in this repository is in: `examples/doom`,
+        // the largest, at 15,638,822 bytes.
+        assert_eq!(
+            artifact_verdict(15_638_822, cap),
+            ArtifactVerdict::Quiet,
+            "examples/doom is the largest bundle this repository produces, at 5.8% of the cap. \
+             If it now warns, the threshold has moved far enough that every real plugin warns, \
+             and a warning everybody gets is one nobody reads."
+        );
+
+        assert_eq!(
+            artifact_verdict(u64::MAX, cap),
+            ArtifactVerdict::Over,
+            "the doubling in the warning test overflows on a large enough artifact. It is a \
+             `saturating_mul` for that reason: a plain `*` panics in debug and wraps in \
+             release, and a wrapped product would report the largest possible bundle as quiet."
+        );
+    }
+
+    /// A bundle over the cap, and the sentence its author reads.
+    ///
+    /// Separate from the arithmetic above because the arithmetic being right is
+    /// not what makes this rule worth having — the message is. An author who
+    /// hits this has already spent a `cargo build --release` and half a
+    /// gigabyte of disk, and the only thing that saves them a second round is
+    /// being told which cap, by how much, and which repair is the fake one.
+    ///
+    /// **What this does NOT cover, said out loud:** deleting the
+    /// `check_artifact_size(&output_path, &verified)?` line from `run` leaves
+    /// every test in this file green. Catching that needs an end-to-end build
+    /// of an archive over 256 MiB, which is 600 MB of scratch and a full
+    /// deflate pass over incompressible bytes — done once, by hand, and written
+    /// down in
+    /// `spec/listing-limits.yaml` rather than run on every CI job. That is a
+    /// floor this test has by construction, not an oversight.
+    #[test]
+    fn an_oversized_bundle_is_told_which_cap_and_which_repair_is_fake() {
+        let cap = crate::commands::locale::cap("max_artifact_bytes") as u64;
+        let bundle = Bundle {
+            manifest: crate::bundle::BundleManifest {
+                schema: SCHEMA.to_string(),
+                plugin_id: "big".into(),
+                version: "0.1.0".into(),
+                platform: Target::Noarch.platform(),
+                protocol: PLUGIN_PROTOCOL_VERSION,
+                min_astra_version: String::new(),
+                capabilities: vec![],
+                permissions: BTreeMap::new(),
+                permissions_hash: String::new(),
+                entry: ManifestEntry { command: "./x".into(), args: vec![] },
+                files: vec![crate::bundle::FileEntry {
+                    path: "ui/model.bin".into(),
+                    sha256: String::new(),
+                    size: cap + 1,
+                    mode: "0644".into(),
+                }],
+            },
+            manifest_digest: String::new(),
+            artifact_sha256: String::new(),
+            artifact_size: cap + 1,
+            entries: vec![],
+            signed: false,
+        };
+
+        let err = check_artifact_size(Path::new("big-0.1.0-noarch.astraplugin"), &bundle)
+            .expect_err("a bundle over max_artifact_bytes must be refused");
+        let msg = format!("{err:#}");
+
+        // Exit 1 is "the artefact is wrong"; exit 2 is "the CLI could not
+        // answer". A release workflow branches on that, and an oversized
+        // bundle reported as 2 reads as the toolchain having fallen over.
+        assert_eq!(crate::output::code_for(&err), 1, "an oversized bundle is a rejection, not a tool failure");
+
+        for needle in [
+            // The cap, exactly, so it can be compared with the registry's.
+            "268435456",
+            // The size, exactly, for the same reason.
+            &(cap + 1).to_string()[..],
+            // Which file, so `unzip -l` has somewhere to start.
+            "ui/model.bin",
+            // Where the number lives, in both repositories.
+            "spec/listing-limits.yaml",
+            "astra-registry/policy/limits.json",
+            // The OTHER cap, named so it is not mistaken for this one. The two
+            // are different numbers in different units and an author who
+            // shrinks against the wrong one gets a second refusal.
+            "max_extract_bytes",
+            // And the repair that looks fastest and is fake: raising the copy.
+            "What NOT to do: raise the number",
+        ] {
+            assert!(
+                msg.contains(needle),
+                "the refusal no longer contains {needle:?}. This message is the entire value of \
+                 the rule — an author who gets a bare `too large` has to go and read another \
+                 repository to find out by how much and what to do.\n\n{msg}"
+            );
+        }
+    }
 
     /// `spec/icon-formats.yaml` is the list; this file only mirrors it.
     ///
