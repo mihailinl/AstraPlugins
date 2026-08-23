@@ -1,0 +1,9 @@
+Nine translated cards, each exactly at the per-string caps the schema enforces —
+64 characters of name and 200 of summary — and together over the registry's
+8192-byte budget for a listing's whole `i18n` member.
+
+The point of the case is that the two caps are in different units. The per-string
+ones are CHARACTERS and this one is BYTES, so text outside the basic multilingual
+plane costs four bytes a character and a listing that satisfies every visible
+limit still cannot be published. CJK at the same caps comes to 7,399 bytes and is
+legitimate; this is what sits above it.

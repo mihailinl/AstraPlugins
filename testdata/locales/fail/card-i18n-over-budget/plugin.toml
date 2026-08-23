@@ -1,0 +1,11 @@
+[plugin]
+id = "fixture"
+name = "Card i18n budget fixture"
+version = "0.1.0"
+description = "A fixture for the shared locale rule corpus"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true
