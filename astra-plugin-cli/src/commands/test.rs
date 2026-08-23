@@ -339,6 +339,7 @@ pub async fn run(opts: TestOptions<'_>) -> Result<Verdict> {
         &capabilities,
         config_schema.as_ref(),
         &config_instance,
+        &manifest.plugin.min_astra_version,
     )
     .await;
 
@@ -422,6 +423,10 @@ async fn drive(
     capabilities: &[String],
     config_schema: Option<&Value>,
     config_instance: &Value,
+    // `plugin.min_astra_version`, for the declared plane's release gate. Empty
+    // is the answer that matters: it means this plugin installs on daemons that
+    // render a `$key` label as the literal text.
+    min_astra_version: &str,
 ) -> Result<Findings> {
     let declared: BTreeSet<&str> = capabilities.iter().map(String::as_str).collect();
 
@@ -590,7 +595,7 @@ async fn drive(
     // ── locale-round-trip ──
     findings
         .checks
-        .extend(locale_round_trip(&mut client, dir, &declared).await);
+        .extend(locale_round_trip(&mut client, dir, &declared, min_astra_version).await);
 
     // The daemon set `ASTRA_PLUGIN_CAPABILITY_AUTH=require` on this spawn, so a
     // capability call carrying no `x-plugin-token` must be refused. This is the
@@ -806,15 +811,39 @@ const LABELLED_CAPABILITIES: &[&str] = &["actions", "triggers", "ui_contribution
 /// produced identical output, so nothing here had ever exercised the feature
 /// this whole batch is about.
 ///
-/// Two properties, and both are about what the PLUGIN returns rather than about
-/// what a daemon would then render — this is a mock daemon, and asserting on a
-/// rendered label would be asserting on our own resolver:
+/// Three properties, and all three are about what the PLUGIN returns rather than
+/// about what a daemon would then render — this is a mock daemon, and asserting
+/// on a rendered label would be asserting on our own resolver:
 ///
 /// 1. **No unresolvable key.** A `$`-prefixed label whose key is in no locale
 ///    file reaches the user as the bare key, which reads on screen like a
 ///    deliberate identifier rather than a mistake. `$$` is the escape and is
 ///    not a key.
-/// 2. **The declared plane is language-INVARIANT.** The daemon caches a
+/// 2. **No `$key` at all on a plugin that any daemon may install.** The
+///    resolver that turns a `$key` in an action, trigger or UI label into text
+///    is newer than the newest Astra release, and `plugin.min_astra_version` is
+///    the only thing that stops an older daemon installing this plugin — so a
+///    `$key` here with that field empty is a label a user reads as an
+///    identifier, on every daemon in the world, whatever `en.json` says. This
+///    is E17 in `astra-plugin check`, applied where `check` structurally cannot
+///    look: an action label is written in the plugin's SOURCE, so the manifest
+///    reader never sees it and only a running plugin can be asked.
+///
+///    (1) and (2) partition the same set of `$` labels — unresolvable ones are
+///    broken on every daemon and are reported as that; resolvable ones are the
+///    ones this half is about — so no slot is reported twice and none is
+///    missed.
+///
+///    **What this does not cover, stated because the next reader will assume
+///    otherwise:** `astra-plugin test` is the only command that sees these
+///    strings at all, and it is not on the release path — `plugin-release.yml`
+///    runs `check --strict`, whose reader is the manifest, and an action label
+///    lives in the plugin's source. So a plugin can still be tagged and
+///    published with a `$key` label nobody ran this probe against. Closing that
+///    needs either the release workflow to run `test`, or a daemon that
+///    resolves the labels, which is what C22 watches for.
+///
+/// 3. **The declared plane is language-INVARIANT.** The daemon caches a
 ///    definition unresolved and resolves it per request, so a plugin must
 ///    return the same bytes whatever language it was last told about. A label
 ///    that changes between two passes is an author who called `t()` where they
@@ -822,7 +851,7 @@ const LABELLED_CAPABILITIES: &[&str] = &["actions", "triggers", "ui_contribution
 ///    language won the race at startup, for as long as the definition is
 ///    cached.
 ///
-/// Property 2 replaces the "label equals an `en.json` value" rule the plan
+/// Property 3 replaces the "label equals an `en.json` value" rule the plan
 /// asked for, which cannot work: this repository's own scaffold deliberately
 /// emits literal English labels that also appear in `en.json`, so that rule
 /// would fail every fresh plugin `astra-plugin new` produces.
@@ -830,6 +859,7 @@ async fn locale_round_trip(
     client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
     dir: &Path,
     declared: &BTreeSet<&str>,
+    min_astra_version: &str,
 ) -> Vec<(String, bool, String)> {
     let name = "labels survive a language round trip".to_string();
 
@@ -920,7 +950,14 @@ async fn locale_round_trip(
     }
 
     let mut out = Vec::new();
-    let mut problems = round_trip_problems(&seen, &english);
+    let mut problems = round_trip_problems(&seen, &english, min_astra_version);
+    // How many label slots are a `$key` at all, counted off the first pass —
+    // the same set (1) and (2) divide between them, and what the summary
+    // reports instead of the sentence it used to print.
+    let key_slots = seen
+        .get(crate::locales::LOCALE_CODES[0])
+        .map(|per| per.values().filter(|v| key_marker(v).is_some()).count())
+        .unwrap_or(0);
 
     // The anti-vacuous guard. Two floors, because they fail for different
     // reasons: nothing came back at all, or something came back and this probe
@@ -951,12 +988,26 @@ async fn locale_round_trip(
     }
 
     out.push(if problems.is_empty() {
+        // NOT "every $key resolvable". That sentence was true of `en.json` and
+        // false of the user's screen: it meant this probe's own loader found
+        // the key, while no released daemon looks one up at all. What is
+        // reported now is which plane was checked and on which daemons the
+        // labels are text.
+        let plane = if key_slots == 0 {
+            "no label is a $key, so every daemon renders them as written".to_string()
+        } else {
+            format!(
+                "{key_slots} label(s) are $keys that locales/en.json resolves — they are text \
+                 only on an Astra that resolves plugin labels, which this plugin requires \
+                 ({min_astra_version} or newer)"
+            )
+        };
         (
             name,
             true,
             format!(
                 "{slots} label slot(s) on {definitions} definition(s), identical across all {} \
-                 languages, every $key resolvable",
+                 languages; {plane}",
                 crate::locales::LOCALE_CODES.len()
             ),
         )
@@ -983,31 +1034,48 @@ async fn locale_round_trip(
 
 /// The two properties, over what came back — pure, so a test can drive it.
 ///
-/// Property (1) is collapsed across languages before anything is printed. A
+/// Properties (1) and (2) are collapsed across languages before anything is
+/// printed. A
 /// label is supposed to be language-invariant, so ONE misspelt key produces the
 /// same finding ten times over, and ten identical paragraphs is an enumeration
 /// wearing a report's clothes.
 fn round_trip_problems(
     seen: &BTreeMap<String, BTreeMap<String, String>>,
     english: &BTreeSet<String>,
+    min_astra_version: &str,
 ) -> Vec<String> {
     let mut problems = Vec::new();
 
-    // (1) unresolvable keys.
+    // (1) unresolvable keys, and (2) resolvable ones on a plugin no release
+    // gate protects. Collapsed across languages before anything is printed, and
+    // partitioned: a slot is in exactly one of the two.
     let mut unresolvable: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    let mut unreleased: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
     for (code, per) in seen {
         for (at, value) in per {
-            let Some(rest) = value.strip_prefix('$') else { continue };
-            if rest.starts_with('$') {
-                continue; // `$$` is the escape for a literal dollar.
-            }
+            let Some(rest) = key_marker(value) else { continue };
             if !english.contains(rest) {
                 unresolvable
                     .entry((at.as_str(), value.as_str()))
                     .or_default()
                     .push(code.as_str());
+            } else if min_astra_version.is_empty() {
+                unreleased.entry((at.as_str(), value.as_str())).or_default().push(code.as_str());
             }
         }
+    }
+    for (at, value) in unreleased.keys() {
+        problems.push(format!(
+            "{at} came back as `{value}` and plugin.min_astra_version is empty. The key is in \
+             locales/en.json, which proves this probe's loader can find it and nothing about \
+             the daemon the plugin is installed on: resolving plugin keys outside [config] \
+             schema is newer than the newest Astra release, and min_astra_version is the only \
+             thing that stops an older one installing this plugin — so this label reaches a \
+             user as the literal text `{value}`. Two ways forward, and only you can pick: write \
+             the English label here and translate the plugin's own strings with I18n, which \
+             works everywhere; or set plugin.min_astra_version to the first Astra release that \
+             resolves these, so an older daemon refuses to install rather than showing a key."
+        ));
     }
     for ((at, value), codes) in &unresolvable {
         problems.push(format!(
@@ -1020,7 +1088,7 @@ fn round_trip_problems(
         ));
     }
 
-    // (2) language invariance.
+    // (3) language invariance.
     let base = seen.get("en").cloned().unwrap_or_default();
     for (code, per) in seen {
         if code == "en" {
@@ -1064,10 +1132,21 @@ fn collect_field_labels(
     }
 }
 
+/// The key a `$`-prefixed label references, or `None`.
+///
+/// `$$` is the daemon's escape for a literal leading dollar and is not a key —
+/// the one place shape matters here, and it matters in the direction that
+/// refuses less.
+fn key_marker(value: &str) -> Option<&str> {
+    let rest = value.strip_prefix('$')?;
+    if rest.starts_with('$') { None } else { Some(rest) }
+}
+
 /// Every key in one `locales/<code>.json`, or nothing.
 ///
 /// Read directly rather than through `I18n`, which exposes lookups and not the
-/// key set of one specific language — and `en` is what property (1) is about.
+/// key set of one specific language — and `en` is what properties (1) and (2)
+/// are about.
 fn locale_keys(dir: &Path, code: &str) -> BTreeSet<String> {
     std::fs::read_to_string(dir.join("locales").join(format!("{code}.json")))
         .ok()
@@ -1916,7 +1995,7 @@ mod tests {
     /// must NOT report ten times.
     ///
     /// Verified against a live plugin too — a `.with_label(&self.i18n.t(…))`
-    /// on the companion example produced exactly the property-2 finding, and a
+    /// on the companion example produced exactly the invariance finding, and a
     /// `key("ui.cat.labl")` with no such key produced property 1. What that run
     /// also produced was the same paragraph ten times over, once per language,
     /// which is what the collapse below exists to stop.
@@ -1937,7 +2016,10 @@ mod tests {
             seen.insert((*code).to_string(), per);
         }
 
-        let problems = round_trip_problems(&seen, &english);
+        // `0.3.0` because this case is about properties (1) and (2): a plugin
+        // that names a release gate has already answered (2), and passing ""
+        // here would fold three findings into one assertion.
+        let problems = round_trip_problems(&seen, &english, "0.3.0");
         assert_eq!(
             problems.len(),
             1,
@@ -1948,11 +2030,11 @@ mod tests {
         assert!(problems[0].contains("ui.cat.labl"), "{}", problems[0]);
         assert!(!problems[0].contains("$5 and up"), "the `$$` escape is not a key");
 
-        // Property 2: a label that changes between languages.
+        // Property 3: a label that changes between languages.
         seen.get_mut("ru")
             .unwrap()
             .insert("ui 'cat' label".to_string(), "$ui.cat.labl.ru".to_string());
-        let problems = round_trip_problems(&seen, &english);
+        let problems = round_trip_problems(&seen, &english, "0.3.0");
         assert!(
             problems.iter().any(|p| p.contains("under `ru`") && p.contains("resolved \
                  it itself")),
@@ -1972,7 +2054,63 @@ mod tests {
                     .collect(),
             );
         }
-        assert!(round_trip_problems(&clean, &english).is_empty());
+        assert!(round_trip_problems(&clean, &english, "").is_empty());
+    }
+
+    /// Property (2): a `$key` that RESOLVES is the one the probe used to call
+    /// fine.
+    ///
+    /// This is the finding the review reproduced end to end: an action label of
+    /// `$action.missing.label` with that key present in `en.json` produced
+    /// `[ok] … every $key resolvable`, exit 0, `build` packed it — while every
+    /// released daemon renders the literal text. What made it invisible is that
+    /// the probe's own loader reads the same `locales/` the plugin does, so the
+    /// key really did resolve; the reader that does not is the daemon.
+    #[test]
+    fn a_resolvable_key_on_the_declared_plane_needs_a_release_gate() {
+        let english: BTreeSet<String> = ["action.missing.label".to_string()].into_iter().collect();
+        let mut seen: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        for code in crate::locales::LOCALE_CODES {
+            seen.insert(
+                (*code).to_string(),
+                [
+                    ("action 'x' label".to_string(), "$action.missing.label".to_string()),
+                    // Neither of these may be caught by (2): the escape is a
+                    // literal, and a plain label is not a key at all.
+                    ("action 'x' price".to_string(), "$$5 and up".to_string()),
+                    ("action 'x' hint".to_string(), "Type something".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+            );
+        }
+
+        let problems = round_trip_problems(&seen, &english, "");
+        assert_eq!(
+            problems.len(),
+            1,
+            "one label, one finding, collapsed across ten languages:\n{}",
+            problems.join("\n")
+        );
+        assert!(problems[0].contains("min_astra_version is empty"), "{}", problems[0]);
+        assert!(problems[0].contains("action 'x' label"), "{}", problems[0]);
+
+        // Naming a release that resolves them is the author's other way out,
+        // and it is the whole difference between the two verdicts.
+        assert!(
+            round_trip_problems(&seen, &english, "0.3.0").is_empty(),
+            "a plugin that requires a resolving Astra is not showing anybody a key"
+        );
+
+        // (1) and (2) partition: an UNRESOLVABLE key is reported once, by (1),
+        // whatever min_astra_version says — never twice.
+        let mut missing = seen.clone();
+        for per in missing.values_mut() {
+            per.insert("action 'x' label".to_string(), "$action.absent.label".to_string());
+        }
+        let problems = round_trip_problems(&missing, &english, "");
+        assert_eq!(problems.len(), 1, "{}", problems.join("\n"));
+        assert!(problems[0].contains("is in no locale file"), "{}", problems[0]);
     }
 
     #[test]

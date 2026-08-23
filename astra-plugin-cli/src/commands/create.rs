@@ -152,7 +152,7 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
     // `*.json` in there is loaded as a locale keyed on its stem, so
     // `locales/locales.lock.json` would become a phantom locale named
     // `locales.lock`.
-    let (en, lock) = templates::generate_locales(name);
+    let (en, lock) = templates::generate_locales(name, &caps);
     fs::create_dir_all(out_path.join("locales"))?;
     fs::write(out_path.join("locales").join("en.json"), en)?;
     fs::write(out_path.join(super::locale::LOCK_FILE), lock)?;
@@ -302,6 +302,56 @@ mod tests {
             TEMPLATE_CAPABILITIES.len(),
             TEMPLATE_NAMES.len(),
             "a capability set exists for a template --help does not offer"
+        );
+    }
+
+    /// The scaffold's `locales/en.json` declares `msg.done.*` exactly when the
+    /// scaffold's SOURCE resolves it.
+    ///
+    /// They arrived separately and disagreed for every template: `en.json`
+    /// always carried the two plural rows and no generated source in any
+    /// language referenced them, so an author's first locale file held two keys
+    /// they could not trace to anything. Two files, one fact, and the fact is
+    /// "does this scaffold use the runtime plane".
+    #[test]
+    fn the_seeded_keys_are_the_ones_the_generated_source_resolves() {
+        const KEY: &str = "msg.done";
+
+        // A floor before the comparison: this walks a table, and a table that
+        // stops yielding templates would pass this test in silence.
+        assert!(
+            TEMPLATE_CAPABILITIES.len() >= 8,
+            "{} template(s) — this walk is looking at the wrong table",
+            TEMPLATE_CAPABILITIES.len()
+        );
+
+        let mut with_runtime = 0usize;
+        for (template, caps) in TEMPLATE_CAPABILITIES {
+            let caps = caps.to_vec();
+            let (en, _) = crate::templates::generate_locales("demo", &caps);
+            let seeded = en.contains(KEY);
+            if seeded {
+                with_runtime += 1;
+            }
+            for (language, source) in [
+                ("rust", crate::templates::rust::generate_main_rs("demo", &caps)),
+                ("python", crate::templates::python::generate_plugin_py("demo", &caps)),
+                ("typescript", crate::templates::typescript::generate_index_ts("demo", &caps)),
+            ] {
+                assert_eq!(
+                    source.contains(KEY),
+                    seeded,
+                    "--template {template} --lang {language}: locales/en.json {} `{KEY}` and \
+                     the generated source {} it. One of the two was written without the other.",
+                    if seeded { "declares" } else { "omits" },
+                    if source.contains(KEY) { "resolves" } else { "never mentions" }
+                );
+            }
+        }
+        assert!(
+            with_runtime > 0,
+            "no template seeds the runtime plane at all — either the predicate stopped saying \
+             yes to anything, or this walk stopped reading en.json"
         );
     }
 

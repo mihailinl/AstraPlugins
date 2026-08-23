@@ -130,7 +130,10 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
       // handler. Keep the two describing the same values.
       fields: [Field.text("message", "Message", { placeholder: "Hello" })],
       params: s.object({ message: s.string() }),
-      run: ({ message }) => message,
+      // RUNTIME plane, unlike the label above: this process produces the
+      // string, so it resolves it — now, in the user's language, with a count
+      // no daemon can know. The keys are in locales/en.json.
+      run: ({ message }, ctx) => `${ctx.i18n.tn("msg.done", 1, { n: "1" })}: ${message}`,
     }),
   },
 "#,

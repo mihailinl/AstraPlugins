@@ -121,7 +121,11 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     async def say_hello(self, name: str = "world"):
         # An action is what the user drags into a command; its parameters render
         # as the fields of the editor. TODO: make it do something.
-        return f"Hello, {name}."
+        #
+        # RUNTIME plane, unlike the label above: this process produces the
+        # string, so it resolves it — now, in the user's language, with a count
+        # no daemon can know. The keys are in locales/en.json.
+        return self.i18n.tn("msg.done", 1, n="1")
 "#,
         );
     }
