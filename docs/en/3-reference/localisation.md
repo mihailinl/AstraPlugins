@@ -48,9 +48,9 @@ different processes. Which one a string belongs to decides how you write it.
 | **Runtime** — chat text, notifications, anything with a count in it | your **own process**, at the moment it produces the string | `ctx.i18n().t("msg.sent")` |
 | **The store card** — the name and one-line summary a user reads before installing | the **registry**, out of the bundle it already holds | two reserved keys, below |
 
-The third row is the one to read the small print on: the two keys are reserved
-and enforced here **today**, and the catalogue does not read them **yet**. See
-below.
+The third row is the one to read the small print on, because it is the only one
+your own machine never renders: those two keys are read in another repository,
+out of the bundle, after you have pushed a tag. See below.
 
 The split is not a preference either. When the store card is drawn there is no
 bundle on disk and no process to ask. When a settings form is drawn your process
@@ -70,15 +70,22 @@ two**: any other `listing.` key is an error. Their English values must equal
 than tolerated, and `astra-plugin locale sync` is the one command that resolves
 it, because the two are by definition a copy.
 
-**What they are for has not shipped.** The plan is that the registry's ingest
-bot reads them out of the bundle it has already attested and puts a per-language
-name and summary on the store card. That is not built: today's catalogue carries
-one name and one summary, in whatever language the manifest was written in, and
-those two keys buy a Russian user nothing yet. They are reserved and checked now
-so that the bundles being published in the meantime already carry the text, and
-so that no plugin has invented a third meaning for `listing.something` by the
-time the bot goes looking. Writing them costs one line each; not writing them
-means re-tagging a release later.
+**What they do.** The registry's ingest bot reads those two keys out of the
+bundle it has already attested and writes a per-language name and summary into
+the signed catalogue — beside the English ones, never instead of them. Nothing
+is uploaded and nothing is typed into a form: the text ships inside your bundle,
+and a language a release stops shipping leaves the card rather than outliving the
+file it came from. A client that has never heard of the per-language member reads
+the flat English fields, which is the other reason English is the card.
+
+The card is the one surface a stranger reads *before* installing you, so the
+rules follow the text there. The two keys are checked against `plugin.toml`
+again, on the downloaded bundle. A translated name is held against every other
+listing's names in every language, the way an English one always has been. And a
+translation of English you have since rewritten is published as the English,
+because a confidently wrong sentence in a language nobody at the registry can
+read is worse than a correct one in the wrong language. You meet all of it
+locally, before a tag exists, from `astra-plugin locale check`.
 
 `plugin.toml` itself may **not** carry a `$key` in `name` or `description`.
 Those bytes go into `MANIFEST.json` and are read unresolved by the registry, so
@@ -171,7 +178,7 @@ among ten — it is the base the other nine are defined against. Concretely:
 | `astra-plugin dev` | refuses to sideload at all unless `check --strict` passes, so a note is free and anything above one stops you |
 | `astra-plugin build` | **refuses to pack.** Nothing is written |
 | the release workflow | runs `check --strict` before it builds anything, in your repository, on your tag — with the CLI that workflow pins, which is not necessarily the newest one |
-| the registry, at ingest | **not yet.** The same rules against the downloaded bundle are the plan, and they matter because a bundle can reach the catalogue without ever having met this CLI. Until then the last row above is the last gate |
+| the registry, at ingest | the same rules again, on the bundle it downloaded — because a bundle can reach the catalogue without ever having met this CLI. Not all of them: what is a fact about your source tree stays above, where you can still act on it. This gate refuses a listing *after* a tag is pushed, which is the expensive place to learn any of it |
 
 The English check is a **script check, not a language detector**. It refuses a
 description written entirely in another alphabet — which is the accident it
