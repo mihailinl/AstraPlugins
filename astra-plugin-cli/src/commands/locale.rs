@@ -914,10 +914,22 @@ fn check_permission_reasons(m: &PluginManifest, f: &mut Findings) {
     }
 }
 
-/// **E7 / E16 / E17 / E20 / N5 / N6 — every `$string` in the manifest.**
+/// **E7 / E16 / E17 / E20 / E21 / N5 / N6 — every `$string` in the manifest.**
 fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut Findings) {
     let en = set.get("en").filter(|x| x.error.is_none());
     let known = |key: &str| en.is_some_and(|e| e.keys.contains_key(key));
+    /// E21's condition, and it is `en.json` alone.
+    ///
+    /// `""` is a TRANSLATION and not a miss — that is settled in
+    /// `spec/i18n.yaml` (`empty_value`) and it is the only way to blank a
+    /// string in one language. In `en.json` there is no language underneath to
+    /// blank it *against*: the other nine fall back per key to English, so an
+    /// empty English value is a blank label in all ten. N11 keeps a deliberate
+    /// blank visible everywhere else; this is the one place it cannot be one.
+    fn blank_english(en: Option<&LocaleFile>, key: &str) -> bool {
+        en.is_some_and(|e| e.keys.get(key).is_some_and(|v| v.is_empty()))
+    }
+    let blank = |key: &str| blank_english(en, key);
 
     // ── [config] schema ──
     let mut refs: Vec<Reference> = Vec::new();
@@ -931,6 +943,29 @@ fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut
     for r in &refs {
         let at = format!("[config] schema {}", r.at);
         match (r.label, known(&r.key)) {
+            (true, true) if blank(&r.key) => f.err(
+                "E21",
+                format!(
+                    "{at} references `${}`, and locales/en.json defines it as an EMPTY \
+                     STRING.\n\
+                     \x20       An empty value is a TRANSLATION and not a miss, so the daemon \
+                     puts it on\n\
+                     \x20       screen: this label renders as nothing at all, and in every \
+                     language — the\n\
+                     \x20       other nine fall back per key to English, and English is the \
+                     blank.\n\
+                     \x20       `astra-plugin locale extract` prints the paste block that leaves \
+                     it this\n\
+                     \x20       way; the values in it are yours to write.\n\
+                     \x20       Fix: write the English text under \"{}\" in locales/en.json, or \
+                     drop the\n\
+                     \x20            `$` and write it in the schema directly.\n\
+                     \x20            DELETING the key is not the fix — the daemon then renders \
+                     the bare\n\
+                     \x20            key `{}` on the settings form, which is [E7].",
+                    r.key, r.key, r.key
+                ),
+            ),
             (true, true) => {}
             (true, false) if looks_like_key(&r.key) => f.err(
                 "E7",
@@ -1067,6 +1102,20 @@ fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut
                     format!(
                         "[[ui.contributions]] '{}' references `${key}`, which is in no locale \
                          file. Add \"{key}\" to locales/en.json.",
+                        c.id
+                    ),
+                );
+            } else if blank(key) {
+                f.err(
+                    "E21",
+                    format!(
+                        "[[ui.contributions]] '{}' references `${key}`, and locales/en.json \
+                         defines it as an EMPTY STRING. An empty value is a translation and not \
+                         a miss, so this contribution renders with no label at all, in every \
+                         language — the other nine fall back per key to English, and English is \
+                         the blank. Write the English text under \"{key}\" in locales/en.json; \
+                         deleting the key is not the fix, because the daemon then renders the \
+                         bare key, which is [E7].",
                         c.id
                     ),
                 );
