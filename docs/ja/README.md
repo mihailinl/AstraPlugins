@@ -73,6 +73,7 @@ zip を誰かに送ることも公開ではありません。メンテナーに�
 | [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 35 個のフック |
 | [パーミッション](3-reference/permissions.md) | 手書き: 各パーミッションが何を許可するか、理由の書き方 |
 | [設定フィールド](3-reference/config-fields.md) | 手書き: 設定 UI、`[config]`、TTS/STT のフィールドフック |
+| [ローカライズ](3-reference/localisation.md) | 手書き: `locales/<code>.json`、`$key` マーカー、英語ゲートが働く場所 — **英語のみ** |
 
 検証ツールやレジストリを実装する人向けの規範仕様(プラグインを書く人向けではありません):
 [bundle v2](spec/bundle-v2.md) ·

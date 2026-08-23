@@ -78,6 +78,7 @@ die falsch ist.
 | [Hook-Parität](reference/parity.md) | `spec/hooks.yaml` — alle 35 Hooks in allen drei SDKs |
 | [Berechtigungen](3-reference/permissions.md) | handgeschrieben: jede Berechtigung, was sie gewährt, wie man eine Begründung schreibt |
 | [Config-Felder](3-reference/config-fields.md) | handgeschrieben: Settings-UI, `[config]`, und die TTS/STT-Feld-Hooks |
+| [Lokalisierung](3-reference/localisation.md) | handgeschrieben: `locales/<code>.json`, der `$key`-Marker, und wo das Englisch-Gate greift — **nur auf Englisch** |
 
 Normative Spezifikationen, für alle, die einen Verifier oder eine Registry
 implementieren statt eines Plugins: [Bundle v2](spec/bundle-v2.md) ·

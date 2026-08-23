@@ -53,7 +53,13 @@ astra-plugin build
 - `src/main.rs` — the backend: declares the overlay and answers
   `getRandomMessage` calls from the UI side.
 - `ui/cat.js` — everything visible. This is the code `dom_access` covers.
-- `locales/en.json`, `locales/ru.json` — the phrase lists.
+- `locales/en.json`, `locales/ru.json` — the phrase lists, plus the two
+  reserved `listing.*` keys the store card is drawn from.
+  `msg.0` … `msg.N`: how many there are is asked with `count_prefixed`
+  rather than written down, so adding a phrase to both files is the whole
+  change. It used to be a `% 41` in `main.rs` with a comment asking the
+  next person to keep the two in step, and nothing that noticed when they
+  were not. See [the localisation page](../../docs/en/3-reference/localisation.md).
 - `icon.svg` — the store icon, hand-drawn SVG.
 
 MIT licensed.

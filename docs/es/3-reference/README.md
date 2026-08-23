@@ -39,6 +39,7 @@ encajan las tres cosas distintas llamadas "config".
 |---|---|
 | [Permisos](permissions.md) | Cada id, qué otorga, y cómo escribir un `reason` |
 | [Campos de config y ajustes](config-fields.md) | `[config]`, ajustes tipados, y los hooks de campo TTS/STT |
+| [Localización](localisation.md) | `locales/<code>.json`, el marcador `$key`, y dónde actúa la verificación de inglés — **solo en inglés** |
 
 Cada ejemplo de código en ambas se ejecuta en la CI mediante
 [`docs/tools/doctest.py`](../../tools/doctest.py).

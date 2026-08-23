@@ -1973,6 +1973,58 @@ jobs:
       - name: build the CLI
         run: cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
 
+      # Every example passes the locale gate — the rules `astra-plugin build`
+      # refuses a bundle over, run on the eleven plugins this repository holds
+      # up as the way to write one.
+      #
+      # `locale check` rather than `check --strict`: five of the eleven fail
+      # the full strict check today for a reason that has nothing to do with
+      # locales (they have no release workflow of their own, so the repo's
+      # `release-bad-apple.yml` is reported as pointing somewhere else), and a
+      # step that is red for an unrelated reason is a step people learn to
+      # ignore. That is a separate defect, recorded rather than smuggled in
+      # here.
+      #
+      # THE FLOOR, and it is not decoration. This loop reports what it FOUND,
+      # so a glob that stops matching prints nothing and exits 0 — the shape
+      # that reads exactly like a clean bill of health. Eleven is what exists
+      # today; a deleted example lowers it in the same commit.
+      - name: every example passes the locale gate
+        run: |
+          set -euo pipefail
+          CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
+          n=0
+          bad=0
+          for m in examples/*/plugin.toml; do
+            n=$((n + 1))
+            d="$(dirname "$m")"
+            if out=$("$CLI" locale check --path "$d" 2>&1); then
+              echo "ok   $d"
+            else
+              { echo "FAIL $d — the locale rules refuse this example."
+                printf '%s\n' "$out" | sed 's/^/       /'
+                echo "     The examples are the de-facto documentation of what a plugin looks"
+                echo "     like. One that astra-plugin build would refuse to pack teaches the"
+                echo "     failure to everybody who copies it."
+                echo "     fix: astra-plugin locale check --path $d, and do what it says."
+              } >&2
+              bad=1
+            fi
+          done
+          if [ "$n" -lt 11 ]; then
+            { echo "FAIL the SCAN broke, not the rule: examples/*/plugin.toml matched $n"
+              echo "     manifest(s), below the floor of 11 that existed when this step was"
+              echo "     written. Nothing above has been verified — this loop only ever"
+              echo "     reports what it found, so finding less reads exactly like finding"
+              echo "     no problem."
+              echo "     Either an example was deleted (lower the floor in that same commit)"
+              echo "     or the layout moved and this glob no longer reaches it."
+            } >&2
+            exit 1
+          fi
+          [ "$bad" -eq 0 ] || exit 1
+          echo "ok   $n example(s) pass the locale gate"
+
       - name: run the conformance suite on the reference plugins
         run: |
           set -euo pipefail

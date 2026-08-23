@@ -71,6 +71,7 @@ UI，或者作为一个独立的聊天客户端运行。
 | [钩子对照表](reference/parity.md) | `spec/hooks.yaml` —— 三个 SDK 中全部 35 个钩子 |
 | [权限](3-reference/permissions.md) | 手写: 每个权限授予什么、如何写理由说明 |
 | [配置字段](3-reference/config-fields.md) | 手写: 设置界面、`[config]`，以及 TTS/STT 字段钩子 |
+| [本地化](3-reference/localisation.md) | 手写: `locales/<code>.json`、`$key` 标记，以及英文校验在哪里生效 — **仅有英文版** |
 
 面向要实现校验器(verifier)或注册表(registry)的人，而非插件作者的规范性规格说明：
 [bundle v2](spec/bundle-v2.md) ·

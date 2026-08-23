@@ -6,9 +6,10 @@ struct CompanionCat {
 
 impl Default for CompanionCat {
     fn default() -> Self {
-        Self {
-            i18n: I18n::load(std::path::Path::new("locales")),
-        }
+        // `discover()` rather than `load("locales")`: it honours
+        // $ASTRA_PLUGIN_DIR when the daemon sets it, and falls back to the
+        // working directory, which is the only reason the old form worked.
+        Self { i18n: I18n::discover() }
     }
 }
 
@@ -37,8 +38,33 @@ impl PluginCapability for CompanionCat {
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .subsec_nanos() as usize;
-                // Must match the number of msg.N keys in the locale files.
-                let key = format!("msg.{}", nanos % 41);
+                // This used to be `nanos % 41`, under a comment saying it must
+                // match the number of `msg.N` keys in the locale files. Nothing
+                // made it match. Adding a 42nd line to en.json and ru.json would
+                // have left the cat silently unable to say it, and deleting one
+                // would have had `t()` return the bare key `msg.41` to a user.
+                //
+                // `count_prefixed` counts across the UNION of every locale
+                // loaded, so a language somebody has not finished translating
+                // cannot change the modulus and make two users see different
+                // numbers of messages.
+                let n = self.i18n.count_prefixed("msg.");
+                if n == 0 {
+                    // No `msg.` key loaded at all. `discover()` never fails, it
+                    // just finds nothing, and `nanos % 0` panics — so this says
+                    // which of the two happened instead of taking the process
+                    // down inside a UI call.
+                    let why = if self.i18n.load_errors().is_empty() {
+                        format!(
+                            "no msg.* keys in {:?}",
+                            self.i18n.source_dir().unwrap_or(std::path::Path::new("locales"))
+                        )
+                    } else {
+                        self.i18n.load_errors().join("; ")
+                    };
+                    return Ok(serde_json::json!({ "message": "", "error": why }).to_string());
+                }
+                let key = format!("msg.{}", nanos % n);
                 Ok(serde_json::json!({ "message": self.i18n.t(&key) }).to_string())
             }
             _ => Err(ToolError::NotFound(format!("Unknown method: {method}"))),

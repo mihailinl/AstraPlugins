@@ -55,7 +55,7 @@ use astra_plugin_sdk::prelude::*;
 | Runner | What it does |
 |---|---|
 | `rust-plugin` | The block is a complete `src/main.rs`. Built with `cargo build` in a scaffolded project whose SDK is patched to this tree. `test=1` also runs `cargo test` |
-| `toml-manifest` | The block is a complete `plugin.toml`. Run through `astra-plugin check --strict` |
+| `toml-manifest` | The block is a complete `plugin.toml`. Run through `astra-plugin check --strict`. `locales=1` also writes a `locales/en.json` covering every `$key` the manifest references |
 | `cli` | Every `astra-plugin …` line is re-parsed by the real binary. Other lines must use an allowlisted shell command |
 | `python-plugin` | A complete module. Byte-compiled, executed top-level, and every `def test_*` it defines is called |
 | `ts-plugin` | A complete module. Type-checked with `tsc --noEmit` against this tree's SDK |
@@ -68,11 +68,20 @@ use astra_plugin_sdk::prelude::*;
 | `output` | `from="<the command that produced it>"` — and it must be a *command*, not a description of one |
 | `illustrative` | `reason="<why it cannot run>"`, at least twelve characters |
 
-`output` is only half a non-runner. When `from=` is an `astra-plugin` line the
-harness can answer on its own — `--version`, `--help`, `<subcommand> --help` —
+`output` is only half a non-runner. When `from=` is an `astra-plugin` line
+carrying `--help`, `-h`, `--version` or `-V` — `<subcommand> --help` included —
 the command **is** run and the block is diffed against what it prints, with
 `<lower-case-placeholders>` matching anything. `<COMMAND>` and the other clap
 metavariables are upper-case and stay literal.
+
+The subcommand case is new, and the way it was missing is worth keeping: this
+paragraph and the harness's own docstring both claimed `<subcommand> --help` was
+executed, while the predicate refused any word that was not a flag. Every
+subcommand help transcript in these docs was therefore un-run, in all seven
+languages, and counted as *accounted for* — a claim in prose standing where a
+check was believed to be. It is one predicate now, `self_answering`, called by
+the runner and by the summary counter, because it used to be the same expression
+written twice.
 
 When `from=` names something this harness will not run — it needs a project, a
 daemon, the network, a particular machine — the block must also carry
@@ -94,6 +103,30 @@ flag, then short-circuits before the subcommand does anything: a valid line
 exits 0, an unknown flag or subcommand exits 2. So `astra-plugin build --target
 linux-x64 --reproducible` is verified against the real definitions, and
 nothing is built.
+
+## How `rust-plugin` blocks find the SDK
+
+The scaffold this harness builds in pins the **published** SDK, and the tree
+runs ahead of crates.io between releases. So the runner rewrites the
+`astra-plugin-sdk = …` line to a path dependency on `astra-plugin-sdk/` in this
+repository, and refuses to run at all if that line is not there to rewrite.
+
+It used to append `[patch.crates-io]` instead, on the strength of a comment —
+also in `ci.yml`, where it still stands — saying that a patch overrides a
+dependency *regardless of the declared range*. It does not. Cargo drops a patch
+whose version does not satisfy the requirement, prints `patch … was not used in
+the crate graph` as a **warning**, and resolves from the registry. Today the
+pin and the tree agree and C11 holds them there, so nothing is broken; the
+window where they do not is between an SDK version bump and the repin after its
+publish, and in that window every Rust sample is checked against the last
+released SDK in a run that stays green.
+
+The scratch project is **re-scaffolded when the CLI binary changes**, which is a
+separate trap with the same shape. `$TMPDIR/astra-doctest` is reused so a second
+run is cheap, and that meant a project scaffolded by an older binary outlived
+the scaffold itself: a cached `Cargo.toml` here still pinned SDK `"0.6"` five
+commits after the template moved to `"0.7"`. On CI the workdir is always fresh,
+so this one is invisible in the only place it is watched.
 
 ## What it needs
 
@@ -161,7 +194,9 @@ attributes are notes to the next editor, written in English throughout the tree.
 Bodies of `rust-plugin`, `python-plugin`, `ts-plugin` and `toml-manifest` blocks
 are **not** compared — they are code, `doctest.py` executes each of them in every
 language, and a comment inside one is fair to translate. Their positions are
-still compared.
+still compared, and so is `toml-manifest`'s `locales=` attribute: that one is not
+a note to an editor but an instruction to the runner, and a translation that drops
+it turns that page's manifest sample red in one language only.
 
 The second assertion exists because the first was not enough. A correction to an
 English transcript shipped with all six translations still carrying the retracted

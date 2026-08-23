@@ -78,6 +78,7 @@ está equivocada.
 | [Paridad de hooks](reference/parity.md) | `spec/hooks.yaml` — los 35 hooks en los tres SDK |
 | [Permisos](3-reference/permissions.md) | escrito a mano: cada permiso, qué otorga, cómo escribir un motivo |
 | [Campos de configuración](3-reference/config-fields.md) | escrito a mano: interfaz de ajustes, `[config]`, y los hooks de campo TTS/STT |
+| [Localización](3-reference/localisation.md) | escrito a mano: `locales/<code>.json`, el marcador `$key`, y dónde actúa la verificación de inglés — **solo en inglés** |
 
 Especificaciones normativas, para quien implemente un verificador o un
 registro en lugar de un plugin: [bundle v2](spec/bundle-v2.md) ·
