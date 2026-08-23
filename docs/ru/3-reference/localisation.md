@@ -99,6 +99,24 @@ Those bytes go into `MANIFEST.json` and are read unresolved by the registry, so
 a key there is the literal text a user reads on the store card of every Astra
 that has ever existed.
 
+**And that is the sentence to read twice, because it decides something these two
+keys do not.** `listing.name` localises your **catalogue entry** — the row a
+stranger reads in the store. It is not a rename. Your plugin's display name
+*inside* Astra starts from `plugin.toml`'s flat `name`, which is English by
+construction, and every surface that has no localised source for it shows
+exactly that.
+
+Which surfaces inside Astra do show a translated name is the daemon's decision
+and it varies between releases — settings pages, provider lists and chat titles
+are drawn by different code, and not all of it has ever asked for a language.
+**Do not write documentation, release notes or a store description that promises
+your users a translated plugin name everywhere.** Promise them what you control:
+the store card, your config form, your `[ui]` labels, and every string your own
+process produces. Those are the two planes above, and they are yours.
+
+If a translated name matters to you on a particular Astra screen, that is a
+feature request against Astra, not something `locales/` can deliver.
+
 ---
 
 ## 2 · `$` marks a key. `$$` marks a dollar.
