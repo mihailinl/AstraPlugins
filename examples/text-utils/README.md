@@ -47,11 +47,51 @@ Astra down with it, but the plugin will stop answering until you restart it.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| Max Text Length | `10000` | every tool refuses text longer than this, so a pasted log file cannot stall the plugin |
+| Max text length | `10000` | every tool refuses text longer than this, so a pasted log file cannot stall the plugin |
+
+That label is not written in `plugin.toml`. The schema carries
+`"$config.max_text_length.title"` and the daemon looks it up in `locales/` per
+request — see **Languages** below.
 
 A value that is not a number is logged and ignored rather than fatal: a config
 hook has nowhere to report a failure, and refusing to start over one bad field
 would take the whole plugin down.
+
+## Languages
+
+Ships **English, Russian and Ukrainian**, and is the worked example of `locales/`
+from Python. Two things are translated, by two different mechanisms, and which
+one a string belongs to is decided by *who renders it*:
+
+| | Rendered by | Written as |
+|---|---|---|
+| The settings form's field label and help text | the **daemon**, per request, from the `locales/` copy it took at install | `"$config.max_text_length.title"` in `[config] schema` |
+| The health line — `ok — 3 operations processed` | **this process**, at the moment it produces the sentence | `self.i18n.tn("health.ok", n, n=str(n))` |
+| The store card | the **registry**, out of the bundle | the reserved `listing.name` / `listing.description` keys |
+
+The health line is the reason `tn` and not `t`: it carries a count, which the
+daemon cannot know, and Russian and Ukrainian need **four** forms of the counted
+noun where English needs two. `astra-plugin locale add ru` writes exactly the
+rows a language needs — `health.ok.one/few/many/other` for these two — and
+`locales.lock.json` records which English each translation was made against, so
+rewriting the English makes the translations report themselves stale instead of
+quietly describing a sentence that no longer exists.
+
+The action label, its field labels and its dropdown options are **deliberately
+literal English**. Astra's current release resolves `$keys` inside
+`[config] schema` and nowhere else, so a key there would reach the command
+editor as the text `$action.transform.label`; `src/plugin.py` says so where the
+labels are written, and one test in the suite holds the line.
+
+The other seven languages are not translated and do not need to be: lookup falls
+back per key to English, so a `de` user reads the English label and everything
+works.
+
+```bash
+astra-plugin locale ls                 # what is shipped, and what is not
+astra-plugin locale render --lang uk   # the settings form, without a daemon
+astra-plugin locale check              # the locale rules alone
+```
 
 ## Testing it — the reference suite
 
@@ -99,6 +139,17 @@ part is the interpreter, which comes from the user's machine.
 - `tests/test_text_utils.py` — the reference suite, above.
 - `conftest.py` — three lines, so `src.plugin` imports from `tests/` the same
   way the daemon imports it.
+- `locales/en.json`, `locales/ru.json`, `locales/uk.json` — the translations:
+  the two reserved `listing.*` keys the store card is drawn from, the config
+  field's label and help text, and the `health.ok` plural family. Flat
+  `string → string`, one file per language, beside `plugin.toml` — the daemon
+  deserialises them into a string map and drops the whole file on a nested
+  object. Written with `astra-plugin locale add`, never by hand.
+- `locales.lock.json` — at the root and **not** inside `locales/`, because
+  everything in `locales/` that ends in `.json` is a language. It records, per
+  translated key, a digest of the English that translation was made against;
+  `astra-plugin locale sync` derives it and `astra-plugin locale check` reads it
+  back. See [the localisation page](../../docs/en/3-reference/localisation.md).
 - `icon.svg` — the store icon, hand-drawn SVG.
 
 MIT licensed.

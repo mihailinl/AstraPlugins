@@ -4,6 +4,24 @@ The Python reference example. It is deliberately small, and deliberately
 complete: every failure it can have is a coded `ToolError` the daemon can act
 on, everything it says goes through `logging` (which the SDK routes to Astra),
 and `tests/` is a worked example of both levels of the SDK test harness.
+
+It is also the worked example of `locales/` from a Python plugin, and of the
+line between the two planes — which is a line about *who renders the string*,
+not about how important it is:
+
+* **Declared** — `[config] schema` in `plugin.toml` carries `$config.…` keys.
+  The daemon resolves them per request, in whatever language the user has set
+  *now*, out of the `locales/` copy it took at install. Nothing here re-renders
+  and no hook is implemented.
+* **Runtime** — `health_check` below. This process produces that sentence, and
+  it has a count in it, so it is resolved here with `self.i18n.tn`.
+* **Neither** — the action and trigger labels, and the `BadArguments` text. See
+  the comments where each one is written; both are deliberate and both would be
+  wrong to "fix" by adding a key.
+
+`ru` and `uk` are the translations this example ships. They are the two
+languages beyond English that this tree can proof-read, and a confidently wrong
+sentence in a language nobody here can review is worse than an English one.
 """
 
 import asyncio
@@ -56,6 +74,11 @@ class TextUtils(Plugin):
             # BAD_ARGUMENTS, not INTERNAL: the model is the caller here, and this
             # code is what tells it to try again with a different `mode` rather
             # than to give up and apologise to the user.
+            #
+            # And that is also why it is NOT in `locales/`: the reader is the
+            # model, not the user, and `mode` is an English identifier either
+            # way. Translating it would narrow the audience of the one sentence
+            # whose whole job is to be understood by the caller.
             raise BadArguments(f"unknown mode {mode!r}; use one of {', '.join(CASE_MODES)}")
         self.operations_count += 1
         return self._convert_case(text, mode)
@@ -72,6 +95,25 @@ class TextUtils(Plugin):
         return {"pattern": pattern, "matches": matches, "count": len(matches)}
 
     # -- Action (auto-registered via @action) --
+    #
+    # LITERAL ENGLISH, deliberately, on every label below. `key("…")` would put
+    # a `$key` on the wire and the daemon would resolve it per request — on a
+    # daemon that has that resolver. The newest Astra RELEASE resolves `$` in
+    # `[config] schema` and nowhere else, so a key here renders as the literal
+    # text `$action.transform.label` in the command editor, which is a label a
+    # user cannot act on. `min_astra_version` is the only thing that stops an
+    # older daemon installing this plugin, and there is no release to name in
+    # it yet.
+    #
+    # Which gate catches it, because the answer is not the obvious one:
+    # `astra-plugin check`'s E17 refuses this in `[[ui.contributions]]` and
+    # CANNOT see the labels below — an action is registered over gRPC at run
+    # time and appears in no manifest. `astra-plugin test`'s `labels survive a
+    # language round trip` probe is the one that can, because it starts the
+    # process and asks. That probe is not on the release path, which runs
+    # `check --strict` and `build`; the assertion in this plugin's own suite
+    # (`test_the_command_editor_labels_are_literal_english_and_not_keys`) is
+    # the copy that travels with the code.
 
     @action(
         "Transform Text",
@@ -179,7 +221,14 @@ class TextUtils(Plugin):
             self._time_task = None
 
     async def health_check(self):
-        return True, f"ok — {self.operations_count} operations processed"
+        # RUNTIME plane. This sentence is produced by THIS process, and it
+        # carries a count — which is the half the daemon structurally cannot
+        # do for us, because it does not know the number. `tn` picks the row:
+        # `en` has two, `ru` and `uk` have four, and `{n}` is passed rather
+        # than formatted in, because a count that formats itself is a count
+        # the translator cannot move to the other side of the noun.
+        n = self.operations_count
+        return True, self.i18n.tn("health.ok", n, n=str(n))
 
     # -- Helpers --
 

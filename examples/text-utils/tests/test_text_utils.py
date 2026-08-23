@@ -14,12 +14,17 @@ every plugin's suite should have:
   5. **Configuration** — including the values nobody designed for.
   6. **Over the wire** — one level-2 test, because level 1 cannot see
      registration, the descriptor, or the interceptor.
+  7. **Localisation** — the two planes, and the line between them. Nothing
+     else in this repository checks that `ru` and `uk` picked the right plural
+     row; the command-editor rule is `astra-plugin test`'s, kept here too
+     because that command is not on the release path.
 
 Run it with `pytest` from this directory. The `astra_harness` / `astra_wire`
 fixtures come from `astra_plugin_sdk.testing`; there is no conftest to write.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -27,6 +32,9 @@ from astra_plugin_sdk import Unavailable
 from astra_plugin_sdk.testing import Harness
 
 from src.plugin import TextUtils
+
+#: The bundle root — `plugin.toml`, `locales/`, `src/`.
+PLUGIN_DIR = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
@@ -293,3 +301,147 @@ def test_the_suite_catches_a_tool_that_stops_being_registered():
     with Harness(_Broken()) as h:
         assert h.tool_names() == ["case_convert", "word_count"]
         assert h.call_tool("regex_match", text="a1", pattern=r"\d").code == "NOT_FOUND"
+
+
+# ── 7. localisation ─────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def localised(astra_harness, monkeypatch):
+    """A started plugin whose `locales/` is found by PATH rather than by CWD.
+
+    `I18n.discover()` prefers `$ASTRA_PLUGIN_DIR/locales` and only then falls
+    back to `./locales`. That fallback is the reason
+    `cd examples/text-utils && pytest` works at all, and it is exactly one
+    `cd` away from being wrong — so these tests name the directory instead of
+    inheriting it, and a suite run from the repository root still measures the
+    files this plugin ships.
+    """
+    monkeypatch.setenv("ASTRA_PLUGIN_DIR", str(PLUGIN_DIR))
+    return astra_harness(TextUtils(), config={"max_text_length": 10000})
+
+
+def test_every_locale_file_this_plugin_ships_actually_loads(localised):
+    """Loading never fails, which is the right behaviour for a loader and the
+    wrong one for a typo.
+
+    A file the loader could not use — a nested object, a number value, a name
+    that is not a language — is dropped whole and silently, by this loader and
+    by the daemon alike. The only symptom is a screen that stays English, so
+    the errors are asserted here rather than waited for.
+    """
+    i18n = localised.plugin.i18n
+    # Properties, not methods. The Rust SDK spells these `load_errors()` and
+    # `source_dir()`, the TypeScript one `loadErrors` / `sourceDir`; each is
+    # idiomatic for its language, and `docs/en/3-reference/localisation.md`
+    # writes the Rust spelling in a paragraph that is about all three. Calling
+    # it here is a `TypeError`, not an empty list.
+    assert i18n.load_errors == []
+    assert i18n.source_dir == PLUGIN_DIR / "locales"
+
+
+@pytest.mark.parametrize(
+    "language,count,expected",
+    [
+        # English has two rows, so these two would pass even if the plural
+        # table were doing nothing at all. They are the control.
+        ("en", 1, "ok — 1 operation processed"),
+        ("en", 2, "ok — 2 operations processed"),
+        # Russian and Ukrainian have four. The interesting counts are the ones
+        # where the category is NOT what the last digit suggests: 11 is `many`
+        # and not `one`, 21 is `one` and not `many`, 14 is `many` and not `few`.
+        ("ru", 1, "ок — обработана 1 операция"),
+        ("ru", 3, "ок — обработано 3 операции"),
+        ("ru", 5, "ок — обработано 5 операций"),
+        ("ru", 11, "ок — обработано 11 операций"),
+        ("ru", 14, "ок — обработано 14 операций"),
+        ("ru", 21, "ок — обработана 21 операция"),
+        ("uk", 1, "ок — оброблено 1 операцію"),
+        ("uk", 3, "ок — оброблено 3 операції"),
+        ("uk", 5, "ок — оброблено 5 операцій"),
+        ("uk", 11, "ок — оброблено 11 операцій"),
+        ("uk", 22, "ок — оброблено 22 операції"),
+    ],
+)
+def test_the_health_line_takes_the_plural_row_the_language_needs(
+    localised, language, count, expected
+):
+    """RUNTIME plane, and the half a daemon structurally cannot do: it has no
+    count.
+
+    `operations_count` is set rather than driven, because what is under test is
+    the plural table and not the counter — twenty-one tool calls would say the
+    same thing about `ru` 21 and take longer to read.
+    """
+    localised.plugin.language = language
+    localised.plugin.operations_count = count
+    healthy, status = localised.health()
+    assert healthy
+    assert status == expected
+
+
+def test_a_language_this_plugin_does_not_ship_reads_english(localised):
+    """`ru` and `uk` are the two beyond English this tree can proof-read.
+
+    The other seven are not a gap to fill with invented prose — they fall back
+    per key, which is what makes shipping two languages a complete answer
+    rather than a partial one.
+    """
+    localised.plugin.language = "ja"
+    localised.plugin.operations_count = 2
+    assert localised.health()[1] == "ok — 2 operations processed"
+
+
+def test_the_command_editor_labels_are_literal_english_and_not_keys(h):
+    """DECLARED plane, on the surface the *manifest* readers cannot see.
+
+    `astra-plugin check` refuses a `$key` in `[[ui.contributions]].label`
+    unless `min_astra_version` names a release that resolves it (E17). An
+    action, its fields, its dropdown options and a trigger are registered over
+    gRPC at run time and appear in no manifest, so that check cannot reach
+    them — and the newest Astra release resolves `$` inside `[config] schema`
+    and nowhere else. A key here would reach the command editor as the literal
+    text `$action.transform.label`.
+
+    `astra-plugin test`'s `labels survive a language round trip` probe DOES
+    reach them: it starts the process and asks in all ten languages. This
+    assertion is not that probe's replacement — it is the copy that travels
+    with the code. That probe runs in this repository's CI and is **not on the
+    release path** (`plugin-release.yml` runs `check --strict` and `build`), so
+    a plugin copied out of `examples/` keeps the rule only if the rule is in
+    its own suite.
+
+    Delete it only together with a `min_astra_version` naming a release that
+    resolves these.
+    """
+    (transform,) = h.actions()
+    (tick,) = h.triggers()
+    labels = [transform.label, tick.label]
+    for definition in (transform, tick):
+        for f in definition.fields:
+            labels += [f.label, f.placeholder, f.description]
+            labels += [o.label for o in f.options]
+    keys = sorted(x for x in labels if x.startswith("$"))
+    assert not keys, (
+        f"{keys} would render as literal text in the command editor on every "
+        "Astra release that exists today. Write English here and translate the "
+        "runtime plane with self.i18n; see the comment above @action in "
+        "src/plugin.py."
+    )
+
+
+def test_the_store_cards_english_is_the_manifests_english():
+    """C18, from the plugin's own side.
+
+    `plugin.toml`'s `name`/`description` and `en.json`'s two reserved
+    `listing.*` keys are one fact in two files, and the registry compares them
+    again on the downloaded bundle — after the tag, in a repository the author
+    has never opened. `astra-plugin locale sync` is what keeps them equal; this
+    is what notices when somebody edits one of the two by hand.
+    """
+    import tomllib
+
+    manifest = tomllib.loads((PLUGIN_DIR / "plugin.toml").read_bytes().decode())
+    en = json.loads((PLUGIN_DIR / "locales" / "en.json").read_text(encoding="utf-8"))
+    assert en["listing.name"] == manifest["plugin"]["name"]
+    assert en["listing.description"] == manifest["plugin"]["description"]

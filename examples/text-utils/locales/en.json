@@ -1,0 +1,8 @@
+{
+  "config.max_text_length.description": "Longest text this plugin will accept, in characters. Anything longer is refused rather than truncated.",
+  "config.max_text_length.title": "Max text length",
+  "health.ok.one": "ok — {n} operation processed",
+  "health.ok.other": "ok — {n} operations processed",
+  "listing.description": "Word count, case conversion, regex matching — with actions and triggers",
+  "listing.name": "Text Utils"
+}

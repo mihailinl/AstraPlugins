@@ -32,7 +32,8 @@ schema = """
     "max_text_length": {
       "type": "number",
       "default": 10000,
-      "title": "Max Text Length"
+      "title": "$config.max_text_length.title",
+      "description": "$config.max_text_length.description"
     }
   }
 }
