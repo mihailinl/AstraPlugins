@@ -39,7 +39,7 @@ sentence a user reads.
 | [Config and settings fields](config-fields.md) | `[config]`, typed settings, and the TTS/STT field hooks |
 | [Localisation](localisation.md) | `locales/<code>.json`, the `$key` marker, and where the English gate fires |
 
-Every code sample on both is executed in CI by
+Every code sample on these pages is executed in CI by
 [`docs/tools/doctest.py`](../../tools/doctest.py).
 
 ## Normative specifications

@@ -79,11 +79,13 @@ import { category, isDeclared } from "./generated/plural.js";
 /**
  * Environment variable naming the plugin's own install directory.
  *
- * The daemon does not set it yet — it is Ask 6 to the Astra half — which is
- * why {@link I18n.discover} falls through to `./locales`. That works today
- * only because the daemon spawns a plugin with its working directory set to
- * the install directory, a load-bearing fact stated in no repository and one
- * `[entry] cwd` from stopping being true.
+ * A daemon that predates the variable leaves it unset, which is why
+ * {@link I18n.discover} prefers it and then falls through to `./locales`. That
+ * fallback resolves only because the daemon spawns a plugin with its working
+ * directory set to the install directory — one `[entry] cwd` from stopping
+ * being true — so the order is deliberate and is not an ordering to reverse:
+ * the variable is the daemon naming the directory, the relative path is an
+ * inference from how it was started.
  */
 export const PLUGIN_DIR_ENV = "ASTRA_PLUGIN_DIR";
 

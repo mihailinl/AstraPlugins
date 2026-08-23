@@ -37,7 +37,7 @@ declared_plane_marker: key(k) returns "$" + k
 from __future__ import annotations
 
 #: SHA-256 of the ``spec/i18n.yaml`` these rules were generated from.
-SPEC_SHA256 = "a043021affbee3427f88dd094e317f712db9aa37e838f57ff2057e9c1b102c4d"
+SPEC_SHA256 = "15978cdce90926b3fa09a4701980d684c372f4b27692c5345c18e4d434469d32"
 
 #: Every language's categories, in the order spec/i18n.yaml declares them.
 CATEGORIES: dict[str, tuple[str, ...]] = {

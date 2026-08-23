@@ -40,7 +40,7 @@
 | [配置与设置字段](config-fields.md) | `[config]`、带类型的设置、TTS/STT 的字段钩子 |
 | [本地化](localisation.md) | `locales/<code>.json`、`$key` 标记，以及英文校验在哪里生效 — **仅有英文版** |
 
-这两页上的每一段代码示例，都会在 CI 中由
+这些页面上的每一段代码示例，都会在 CI 中由
 [`docs/tools/doctest.py`](../../tools/doctest.py) 执行。
 
 ## 规范性规格说明

@@ -68,12 +68,14 @@
 # region tag exists anywhere in this system (spec/locales.yaml).
 rule: lookup_chain = <active language>, then en, then the key itself
 
-# Per KEY, not per file. The daemon currently falls back per FILE
-# (`instance.locales.get(language).or_else(|| … get("en"))`, one whole map
-# chosen and then walked), which is Ask 3 to the Astra half. Until that lands
-# the two behaviours are held indistinguishable by the CLI's key-parity errors,
-# and an SDK that copied the daemon's per-file rule would make the difference
-# unobservable rather than merely unenforced.
+# Per KEY, not per file. This is the SDKs' rule and it does not move when a
+# daemon does: an SDK is loaded by daemons of every age, and one old enough to
+# fall back per FILE — `locales.get(language).or_else(|| … get("en"))`, one
+# whole map chosen and then walked — shows English for the whole file when a
+# single key is missing from it. What holds the two behaviours indistinguishable
+# for a shipped bundle is the CLI's key-parity errors, which refuse the only
+# input that could tell them apart; an SDK that copied the per-file rule instead
+# would make the difference unobservable rather than merely unenforced.
 rule: fallback_granularity = per key
 
 # An ABSENT key is how "this locale does not translate that" is said. `""` is a
@@ -97,9 +99,12 @@ rule: load_failure = never fatal, always reachable through load_errors()
 # else `./locales`. TWO candidates, both plugin-owned, and no third: an exe-dir
 # chain would have a TypeScript plugin (`node dist/index.js`) and a Python one
 # (`python -m src.plugin`) stat `/usr/bin/locales`, which is a directory the
-# plugin does not own. `./locales` works today only because the daemon spawns
-# with `.current_dir(&working_dir)`; ASTRA_PLUGIN_DIR is Ask 6 and does not
-# exist yet, which is why it is first and optional rather than required.
+# plugin does not own. `./locales` resolves only because the daemon spawns the
+# plugin with `.current_dir(&working_dir)`, which is one `[entry] cwd` from
+# stopping being true; ASTRA_PLUGIN_DIR is the daemon naming that directory
+# outright. A daemon that does not set it leaves the variable absent, which is
+# why the variable is first and OPTIONAL rather than required — an SDK is read
+# by both kinds and must work on both.
 rule: discover_chain = $ASTRA_PLUGIN_DIR/locales, else ./locales
 
 # `{0}`, `{1}`, … replaced by position; EVERY occurrence, not the first. An

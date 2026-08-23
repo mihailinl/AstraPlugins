@@ -87,7 +87,7 @@ python3 tools/parity/gen.py --check          # the generated parity docs are cur
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 node tools/gen-limits.mjs --check            # the generated limit constants are current
 node tools/gen-i18n.mjs --check              # the generated plural tables are current, C17
-python3 tools/check-locales.py               # the locale vocabulary, C12 and C14
+python3 tools/check-locales.py               # the locale couplings; --rules is the list
 python3 tools/check-python-stubs.py          # plugin_pb2*.py are what plugin.proto generates
 ```
 
@@ -131,20 +131,25 @@ proof:
   repository** when a checkout is next to this one, and will report drift there
   as a failure of this repo's check. Run
   `ASTRA_RS_DIR=/nonexistent node tools/gen-limits.mjs --check` to check only
-  this repository's three generated files, which is what CI does. Never "fix"
-  that drift by running the generator without `--check` — it writes into the
-  other repository.
-- `python3 tools/check-locales.py` runs two rules and only one of them can
-  always run. **C14** — the `docs/` locale directories against
-  `docs/tools/locales.py` and `spec/locales.yaml` — needs nothing. **C12** —
-  `spec/locales.yaml` against the daemon's own `SUPPORTED_LANGUAGES` — needs an
-  `Astra` checkout, finds one at `../Astra/astra-rs` or `$ASTRA_RS_DIR`, and
-  prints `C12 NOT VERIFIED` and the ten codes it took on trust when there is
-  none. It exits 0 either way, and the last line says which of the two you
-  got. The third rule of that set, **C13**, is not here at all: it is a
-  `#[test]` in `astra-plugin-cli`, so it runs under `cargo test` with no
-  checkout and no secret, which is why it is the one the vocabulary actually
-  rests on.
+  the SDK files it generates in this repository. **CI arrives at that state a
+  different way and no workflow sets that variable**: the `couplings` job simply
+  has no `Astra` checkout, and the daemon half is compared in `proto-upstream`'s
+  full mode, which is the only job with both trees. Never "fix" cross-repo drift
+  by running the generator without `--check` — it writes into the other
+  repository.
+- `python3 tools/check-locales.py` **exits 0 even when it did not compare
+  something**, so read the output rather than the code. `--rules` is the list of
+  what it runs and its default is what "run it" means; every rule that could not
+  compare prints `NOT VERIFIED`, names what it took on trust instead, and is
+  repeated in the closing summary, and `--require <rule>` turns one named rule's
+  skip into a failure without turning every rule's into one. What needs nothing:
+  the `docs/` locale directories, against `docs/tools/locales.py` and
+  `spec/locales.yaml`. What needs an `Astra` checkout (`../Astra/astra-rs`,
+  `$ASTRA_RS_DIR`, or `--astra-dir`): everything compared against the daemon.
+  What needs an `astra-registry` checkout: the far half of the mirrored listing
+  caps. **C13 is not in this script at all** — it is a `#[test]` in
+  `astra-plugin-cli`, so it runs under `cargo test` with no checkout and no
+  secret, which is why it is the one the vocabulary actually rests on.
 - `python3 tools/check-python-stubs.py` needs **the exact grpcio-tools version
   the committed stub records in its own `GRPC_GENERATED_VERSION`**, because
   protoc's output is deterministic for one version and not across versions. A
