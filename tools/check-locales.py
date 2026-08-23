@@ -62,6 +62,16 @@ C22 — has a RELEASED Astra started resolving plugin labels?
     `--require C22` is how a caller that supplied a checkout on purpose says that
     a skip is a broken job rather than a normal state.
 
+    **CI and a maintainer's machine can name different tags, and CI is the one
+    to believe.** The first run that read a tag said `newest tag: v0.1.0` where
+    this machine says `v0.2.0`; `git ls-remote --tags origin 'v*'` on Astra
+    returns exactly `refs/tags/v0.1.0`, so v0.2.0 exists locally and has never
+    been pushed. A tag nobody can fetch is not a release, which is the subject of
+    this rule — so a local run's extra tags make it stricter than reality and
+    never laxer, and the verdict was the same either way here because neither tag
+    carries the resolver. Read the tag name in the evidence line rather than
+    assuming the two agree.
+
 C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs/.
     A translated documentation directory is the most likely place an author
     learns a locale name, and for months `docs/zh-CN` taught a spelling Astra
