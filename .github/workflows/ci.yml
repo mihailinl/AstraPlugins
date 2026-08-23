@@ -547,10 +547,22 @@ jobs:
       #      re-fork plugins/manifest.rs and (1) would stay green forever while
       #      comparing the CLI against a crate nothing reads. That is the
       #      original `ui_panels` failure with one more layer of indirection.
+      #
+      # ASTRA_REF=HEAD, and it is the one place that value is honest. The script
+      # defaults to `origin/main` because a MAINTAINER's checkout is on whatever
+      # branch they left it on, and reading that is how it once reported drift
+      # that did not exist and advised `--sync` over a constant only the vendored
+      # copy had. Here the checkout is `actions/checkout` a dozen lines above, at
+      # `vars.ASTRA_REF || 'main'`, fetched fresh at depth 1 — so HEAD *is* the
+      # named ref, and naming it directly is also what keeps this step correct if
+      # `vars.ASTRA_REF` is ever set again: that fetch refspec brings down only
+      # the requested branch, so `origin/main` would not exist here to compare
+      # against. The script prints the sha and subject it resolved either way.
       - name: one plugin.toml definition (vendored crate == Astra's)
         if: env.MODE == 'full'
         env:
           ASTRA_REPO: ${{ github.workspace }}/_astra
+          ASTRA_REF: HEAD
         run: bash tools/check-manifest-crate.sh
 
       - name: the daemon parses plugin.toml with that crate
@@ -865,12 +877,79 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libssl-dev
 
+      # E3 — a committed lockfile that nothing resolves against is not a record
+      # of anything.
+      #
+      # This job built every example WITHOUT `--locked`, so cargo re-resolved
+      # each one in memory and stayed green over five lockfiles that no longer
+      # satisfied their manifests. 1885df7 bumped astra-plugin-{sdk,macros} to
+      # 0.7.0 and refreshed the CLI's lock and the macros' lock; the examples'
+      # nine locks were not in that commit, and dice-roller, echo-stt, mock-stt,
+      # tone-tts and web-chat went on pinning 0.6.0 for a week with no red run
+      # anywhere. `cargo metadata --locked` on any of them refuses outright.
+      #
+      # b28a282 fixed exactly this for astra-plugin-cli and wrote down why: a
+      # release resolves with `--locked` and CI did not, so CI could be green on
+      # a tree the release cannot build. The examples are the other nine, and
+      # four of them (bad-apple, doom, companion-cat, telegram-client) are
+      # released as real signed plugins from this repository.
+      #
+      # TWO steps rather than one flag, deliberately:
+      #
+      #   * This one resolves ALL nine and reports EVERY failure. `--locked` on
+      #     the build loop below aborts at the first, so five stale locks would
+      #     take five red runs to find — which is how a flag gets dropped rather
+      #     than a lockfile fixed. It refuses before compiling, so it costs
+      #     seconds, not a build.
+      #   * The FLOOR. `examples/*/Cargo.toml` is a glob over a directory, and a
+      #     glob that matches less still prints `ok` for what it did match: the
+      #     shrunken-scan failure, which passes for the wrong reason, quietly,
+      #     while reading as coverage. Nine is what exists today.
+      - name: every example's committed Cargo.lock satisfies its manifest
+        run: |
+          set -euo pipefail
+          n=0
+          bad=0
+          for m in examples/*/Cargo.toml; do
+            n=$((n + 1))
+            if err=$(cargo metadata --locked --format-version 1 --manifest-path "$m" 2>&1 >/dev/null); then
+              echo "ok   $m"
+            else
+              {
+                echo "FAIL $m — the committed Cargo.lock does not satisfy the manifest."
+                printf '%s\n' "$err" | sed 's/^/       /'
+                echo "     fix: cargo update -p astra-plugin-sdk -p astra-plugin-macros \\"
+                echo "               --manifest-path $m"
+                echo "          then commit $(dirname "$m")/Cargo.lock."
+                echo "     Do NOT drop --locked to make this pass. Without it, five of these"
+                echo "     once sat stale for a week and every run stayed green."
+              } >&2
+              bad=1
+            fi
+          done
+          if [ "$n" -lt 9 ]; then
+            {
+              echo "FAIL the SCAN broke, not the rule: examples/*/Cargo.toml matched $n manifest(s),"
+              echo "     below the floor of 9 that existed when this step was written. Nothing here"
+              echo "     has been verified — this loop only ever reports what it FOUND, so finding"
+              echo "     less reads exactly like finding no problem."
+              echo "     Either a Rust example was deleted (lower the floor in that same commit)"
+              echo "     or the layout moved and this glob no longer reaches it."
+            } >&2
+            exit 1
+          fi
+          [ "$bad" -eq 0 ] || exit 1
+          echo "ok   $n example lockfiles resolve under --locked"
+
+      # `--locked` here as well as in the step above, and it is not redundant:
+      # that step proves the lock SATISFIES the manifest, this one makes the
+      # binaries the E2 check inspects the ones the pinned graph produces.
       - name: build every Rust example
         run: |
           set -euo pipefail
           for m in examples/*/Cargo.toml; do
             echo "::group::$m"
-            cargo build --release --manifest-path "$m"
+            cargo build --release --locked --manifest-path "$m"
             echo "::endgroup::"
           done
 
