@@ -300,10 +300,15 @@ jobs:
 
           get() { sed -n "s/^$1=//p" "$lock" | head -n1; }
           want_plugin=$(get plugin_proto_sha256)
+          want_surface=$(get surface_sha256)
           want_astra=$(get astra_proto_sha256)
           want_protocol=$(get protocol)
 
           have_plugin=$(sha256sum proto/plugin.proto | cut -d' ' -f1)
+          # The plugin-facing body: everything after the leading run of `//`
+          # lines. This is the digest a run with NO upstream access can actually
+          # recompute, which is the whole point of it existing.
+          have_surface=$(awk 'f || !/^\/\//{f=1; print}' proto/plugin.proto | sha256sum | cut -d' ' -f1)
           have_astra=$(sed -n 's|^// source-sha256: *||p' proto/plugin.proto | head -n1)
           have_protocol=$(sed -n 's|^// protocol: *||p' proto/plugin.proto | head -n1)
 
@@ -317,7 +322,46 @@ jobs:
           }
           check "protocol"            "$want_protocol" "$have_protocol"
           check "plugin.proto sha256" "$want_plugin"   "$have_plugin"
-          check "astra.proto sha256"  "$want_astra"    "$have_astra"
+          check "surface sha256"      "$want_surface"  "$have_surface"
+
+          # And the file against ITSELF, which is the assertion that needs no
+          # lock at all. Every check above compares the tree to ASTRA_PROTO.lock,
+          # so all of them pass together if somebody edits the slice and updates
+          # the lock to agree — measured: a comment inserted into the body with
+          # both lock hashes rewritten is green on all three. The header is the
+          # one number in this file that a hand-editor cannot recompute without
+          # the slicer, because the slicer writes it over the body BELOW it.
+          header_surface=$(sed -n 's|^// surface-sha256: *||p' proto/plugin.proto | head -n1)
+          if [ -z "$header_surface" ]; then
+            echo "FAIL proto/plugin.proto carries no \`// surface-sha256:\` header line." >&2
+            echo "     Slices cut since Astra 8413bea8 have one. Regenerate; do not hand-add it." >&2
+            bad=1
+          else
+            if [ "$header_surface" != "$have_surface" ]; then
+              echo "FAIL proto/plugin.proto disagrees with its own header." >&2
+              echo "     the header claims  $header_surface" >&2
+              echo "     its body hashes to $have_surface" >&2
+              echo "     The slicer writes that header over the body beneath it, so these two" >&2
+              echo "     cannot differ in a generated file. Somebody edited the body by hand." >&2
+              echo "     Regenerate from Astra; do not adjust the header to match." >&2
+              bad=1
+            else
+              echo "ok   surface sha256, header vs this file's own body"
+            fi
+          fi
+
+          # `astra_proto_sha256` is being retired: it names the astra.proto the
+          # slice was cut from, which moves on every edit to that file including
+          # ones with no effect here, and its guarantee is kept in the Astra
+          # repository beside the source. Absent on both sides is the end state
+          # and fine. Present on one side only is not: that means the lock and
+          # the slice were written by tools of different ages, and a silent skip
+          # there would hide exactly the drift this job exists to catch.
+          if [ -n "$want_astra" ] || [ -n "$have_astra" ]; then
+            check "astra.proto sha256"  "$want_astra"    "$have_astra"
+          else
+            echo "ok   astra.proto sha256 — absent from both lock and header, as intended"
+          fi
 
           if [ $bad -ne 0 ]; then
             cat >&2 <<'MSG'
