@@ -562,10 +562,15 @@ def rule_C20(fails: Fails) -> None:
         for name, value in sorted(values.items()):
             print(f"        {name} = {value} taken on trust "
                   f"(mirrors {sources.get(name, 'nothing stated')})")
-        print("        `astra-plugin check` REFUSES a manifest over these numbers, so a")
-        print("        value too low here refuses a listing the registry would have taken,")
-        print("        and one too high lets an author through to a refusal at ingest they")
-        print("        cannot act on. Neither is visible from this repository alone.")
+        print("        `astra-plugin check` refuses a manifest over SOME of these — not all,")
+        print("        and the row says which. A value too low here refuses a listing the")
+        print("        registry would have taken, and one too high lets an author through to a")
+        print("        refusal at ingest they cannot act on. Neither is visible from here alone.")
+        print("        Nor is the REVERSE question, which needs the same checkout: whether")
+        print("        astra-registry has since gained a cap an author can trip that this file")
+        print("        does not mirror at all. That is how these three arrived — enforced")
+        print("        there, mirrored nowhere, and invisible to a check that only ever walked")
+        print("        the rows this repository already had.")
         fails.skip("C20", "no astra-registry checkout")
         return
 
