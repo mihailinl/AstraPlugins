@@ -25,5 +25,15 @@
 # decision about the package's minimum runtime, not a side effect of syncing a
 # proto, so it belongs in its own commit with its own reason.
 #
-# After regenerating, `python -m pytest` from this directory is the check: the
-# suite imports the stubs, so a broken import fails at collection.
+# After regenerating, run `python3 tools/check-python-stubs.py` from the
+# repository root. It re-runs exactly the two steps above into a temporary
+# directory and compares byte for byte, so a forgotten `sed`, a hand edit, or a
+# stub that never got regenerated at all is a red build.
+#
+# `python -m pytest` is NOT that check, and believing it was is what cost us a
+# fortnight: the suite IMPORTS these modules, so every test that touched a
+# stale plugin_pb2.py agreed with it. `conversation_id` was absent from the
+# generated class while the SDK's own docstring told authors to read it, and
+# 141 tests passed. A suite agrees with a stale artifact most confidently when
+# the artifact is a data file the tests import rather than something they
+# assert about.

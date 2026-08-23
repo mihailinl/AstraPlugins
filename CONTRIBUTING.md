@@ -86,7 +86,9 @@ bash tools/check-manifest-crate.sh           # plugin.toml has exactly one defin
 python3 tools/parity/gen.py --check          # the generated parity docs are current
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 node tools/gen-limits.mjs --check            # the generated limit constants are current
+node tools/gen-i18n.mjs --check              # the generated plural tables are current, C17
 python3 tools/check-locales.py               # the locale vocabulary, C12 and C14
+python3 tools/check-python-stubs.py          # plugin_pb2*.py are what plugin.proto generates
 ```
 
 Plus the crate you touched:
@@ -107,7 +109,7 @@ cargo build --release --manifest-path astra-plugin-cli/Cargo.toml
 python3 tools/docgen/gen.py --check          # reads that binary; it never builds it for you
 ```
 
-Four of these behave in ways worth knowing before you read a green tick as
+Five of these behave in ways worth knowing before you read a green tick as
 proof:
 
 - `tools/check-manifest-crate.sh` **skips, and exits 0**, when there is no
@@ -143,6 +145,12 @@ proof:
   `#[test]` in `astra-plugin-cli`, so it runs under `cargo test` with no
   checkout and no secret, which is why it is the one the vocabulary actually
   rests on.
+- `python3 tools/check-python-stubs.py` needs **the exact grpcio-tools version
+  the committed stub records in its own `GRPC_GENERATED_VERSION`**, because
+  protoc's output is deterministic for one version and not across versions. A
+  different one is reported as `TOOLCHAIN MISMATCH`, in those words, and never
+  as protocol drift — the message names the `pip install` line. Exit 2 means
+  the check could not run; it never quietly passes when it did not compare.
 
 Paste the output of what you ran into the pull request. The PR template asks
 for it.
@@ -160,6 +168,8 @@ both together.
 | `docs/en/reference/*.md` | `python3 tools/docgen/gen.py` |
 | `docs/en/parity.md`, `docs/en/hooks/*.md`, `spec/generated/conformance.json` | `python3 tools/parity/gen.py` |
 | `astra-plugin-sdk*/…/limits.{rs,py,ts}` | `node tools/gen-limits.mjs` |
+| `astra-plugin-sdk*/…/plural.{rs,py,ts}` | `node tools/gen-i18n.mjs` |
+| `astra-plugin-sdk-python/…/proto/plugin_pb2{,_grpc}.py` | `grpc_tools.protoc` + one `sed`, by hand — the recipe is in that directory's `__init__.py`, and `tools/check-python-stubs.py` compares the result |
 | `proto/plugin.proto` + its two vendored copies | `tools/sync-proto.sh` (real source is in the `Astra` repository) |
 | `astra-plugin-sdk-ts/src/generated/*` | `bun run generate` in `astra-plugin-sdk-ts/` |
 | `astra-plugin-cli/vendor/astra-plugin-manifest/src/**` | `tools/check-manifest-crate.sh --sync` (real source is in the `Astra` repository) |

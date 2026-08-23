@@ -3,6 +3,7 @@
 Everything here is a thing level 1 structurally cannot see.
 """
 
+import asyncio
 import json
 import time
 
@@ -228,3 +229,105 @@ def test_shutdown_makes_the_process_exit_and_not_merely_the_server_stop():
     # And the tidy path ran exactly once: `Shutdown` hands off to `_run_async`
     # rather than doing the cleanup itself, and doing both would run it twice.
     assert stopped == [True]
+
+
+def test_shutdown_during_startup_still_ends_the_run():
+    """`Shutdown` that arrives before startup has finished must still stop us.
+
+    The bug this pins, found as a flaky `conformance (R7)` on the Python `ui`
+    scaffold: `Shutdown`'s handler decides between "hand off to the run loop"
+    and "there is no run loop, tidy up myself" by asking whether
+    `Plugin._stop_event` exists. That event used to be created at the very end
+    of `_run_async` — after registration, `on_language_changed` and
+    `on_config_changed` — while the capability server had been serving since a
+    hundred lines earlier.
+
+    So there was a window, as wide as a registration round trip, in which the
+    answer was wrongly "there is no run loop". A `Shutdown` landing in it ran
+    `on_shutdown`, stopped the SERVER, answered `Empty` — and never released
+    `_run_async`, which then parked for ever on an event nobody would set. The
+    process outlived `plugin_stop_grace_secs`, the daemon SIGKILLed the process
+    group, and the plugin's tidy path never ran on the user's machine.
+
+    `astra-plugin test` reported it as "the process was still running 5s after
+    Shutdown", on the same SHA that had passed the run before. Same shape as
+    the `_stop_event` bug the test above pins; a different reason for it.
+
+    The window is held open here on purpose: `on_config_changed` blocks, which
+    is where `_run_async` was when the race fired in CI.
+    """
+    import threading
+
+    class _SlowStart(Plugin):
+        def __init__(self):
+            super().__init__()
+            self.reached_config = threading.Event()
+            self.release = threading.Event()
+            self.tidied = []
+
+        async def on_config_changed(self, config):
+            self.reached_config.set()
+            while not self.release.is_set():
+                await asyncio.sleep(0.01)
+
+        async def on_shutdown(self):
+            self.tidied.append(True)
+
+    plugin = _SlowStart()
+    with WireHarness(plugin, timeout=20.0) as w:
+        # The harness returns once `host` is set, which happens BEFORE
+        # `on_config_changed` — so we are inside the window by construction and
+        # not by timing.
+        assert plugin.reached_config.wait(10.0), "startup never reached on_config_changed"
+        assert plugin._stop_event is not None, (
+            "the capability server is serving and `_stop_event` does not exist yet — "
+            "`Shutdown` would take the embedded branch and never release `_run_async`"
+        )
+
+        w.stub().Shutdown(plugin_pb2.Empty(), metadata=w.metadata, timeout=5.0)
+        plugin.release.set()
+
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline and not w._run_task.done():
+            time.sleep(0.05)
+
+        assert w._run_task.done(), (
+            "the plugin is still running after a Shutdown sent during startup — the "
+            "daemon kills the process group when the grace period expires"
+        )
+
+    assert plugin.tidied == [True]
+
+
+def test_the_last_log_lines_reach_the_daemon_before_the_process_stops():
+    """A clean stop must not eat the lines a plugin logged on its way out.
+
+    Every SDK routes its own `logging` through `PluginLog`, and the bridge
+    queues on any thread and drains on the loop. The tidy path used to detach
+    and close the handler straight after `on_shutdown`, which cancels the drain
+    task — so anything still queued was thrown away, including the SDK's own
+    "Registered with Astra …". `astra-plugin test` reports that as "this plugin
+    made no host calls at all", which is true and explains nothing.
+
+    Masked until now by a slower bug: a `Shutdown` racing startup used to hang
+    for the whole grace period, which gave the drain all the time in the world.
+    """
+    import logging
+
+    class _Chatty(Plugin):
+        async def on_shutdown(self):
+            logging.getLogger("plugin.tidy").info("last words")
+
+    plugin = _Chatty()
+    with WireHarness(plugin, timeout=20.0) as w:
+        w.stub().Shutdown(plugin_pb2.Empty(), metadata=w.metadata, timeout=5.0)
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline and not w._run_task.done():
+            time.sleep(0.05)
+        assert w._run_task.done(), "the plugin did not stop"
+        logged = [line.message for line in w.daemon.logs()]
+
+    assert any("last words" in m for m in logged), (
+        "a line logged inside on_shutdown never reached the daemon; the drain task "
+        f"was cancelled before it went out. Daemon saw: {logged}"
+    )

@@ -27,6 +27,16 @@ export interface DaemonInfo {
   version: string;
   state: string;
   grpcPort: number;
+  /**
+   * The daemon's current UI language — `PluginDaemonInfoResponse.language`,
+   * field 4.
+   *
+   * The wire has carried it since the field was added; this interface did not
+   * declare it, so a TypeScript plugin asking the daemon what language it is
+   * in got a value the type system said was not there. The Rust and Python
+   * SDKs return the proto message itself and never had the gap.
+   */
+  language: string;
 }
 
 export interface Host {

@@ -48,8 +48,9 @@ from astra_plugin_sdk.errors import (
     Unauthorized,
     Unavailable,
 )
-from astra_plugin_sdk.i18n import I18n
+from astra_plugin_sdk.i18n import I18n, key
 from astra_plugin_sdk import limits
+from astra_plugin_sdk import plural
 from astra_plugin_sdk import wire
 from astra_plugin_sdk.protocol import (
     EXIT_PROTOCOL_INCOMPATIBLE,
@@ -100,6 +101,8 @@ __all__ = [
     "assert_no_reserved_names",
     "ReservedNameError",
     "I18n",
+    "key",
+    "plural",
     "PROTOCOL_VERSION",
     "MIN_SUPPORTED_DAEMON_PROTOCOL",
     "EXIT_PROTOCOL_INCOMPATIBLE",

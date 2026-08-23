@@ -111,6 +111,10 @@ class PluginLogHandler(logging.Handler):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._wakeup: asyncio.Event | None = None
         self._task: asyncio.Task | None = None
+        #: True while a record is in flight to the daemon. An empty queue is
+        #: not the same as a delivered queue, and `drain()` has to wait for
+        #: both.
+        self._busy = False
 
     # ── the logging side (any thread, never blocks) ──
 
@@ -165,7 +169,11 @@ class PluginLogHandler(logging.Handler):
                     dropped, self._dropped = self._dropped, 0
                 if dropped:
                     message = f"[{dropped} log line(s) dropped: the daemon was not keeping up] {message}"
-                await self._send(level, message)
+                self._busy = True
+                try:
+                    await self._send(level, message)
+                finally:
+                    self._busy = False
             if dropped:
                 await self._send(
                     "warn", f"[{dropped} log line(s) dropped: the daemon was not keeping up]"
@@ -192,6 +200,34 @@ class PluginLogHandler(logging.Handler):
             print(f"astra-plugin-sdk: could not forward a log line: {e}", file=sys.stderr)
         finally:
             _local.forwarding = False
+
+    async def drain(self, timeout: float) -> int:
+        """Wait, up to `timeout` seconds, for queued records to reach the daemon.
+
+        Returns how many did not. Called on the way out of `Plugin._run_async`,
+        because tearing the bridge down without it loses the lines an author
+        most needs — the ones a plugin emits just before it stops.
+
+        Bounded, and bounded well inside `plugin_stop_grace_secs`: a daemon
+        that has stopped reading must cost this process a second, not the whole
+        grace period and then a SIGKILL.
+        """
+        if self._task is None or self._task.done() or self._wakeup is None:
+            with self._lock:
+                return len(self._queue)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            with self._lock:
+                pending = len(self._queue)
+            if pending == 0 and not self._busy:
+                return 0
+            # Poke, in case `emit()` appended between the drain task clearing
+            # its wakeup and this check.
+            self._wakeup.set()
+            await asyncio.sleep(0.01)
+        with self._lock:
+            return len(self._queue) + (1 if self._busy else 0)
 
     def close(self) -> None:
         # `logging.shutdown()` closes every handler at interpreter exit, from the

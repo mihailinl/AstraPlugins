@@ -18,6 +18,18 @@
 #       from inside the package directory only. This copy is the input for
 #       regenerating plugin_pb2.py / plugin_pb2_grpc.py (see its __init__.py).
 #
+#       THIS SCRIPT DOES NOT REGENERATE THEM. It never has. For a fortnight
+#       that sentence was the only mention of either file anywhere under
+#       tools/, .github/ or the CLI — a comment naming a hazard, in the right
+#       place, by the right person, with nothing behind it — and plugin_pb2.py
+#       sat stale from Wave 4, missing the very field that wave existed to add,
+#       while 141 pytest tests passed over it because they IMPORT the artifact
+#       instead of asserting about it.
+#
+#       `tools/check-python-stubs.py` is now what turns that sentence into a
+#       failure. Run it after this script; the `proto (vendored copies)` job
+#       runs it on every push.
+#
 # Two consumers vendor nothing:
 #
 #   astra-plugin-sdk-ts   generates src/generated/descriptor.json from the
@@ -100,3 +112,11 @@ printf 'sync-proto: %s <- protocol=%s sha256=%s\n' "$VERSION_REL" "$protocol" "$
 
 printf 'sync-proto: %d cop%s in sync. Run tools/check-proto.sh to verify.\n' \
     "${#COPIES[@]}" "$([ "${#COPIES[@]}" -eq 1 ] && echo y || echo ies)"
+
+# The hop this script does not take. Said on stdout, not only in a comment at
+# the top nobody scrolls to, because the comment version of this sentence went
+# unimplemented for a fortnight and cost `conversation_id` in Python.
+printf 'sync-proto: NOT REGENERATED — astra_plugin_sdk/proto/plugin_pb2{,_grpc}.py.\n'
+printf 'sync-proto:                   Those are what Python actually loads. Regenerate them\n'
+printf 'sync-proto:                   by hand (astra_plugin_sdk/proto/__init__.py has the two\n'
+printf 'sync-proto:                   steps) and run tools/check-python-stubs.py.\n'

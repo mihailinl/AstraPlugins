@@ -143,6 +143,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       # The enforcement half of tools/sync-proto.sh: canonical file present and
       # banner intact, PROTO_VERSION pinning its protocol integer and sha256,
@@ -197,6 +200,43 @@ jobs:
             exit 1
           fi
           echo "ok   descriptor generated from ${pinned:0:12}…"
+
+      # The hop this whole job used to stop short of.
+      #
+      # Everything above compares .proto files with each other. Python does not
+      # load a .proto: it loads `plugin_pb2.py` and `plugin_pb2_grpc.py`,
+      # generated artifacts committed by hand and — until this step — named by
+      # exactly one thing in the whole tooling surface, which was a COMMENT in
+      # tools/sync-proto.sh saying they need regenerating.
+      #
+      # `plugin_pb2.py` was stale from Wave 4, the wave whose entire purpose was
+      # surfacing `PluginChatChunk.conversation_id` in all three SDKs. There was
+      # no field 6 on the Python class while the SDK's own docstring told
+      # authors to read it, and 141 passing pytest tests could not say so —
+      # because the tests IMPORT the artifact rather than assert about it. Which
+      # is the general rule worth keeping: a suite agrees with a stale artifact
+      # most confidently when the artifact is a data file it imports.
+      #
+      # The pinned install is not decoration. protoc's output is deterministic
+      # for one version and not across versions, so the version is part of the
+      # artifact; the script reads the one the committed stub records in its own
+      # GRPC_GENERATED_VERSION and reports any other as a TOOLCHAIN MISMATCH, in
+      # those words, rather than as protocol drift. Pinning it here means this
+      # step compares rather than explaining why it could not.
+      - name: install the grpcio-tools the committed stubs record
+        run: |
+          set -euo pipefail
+          want=$(sed -n "s/^GRPC_GENERATED_VERSION = '\(.*\)'$/\1/p" \
+                 astra-plugin-sdk-python/astra_plugin_sdk/proto/plugin_pb2_grpc.py | head -n1)
+          if [ -z "$want" ]; then
+            echo "::error::plugin_pb2_grpc.py has no GRPC_GENERATED_VERSION to pin to" >&2
+            exit 1
+          fi
+          echo "pinning grpcio-tools==$want"
+          python -m pip install --disable-pip-version-check "grpcio-tools==$want"
+
+      - name: plugin_pb2.py and plugin_pb2_grpc.py are what plugin.proto generates
+        run: python3 tools/check-python-stubs.py
 
   proto-upstream:
     name: proto (upstream drift)
@@ -2097,6 +2137,59 @@ jobs:
           set -euo pipefail
           node testdata/bundles/generate.mjs --check
           bash tools/vendor-testdata.sh --check
+
+      # C17 — one `I18n`, in three languages, saying one thing.
+      #
+      # All three SDKs shipped an I18n and none of them had a test. They
+      # disagreed three ways, silently, and every one of the three was
+      # reachable by an ordinary plugin: `tf` replaced every `{0}` in Rust and
+      # Python and only the FIRST in TypeScript; `""` was a valid translation
+      # in Rust and TypeScript and a miss in Python's `or` chain; and a nested
+      # object was accepted by TypeScript and Python when the DAEMON drops the
+      # whole file on it — so an author's own tests passed on a file the user's
+      # machine never loads.
+      #
+      # Two halves, and they answer different questions. This step is the
+      # generator: `spec/i18n.yaml` is the source of the CLDR plural tables, so
+      # the Russian rule is not three hand-written copies of four lines of
+      # modular arithmetic. The other half is `testdata/i18n/vectors.json`,
+      # read by one test in each SDK — the generator makes the three the SAME,
+      # the vectors prove they are RIGHT.
+      #
+      # The step below is the guard on the guard: those three tests are the
+      # only thing that reads the vectors, so a deleted test file is a silently
+      # smaller check. It asserts a FLOOR of three readers rather than an exact
+      # count, so a fourth reader is welcome and losing one is not.
+      - name: C17 spec/i18n.yaml codegen is current
+        run: node tools/gen-i18n.mjs --check
+
+      - name: C17 all three SDKs still read the shared i18n vectors
+        run: |
+          set -euo pipefail
+          readers=(
+            astra-plugin-sdk/tests/i18n_vectors.rs
+            astra-plugin-sdk-python/tests/test_i18n_vectors.py
+            astra-plugin-sdk-ts/tools/i18n.test.mjs
+          )
+          found=0
+          for r in "${readers[@]}"; do
+            if [ ! -f "$r" ]; then
+              echo "::error::$r is gone. It is one of the three tests that hold the" >&2
+              echo "SDKs to testdata/i18n/vectors.json; without it that SDK is unpinned." >&2
+              exit 1
+            fi
+            if ! grep -q 'testdata/i18n/vectors.json' "$r"; then
+              echo "::error::$r no longer names testdata/i18n/vectors.json, so it is" >&2
+              echo "testing that SDK against itself rather than against the other two." >&2
+              exit 1
+            fi
+            found=$((found + 1))
+          done
+          if [ "$found" -lt 3 ]; then
+            echo "::error::only $found vector reader(s) checked — the SCAN broke, not the rule" >&2
+            exit 1
+          fi
+          echo "ok    $found SDK test(s) read testdata/i18n/vectors.json"
 
       # C14 — the documentation's locale directories are languages Astra can
       # actually be set to, and something knows they are there.
