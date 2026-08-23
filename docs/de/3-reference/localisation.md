@@ -252,7 +252,7 @@ references and `en.json` does not define yet, in a form you can paste.
 ```
 Created locales/ru.json — 8 key(s) seeded from locales/en.json, values still English.
   Added the plural rows ru needs: msg.done.few, msg.done.many.
-  locales.lock.json: 0 fresh, 0 newly translated, 6 untranslated, 0 stale.
+  locales.lock.json: 0 fresh, 0 newly translated, 8 untranslated, 0 stale.
 Translate the values in place; leave the keys alone. Then `astra-plugin locale sync`.
 ```
 
@@ -272,7 +272,7 @@ read by nothing. The ten codes are in
 
 <!-- doctest: output from="astra-plugin locale sync" unrun="rewrites locales.lock.json in a plugin project; re-run it in your own plugin" -->
 ```
-locales.lock.json: 0 fresh, 6 newly translated, 0 untranslated, 0 stale.
+locales.lock.json: 8 fresh, 0 newly translated, 0 untranslated, 0 stale.
 ```
 
 **4. Check.**
@@ -380,11 +380,28 @@ notices.
 }
 ```
 
-Each value is the first 12 hex of the SHA-256 of the **English bytes the
-translation was made against**. Nothing is asserted by hand; `sync` derives the
-whole file. A value that still equals English is untranslated and gets no entry;
-one that differs gets today's digest; one whose digest no longer matches today's
-English is **stale**.
+Each value is the first 12 hex of the SHA-256 of the **English bytes that value
+was made against**. Nothing is asserted by hand; `sync` derives the whole file.
+
+**Every key gets an entry, including one whose value is still English.** A seed
+is a copy of a sentence, and a copy is exactly the thing a later edit has to be
+able to invalidate. When a key's digest no longer matches today's English it is
+**stale** — `[N3]` if somebody translated it, `[N15]` if the value is still the
+English it was seeded from and `en.json` has moved on since.
+
+Leaving the seeds unrecorded is how this went wrong once, and the failure is
+worth knowing because none of it was visible from here. A value equal to English
+got no entry, so the first `sync` after an English edit saw *differs from
+English, no entry*, read that as a fresh translation, and stamped it with the
+digest of the **new** English. Nothing could report it stale afterwards on
+either side of the release — and the registry, which reads this same number,
+published the plugin's previous English text as its Russian and Japanese store
+card.
+
+A plural row a language needs and English cannot carry — `ru`'s `few` and
+`many`, which `en.json` may not contain — is measured against `<base>.other`. So
+rewriting the English ages the whole family, rather than the two rows English
+happens to share names with.
 
 <!-- doctest: output from="astra-plugin locale check, after editing one English value" unrun="needs a plugin project whose en.json has changed since the last sync; reproduce it by editing one value in your own en.json" -->
 ```
@@ -401,6 +418,13 @@ artifact is the thing a stranger reads. `--accept ru` clears it and prints what
 it accepted, so the decision lands in a diff somebody can review. It is a rubber
 stamp by construction — the mechanism knows the English *changed*, never that the
 translation is *wrong* — which is exactly why it leaves a trace.
+
+`[N15]` is a note at **both** gates and `build` does not refuse it, because the
+harm is a different size: a stale translation puts a confidently wrong sentence
+in front of a reader in their own language, while a seed the English moved out
+from under puts English in front of a reader who was always going to get English.
+Out-of-date English, which is worth saying and is not worth refusing a release
+over a file nobody claimed to have translated.
 
 The lock lives at the plugin root and not inside `locales/`, because everything
 in `locales/` that ends in `.json` is a locale: a `locales/locales.lock.json`

@@ -40,6 +40,38 @@ C22 — has a RELEASED Astra started resolving plugin labels?
     watches for becomes true, which is the same shape as `ARCHIVE_PENDING` in
     ci.yml: an exception that cannot outlive the work it was waiting for.
 
+    It reads a tag through two constants — a path and a symbol — so it first
+    proves BOTH of them against a named ref of the checkout it was handed
+    (`--astra-ref`, default `origin/main`, never HEAD). A `git show` that fails
+    because the path moved is otherwise indistinguishable from a tag that
+    genuinely lacks the symbol, and the false negative gets printed as evidence:
+    against a repository whose resolver had merely moved one path along, this
+    rule answered `ok C22 no released Astra resolves plugin labels yet` and
+    exited 0. `rule_C12` had applied exactly that discipline to itself from the
+    start; C22 had not.
+
+    Then it needs tags, and a CI checkout has none: `actions/checkout` fetches
+    tags matching the REF NAME, so a job that asks for `main` gets the refspec
+    `+refs/tags/main*:refs/tags/main*` and no `v*` tag at all. `fetch-tags: true`
+    does not change that — it only drops `--no-tags`, and at `fetch-depth: 1`
+    with explicit refspecs there is no fetched history for a tag to be followed
+    into. (Both halves measured, the second of them by trying it and watching
+    this rule go red.) So for its whole life in CI this rule took its "no release
+    to look inside" branch, on every run, and nothing turned that into a failure.
+    `ci.yml` now fetches `+refs/tags/v*:refs/tags/v*` in a step of its own, and
+    `--require C22` is how a caller that supplied a checkout on purpose says that
+    a skip is a broken job rather than a normal state.
+
+    **CI and a maintainer's machine can name different tags, and CI is the one
+    to believe.** The first run that read a tag said `newest tag: v0.1.0` where
+    this machine says `v0.2.0`; `git ls-remote --tags origin 'v*'` on Astra
+    returns exactly `refs/tags/v0.1.0`, so v0.2.0 exists locally and has never
+    been pushed. A tag nobody can fetch is not a release, which is the subject of
+    this rule — so a local run's extra tags make it stricter than reality and
+    never laxer, and the verdict was the same either way here because neither tag
+    carries the resolver. Read the tag name in the evidence line rather than
+    assuming the two agree.
+
 C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs/.
     A translated documentation directory is the most likely place an author
     learns a locale name, and for months `docs/zh-CN` taught a spelling Astra
@@ -88,16 +120,26 @@ MIN_DOC_LOCALES = 2
 
 
 class Fails(list):
-    #: Everything a rule declined to compare, in the words the summary line
-    #: repeats. A run that skipped something must not be able to end on the word
-    #: "pass" alone — that is the shape of green this whole file is written
-    #: against, and printing it once at the top where nobody scrolls is not
-    #: enough.
-    unverified: list[str]
+    #: Everything a rule declined to compare, as `(rule, why)`, in the words the
+    #: summary line repeats. A run that skipped something must not be able to
+    #: end on the word "pass" alone — that is the shape of green this whole file
+    #: is written against, and printing it once at the top where nobody scrolls
+    #: is not enough.
+    #:
+    #: The rule id is carried alongside the sentence so that `--require` can
+    #: turn one rule's skip into a red build without turning every rule's into
+    #: one. Grepping the prose would do it too, and that is what
+    #: astra-registry's build-index.yml does for its own gate — but prose gets
+    #: reworded, and a gate a reword can silently disarm is the shape of check
+    #: this repository keeps getting bitten by.
+    unverified: list[tuple[str, str]]
 
     def __init__(self) -> None:
         super().__init__()
         self.unverified = []
+
+    def skip(self, rule: str, why: str) -> None:
+        self.unverified.append((rule, why))
 
     def check(self, ok: bool, msg: str, detail: str = "") -> bool:
         print(("ok    " if ok else "FAIL  ") + msg)
@@ -210,7 +252,7 @@ def rule_C12(fails: Fails, astra: Path | None) -> None:
         print("        What DOES run without a checkout: C13 (the CLI's mirror of this")
         print("        file, on every `cargo test`) and C14 (the docs locales, in the")
         print("        `couplings` job).")
-        fails.unverified.append("C12 (no Astra checkout)")
+        fails.skip("C12", "no Astra checkout")
         return
 
     langs, kept, source = _astra_languages(astra)
@@ -260,7 +302,7 @@ def rule_C12(fails: Fails, astra: Path | None) -> None:
         print("        assumed, because `maintained` is the one column in")
         print("        spec/locales.yaml that nothing else in this repository can check.")
         print(f"        Taken on trust: {' '.join(maintained)}")
-        fails.unverified.append("C12's `maintained` column")
+        fails.skip("C12", "the `maintained` column")
     else:
         fails.check(
             set(maintained) == set(kept),
@@ -278,7 +320,7 @@ def rule_C12(fails: Fails, astra: Path | None) -> None:
         print(f"        no ENDONYMS map at {endonym_source}.")
         print("        The second column of spec/locales.yaml is a copy of that map and")
         print("        is unpinned in this run.")
-        fails.unverified.append("C12's endonym column")
+        fails.skip("C12", "the endonym column")
     else:
         drift = {c: (endonyms.get(c), theirs_endonyms.get(c))
                  for c in sorted(ours & set(theirs_endonyms))
@@ -469,7 +511,7 @@ def rule_C20(fails: Fails) -> None:
         print("        value too low here refuses a listing the registry would have taken,")
         print("        and one too high lets an author through to a refusal at ingest they")
         print("        cannot act on. Neither is visible from this repository alone.")
-        fails.unverified.append("C20 (no astra-registry checkout)")
+        fails.skip("C20", "no astra-registry checkout")
         return
 
     policy = json.loads((registry / "policy" / "limits.json").read_text(encoding="utf-8"))
@@ -535,8 +577,124 @@ def rule_C20(fails: Fails) -> None:
 RESOLVER_SYMBOL = "resolve_action_type"
 RESOLVER_FILE = "astra-rs/astra-daemon/src/plugins/i18n.rs"
 
+#: The NAMED ref this rule proves its own anchor against before it believes a
+#: word a tag says.
+#:
+#: A named ref and never `HEAD`: HEAD in a maintainer's Astra checkout is
+#: whatever they were working on, and this repository has already been bitten
+#: once by a comparison whose inputs stopped being the thing under test. Verified
+#: on the machine this was written on — the local `main` there carries no
+#: `plugins/i18n.rs` at all, while `origin/main` carries it with the symbol in
+#: it, so anchoring on the working tree would have failed a correct checkout.
+#:
+#: `actions/checkout` writes `refs/remotes/origin/<ref>` for the branch it takes,
+#: so the CI step passes `--astra-ref origin/$ASTRA_REF` and this default is what
+#: a maintainer's clone answers to.
+ANCHOR_REF = "origin/main"
 
-def rule_C22(fails: Fails, astra: Path | None) -> None:
+#: The fewest `v*` tags this rule may find before it concludes that the CHECKOUT
+#: is what broke rather than that Astra has never cut a release. A floor, not a
+#: count.
+#:
+#: This is the whole of the second half of the defect: `actions/checkout` fetches
+#: no tags unless told to, so `git tag --list 'v*'` came back empty on every run
+#: since the rule was written, the rule took its "no release to look inside"
+#: branch every time, and nothing on this side turned that into a failure.
+MIN_RELEASE_TAGS = 1
+
+
+def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
+    """Is `RESOLVER_FILE` still where this rule thinks, with the symbol in it?
+
+    **This runs BEFORE the tag is read, and its absence is a FAILURE and never a
+    skip or a pass** — `rule_C12` above says why in its own words, and C22 is the
+    rule that needed it. `shipped = blob.returncode == 0 and SYMBOL in stdout`
+    cannot tell *this tag does not carry the resolver* from *the daemon renamed
+    the file* or *renamed the function*, and it prints the false negative as
+    evidence: against a real repository whose resolver had merely moved one path
+    along, the unmodified rule answered `ok C22 no released Astra resolves plugin
+    labels yet` and exited 0.
+
+    Turning on `fetch-tags` without this would have been strictly worse than the
+    bug it fixes: a loud, permanent skip becomes a confident, permanent green.
+    """
+    have = subprocess.run(["git", "-C", top, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"],
+                          capture_output=True, text=True)
+    if have.returncode != 0:
+        return fails.check(
+            False,
+            f"C22 the Astra checkout has `{ref}` to anchor on",
+            f"`git rev-parse {ref}` failed in {top}.\n"
+            "This rule proves its own anchor against a NAMED ref before it reads a tag,\n"
+            "and it will not fall back to HEAD: HEAD is whatever the checkout happens to\n"
+            "be sitting on, which on a maintainer's machine may be a branch with no\n"
+            f"{RESOLVER_FILE} in it at all.\n"
+            "Pass the right one with --astra-ref (CI passes origin/$ASTRA_REF), or fetch\n"
+            "it. This is a FAILURE and not a skip: a checkout was supplied.",
+        )
+
+    blob = subprocess.run(["git", "-C", top, "show", f"{ref}:{RESOLVER_FILE}"],
+                          capture_output=True, text=True)
+    if blob.returncode != 0:
+        return fails.check(
+            False,
+            f"C22 {RESOLVER_FILE} is still there on {ref}",
+            f"`git show {ref}:{RESOLVER_FILE}` failed.\n"
+            "The path this rule greps a release for has moved, so every verdict it could\n"
+            "reach about a tag is about a file that is not the thing under test — and the\n"
+            "shape of that mistake is a GREEN one: a `git show` that fails because the\n"
+            "path moved is indistinguishable from a tag that genuinely lacks the symbol.\n"
+            "Point RESOLVER_FILE at wherever the daemon resolves labels now. Do not\n"
+            "silence this by pointing it at something that is still absent.",
+        )
+    if RESOLVER_SYMBOL not in blob.stdout:
+        return fails.check(
+            False,
+            f"C22 `{RESOLVER_SYMBOL}` is still the symbol to watch for, on {ref}",
+            f"{RESOLVER_FILE} exists on {ref} and does not contain `{RESOLVER_SYMBOL}`.\n"
+            "Either the daemon renamed it, or serve-time label resolution moved somewhere\n"
+            "else. Until RESOLVER_SYMBOL names the real thing, `this tag does not carry\n"
+            "it` is a sentence about a string nobody uses, printed as evidence.\n"
+            "This is a FAILURE and not a skip: a checkout was supplied, so the anchor\n"
+            "moved rather than being absent.",
+        )
+    return True
+
+
+def _tag_tree_readable(fails: Fails, top: str, tag: str) -> bool:
+    """Is that tag's tree actually HERE, or only its name?
+
+    The verdict below is `git show <tag>:<path>` failing, read as *this release
+    does not carry the resolver*. That reading is only sound if the release's
+    tree is present locally, and a checkout can hold a tag ref whose objects it
+    would have to go and get — a treeless or blobless partial clone is the live
+    example, and shallow-plus-partial is a plausible next optimisation of a
+    checkout whose comment already says the repository is large.
+
+    So the root tree is listed and floored at one entry, BEFORE any verdict. An
+    empty listing is this rule looking at nothing, and it must not be able to
+    come out the same way as `no release resolves labels yet`.
+    """
+    tree = subprocess.run(["git", "-C", top, "ls-tree", "--name-only", tag],
+                          capture_output=True, text=True)
+    entries = tree.stdout.split()
+    return fails.check(
+        tree.returncode == 0 and len(entries) >= 1,
+        f"C22 {tag}'s tree is readable in this checkout ({len(entries)} root entr"
+        f"{'y' if len(entries) == 1 else 'ies'})",
+        f"`git ls-tree --name-only {tag}` returned {tree.returncode} and "
+        f"{len(entries)} entries.\n"
+        f"{tree.stderr.strip()}\n"
+        "The tag ref is here and what it points at is not, so every `git show`\n"
+        "below would fail for a reason that has nothing to do with the release —\n"
+        "and this rule reads a failed `git show` as `that release does not carry\n"
+        "the resolver`. Fetch the tag's objects (CI does\n"
+        "`git -C _astra fetch --depth=1 origin '+refs/tags/v*:refs/tags/v*'`),\n"
+        "or stop filtering trees out of this checkout.",
+    )
+
+
+def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> None:
     if astra is None:
         print("C22 NOT VERIFIED: no Astra checkout at "
               f"{_default_astra_hint()}. Nothing here can see whether a RELEASED")
@@ -547,7 +705,7 @@ def rule_C22(fails: Fails, astra: Path | None) -> None:
         print("        stands. The flip is a two-line change in")
         print("        astra-plugin-cli/src/templates/mod.rs and it is gated on a")
         print("        release, not on a merge.")
-        fails.unverified.append("C22 (no Astra checkout)")
+        fails.skip("C22", "no Astra checkout")
         return
 
     try:
@@ -560,16 +718,34 @@ def rule_C22(fails: Fails, astra: Path | None) -> None:
         fails.check(False, "C22 the Astra checkout's tags are readable", str(exc))
         return
 
-    if not tags:
-        print("C22 NOT VERIFIED: that Astra checkout has no `v*` tags, so there is no")
-        print("        release to look inside. A shallow or single-branch clone does")
-        print("        this; it is reported rather than read as `no release has it`,")
-        print("        which is the answer that would keep the scaffold as it is for")
-        print("        the wrong reason.")
-        fails.unverified.append("C22 (no release tags in the Astra checkout)")
+    # The anchor FIRST. Everything below reads `git show <tag>:<path>` and asks
+    # whether a symbol is in it, and both halves of that question are worthless
+    # if the path or the symbol has moved.
+    if not _anchor_holds(fails, top, anchor_ref):
+        return
+    print(f"        anchor: `{RESOLVER_SYMBOL}` is in {RESOLVER_FILE} on {anchor_ref}, so a tag "
+          "that lacks it lacks the resolver and not the file.")
+
+    if len(tags) < MIN_RELEASE_TAGS:
+        print(f"C22 NOT VERIFIED: that Astra checkout has no `v*` tags (floor: "
+              f"{MIN_RELEASE_TAGS}), so there is")
+        print("        no release to look inside. Two different things produce this and")
+        print("        they need opposite fixes: the SCAN is what broke if the checkout")
+        print("        is shallow or was fetched without tags — `actions/checkout` takes")
+        print("        none unless told to, and that is what kept this rule in its")
+        print("        degraded branch on every CI run it has ever had. Astra genuinely")
+        print("        never having cut a release is the other one, and it is not the")
+        print("        state this repository is in.")
+        print("        It is reported rather than read as `no release has it`, which is")
+        print("        the answer that would keep the scaffold as it is for the wrong")
+        print("        reason — and `--require C22` is how a caller that HAS supplied a")
+        print("        checkout turns this line red instead of letting it ride.")
+        fails.skip("C22", "no release tags in the Astra checkout")
         return
 
     newest = tags[0]
+    if not _tag_tree_readable(fails, top, newest):
+        return
     blob = subprocess.run(["git", "-C", top, "show", f"{newest}:{RESOLVER_FILE}"],
                           capture_output=True, text=True)
     shipped = blob.returncode == 0 and RESOLVER_SYMBOL in blob.stdout
@@ -643,12 +819,29 @@ def main() -> int:
     ap.add_argument("--astra-dir", default=None,
                     help="an Astra/astra-rs checkout; else $ASTRA_RS_DIR, else "
                          "../Astra/astra-rs. C12 says so out loud when there is none.")
+    ap.add_argument("--astra-ref", default=ANCHOR_REF,
+                    help=f"the NAMED ref C22 proves its own anchor against before it reads a "
+                         f"tag (default: {ANCHOR_REF}). Never HEAD. CI passes "
+                         f"origin/$ASTRA_REF, matching the branch it checked out.")
+    ap.add_argument("--require", default="",
+                    help="comma-separated rules that must actually RUN. A rule listed here "
+                         "which reports NOT VERIFIED exits 1 instead of 0. Use it wherever the "
+                         "inputs were supplied on purpose — a skip there is a broken job, not "
+                         "a normal state.")
     args = ap.parse_args()
 
     wanted = [r.strip().upper() for r in args.rules.split(",") if r.strip()]
-    unknown = [r for r in wanted if r not in ("C12", "C14", "C20", "C22")]
+    required = [r.strip().upper() for r in args.require.split(",") if r.strip()]
+    unknown = [r for r in wanted + required if r not in ("C12", "C14", "C20", "C22")]
     if unknown:
         print(f"unknown rule(s): {unknown}", file=sys.stderr)
+        return 2
+    not_run = [r for r in required if r not in wanted]
+    if not_run:
+        # Requiring a rule this invocation never runs would be a gate that
+        # passes because it was pointed at nothing — the exact shape of green
+        # this file exists to refuse.
+        print(f"--require names rule(s) --rules does not run: {not_run}", file=sys.stderr)
         return 2
 
     fails = Fails()
@@ -659,7 +852,7 @@ def main() -> int:
     if "C12" in wanted:
         rule_C12(fails, resolve_astra(args.astra_dir))
     if "C22" in wanted:
-        rule_C22(fails, resolve_astra(args.astra_dir))
+        rule_C22(fails, resolve_astra(args.astra_dir), args.astra_ref)
 
     print()
     sys.stdout.flush()
@@ -668,11 +861,26 @@ def main() -> int:
         for f in fails:
             print("  " + f, file=sys.stderr)
         return 1
-    if fails.unverified:
-        n = len(fails.unverified)
+
+    said = [f"{rule} ({why})" for rule, why in fails.unverified]
+    blocked = [f"{rule} ({why})" for rule, why in fails.unverified if rule in required]
+    if blocked:
         print(f"check-locales: {', '.join(wanted)} — nothing broken, and "
-              f"{n} thing{'' if n == 1 else 's'} NOT VERIFIED: "
-              + "; ".join(fails.unverified) + ".")
+              + f"{len(said)} thing{'' if len(said) == 1 else 's'} NOT VERIFIED: "
+              + "; ".join(said) + ".")
+        print(f"check-locales: EXIT 1. --require named {', '.join(required)}, and "
+              + "; ".join(blocked) + " did not run.", file=sys.stderr)
+        print("               A rule whose inputs were supplied on purpose and which skipped "
+              "anyway\n"
+              "               is a broken job, not a normal state. Nothing above is wrong with "
+              "this\n"
+              "               repository; something is wrong with what this run was given.",
+              file=sys.stderr)
+        return 1
+    if said:
+        n = len(said)
+        print(f"check-locales: {', '.join(wanted)} — nothing broken, and "
+              f"{n} thing{'' if n == 1 else 's'} NOT VERIFIED: " + "; ".join(said) + ".")
         print("               Exit 0, and not a clean bill of health for those: each")
         print("               says above what it could not see and why.")
         return 0

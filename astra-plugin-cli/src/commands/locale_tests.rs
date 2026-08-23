@@ -434,8 +434,204 @@ fn the_lock_reads_stale_from_the_english_it_recorded() {
     assert_eq!(
         freshness(Some(&lock), "ru", "k", english, english),
         Freshness::Untranslated,
-        "a value equal to English is seeded, not translated — and carries no entry"
+        "a value equal to English is seeded, not translated"
     );
+
+    // The state this module had no name for, and the whole of the blocking
+    // defect. The lock recorded `english`; the value IS `english`; the English
+    // has since moved. Nobody translated this, so it is not `Stale` — and it is
+    // emphatically not `New`, which is what it used to come back as, one `sync`
+    // away from carrying the digest of English it has never been compared with.
+    assert_eq!(
+        freshness(Some(&lock), "ru", "k", "Handled {n} item(s)", english),
+        Freshness::SeededStale,
+        "the value hashes to the English the lock recorded, so it never stopped being that \
+         English"
+    );
+}
+
+/// The lock covers a plural family whose rows English cannot legally carry.
+///
+/// `ru` needs `few` and `many`; `en` needs `one` and `other`, and E15 refuses it
+/// any more than that. Keyed on `en.keys.get(key)` those two rows have no
+/// English, get no lock entry, and can never be reported stale — so rewriting
+/// both English rows of a four-row Russian family reported **two**, `--accept`
+/// cleared it, and the family shipped two-thirds updated and reading fresh.
+#[test]
+fn the_lock_covers_a_plural_family_english_cannot_carry() {
+    let dir = corpus().join("pass/lock-plural-family-stale");
+    let m = manifest_at(&dir);
+    let set = LocaleSet::read(&dir);
+
+    let families = plural_families(&set);
+    let en = set.get("en").unwrap();
+    assert!(
+        !en.keys.contains_key("msg.done.few"),
+        "this fixture is pointless if English carries the row — E15 refuses it"
+    );
+    assert_eq!(
+        english_for(en, "msg.done.few", &families),
+        en.keys.get("msg.done.other"),
+        "a category English cannot carry is measured against `<base>.other`"
+    );
+
+    let stale = stale_keys(&set);
+    let ru: Vec<&str> = stale.get("ru").map(|v| v.iter().map(String::as_str).collect())
+        .unwrap_or_default();
+    assert_eq!(
+        ru,
+        ["msg.done.few", "msg.done.many", "msg.done.one", "msg.done.other"],
+        "all four Russian rows describe English that has been rewritten"
+    );
+
+    let built = findings(&dir, &m, Gate::Build);
+    assert!(
+        built.errors.iter().any(|e| e.starts_with("[N3]") && e.contains("4 stale")),
+        "build must refuse the whole family, and say four:\n{}",
+        built.errors.join("\n")
+    );
+}
+
+/// A seed the English moved out from under is named as one, at both gates.
+#[test]
+fn the_lock_notices_a_seed_the_english_moved_out_from_under() {
+    let dir = corpus().join("pass/lock-seeded-english-moved");
+    let m = manifest_at(&dir);
+
+    let checked = findings(&dir, &m, Gate::Check);
+    assert!(checked.errors.is_empty(), "{}", checked.errors.join("\n"));
+    assert!(
+        checked.notes.iter().any(|n| n.starts_with("[N15]") && n.contains("listing.description")),
+        "the seed whose English moved must be named:\n{}",
+        checked.notes.join("\n")
+    );
+    assert!(
+        !checked.notes.iter().any(|n| n.starts_with("[N3]")),
+        "nothing here was ever translated, so N3's sentence about a translation describing \
+         older English would be false:\n{}",
+        checked.notes.join("\n")
+    );
+
+    // N15 is a note at BOTH gates. `build` refuses a stale TRANSLATION because
+    // a reader gets a confidently wrong sentence in their own language; a
+    // reader of this file gets English either way, and refusing somebody's
+    // release over a file they never claimed to have translated is a different
+    // trade.
+    let built = findings(&dir, &m, Gate::Build);
+    assert!(built.errors.is_empty(), "N15 must never be promoted:\n{}", built.errors.join("\n"));
+}
+
+/// The positive control: an up-to-date lock says nothing at all.
+///
+/// Without it, a reader that has started calling every key stale passes both
+/// fixtures above and fails nothing.
+#[test]
+fn a_lock_that_is_up_to_date_produces_no_lock_findings() {
+    let dir = corpus().join("pass/lock-up-to-date");
+    let m = manifest_at(&dir);
+    let built = findings(&dir, &m, Gate::Build);
+    assert!(built.errors.is_empty(), "{}", built.errors.join("\n"));
+    for id in ["[N2]", "[N3]", "[N15]"] {
+        assert!(
+            !built.notes.iter().any(|n| n.starts_with(id)),
+            "{id} on a lock whose every digest is the real sha256 of the English beside it:\n{}",
+            built.notes.join("\n")
+        );
+    }
+    let drift = lock_drift(&LocaleSet::read(&dir));
+    assert!(drift.stale.is_empty() && drift.seeded.is_empty());
+}
+
+/// **The blocking defect, end to end.** `sync` must not turn a seed into a
+/// fresh translation the moment the English moves.
+///
+/// Driven the way an author hits it: seed `ru` from English, rewrite the
+/// English, run `sync`. The old reader saw *differs from English, no lock
+/// entry*, called it **newly translated**, and stamped the digest of the **new**
+/// English — after which `locale ls` said `stale 0`, `check` said OK, `build`
+/// packed it, and the registry published the plugin's previous English text as
+/// its Russian store card with no finding anywhere.
+#[test]
+fn sync_does_not_relabel_a_seed_as_a_translation_when_the_english_moves() {
+    let dir = scratch("seed-moved");
+    let old_english = "A fixture";
+    let new_english = "A fixture for the shared locale rule corpus";
+    fs::write(dir.join("plugin.toml"), FIXTURE_MANIFEST).unwrap();
+    fs::create_dir_all(dir.join("locales")).unwrap();
+    fs::write(
+        dir.join("locales/en.json"),
+        format!(r#"{{"listing.name":"Fixture","listing.description":"{old_english}"}}"#),
+    )
+    .unwrap();
+    let m: PluginManifest = toml::from_str(FIXTURE_MANIFEST).unwrap();
+
+    crate::output::set_json(true);
+    add(&dir, &m, "ru").unwrap(); // seeds ru.json AND writes the lock
+    crate::output::set_json(false);
+
+    // The seed carries an entry. That is the fix: without one, the next `sync`
+    // has nothing to notice with.
+    let seeded = LocaleSet::read(&dir);
+    assert_eq!(
+        seeded
+            .lock
+            .as_ref()
+            .and_then(|l| l.locales.get("ru"))
+            .and_then(|m| m.get("listing.description")),
+        Some(&digest(old_english)),
+        "a value equal to English must still be recorded against the English it was copied from"
+    );
+
+    // The author rewrites the English. `sync` rewrites en.json from plugin.toml
+    // and then rewrites the lock — the one invocation the defect lived in.
+    fs::write(
+        dir.join("plugin.toml"),
+        FIXTURE_MANIFEST.replace(
+            &format!("description = \"{old_english}\""),
+            &format!("description = \"{new_english}\""),
+        ),
+    )
+    .unwrap();
+    let m2: PluginManifest =
+        toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+    crate::output::set_json(true);
+    sync(&dir, &m2, &[]).unwrap();
+    crate::output::set_json(false);
+
+    let after = LocaleSet::read(&dir);
+    let recorded = after
+        .lock
+        .as_ref()
+        .and_then(|l| l.locales.get("ru"))
+        .and_then(|m| m.get("listing.description"))
+        .cloned();
+    assert_eq!(
+        recorded.as_deref(),
+        Some(digest(old_english).as_str()),
+        "sync re-stamped an untranslated seed with the digest of English it has never been \
+         compared against. The registry reads this number: a match means `not stale`, and the \
+         card then ships the plugin's previous English as its Russian summary."
+    );
+    assert_ne!(
+        recorded.as_deref(),
+        Some(digest(new_english).as_str()),
+        "this is the exact value the defect wrote"
+    );
+
+    let drift = lock_drift(&after);
+    assert_eq!(
+        drift.seeded.get("ru").map(Vec::as_slice),
+        Some(["listing.description".to_string()].as_slice()),
+        "and it must be reported, not merely left unstamped"
+    );
+    assert!(findings(&dir, &m2, Gate::Check).notes.iter().any(|n| n.starts_with("[N15]")));
+
+    // `--accept` is still the author's word, and still the only way through.
+    crate::output::set_json(true);
+    sync(&dir, &m2, &["ru:listing.description".to_string()]).unwrap();
+    crate::output::set_json(false);
+    assert!(lock_drift(&LocaleSet::read(&dir)).seeded.is_empty());
+    let _ = fs::remove_dir_all(&dir);
 }
 
 /// `locale add` writes exactly the rows the code's plural rules need.

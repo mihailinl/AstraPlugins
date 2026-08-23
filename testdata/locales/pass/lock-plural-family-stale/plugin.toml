@@ -1,0 +1,11 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "A fixture whose plural family went stale"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true

@@ -21,6 +21,46 @@ fix gets a version bump here.
 
 ### Fixed
 
+- **`astra-plugin locale sync` recorded an untranslated seed as a fresh
+  translation, and the registry published your previous English as your Russian
+  store card.**
+
+  What you saw: nothing. `astra-plugin locale add ru` seeds `ru.json` with the
+  English, which is the intended starting point. You then edited your
+  description, `check` said `[E8] … Fix: astra-plugin locale sync`, and you ran
+  it. `locale ls` said `stale 0`, `check` said OK, `build` packed it, the
+  release went green — and the card in the catalogue carried the sentence you
+  had just rewritten, in Russian and Japanese, for as long as nobody looked.
+
+  Why: a value equal to English got **no lock entry**. So on the next `sync` the
+  seed matched "differs from English, and the lock has never seen it", which was
+  read as *newly translated* and stamped with the digest of the **new** English.
+  Both sides then agreed the translation was current: the CLI's `[N3]` compares
+  that digest, and so does the ingest bot's `W_LOCALE_STALE`. There was no
+  finding anywhere, on either side of the tag.
+
+  Now **every key gets an entry, including one whose value is still English** —
+  a seed is a copy of a sentence, and a copy is the thing an edit has to be able
+  to invalidate. A seed the English has moved out from under is `[N15]`, a new
+  note that says what it is rather than calling it a stale translation; it is a
+  note at both gates, because the reader gets English either way and refusing a
+  release over a file nobody claimed to have translated is a different trade
+  from refusing one over a confidently wrong Russian sentence.
+
+  In the same mechanism: the lock now covers a plural row a language needs and
+  English cannot carry. `ru`'s `few` and `many` are measured against
+  `<base>.other`, so rewriting both English rows of a four-row Russian family
+  reports **four** stale and not two — it reported two, `--accept` cleared it,
+  and the family shipped two-thirds updated and reading fresh.
+
+  **One thing to check once, on a plugin you started before this build.** A lock
+  written by an older `astra-plugin` has no entry for its seeds, so the first
+  `sync` after this upgrade still has no evidence for a value that differs from
+  today's English and has never been recorded — it stamps it as a translation,
+  exactly as before. Run `astra-plugin locale sync` once and read what it
+  reports; from that point the lock is complete and an English edit ages the
+  seeds like everything else.
+
 - **`astra-plugin init-ci` pinned a tag object where a commit was required, so
   every author's first release failed.**
 

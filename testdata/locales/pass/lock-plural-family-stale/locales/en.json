@@ -1,0 +1,6 @@
+{
+  "listing.name": "Fixture",
+  "listing.description": "A fixture whose plural family went stale",
+  "msg.done.one": "Finished {n} item",
+  "msg.done.other": "Finished {n} items"
+}

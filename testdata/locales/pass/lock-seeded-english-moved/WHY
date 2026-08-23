@@ -1,0 +1,18 @@
+The blocking defect this corpus had no witness for, frozen as bytes.
+
+`locales/ru.json`'s "listing.description" is not a translation. It is the
+English `astra-plugin locale add ru` seeded it with, and `locales/en.json` has
+moved on since — every field of it is real, including the digests, which are
+sha256 over the exact English bytes and not decoration.
+
+The lock is what makes that visible: the recorded digest is the digest of the
+value itself, which is how both implementations can tell "seeded, and the base
+moved" from "translated, and the base moved". Neither is an ERROR at check
+severity, so this is a `pass/` case — but a reader that stamped today's English
+digest onto this key would still pass, and that is exactly the bug. The CLI's
+`the_lock_notices_a_seed_the_english_moved_out_from_under` asserts the note; the
+registry's job is to demote this card to English rather than publish last week's
+English as somebody's Russian summary.
+
+Every other key here is correct on purpose, so a case that starts failing is
+failing about the seed and not about the file.
