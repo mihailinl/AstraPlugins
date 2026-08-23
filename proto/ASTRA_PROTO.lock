@@ -14,5 +14,5 @@
 #   astra_proto_sha256   sha256 of astra-rs/astra-proto/src/astra.proto it was cut from
 #
 protocol=1
-plugin_proto_sha256=9e2a66b1a5a9337eaf3ea54ffb2ac74cae44934e32414e4b48ba5dfdc670ba4c
-astra_proto_sha256=4cc4e709beaa5fd3d490c1d514b321b03e864137233f0806be0efbd30ff1bf71
+plugin_proto_sha256=5ee04ef813b7892ce2637c5b52f414a48487713a14e1f38b9227e5f3bd9423ed
+astra_proto_sha256=d7049c5bef8420ae751dcf92fef600937a07b91b29778abe73ae9095552f124e

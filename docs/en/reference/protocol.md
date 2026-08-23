@@ -11,7 +11,7 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 159 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`source-sha256: 4cc4e709beaa5fd3…`), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:9e2a66b1a5a9337e…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 159 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`source-sha256: d7049c5bef8420ae…`), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:5ee04ef813b7892c…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
