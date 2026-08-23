@@ -432,7 +432,15 @@ LISTING_LIMITS = ROOT / "spec" / "listing-limits.yaml"
 #: see it. Deleting that row would otherwise leave six rows, a floor of four,
 #: and nothing anywhere noticing that the CLI had stopped checking permission
 #: reasons against the schema that refuses them.
-MIN_LIMIT_ROWS = 7
+#:
+#: 7 -> 8 on 2026-08-23 with `max_artifact_bytes`. Raising it is not optional
+#: bookkeeping: left at 7, the row just added is the one row this floor no
+#: longer covers — the exact hole the paragraph above describes, re-opened by
+#: the commit that quotes it. That row IS visible to the reverse direction, so
+#: deleting it would still be caught — but over in astra-registry, against a
+#: pinned checkout of this repository, rather than by the reader that runs on
+#: every push here.
+MIN_LIMIT_ROWS = 8
 
 #: The sibling key in `astra-registry/policy/limits.json` by which a cap over
 #: there declares that a copy of it lives HERE.

@@ -161,7 +161,14 @@ const LISTING_LIMITS_SPEC: &str = include_str!("../listing-limits.yaml");
 /// A panic and not a default: a missing row means the vendored copy and the
 /// spec disagree, and silently substituting a number is how a cap stops being
 /// a cap. The test below fires long before any user could reach this.
-fn cap(name: &str) -> usize {
+///
+/// `pub(crate)` since 2026-08-23 because `commands::build` reads
+/// `max_artifact_bytes` through it. That cap is not a locale cap and this is
+/// not a locale accessor — it is the reader for `listing-limits.yaml`, which
+/// happens to live here because the locale caps were the first rows in that
+/// file. A second reader with its own copy of the parse is how the three
+/// existing readers of that file came to disagree about what a row IS.
+pub(crate) fn cap(name: &str) -> usize {
     *listing_limits().get(name).unwrap_or_else(|| {
         panic!(
             "astra-plugin-cli/src/listing-limits.yaml has no `{name}` row. It is a vendored \
