@@ -352,7 +352,38 @@ mod roundtrip {
 
     /// A scratch directory that does not need the `tempfile` crate in this
     /// binary's dependency list.
-    fn tempdir() -> std::path::PathBuf {
+    ///
+    /// **It removes itself.** The first version of this helper called
+    /// `remove_dir_all` on ENTRY and never on exit, which is correct in every
+    /// single execution — each run starts from a clean directory — and wrong in
+    /// aggregate: the name is keyed by pid and thread id, so a fresh pid means a
+    /// fresh directory and the previous run's tree stays. 320 of them had
+    /// accumulated on one developer machine, the oldest four days old. Nothing
+    /// about reading the old function suggested a leak, because no individual
+    /// call leaked.
+    ///
+    /// That machine's `/tmp` is a tmpfs, so the leak was resident memory rather
+    /// than disk, invisible to `free` as anything but "used" and attributable to
+    /// no process.
+    ///
+    /// The entry-side `remove_dir_all` is kept: it is what clears a tree left by
+    /// a run that was killed before `Drop` could run.
+    struct Scratch(std::path::PathBuf);
+
+    impl std::ops::Deref for Scratch {
+        type Target = std::path::Path;
+        fn deref(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn tempdir() -> Scratch {
         let mut p = std::env::temp_dir();
         p.push(format!(
             "astra-plugin-roundtrip-{}-{:?}",
@@ -361,7 +392,7 @@ mod roundtrip {
         ));
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).expect("scratch directory");
-        p
+        Scratch(p)
     }
 }
 
