@@ -112,7 +112,15 @@ proof:
 
 - `tools/check-manifest-crate.sh` **skips, and exits 0**, when there is no
   `Astra` checkout beside this repository. Point it with
-  `ASTRA_REPO=/path/to/Astra` if you want it to actually compare.
+  `ASTRA_REPO=/path/to/Astra` if you want it to actually compare. When there
+  *is* one it compares against **`origin/main`**, read out of that repository's
+  git database — never against whatever the checkout has open, and it refuses
+  rather than guessing if that ref does not resolve (`git -C … fetch origin`).
+  A stale checkout used to make this script report drift that did not exist and
+  tell you to run `--sync`, which would have deleted a constant the vendored
+  copy had and the checkout did not. `ASTRA_REF=worktree` compares the working
+  tree on purpose, for editing the crate upstream before pushing it; it says so
+  loudly every run, because those bytes exist on no other machine.
 - `tools/parity/check.py` skips rule **R7** unless you give it a conformance
   report (`astra-plugin test --report <file>`, then `--report <file>`), and
   prints `CONFORMANCE UNVERIFIED` when it does. Its **R5** line-number drift is

@@ -507,10 +507,22 @@ jobs:
       #      re-fork plugins/manifest.rs and (1) would stay green forever while
       #      comparing the CLI against a crate nothing reads. That is the
       #      original `ui_panels` failure with one more layer of indirection.
+      #
+      # ASTRA_REF=HEAD, and it is the one place that value is honest. The script
+      # defaults to `origin/main` because a MAINTAINER's checkout is on whatever
+      # branch they left it on, and reading that is how it once reported drift
+      # that did not exist and advised `--sync` over a constant only the vendored
+      # copy had. Here the checkout is `actions/checkout` a dozen lines above, at
+      # `vars.ASTRA_REF || 'main'`, fetched fresh at depth 1 — so HEAD *is* the
+      # named ref, and naming it directly is also what keeps this step correct if
+      # `vars.ASTRA_REF` is ever set again: that fetch refspec brings down only
+      # the requested branch, so `origin/main` would not exist here to compare
+      # against. The script prints the sha and subject it resolved either way.
       - name: one plugin.toml definition (vendored crate == Astra's)
         if: env.MODE == 'full'
         env:
           ASTRA_REPO: ${{ github.workspace }}/_astra
+          ASTRA_REF: HEAD
         run: bash tools/check-manifest-crate.sh
 
       - name: the daemon parses plugin.toml with that crate
