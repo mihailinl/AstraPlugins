@@ -1,0 +1,3 @@
+The floor: one locale file, English, carrying exactly the two reserved keys the
+ingest bot reads. Nothing else. If this case ever fails, every other pass case
+below is failing for a reason that has nothing to do with what it tests.

@@ -1,0 +1,25 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "A fixture for the shared locale rule corpus"
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "title": "$config.token.title",
+      "description": "$config.token.description"
+    }
+  }
+}
+"""

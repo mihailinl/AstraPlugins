@@ -1,0 +1,6 @@
+{
+  "listing.name": "Fixture",
+  "listing.description": "Набор",
+  "msg.done.one": "{n} ход",
+  "msg.done.other": "{n} хода"
+}

@@ -1,0 +1,6 @@
+{
+  "listing.name": "Fixture",
+  "listing.description": "A fixture for the shared locale rule corpus",
+  "config.token.title": "API Token",
+  "config.token.description": "Where to find it: the bot's settings page"
+}

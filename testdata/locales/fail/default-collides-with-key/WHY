@@ -1,0 +1,7 @@
+`resolve_json` walks EVERY string in a config schema, `"default"` values
+included, and this plugin has a locale key genuinely named `HOME`. So the default
+is rewritten to the translation, and the setting the user ends up with differs by
+UI language — with no rebuild and nothing to tell the author.
+
+Note what makes this an error and `pass/dollar-literals`' `"$HOME/notes"` a note:
+the collision, not the shape. `$$HOME` is the escape.

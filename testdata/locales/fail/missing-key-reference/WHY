@@ -1,0 +1,4 @@
+A key-shaped `$string` in a LABEL position that is in no locale file. The daemon
+looks it up, finds nothing, and renders the BARE key — the user reads
+`config.token.title` on the settings form, which looks like a deliberate
+identifier rather than a mistake.

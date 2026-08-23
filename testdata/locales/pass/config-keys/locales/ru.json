@@ -1,0 +1,6 @@
+{
+  "listing.name": "Fixture",
+  "listing.description": "Набор для проверки правил локализации",
+  "config.token.title": "Токен API",
+  "config.token.description": "Где его взять: страница настроек бота"
+}

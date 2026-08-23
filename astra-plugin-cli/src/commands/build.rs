@@ -186,6 +186,26 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
         );
     }
 
+    // Everything `astra-plugin check` calls an error, before a single byte is
+    // written. Errors only — `build` is never stricter than a non-strict
+    // `check` — and it runs here, before the language build step, so an author
+    // who typed a Russian description does not wait through a `cargo build
+    // --release` to hear about it.
+    let refusals = crate::commands::validate::errors_only(&dir)?;
+    if !refusals.is_empty() {
+        // `Rejected`, not a bare `bail!`: exit 1 is "the plugin is wrong" and
+        // exit 2 is "this tool could not answer". Every release workflow
+        // branches on that, and a refusal reported as 2 reads as the CLI having
+        // fallen over.
+        return Err(crate::output::Rejected::err(format!(
+            "refusing to pack: {} error(s). Nothing was written.\n\n  {}\n\n\
+             `astra-plugin check .` reports these with the warnings and notes too; \
+             `astra-plugin check --fix .` and `astra-plugin locale sync` fix the mechanical ones.",
+            refusals.len(),
+            refusals.join("\n\n  ")
+        )));
+    }
+
     let language = detect_language(&dir);
     let target = resolve_target(opts.target, &language)?;
 
@@ -258,6 +278,13 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     }
 
     // ui/ and locales/ ship for every language.
+    //
+    // RECURSIVELY, and the daemon reads only the top level of `locales/` — so a
+    // `locales/en/common.json` is packed, digested, signed, shipped, installed
+    // and opened by nothing. That asymmetry is not fixed here: making the reader
+    // recurse would change what "a locale exists" means for every plugin already
+    // installed. It is refused instead, at pack time, by E5 in
+    // `commands::locale`, which the gate above has already run.
     for sub in ["ui", "locales"] {
         let path = dir.join(sub);
         if path.exists() {
@@ -273,16 +300,37 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     }
 
     // The plugin's face: whatever picture the author put next to plugin.toml,
-    // plus the prose and the licence. The registry reads all three straight out
-    // of the bundle when it derives a listing, so these travel covered by the
-    // build attestation rather than being retyped into a form.
+    // plus the prose, the licence, and the staleness lock. The registry reads
+    // all of them straight out of the bundle when it derives a listing, so they
+    // travel covered by the build attestation rather than being retyped into a
+    // form.
     //
-    // The icon list mirrors `astra-registry/bot/lib/assets.mjs` ICON_FORMATS
-    // and is checked against it by the parity job: a format packed here that the
-    // registry does not accept is an icon that silently never appears, and one
-    // accepted there but not packed here is an icon an author added and this
+    // **This list is an ALLOWLIST, and that is the whole bug `locales.lock.json`
+    // was added to fix.** Root files are not swept in by a directory walk for
+    // any of the three real languages — `rust` packs a binary, `typescript`
+    // packs `dist/`, `python` packs `src/` — so a root file that is not named
+    // here is packed only by the `_ =>` unknown-language arm below, which no
+    // scaffolded plugin ever reaches. `locales.lock.json` sat at the root
+    // precisely BECAUSE it must not be inside `locales/` (every top-level
+    // `*.json` in there is loaded as a locale keyed on its stem, so it would
+    // become a phantom locale named `locales.lock`), and that placement walked
+    // it straight into this list's blind spot: the lock the registry reads to
+    // demote a stale translation would simply not have been in the bundle, for
+    // every plugin, silently. `scaffold-roundtrip` asserts it in the archive on
+    // both operating systems and all three languages.
+    //
+    // The icon list mirrors `astra-registry/bot/lib/assets.mjs` ICON_FORMATS.
+    // Nothing in THIS repository compares the two — the check is on the registry
+    // side, in `tools/validate.mjs`, and it runs only when an AstraPlugins
+    // checkout is reachable from there. (An older comment here credited "the
+    // parity job", which reads nothing of the sort.) A format packed here that
+    // the registry does not accept is an icon that silently never appears, and
+    // one accepted there but not packed here is an icon an author added and this
     // tool threw away.
-    for name in ICON_FILENAMES.iter().chain(&["README.md", "LICENSE"]) {
+    for name in ICON_FILENAMES
+        .iter()
+        .chain(&["README.md", "LICENSE", crate::commands::locale::LOCK_FILE])
+    {
         let p = dir.join(name);
         if p.exists() && !builder.contains(name) {
             builder.add_path(name, &p)?;
@@ -1177,6 +1225,64 @@ actions = true
     fn no_permissions_section_is_the_empty_set() {
         let manifest: toml::Value = toml::from_str("[capabilities]\ntools = true\n").unwrap();
         assert!(declared_permissions(&manifest).unwrap().is_empty());
+    }
+
+    /// `build` runs the validator, and it runs it BEFORE anything is written.
+    ///
+    /// The bypass this closes was proven, not supposed: two readers of
+    /// `plugin.toml` live in this binary — `check`'s, through the shared
+    /// manifest crate, and the hand-parsed `toml::Value` above — and only the
+    /// first validated. A fixture whose description was Russian and whose only
+    /// locale file was `ru.json` built clean, exit 0, with every rule `check`
+    /// enforces one command away from being optional.
+    #[test]
+    fn build_refuses_what_check_refuses_and_writes_nothing() {
+        let dir = std::env::temp_dir().join(format!("astra-build-gate-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("locales")).unwrap();
+        // No Cargo.toml, no package.json, no pyproject: `detect_language` says
+        // "unknown" and there is no build step, so what this exercises is the
+        // gate and nothing else.
+        fs::write(
+            dir.join("plugin.toml"),
+            "[plugin]\nid = \"chess\"\nname = \"Chess\"\nversion = \"0.1.0\"\n\
+             description = \"Шахматы против локального бота\"\n\n\
+             [entry]\ncommand = \"./chess\"\n\n[capabilities]\ntools = true\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("locales/en.json"),
+            "{\"listing.name\":\"Chess\",\"listing.description\":\"Шахматы против локального бота\"}",
+        )
+        .unwrap();
+        // A real entry file, so that WITHOUT the gate this build SUCCEEDS. That
+        // is what makes the mutation legible: remove the gate and this test
+        // fails on `expect_err`, saying the description packed — rather than on
+        // some later invariant, which would send the next reader after the wrong
+        // thing entirely.
+        fs::write(dir.join("chess"), b"#!/bin/sh\nexit 0\n").unwrap();
+
+        let err = run(BuildOptions {
+            path: dir.to_str().unwrap(),
+            output: Some(dir.join("out.astraplugin").to_str().unwrap()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        })
+        .expect_err("a description in another alphabet must not pack");
+        let msg = format!("{err:#}");
+        assert!(msg.contains("refusing to pack"), "{msg}");
+        assert!(msg.contains("[E11]"), "{msg}");
+        // Exit 1 — the plugin is wrong — and not 2, which means this tool could
+        // not answer. Every release workflow branches on the difference.
+        assert_eq!(crate::output::code_for(&err), 1, "{msg}");
+        assert!(
+            !dir.join("out.astraplugin").exists(),
+            "`Nothing was written` has to be true: a truncated archive left behind is one an \
+             author mistakes for a build"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

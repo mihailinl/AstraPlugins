@@ -1,0 +1,9 @@
+The shape every other JSON config invites, and the one the daemon drops the
+WHOLE file on. Two of the three SDKs used to accept it, so an author's own tests
+passed on a file the user's machine never loads.
+
+E6 is the ONLY id here, deliberately. A file that does not parse has no
+`listing.name` in it either, and E10 would be true — but piling "your en.json is
+missing the two reserved keys" on top of "your en.json was dropped entirely"
+sends the author to fix the wrong thing. The rules that need a loaded `en.json`
+all stand down when there is not one.

@@ -1,0 +1,9 @@
+en = 2 rows, ru = 4, ja = 1, and all three are correct at once. This is the case
+that proves parity is over FAMILIES and not over raw keys: `msg.done.few` and
+`msg.done.many` are rows `en.json` cannot legally contain, so a raw-key rule
+would fire here on a file `astra-plugin locale add ru` itself wrote.
+
+The lock digests in this fixture are DELIBERATELY WRONG — they do not match the
+English above — so the case also pins that a stale lock is a NOTE at check time
+and never an error. `fail/` has no counterpart because the build-gate promotion
+is exercised by the CLI's own unit tests, which can set the gate directly.

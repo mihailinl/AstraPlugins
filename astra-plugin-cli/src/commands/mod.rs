@@ -5,6 +5,7 @@ pub mod doctor;
 pub mod fix;
 pub mod init_ci;
 pub mod keygen;
+pub mod locale;
 pub mod logs;
 pub mod publish;
 pub mod sign;

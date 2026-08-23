@@ -1,0 +1,3 @@
+A plugin that declares no translations at all. Nothing to check, and the absence
+must not be reported as anything but a note — this is what every plugin in the
+catalogue looks like today.

@@ -143,6 +143,20 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
     let gitignore = templates::generate_gitignore(&lang);
     fs::write(out_path.join(".gitignore"), gitignore)?;
 
+    // The store card's text, and the plugin's own strings. Same argument as the
+    // icon above: a `locales/` directory that exists gets edited, and one an
+    // author has to learn about from a document does not — which is how a
+    // listing reaches the catalogue in a language nobody asked about.
+    //
+    // The lock goes at the ROOT and not inside `locales/`: every top-level
+    // `*.json` in there is loaded as a locale keyed on its stem, so
+    // `locales/locales.lock.json` would become a phantom locale named
+    // `locales.lock`.
+    let (en, lock) = templates::generate_locales(name);
+    fs::create_dir_all(out_path.join("locales"))?;
+    fs::write(out_path.join("locales").join("en.json"), en)?;
+    fs::write(out_path.join(super::locale::LOCK_FILE), lock)?;
+
     hprintln!("Created plugin project '{name}' at {}/", opts.out_dir);
     hprintln!("Language: {lang}");
     hprintln!("Template: {}", opts.template);
@@ -154,6 +168,10 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
             manifest_caps.join(", ")
         }
     );
+    hprintln!(
+        "Locales: locales/en.json — your store card's text and your plugin's strings."
+    );
+    hprintln!("         `astra-plugin locale add ru` to translate it.");
     hprintln!();
     hprintln!("Next steps:");
     hprintln!("  cd {}", opts.out_dir);

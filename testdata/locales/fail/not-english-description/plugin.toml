@@ -1,0 +1,11 @@
+[plugin]
+id = "fixture"
+name = "Fixture"
+version = "0.1.0"
+description = "Шахматы против локального бота или выбранной модели Astra с игровым чатом."
+
+[entry]
+command = "./bin/fixture"
+
+[capabilities]
+tools = true

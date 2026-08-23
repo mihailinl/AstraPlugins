@@ -1,0 +1,76 @@
+# The registry's length caps, mirrored — and mirrored is exactly what they are.
+#
+# These four numbers belong to `astra-registry`. Nothing in Astra reads them and
+# nothing here is free to change them: they are the caps a listing record is
+# validated against at ingest, in another repository, AFTER an author has pushed
+# a tag. A plugin whose permission reason is 141 characters builds cleanly,
+# releases cleanly, and is refused by a JSON Schema in a repository the author
+# has never opened, with no way back but a new version number.
+#
+# So they are checked here, at pack time, where the author can still fix it —
+# and this file exists so that "checked here" does not mean "guessed here".
+#
+# WHY THIS IS A SEPARATE FILE FROM spec/limits.yaml
+#   `spec/limits.yaml` is integers-only AND Astra-shared: every value in it is
+#   mirrored into the daemon and changing one is an issue-first, three-repository
+#   change. None of these four is a number the daemon has ever heard of. Putting
+#   them there would make `gen-limits.mjs` generate four constants into three
+#   SDKs that have no use for them, and would put a registry policy decision
+#   behind an Astra review.
+#
+# WHY EACH LINE NAMES ITS SOURCE
+#   `astra-registry/policy/limits.json` already has this convention: a value with
+#   a `<name>_mirrors` sibling must equal the constant it names, and
+#   `tools/validate.mjs` compares them for real when the other checkout is
+#   reachable and prints that it did not when it is not. This is that convention
+#   pointing the other way. A declared copy with a check beats both a silent copy
+#   and a bare pointer — and the reason it is a copy at all rather than a
+#   pointer is that something HERE executes on it. `astra-plugin check` refuses
+#   a manifest over one of these. That is a local behaviour, not an echo, and
+#   the unit it counts in is stated below because it is not obvious.
+#
+# THE UNIT IS UNICODE SCALAR VALUES (Rust `char`), which is what the registry's
+# own `checkMetadata` counts with `[...value].length` — code points, not UTF-16
+# units and not bytes. A Russian summary at the cap is ~200 characters and ~370
+# bytes, and a check that counted bytes would refuse it. `summarise()` in the
+# bot cuts on code points for the same reason.
+#
+# HOW TO CHANGE THIS FILE
+#   1. Change it in astra-registry first. These are its numbers; a lower value
+#      here refuses a listing the registry would have accepted, and a higher one
+#      lets an author through to a refusal they cannot act on.
+#   2. Mirror it here.
+#   3. `cargo test --manifest-path astra-plugin-cli/Cargo.toml` — the CLI keeps a
+#      vendored copy at `astra-plugin-cli/src/listing-limits.yaml` (this file
+#      sits outside that crate's package directory, so it cannot be
+#      `include_str!`d without breaking `cargo package`), and
+#      `the_listing_limits_are_the_ones_the_spec_declares` reads THIS FILE at
+#      test time. That check runs on every fork PR with no second checkout.
+#   4. `python3 tools/check-locales.py --rules C20` — C20 compares this file
+#      with astra-registry's own when that checkout is reachable, and says out
+#      loud that it did not when it is not.
+#
+# FORMAT — `name: <integer>` per line, `#` comments, blank lines ignored. The
+# `mirrors` line above each value is a comment ON PURPOSE: it is read by a human
+# and by C20's regex, and by nothing that would break if it were reworded.
+
+# mirrors: astra-registry/policy/limits.json max_name_length
+# The store card's title, and `listing.name` in every locale block.
+max_name_length: 64
+
+# mirrors: astra-registry/policy/limits.json max_summary_length
+# The one-line summary the bot DERIVES from the description with `summarise()`.
+# Nothing in this repository is refused for exceeding it — the derivation
+# truncates rather than refusing — so it is here to be read, not enforced.
+max_summary_length: 200
+
+# mirrors: astra-registry/policy/limits.json max_description_length
+# `plugin.description`, and `listing.description` in every locale block.
+max_description_length: 4000
+
+# mirrors: astra-registry/schema/version-v1.json $.properties.permissions.patternProperties.*.properties.reason maxLength
+# A permission reason, which is the text a user reads on the consent sheet and
+# whose exact bytes are inside `permissions_hash`. This one is a schema
+# `maxLength` rather than a policy number, which is why its mirror line names a
+# JSON pointer instead of a key.
+max_permission_reason_chars: 140

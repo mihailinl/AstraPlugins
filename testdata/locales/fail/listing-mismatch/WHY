@@ -1,0 +1,5 @@
+`plugin.toml` and `en.json` are the same fact in two files, because the manifest
+crate is byte-locked to Astra and cannot hold a locale table. That duplication is
+checked, not tolerated — coupling C18, and the registry compares them again at
+ingest, after the tag. `astra-plugin locale sync` is the fix and it is one
+command.

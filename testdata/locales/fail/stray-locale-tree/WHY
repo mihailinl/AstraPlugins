@@ -1,0 +1,8 @@
+The Python author who wrote `src/locales/en.json`, called `I18n(Path(__file__).
+parent / "locales")`, got working runtime strings, shipped both files because
+`add_python_artifacts` packs `src/` recursively — and got nothing from the daemon,
+which reads only `<plugin>/locales/*.json`.
+
+Without this rule an absent `locales/` reports "nothing declared, nothing to
+check", which is an empty scan wearing a pass's clothes. N1 keeps its id and
+changes its severity, which is why the id looks like a note in a fail case.

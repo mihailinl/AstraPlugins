@@ -1,0 +1,8 @@
+Other locales present, `en.json` absent. English is the base every other locale
+falls back to; without it there is nothing to fall back to at all and the key
+itself reaches the screen.
+
+E1 is the only id, and that is the same principle as `fail/nested-object`: every
+rule that needs a loaded `en.json` — parity, the two reserved keys, the digests
+— stands down when there is not one, rather than each restating the same fact in
+its own words.

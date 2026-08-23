@@ -1,0 +1,2 @@
+The other direction. A key that is not in `en.json` can never be reached from
+any other language and is dead weight in every bundle.

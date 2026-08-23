@@ -1,0 +1,7 @@
+Resolving plugin keys OUTSIDE `[config] schema` is new. The code is on Astra's
+`main`; the newest Astra RELEASE is v0.2.0 and does not have it, so on every
+daemon in the world today this label renders as literal text a user cannot act
+on. `min_astra_version` is the only thing in the manifest that stops an older
+daemon installing the plugin at all, which makes it exactly the right gate — and
+landing the code upstream does not relax this rule by itself, because the rule is
+about the READER's daemon and not about anybody's git history.

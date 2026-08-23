@@ -122,6 +122,15 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     check_versions_agree(dir, &manifest.plugin.version, &mut report.warnings);
     check_release_workflow(dir, opts.resolve_pin, &mut report.warnings, &mut report.notes);
 
+    // `locales/`, the two reserved listing keys, and the English gate. See
+    // `commands::locale` for what each rule costs when it is not there. It
+    // contributes ERRORS and NOTES only, never a warning: a warning is
+    // strict-fatal on `astra-plugin dev`'s inner loop and on the release path,
+    // so a rule about prose would stop an author running their own plugin.
+    let l = crate::commands::locale::findings(dir, &manifest, crate::commands::locale::Gate::Check);
+    report.errors.extend(l.errors);
+    report.notes.extend(l.notes);
+
     for n in &report.notes {
         hprintln!("  NOTE: {n}");
     }
@@ -184,6 +193,46 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     );
 
     Ok(verdict)
+}
+
+/// Every error `check` would report, at BUILD severity, and nothing else.
+///
+/// `astra-plugin build` calls this before it packs anything. Two readers of
+/// `plugin.toml` live in this binary and only one of them validated:
+/// `build.rs` hand-parses a `toml::Value` for the four fields it stamps, so
+/// until this existed every rule `check` enforced was one command away from
+/// being optional — and it was proven, not supposed: a fixture whose
+/// description was Russian and whose only locale file was `ru.json` built
+/// clean, exit 0.
+///
+/// **Errors only, never warnings**, so `build` can never be stricter than a
+/// non-strict `check` — with the three named exceptions the build gate
+/// promotes (`qps` in the bundle, a missing lock, a stale translation), each of
+/// which explains itself at the point it fires.
+///
+/// Nothing here touches the network: `check_release_workflow` produces
+/// warnings and notes only, so it is not run at all.
+pub fn errors_only(dir: &Path) -> Result<Vec<String>> {
+    let manifest_path = dir.join("plugin.toml");
+    let content = std::fs::read_to_string(&manifest_path).context("Failed to read plugin.toml")?;
+
+    let mut report = Report::default();
+    let manifest = parse_manifest(&content, &mut report)?;
+
+    check_capabilities(&manifest, &content, &mut report);
+    check_permissions(&manifest, &mut report);
+    check_config_schema(&manifest, &mut report);
+    check_metadata(&manifest, &mut report);
+    check_platform(&manifest, &mut report);
+    check_build(&manifest, &mut report);
+    check_ui(&manifest, &mut report);
+    check_dependencies(&manifest, &mut report);
+    check_call_timeout(&manifest, &mut report);
+
+    let l = crate::commands::locale::findings(dir, &manifest, crate::commands::locale::Gate::Build);
+    report.errors.extend(l.errors);
+
+    Ok(report.errors)
 }
 
 /// The three severities, collected so the checks below can be read one at a

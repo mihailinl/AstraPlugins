@@ -41,6 +41,7 @@ Astra Plugin Development CLI
 | [`version`](#astra-plugin-version) | — | Set the version in plugin.toml and every other manifest at once |
 | [`publish`](#astra-plugin-publish) | — | Get a release listed: preflight it, or open a prefilled submission |
 | [`keygen`](#astra-plugin-keygen) | — | Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses |
+| [`locale`](#astra-plugin-locale) | — | Manage `locales/` — the plugin's translations, and its store card's text |
 
 ### There is no `astra-plugin login`
 
@@ -327,3 +328,19 @@ Usage: astra-plugin keygen [OPTIONS]
 | Option | Description |
 |---|---|
 | `--force` | Overwrite existing keypair |
+
+## astra-plugin locale
+
+Manage `locales/` — the plugin's translations, and its store card's text.
+
+A plugin ships one flat `locales/<code>.json` per language beside `plugin.toml`. `astra-plugin check` and `astra-plugin build` enforce the rules over that directory; these commands are how you satisfy them without reading them.
+
+```
+Usage: astra-plugin locale [OPTIONS] <COMMAND>
+```
+
+**Options**
+
+| Option | Description |
+|---|---|
+| `--path <PATH>` | Path to plugin directory (default: current directory) (default `.`) |

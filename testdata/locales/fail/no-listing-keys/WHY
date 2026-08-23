@@ -1,0 +1,3 @@
+Once a plugin ships `locales/`, the store card's English text lives there too. A
+locale block missing half of the pair is dropped whole by the bot rather than
+filled in, so a half-declared listing is a listing that silently does not appear.
