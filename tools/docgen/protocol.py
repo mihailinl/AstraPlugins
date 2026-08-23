@@ -63,8 +63,20 @@ SERVICE_NOTES = {
 
 
 def header_facts(text: str) -> dict[str, str]:
+    """The generated header's `// key: value` lines.
+
+    `protocol` and `surface-sha256` are required. `source-sha256` is not: it
+    names the `astra.proto` the slice was cut from, it moves on every edit to
+    that file including ones with no effect on this repository, and it is being
+    retired to a sidecar in Astra where the source it describes actually lives.
+    A reader here cannot verify it in any case — the file it names is private.
+
+    `surface-sha256` is the opposite and is why the requirement moved: it is the
+    digest of this file's own plugin-facing body, so anybody holding these bytes
+    can check it, and it moves only when something a plugin can see moves.
+    """
     facts = {}
-    for key in ("protocol", "source-sha256"):
+    for key in ("protocol", "surface-sha256"):
         match = re.search(rf"^//\s*{re.escape(key)}:\s*(\S+)\s*$", text, re.MULTILINE)
         if not match:
             raise DocgenError(
@@ -73,6 +85,9 @@ def header_facts(text: str) -> dict[str, str]:
                 f"guess it."
             )
         facts[key] = match.group(1)
+    optional = re.search(r"^//\s*source-sha256:\s*(\S+)\s*$", text, re.MULTILINE)
+    if optional:
+        facts["source-sha256"] = optional.group(1)
     return facts
 
 
@@ -256,7 +271,8 @@ def render() -> str:
         f"Protocol generation **{facts['protocol']}**. "
         f"{len(services)} services, {total} RPCs. Source: "
         f"[`{PROTO}`](../../../{PROTO}), a generated slice of Astra's `astra.proto` "
-        f"(`source-sha256: {facts['source-sha256'][:16]}…`), pinned by "
+        f"(`surface-sha256: {facts['surface-sha256'][:16]}…`, the digest of the "
+        f"plugin-facing body you are reading about), pinned by "
         f"[`{VERSION_FILE}`](../../../{VERSION_FILE}) at "
         f"`sha256:{pinned['sha256'][:16]}…`. Every vendored copy in the three SDKs has that "
         f"same hash; `tools/check-proto.sh` is what says so.",

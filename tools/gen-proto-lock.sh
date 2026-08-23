@@ -103,6 +103,18 @@ sha256_of() {
     fi
 }
 
+# The same, over stdin — for hashing part of a file rather than a file.
+sha256_stdin() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    else
+        printf 'gen-proto-lock: need sha256sum or shasum on PATH\n' >&2
+        exit 2
+    fi
+}
+
 # ---- 1. the checkout carries the slicer, the surface list and the source
 SLICER="$astra_dir/tools/proto-slice/Cargo.toml"
 SURFACE="$astra_dir/astra-proto/plugin-surface.toml"
@@ -150,22 +162,77 @@ MSG
 fi
 printf 'gen-proto-lock: ok   %s is byte-identical to the regenerated slice\n' "$PROTO_REL"
 
-# ---- 3. the header names the astra.proto it was really cut from
+# ---- 3. the header's own digests
+#
+# TWO digests, and the difference between them is the whole point.
+#
+#   surface-sha256  the plugin-facing BODY below the header. Moves only when
+#                   something a plugin can see moves. This is the one this
+#                   repository cares about, and the one it can verify from its
+#                   own bytes: no Astra checkout, no slicer, no network.
+#
+#   source-sha256   which astra.proto produced these bytes. Moves on EVERY edit
+#                   to that file, including one that changes nothing here. It is
+#                   Astra's provenance claim, checked in Astra by a canary that
+#                   lives beside the source.
+#
+# Until 2026-08-23 there was only the second, and this script keyed on it. That
+# made a comment appended to astra.proto turn this repository red and cost a
+# seven-file commit — the slice, two vendored copies, PROTO_VERSION, this lock,
+# a generated TS file and a docs page — for a change no plugin could observe. A
+# chore with no payoff is exactly how the generated slice stopped being
+# generated in the first place, so it was worth removing rather than enduring.
+#
+# `source-sha256` is therefore OPTIONAL here and is on its way out of the file
+# altogether. While it is present it is still checked; when it goes, this says
+# so out loud rather than silently checking nothing.
 protocol="$(sed -n 's|^// protocol: *||p' "$REPO_ROOT/$PROTO_REL" | head -n1)"
 astra_sha="$(sed -n 's|^// source-sha256: *||p' "$REPO_ROOT/$PROTO_REL" | head -n1)"
+surface_sha="$(sed -n 's|^// surface-sha256: *||p' "$REPO_ROOT/$PROTO_REL" | head -n1)"
 plugin_sha="$(sha256_of "$REPO_ROOT/$PROTO_REL")"
 real_astra_sha="$(sha256_of "$ASTRA_PROTO")"
+
+# The body is everything after the leading run of `//` lines. That is the
+# emitter's own definition — it hashes `emit(index, sel, "")`, the emission with
+# an empty header, and asserts the real header is a prefix of the real emission
+# — and it is deliberately NOT "after the second rule line": the body contains a
+# rule line of its own, so counting them is right by luck.
+body_digest() { awk 'f || !/^\/\//{f=1; print}' "$1" | sha256_stdin; }
 
 if [ -z "$protocol" ]; then
     printf 'gen-proto-lock: FAIL %s carries no `// protocol: N` header line.\n' "$PROTO_REL" >&2
     exit 1
 fi
-if [ "$astra_sha" != "$real_astra_sha" ]; then
-    printf 'gen-proto-lock: FAIL %s'\''s source-sha256 header says %s\n' "$PROTO_REL" "$astra_sha" >&2
-    printf '                      but astra.proto hashes to           %s\n' "$real_astra_sha" >&2
+
+if [ -z "$surface_sha" ]; then
+    printf 'gen-proto-lock: FAIL %s carries no `// surface-sha256:` header line.\n' "$PROTO_REL" >&2
+    printf '                      The slicer has emitted one since Astra 8413bea8. A slice without\n' >&2
+    printf '                      it was cut by an older tool: regenerate rather than hand-add it.\n' >&2
     exit 1
 fi
-printf 'gen-proto-lock: ok   source-sha256 header is the real hash of astra.proto\n'
+real_surface_sha="$(body_digest "$REPO_ROOT/$PROTO_REL")"
+if [ "$surface_sha" != "$real_surface_sha" ]; then
+    printf 'gen-proto-lock: FAIL %s'\''s surface-sha256 header says %s\n' "$PROTO_REL" "$surface_sha" >&2
+    printf '                      but its own body hashes to          %s\n' "$real_surface_sha" >&2
+    printf '                      Something edited the body of this file by hand. The header cannot\n' >&2
+    printf '                      have been written by the slicer for these bytes.\n' >&2
+    exit 1
+fi
+printf 'gen-proto-lock: ok   surface-sha256 header is the real hash of this file'\''s own body\n'
+
+if [ -n "$astra_sha" ]; then
+    if [ "$astra_sha" != "$real_astra_sha" ]; then
+        printf 'gen-proto-lock: FAIL %s'\''s source-sha256 header says %s\n' "$PROTO_REL" "$astra_sha" >&2
+        printf '                      but astra.proto hashes to           %s\n' "$real_astra_sha" >&2
+        exit 1
+    fi
+    printf 'gen-proto-lock: ok   source-sha256 header is the real hash of astra.proto\n'
+else
+    printf 'gen-proto-lock: note source-sha256 NOT CHECKED — this slice carries no such header.\n'
+    printf '                      Provenance now lives beside the source in the Astra repo, which is\n'
+    printf '                      where it is guaranteed. surface-sha256 above is what this file\n'
+    printf '                      asserts about itself, and it was checked.\n'
+fi
 
 # ---- 4. the file
 cat > "$tmp/ASTRA_PROTO.lock" <<EOF
@@ -181,13 +248,25 @@ cat > "$tmp/ASTRA_PROTO.lock" <<EOF
 # and say plainly that they did not contact upstream.
 #
 #   protocol             the \`// protocol: N\` header of proto/plugin.proto
-#   plugin_proto_sha256  sha256 of proto/plugin.proto
-#   astra_proto_sha256   sha256 of astra-rs/astra-proto/src/astra.proto it was cut from
+#   plugin_proto_sha256  sha256 of proto/plugin.proto, header included
+#   surface_sha256       sha256 of its plugin-facing BODY, header excluded — the
+#                        value a run with no upstream access can recompute from
+#                        the file in front of it, and the one that moves only
+#                        when something a plugin can see moves
+#   astra_proto_sha256   sha256 of the astra.proto it was cut from. OPTIONAL and
+#                        being retired: it moves on every edit to that file,
+#                        including edits with no effect here, and its guarantee
+#                        is kept in the Astra repository beside the source. The
+#                        line is absent once the slicer stops emitting the
+#                        header, and its absence is reported, not assumed.
 #
 protocol=$protocol
 plugin_proto_sha256=$plugin_sha
-astra_proto_sha256=$astra_sha
+surface_sha256=$surface_sha
 EOF
+if [ -n "$astra_sha" ]; then
+    printf 'astra_proto_sha256=%s\n' "$astra_sha" >> "$tmp/ASTRA_PROTO.lock"
+fi
 
 if [ "$check_only" = 1 ]; then
     if ! cmp -s "$tmp/ASTRA_PROTO.lock" "$REPO_ROOT/$LOCK_REL"; then

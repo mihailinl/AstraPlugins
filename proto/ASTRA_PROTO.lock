@@ -10,9 +10,19 @@
 # and say plainly that they did not contact upstream.
 #
 #   protocol             the `// protocol: N` header of proto/plugin.proto
-#   plugin_proto_sha256  sha256 of proto/plugin.proto
-#   astra_proto_sha256   sha256 of astra-rs/astra-proto/src/astra.proto it was cut from
+#   plugin_proto_sha256  sha256 of proto/plugin.proto, header included
+#   surface_sha256       sha256 of its plugin-facing BODY, header excluded — the
+#                        value a run with no upstream access can recompute from
+#                        the file in front of it, and the one that moves only
+#                        when something a plugin can see moves
+#   astra_proto_sha256   sha256 of the astra.proto it was cut from. OPTIONAL and
+#                        being retired: it moves on every edit to that file,
+#                        including edits with no effect here, and its guarantee
+#                        is kept in the Astra repository beside the source. The
+#                        line is absent once the slicer stops emitting the
+#                        header, and its absence is reported, not assumed.
 #
 protocol=1
-plugin_proto_sha256=9e2a66b1a5a9337eaf3ea54ffb2ac74cae44934e32414e4b48ba5dfdc670ba4c
-astra_proto_sha256=4cc4e709beaa5fd3d490c1d514b321b03e864137233f0806be0efbd30ff1bf71
+plugin_proto_sha256=bfd35c4f97f23c261d092188b08f449d82472941ab3c945a9fcd7f7d3e4af4cd
+surface_sha256=cd740c6c2701a4097706b4b17bac57e347944859a753a6c10bdaccfe5a4fdcfa
+astra_proto_sha256=d7049c5bef8420ae751dcf92fef600937a07b91b29778abe73ae9095552f124e
