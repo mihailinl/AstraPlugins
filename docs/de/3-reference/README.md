@@ -42,7 +42,7 @@ zusammenpassen.
 | [Config- und Settings-Felder](config-fields.md) | `[config]`, typisierte Einstellungen, und die TTS/STT-Feld-Hooks |
 | [Lokalisierung](localisation.md) | `locales/<code>.json`, der `$key`-Marker, und wo das Englisch-Gate greift — **nur auf Englisch** |
 
-Jedes Codebeispiel auf beiden Seiten wird in der CI von
+Jedes Codebeispiel auf diesen Seiten wird in der CI von
 [`docs/tools/doctest.py`](../../tools/doctest.py) ausgeführt.
 
 ## Normative Spezifikationen

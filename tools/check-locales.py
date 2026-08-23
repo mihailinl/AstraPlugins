@@ -202,8 +202,12 @@ def _astra_languages(astra: Path) -> tuple[list[str] | None, list[str] | None, s
 
     Preferred: `astra-core/locale-vocabulary.json`, which Astra generates from
     the two consts and pins with its own test — comparing two files beats
-    parsing somebody's Rust. It does not exist on Astra's `main` yet, so the
-    consts are the fallback and the fallback is the path this runs on today.
+    parsing somebody's Rust. A checkout old enough not to carry it falls back to
+    the consts, which is why both readers are here rather than one, and which of
+    them answered is printed beside the result. Read that line rather than
+    assuming either: the checkout this is pointed at is whatever the operator
+    has open, and on a machine where `main` is stale that is not the ref anybody
+    means.
     """
     vocab = astra / "astra-core" / "locale-vocabulary.json"
     if vocab.is_file():
@@ -308,11 +312,11 @@ def rule_C12(fails: Fails, astra: Path | None) -> None:
     if kept is None:
         print("C12 PARTIAL: the `maintained` subset was NOT compared.")
         print(f"        {source} has no MAINTAINED_LANGUAGES and no")
-        print("        locale-vocabulary.json. That const is on Astra's")
-        print("        `worktree-plugin-i18n-w1` and is not on `main`, so this line is")
-        print("        expected until that branch lands — and it is printed rather than")
-        print("        assumed, because `maintained` is the one column in")
-        print("        spec/locales.yaml that nothing else in this repository can check.")
+        print("        locale-vocabulary.json — an Astra checkout that carries neither is")
+        print("        older than both, so point --astra-dir at one that has them rather")
+        print("        than reading this as an answer. It is printed rather than assumed")
+        print("        because `maintained` is the one column in spec/locales.yaml that")
+        print("        nothing else in this repository can check.")
         print(f"        Taken on trust: {' '.join(maintained)}")
         fails.skip("C12", "the `maintained` column")
     else:

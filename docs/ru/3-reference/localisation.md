@@ -1,8 +1,8 @@
-# Localisation
-
-> Ещё не переведено. Эта страница пока доступна только на английском. Источник истины — [docs/en](../../en/3-reference/localisation.md).
+> **Ещё не переведено.** Эта страница пока доступна только на английском. Источник истины — [docs/en](../../en/3-reference/localisation.md).
 >
 > This page is normative and nobody on this side can review a translation of it, so it ships in English in every language rather than in six versions nobody can check. A translation is welcome; English stays authoritative either way.
+
+# Localisation
 
 Astra can be set to ten languages. A plugin ships **one flat JSON file per
 language**, beside `plugin.toml`:
@@ -88,8 +88,11 @@ again, on the downloaded bundle. A translated name is held against every other
 listing's names in every language, the way an English one always has been. And a
 translation of English you have since rewritten is published as the English,
 because a confidently wrong sentence in a language nobody at the registry can
-read is worse than a correct one in the wrong language. You meet all of it
-locally, before a tag exists, from `astra-plugin locale check`.
+read is worse than a correct one in the wrong language. Everything on that list
+that is a fact about your own tree, `astra-plugin locale check` tells you before
+a tag exists. The comparison against every *other* listing is not one of them:
+only the registry holds the other listings, so that one is met at ingest and
+nowhere earlier.
 
 `plugin.toml` itself may **not** carry a `$key` in `name` or `description`.
 Those bytes go into `MANIFEST.json` and are read unresolved by the registry, so
@@ -182,7 +185,7 @@ among ten — it is the base the other nine are defined against. Concretely:
 | `astra-plugin dev` | refuses to sideload at all unless `check --strict` passes, so a note is free and anything above one stops you |
 | `astra-plugin build` | **refuses to pack.** Nothing is written |
 | the release workflow | runs `check --strict` before it builds anything, in your repository, on your tag — with the CLI that workflow pins, which is not necessarily the newest one |
-| the registry, at ingest | the same rules again, on the bundle it downloaded — because a bundle can reach the catalogue without ever having met this CLI. Not all of them: what is a fact about your source tree stays above, where you can still act on it. This gate refuses a listing *after* a tag is pushed, which is the expensive place to learn any of it |
+| the registry, at ingest | its own rule set, on the bundle it downloaded — because a bundle can reach the catalogue without ever having met this CLI. **Neither list contains the other.** What is a fact about your source tree is settled above, where you can still act on it; what is a fact about the *catalogue* — how your name in each language sits beside every other listing's — can only be settled here, and the registry states its own rules in its own repository. This gate refuses a listing *after* a tag is pushed, which is the expensive place to learn any of it |
 
 The English check is a **script check, not a language detector**. It refuses a
 description written entirely in another alphabet — which is the accident it
@@ -380,8 +383,11 @@ notices.
 }
 ```
 
-Each value is the first 12 hex of the SHA-256 of the **English bytes that value
-was made against**. Nothing is asserted by hand; `sync` derives the whole file.
+Each value is a short digest of the **English bytes that value was made
+against** — of the English, not of the translation, and of the bytes as they
+stand, unnormalised. The exact form is the CLI's and the registry's to agree on
+and is not something to reproduce by hand: nothing here is asserted, `sync`
+derives the whole file, and `astra-plugin locale check` is what reads it back.
 
 **Every key gets an entry, including one whose value is still English.** A seed
 is a copy of a sentence, and a copy is exactly the thing a later edit has to be
@@ -450,8 +456,15 @@ the one above.)
 **A permission `reason` is never translated.** Its exact bytes are inside the
 hash three implementations compute and the registry countersigns, and it is
 shown on the consent sheet *before* your plugin is installed. Write it in
-English, under 140 characters. The permission **label** beside it belongs to
-Astra and is already translated into all ten languages.
+English, and keep it short — the cap is in
+[`spec/listing-limits.yaml`](../../../spec/listing-limits.yaml), which also says
+which unit it counts in, and
+`astra-plugin check` refuses a manifest over it rather than letting the registry
+do it after your tag. The permission **label** beside it is Astra's string, not
+yours: Astra shows it in the languages whose own UI translation it holds
+complete — `maintained` in [`spec/locales.yaml`](../../../spec/locales.yaml),
+which is a smaller set than the ten you may ship a locale file for — and falls
+back to English, per key, in the others.
 
 **A TypeScript plugin must not `import` its locale files.** Only the `locales/`
 directory beside `plugin.toml` is packed, and the daemon reads it off disk.

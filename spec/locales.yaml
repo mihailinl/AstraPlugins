@@ -46,10 +46,27 @@
 #      a commitment to maintain each one — and C14 in the `couplings` job
 #      compares it against the directories actually under `docs/` and against
 #      this file. A directory under `docs/` is not a locale a plugin may ship.
-#   5. The registry does not read this list yet. When it does — `bot/lib/locales.mjs`
-#      and the `propertyNames` enums in `schema/plugin-v1.json` and
-#      `schema/index-v1.json` — add the step here and the check there. Until
-#      then nothing in `astra-registry` knows that a locale code exists at all.
+#   5. `spec/i18n.yaml` needs a plural row for the code — at minimum
+#      `<code> other always`, or every count in that language is silently
+#      `other` in all three SDKs. `node tools/gen-i18n.mjs --check` (C17)
+#      compares the two files in both directions and its failure names the
+#      missing rows; it also points back at this list, so the two cannot each
+#      believe the other is the place a language arrives.
+#   6. `astra-registry` mirrors this list, and mirroring it is REQUIRED rather
+#      than eventual. Its own `tools/validate.mjs` reads THIS FILE and compares
+#      it with the bot's vocabulary and with the enums in both schemas; that
+#      repository names those places in its own failure messages, so do not
+#      keep a second list of them here — it would be one more copy of the thing
+#      this file exists to stop copying.
+#
+#      Two things about the order, because getting it wrong is expensive. The
+#      registry pins the commit of THIS repository that it reads, so that pin
+#      moves first, in its own commit, before anything over there reads what it
+#      fetches. And an edit here that never reaches there is not a red locale
+#      check — it is a red catalogue: the deploy gate turns "not verified" into
+#      an error and stops every listing, while nothing about any of them has
+#      changed. Recipe R12 in the maintainers' change recipes is the full
+#      order, both pin bumps included.
 #
 # FORMAT — one language per line: the code, the endonym, and the literal word
 # `maintained` as the LAST field on the rows that carry it. `#` comments, blank

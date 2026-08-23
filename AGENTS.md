@@ -150,7 +150,7 @@ python3 tools/parity/gen.py --check          # the generated parity docs are cur
 python3 tools/parity/check.py                # the spec and the three SDKs agree
 ASTRA_RS_DIR=/nonexistent node tools/gen-limits.mjs --check
 node tools/gen-i18n.mjs --check              # the generated plural tables (C17)
-python3 tools/check-locales.py               # the locale vocabulary (C12, C14)
+python3 tools/check-locales.py               # the locale couplings; --rules is the list
 python3 tools/check-python-stubs.py          # plugin_pb2*.py vs plugin.proto (gap 8)
 ```
 

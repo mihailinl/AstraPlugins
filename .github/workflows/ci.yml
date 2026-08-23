@@ -557,8 +557,9 @@ jobs:
 
       # C1 with the other half attached. The `couplings` job runs
       # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the
-      # three SDK files against spec/limits.yaml and prints "daemon block:
-      # skipped" — the daemon is simply not in the comparison. The daemon's own
+      # SDK files this repository generates — from spec/limits.yaml AND
+      # spec/wire.yaml, which ride the same generator — and prints what it did
+      # NOT check; the daemon is simply not in that comparison. The daemon's own
       # `const _: () = assert!(…)` compares its constants against the generated
       # mirror in the same file, and a regeneration moves both together, so a
       # mirror left behind by a spec edit compiles green on both sides.
