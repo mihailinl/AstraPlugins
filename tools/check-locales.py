@@ -50,10 +50,17 @@ C22 — has a RELEASED Astra started resolving plugin labels?
     exited 0. `rule_C12` had applied exactly that discipline to itself from the
     start; C22 had not.
 
-    Then it needs tags, and `actions/checkout` fetches none unless told to — so
-    for its whole life in CI it took its "no release to look inside" branch, on
-    every run, and nothing turned that into a failure. `--require C22` is how a
-    caller that supplied a checkout on purpose says a skip is a broken job.
+    Then it needs tags, and a CI checkout has none: `actions/checkout` fetches
+    tags matching the REF NAME, so a job that asks for `main` gets the refspec
+    `+refs/tags/main*:refs/tags/main*` and no `v*` tag at all. `fetch-tags: true`
+    does not change that — it only drops `--no-tags`, and at `fetch-depth: 1`
+    with explicit refspecs there is no fetched history for a tag to be followed
+    into. (Both halves measured, the second of them by trying it and watching
+    this rule go red.) So for its whole life in CI this rule took its "no release
+    to look inside" branch, on every run, and nothing turned that into a failure.
+    `ci.yml` now fetches `+refs/tags/v*:refs/tags/v*` in a step of its own, and
+    `--require C22` is how a caller that supplied a checkout on purpose says that
+    a skip is a broken job rather than a normal state.
 
 C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs/.
     A translated documentation directory is the most likely place an author
@@ -644,6 +651,39 @@ def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
     return True
 
 
+def _tag_tree_readable(fails: Fails, top: str, tag: str) -> bool:
+    """Is that tag's tree actually HERE, or only its name?
+
+    The verdict below is `git show <tag>:<path>` failing, read as *this release
+    does not carry the resolver*. That reading is only sound if the release's
+    tree is present locally, and a checkout can hold a tag ref whose objects it
+    would have to go and get — a treeless or blobless partial clone is the live
+    example, and shallow-plus-partial is a plausible next optimisation of a
+    checkout whose comment already says the repository is large.
+
+    So the root tree is listed and floored at one entry, BEFORE any verdict. An
+    empty listing is this rule looking at nothing, and it must not be able to
+    come out the same way as `no release resolves labels yet`.
+    """
+    tree = subprocess.run(["git", "-C", top, "ls-tree", "--name-only", tag],
+                          capture_output=True, text=True)
+    entries = tree.stdout.split()
+    return fails.check(
+        tree.returncode == 0 and len(entries) >= 1,
+        f"C22 {tag}'s tree is readable in this checkout ({len(entries)} root entr"
+        f"{'y' if len(entries) == 1 else 'ies'})",
+        f"`git ls-tree --name-only {tag}` returned {tree.returncode} and "
+        f"{len(entries)} entries.\n"
+        f"{tree.stderr.strip()}\n"
+        "The tag ref is here and what it points at is not, so every `git show`\n"
+        "below would fail for a reason that has nothing to do with the release —\n"
+        "and this rule reads a failed `git show` as `that release does not carry\n"
+        "the resolver`. Fetch the tag's objects (CI does\n"
+        "`git -C _astra fetch --depth=1 origin '+refs/tags/v*:refs/tags/v*'`),\n"
+        "or stop filtering trees out of this checkout.",
+    )
+
+
 def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> None:
     if astra is None:
         print("C22 NOT VERIFIED: no Astra checkout at "
@@ -694,6 +734,8 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> 
         return
 
     newest = tags[0]
+    if not _tag_tree_readable(fails, top, newest):
+        return
     blob = subprocess.run(["git", "-C", top, "show", f"{newest}:{RESOLVER_FILE}"],
                           capture_output=True, text=True)
     shipped = blob.returncode == 0 and RESOLVER_SYMBOL in blob.stdout

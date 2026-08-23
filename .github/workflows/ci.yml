@@ -382,18 +382,42 @@ jobs:
           # The slicer reads astra.proto and plugin-surface.toml only; no history
           # is needed and the repo is large.
           fetch-depth: 1
-          # C22 below reads a RELEASE — `git show <newest v* tag>:<path>` — and
-          # `actions/checkout` fetches NO TAGS unless told to. So `git tag --list
-          # 'v*'` came back empty on every run this job has ever had, C22 took
-          # its "no release to look inside" branch every time, and the step went
-          # green: run 32617598679, step "C12, C22 (full)", MODE full,
-          # HAVE_TOKEN yes, `C22 NOT VERIFIED`. A tripwire that has never once
-          # read the thing it watches.
-          #
-          # Tags at depth 1 are cheap — one commit and its tree per tag, which is
-          # all `git show <tag>:<path>` needs — so this stays a shallow checkout
-          # rather than the `fetch-depth: 0` the `couplings` job needs for C0.
-          fetch-tags: true
+
+      # C22 below reads a RELEASE — `git show <newest v* tag>:<path>` — and the
+      # checkout above brings no tags. That is why C22 has never once read one:
+      # run 32617598679, step "C12, C22 (full)", MODE full, HAVE_TOKEN yes,
+      # `C22 NOT VERIFIED`, step green. A tripwire that has never seen the thing
+      # it watches.
+      #
+      # `fetch-tags: true` does NOT fix it, and this step exists because the
+      # first attempt at this fix used it and the job went red in 8 seconds.
+      # Read the refspec `actions/checkout` printed with it set:
+      #
+      #   git fetch --prune --no-recurse-submodules --depth=1 origin \
+      #     +refs/heads/main*:refs/remotes/origin/main* \
+      #     +refs/tags/main*:refs/tags/main*
+      #
+      # The tag half is globbed on the REF NAME — tags called `main*`, of which
+      # there are none — and `fetch-tags` only drops `--no-tags`, which at
+      # depth 1 with explicit refspecs has no fetched history for a tag to be
+      # followed into. It is a documented option that is a no-op in this
+      # configuration, so it is gone rather than sitting there reading as
+      # coverage.
+      #
+      # Measured against a real Astra rather than reasoned about: this refspec
+      # takes both `v*` tags in 0.5s, leaves the repository shallow, and leaves
+      # every tag's tree and blobs readable — `git show v0.2.0:<a file that
+      # exists there>` returns the file. That last clause is the one C22's
+      # verdict rests on, and `_tag_tree_readable` re-asserts it at the point of
+      # use rather than trusting this comment.
+      - name: fetch Astra's release tags (C22 reads the newest one)
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          git -C _astra fetch --no-recurse-submodules --depth=1 origin \
+            '+refs/tags/v*:refs/tags/v*'
+          echo "v* tags now in the Astra checkout:"
+          git -C _astra tag --list 'v*' --sort=-v:refname
 
       # A missing slicer must not surface as `cargo: manifest path … does not
       # exist`. That error names a path and no cause, and the cause here is
