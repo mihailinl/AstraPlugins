@@ -153,6 +153,53 @@ The daemon cannot make this call for you. It sees a key and must render it; only
 you know whether the string was a sentence for a person or an instruction for a
 model.
 
+### Exactly which strings the daemon resolves, and from which daemon
+
+The declared plane grew on 2026-08-23. This is the current list, and the second
+column is the part to read before you rely on any of it.
+
+| Surface | Resolved? |
+|---|---|
+| config-field titles, descriptions, placeholders, option labels | yes, and always has been |
+| `[ui]` contribution labels | yes |
+| action and trigger type labels, and their `ai_description` | yes |
+| **a TTS or STT plugin's own config fields** — labels, placeholders, descriptions, options | **yes, new** |
+| **a tool's `description`** | **yes, new** |
+| **a parameter's `description` inside `parameters_json`** | **yes, new** |
+| a parameter's NAME — the object key in `parameters_json` | **never.** The model must emit it verbatim |
+| a tool's `name` | **never.** It is the dispatch identifier, namespaced and matched back on call |
+| `[plugin] name` and `description` | **never**, and a `$key` there is refused at pack time (E20) |
+
+**The three marked new are in no released Astra.** They land with daemon commit
+`aa6fe5f7` and are false for every daemon that has shipped, so a plugin relying
+on them shows a user its own raw `$key` on anything older. There is not yet a
+release number to put in `min_astra_version` — the commit predates any tag
+carrying it — so the honest instruction today is: rely on them only if you
+control which daemon runs your plugin, and set `min_astra_version` to the first
+release that contains them once one exists.
+
+The TTS/STT row has a property the others do not, and it is worth knowing: those
+fields are resolved **when the page asks for them**, not when your plugin
+registers. So a user changing Astra's language sees your labels change without
+restarting anything.
+
+### `default` and `enum` — the one that fails quietly
+
+Inside `parameters_json`, `enum` values and `default` are resolved too, and that
+is where to be careful. A key that hits is replaced with your text, as you would
+want. **A `$`-prefixed, dotted, key-shaped string that MISSES loses its `$` and
+is passed on without it.**
+
+So `"$USD"` and `"$HOME/notes"` are safe — a key needs a dot and a letter-first
+first segment, and neither qualifies. `"$config.default_path"` as a *literal
+default value* is not safe: if no locale defines it, the model receives
+`config.default_path`, and nothing anywhere reports that this happened.
+
+**Do not put a `$key` in `default` or `enum`.** Not because it breaks — it does
+not, unless the string is a dotted identifier — but because the case that does
+break is silent, and `astra-plugin check` cannot see a tool schema at all: tools
+are declared over gRPC at run time, not in `plugin.toml`.
+
 ---
 
 ## 2 · `$` marks a key. `$$` marks a dollar.
