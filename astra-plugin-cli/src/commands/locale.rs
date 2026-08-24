@@ -92,6 +92,24 @@ pub const LOCK_SCHEMA: &str = "astra.plugin.locales/1";
 pub const PSEUDO_CODE: &str = "qps";
 
 /// The two keys the ingest bot reads out of a bundle's `en.json`. Closed.
+///
+/// **These two are PULLED, never referenced.** Every other key in `locales/`
+/// gets there because something names it — a `$key` in `plugin.toml`, or a
+/// `t("…")` in the plugin's own code. These two are read by consumers the
+/// plugin never calls: the registry's ingest bot, out of the attested bundle,
+/// and — since Astra `aa6fe5f7` — the daemon, to draw an installed plugin's card
+/// in the user's language without going back to the catalogue.
+///
+/// So nothing in a plugin's source will ever mention them, and that is correct.
+///
+/// **Written down before the rule that would get this wrong exists.** There is
+/// no "declared but never referenced" check in this CLI today — `extract` runs
+/// the other way (manifest `$keys` missing from `en.json`), `render` marks which
+/// config strings are references, and `E3` compares key SETS between locale
+/// files. If somebody adds one, these two are its first false positives, and
+/// they become false positives at exactly the moment the keys become mandatory:
+/// a plugin that drops them stops having a localised name anywhere. Any such
+/// rule exempts this list by name.
 pub const RESERVED_LISTING_KEYS: &[&str] = &["listing.name", "listing.description"];
 
 /// The CLDR cardinal category names, which are a reserved key SUFFIX namespace.
