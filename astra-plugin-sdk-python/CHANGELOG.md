@@ -15,6 +15,79 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.6.1] — unreleased
+
+Additive, plus one shutdown bug that made `conformance (R7)` flaky.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.6.0 runs unchanged.
+
+### Added
+- **`astra_plugin_sdk.key`** — marks a string the DAEMON renders (an action
+  label, a config-field title, a `[ui]` label) as a `$key` reference into your
+  `locales/`. `self.i18n` is the other plane and resolves in your process; the
+  two are not interchangeable and [the reference
+  page](../docs/en/3-reference/localisation.md) is the table of which surface
+  resolves from which daemon.
+- **`Plugin.i18n`** — this plugin's `locales/`, read on first use and kept on
+  the plugin's current language. Assigning `self.language` now moves it too, so
+  a handler never has to call `set_language` itself and a plugin that never
+  implemented `on_language_changed` still follows the user.
+- **`I18n.discover()`** — find `locales/` from `ASTRA_PLUGIN_DIR`
+  (`i18n.PLUGIN_DIR_ENV`) or the executable's directory, rather than from
+  whatever the process's cwd happens to be. **`I18n.empty()`** for the case
+  where there is nothing to find.
+- **`I18n.load_errors` and `I18n.source_dir`** — construction still never
+  raises, but a locale file that would not parse is now nameable instead of
+  silently absent.
+- **`I18n.has()`**, **`I18n.ta()`** (named `{name}` placeholders), **`I18n.tn()`**
+  (CLDR plurals; `{n}` is not substituted for you), **`I18n.count_prefixed()`**
+  (distinct keys under a prefix, across the union of every loaded locale).
+- **`astra_plugin_sdk.plural`** — the generated CLDR cardinal categories for
+  the ten codes Astra accepts: `categories`, `is_declared`, `category`,
+  `CATEGORIES`, `SPEC_SHA256`.
+- `I18n(None)` is accepted, and means "no locales directory".
+- `AiProviderCredentialsMsg.api_key` joins the reserved-name registry. Astra
+  added that message with the name already reserved; it has never been live.
+
+### Fixed
+- **A `Shutdown` arriving during startup left the process running until the
+  daemon SIGKILLed it, and the plugin's tidy path never ran.** `_stop_event` was
+  created after registration, after `on_language_changed` and
+  `on_config_changed` — but the gRPC port was already accepting calls, so for
+  the whole of startup `Shutdown` took the "nobody is parked behind me" branch:
+  it ran `on_shutdown`, stopped the server, answered `Empty`, and never released
+  `_run_async`, which then waited on that event for ever. It reached us as a
+  flaky `conformance (R7)`: same SHA, two runs, opposite results. The event is
+  now created before the server serves.
+- The logging bridge is drained on the way out, bounded by `LOG_DRAIN_SECS`
+  (1.0s) so the whole tidy path still fits inside `PLUGIN_STOP_GRACE_SECS`.
+
+### Changed
+- `Plugin.language` is a property rather than a plain attribute, so that
+  assigning it can move `self.i18n`. Reading and assigning are unchanged. The
+  one visible difference: `"language"` is no longer a key in `plugin.__dict__`
+  before it is first set, and a subclass that declares `language` as a **class**
+  attribute now shadows the property instead of setting it — write it in
+  `__init__` or in `on_language_changed`.
+- `Harness.start()`'s docstring claimed it ran the hooks in "the same order as
+  `Plugin._run_async` and as the Rust runner". It is the Rust and TypeScript
+  order. `_run_async` runs **language before config** and always has. Neither is
+  a protocol requirement; if a hook of yours reads what the other one sets, read
+  both in `on_start`, which runs after both everywhere.
+- `HostClient.send_chat_message`'s `conversation_id` is documented rather than
+  changed: empty means this plugin's own durable thread, an id is only ever one
+  you were handed in the same exchange, and a stored id eventually names a
+  conversation that is gone.
+
+### Compatibility
+
+`PROTOCOL_VERSION` is unchanged at `1`. A plugin that ships no `locales/`
+directory is unaffected: `I18n.discover()` finds nothing, `has_locales` is
+`False`, and `t()` returns the key exactly as before.
+
 ## [0.6.0] — 2026-08-16
 
 A trigger a plugin fires from inside a call now names the call that caused it.

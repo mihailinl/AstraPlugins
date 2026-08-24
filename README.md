@@ -198,11 +198,11 @@ passes on a fresh scaffold.
 `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`.
 
 **Before you `cargo add` / `pip install` / `npm install` anything by hand, read
-[Publication state](#publication-state) below.** The versions the scaffolds pin
-are on the public registries — Rust 0.6.0, Python 0.5.0, TypeScript 0.5.0,
-verified against `index.crates.io`, PyPI and the npm registry — but every
-*older* version there fails every host call, which is why those pins have lower
-bounds and are not worth relaxing.
+[Publication state](#publication-state) below.** The scaffolds' pins resolve to
+versions that are on the public registries — Rust 0.7.0, Python 0.6.0,
+TypeScript 0.6.0, verified against `index.crates.io`, PyPI and the npm registry
+on 2026-08-23 — but every *older* version there fails every host call, which is
+why those pins have lower bounds and are not worth relaxing.
 
 ### 3. Iterate
 
@@ -305,11 +305,20 @@ directory to a listed plugin, with every command and its output.
 
 | Package | In this tree | Published | Install |
 |---|---|---|---|
-| `astra-plugin-sdk` (crates.io) | 0.6.0 | 0.6.0 | `astra-plugin-sdk = "0.6"` |
-| `astra-plugin-sdk` (PyPI) | 0.5.0 | 0.5.0 | `pip install "astra-plugin-sdk>=0.5,<0.6"` |
-| `astra-plugin-sdk` (npm) | 0.5.0 | 0.5.0 | `npm install astra-plugin-sdk` |
-| `astra-plugin-macros` (crates.io) | 0.6.0 | 0.6.0 | arrives with the SDK |
-| `astra-plugin-cli` (crates.io) | 0.2.1 | **not on crates.io**; binaries released as [`cli-v0.2.1`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
+| `astra-plugin-sdk` (crates.io) | 0.7.1 | 0.7.0 | `astra-plugin-sdk = "0.7"` |
+| `astra-plugin-sdk` (PyPI) | 0.6.1 | 0.6.0 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
+| `astra-plugin-sdk` (npm) | 0.7.0 | 0.6.0 | `npm install astra-plugin-sdk` |
+| `astra-plugin-macros` (crates.io) | 0.7.1 | 0.7.0 | arrives with the SDK |
+| `astra-plugin-cli` (crates.io) | 0.3.0 | **not on crates.io**; binaries released as [`cli-v0.2.1`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
+
+**"In this tree" is ahead of "Published" on purpose.** A version bump lands
+before its publish, so that a git-built SDK reports a number distinguishable
+from the released one; the scaffolds go on pinning the released version until
+the publish happens, or `astra-plugin new` would produce a project that cannot
+resolve its own SDK. Coupling **C11** in CI is what holds that window open only
+while each CHANGELOG's newest entry is still marked `unreleased`, and closes it
+the moment that heading gets a date. The "Published" column was verified against
+`index.crates.io`, PyPI and the npm registry on 2026-08-23.
 
 **Take those versions or newer.** The daemon requires an `x-session-token` on
 every host RPC but `Register`, and the first SDK release that attaches one is

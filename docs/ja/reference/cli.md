@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.2.1
+     Read from: astra-plugin 0.3.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -13,7 +13,7 @@
 
 # CLI リファレンス
 
-`astra-plugin 0.2.1`。以下のすべてのフラグはバイナリから読み取られた
+`astra-plugin 0.3.0`。以下のすべてのフラグはバイナリから読み取られた
 ものであるため、このページが存在しないオプションを説明することは
 あり得ません。出典は
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)

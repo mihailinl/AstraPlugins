@@ -2,7 +2,7 @@
 
 # Referencia de la CLI
 
-`astra-plugin 0.2.1`. Cada flag de abajo se leyó del binario, así que
+`astra-plugin 0.3.0`. Cada flag de abajo se leyó del binario, así que
 esta página no puede describir una opción que no exista. La fuente es
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 

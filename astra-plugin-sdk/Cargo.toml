@@ -1,6 +1,6 @@
 [package]
 name = "astra-plugin-sdk"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "Rust SDK for building Astra plugins"
 license = "MPL-2.0"
@@ -24,7 +24,7 @@ schema = ["dep:schemars"]
 # The macro layer: `astra::main!`, `#[astra::plugin]`, `#[derive(PluginConfig)]`.
 # Not optional. It is what makes a plugin one dependency, and a feature flag on
 # it would mean two documented ways to write the same plugin.
-astra-plugin-macros = { version = "0.7.0", path = "../astra-plugin-macros" }
+astra-plugin-macros = { version = "0.7.1", path = "../astra-plugin-macros" }
 
 # JSON Schema, for `#[tool]` argument types and `#[derive(PluginConfig)]`.
 schemars = { version = "1", optional = true }

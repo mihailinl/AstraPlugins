@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.2.1
+     Read from: astra-plugin 0.3.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -13,7 +13,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.2.1`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.3.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 

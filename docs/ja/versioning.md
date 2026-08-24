@@ -16,14 +16,14 @@
 | **あなたのプラグインのバージョン** | あなたの `plugin.toml` | あなた自身のもの。レジストリはこれでリリースを並べます |
 
 3 つの SDK バージョンは意図的に揃えられていません。現行のトレインは
-`sdk-v0.6.0` で、公開されているのは次のものです。
+`sdk-v0.7.0` で、公開されているのは次のものです。
 
 | パッケージ | レジストリ | バージョン |
 | --- | --- | --- |
-| `astra-plugin-sdk`(Rust) | crates.io | 0.6.0 |
-| `astra-plugin-macros` | crates.io | 0.6.0 — SDK が バージョン指定で依存しているため、SDK **より先に**公開されます |
-| `astra-plugin-sdk`(Python) | PyPI | 0.5.0 |
-| `astra-plugin-sdk`(TypeScript) | npm | 0.5.0 |
+| `astra-plugin-sdk`(Rust) | crates.io | 0.7.0 |
+| `astra-plugin-macros` | crates.io | 0.7.0 — SDK が バージョン指定で依存しているため、SDK **より先に**公開されます |
+| `astra-plugin-sdk`(Python) | PyPI | 0.6.0 |
+| `astra-plugin-sdk`(TypeScript) | npm | 0.6.0 |
 
 バージョン番号は「自分がどの API に対して書いているか」に答えるものなので、
 破壊的リリースが少ないパッケージほど番号は小さくなります。トレインが保証する

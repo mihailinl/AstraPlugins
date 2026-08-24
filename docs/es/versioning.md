@@ -16,14 +16,14 @@ como datos en lugar de como una promesa que alguien tiene que recordar.
 | **La versión de tu plugin** | tu `plugin.toml` | La tuya. El registro ordena los releases por ella. |
 
 Las tres versiones de SDK deliberadamente no se mantienen iguales. El
-tren actual es `sdk-v0.6.0`, y publica:
+tren actual es `sdk-v0.7.0`, y publica:
 
 | Paquete | Registro | Versión |
 | --- | --- | --- |
-| `astra-plugin-sdk` (Rust) | crates.io | 0.6.0 |
-| `astra-plugin-macros` | crates.io | 0.6.0 — publicado **antes** que el SDK, que depende de él por versión |
-| `astra-plugin-sdk` (Python) | PyPI | 0.5.0 |
-| `astra-plugin-sdk` (TypeScript) | npm | 0.5.0 |
+| `astra-plugin-sdk` (Rust) | crates.io | 0.7.0 |
+| `astra-plugin-macros` | crates.io | 0.7.0 — publicado **antes** que el SDK, que depende de él por versión |
+| `astra-plugin-sdk` (Python) | PyPI | 0.6.0 |
+| `astra-plugin-sdk` (TypeScript) | npm | 0.6.0 |
 
 Un número de versión responde "contra qué API estoy escribiendo", así
 que un paquete que ha tenido menos releases con cambios incompatibles

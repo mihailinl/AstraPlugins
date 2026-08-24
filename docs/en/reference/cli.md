@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.2.1
+     Read from: astra-plugin 0.3.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -12,7 +12,7 @@
 
 # CLI reference
 
-`astra-plugin 0.2.1`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
+`astra-plugin 0.3.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
 Astra Plugin Development CLI
 
