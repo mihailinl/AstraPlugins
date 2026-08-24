@@ -50,14 +50,25 @@ name: Release SDKs
 # racing it. 1-4 are seconds; putting them ahead of the matrix means a
 # mismatched version costs a minute, not twenty.
 #
-# ── THE FIRST RUN IS THE POINT ─────────────────────────────────────────────
+# ── WHY THE GATES ARE IN THIS ORDER ────────────────────────────────────────
 #
-# The registries are at 0.5.0 / 0.4.0 / 0.4.0. The tree is at 0.6.0 / 0.5.0 /
-# 0.5.0, and the CLI's scaffolds pin the tree's versions — so `astra-plugin new`
-# produces a project that CANNOT resolve its SDK until this workflow runs once.
-# Every gate above was checked against the tree as it stands (see the phase
-# report): `sdk-v0.6.0` passes all seven today. Nothing here blocks the release
-# that unblocks plugin authors.
+# A registry push cannot be undone or replaced. So everything that can be known
+# without pushing is checked first, and the last thing checked before the first
+# push is whether any registry already holds the version — because finding that
+# out after two of the three have gone up is the worst possible moment.
+#
+# This paragraph used to be a snapshot: it named which versions the registries
+# and the tree were at, and asserted that a particular tag passed every gate
+# "today". Every number in it was wrong within a fortnight, and a stale snapshot
+# in a release workflow is read by somebody deciding whether it is safe to run.
+# Whatever the current numbers are, `README.md`'s Publication state table holds
+# them and coupling C23 keeps that table honest; this file states the rule
+# instead.
+#
+# **The order is also what makes a half-failed release recoverable.** It did
+# fail halfway once — see the note on gate 1 — and the `registries:` input is
+# how the remaining leg gets pushed without pretending the finished ones did not
+# happen.
 #
 # ── NO ARTIFACT HAND-OFF ───────────────────────────────────────────────────
 #
@@ -82,6 +93,13 @@ on:
         description: "Actually publish. Leave false to run gates only."
         type: boolean
         default: false
+      registries:
+        description: >-
+          Which registries to publish to. `all` is the normal release. Name a
+          subset only to FINISH a partial one — see the comment on gate 1.
+        type: choice
+        default: all
+        options: [all, crates, pypi, npm, "crates,pypi", "crates,npm", "pypi,npm"]
 
 permissions:
   contents: read
@@ -103,6 +121,7 @@ jobs:
       python: ${{ steps.v.outputs.python }}
       ts: ${{ steps.v.outputs.ts }}
       publish: ${{ steps.v.outputs.publish }}
+      registries: ${{ steps.v.outputs.registries }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -116,6 +135,7 @@ jobs:
           # dispatch, so the two entry points are normalised here rather than in
           # four expressions further down.
           RAW: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          REGISTRIES: ${{ inputs.registries }}
           DO_PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
         run: |
           set -euo pipefail
@@ -172,6 +192,10 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"version={version}\nrust={rust}\npython={pyproject}\nts={ts}\n")
               fh.write(f"publish={os.environ['DO_PUBLISH'].lower()}\n")
+              # `all` on a tag push: a tag is always a whole release. Only a
+              # workflow_dispatch can name a subset, and only a human can start
+              # one.
+              fh.write(f"registries={os.environ.get('REGISTRIES') or 'all'}\n")
           print(f"\nreleasing: rust {rust}, python {pyproject}, ts {ts}")
           PY
 
@@ -184,6 +208,7 @@ jobs:
         env:
           RUST_V: ${{ steps.v.outputs.rust }}
           PY_V: ${{ steps.v.outputs.python }}
+          REGISTRIES: ${{ steps.v.outputs.registries }}
           TS_V: ${{ steps.v.outputs.ts }}
         run: |
           set -euo pipefail
@@ -206,8 +231,34 @@ jobs:
           # Both Rust packages are checked: they ship from one tag at one version,
           # and `cargo publish` on the SDK resolves astra-plugin-macros from the
           # registry, so a duplicate on either one aborts the whole release.
+          # Which registries this run is actually going to push to.
+          #
+          # **This exists because a partial release is a real state and the
+          # workflow could not finish one.** On 2026-08-24 `sdk-v0.7.1` published
+          # crates.io and PyPI and then failed on npm with a 404 on the PUT — an
+          # expired publish token. Re-running was refused by this very gate,
+          # correctly: crates.io and PyPI already had 0.7.1, and a gate that
+          # shrugged at that would also shrug at an accidental re-tag.
+          #
+          # So the subset is NAMED by the person starting the run rather than
+          # inferred. A tag push is always `all`; only a `workflow_dispatch` can
+          # say `npm`, and saying it is a statement that the other legs are
+          # already done. The gate still runs in full against whatever is named,
+          # so `npm` alone still refuses if npm already has the version.
+          selected = os.environ.get("REGISTRIES", "all") or "all"
+          want = {"crates", "pypi", "npm"} if selected == "all" else set(
+              x.strip() for x in selected.split(",") if x.strip())
+          unknown = want - {"crates", "pypi", "npm"}
+          if unknown:
+              sys.exit(f"unknown registry name(s): {', '.join(sorted(unknown))}")
+          if not want:
+              sys.exit("no registry selected; nothing to do")
+          for name in sorted({"crates", "pypi", "npm"} - want):
+              print(f"note {name} NOT checked and NOT published — this run names "
+                    f"'{selected}'. Finishing a partial release is the only reason to.")
+
           rust = os.environ["RUST_V"]
-          for crate in ("astra-plugin-sdk", "astra-plugin-macros"):
+          for crate in (("astra-plugin-sdk", "astra-plugin-macros") if "crates" in want else ()):
               status, body = get(f"https://crates.io/api/v1/crates/{crate}")
               if status == 200:
                   published = {v["num"] for v in json.loads(body)["versions"]}
@@ -223,12 +274,13 @@ jobs:
                                "refusing to guess")
 
           # PyPI and npm both answer per-version, so a 404 IS the answer.
-          for name, url, ver in (
-              ("PyPI", f"https://pypi.org/pypi/astra-plugin-sdk/{os.environ['PY_V']}/json",
+          per_registry = [
+              ("pypi", "PyPI", f"https://pypi.org/pypi/astra-plugin-sdk/{os.environ['PY_V']}/json",
                os.environ["PY_V"]),
-              ("npm", f"https://registry.npmjs.org/astra-plugin-sdk/{os.environ['TS_V']}",
+              ("npm", "npm", f"https://registry.npmjs.org/astra-plugin-sdk/{os.environ['TS_V']}",
                os.environ["TS_V"]),
-          ):
+          ]
+          for key, name, url, ver in [r for r in per_registry if r[0] in want]:
               status, _ = get(url)
               if status == 200:
                   fails.append(f"{name} already has astra-plugin-sdk {ver}")
@@ -491,7 +543,13 @@ jobs:
   publish-rust:
     name: "publish crates.io"
     needs: [versions, conformance]
-    if: needs.versions.outputs.publish == 'true'
+    # The second clause is what lets a PARTIAL release be finished: gate 1
+    # refuses a version a registry already has, so a re-run after a half-failed
+    # release is blocked unless the operator names the leg that still has to go.
+    if: >-
+      needs.versions.outputs.publish == 'true' &&
+      (needs.versions.outputs.registries == 'all' ||
+       contains(needs.versions.outputs.registries, 'crates'))
     runs-on: ubuntu-24.04
     environment: crates-io
     steps:
@@ -541,7 +599,13 @@ jobs:
   publish-python:
     name: "publish PyPI"
     needs: [versions, conformance]
-    if: needs.versions.outputs.publish == 'true'
+    # The second clause is what lets a PARTIAL release be finished: gate 1
+    # refuses a version a registry already has, so a re-run after a half-failed
+    # release is blocked unless the operator names the leg that still has to go.
+    if: >-
+      needs.versions.outputs.publish == 'true' &&
+      (needs.versions.outputs.registries == 'all' ||
+       contains(needs.versions.outputs.registries, 'pypi'))
     runs-on: ubuntu-24.04
     environment: pypi
     permissions:
@@ -577,7 +641,13 @@ jobs:
   publish-ts:
     name: "publish npm"
     needs: [versions, conformance]
-    if: needs.versions.outputs.publish == 'true'
+    # The second clause is what lets a PARTIAL release be finished: gate 1
+    # refuses a version a registry already has, so a re-run after a half-failed
+    # release is blocked unless the operator names the leg that still has to go.
+    if: >-
+      needs.versions.outputs.publish == 'true' &&
+      (needs.versions.outputs.registries == 'all' ||
+       contains(needs.versions.outputs.registries, 'npm'))
     runs-on: ubuntu-24.04
     environment: npm
     permissions:
