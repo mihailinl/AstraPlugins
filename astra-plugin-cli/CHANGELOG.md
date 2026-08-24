@@ -9,15 +9,77 @@ All notable changes to this crate. Format roughly follows
 [Keep a Changelog](https://keepachangelog.com/), versions follow
 [SemVer](https://semver.org/).
 
-**This crate has no release train.** It is not published to crates.io, there
-are no prebuilt binaries, and no git tag cuts a CLI release — unlike the three
-SDKs, which ship together from one `sdk-v<VERSION>` tag. The only way to get
-the tool is to build it from a clone
-([`docs/en/install-cli.md`](../docs/en/install-cli.md)), so **the version below
-is the only thing that tells one build from another.** That is why a one-line
-fix gets a version bump here.
+**This crate ships as binaries, from its own tag.** `cli-v<VERSION>` runs
+[`.github/workflows/release-cli.yml`](../.github/workflows/release-cli.yml),
+which builds linux-x64 (musl + gnu) and windows-x64 archives, attests them and
+publishes a GitHub Release — separately from the three SDKs, which ship together
+from one `sdk-v<VERSION>` tag. It is **not** on crates.io and cannot be until the
+vendored `astra-plugin-manifest` crate is published; `cargo install --git` and
+the archives are the two supported paths
+([`docs/en/install-cli.md`](../docs/en/install-cli.md)). Either way **the version
+below is the only thing that tells one build from another**, which is why a
+one-line fix gets a version bump here.
 
-## [0.2.1] — unreleased
+This paragraph used to say the opposite — "no release train, no prebuilt
+binaries, no git tag cuts a CLI release". `release-cli.yml` landed in `e3bd6c7`
+and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
+not part of either commit and stayed false for eight days, in the file an author
+reads to find out how to get the tool.
+
+## [0.3.0] — unreleased
+
+The whole `astra-plugin locale` command group, two new pack-time refusals, and
+a bundle-size cap that answers before the tag instead of after it.
+
+**0.3.0 and not 0.2.2, because `build` now refuses bundles it used to pack.**
+A `plugin.toml` that shipped under the 0.2.1 archives can fail `check` and
+`build` today: E20 refuses a `$key` in `[plugin] name`/`description`, E21
+refuses a `$key` whose English value is the empty string, and the artifact cap
+refuses a `.astraplugin` the registry would not list. `locales.lock.json`
+changed shape too. Per
+[`docs/en/versioning.md`](../docs/en/versioning.md)'s 0.x reading — *minor may
+break source compatibility, patch is bug fixes and additions only* — "your
+build can start failing" is the minor slot. The `locale` group and the seeded
+scaffold are additions and would have been a patch on their own.
+
+### Added
+
+- **`astra-plugin locale`** — `ls`, `add <code> [--prune]`, `sync [--accept]`,
+  `check`, `extract`, `render [--lang]`, `pseudo`. `locales/` had rules that
+  `astra-plugin check` and `build` enforced and no command helped you satisfy;
+  these are that command. `ls` always prints how many codes
+  `spec/locales.yaml` declares beside how many this plugin ships, so an empty
+  result reads as empty rather than as a pass.
+- **`astra-plugin new` seeds `locales/en.json` and `locales.lock.json`.** A
+  directory that exists gets edited; one you have to learn about from a
+  document does not. The lock goes at the project root, not inside `locales/`,
+  because every top-level `*.json` in there is loaded as a locale keyed on its
+  stem — `locales/locales.lock.json` would become a phantom locale called
+  `locales.lock`.
+
+### Changed (breaking)
+
+- **`[E20]` — `[plugin] name` or `description` beginning with `$`.** The
+  registry derives the store card from the PACKED `plugin.toml`, unresolved,
+  and `MANIFEST.json` carries the same bytes, so a `$key` here is the literal
+  text a user reads on the card — on every Astra that has ever existed,
+  including ones that resolve keys perfectly well elsewhere. Not gated on
+  `min_astra_version`, because the reader that breaks is not a daemon. Write
+  English there and put the translation under `listing.name` /
+  `listing.description` in `locales/<code>.json`.
+- **`[E21]` — a `$key` whose `locales/en.json` value is the empty string.** An
+  empty value is a *translation*, not a miss, so the daemon renders it: the
+  label disappears, in every language, because the other nine fall back per key
+  to English and English is the blank. `locale extract` prints a paste block;
+  pasting it unedited is how a plugin got here.
+- **`build` refuses a bundle over the registry's artifact cap**, and warns at
+  half of it. A 300 MiB bundle previously packed, tagged, uploaded, and was
+  refused *after* the tag — at the one point in a release where nothing can be
+  taken back.
+- **`locales.lock.json` changed shape**: every key gets an entry now, seeds
+  included, and the lock covers the plural rows a language needs that English
+  cannot carry. A lock written by 0.2.1 is rewritten by the first `sync` after
+  the upgrade.
 
 ### Fixed
 
@@ -60,6 +122,20 @@ fix gets a version bump here.
   exactly as before. Run `astra-plugin locale sync` once and read what it
   reports; from that point the lock is complete and an English edit ages the
   seeds like everything else.
+
+### Note for maintainers
+
+Bumping this version makes `docs/en/reference/cli.md` stale — it is generated
+from the binary and embeds `astra-plugin 0.3.0` in two places. Run
+`cargo build --release --manifest-path astra-plugin-cli/Cargo.toml` and then
+`python3 tools/docgen/gen.py`, and commit the result with this change. CI runs
+`python3 tools/docgen/gen.py --check` and fails otherwise. The six translated
+`docs/<locale>/reference/cli.md` carry the same two strings and `gen.py` does
+not write them; substitute them by hand, as this commit did.
+
+## [0.2.1] — 2026-08-15
+
+### Fixed
 
 - **`astra-plugin init-ci` pinned a tag object where a commit was required, so
   every author's first release failed.**

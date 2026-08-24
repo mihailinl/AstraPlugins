@@ -15,7 +15,17 @@ name = "astra-plugin-cli"
 # author's first release died, and `astra-plugin --version` said `0.2.0` on both
 # sides of the fix. A user reporting that bug, and a maintainer reading the
 # report, need one number that answers "which build is this".
-version = "0.2.1"
+#
+# 0.3.0, not 0.2.2, and the reason is a refusal rather than a rename. `check`
+# and `build` gained E20 and E21, and `build` gained the artifact-size cap: a
+# `plugin.toml` that packed under the 0.2.1 binaries on the `cli-v0.2.1` release
+# can now fail, so a script pinned to "astra-plugin build succeeds" breaks on the
+# upgrade. `locales.lock.json` also changed shape — every key gets an entry now,
+# seeds included — so the first `locale sync` after the upgrade rewrites a lock
+# 0.2.1 wrote. Per docs/en/versioning.md's 0.x reading, "may break" is the minor
+# slot. The whole `locale` command group and `new` seeding `locales/en.json` are
+# additions and would have been a patch on their own.
+version = "0.3.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"
@@ -72,7 +82,7 @@ astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }
 #
 # `default-features = false` drops `schemars`: the CLI reads JSON Schema, it
 # never derives one.
-astra-plugin-sdk = { version = "0.7.0", path = "../astra-plugin-sdk", default-features = false }
+astra-plugin-sdk = { version = "0.7.1", path = "../astra-plugin-sdk", default-features = false }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

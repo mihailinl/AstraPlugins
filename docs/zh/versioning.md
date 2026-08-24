@@ -14,15 +14,15 @@
 | **协议版本** | `proto/PROTO_VERSION`（`protocol=1`），在每个 SDK 中都以 `PROTOCOL_VERSION` 的形式镜像 | 插件与守护进程之间的通信契约 |
 | **你插件的版本** | 你的 `plugin.toml` | 属于你自己。注册表以它来给各个发布排序 |
 
-三个 SDK 的版本号被有意地保持不一致。当前的发布列车是 `sdk-v0.6.0`，它发布的
+三个 SDK 的版本号被有意地保持不一致。当前的发布列车是 `sdk-v0.7.0`，它发布的
 是：
 
 | 包 | 注册表 | 版本 |
 | --- | --- | --- |
-| `astra-plugin-sdk`（Rust） | crates.io | 0.6.0 |
-| `astra-plugin-macros` | crates.io | 0.6.0 —— 由于 SDK 按版本号依赖它，所以**先于** SDK 发布 |
-| `astra-plugin-sdk`（Python） | PyPI | 0.5.0 |
-| `astra-plugin-sdk`（TypeScript） | npm | 0.5.0 |
+| `astra-plugin-sdk`（Rust） | crates.io | 0.7.0 |
+| `astra-plugin-macros` | crates.io | 0.7.0 —— 由于 SDK 按版本号依赖它，所以**先于** SDK 发布 |
+| `astra-plugin-sdk`（Python） | PyPI | 0.6.0 |
+| `astra-plugin-sdk`（TypeScript） | npm | 0.6.0 |
 
 版本号回答的是"我正在针对哪个 API 编写代码"这个问题，所以破坏性发布更少的
 包，其版本号也就更小。这条发布列车所保证的是：共享同一个标签的各个包说的是

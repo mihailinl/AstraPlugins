@@ -15,6 +15,100 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.0] — unreleased
+
+A plugin can translate its own runtime strings; and `DaemonInfo` finally
+declares the language field the wire has always carried.
+
+**This is the minor slot, and the reason is three lines of `.d.ts`, not a
+removal.** Nothing was deleted. Three exported interfaces gained a REQUIRED
+property, and TypeScript treats that as a break for anybody who writes an
+object literal or a class of their own against them:
+
+```
+error TS2741: Property 'language' is missing in type
+'{ version: string; state: string; grpcPort: number; }'
+but required in type 'DaemonInfo'.
+```
+
+That is `tsc` refusing a `DaemonInfo` literal that compiled against 0.6.0. Per
+[`docs/en/versioning.md`](../docs/en/versioning.md)'s 0.x reading — *minor may
+break source compatibility, patch is bug fixes and additions only* — a change
+that can stop your build compiling belongs in the minor slot, even though every
+runtime behaviour is backward compatible and the fix is one property.
+
+### Changed (breaking)
+- **`DaemonInfo.language: string` is required.** The daemon has sent
+  `PluginDaemonInfoResponse.language` (field 4) since the field existed; this
+  interface did not declare it, so a TypeScript plugin asking the daemon what
+  language it was in got a value the type system said was not there. The Rust
+  and Python SDKs return the proto message and never had the gap. **If you
+  implement `Host` or build a `DaemonInfo` yourself**, add `language`;
+  `"en"` is the right value for a test double. The SDK's own `RecordingHost`
+  already does.
+- **`PluginContext.i18n: I18n` is required**, and so is `ContextSource.i18n`.
+  Both are exported types. If you hand-roll a `PluginContext` in a test, take
+  `I18n.empty()` — or use the level-1 harness, which builds one for you.
+
+### Added
+- **`key()`** — marks a string the DAEMON renders (an action label, a
+  config-field title, a `[ui]` label) as a `$key` reference into your
+  `locales/`. `this.i18n` is the other plane and resolves in your process; the
+  two are not interchangeable and [the reference
+  page](../docs/en/3-reference/localisation.md) is the table of which surface
+  resolves from which daemon.
+- **`Plugin#i18n`** — this plugin's `locales/`, read on first use and kept on
+  the plugin's current language. Assigning `this.language` now moves it too, so
+  a handler never has to call `setLanguage` itself and a plugin that never
+  implemented `onLanguageChanged` still follows the user.
+- **`I18n.discover()`** — find `locales/` from `ASTRA_PLUGIN_DIR`
+  (`PLUGIN_DIR_ENV`) or the executable's directory, rather than from whatever
+  the process's cwd happens to be. **`I18n.empty()`** for the case where there
+  is nothing to find, and `new I18n(null)` for the same.
+- **`I18n#loadErrors` and `I18n#sourceDir`** — construction still never throws,
+  but a locale file that would not parse is now nameable instead of silently
+  absent.
+- **`I18n#has()`**, **`I18n#ta()`** (named `{name}` placeholders), **`I18n#tn()`**
+  (CLDR plurals; `{n}` is not substituted for you), **`I18n#countPrefixed()`**
+  (distinct keys under a prefix, across the union of every loaded locale).
+- **`plural`** namespace — the generated CLDR cardinal categories for the ten
+  codes Astra accepts: `categories`, `isDeclared`, `category`, `CATEGORIES`,
+  `SPEC_SHA256`.
+- **`PLUGIN_DIR_ENV`** — the `ASTRA_PLUGIN_DIR` name as a constant.
+- `ChatChunk.conversationId?` — informational, safe to show or log, and **not**
+  a value to cache and send back later. Absent on a daemon older than the one
+  that added it.
+- `AiProviderCredentialsMsg.api_key` joins `RESERVED_FIELD_NAMES`.
+
+### Fixed
+- **`I18n#tf` replaced only the FIRST `{0}`, so the second was left on screen
+  as the literal text `{0}`.** Russian and Ukrainian repeat a noun in two cases
+  routinely, which is how it was found. Every occurrence is replaced now, as in
+  the Rust and Python SDKs.
+
+### Changed
+- `HostClient#sendChatMessage`'s `conversationId` is documented rather than
+  changed: empty means this plugin's own durable thread, an id is only ever one
+  you were handed in the same exchange, and a stored id eventually names a
+  conversation that is gone.
+- The startup-order comment in `plugin.ts` said "the order all three SDKs use".
+  It is the Rust and TypeScript order; the Python SDK runs language before
+  config and always has. Neither is a protocol requirement.
+
+### Deprecated
+
+Unchanged, and named here because this release reaches the number in the table:
+`UiPanel` (deprecated 0.5.0, replacement `UiContribution`) becomes **removable**
+from 0.7.0 per [`docs/en/versioning.md`](../docs/en/versioning.md). It is NOT
+removed in this release — removals go under a `BREAKING` heading and there is
+none. Migrate at your convenience; the alias is a one-line rename.
+
+### Compatibility
+
+`PROTOCOL_VERSION` is unchanged at `1`. A plugin that ships no `locales/`
+directory is unaffected: `I18n.discover()` finds nothing, `hasLocales` is
+`false`, and `t()` returns the key exactly as before.
+
 ## [0.6.0] — 2026-08-16
 
 A trigger a plugin fires from inside a call now names the call that caused it.

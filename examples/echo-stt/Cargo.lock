@@ -112,7 +112,7 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "astra-plugin-macros"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -121,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "astra-plugin-sdk"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "arc-swap",

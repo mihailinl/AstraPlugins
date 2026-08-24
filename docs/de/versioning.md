@@ -17,14 +17,14 @@ muss.
 | **Die Version deines Plugins** | deine `plugin.toml` | Deine. Die Registry ordnet Releases danach. |
 
 Die drei SDK-Versionen werden absichtlich nicht gleichgehalten. Der
-aktuelle Zug ist `sdk-v0.6.0` und veröffentlicht:
+aktuelle Zug ist `sdk-v0.7.0` und veröffentlicht:
 
 | Paket | Registry | Version |
 | --- | --- | --- |
-| `astra-plugin-sdk` (Rust) | crates.io | 0.6.0 |
-| `astra-plugin-macros` | crates.io | 0.6.0 — veröffentlicht **vor** dem SDK, das nach Version davon abhängt |
-| `astra-plugin-sdk` (Python) | PyPI | 0.5.0 |
-| `astra-plugin-sdk` (TypeScript) | npm | 0.5.0 |
+| `astra-plugin-sdk` (Rust) | crates.io | 0.7.0 |
+| `astra-plugin-macros` | crates.io | 0.7.0 — veröffentlicht **vor** dem SDK, das nach Version davon abhängt |
+| `astra-plugin-sdk` (Python) | PyPI | 0.6.0 |
+| `astra-plugin-sdk` (TypeScript) | npm | 0.6.0 |
 
 Eine Versionsnummer beantwortet „gegen welche API schreibe ich", ein
 Paket mit weniger Breaking-Releases hat also eine kleinere Zahl. Was der

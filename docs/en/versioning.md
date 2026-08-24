@@ -14,14 +14,14 @@ promise somebody has to remember.
 | **Your plugin's version** | your `plugin.toml` | Yours. The registry orders releases by it. |
 
 The three SDK versions are deliberately not kept equal. The current train is
-`sdk-v0.6.0`, and it publishes:
+`sdk-v0.7.0`, and it publishes:
 
 | Package | Registry | Version |
 | --- | --- | --- |
-| `astra-plugin-sdk` (Rust) | crates.io | 0.6.0 |
-| `astra-plugin-macros` | crates.io | 0.6.0 — published **before** the SDK, which depends on it by version |
-| `astra-plugin-sdk` (Python) | PyPI | 0.5.0 |
-| `astra-plugin-sdk` (TypeScript) | npm | 0.5.0 |
+| `astra-plugin-sdk` (Rust) | crates.io | 0.7.0 |
+| `astra-plugin-macros` | crates.io | 0.7.0 — published **before** the SDK, which depends on it by version |
+| `astra-plugin-sdk` (Python) | PyPI | 0.6.0 |
+| `astra-plugin-sdk` (TypeScript) | npm | 0.6.0 |
 
 A version number answers "what API am I writing against", so a package that has
 had fewer breaking releases has a smaller number. What the train guarantees is

@@ -136,4 +136,4 @@ __all__ = [
 # 0.4.0), so the breaking changes below land inside the unreleased 0.5.0 rather
 # than spending a minor nobody can install. Bumping it would also strand the
 # CLI's Python scaffold, which pins `astra-plugin-sdk>=0.5,<0.6`.
-__version__ = "0.6.0"
+__version__ = "0.6.1"

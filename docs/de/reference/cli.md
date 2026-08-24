@@ -2,7 +2,7 @@
 
 # CLI-Referenz
 
-`astra-plugin 0.2.1`. Jedes Flag unten wurde aus der Binärdatei gelesen,
+`astra-plugin 0.3.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
 diese Seite kann also keine Option beschreiben, die nicht existiert. Die
 Quelle ist
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).

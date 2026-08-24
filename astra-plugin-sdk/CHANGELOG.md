@@ -14,6 +14,64 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.1] — unreleased
+
+Additive. A plugin can now translate its own runtime strings, and mark the ones
+the daemon renders, without hand-rolling either.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.0 compiles unchanged.
+
+### Added
+- **`astra_plugin_sdk::key`**, re-exported from the crate root, the `prelude`
+  and `compat`. It marks a string the DAEMON renders — an action label, a
+  config-field title, a `[ui]` label — as a `$key` reference into your
+  `locales/`. `ctx.i18n()` is the other plane and resolves in your process; the
+  two are not interchangeable and [the reference
+  page](../docs/en/3-reference/localisation.md) is the table of which surface
+  resolves from which daemon.
+- **`PluginContext::i18n`** — this plugin's `locales/`, read once on first use
+  and kept on the context's current language. `set_language` now moves it too,
+  so a handler never has to call `I18n::set_language` itself and a plugin that
+  never heard of `OnLanguageChanged` still follows the user.
+- **`I18n::discover`** — find `locales/` from `ASTRA_PLUGIN_DIR`
+  (`i18n::PLUGIN_DIR_ENV`) or the executable's directory, rather than from
+  whatever the process's cwd happens to be.
+- **`I18n::load_errors` and `I18n::source_dir`** — `load` still never fails, but
+  a locale file that would not parse is now nameable instead of silently absent.
+- **`I18n::has`** — is this key translated in the active language or in English.
+- **`I18n::ta`** — named placeholders, `{name}`. A name with no argument is left
+  standing, because a half-formatted sentence is easier to see than a blank.
+- **`I18n::tn`** — CLDR plurals. Resolves `<key>.<category>` for the active
+  language, then `<key>.other`, then `<key>`. `{n}` is **not** substituted for
+  you: a count that formats itself is a count you cannot localise.
+- **`I18n::count_prefixed`** — how many distinct keys begin with a prefix,
+  across the union of every loaded locale. Union and not the active language, so
+  a half-translated locale cannot change a count your own logic depends on.
+- **`astra_plugin_sdk::plural`** — the generated CLDR cardinal categories for
+  the ten codes Astra accepts: `categories`, `is_declared`, `category`,
+  `CATEGORIES`, and `SPEC_SHA256` of the `spec/i18n.yaml` they came from.
+- **`i18n::PLUGIN_DIR_ENV`** — the `ASTRA_PLUGIN_DIR` name as a constant, so
+  nobody spells it a second time.
+
+### Changed
+- `I18n::tf` now replaces **every** occurrence of `{0}`, not the first. Russian
+  and Ukrainian repeat a noun in two cases routinely; the TypeScript SDK left
+  the second on screen as the literal `{0}`, and this documents the Rust
+  behaviour the fix aligned all three on.
+- `HostClient::send_chat_message`'s `conversation_id` is documented rather than
+  changed: empty means this plugin's own durable thread, an id is only ever one
+  you were handed in the same exchange, and a stored id eventually names a
+  conversation that is gone.
+
+### Compatibility
+
+`PROTOCOL_VERSION` is unchanged at `1`. A plugin that ships no `locales/`
+directory is unaffected: `I18n::discover` finds nothing, `has_locales` is
+`false`, and `t` returns the key exactly as before.
+
 ## [0.7.0] — 2026-08-16
 
 A trigger a plugin fires from inside a call now names the call that caused it.

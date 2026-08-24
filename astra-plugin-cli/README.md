@@ -9,14 +9,21 @@ Repository: <https://github.com/mihailinl/AstraPlugins>
 
 The crate is `astra-plugin-cli`; the binary it installs is **`astra-plugin`**.
 
-**Today, building from source is the only way to get it.** There are no
-releases yet — verified: `gh release list --repo mihailinl/AstraPlugins` prints
-nothing and no `cli-v*` tag exists — and the crate is not on crates.io either
-(`https://index.crates.io/as/tr/astra-plugin-cli` answers `404`). So you need a
-Rust toolchain. The release automation that will end that is in this repository
-already, at `.github/workflows/release-cli.yml`; **[Prebuilt
-binaries](#prebuilt-binaries--from-the-first-cli-v-tag-onward)** below describes
-what it will publish, and applies from the first `cli-v` tag onward, not before.
+**There are two ways to get it, and neither is crates.io.** `cli-v0.2.1`
+shipped on 2026-08-15 and carries linux-x64 (musl and gnu) and windows-x64
+archives with a Sigstore attestation — **[Prebuilt
+binaries](#prebuilt-binaries--from-the-first-cli-v-tag-onward)** below is how to
+take one, and needs no Rust toolchain. Building from source gets you `master`
+instead of the last tag. The crate is still not on crates.io
+(`https://index.crates.io/as/tr/astra-plugin-cli` answers `404`, verified
+2026-08-23) and cannot be until the vendored manifest crate is published; see
+below.
+
+Until 2026-08-23 this paragraph said there were no releases and no `cli-v*` tag,
+"verified" with a `gh release list` that had printed nothing when it was run.
+`release-cli.yml` landed in `e3bd6c7`, the tag went up 47 minutes later, and the
+sentence was still here eight days on, in the file whose whole job is to say how
+to install the tool.
 
 ### From source (the only path that works today)
 
@@ -40,11 +47,12 @@ astra-plugin --version
 ```
 
 Both build whatever `master` carries when you run them, so the version they
-print is that commit's, not one you picked. `master`'s `Cargo.toml` currently
-says `0.2.0` even though this crate's newest changelog entry is `0.2.1` — the
-version is bumped on the branch that will release it, so do not treat the number
-as a health check. What matters is the fix commit `5b8ab22`: any `master` build
-has it. To confirm, run `astra-plugin init-ci` and read the SHA it pins —
+print is that commit's, not one you picked — and `master` runs **ahead of the
+last `cli-v` tag**, because the version is bumped on the branch that will
+release it. A source build printing `0.3.0` while the newest release is
+`cli-v0.2.1` is that gap and not a fault. What matters for the `init-ci` bug is
+the fix commit `5b8ab22`: any `master` build has it, and so does every `0.2.1`
+archive. To confirm, run `astra-plugin init-ci` and read the SHA it pins —
 `e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is right,
 `dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
 and is the bug that broke first releases.
@@ -59,13 +67,13 @@ tarball would name a crate that is not on crates.io.
 
 ### Prebuilt binaries — from the first `cli-v` tag onward
 
-**None of this applies yet.** It describes what
-`.github/workflows/release-cli.yml` publishes once a `cli-v<version>` tag is
-pushed; until then <https://github.com/mihailinl/AstraPlugins/releases> is
-empty, and every command below would 404. Check the releases page before
-following any of it.
+**This applies from `cli-v0.2.1` (2026-08-15) onward.** It describes what
+`.github/workflows/release-cli.yml` publishes when a `cli-v<version>` tag is
+pushed. <https://github.com/mihailinl/AstraPlugins/releases> lists what exists;
+substitute a version that is on that page, because a `V=` naming an unreleased
+number 404s.
 
-Once a release exists it is tagged `cli-v<version>` and carries five files on a
+A release is tagged `cli-v<version>` and carries five files on a
 public repository — the three archives, their digests, and the attestation
 bundle (a private or internal fork cannot publish to the transparency log, so it
 gets four):

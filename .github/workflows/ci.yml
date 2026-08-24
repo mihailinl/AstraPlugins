@@ -2911,6 +2911,56 @@ jobs:
                         f"C11 the {name} scaffold's pin {req!r} accepts {ver}",
                         f"{why} — edit {tmpl}, or the SDK version")
 
+          # ── C23  README's "Publication state" table names this tree ────────
+          # The table an author is sent to before they `cargo add` anything by
+          # hand. It carries two columns and only one of them is checkable
+          # here: "In this tree" is a fact about these four manifests, so it is
+          # compared; "Published" is a fact about three registries, and asking
+          # them on every PR would make a fork build depend on npm being up.
+          # `scaffold-from-registries` is where the registries are asked, once,
+          # against the pins that actually resolve.
+          #
+          # It exists because that table was wrong in every SDK row for a week
+          # and nothing noticed: it said crates.io 0.6.0 / PyPI 0.5.0 / npm
+          # 0.5.0 while the tree carried 0.7.0 / 0.6.0 / 0.6.0 and so did the
+          # registries. C4 pins each version to its own CHANGELOG and C11 pins
+          # it to the scaffold, so a bump cannot be half-done in either of
+          # those — the README was the one copy with no edge into it.
+          README = "README.md"
+          macros_v = re.search(r'^version = "([^"]+)"',
+                               read("astra-plugin-macros/Cargo.toml"), re.M).group(1)
+          cli_v = re.search(r'^version = "([^"]+)"',
+                            read("astra-plugin-cli/Cargo.toml"), re.M).group(1)
+          PUB_ROWS = {
+              "`astra-plugin-sdk` (crates.io)": ("astra-plugin-sdk/Cargo.toml", rust_v),
+              "`astra-plugin-sdk` (PyPI)": ("astra-plugin-sdk-python/pyproject.toml", py_pyproject),
+              "`astra-plugin-sdk` (npm)": ("astra-plugin-sdk-ts/package.json", ts_v),
+              "`astra-plugin-macros` (crates.io)": ("astra-plugin-macros/Cargo.toml", macros_v),
+              "`astra-plugin-cli` (crates.io)": ("astra-plugin-cli/Cargo.toml", cli_v),
+          }
+          seen_rows: dict[str, str] = {}
+          for line in read(README).splitlines():
+              cells = [c.strip() for c in line.split("|")]
+              if len(cells) < 4:
+                  continue
+              if cells[1] in PUB_ROWS and re.fullmatch(r"\d+\.\d+\.\d+", cells[2]):
+                  seen_rows[cells[1]] = cells[2]
+          # FLOOR FIRST. A table that stopped being a table — renamed, reflowed,
+          # a column inserted — has to fail as an unreadable table, not as five
+          # rows that all happened to agree with nothing.
+          check(len(seen_rows) == len(PUB_ROWS),
+                f"C23 README's Publication state table still has its "
+                f"{len(PUB_ROWS)} version rows",
+                f"read {sorted(seen_rows)} — expected {sorted(PUB_ROWS)}; "
+                f"the table is under '## Publication state' in {README}")
+          for label, (manifest, ver) in PUB_ROWS.items():
+              if label not in seen_rows:
+                  continue
+              check(seen_rows[label] == ver,
+                    f"C23 README's 'In this tree' for {label} is {ver}",
+                    f"README says {seen_rows[label]}, {manifest} says {ver} — "
+                    f"edit the Publication state table in {README}")
+
           print()
           if fails:
               print(f"{len(fails)} coupling(s) broken:\n", file=sys.stderr)

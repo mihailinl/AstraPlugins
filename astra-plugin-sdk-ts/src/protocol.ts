@@ -64,7 +64,7 @@ export const SDK_NAME = "astra-plugin-sdk-ts";
  * yields `""` is worse than a constant a test pins. `tools/protocol.test.mjs`
  * asserts it equals `package.json`'s `version`, so the two cannot drift.
  */
-export const SDK_VERSION = "0.6.0";
+export const SDK_VERSION = "0.7.0";
 
 /**
  * Exit code for a protocol mismatch: `EX_CONFIG` from `sysexits.h`.
