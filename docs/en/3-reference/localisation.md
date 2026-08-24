@@ -113,6 +113,42 @@ process produces. Those are the two planes above, and they are yours.
 If a translated name matters to you on a particular Astra screen, that is a
 feature request against Astra, not something `locales/` can deliver.
 
+### One string you should not key, and it is not a rule
+
+A tool's `description` is an **instruction to a model**, not text a person reads.
+Write it in English and leave it alone.
+
+The reason is that the costs are not symmetric. A translation the author never
+tested changes which tool the model picks — and when it goes wrong it goes wrong
+on a user's machine, in a language the author cannot read, in a report the author
+cannot reproduce. An English description on a screen is an inconvenience. One of
+those is a correctness bug and the other is cosmetic, and that decides it without
+needing anybody's taste.
+
+**This is advice and it is labelled as advice, because nothing enforces it.**
+Tools are declared over gRPC at run time, not in `plugin.toml`, so
+`astra-plugin check` never sees a tool description and cannot warn you. A rule
+written in the tone of a rule, that no tool checks, is worse than a paragraph
+that admits what it is.
+
+**It does not contradict what the daemon does, and the difference is worth being
+precise about**, because at first glance it looks like it should. Astra resolves
+a `$key` wherever one is legal and present — including on fields that reach a
+model, such as an action type's `ai_description`. That is correct, and it answers
+a different question: *given* a key is there, resolving it is strictly better
+than shipping the literal `$action.foo.ai_description` into the prompt.
+
+So the two live at different layers and both hold:
+
+| | says |
+|---|---|
+| the daemon, on serve | a `$key` that is present gets resolved — always |
+| this page, to you | do not put one in a string that instructs a model |
+
+The daemon cannot make this call for you. It sees a key and must render it; only
+you know whether the string was a sentence for a person or an instruction for a
+model.
+
 ---
 
 ## 2 · `$` marks a key. `$$` marks a dollar.
