@@ -129,9 +129,16 @@ Bumping this version makes `docs/en/reference/cli.md` stale — it is generated
 from the binary and embeds `astra-plugin 0.3.0` in two places. Run
 `cargo build --release --manifest-path astra-plugin-cli/Cargo.toml` and then
 `python3 tools/docgen/gen.py`, and commit the result with this change. CI runs
-`python3 tools/docgen/gen.py --check` and fails otherwise. The six translated
-`docs/<locale>/reference/cli.md` carry the same two strings and `gen.py` does
-not write them; substitute them by hand, as this commit did.
+`python3 tools/docgen/gen.py --check` and fails otherwise.
+
+The six translated `docs/<locale>/reference/cli.md` carry the version too and
+`gen.py` does not write them, so substitute by hand — **but do not go looking
+for two occurrences in each.** Measured on this commit: `en`, `ja` and `zh` have
+two; `de`, `es`, `ru` and `uk` have one. An earlier draft of this note said "the
+same two strings" and would have sent somebody hunting for a second hit in four
+files that do not have one. Grep, do not count from memory:
+
+    grep -rn 'astra-plugin <old-version>' docs/
 
 ## [0.2.1] — 2026-08-15
 
