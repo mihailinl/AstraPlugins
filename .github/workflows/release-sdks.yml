@@ -728,15 +728,50 @@ jobs:
         env:
           NEEDS: ${{ toJSON(needs) }}
           VERSION: ${{ needs.versions.outputs.version }}
+          REGISTRIES: ${{ needs.versions.outputs.registries }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json, os, sys
           needs = json.loads(os.environ["NEEDS"])
           rows = {k: v["result"] for k, v in needs.items() if k.startswith("publish-")}
+
+          # **`skipped` means two different things and they are opposite.**
+          #
+          # Before the `registries:` input existed, all three publish jobs ran on
+          # every release, so "not success" was a complete test and skipped could
+          # only mean an upstream gate had failed. Naming a subset broke that:
+          # the first npm-only run published npm and then reported the release
+          # FAILED, because crates.io and PyPI were skipped on purpose.
+          #
+          # The naive repair — treat skipped as fine — is worse than the bug. A
+          # failed gate also skips these jobs, and then a release that published
+          # nothing would report success.
+          #
+          # So the selection decides. A job skipped for a registry this run did
+          # not name is expected; skipped for one it DID name is a failure, and
+          # so is any non-success result.
+          which = {"publish-rust": "crates", "publish-python": "pypi",
+                   "publish-ts": "npm"}
+          selected = os.environ.get("REGISTRIES") or "all"
+          want = ({"crates", "pypi", "npm"} if selected == "all"
+                  else {x.strip() for x in selected.split(",") if x.strip()})
+
           lines = [f"### Release `sdk-v{os.environ['VERSION']}`", ""]
-          lines += [f"* `{k}` — **{v}**" for k, v in sorted(rows.items())]
-          bad = [k for k, v in rows.items() if v != "success"]
+          if selected != "all":
+              lines += [f"Partial release: this run named `{selected}`.", ""]
+          for k, v in sorted(rows.items()):
+              note = "" if which[k] in want else " — not selected by this run"
+              lines.append(f"* `{k}` — **{v}**{note}")
+
+          bad = [k for k, v in rows.items()
+                 if which[k] in want and v != "success"]
+          unexpected = [k for k, v in rows.items()
+                        if which[k] not in want and v not in ("skipped", "")]
+          if unexpected:
+              bad += unexpected
+              lines += ["", "A publish job ran for a registry this run did not name."
+                            " That should be impossible; do not trust this summary."]
           if bad:
               lines += ["", "One registry did not receive its package. A registry push"
                             " cannot be undone, so DO NOT retag: fix the failure and"
