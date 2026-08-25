@@ -677,9 +677,27 @@ jobs:
       # the push with an auth error, which reads exactly like a misconfigured
       # trusted publisher on npmjs.com — two very different fixes behind one
       # message. The log now says which one it is before the attempt.
+      # PINNED, and `@latest` is what this line used to say. That failed:
+      #
+      #   npm error code EBADENGINE
+      #   Not compatible with your version of node/npm: npm@12.0.2
+      #   Required: {"node":"^22.22.2 || ^24.15.0 || >=26.0.0"}
+      #   Actual:   {"npm":"10.8.2","node":"v20.20.2"}
+      #
+      # `latest` is a moving target that can outrun the runtime it is being
+      # installed onto, and it did within a day. 11.19.0 is the newest stable
+      # 11.x whose engines still admit Node 20 (`^20.17.0 || >=22.9.0`), and
+      # 11.5.1 is where trusted publishing arrived — so this pin is above the
+      # feature floor and below the Node wall.
+      #
+      # **Move this pin when `node-version` moves, and not before.** They are
+      # coupled through npm's `engines`, which is the one direction this file
+      # cannot check for itself: an npm too NEW fails loudly here, and an npm
+      # too OLD fails much later, at the push, with an auth error that reads
+      # like a misconfigured publisher.
       - name: a publisher new enough for OIDC
         run: |
-          npm install -g npm@latest
+          npm install -g npm@11.19.0
           echo "npm $(npm --version), node $(node --version)"
 
       # **No token.** Authentication is OpenID Connect: the runner presents a
