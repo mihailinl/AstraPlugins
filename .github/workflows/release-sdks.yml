@@ -666,10 +666,37 @@ jobs:
       # publish (provenance attestation is an npm feature).
       - run: bun install --frozen-lockfile
       - run: bun run build
+
+      # Node 20 ships npm 10, and OIDC trusted publishing needs a newer npm than
+      # that. Upgraded explicitly rather than by moving `node-version`, because
+      # the Node version is a runtime decision for the SDK's own tests and this
+      # is a publishing-tool decision; coupling them would make a routine Node
+      # bump able to break the release, silently, months later.
+      #
+      # The version is PRINTED. An npm too old for trusted publishing fails at
+      # the push with an auth error, which reads exactly like a misconfigured
+      # trusted publisher on npmjs.com — two very different fixes behind one
+      # message. The log now says which one it is before the attempt.
+      - name: a publisher new enough for OIDC
+        run: |
+          npm install -g npm@latest
+          echo "npm $(npm --version), node $(node --version)"
+
+      # **No token.** Authentication is OpenID Connect: the runner presents a
+      # signed claim naming this repository, this workflow file and this
+      # environment, and npmjs.com matches it against the trusted publisher
+      # configured on the package. There is no long-lived credential to leak,
+      # expire, or hold the wrong 2FA policy — which is what the two previous
+      # failures were: `404 on PUT` (not authorised at all) and then `EOTP`
+      # (authorised, but a token type that still wants a one-time code a CI
+      # runner cannot produce).
+      #
+      # `id-token: write` above and `environment: npm` are both load-bearing.
+      # The environment NAME is part of the claim, so it must equal the
+      # "Environment name" field of the trusted publisher on npmjs.com. Blank
+      # there against `npm` here is a mismatch and a refusal.
       - name: npm publish --provenance
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # One place to look for "did the release go out", and the job branch protection
   # or a notification can watch.
