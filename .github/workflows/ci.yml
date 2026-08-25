@@ -1233,6 +1233,55 @@ jobs:
       - name: WORK
         run: echo "WORK=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
+
+      # The checkout's bytes ARE the commit's bytes — asserted, not assumed.
+      #
+      # `.gitattributes` sets `* text=auto eol=lf` precisely so that
+      # `core.autocrlf=true` — which Git for Windows sets by default and which
+      # the windows-2022 runner carries in its system config — cannot rewrite a
+      # text file on the way out. Nothing checked that it works.
+      #
+      # It matters HERE more than anywhere: steps below run `astra-plugin
+      # build`, which packs the working tree and digests what it packed. A
+      # rewritten text file yields an honest digest over the WRONG bytes — one
+      # commit producing two different artifacts depending on which machine
+      # packed it, with every signature over them perfectly valid.
+      #
+      # **`git status` and `git diff` cannot see this.** The checkout filter
+      # normalises on the way IN, so content-level tools compare the normalised
+      # form and report clean. Demonstrated in a scratch repository: with
+      # `core.autocrlf=true` and a CRLF-rewritten file, `git diff --stat` is
+      # EMPTY while `git hash-object --no-filters` disagrees with the blob and
+      # plain `git hash-object` agrees with it. The `--no-filters` IS the check.
+      #
+      # A sibling repository measured the real version: 363 of 424 tracked files
+      # differing from their blobs at a clean `git status`, the CRLF reaching
+      # inside the binary through `include_str!`.
+      - name: the working tree is byte-identical to the commit
+        run: |
+          set -uo pipefail
+          bad=0; n=0
+          while IFS= read -r -d '' f; do
+            [ -f "$f" ] || continue
+            n=$((n+1))
+            want=$(git ls-files -s -- "$f" | awk '{print $2}')
+            got=$(git hash-object --no-filters -- "$f")
+            if [ -n "$want" ] && [ "$want" != "$got" ]; then
+              bad=$((bad+1))
+              [ "$bad" -le 10 ] && echo "  DRIFT $f"
+            fi
+          done < <(git ls-files -z)
+          echo "checked $n tracked file(s); $bad differ from their blobs"
+          # A floor, because a walk that found nothing would otherwise pass for a
+          # clean tree — the same shape as a scan whose glob stopped matching.
+          if [ "$n" -lt 400 ]; then
+            echo "::error::only $n tracked file(s) walked — fewer than this repository holds, so this measured nothing"
+            exit 1
+          fi
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::$bad file(s) on disk are not the bytes their commit holds. On Windows that is core.autocrlf — check .gitattributes still carries '* text=auto eol=lf'. Anything astra-plugin packs from here is digested over the wrong bytes."
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - uses: arduino/setup-protoc@v3
         with:
