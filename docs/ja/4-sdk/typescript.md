@@ -87,13 +87,23 @@ if (require.main === module) app.run();
 |---|---|
 | `tools` | `Record<name, tool({...})>` |
 | `actions` | `Record<type, action({...})>` — コマンドエディタ内のステップ |
-| `triggers` | `Record<type, { label }>` |
+| `triggers` | `Record<type, { label, iconSvg?, fields? }>` |
 | `tts` · `stt` · `ai` | プロバイダの定義 |
 | `ui` | コントリビューションと、あなたの iframe がコールバックできるメソッド |
 | `events` | どのデーモンイベントが欲しいかと、そのハンドラ |
 | `client` | `{ onReady(daemon, ctx) }` — `client` プラグインのみ、そして**渡される `daemon` はまだ機能しません**: 下記参照 |
 | `configSchema` | あなたの設定用の `s.object({...})` |
 | `onStart` · `onShutdown` · `onConfigChanged` · `onLanguageChanged` · `onActiveTriggers` · `healthCheck` | ライフサイクル |
+
+**ステップがまとうグリフ。** アクションやトリガーの `iconSvg`
+は、キャンバス上、パレット内、そしてステップの設定ヘッダーでユーザーが目にする
+ものです。パス文字列ではなく、SVG マークアップ全体を渡してください。`viewBox` を
+与え、`width`/`height` は指定しないこと（サイズは Astra が決め、この三つの面は同じ
+大きさではありません）。そして `currentColor` で描き、各面がアイコンに与える色に
+従わせます。マークアップは描画前にサニタイズされ、スクリプト・イベントハンドラ・
+外部参照は拒否されるのではなく取り除かれるので、単純な線画にとどめてください。
+省略してもステップは描画されます。プラグイン自身のアイコンに、次いで汎用の
+プラグインマークにフォールバックします。
 
 `plugin()` は `{ run(), instance, definition }` を返します:
 `run()` はあなたのエントリポイントの最後の行であり、`instance` はテスト

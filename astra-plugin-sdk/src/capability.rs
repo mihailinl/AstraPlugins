@@ -455,6 +455,68 @@ impl proto::PluginUiContribution {
     pub fn with_audio(self) -> Self { self.with_prop("audio", "true") }
 }
 
+// ── ActionTypeDef / TriggerTypeDef builder methods ──
+//
+// These two are re-exported prost structs, so every field was always reachable
+// with a struct literal. What was missing is the thing an author actually does:
+// reach for `.` and read what is offered. `icon_svg` in particular went years
+// undiscovered that way — a step type that draws nothing is what a plugin gets
+// by writing `..Default::default()`, which is exactly what the examples showed.
+
+impl proto::ActionTypeDefinitionMsg {
+    /// A new step for the user's command editor.
+    ///
+    /// `type_name` is the id handed back to `execute_action`; `label` is what
+    /// the editor shows. Everything else is chained on — most importantly
+    /// [`with_icon_svg`](Self::with_icon_svg).
+    pub fn new(type_name: impl Into<String>, label: impl Into<String>) -> Self {
+        Self { r#type: type_name.into(), label: label.into(), ..Default::default() }
+    }
+    /// The glyph this step wears on the canvas, in the palette and in its
+    /// config header — whole SVG markup, not a path string.
+    ///
+    /// Give it a `viewBox` and no `width`/`height`: Astra sizes it, and the
+    /// three surfaces are not all the same size. Paint with `currentColor`, so
+    /// it follows whatever each surface tints its icons. The markup is
+    /// sanitised before it renders — scripts, event handlers and external
+    /// references are stripped rather than refused — so keep it a plain line
+    /// drawing.
+    ///
+    /// Leave it unset and the step still draws, falling back to the plugin's
+    /// own icon and then to a generic plugin mark.
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
+    /// The configuration fields the editor draws for this step.
+    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self { self.fields = fields; self }
+    /// Also offer this step to the assistant, not only to the editor.
+    ///
+    /// `primary_field` is the field the AI's single `value` argument maps to.
+    pub fn with_ai(mut self, description: impl Into<String>, primary_field: impl Into<String>) -> Self {
+        self.ai_available = true;
+        self.ai_description = description.into();
+        self.ai_primary_field = primary_field.into();
+        self
+    }
+    /// Restrict the step to certain OSes (`"windows"`, `"linux"`, `"macos"`).
+    /// Leave it unset for a step that runs everywhere — an empty list is what
+    /// the daemon reads as "every platform".
+    pub fn with_platforms(mut self, platforms: Vec<String>) -> Self { self.platforms = platforms; self }
+    /// Keep a half-built step out of the editor's add-node menus while the
+    /// daemon goes on serving its definition to commands that already use it.
+    pub fn unfinished(mut self) -> Self { self.hidden = true; self }
+}
+
+impl proto::TriggerTypeDefinitionMsg {
+    /// A new way for one of the user's commands to start.
+    pub fn new(type_name: impl Into<String>, label: impl Into<String>) -> Self {
+        Self { r#type: type_name.into(), label: label.into(), ..Default::default() }
+    }
+    /// The glyph this trigger wears in the command editor. Same rules as
+    /// [`ActionTypeDef::with_icon_svg`].
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
+    /// The configuration fields the editor draws for this trigger.
+    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self { self.fields = fields; self }
+}
+
 // ── FieldDef builder methods ──
 
 impl proto::FieldDefinitionMsg {

@@ -87,11 +87,22 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 | | |
 |---|---|
 | `@tool("description")` | Una función que el modelo puede llamar. Los parámetros se convierten en el schema |
-| `@action("label")` | Un paso en el editor de comandos |
-| `@trigger(...)` | Un tipo de trigger |
+| `@action("label", icon_svg="…")` | Un paso en el editor de comandos, y el glifo que lleva ahí |
+| `@trigger("label", icon_svg="…")` | Un tipo de trigger, y su glifo |
 | `@ui_call` | Un método que el propio iframe de UI del plugin puede llamar |
 | `@ui_page` · `@ui_slot` · `@ui_effect` · `@ui_overlay` · `@ui_inject` | Decoradores de **clase**. Registran una contribución de UI servida desde el directorio `ui/` del paquete o desde una URL que sirve el plugin |
 | `Field(...)` | Refina el schema de un parámetro — descripción, rango, enum |
+
+**El glifo que lleva un paso.** `icon_svg` en `@action` o `@trigger` es lo que
+se ve en el lienzo, en la paleta y en la cabecera de configuración del paso.
+Pasa marcado SVG completo, no una cadena de ruta: dale un `viewBox` y ningún
+`width`/`height` (Astra le da el tamaño, y esas tres superficies no son del
+mismo tamaño) y pinta con `currentColor`, para que siga el tono que cada
+superficie da a sus iconos. El marcado se sanea antes de dibujarse — los
+scripts, los manejadores de eventos y las referencias externas se eliminan en
+lugar de rechazarse —, así que mantenlo como un dibujo de línea simple. Omítelo
+y el paso se dibuja igualmente: recurre al icono del propio complemento y
+después a una marca genérica de complemento.
 
 Todo lo demás es un override sobre `Plugin`: `tts_synthesize`,
 `tts_list_voices`, `tts_config_fields`, `stt_transcribe`,

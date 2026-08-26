@@ -91,12 +91,23 @@ capability its code does not serve. `astra-plugin check` compares that against
 |---|---|
 | `#[astra::plugin]` | On the `impl` block. Turns the members below into the trait |
 | `#[tool]` | A function the model may call. The doc comment is its description |
-| `#[action(label = "…")]` | A step in the command editor |
+| `#[action(label = "…", icon = "…")]` | A step in the command editor, and the glyph it wears there |
 | `#[hook]` | Any other `PluginCapability` method, by name |
 | `#[ui_call]` | A method your UI contribution can call back into |
 | `#[astra::args]` | On a tool's argument struct |
 | `#[astra::config]` | On your settings struct — `args` plus `#[serde(default)]` |
 | `astra::main!(Plugin::default())` | The `main` that runs it |
+
+**The glyph a step wears.** An action or trigger type carries an icon, and it is
+what the user sees on the canvas, in the palette and in the step's config header
+— `icon` on `#[action]`, `with_icon_svg` on a hand-built `ActionTypeDef` or
+`TriggerTypeDef`. Pass whole SVG markup, not a path string: give it a `viewBox`
+and no `width`/`height` (Astra sizes it, and those three surfaces are not the
+same size) and paint with `currentColor`, so it follows whatever each surface
+tints its icons. The markup is sanitised before it renders — scripts, event
+handlers and external references are stripped rather than refused — so keep it a
+plain line drawing. Omit it and the step still draws, falling back to your
+plugin's own icon and then to a generic plugin mark.
 
 **Why `#[astra::args]` rather than `#[derive(Deserialize, JsonSchema)]`:**
 serde's derive expands to `extern crate serde as _serde`, which resolves in the

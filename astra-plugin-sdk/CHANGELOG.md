@@ -14,6 +14,43 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.2] — unreleased
+
+Action and trigger types are now built the way everything else in this SDK is.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.1 compiles unchanged, and the scaffold's `astra-plugin-sdk = "0.7"` pin
+goes on accepting this one.
+
+`ActionTypeDef` and `TriggerTypeDef` are re-exported prost structs, so every
+field was always reachable — with a struct literal and `..Default::default()`,
+which is what the examples showed and therefore what everybody wrote. Nothing
+was ever offered by autocompletion, and one field in particular went unnoticed
+for it: `icon_svg`, the glyph the step wears in the user's command editor. A
+plugin that never set it contributed steps that drew nothing at all.
+
+Astra now falls back to the plugin's own icon, and then to a generic plugin
+mark, so no step is blank any more. This is the other half: making the field
+findable.
+
+### Added
+- `ActionTypeDef::new`, `.with_icon_svg`, `.with_fields`, `.with_ai`,
+  `.with_platforms` and `.unfinished`, matching the builders `UiContribution`
+  and `FieldDef` already had.
+- `TriggerTypeDef::new`, `.with_icon_svg` and `.with_fields`.
+
+`with_icon_svg` takes whole SVG markup, not a path string. Give it a `viewBox`
+and no `width`/`height` — Astra sizes it, and the three surfaces it is drawn on
+are not the same size — and paint with `currentColor` so it follows whatever
+each surface tints its icons. The markup is sanitised before it renders, so
+scripts, event handlers and external references are stripped rather than
+refused: keep it a plain line drawing.
+
+The struct literal still works and is not deprecated. `#[action(icon = "…")]`
+is unchanged and has carried an icon since 0.7.0.
+
 ## [0.7.1] — 2026-08-24
 
 Additive. A plugin can now translate its own runtime strings, and mark the ones

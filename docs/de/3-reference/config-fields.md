@@ -261,6 +261,18 @@ berechnet sind.
 
 Ihre Parameterfelder verwenden dasselbe `FieldDef`-Vokabular wie oben.
 
+Jeder Typ trägt außerdem ein **`icon_svg`** — vollständiges SVG-Markup, keine
+Pfadzeichenkette —, das Glyph, das der Schritt auf der Arbeitsfläche, in der
+Palette und in seiner Konfigurationskopfzeile trägt. Geben Sie ihm eine
+`viewBox` und kein `width`/`height`, denn Astra bestimmt die Größe und diese
+drei Flächen unterscheiden sich, und zeichnen Sie mit `currentColor`, damit es
+der Einfärbung folgt, die jede Fläche ihren Symbolen gibt. Es wird vor dem
+Rendern bereinigt: Skripte, Ereignis-Handler und externe Verweise werden
+entfernt statt abgelehnt. Lassen Sie es leer, wird der Schritt trotzdem
+gezeichnet und fällt auf das eigene Symbol Ihres Plugins und dann auf eine
+allgemeine Plugin-Markierung zurück — ein Symbol unterscheidet Ihren Schritt
+also von allen anderen, es macht ihn nicht erst sichtbar.
+
 ## Lokalisierung
 
 `label`, `placeholder` und `description` dürfen i18n-Schlüssel statt

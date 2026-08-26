@@ -85,13 +85,24 @@ Un objeto, una clave por cada cosa que hace tu plugin:
 |---|---|
 | `tools` | `Record<name, tool({...})>` |
 | `actions` | `Record<type, action({...})>` — pasos en el editor de comandos |
-| `triggers` | `Record<type, { label }>` |
+| `triggers` | `Record<type, { label, iconSvg?, fields? }>` |
 | `tts` · `stt` · `ai` | Las definiciones de proveedor |
 | `ui` | Contribuciones, y los métodos que tu iframe puede llamar de vuelta |
 | `events` | Qué eventos del daemon quieres, y los handlers |
 | `client` | `{ onReady(daemon, ctx) }` — solo para plugins `client`, y **el `daemon` que se entrega todavía no funciona**: ver abajo |
 | `configSchema` | Un `s.object({...})` para tus ajustes |
 | `onStart` · `onShutdown` · `onConfigChanged` · `onLanguageChanged` · `onActiveTriggers` · `healthCheck` | Ciclo de vida |
+
+**El glifo que lleva un paso.** `iconSvg` en una acción o un trigger es lo que
+se ve en el lienzo, en la paleta y en la cabecera de configuración del paso.
+Pasa marcado SVG completo, no una cadena de ruta: dale un `viewBox` y ningún
+`width`/`height` (Astra le da el tamaño, y esas tres superficies no son del
+mismo tamaño) y pinta con `currentColor`, para que siga el tono que cada
+superficie da a sus iconos. El marcado se sanea antes de dibujarse — los
+scripts, los manejadores de eventos y las referencias externas se eliminan en
+lugar de rechazarse —, así que mantenlo como un dibujo de línea simple. Omítelo
+y el paso se dibuja igualmente: recurre al icono del propio complemento y
+después a una marca genérica de complemento.
 
 `plugin()` devuelve `{ run(), instance, definition }`: `run()` es la
 última línea de tu punto de entrada, `instance` es lo que impulsa el

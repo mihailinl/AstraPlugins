@@ -129,6 +129,9 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
       // user's language. It must be in locales/en.json or the command editor
       // shows the key. `key("…")` from the SDK builds the same string.
       label: "$action.do_something.label",
+      // The glyph the step wears in the command editor: a `viewBox` and
+      // `currentColor`, no width or height — Astra sizes and tints it.
+      iconSvg: "<svg viewBox='0 0 24 24'><path d='M13 2 4 14h6l-1 8 9-12h-6z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/></svg>",
       // `fields` is what the command editor renders; `params` types the
       // handler. Keep the two describing the same values.
       fields: [Field.text("message", "Message", { placeholder: "Hello" })],
@@ -150,6 +153,7 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     something_happened: {
       // A key too, resolved by the daemon. See the action's label above.
       label: "$trigger.something_happened.label",
+      iconSvg: "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='3' fill='currentColor'/><path d='M6 6a8.5 8.5 0 0 0 0 12M18 18a8.5 8.5 0 0 0 0-12' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>",
       fields: [],
     },
   },

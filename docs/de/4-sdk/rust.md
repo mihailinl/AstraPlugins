@@ -93,12 +93,25 @@ Plugin keine Capability behaupten kann, die sein Code nicht bedient.
 |---|---|
 | `#[astra::plugin]` | Auf dem `impl`-Block. Verwandelt die untenstehenden Member in den Trait |
 | `#[tool]` | Eine Funktion, die das Modell aufrufen darf. Der Doc-Kommentar ist ihre Beschreibung |
-| `#[action(label = "…")]` | Ein Schritt im Befehlseditor |
+| `#[action(label = "…", icon = "…")]` | Ein Schritt im Befehlseditor, und das Glyph, das er dort trägt |
 | `#[hook]` | Jede andere `PluginCapability`-Methode, namentlich |
 | `#[ui_call]` | Eine Methode, die deine UI-Contribution zurückrufen kann |
 | `#[astra::args]` | Auf der Argument-Struct eines Tools |
 | `#[astra::config]` | Auf deiner Settings-Struct — `args` plus `#[serde(default)]` |
 | `astra::main!(Plugin::default())` | Das `main`, das es ausführt |
+
+**Das Glyph, das ein Schritt trägt.** `icon` an `#[action]`, `with_icon_svg` an
+einem von Hand gebauten `ActionTypeDef` oder `TriggerTypeDef` ist das, was auf
+der Arbeitsfläche, in der Palette und in der Konfigurationskopfzeile des
+Schritts zu sehen ist. Übergeben Sie vollständiges SVG-Markup, keine
+Pfadzeichenkette: Geben Sie ihm eine `viewBox` und kein `width`/`height` (Astra
+bestimmt die Größe, und diese drei Flächen sind nicht gleich groß) und zeichnen
+Sie mit `currentColor`, damit es der Einfärbung folgt, die jede Fläche ihren
+Symbolen gibt. Das Markup wird vor dem Rendern bereinigt — Skripte,
+Ereignis-Handler und externe Verweise werden entfernt statt abgelehnt —, halten
+Sie es also bei einer einfachen Strichzeichnung. Lassen Sie es weg, und der
+Schritt wird trotzdem gezeichnet: Er fällt auf das eigene Symbol Ihres Plugins
+zurück und dann auf eine allgemeine Plugin-Markierung.
 
 **Warum `#[astra::args]` statt `#[derive(Deserialize, JsonSchema)]`:** Das
 Derive von serde expandiert zu `extern crate serde as _serde`, was im

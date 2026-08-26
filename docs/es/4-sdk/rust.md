@@ -93,12 +93,24 @@ que un plugin no puede afirmar una capability que su código no sirve.
 |---|---|
 | `#[astra::plugin]` | En el bloque `impl`. Convierte los miembros de abajo en el trait |
 | `#[tool]` | Una función que el modelo puede llamar. El comentario de documentación es su descripción |
-| `#[action(label = "…")]` | Un paso en el editor de comandos |
+| `#[action(label = "…", icon = "…")]` | Un paso en el editor de comandos, y el glifo que lleva ahí |
 | `#[hook]` | Cualquier otro método de `PluginCapability`, por nombre |
 | `#[ui_call]` | Un método al que tu contribución de UI puede llamar de vuelta |
 | `#[astra::args]` | En la struct de argumentos de un tool |
 | `#[astra::config]` | En tu struct de ajustes — `args` más `#[serde(default)]` |
 | `astra::main!(Plugin::default())` | El `main` que lo ejecuta |
+
+**El glifo que lleva un paso.** `icon` en `#[action]`, `with_icon_svg` en un
+`ActionTypeDef` o `TriggerTypeDef` construido a mano es lo que se ve en el
+lienzo, en la paleta y en la cabecera de configuración del paso. Pasa marcado
+SVG completo, no una cadena de ruta: dale un `viewBox` y ningún `width`/`height`
+(Astra le da el tamaño, y esas tres superficies no son del mismo tamaño) y pinta
+con `currentColor`, para que siga el tono que cada superficie da a sus iconos.
+El marcado se sanea antes de dibujarse — los scripts, los manejadores de eventos
+y las referencias externas se eliminan en lugar de rechazarse —, así que
+mantenlo como un dibujo de línea simple. Omítelo y el paso se dibuja igualmente:
+recurre al icono del propio complemento y después a una marca genérica de
+complemento.
 
 **Por qué `#[astra::args]` en lugar de `#[derive(Deserialize, JsonSchema)]`:**
 el derive de serde se expande a `extern crate serde as _serde`, que se

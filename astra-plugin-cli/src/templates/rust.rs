@@ -135,7 +135,11 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     /// `i18n::key(..)` — same string either way. It must exist in
     /// `locales/en.json` or the editor shows the key; `astra-plugin check`
     /// says so before a user ever sees it.
-    #[action(label = "$action.do_something.label")]
+    ///
+    /// `icon` is the glyph it wears there. Give it a `viewBox` and paint with
+    /// `currentColor`, with no width or height — Astra sizes and tints it.
+    /// Drop the argument and the step falls back to a generic plugin mark.
+    #[action(label = "$action.do_something.label", icon = "<svg viewBox='0 0 24 24'><path d='M13 2 4 14h6l-1 8 9-12h-6z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/></svg>")]
     async fn do_something(&self, ctx: &PluginContext) -> Result<String, ActionError> {
         ctx.host().log_info("do_something ran").await?;
         // RUNTIME plane, unlike the label above: the plugin produces this
@@ -160,6 +164,9 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
             // DECLARED plane, resolved by the daemon. `key` just writes the
             // `$`; the key has to be in `locales/en.json`.
             label: key("trigger.something_happened.label"),
+            // The glyph it wears in the command editor: a `viewBox` and
+            // `currentColor`, no width or height — Astra sizes and tints it.
+            icon_svg: "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='3' fill='currentColor'/><path d='M6 6a8.5 8.5 0 0 0 0 12M18 18a8.5 8.5 0 0 0 0-12' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>".into(),
             ..Default::default()
         }]
     }"#,

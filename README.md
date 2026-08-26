@@ -305,10 +305,10 @@ directory to a listed plugin, with every command and its output.
 
 | Package | In this tree | Published | Install |
 |---|---|---|---|
-| `astra-plugin-sdk` (crates.io) | 0.7.1 | 0.7.1 | `astra-plugin-sdk = "0.7"` |
+| `astra-plugin-sdk` (crates.io) | 0.7.2 | 0.7.1 | `astra-plugin-sdk = "0.7"` |
 | `astra-plugin-sdk` (PyPI) | 0.6.1 | 0.6.1 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
 | `astra-plugin-sdk` (npm) | 0.7.0 | **0.6.0 — the 0.7.0 publish failed**, see below | `npm install astra-plugin-sdk` |
-| `astra-plugin-macros` (crates.io) | 0.7.1 | 0.7.1 | arrives with the SDK |
+| `astra-plugin-macros` (crates.io) | 0.7.2 | 0.7.1 | arrives with the SDK |
 | `astra-plugin-cli` (crates.io) | 0.3.0 | **not on crates.io**; binaries released as [`cli-v0.3.0`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
 
 **npm is one publish behind the other two, and it is not a version decision.**

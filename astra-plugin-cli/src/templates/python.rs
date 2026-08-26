@@ -117,7 +117,9 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         imports.push("action");
         methods.push_str(
             r#"
-    @action("$action.do_something.label")
+    # `icon_svg` is the glyph the step wears in the command editor: a
+    # `viewBox` and `currentColor`, no width or height — Astra sizes and tints it.
+    @action("$action.do_something.label", icon_svg="<svg viewBox='0 0 24 24'><path d='M13 2 4 14h6l-1 8 9-12h-6z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/></svg>")
     async def do_something(self, name: str = "world"):
         # An action is what the user drags into a command; its parameters render
         # as the fields of the editor. TODO: make it do something.
@@ -139,10 +141,10 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         imports.push("trigger");
         methods.push_str(
             r#"
-    @trigger("$trigger.something_happened.label")
+    @trigger("$trigger.something_happened.label", icon_svg="<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='3' fill='currentColor'/><path d='M6 6a8.5 8.5 0 0 0 0 12M18 18a8.5 8.5 0 0 0 0-12' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>")
     async def something_happened(self):
         # Declares the trigger; the label is a key the daemon resolves, like the
-        # action's. To FIRE it, call
+        # action's, and `icon_svg` is its glyph. To FIRE it, call
         # `await self.host.fire_trigger("something_happened", {})` from wherever
         # the event happens — and declare `fire_trigger` under `[permissions]`
         # in plugin.toml, or the daemon refuses the call.

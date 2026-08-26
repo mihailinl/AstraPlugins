@@ -85,13 +85,25 @@ Ein Objekt, ein Schlüssel pro Ding, das dein Plugin tut:
 |---|---|
 | `tools` | `Record<name, tool({...})>` |
 | `actions` | `Record<type, action({...})>` — Schritte im Befehlseditor |
-| `triggers` | `Record<type, { label }>` |
+| `triggers` | `Record<type, { label, iconSvg?, fields? }>` |
 | `tts` · `stt` · `ai` | Die Provider-Definitionen |
 | `ui` | Contributions, und die Methoden, die dein iframe zurückrufen darf |
 | `events` | Welche Daemon-Events du willst, und die Handler |
 | `client` | `{ onReady(daemon, ctx) }` — nur für `client`-Plugins, und **das `daemon`, das übergeben wird, funktioniert noch nicht**: siehe unten |
 | `configSchema` | Ein `s.object({...})` für deine Settings |
 | `onStart` · `onShutdown` · `onConfigChanged` · `onLanguageChanged` · `onActiveTriggers` · `healthCheck` | Lebenszyklus |
+
+**Das Glyph, das ein Schritt trägt.** `iconSvg` an einer Action oder einem
+Trigger ist das, was auf der Arbeitsfläche, in der Palette und in der
+Konfigurationskopfzeile des Schritts zu sehen ist. Übergeben Sie vollständiges
+SVG-Markup, keine Pfadzeichenkette: Geben Sie ihm eine `viewBox` und kein
+`width`/`height` (Astra bestimmt die Größe, und diese drei Flächen sind nicht
+gleich groß) und zeichnen Sie mit `currentColor`, damit es der Einfärbung folgt,
+die jede Fläche ihren Symbolen gibt. Das Markup wird vor dem Rendern bereinigt —
+Skripte, Ereignis-Handler und externe Verweise werden entfernt statt abgelehnt
+—, halten Sie es also bei einer einfachen Strichzeichnung. Lassen Sie es weg,
+und der Schritt wird trotzdem gezeichnet: Er fällt auf das eigene Symbol Ihres
+Plugins zurück und dann auf eine allgemeine Plugin-Markierung.
 
 `plugin()` gibt `{ run(), instance, definition }` zurück: `run()` ist die
 letzte Zeile deines Einstiegspunkts, `instance` ist das, was der
