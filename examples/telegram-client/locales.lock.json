@@ -1,20 +1,23 @@
 {
   "locales": {
     "ru": {
-      "bot.all_linked": "d73900d5455a",
-      "bot.callback_error": "58449b86902e",
-      "bot.history_truncated": "7dbd57c870e2",
-      "bot.linked": "7e7d087ca6c4",
-      "bot.no_messages": "beec6fd1a04c",
-      "bot.role.user": "08b041935798",
-      "bot.select_conversation": "00c64649a206",
-      "bot.start": "e0e0ec6cb11d",
-      "bot.topic_created": "6322b206a06d",
+      "bot.new": "38b4bf85dbdb",
+      "bot.no_reply": "36c714e9999f",
+      "bot.not_permitted": "3d97aa008f70",
+      "bot.screenshot_failed": "b22ff06a3de3",
+      "bot.screenshot_off": "18e0a7b2ae56",
+      "bot.screenshot_unsupported": "6076a77b7db1",
+      "bot.send_failed": "86d0277595a8",
+      "bot.start": "251c090fb5ea",
+      "bot.stopped": "05f4f3e08b12",
+      "config.allow_screenshot.description": "51871990a248",
+      "config.allow_screenshot.title": "d027582133de",
       "config.allowed_usernames.description": "0a75a57e9795",
       "config.allowed_usernames.title": "da2e175c1bb3",
       "config.bot_token.description": "acafe29294f1",
       "config.bot_token.title": "cf8c0ac670d1",
-      "listing.description": "6dadb45f7ba0"
+      "listing.description": "748481d7af97",
+      "listing.name": "cec2be6f871d"
     }
   },
   "schema": "astra.plugin.locales/1",

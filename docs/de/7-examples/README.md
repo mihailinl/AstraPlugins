@@ -56,20 +56,22 @@ Surface. Es ist eine hochriskante Capability, und wird einer
 [lokal importierten Datei](../5-publish/local-install.md) pauschal
 verweigert.
 
-> **Beide sind der Daemon-Seite voraus.** Die Daemon-seitige Hälfte des
-> Client-Pfads ist nicht gebaut: jedes Plugin ist als
-> `ClientType::PluginClient` registriert, und der Auth-Interceptor lehnt
-> diese Identität auf jedem gRPC-Pfad außerhalb von
-> `/astra.PluginHostService/` ab. Der `DaemonClient`, gegen den diese
-> beiden geschrieben sind, antwortet also bei jedem Aufruf mit
-> `permission_denied`. Lies sie für die Form eines Client-Plugins — die
-> Surface, den Event-Fluss, das I18n — nicht als etwas, das du heute
-> Ende-zu-Ende ausführen kannst. Siehe
+> **`web-chat` ist der Daemon-Seite weiterhin voraus, `telegram-client`
+> nicht mehr.** Die Daemon-seitige Hälfte des Client-Pfads ist nicht gebaut:
+> jedes Plugin ist als `ClientType::PluginClient` registriert, und der
+> Auth-Interceptor lehnt diese Identität auf jedem gRPC-Pfad außerhalb von
+> `/astra.PluginHostService/` ab — der `DaemonClient`, gegen den `web-chat`
+> geschrieben ist, antwortet also bei jedem Aufruf mit `permission_denied`.
+> Lies es für die Form eines Client-Plugins — die Surface, den Event-Fluss,
+> das I18n — nicht als etwas, das du heute Ende-zu-Ende ausführen kannst.
+> `telegram-client` wurde auf `Host::send_chat_message` umgeschrieben, das im
+> Host-Service liegt und funktioniert; was eine Brücke dafür aufgibt, steht
+> im ersten Abschnitt seiner README. Siehe
 > [den `Daemon`-Abschnitt des Rust-SDK](../4-sdk/rust.md#daemon--im-sdk-vorhanden-vom-daemon-abgelehnt).
 
 | | Sprache | Capabilities | Warum dieses |
 |---|---|---|---|
-| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Jede Astra-Unterhaltung wird zu einem Telegram-Thema, mit gestreamten Antworten |
+| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Telegram rein, Astras Antwort gestreamt zurück — der eine Client-Pfad, der funktioniert |
 | [`web-chat`](../../../examples/web-chat/) | Rust | `client` | Ein Browserfenster, das mit Astra spricht. Um beim Multi-Client-Sync zuzusehen |
 
 ## Plattformen

@@ -17,7 +17,7 @@ README, not from memory.
 | [mock-stt](mock-stt/) | Rust | An STT provider that returns a deterministic sentence describing the audio. The lightest thing that can occupy the STT slot | `stt` | none | Nothing |
 | [echo-stt](echo-stt/) | Rust | An STT provider that plays your microphone back at you as chunks arrive — a diagnostic for "is the daemon sending me the audio I think it is?" | `stt` | none | An **audio output device**. Linux: ALSA (`libasound2`); to build, `libasound2-dev` and `pkg-config`. **Wear headphones** |
 | [web-chat](web-chat/) | Rust | A `client` plugin: its own chat surface on `http://127.0.0.1:9090`, every chat event forwarded over a WebSocket. Multi-client sync, made watchable | `client` | none — `client` is requested by the capability bit | A free TCP port **9090** on loopback, and a browser |
-| [telegram-client](telegram-client/) | Rust | A full `client` front-end: Telegram forum topics ↔ Astra conversations, two-way sync, streaming replies, and `I18n` (English + Russian) | `client` | none — `client` is requested by the capability bit | A **Telegram bot token**, a **group with Topics enabled** and the bot as admin, and outbound access to `api.telegram.org` |
+| [telegram-client](telegram-client/) | Rust | The `client` example that actually runs: Telegram in, Astra's reply streamed back over `Host::send_chat_message`, and `I18n` (English + Russian). Its README is also the clearest statement of what a plugin may and may not do to a conversation | `client` | `client`, `send_chat_message` | A **Telegram bot token** and outbound access to `api.telegram.org` |
 | [companion](companion/) | Rust | A UI plugin: an animated overlay that lives inside the Astra window, with a translated phrase list that follows Astra's language | `ui_contributions`, `dom_access` | none — `dom_access` is requested by the capability bit | Nothing |
 | [bad-apple](bad-apple/) | Rust | A UI plugin with real rendering: four renderers over a pre-extracted 1-bit RLE stream (`ui/frames.bin`, ~3 MB), driven from `plugin.toml` config | `ui_contributions`, `dom_access` | none — `dom_access` is requested by the capability bit | Nothing at run time; frames and audio are in the bundle |
 | [doom](doom/) | Rust | The ceiling of what a UI plugin can be: Chocolate Doom compiled to WebAssembly, on Freedoom data, as a page in Astra's navigation | `ui_contributions`, `dom_access` | none — `dom_access` is requested by the capability bit | Nothing beyond Astra, but it is **~15 MB to download and ~36 MB on disk** — by far the largest example here |
@@ -25,15 +25,21 @@ README, not from memory.
 Nine are Rust, one Python, one TypeScript. The Rust ones build per platform
 (`linux-x64`, `windows-x64`); the Python and TypeScript ones are `noarch`.
 
-> **`web-chat` and `telegram-client` cannot run end-to-end today.** Both are
-> built on `DaemonClient`, and the daemon's half of that path is not in place:
-> every plugin is registered as `ClientType::PluginClient`, and the auth
-> interceptor rejects that identity on any gRPC path outside
-> `/astra.PluginHostService/` with `permission_denied("plugin session tokens are
-> scoped to PluginHostService")`. So every `submit_user_message`,
-> `subscribe_chat_events` and `get_settings` in those two is refused at run
-> time. They compile, they are in CI, and they are worth reading for the shape
-> of a client plugin — they are not a working install.
+> **`web-chat` cannot run end-to-end today.** It is built on `DaemonClient`,
+> and the daemon's half of that path is not in place: every plugin is registered
+> as `ClientType::PluginClient`, and the auth interceptor rejects that identity
+> on any gRPC path outside `/astra.PluginHostService/` with
+> `permission_denied("plugin session tokens are scoped to PluginHostService")`.
+> So every `submit_user_message`, `subscribe_chat_events` and `get_settings` in
+> it is refused at run time. It compiles, it is in CI, and it is worth reading
+> for the shape of a client plugin — it is not a working install.
+>
+> **`telegram-client` used to be the second half of that sentence and is not any
+> more.** It was rewritten onto `PluginHostService.SendChatMessage`, which is on
+> the one service a plugin's session token is scoped to, so it installs and
+> works. What it had to give up is the interesting part and its README leads
+> with it: a plugin cannot list or create conversations, so one bridge holds one
+> conversation, not one per Telegram topic.
 
 ## Reading the two permission columns
 
@@ -55,9 +61,11 @@ daemon reads the capability bit as a permission **request** for them
 sideloaded directory gets what it asks for; an imported `.astraplugin` file has
 both refused outright; and a plugin installed from the registry is granted from
 its trust record, which is built from the bundle's `[permissions]` block — so a
-**published** version of `companion`, `doom`, `bad-apple`, `web-chat` or
-`telegram-client` would have to spell the permission out. As shipped, these five
-are sideload-and-dev examples.
+**published** version of `companion`, `doom`, `bad-apple` or `web-chat` would
+have to spell the permission out. As shipped, those four are sideload-and-dev
+examples. `telegram-client` is the one that does spell it out, because it needs
+a second permission anyway: `send_chat_message` gates a call, not a surface, and
+no capability bit asks for it.
 
 One inconsistency worth knowing before you copy it: **`json-tools` calls
 `ctx.fireTrigger` at `src/plugin.ts:205` and its `plugin.toml` declares only

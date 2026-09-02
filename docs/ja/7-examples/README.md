@@ -58,21 +58,23 @@ SDK で利用可能です。
 [ローカルでインポートされたファイル](../5-publish/local-install.md)
 には無条件で拒否されます。
 
-> **この 2 つはどちらもデーモンより先を行っています。** クライアント
-> 経路のデーモン側の半分はまだ構築されていません: すべてのプラグイン
-> は `ClientType::PluginClient` として登録され、認証インターセプター
-> は `/astra.PluginHostService/` の外にあるあらゆる gRPC パスでこの
-> アイデンティティを拒否します。そのため、これら 2 つが対象として
-> 書かれている `DaemonClient` は、すべての呼び出しで
-> `permission_denied` を返します。これらは、今日エンドツーエンドで
-> 実行できるものとしてではなく、クライアントプラグインの形 — サーフェス、
-> イベントフロー、I18n — を読むために読んでください。
+> **`web-chat` は今もデーモンより先を行っていますが、`telegram-client` は
+> もう違います。** クライアント経路のデーモン側の半分はまだ構築されていま
+> せん: すべてのプラグインは `ClientType::PluginClient` として登録され、
+> 認証インターセプターは `/astra.PluginHostService/` の外にあるあらゆる
+> gRPC パスでこのアイデンティティを拒否します。そのため `web-chat` が対象
+> として書かれている `DaemonClient` は、すべての呼び出しで
+> `permission_denied` を返します。これは、今日エンドツーエンドで実行できる
+> ものとしてではなく、クライアントプラグインの形 — サーフェス、イベント
+> フロー、I18n — を読むために読んでください。`telegram-client` は、ホスト
+> サービス上にあって実際に動く `Host::send_chat_message` へ書き直されまし
+> た。そのために橋が手放したものは、README の最初の節にあります。
 > [Rust SDK の `Daemon` セクション](../4-sdk/rust.md#daemon--sdk-には存在するがデーモンには拒否される)
 > を参照してください。
 
 | | 言語 | ケーパビリティ | これを読む理由 |
 |---|---|---|---|
-| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | 各 Astra の会話が、ストリーミング返信付きの Telegram トピックになります |
+| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Telegram から送り、Astra の返信がストリームで戻る — 唯一動作するクライアント経路 |
 | [`web-chat`](../../../examples/web-chat/) | Rust | `client` | Astra と話すブラウザウィンドウ。マルチクライアント同期が起きるのを見るためのものです |
 
 ## プラットフォーム

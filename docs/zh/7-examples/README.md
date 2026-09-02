@@ -53,18 +53,20 @@
 的界面。这是一种高风险能力，对于
 [本地导入的文件](../5-publish/local-install.md)会被直接拒绝。
 
-> **这两个示例都跑在守护进程前面。** 客户端路径中守护进程那一侧的部分
-> 还没有构建出来：每个插件都被注册为 `ClientType::PluginClient`，认证
-> 拦截器会拒绝这个身份访问 `/astra.PluginHostService/` 之外的任何
-> gRPC 路径。所以这两个示例所依据编写的那个 `DaemonClient`，在每一次
-> 调用时都会返回 `permission_denied`。请把它们当作客户端插件的形态来
-> 读 —— 界面、事件流、I18n —— 而不是当作今天就能端到端运行的东西。
-> 参见
+> **`web-chat` 仍然跑在守护进程前面，`telegram-client` 已经不是了。** 客户端
+> 路径中守护进程那一侧的部分还没有构建出来：每个插件都被注册为
+> `ClientType::PluginClient`，认证拦截器会拒绝这个身份访问
+> `/astra.PluginHostService/` 之外的任何 gRPC 路径。所以 `web-chat` 所依据
+> 编写的那个 `DaemonClient`，在每一次调用时都会返回 `permission_denied`。
+> 请把它当作客户端插件的形态来读 —— 界面、事件流、I18n —— 而不是当作今天
+> 就能端到端运行的东西。`telegram-client` 已改写到 `Host::send_chat_message`
+> 上，它位于 host 服务，确实可用；这座桥为此放弃了什么，写在它 README 的
+> 第一节。参见
 > [Rust SDK 的 `Daemon` 一节](../4-sdk/rust.md#daemon--sdk-中存在但会被守护进程拒绝)。
 
 | | 语言 | 能力 | 为什么读这个 |
 |---|---|---|---|
-| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | 每一个 Astra 对话都会变成一个 Telegram 话题，带有流式回复 |
+| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | 从 Telegram 发出，Astra 的回复以流式返回 —— 唯一可用的客户端路径 |
 | [`web-chat`](../../../examples/web-chat/) | Rust | `client` | 一个和 Astra 对话的浏览器窗口。用来观察多客户端同步是怎么发生的 |
 
 ## 平台

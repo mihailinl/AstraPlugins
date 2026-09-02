@@ -1,8 +1,8 @@
 [plugin]
 id = "telegram-client"
 name = "Telegram Bot"
-version = "0.1.2"
-description = "Bridge Telegram bot topics to Astra conversations with full sync and streaming"
+version = "0.2.0"
+description = "Talk to Astra from Telegram — your message in, the reply streamed back as it is written"
 author = "Mihailin"
 license = "MIT"
 
@@ -10,10 +10,13 @@ license = "MIT"
 command = "target/release/telegram_client"
 
 [capabilities]
+# `spec/hooks.yaml` files `SendChatMessage` under `client`. The capability is
+# what this plugin IS; the permission below is what lets it call.
 client = true
 
 [permissions]
-client = { reason = "Bridges Telegram topics to Astra conversations, which means holding a client session with the daemon" }
+client = { reason = "Acts as a chat front-end: what you write in Telegram is sent to Astra as if you had typed it" }
+send_chat_message = { reason = "Sends your Telegram messages to Astra and streams the reply back into the chat" }
 
 [config]
 schema = """
@@ -29,6 +32,12 @@ schema = """
       "type": "string",
       "title": "$config.allowed_usernames.title",
       "description": "$config.allowed_usernames.description"
+    },
+    "allow_screenshot": {
+      "type": "boolean",
+      "default": false,
+      "title": "$config.allow_screenshot.title",
+      "description": "$config.allow_screenshot.description"
     }
   },
   "required": ["bot_token"]

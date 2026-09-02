@@ -1,6 +1,6 @@
 [package]
 name = "telegram_client"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -16,7 +16,33 @@ tracing = "0.1"
 # dependency this plugin has no other reason to carry, and one that makes it
 # unbuildable anywhere those headers are absent. rustls is pure Rust, so the
 # build needs nothing installed and the released binary carries its own TLS.
-frankenstein = { version = "0.49", default-features = false, features = ["client-reqwest"] }
+frankenstein = { version = "0.52", default-features = false, features = ["client-reqwest"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tonic = "0.12"
 tokio-stream = "0.1"
+
+# `/screenshot`. Astra can capture a screen itself — `MediaService.Capture…` —
+# but that is a daemon service and a plugin's token is refused on every path
+# outside `PluginHostService`, the same wall the chat bridge hit. So the plugin
+# takes the picture itself, which it can because a sideloaded plugin runs as
+# your user with no sandbox (docs/en/1-orientation/security.md).
+#
+# WINDOWS ONLY, and that is a deliberate line rather than an oversight. On
+# Linux `xcap` depends unconditionally on `pipewire` and `xcb`. Those are
+# `-sys` crates: `pipewire-sys` carries `links = "pipewire-0.3"`, `libspa-sys`
+# carries `links = "libspa-0.2"`, and both generate their bindings with
+# bindgen — so the Linux leg would need `libclang-dev libpipewire-0.3-dev
+# libxcb1-dev` installed to BUILD, and the binary it produced would carry
+# `libpipewire-0.3.so.0` and `libxcb.so.1` as NEEDED entries, so it would not
+# START on a machine without them. That is the whole plugin failing to load
+# rather than one command failing, and it would fail quietly: the release
+# workflow's ELF gate reads the glibc floor and nothing else, so CI stays
+# green either way.
+#
+# The bridge itself needs no display and no system library at all — commit
+# f80f4f8, "rustls, so the release needs nothing installed", bought that on
+# purpose — and trading it away for a command that is off by default is the
+# wrong side of the trade. `src/screen.rs` answers the command honestly where
+# the picture cannot be taken.
+[target.'cfg(windows)'.dependencies]
+xcap = "0.9"

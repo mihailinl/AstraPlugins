@@ -51,18 +51,22 @@ A `client` plugin is a chat front-end of its own — its own session, its own
 surface. It is a high-risk capability, and it is refused outright to a
 [locally imported file](../5-publish/local-install.md).
 
-> **Both of these are ahead of the daemon.** The daemon-side half of the client
-> path is not built: every plugin is registered as `ClientType::PluginClient`,
-> and the auth interceptor rejects that identity on any gRPC path outside
-> `/astra.PluginHostService/`. So the `DaemonClient` these two are written
-> against answers `permission_denied` on every call. Read them for the shape of
-> a client plugin — the surface, the event flow, the I18n — not as something you
-> can run end-to-end today. See
+> **`web-chat` is still ahead of the daemon; `telegram-client` no longer
+> is.** The daemon-side half of the client path is not built: every plugin
+> is registered as `ClientType::PluginClient`, and the auth interceptor
+> rejects that identity on any gRPC path outside `/astra.PluginHostService/`,
+> so the `DaemonClient` `web-chat` is written against answers
+> `permission_denied` on every call. Read it for the shape of a client
+> plugin — the surface, the event flow, the I18n — not as something you can
+> run end-to-end today. `telegram-client` was rewritten onto
+> `Host::send_chat_message`, which is on the host service and does work;
+> what a bridge gives up to get there is the first section of its README.
+> See
 > [the Rust SDK's `Daemon` section](../4-sdk/rust.md#daemon--present-in-the-sdk-refused-by-the-daemon).
 
 | | Language | Capabilities | Why this one |
 |---|---|---|---|
-| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Each Astra conversation becomes a Telegram topic, with streaming replies |
+| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Telegram in, Astra's reply streamed back — the one client path that works |
 | [`web-chat`](../../../examples/web-chat/) | Rust | `client` | A browser window that talks to Astra. For watching multi-client sync happen |
 
 ## Platforms

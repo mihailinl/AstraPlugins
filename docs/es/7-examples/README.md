@@ -55,20 +55,22 @@ propia superficie. Es una capability de alto riesgo, y se rechaza de
 plano en un
 [archivo importado localmente](../5-publish/local-install.md).
 
-> **Ambos van por delante del daemon.** La mitad del lado del daemon de
-> la vía de cliente no está construida: cada plugin se registra como
-> `ClientType::PluginClient`, y el interceptor de autenticación rechaza
-> esa identidad en cualquier ruta gRPC fuera de
-> `/astra.PluginHostService/`. Así que el `DaemonClient` contra el que
-> están escritos estos dos responde `permission_denied` en cada llamada.
-> Léelos por la forma de un plugin cliente — la superficie, el flujo de
-> eventos, el I18n — no como algo que puedas ejecutar de extremo a
-> extremo hoy. Consulta
+> **`web-chat` sigue por delante del daemon; `telegram-client` ya no.** La
+> mitad del lado del daemon de la vía de cliente no está construida: cada
+> plugin se registra como `ClientType::PluginClient`, y el interceptor de
+> autenticación rechaza esa identidad en cualquier ruta gRPC fuera de
+> `/astra.PluginHostService/`, así que el `DaemonClient` contra el que está
+> escrito `web-chat` responde `permission_denied` en cada llamada. Léelo por
+> la forma de un plugin cliente — la superficie, el flujo de eventos, el
+> I18n — no como algo que puedas ejecutar de extremo a extremo hoy.
+> `telegram-client` se reescribió sobre `Host::send_chat_message`, que está
+> en el servicio host y sí funciona; a qué renuncia un puente para llegar
+> ahí está en la primera sección de su README. Consulta
 > [la sección `Daemon` del SDK de Rust](../4-sdk/rust.md#daemon--presente-en-el-sdk-rechazado-por-el-daemon).
 
 | | Lenguaje | Capabilities | Por qué este |
 |---|---|---|---|
-| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Cada conversación de Astra se convierte en un tema de Telegram, con respuestas en streaming |
+| [`telegram-client`](../../../examples/telegram-client/) | Rust | `client` | Telegram entra, la respuesta de Astra vuelve en streaming — la única vía de cliente que funciona |
 | [`web-chat`](../../../examples/web-chat/) | Rust | `client` | Una ventana de navegador que habla con Astra. Para observar la sincronización multi-cliente en acción |
 
 ## Plataformas
