@@ -1218,8 +1218,32 @@ export abstract class Plugin {
           console.warn(`onConversationEvent handler threw: ${e}`);
         }
       });
-      stream.on("error", (err: Error) => {
+      stream.on("error", (err: Error & { code?: grpc.status }) => {
         if (this.stopped) return;
+        // A PERMISSION_DENIED here is not a hiccup. The daemon registers every
+        // plugin as `ClientType::PluginClient` and its auth interceptor refuses
+        // that identity on any gRPC path outside `/astra.PluginHostService/`
+        // (SECURITY(auth S3-2), held in place by a consistency canary). Nothing
+        // about that changes while the process runs, so this used to reconnect
+        // every two seconds for the life of the plugin — the same line, for
+        // ever, in the log pane a user opens to find out what is wrong. Say it
+        // once, name the path that does work, and stop. UNIMPLEMENTED is folded
+        // in for the same reason: a daemon that does not serve the rpc will not
+        // start serving it in two seconds.
+        if (
+          err.code === grpc.status.PERMISSION_DENIED ||
+          err.code === grpc.status.UNIMPLEMENTED
+        ) {
+          console.warn(
+            `This daemon gives plugins no client session, so \`this.daemon\` is ` +
+              `refused and \`onConversationEvent\` will never fire: ${err.message}. ` +
+              `That is this daemon's answer to every plugin rather than a fault in ` +
+              `this one, and it does not change while the daemon runs — so the chat ` +
+              `firehose is NOT being retried. \`HostClient.sendChatMessage\` ` +
+              `(permission \`send_chat_message\`) is the working way into a conversation.`
+          );
+          return;
+        }
         console.warn(`Chat firehose error: ${err.message}, reconnecting...`);
         this.reconnect(connect);
       });

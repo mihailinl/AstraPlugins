@@ -235,6 +235,47 @@ fn resolve_capabilities(
     Vec::new()
 }
 
+/// The sentence to print when a [`Daemon`](crate::Daemon) call is refused
+/// because this daemon hands plugins no client session — `None` for every other
+/// failure, which is one to retry.
+///
+/// **A `PERMISSION_DENIED` here is not a hiccup.** The daemon registers every
+/// plugin as `ClientType::PluginClient`, and its auth interceptor refuses that
+/// identity on any gRPC path outside `/astra.PluginHostService/`
+/// (`astra-daemon/src/server/auth_interceptor.rs`, `SECURITY(auth S3-2)`, held
+/// in place by a consistency canary). Nothing about that changes while the
+/// process runs, so the firehose loop below used to re-ask every two seconds
+/// for the life of the plugin — the same line, forever, in the log pane a user
+/// opens to find out what is wrong with their plugin. Say it once, name the
+/// path that does work, and stop.
+///
+/// `UNIMPLEMENTED` is folded in for the same reason: a daemon that does not
+/// serve the rpc at all will not start serving it in two seconds.
+fn refuses_the_client_surface(error: &anyhow::Error) -> Option<String> {
+    let status = error.downcast_ref::<tonic::Status>()?;
+    if !matches!(
+        status.code(),
+        tonic::Code::PermissionDenied | tonic::Code::Unimplemented
+    ) {
+        return None;
+    }
+    // A refusal is allowed to carry no message — `MockDaemon` sends none — and
+    // the sentence has to read as a sentence either way, so the code stands in
+    // for the words when there are none.
+    let refusal = match status.message() {
+        "" => format!("{:?}", status.code()),
+        message => message.to_string(),
+    };
+    Some(format!(
+        "This daemon gives plugins no client session, so `ctx.daemon()` is \
+         refused and `on_conversation_event` will never fire: {refusal}. That \
+         is this daemon's answer to every plugin rather than a fault in this \
+         one, and it does not change while the daemon runs — so the chat \
+         firehose is NOT being retried. `Host::send_chat_message` (permission \
+         `send_chat_message`) is the working way into a conversation."
+    ))
+}
+
 /// Optional knobs for [`run_with`].
 ///
 /// Constructed with `RunConfig::default()` and adjusted field by field; it is
@@ -471,6 +512,10 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
                             .map(|c| (c.id.clone(), 0u64))
                             .collect(),
                         Err(e) => {
+                            if let Some(refusal) = refuses_the_client_surface(&e) {
+                                warn!("{refusal}");
+                                return;
+                            }
                             tracing::warn!("list_conversations failed: {e}");
                             std::collections::HashMap::new()
                         }
@@ -501,6 +546,10 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
                         info!("Chat firehose stream ended, reconnecting...");
                     }
                     Err(e) => {
+                        if let Some(refusal) = refuses_the_client_surface(&e) {
+                            warn!("{refusal}");
+                            return;
+                        }
                         tracing::warn!("Chat firehose subscribe failed: {e}, retrying...");
                     }
                 }
@@ -1480,6 +1529,55 @@ mod tests {
             argv(&["tools"])
         );
         assert!(resolve_capabilities(vec![], None, &[]).is_empty());
+    }
+
+    /// The predicate that decides whether the chat firehose is worth retrying.
+    ///
+    /// It has to split on the gRPC CODE and not on the message: the daemon's
+    /// sentence is prose it is free to reword, and a substring match on it
+    /// would put the loop back to retrying for ever the first time somebody
+    /// improved the wording.
+    #[test]
+    fn only_a_refusal_no_retry_can_fix_stops_the_firehose() {
+        let refused = |code, msg: &str| {
+            anyhow::Error::from(tonic::Status::new(code, msg.to_string()))
+        };
+
+        // The two the daemon actually answers a plugin's `ChatService` call
+        // with. Both carry the daemon's own sentence through.
+        let stop = refuses_the_client_surface(&refused(
+            tonic::Code::PermissionDenied,
+            "plugin session tokens are scoped to PluginHostService",
+        ))
+        .expect("permission_denied is terminal");
+        assert!(stop.contains("plugin session tokens are scoped to PluginHostService"));
+        assert!(stop.contains("send_chat_message"), "it names the working path");
+        assert!(
+            refuses_the_client_surface(&refused(tonic::Code::Unimplemented, "no such rpc")).is_some()
+        );
+
+        // A refusal with no message still has to read as a sentence.
+        let wordless = refuses_the_client_surface(&refused(tonic::Code::PermissionDenied, ""))
+            .expect("still terminal");
+        assert!(wordless.contains("PermissionDenied"), "{wordless}");
+        assert!(!wordless.contains(": ."), "{wordless}");
+
+        // Everything else is a hiccup, and a hiccup is retried.
+        for transient in [
+            tonic::Code::Unavailable,
+            tonic::Code::DeadlineExceeded,
+            tonic::Code::Internal,
+            tonic::Code::Unauthenticated,
+        ] {
+            assert!(
+                refuses_the_client_surface(&refused(transient, "later")).is_none(),
+                "{transient:?} must keep the loop alive",
+            );
+        }
+
+        // An error that is not a `Status` at all — a transport failure on the
+        // way to the call — is not this predicate's business.
+        assert!(refuses_the_client_surface(&anyhow::anyhow!("connection reset")).is_none());
     }
 
     /// The parse of the daemon's variable, including the two cases that are not

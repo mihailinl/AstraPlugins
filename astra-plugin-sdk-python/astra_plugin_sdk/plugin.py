@@ -996,7 +996,19 @@ class Plugin:
             await asyncio.sleep(2)
 
     async def _chat_firehose_loop(self, daemon_client):
-        """Internal: subscribe to the chat firehose and dispatch events."""
+        """Internal: subscribe to the chat firehose and dispatch events.
+
+        A ``PERMISSION_DENIED`` here is not a hiccup: the daemon registers every
+        plugin as ``ClientType::PluginClient`` and its auth interceptor refuses
+        that identity on any gRPC path outside ``/astra.PluginHostService/``
+        (``SECURITY(auth S3-2)``, held in place by a consistency canary).
+        Nothing about that changes while the process runs, so this loop used to
+        re-ask every two seconds for the life of the plugin — the same line,
+        forever, in the log pane a user opens to find out what is wrong. Say it
+        once, name the path that does work, and stop. ``UNIMPLEMENTED`` is
+        folded in for the same reason.
+        """
+        terminal = (grpc.StatusCode.PERMISSION_DENIED, grpc.StatusCode.UNIMPLEMENTED)
         while True:
             try:
                 stream = daemon_client.subscribe_chat_events({})
@@ -1005,6 +1017,21 @@ class Plugin:
                     if fe.HasField("event"):
                         await self.on_conversation_event(fe.conversation_id, fe.event)
                 print("Chat firehose stream ended, reconnecting...")
+            except grpc.RpcError as e:
+                code = e.code() if callable(getattr(e, "code", None)) else None
+                if code in terminal:
+                    log.warning(
+                        "This daemon gives plugins no client session, so `self.daemon` is "
+                        "refused and `on_conversation_event` will never fire: %s. That is "
+                        "this daemon's answer to every plugin rather than a fault in this "
+                        "one, and it does not change while the daemon runs — so the chat "
+                        "firehose is NOT being retried. `HostClient.send_chat_message` "
+                        "(permission `send_chat_message`) is the working way into a "
+                        "conversation.",
+                        e.details() if callable(getattr(e, "details", None)) else e,
+                    )
+                    return
+                print(f"Chat firehose error: {e}, retrying...")
             except Exception as e:
                 print(f"Chat firehose error: {e}, retrying...")
             await asyncio.sleep(2)
