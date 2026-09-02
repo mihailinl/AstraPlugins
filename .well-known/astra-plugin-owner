@@ -1,0 +1,13 @@
+# Who may ask the Astra registry to list a plugin out of this repository.
+#
+# The registry reads this file over GitHub's public contents API, on the
+# default branch, at the moment it checks — so being able to write it here is
+# the proof. It says nothing about the code, and it is not a signature.
+#
+# Removing a login stops that account opening a new listing request or passing
+# a `/recheck`. It does not reach a plugin that is already listed: every
+# release after the first is proved against the account that published it.
+#
+# One login per line. See docs/en/5-publish/get-listed.md § "Prove you control
+# the repository".
+mihailinl
