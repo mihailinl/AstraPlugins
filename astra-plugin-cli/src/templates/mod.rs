@@ -258,6 +258,9 @@ pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
         if capabilities.contains(&"triggers") {
             keys.push_str(",\n  \"trigger.something_happened.label\": \"Something Happened\"");
         }
+        if contributes_ui(capabilities) {
+            keys.push_str(",\n  \"ui.main.label\": \"My Plugin\"");
+        }
         keys
     } else {
         String::new()
@@ -309,17 +312,32 @@ pub fn uses_runtime_plane(capabilities: &[&str]) -> bool {
 /// fact, and any two of them arriving without the third is a bug someone finds
 /// at install time.
 ///
-/// **UI contribution labels are deliberately not in this list**, though the
-/// daemon resolves them too. One `en.json` serves all three language
-/// templates, and the Python scaffold declares no contribution for a `ui.*`
-/// key to hang off — seeding one would give a Python author a key nothing in
-/// their plugin resolves, which is the disease
-/// `the_seeded_keys_are_the_ones_the_generated_source_resolves` exists to
-/// catch. The generated Rust and TypeScript say so where the label is.
+/// UI contribution labels are in this list too, and the reason they once were
+/// not was simply wrong. The claim was that the Python scaffold declares no
+/// contribution for a `ui.*` key to hang off; it declares one. `@ui_page`
+/// is a CLASS decorator that registers rather than something returned and
+/// plumbed, which is why searching the generated Python for the word
+/// `contribution` finds nothing and why the mistake was easy to make. All
+/// three languages contribute a page, all three give it a label, and
+/// `resolve_ui_contribution` resolves that label like any other.
 pub fn uses_declared_plane(capabilities: &[&str]) -> bool {
-    ["actions", "triggers"]
-        .iter()
-        .any(|c| capabilities.contains(c))
+    ["actions", "triggers"].iter().any(|c| capabilities.contains(c))
+        || contributes_ui(capabilities)
+}
+
+/// Does the generated source for these capabilities put an iframe in Astra's
+/// window — and therefore carry a label for it?
+///
+/// Defined once because four places ask it: the three code generators, and
+/// [`generate_locales`], which seeds the key those generators reference. It
+/// used to be spelled out separately in each, which is how they came to
+/// disagree about whether Python contributed a page at all.
+///
+/// `dom_access` sits beside `ui_contributions` because the generators treat
+/// the two as one: reaching into Astra's DOM is done from a contributed frame,
+/// so a scaffold asked for `dom_access` alone still needs one to reach from.
+pub fn contributes_ui(capabilities: &[&str]) -> bool {
+    capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access")
 }
 
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {

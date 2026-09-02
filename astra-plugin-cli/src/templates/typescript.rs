@@ -173,18 +173,17 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    if super::contributes_ui(capabilities) {
         sections.push_str(
             r#"
   ui: {
     // The iframes this plugin puts in Astra's window. `url` is served from the
     // plugin's own bundle.
-    // Literal English, unlike the labels above, and the reason is the
-    // scaffold rather than the daemon: one locales/en.json serves all three
-    // language templates and the Python one declares no contribution to hang a
-    // `ui.*` key off. Astra resolves this one too — make it
-    // `key("ui.main.label")` and add the key when you translate it.
-    contributions: [UiContrib.page("main", "My Plugin", "web/index.html")],
+    // A `$key` the DAEMON resolves per request, in whatever language the user
+    // has set — the same plane as the labels above, and the same reason
+    // plugin.toml carries a `min_astra_version`. Replace it with a literal
+    // string and delete that floor together.
+    contributions: [UiContrib.page("main", "$ui.main.label", "web/index.html")],
     // Reachable from that iframe as `astra.call("ping", {})`. Push data the
     // other way with `ctx.pushToUi(...)`.
     onCall: {
@@ -242,7 +241,7 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         imports.push("action");
         imports.push("Field");
     }
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    if super::contributes_ui(capabilities) {
         imports.push("UiContrib");
     }
     let import_list = imports.join(", ");

@@ -299,21 +299,24 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         ));
     }
 
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    if super::contributes_ui(capabilities) {
         members.push(Member::new(
             Some("ui_contributions"),
             r##"    /// The iframes this plugin puts in Astra's UI. `url` is served from the
     /// plugin's own `web/` directory.
     #[hook]
     async fn ui_contributions(&self) -> Vec<UiContribution> {
-        // Literal English, unlike the action and trigger labels above, and
-        // the reason is the scaffold rather than the daemon: one `locales/
-        // en.json` serves all three language templates, and the Python one
-        // declares no contribution to hang a `ui.*` key off. Seeding one
-        // anyway would hand a Python author a key nothing in their plugin
-        // resolves. Make it `key("ui.main.label")` and add the key when you
-        // translate this — Astra resolves it.
-        vec![UiContribution::page("main", "My Plugin", "web/index.html")]
+        // A `$key` the DAEMON resolves, per request, in whatever language
+        // the user has set — same plane as the action and trigger labels
+        // above, and the same reason `min_astra_version` is in plugin.toml.
+        // Replace it with a literal string and delete that floor together, or
+        // an older Astra refuses to install a plugin whose label it could
+        // have shown.
+        vec![UiContribution::page(
+            "main",
+            key("ui.main.label"),
+            "web/index.html",
+        )]
     }
 
     /// Called from that iframe by `astra.call("ping", {})`. Push data back

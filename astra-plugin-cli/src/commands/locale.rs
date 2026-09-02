@@ -1074,13 +1074,15 @@ fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut
 
     // ── [ui] contribution labels ──
     //
-    // E17 is about the READER'S daemon, not about Astra's git history. Astra's
-    // `main` resolves action, trigger and UI labels at serve time (the resolver
-    // landed there on 2026-08-22) — and the newest Astra RELEASE is v0.2.0,
-    // tagged 2026-08-16, which does not. `min_astra_version` is the only thing
-    // in the manifest that stops an older daemon installing this plugin at all,
-    // so it is exactly the right gate, and landing the code upstream does not
-    // relax it by itself.
+    // E17 is about the READER'S daemon, not about Astra's git history, and a
+    // release carrying the resolver does not retire it — it only gives it a
+    // number to name. Astra resolves action, trigger and UI labels at serve
+    // time from `LABEL_RESOLVER_RELEASE` onwards; every daemon older than that
+    // shows the key instead, with no error saying why. `min_astra_version` is
+    // the only thing in the manifest that stops such a daemon installing the
+    // plugin at all, so it is exactly the right gate — which is why this stays
+    // an ERROR when the label is a key and the floor is absent, and drops to
+    // N6 the moment the floor is there.
     if let Some(ui) = m.ui.as_ref() {
         for c in &ui.contributions {
             let Some(Marker::Key(key)) = marker(&c.label) else { continue };

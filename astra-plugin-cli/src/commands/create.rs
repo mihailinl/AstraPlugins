@@ -365,9 +365,13 @@ mod tests {
     /// `$action.do_something.label` in the command editor.
     #[test]
     fn a_scaffold_that_declares_keys_also_names_the_daemon_that_resolves_them() {
-        const KEYS: [&str; 2] = [
+        const KEYS: [&str; 3] = [
             "action.do_something.label",
             "trigger.something_happened.label",
+            // The one that was missed first time round, because searching the
+            // generated Python for `contribution` finds nothing: `@ui_page` is
+            // a class decorator, and it IS the contribution.
+            "ui.main.label",
         ];
 
         let mut with_keys = 0usize;

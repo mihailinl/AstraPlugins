@@ -167,7 +167,7 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
-    let ui = capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access");
+    let ui = super::contributes_ui(capabilities);
     if ui {
         imports.push("ui_call");
         methods.push_str(
@@ -218,8 +218,14 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     // The UI contributions themselves are declared with a CLASS decorator —
     // `@ui_page` registers, it does not return something to be plumbed. That is
     // the whole point of §5.8's change, so the scaffold has to show it.
+    //
+    // It carries a `$key` like every other daemon-rendered label. Worth
+    // saying out loud that this decorator IS the contribution: reading the
+    // generated Python for the word "contribution" finds nothing, which is
+    // how `uses_declared_plane` came to leave UI labels out on the grounds
+    // that Python declared none.
     let class_decorator = if ui {
-        "@ui_page(\"main\", \"My Plugin\", \"web/index.html\")\n"
+        "@ui_page(\"main\", \"$ui.main.label\", \"web/index.html\")\n"
     } else {
         ""
     };
