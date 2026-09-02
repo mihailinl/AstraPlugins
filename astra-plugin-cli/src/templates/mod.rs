@@ -4,6 +4,25 @@ pub mod python;
 pub mod rust;
 pub mod typescript;
 
+/// The first Astra **release** that resolves `$keys` on action labels, trigger
+/// labels and UI contributions — the declared plane outside `[config]`.
+///
+/// Tagged 2026-09-02 and carrying `resolve_action_type`, `resolve_trigger_type`
+/// and `resolve_ui_contribution` in `astra-daemon/src/plugins/i18n.rs`. Before
+/// it, a scaffold that emitted keys handed every author a plugin whose command
+/// editor read `$action.do_something.label` on a fresh install, on every daemon
+/// in the world, with no error anywhere to explain it.
+///
+/// Written into a scaffolded manifest as `min_astra_version` exactly when the
+/// scaffold emits such a key ([`uses_declared_plane`]) — that field is the only
+/// thing that stops an older daemon installing the plugin and showing the key
+/// instead of the label. A scaffold that emits none does not carry the floor,
+/// because a floor nothing needs only narrows where the plugin can run.
+///
+/// `tools/check-locales.py --rules C22` is what proved this release exists, and
+/// it is the same rule that will fail again if the symbol it watches moves.
+pub const LABEL_RESOLVER_RELEASE: &str = "0.2.1";
+
 /// Generate a `plugin.toml` manifest.
 pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> String {
     let caps_toml: Vec<String> = capabilities
@@ -41,6 +60,20 @@ pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> Strin
     // the registry compares them again at ingest, after the tag.
     let name_title = title_case(name);
 
+    // Only when the generated source declares a `$key` the daemon has to
+    // resolve. See `LABEL_RESOLVER_RELEASE`.
+    let floor = if uses_declared_plane(capabilities) {
+        format!(
+            "\n# The generated action and trigger labels are `$keys` the DAEMON resolves.\n\
+             # Astra {LABEL_RESOLVER_RELEASE} is the first release that does; an older one would show\n\
+             # your users the key instead of the label, so it is refused the install.\n\
+             # Delete this line if you replace those keys with literal English.\n\
+             min_astra_version = \"{LABEL_RESOLVER_RELEASE}\"\n"
+        )
+    } else {
+        String::new()
+    };
+
     format!(
         r#"[plugin]
 id = "{name}"
@@ -49,7 +82,7 @@ version = "0.1.0"
 description = "An Astra plugin"
 author = ""
 license = "MIT"
-
+{floor}
 [entry]
 command = "{command}"
 {args}
@@ -167,21 +200,31 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 /// directory writes their store card once, in whatever language they think in,
 /// and finds out at ingest.
 ///
-/// # Why the labels in the generated source are LITERAL ENGLISH
+/// # Why the labels in the generated source are KEYS
 ///
-/// The daemon resolving `$keys` for action labels, trigger labels and UI
-/// contributions is **new code on Astra's `main` and is in no Astra release**.
-/// The newest tag is `v0.2.0` (2026-08-16); the resolver merged on 2026-08-22.
-/// So a scaffold that emitted `key("action.example.label")` would hand every
-/// author created between now and that release a plugin whose command editor
-/// reads `$action.example.label` on a fresh install — on every daemon in the
-/// world, with nothing the author can do about it and no error anywhere to
-/// explain it.
+/// They were literal English until 2026-09-02, and the reason was that the
+/// daemon resolving `$keys` for action labels, trigger labels and UI
+/// contributions existed only on Astra's `main`: a scaffold emitting
+/// `key("action.do_something.label")` would have handed every author a plugin
+/// whose command editor read `$action.do_something.label` on a fresh install,
+/// on every daemon in the world, with no error anywhere to explain it.
 ///
-/// The keys below are the ones that work TODAY on every daemon:
+/// **Astra `v0.2.1` is that release.** It carries `resolve_action_type`,
+/// `resolve_trigger_type` and `resolve_ui_contribution`, so the declared plane
+/// now works on a daemon an author can name — and [`generate_manifest`] names
+/// it, writing `min_astra_version = "0.2.1"` whenever these keys are emitted.
+/// The floor is not decoration: without it an older daemon installs the plugin
+/// and shows the key. With it, that daemon refuses the install and says why.
+///
+/// The two halves have to move together, which is what [`uses_declared_plane`]
+/// is for — a key in `en.json` with no `$key` in the source is a key an author
+/// cannot trace, and a `$key` in the source with nothing in `en.json` is a
+/// label that renders as its own name.
+///
+/// The other keys here need no floor at all, and it is worth knowing why:
 /// `listing.*` is read by the registry's ingest bot straight out of the bundle
-/// (no daemon involved at all), and `msg.done.*` is the runtime plane, which is
-/// the plugin's own `I18n` and has never needed anything from the host.
+/// (no daemon involved), and `msg.done.*` is the runtime plane, which is the
+/// plugin's own `I18n` and has never needed anything from the host.
 ///
 /// # Why `msg.done.*` is conditional
 ///
@@ -192,13 +235,11 @@ fn generate_permissions(capabilities: &[&str]) -> String {
 /// predicate that says where, and a scaffold outside it gets the two
 /// `listing.*` keys and no invented ones.
 ///
-/// **What would change this**, precisely: an Astra RELEASE whose tag contains
-/// the label resolver. At that point this function emits `key(...)` in the
-/// generated source and `generate_manifest` starts writing a
-/// `min_astra_version` naming that release — which it does not write today,
-/// because there is no number to write. `tools/check-locales.py --rules C22`
-/// watches for exactly that and fails when it happens, so the flip is a red
-/// build rather than a paragraph somebody has to remember.
+/// **What changed this**, precisely: an Astra RELEASE whose tag contains the
+/// label resolver, which `tools/check-locales.py --rules C22` watched for and
+/// failed on the day it appeared — so the flip was a red build rather than a
+/// paragraph somebody had to remember. That rule still runs, and it now guards
+/// the other direction: it fails if the symbol it watches moves.
 pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
     let title = title_case(name);
     let runtime = if uses_runtime_plane(capabilities) {
@@ -206,10 +247,25 @@ pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
     } else {
         ""
     };
+    // One `en.json` serves all three language templates, so the keys are the
+    // same in all three and so are the names they hang off — that is why the
+    // Python and TypeScript scaffolds call their action `do_something` too.
+    let declared = if uses_declared_plane(capabilities) {
+        let mut keys = String::new();
+        if capabilities.contains(&"actions") {
+            keys.push_str(",\n  \"action.do_something.label\": \"Do Something\"");
+        }
+        if capabilities.contains(&"triggers") {
+            keys.push_str(",\n  \"trigger.something_happened.label\": \"Something Happened\"");
+        }
+        keys
+    } else {
+        String::new()
+    };
     let en = format!(
         r#"{{
   "listing.name": "{title}",
-  "listing.description": "An Astra plugin"{runtime}
+  "listing.description": "An Astra plugin"{declared}{runtime}
 }}
 "#
     );
@@ -242,6 +298,28 @@ pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
 /// `cargo test` fails would be a worse trade than two unused keys ever were.
 pub fn uses_runtime_plane(capabilities: &[&str]) -> bool {
     capabilities.contains(&"actions")
+}
+
+/// Does the generated source for these capabilities declare a `$key` for the
+/// **daemon** to resolve?
+///
+/// The sibling of [`uses_runtime_plane`], and read by the same three places for
+/// the same reason: the keys in `en.json`, the labels in the generated source
+/// and the `min_astra_version` in the manifest are three statements of one
+/// fact, and any two of them arriving without the third is a bug someone finds
+/// at install time.
+///
+/// **UI contribution labels are deliberately not in this list**, though the
+/// daemon resolves them too. One `en.json` serves all three language
+/// templates, and the Python scaffold declares no contribution for a `ui.*`
+/// key to hang off — seeding one would give a Python author a key nothing in
+/// their plugin resolves, which is the disease
+/// `the_seeded_keys_are_the_ones_the_generated_source_resolves` exists to
+/// catch. The generated Rust and TypeScript say so where the label is.
+pub fn uses_declared_plane(capabilities: &[&str]) -> bool {
+    ["actions", "triggers"]
+        .iter()
+        .any(|c| capabilities.contains(c))
 }
 
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {

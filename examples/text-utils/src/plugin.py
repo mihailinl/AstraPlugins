@@ -96,14 +96,19 @@ class TextUtils(Plugin):
 
     # -- Action (auto-registered via @action) --
     #
-    # LITERAL ENGLISH, deliberately, on every label below. `key("…")` would put
-    # a `$key` on the wire and the daemon would resolve it per request — on a
-    # daemon that has that resolver. The newest Astra RELEASE resolves `$` in
-    # `[config] schema` and nowhere else, so a key here renders as the literal
-    # text `$action.transform.label` in the command editor, which is a label a
-    # user cannot act on. `min_astra_version` is the only thing that stops an
-    # older daemon installing this plugin, and there is no release to name in
-    # it yet.
+    # LITERAL ENGLISH on every label below, and since 2026-09-02 that is a
+    # CHOICE rather than the only option. `key("…")` puts a `$key` on the wire
+    # for the daemon to resolve per request, and Astra 0.2.1 is the first
+    # release that resolves one here; before it, a key rendered as the literal
+    # text `$action.transform.label` in the command editor — a label a user
+    # cannot act on. `astra-plugin new` now scaffolds keys and writes
+    # `min_astra_version = "0.2.1"` alongside them.
+    #
+    # This example keeps the literal English deliberately: it carries no
+    # `min_astra_version`, so it installs on every Astra there has ever been,
+    # which is worth more to an example than translated command-editor labels.
+    # A plugin that wants the keys wants the floor with them, and the two only
+    # travel together.
     #
     # Which gate catches it, because the answer is not the obvious one:
     # `astra-plugin check`'s E17 refuses this in `[[ui.contributions]]` and

@@ -166,13 +166,12 @@ column is the part to read before you rely on any of it.
 | a tool's `name` | **never.** It is the dispatch identifier, namespaced and matched back on call |
 | `[plugin] name` and `description` | **never**, and a `$key` there is refused at pack time (E20) |
 
-**The three marked new are in no released Astra.** They land with daemon commit
-`aa6fe5f7` and are false for every daemon that has shipped, so a plugin relying
-on them shows a user its own raw `$key` on anything older. There is not yet a
-release number to put in `min_astra_version` — the commit predates any tag
-carrying it — so the honest instruction today is: rely on them only if you
-control which daemon runs your plugin, and set `min_astra_version` to the first
-release that contains them once one exists.
+**The three marked new shipped in Astra `v0.2.1`** (2026-09-02), with daemon
+commit `aa6fe5f7`. They are false for every daemon older than that, so a plugin
+relying on them shows a user its own raw `$key` on anything earlier. That is
+what `min_astra_version = "0.2.1"` is for: it makes an older daemon refuse the
+install rather than render the key, and `astra-plugin new` writes it into any
+scaffold whose labels are keys.
 
 The TTS/STT row has a property the others do not, and it is worth knowing: those
 fields are resolved **when the page asks for them**, not when your plugin
@@ -258,8 +257,8 @@ Exactly which strings a given Astra release resolves, and exactly what it does
 with a miss, has changed once and will change again. Do not infer either from
 this page: `astra-plugin check` refuses the cases that are unsafe on the daemons
 your users actually have, `astra-plugin locale render` shows you what a schema
-resolves to without a daemon at all, and the scaffold uses literal English on
-the surfaces where a key would not be resolved yet.
+resolves to without a daemon at all, and the scaffold pairs every `$key` it
+emits with the `min_astra_version` that makes it resolve.
 
 ---
 
@@ -434,9 +433,10 @@ struct Chess;
 
 #[astra::plugin]
 impl Chess {
-    /// A literal English label, deliberately — the command editor is a
-    /// declared-plane surface and §2's last paragraph is why the scaffold does
-    /// the same.
+    /// A literal English label — still a valid choice, and the one that needs
+    /// no `min_astra_version`. Astra 0.2.1 resolves `$keys` on this surface, so
+    /// a key would work too, at the cost of refusing every older daemon. §2 is
+    /// the table of what is resolved where.
     #[action(label = "Play a move")]
     async fn play(&self, ctx: &PluginContext) -> Result<String, ActionError> {
         let moves: i64 = 3;

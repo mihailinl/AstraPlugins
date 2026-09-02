@@ -355,6 +355,68 @@ mod tests {
         );
     }
 
+    /// The same coupling for the DECLARED plane, which has a third half: a
+    /// `$key` in the generated source is resolved by the daemon, so the
+    /// manifest must also carry the `min_astra_version` that says which daemon.
+    ///
+    /// All three have to move together. A key with no source is a key an author
+    /// cannot trace; a source with no key renders as its own name; and either
+    /// without the floor installs happily on an older Astra and shows the user
+    /// `$action.do_something.label` in the command editor.
+    #[test]
+    fn a_scaffold_that_declares_keys_also_names_the_daemon_that_resolves_them() {
+        const KEYS: [&str; 2] = [
+            "action.do_something.label",
+            "trigger.something_happened.label",
+        ];
+
+        let mut with_keys = 0usize;
+        for (template, caps) in TEMPLATE_CAPABILITIES {
+            let caps = caps.to_vec();
+            let (en, _) = crate::templates::generate_locales("demo", &caps);
+            let manifest = crate::templates::generate_manifest("demo", "rust", &caps);
+
+            for key in KEYS {
+                let seeded = en.contains(key);
+                for (language, source) in [
+                    ("rust", crate::templates::rust::generate_main_rs("demo", &caps)),
+                    ("python", crate::templates::python::generate_plugin_py("demo", &caps)),
+                    (
+                        "typescript",
+                        crate::templates::typescript::generate_index_ts("demo", &caps),
+                    ),
+                ] {
+                    assert_eq!(
+                        source.contains(key),
+                        seeded,
+                        "--template {template} --lang {language}: locales/en.json {} `{key}` \
+                         and the generated source {} it",
+                        if seeded { "declares" } else { "omits" },
+                        if source.contains(key) { "resolves" } else { "never mentions" }
+                    );
+                }
+            }
+
+            let any = KEYS.iter().any(|k| en.contains(k));
+            if any {
+                with_keys += 1;
+            }
+            assert_eq!(
+                manifest.contains("min_astra_version"),
+                any,
+                "--template {template}: the scaffold {} a `$key` the daemon resolves and its \
+                 manifest {} a min_astra_version",
+                if any { "declares" } else { "declares no" },
+                if manifest.contains("min_astra_version") { "carries" } else { "omits" }
+            );
+        }
+        assert!(
+            with_keys > 0,
+            "no template seeds the declared plane — either the predicate stopped saying yes \
+             to anything, or this walk stopped reading en.json"
+        );
+    }
+
     #[test]
     fn every_template_capability_is_one_the_daemon_knows() {
         // The marker is the one exception, and it is filtered before it can

@@ -42,15 +42,24 @@ C20 — spec/listing-limits.yaml vs astra-registry's own numbers, both ways.
     the `<name>_mirrored_by` siblings the registry now carries and asks whether
     the copy each names is really here.
 
-C22 — has a RELEASED Astra started resolving plugin labels?
-    `astra-plugin new` scaffolds LITERAL English action, trigger and UI labels,
-    because a `$key` there renders as literal text on every daemon that does not
-    resolve it — and no Astra release does. The code is on Astra's `main`. The
-    day it ships in a tag, the scaffold must flip to `key(...)` and start writing
-    a `min_astra_version`, and this rule is what makes that a red build instead
-    of a paragraph somebody has to remember. It FAILS when the condition it
-    watches for becomes true, which is the same shape as `ARCHIVE_PENDING` in
-    ci.yml: an exception that cannot outlive the work it was waiting for.
+C22 — does the release the scaffold requires actually resolve plugin labels?
+    Until 2026-09-02 this rule asked the opposite question. `astra-plugin new`
+    scaffolded LITERAL English action and trigger labels, because a `$key` there
+    renders as literal text on every daemon that does not resolve it and no
+    Astra release did; the rule FAILED the day one shipped, which is the shape
+    `ARCHIVE_PENDING` in ci.yml has — an exception that cannot outlive the work
+    it was waiting for. `v0.2.1` shipped it, the rule went red, and the scaffold
+    flipped: labels are `$keys` and `generate_manifest` writes
+    `min_astra_version = "0.2.1"`.
+
+    So the exception is spent and this is what replaced it, watching the
+    coupling the flip created. `LABEL_RESOLVER_RELEASE` in the scaffold is the
+    version every generated manifest tells a user to require; this rule proves
+    that version is a tag that exists and that the tag really carries the
+    resolver. Both halves fail loudly, and the second is the one with teeth: a
+    floor naming a release WITHOUT the resolver is a manifest promising the
+    labels will render on daemons where they will not, which is the original
+    defect wearing the fix's clothes.
 
     It reads a tag through two constants — a path and a symbol — so it first
     proves BOTH of them against a named ref of the checkout it was handed
@@ -848,17 +857,44 @@ def _tag_tree_readable(fails: Fails, top: str, tag: str) -> bool:
     )
 
 
+#: Where the scaffold records the release it writes into `min_astra_version`.
+SCAFFOLD_FLOOR_FILE = "astra-plugin-cli/src/templates/mod.rs"
+SCAFFOLD_FLOOR_RE = re.compile(
+    r'LABEL_RESOLVER_RELEASE:\s*&str\s*=\s*"([^"]+)"'
+)
+
+
+def _scaffold_floor(fails: Fails) -> str | None:
+    """The release `astra-plugin new` tells authors to require, or None."""
+    path = ROOT / SCAFFOLD_FLOOR_FILE
+    try:
+        found = SCAFFOLD_FLOOR_RE.search(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        fails.check(False, f"C22 {SCAFFOLD_FLOOR_FILE} is readable", str(exc))
+        return None
+    if not found:
+        fails.check(
+            False,
+            "C22 the scaffold still names the release that resolves labels",
+            f"No `LABEL_RESOLVER_RELEASE` in {SCAFFOLD_FLOOR_FILE}.\n"
+            "That constant is the version `generate_manifest` writes into a scaffolded\n"
+            "`min_astra_version`, and this rule exists to prove it names a release that\n"
+            "really resolves plugin labels. Renaming it is fine; deleting it means the\n"
+            "coupling is unchecked, which is how the scaffold drifted before.",
+        )
+        return None
+    return found.group(1)
+
+
 def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> None:
     if astra is None:
         print("C22 NOT VERIFIED: no Astra checkout at "
-              f"{_default_astra_hint()}. Nothing here can see whether a RELEASED")
-        print("        Astra resolves a plugin's action, trigger and UI labels yet.")
-        print("        Until one does, `astra-plugin new` scaffolds LITERAL English on")
-        print("        that surface on purpose: a `$key` there is not rendered by a")
-        print("        daemon that does not resolve it — it is shown to the user as it")
-        print("        stands. The flip is a two-line change in")
-        print("        astra-plugin-cli/src/templates/mod.rs and it is gated on a")
-        print("        release, not on a merge.")
+              f"{_default_astra_hint()}. Nothing here can see whether the release")
+        print("        `astra-plugin new` names in `min_astra_version` really resolves a")
+        print("        plugin's action and trigger labels. The scaffold emits `$keys` on")
+        print("        that surface and the floor is the only thing keeping them off a")
+        print("        daemon that would show the key instead, so the two are checked")
+        print("        against a real tag or they are not checked at all.")
         fails.skip("C22", "no Astra checkout")
         return
 
@@ -897,32 +933,48 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> 
         fails.skip("C22", "no release tags in the Astra checkout")
         return
 
-    newest = tags[0]
-    if not _tag_tree_readable(fails, top, newest):
+    floor = _scaffold_floor(fails)
+    if floor is None:
         return
-    blob = subprocess.run(["git", "-C", top, "show", f"{newest}:{RESOLVER_FILE}"],
+
+    tag = f"v{floor}"
+    if tag not in tags:
+        fails.check(
+            False,
+            f"C22 the scaffold's floor names a release that exists ({tag})",
+            f"{SCAFFOLD_FLOOR_FILE} says `min_astra_version = \"{floor}\"` and this\n"
+            f"checkout has no `{tag}`. Newest it does have: {tags[0]}.\n"
+            "A floor nobody can install is worse than no floor: `astra-plugin new`\n"
+            "would scaffold a plugin every daemon in the world refuses. Either the tag\n"
+            "is unfetched (CI does `fetch --depth=1 origin '+refs/tags/v*:refs/tags/v*'`)\n"
+            "or the constant names a version Astra never released.",
+        )
+        return
+
+    if not _tag_tree_readable(fails, top, tag):
+        return
+    blob = subprocess.run(["git", "-C", top, "show", f"{tag}:{RESOLVER_FILE}"],
                           capture_output=True, text=True)
-    shipped = blob.returncode == 0 and RESOLVER_SYMBOL in blob.stdout
+    resolves = blob.returncode == 0 and RESOLVER_SYMBOL in blob.stdout
 
     fails.check(
-        not shipped,
-        f"C22 no released Astra resolves plugin labels yet (newest tag: {newest})",
-        f"{newest} carries `{RESOLVER_SYMBOL}` in {RESOLVER_FILE}.\n"
-        "THIS IS NOT A REGRESSION. It is the thing the scaffold has been waiting\n"
-        "for, and this rule fails so that nobody has to remember it:\n"
-        "  1. astra-plugin-cli/src/templates/mod.rs — `generate_locales`' doc block\n"
-        "     states the condition; the generated action/trigger/UI labels become\n"
-        f"    `key(\"…\")` and `generate_manifest` starts writing\n"
-        f"     min_astra_version = \"{newest.lstrip('v')}\".\n"
-        "  2. The E17 message in astra-plugin-cli/src/commands/locale.rs says there\n"
-        "     is no release to name. There is now — name it.\n"
-        "  3. Update RESOLVER_SYMBOL here only if the daemon renamed it; do not\n"
-        "     silence this by pointing it at something that is still absent.",
+        resolves,
+        f"C22 the release the scaffold requires resolves plugin labels ({tag})",
+        f"{tag} does NOT carry `{RESOLVER_SYMBOL}` in {RESOLVER_FILE}, and it is the\n"
+        f"version {SCAFFOLD_FLOOR_FILE} writes into every scaffolded\n"
+        "`min_astra_version`.\n"
+        "So `astra-plugin new` currently produces a plugin whose action and trigger\n"
+        "labels are `$keys`, and whose floor admits a daemon that renders them as the\n"
+        "keys themselves — the exact failure the floor exists to prevent, with the\n"
+        "manifest claiming otherwise.\n"
+        "Raise LABEL_RESOLVER_RELEASE to the first release that does carry it, or —\n"
+        "if serve-time resolution was withdrawn — put the scaffold back to literal\n"
+        "English and drop the floor with it.",
     )
-    if not shipped:
-        print(f"        {newest} does not carry `{RESOLVER_SYMBOL}`. The scaffold's literal")
-        print("        English labels are still the right answer, and this line is the")
-        print("        evidence rather than a memory.")
+    if resolves:
+        print(f"        {tag} carries `{RESOLVER_SYMBOL}`, so the scaffold's `$key` labels")
+        print(f"        render as labels on every daemon its own manifest admits. Newest")
+        print(f"        release in this checkout: {tags[0]}.")
 
 
 # ── main ─────────────────────────────────────────────────────────────────────

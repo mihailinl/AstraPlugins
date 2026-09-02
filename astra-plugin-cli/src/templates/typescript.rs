@@ -124,15 +124,17 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         sections.push_str(
             r#"
   actions: {
-    say_something: action({
-      label: "Say Something",
+    do_something: action({
+      // DECLARED plane: the DAEMON resolves this key, per request, in the
+      // user's language. It must be in locales/en.json or the command editor
+      // shows the key. `key("…")` from the SDK builds the same string.
+      label: "$action.do_something.label",
       // `fields` is what the command editor renders; `params` types the
       // handler. Keep the two describing the same values.
       fields: [Field.text("message", "Message", { placeholder: "Hello" })],
       params: s.object({ message: s.string() }),
       // RUNTIME plane, unlike the label above: this process produces the
-      // string, so it resolves it — now, in the user's language, with a count
-      // no daemon can know. The keys are in locales/en.json.
+      // string, so it resolves it — here, now, with a count no daemon knows.
       run: ({ message }, ctx) => `${ctx.i18n.tn("msg.done", 1, { n: "1" })}: ${message}`,
     }),
   },
@@ -146,7 +148,8 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
   triggers: {
     // Fire it from anywhere with `ctx.fireTrigger("something_happened", {...})`.
     something_happened: {
-      label: "Something Happened",
+      // A key too, resolved by the daemon. See the action's label above.
+      label: "$trigger.something_happened.label",
       fields: [],
     },
   },
@@ -176,6 +179,11 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
   ui: {
     // The iframes this plugin puts in Astra's window. `url` is served from the
     // plugin's own bundle.
+    // Literal English, unlike the labels above, and the reason is the
+    // scaffold rather than the daemon: one locales/en.json serves all three
+    // language templates and the Python one declares no contribution to hang a
+    // `ui.*` key off. Astra resolves this one too — make it
+    // `key("ui.main.label")` and add the key when you translate it.
     contributions: [UiContrib.page("main", "My Plugin", "web/index.html")],
     // Reachable from that iframe as `astra.call("ping", {})`. Push data the
     // other way with `ctx.pushToUi(...)`.

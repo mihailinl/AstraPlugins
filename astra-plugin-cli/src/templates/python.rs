@@ -117,14 +117,19 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         imports.push("action");
         methods.push_str(
             r#"
-    @action("Say Hello")
-    async def say_hello(self, name: str = "world"):
+    @action("$action.do_something.label")
+    async def do_something(self, name: str = "world"):
         # An action is what the user drags into a command; its parameters render
         # as the fields of the editor. TODO: make it do something.
         #
-        # RUNTIME plane, unlike the label above: this process produces the
-        # string, so it resolves it — now, in the user's language, with a count
-        # no daemon can know. The keys are in locales/en.json.
+        # DECLARED plane: the label above is a key and the DAEMON resolves it,
+        # per request, in the user's language. It has to be in locales/en.json
+        # or the command editor shows the key — `astra-plugin check` says so
+        # first. `i18n.key("…")` builds the same string; a literal is clearer
+        # in a decorator.
+        #
+        # RUNTIME plane, unlike that label: this process produces the string
+        # below, so it resolves it — here, now, with a count no daemon knows.
         return self.i18n.tn("msg.done", 1, n="1")
 "#,
         );
@@ -134,12 +139,13 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         imports.push("trigger");
         methods.push_str(
             r#"
-    @trigger("On Hello")
-    async def on_hello(self):
-        # Declares the trigger. To FIRE it, call
-        # `await self.host.fire_trigger("on_hello", {})` from wherever the event
-        # happens — and declare `fire_trigger` under `[permissions]` in
-        # plugin.toml, or the daemon refuses the call.
+    @trigger("$trigger.something_happened.label")
+    async def something_happened(self):
+        # Declares the trigger; the label is a key the daemon resolves, like the
+        # action's. To FIRE it, call
+        # `await self.host.fire_trigger("something_happened", {})` from wherever
+        # the event happens — and declare `fire_trigger` under `[permissions]`
+        # in plugin.toml, or the daemon refuses the call.
         pass
 "#,
         );

@@ -128,12 +128,19 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         members.push(Member::new(
             Some("actions"),
             r#"    /// Run this action from a command. Shown in the command editor.
-    #[action(label = "Do Something")]
+    ///
+    /// DECLARED plane: the label is a key and the DAEMON resolves it, per
+    /// request, in whatever language the user is running. `#[action]` takes a
+    /// string literal, so the `$` is written out rather than built with
+    /// `i18n::key(..)` — same string either way. It must exist in
+    /// `locales/en.json` or the editor shows the key; `astra-plugin check`
+    /// says so before a user ever sees it.
+    #[action(label = "$action.do_something.label")]
     async fn do_something(&self, ctx: &PluginContext) -> Result<String, ActionError> {
         ctx.host().log_info("do_something ran").await?;
         // RUNTIME plane, unlike the label above: the plugin produces this
-        // string, so the plugin translates it. The label is DECLARED and stays
-        // literal English until a released Astra resolves plugin keys.
+        // string, so the plugin translates it — here, now, with a count no
+        // daemon can know.
         let n = 1;
         Ok(ctx.i18n().tn("msg.done", n, &[("n", &n.to_string())]))
     }"#,
@@ -150,7 +157,9 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     async fn trigger_types(&self) -> Vec<TriggerTypeDef> {
         vec![TriggerTypeDef {
             r#type: "something_happened".into(),
-            label: "Something happened".into(),
+            // DECLARED plane, resolved by the daemon. `key` just writes the
+            // `$`; the key has to be in `locales/en.json`.
+            label: key("trigger.something_happened.label"),
             ..Default::default()
         }]
     }"#,
@@ -297,6 +306,13 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     /// plugin's own `web/` directory.
     #[hook]
     async fn ui_contributions(&self) -> Vec<UiContribution> {
+        // Literal English, unlike the action and trigger labels above, and
+        // the reason is the scaffold rather than the daemon: one `locales/
+        // en.json` serves all three language templates, and the Python one
+        // declares no contribution to hang a `ui.*` key off. Seeding one
+        // anyway would hand a Python author a key nothing in their plugin
+        // resolves. Make it `key("ui.main.label")` and add the key when you
+        // translate this — Astra resolves it.
         vec![UiContribution::page("main", "My Plugin", "web/index.html")]
     }
 

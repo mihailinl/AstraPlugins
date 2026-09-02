@@ -1104,10 +1104,11 @@ fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut
                          that resolves\n\
                          \x20           these, so an older daemon refuses to install rather than \
                          showing a key.\n\
-                         \x20           That release is not published yet, so there is no number \
-                         to write\n\
-                         \x20           today — this CLI will not invent one for you.",
-                        c.id
+                         \x20           That release is Astra {resolver}, and it is what \
+                         `astra-plugin new`\n\
+                         \x20           now writes into a scaffold that declares keys.",
+                        c.id,
+                        resolver = crate::templates::LABEL_RESOLVER_RELEASE,
                     ),
                 );
             } else {
@@ -1115,9 +1116,11 @@ fn check_declared_plane(dir: &Path, m: &PluginManifest, set: &LocaleSet, f: &mut
                     "N6",
                     format!(
                         "[[ui.contributions]] '{}' has label `${key}` and requires Astra {} or \
-                         newer. Serve-time resolution of UI labels is newer than the current \
-                         Astra release — make sure the version you named is one that has it.",
-                        c.id, m.plugin.min_astra_version
+                         newer. Astra {} is the first release that resolves UI labels — a floor \
+                         below it installs on a daemon that shows the key instead.",
+                        c.id,
+                        m.plugin.min_astra_version,
+                        crate::templates::LABEL_RESOLVER_RELEASE
                     ),
                 );
             }
