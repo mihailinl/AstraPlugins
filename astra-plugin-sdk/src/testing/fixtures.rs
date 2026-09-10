@@ -186,6 +186,9 @@ pub fn firehose_events() -> Vec<proto::FirehoseEventMsg> {
         .into_iter()
         .map(|event| proto::FirehoseEventMsg {
             conversation_id: conversation_id.clone(),
+            // Not a replay: these fixtures are a live turn. `backlog` is true
+            // only for events the daemon re-sends to satisfy a cursor.
+            backlog: false,
             event: Some(event),
         })
         .collect()
@@ -197,6 +200,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
     vec![
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
+            backlog: false,
             event: Some(evt(
                 1,
                 E::AssistantStart(proto::AssistantStartEvt {
@@ -207,11 +211,15 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
         },
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
+            backlog: false,
             event: Some(evt(
                 2,
                 E::Error(proto::ErrorEvt {
                     message_id: "msg-2".into(),
                     content: "provider returned 429".into(),
+                    // A provider 429 carries no typed code; the daemon leaves
+                    // it empty for anything it has not classified.
+                    code: String::new(),
                 }),
             )),
         },
@@ -219,6 +227,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
         // variant prost cannot name. A plugin must ignore it, not panic.
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
+            backlog: false,
             event: Some(proto::ConversationEventMsg {
                 seq: 3,
                 ..Default::default()

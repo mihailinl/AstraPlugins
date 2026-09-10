@@ -1840,6 +1840,7 @@ mod tests {
             .call_tool(proto::PluginCallToolRequest {
                 tool_name: "ask".into(),
                 arguments_json: "{}".into(),
+                invocation: None,
             })
             .await
             .expect("a failed tool call is still a successful RPC")
@@ -1883,6 +1884,7 @@ mod tests {
             let mut req = tonic::Request::new(proto::PluginCallToolRequest {
                 tool_name: "roll_dice".into(),
                 arguments_json: "{}".into(),
+                invocation: None,
             });
             if let Some(cause) = cause {
                 req.metadata_mut()

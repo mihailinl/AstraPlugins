@@ -74,6 +74,7 @@ async fn roll(harness: &WireHarness, cause: Option<&str>) {
     let mut request = harness.request(astra_plugin_sdk::proto::PluginCallToolRequest {
         tool_name: "roll_dice".into(),
         arguments_json: "{}".into(),
+        invocation: None,
     });
     if let Some(cause) = cause {
         request

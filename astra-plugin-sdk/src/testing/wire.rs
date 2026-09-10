@@ -656,6 +656,7 @@ impl WireHarness {
             .call_tool(self.request(proto::PluginCallToolRequest {
                 tool_name: tool_name.to_string(),
                 arguments_json: arguments_json.to_string(),
+                invocation: None,
             }))
             .await?;
         Ok(resp.into_inner())
@@ -672,6 +673,7 @@ impl WireHarness {
             .execute_action(self.request(proto::PluginExecuteActionRequest {
                 action_type: action_type.to_string(),
                 params_json: params_json.to_string(),
+                invocation: None,
             }))
             .await?;
         Ok(resp.into_inner())

@@ -76,6 +76,16 @@ class CoreServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.GetLogLocation = channel.unary_unary(
+                '/astra.CoreService/GetLogLocation',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.LogLocationResponse.FromString,
+                _registered_method=True)
+        self.CollectLogs = channel.unary_unary(
+                '/astra.CoreService/CollectLogs',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.LogBundleResponse.FromString,
+                _registered_method=True)
 
 
 class CoreServiceServicer(object):
@@ -147,6 +157,31 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetLogLocation(self, request, context):
+        """Where this daemon's logs are. Asked by Settings -> About so a user can
+        find them without being told to go looking in an OS config directory —
+        and the daemon is the only process that knows, since it owns `Paths`.
+        Strings only, so the Electron shell needs no handler of its own.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CollectLogs(self, request, context):
+        """Put every log worth sending into ONE archive and say where it is.
+
+        GetLogLocation names a FOLDER, and a folder is not an answer to "which
+        file do I send you?": it holds a fortnight of daily daemon logs, the
+        overlay's beside them, and a tool-search directory. Support asked for
+        "the log" and got one day of one process, or nothing.
+
+        Strings and scalars only, same wire discipline as GetLogLocation, so the
+        Electron shell still needs no handler of its own.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -189,6 +224,16 @@ def add_CoreServiceServicer_to_server(servicer, server):
                     servicer.ToggleOverlay,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'GetLogLocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLogLocation,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.LogLocationResponse.SerializeToString,
+            ),
+            'CollectLogs': grpc.unary_unary_rpc_method_handler(
+                    servicer.CollectLogs,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.LogBundleResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -409,6 +454,60 @@ class CoreService(object):
             '/astra.CoreService/ToggleOverlay',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetLogLocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/GetLogLocation',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.LogLocationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CollectLogs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/CollectLogs',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.LogBundleResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3343,6 +3442,16 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.ListBrowsersResponse.FromString,
                 _registered_method=True)
+        self.StartIndexer = channel.unary_unary(
+                '/astra.ConfigService/StartIndexer',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.StartIndexerResponse.FromString,
+                _registered_method=True)
+        self.RescanIndex = channel.unary_unary(
+                '/astra.ConfigService/RescanIndex',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.StartIndexerResponse.FromString,
+                _registered_method=True)
 
 
 class ConfigServiceServicer(object):
@@ -3541,6 +3650,35 @@ class ConfigServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StartIndexer(self, request, context):
+        """Start the Astra indexer PROCESS without touching its scheduled task —
+        the retry for a launch SmartScreen refused. Distinct from writing
+        general.indexing_mode: that path re-registers the task, prompts for UAC,
+        and is a NO-OP once the task exists, which is exactly the state a
+        blocked launch leaves behind. Never fails with a Status: `reason` is a
+        STABLE CODE the UI translates, never a shell sentence.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RescanIndex(self, request, context):
+        """Rebuild the whole file index from scratch. THE recovery path for a drive
+        the indexer has left unindexed — a scan the user stopped, a scan that
+        failed, a USN journal the OS recreated. Without it the only repairs were
+        waiting for the next logon or deleting the index by hand, which is not
+        something a product can ask of anyone.
+
+        Starts the indexer first when it is not running, because "nothing is
+        listening on the pipe" is the same request with one more step. Answers as
+        soon as the scan is QUEUED; watch its progress on the background-tasks
+        row, which mirrors this scan like any other. Same response shape and the
+        same stable `reason` codes as StartIndexer, plus `rescan_failed`.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ConfigServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -3668,6 +3806,16 @@ def add_ConfigServiceServicer_to_server(servicer, server):
                     servicer.ListBrowsers,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.ListBrowsersResponse.SerializeToString,
+            ),
+            'StartIndexer': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartIndexer,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.StartIndexerResponse.SerializeToString,
+            ),
+            'RescanIndex': grpc.unary_unary_rpc_method_handler(
+                    servicer.RescanIndex,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.StartIndexerResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -4345,6 +4493,60 @@ class ConfigService(object):
             '/astra.ConfigService/ListBrowsers',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.ListBrowsersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartIndexer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/StartIndexer',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.StartIndexerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RescanIndex(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/RescanIndex',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.StartIndexerResponse.FromString,
             options,
             channel_credentials,
             insecure,
