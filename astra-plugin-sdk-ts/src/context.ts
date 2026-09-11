@@ -26,6 +26,7 @@
 import type { Host } from "./host.js";
 import type { I18n } from "./i18n.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
+import { currentInvocation, type Invocation } from "./invocation.js";
 
 /** What a handler is given. Cheap to hold: it reads through to the plugin. */
 export interface PluginContext {
@@ -39,6 +40,26 @@ export interface PluginContext {
   readonly activeTriggers: ReadonlySet<string>;
   /** The daemon, or `null` before registration / in a level-1 harness with none. */
   readonly host: Host | null;
+  /**
+   * Which conversation made THIS call, when one did.
+   *
+   * Present only inside a tool call or an action that a conversation's turn
+   * triggered. `undefined` everywhere else, and `undefined` is several
+   * situations at once — see `./invocation.js` — none of which is a cue to
+   * guess a conversation.
+   *
+   * Optional on purpose: a plugin written before this existed keeps compiling,
+   * and one reading it has to handle the absent case, which is the common one.
+   *
+   * ```ts
+   * async callTool(name: string, argsJson: string) {
+   *   const id = this.ctx.invocation?.conversationId;
+   *   if (id) this.remember(id);          // safe to store, across restarts
+   *   return { result: "done" };
+   * }
+   * ```
+   */
+  readonly invocation?: Invocation;
   /**
    * This plugin's translations, for the **runtime** plane.
    *
@@ -111,6 +132,17 @@ export class PluginContextImpl implements PluginContext {
   }
   get i18n(): I18n {
     return this.source.i18n;
+  }
+  /**
+   * Read through to the per-call store rather than held on the context.
+   *
+   * A `PluginContext` is built once and handed to every hook, so a field set at
+   * construction would be the same value for concurrent calls from two
+   * different chats. `AsyncLocalStorage` follows the await chain of the one
+   * call being handled, which is the only scope that can be correct here.
+   */
+  get invocation(): Invocation | undefined {
+    return currentInvocation();
   }
 
   configValue<T>(key: string, fallback: T): T {

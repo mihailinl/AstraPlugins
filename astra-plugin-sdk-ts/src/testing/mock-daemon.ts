@@ -170,13 +170,20 @@ export class WirePlugin {
   callTool(
     toolName: string,
     args: Record<string, unknown> | string = {},
-    opts: { causedBy?: string } = {}
+    opts: { causedBy?: string; conversationId?: string | null } = {}
   ): Promise<ToolResult> {
     return this.unary<ToolResult>(
       "CallTool",
       {
         toolName,
         argumentsJson: typeof args === "string" ? args : JSON.stringify(args),
+        // The two halves travel differently and a test must be able to send
+        // either alone: `causedBy` is metadata, this is the request body.
+        // `null` sends an invocation message naming no conversation — a real
+        // thing on the wire, and it must reach the handler as `undefined`.
+        ...(opts.conversationId === undefined
+          ? {}
+          : { invocation: { conversationId: opts.conversationId ?? "" } }),
       },
       opts.causedBy === undefined ? undefined : { [X_ASTRA_CAUSE]: opts.causedBy }
     );
