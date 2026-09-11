@@ -57,6 +57,7 @@ from astra_plugin_sdk.protocol import (
     MIN_SUPPORTED_DAEMON_PROTOCOL,
     PROTOCOL_VERSION,
 )
+from astra_plugin_sdk.invocation import Invocation, current_invocation
 from astra_plugin_sdk.types import (
     AiChunk,
     AiCompleteRequest,
@@ -71,6 +72,9 @@ from astra_plugin_sdk.types import (
 
 __all__ = [
     "Plugin",
+    # ── which conversation called this handler ──
+    "Invocation",
+    "current_invocation",
     "HostClient",
     "HostClientBootstrap",
     "DaemonClient",
