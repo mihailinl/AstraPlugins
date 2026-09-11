@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 4417fd3fd8758f3ea0fe1930069d2fa3d2320b311571517fbbb3dca1ea538ee6
+// surface-sha256: 1862b344692398638aebb7483caceb2cb16c9a90aa3e2a04c42a58d853e2a0c3
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1444,7 +1444,15 @@ service VoiceService {
     // Delete a downloaded embedding model
     rpc DeleteEmbeddingModel(DeleteEmbeddingModelRequest) returns (Empty);
 
-    // Set the conversation ID for voice processing (binds voice to UI's active conversation)
+    // Bind voice to the conversation the CALLING client chose: the next
+    // utterance is dispatched there. There is one binding, daemon-wide, and
+    // the last accepted call sets it.
+    //   * "" = no conversation: the next utterance auto-creates one.
+    //   * An id that no longer exists is refused NOT_FOUND, with a status
+    //     message starting `conversation_gone`, and the existing binding is
+    //     left UNCHANGED — a stale push from one client must not clobber the
+    //     binding another client set. A malformed id is INVALID_ARGUMENT.
+    //   * Deleting the bound conversation resets the binding to auto-create.
     rpc SetVoiceConversation(SetVoiceConversationRequest) returns (Empty);
 
     // Set images to attach to the next voice utterance. Passing an empty list
@@ -1598,7 +1606,11 @@ message DeleteEmbeddingModelRequest {
 }
 
 message SetVoiceConversationRequest {
-    string conversation_id = 1;  // UUID string; empty = auto-create on next utterance
+    // The conversation the calling client chose, as a UUID string; "" = none,
+    // and the next utterance auto-creates one. An id that no longer exists is
+    // refused NOT_FOUND (`conversation_gone`) and changes nothing — see
+    // VoiceService.SetVoiceConversation.
+    string conversation_id = 1;
 }
 
 message SetVoicePendingImagesRequest {
@@ -4937,6 +4949,12 @@ message PluginToolListResponse {
 // What the daemon tells a plugin about the call it is making. It travels
 // OUTSIDE the argument document on purpose: `arguments_json` is the model's and
 // `params_json` is the user's automation's, and neither may choose it.
+//
+// It is sent only when the daemon holds an invocation lease for the call —
+// PluginCallToolRequest.invocation says exactly when it does not. Treat an
+// absent PluginInvocation, a conversation_id of "", and a daemon that predates
+// this message ALIKE: the call was not invoked from a conversation you can
+// answer in.
 message PluginInvocation {
     // The conversation whose assistant turn — or whose chat-matched command
     // run — made this call. A UUID you MAY store, across restarts, and send
@@ -4970,8 +4988,19 @@ message PluginCallToolRequest {
     string tool_name = 1;
     string arguments_json = 2;
 
-    // Set when a run caused this call. Absent when nothing did (a nested
-    // sub-agent's call) or the daemon predates this field. See PluginInvocation.
+    // Set when the daemon holds an invocation lease for this call: the model
+    // of a chat or voice turn, or of a command run, called your tool.
+    //
+    // ABSENT whenever it holds none, even though something plainly caused the
+    // call:
+    //   * the model of a nested sub-agent;
+    //   * the model of a command's "send to AI" step — even when the command
+    //     itself was matched in a conversation;
+    //   * a daemon that predates this field.
+    //
+    // Absent, a conversation_id of "", and an older daemon all mean the same
+    // thing: this call was not invoked from a conversation you can answer in.
+    // Never guess one. See PluginInvocation.
     PluginInvocation invocation = 3;
 }
 
@@ -5161,7 +5190,12 @@ message PluginExecuteActionRequest {
     string action_type = 1;
     string params_json = 2;
 
-    // As PluginCallToolRequest.invocation.
+    // Set when the daemon holds an invocation lease for this call: the
+    // command run executing your action. Absent when the action runs with no
+    // run behind it, or from a daemon that predates this field. As with
+    // PluginCallToolRequest.invocation, absent, a conversation_id of "", and an
+    // older daemon all mean the same thing: not invoked from a conversation
+    // you can answer in.
     PluginInvocation invocation = 3;
 }
 

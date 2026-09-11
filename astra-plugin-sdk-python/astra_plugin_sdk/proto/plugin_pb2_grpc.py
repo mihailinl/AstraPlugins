@@ -1530,7 +1530,15 @@ class VoiceServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SetVoiceConversation(self, request, context):
-        """Set the conversation ID for voice processing (binds voice to UI's active conversation)
+        """Bind voice to the conversation the CALLING client chose: the next
+        utterance is dispatched there. There is one binding, daemon-wide, and
+        the last accepted call sets it.
+        * "" = no conversation: the next utterance auto-creates one.
+        * An id that no longer exists is refused NOT_FOUND, with a status
+        message starting `conversation_gone`, and the existing binding is
+        left UNCHANGED — a stale push from one client must not clobber the
+        binding another client set. A malformed id is INVALID_ARGUMENT.
+        * Deleting the bound conversation resets the binding to auto-create.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
