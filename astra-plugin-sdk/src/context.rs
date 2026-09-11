@@ -165,6 +165,18 @@ pub trait Host: Send + Sync + 'static {
     /// return Ok("started".into());          // the turn can now finish
     /// ```
     ///
+    /// # Two things your text is not
+    ///
+    /// A message beginning `/` reaches the model as those literal characters.
+    /// A plugin cannot invoke a slash command by writing one, and cannot
+    /// supersede a person's turn by writing one.
+    ///
+    /// And the stream always ends. A line that reached the conversation but
+    /// that no turn will answer ends it with an error chunk — `INTERNAL`,
+    /// *"this message reached the conversation, but no turn will answer it"* —
+    /// whose hint says not to resend. It was delivered; sending it again posts
+    /// it twice.
+    ///
     /// # When the conversation is gone
     ///
     /// A stored id can name a deleted conversation. That is refused, never

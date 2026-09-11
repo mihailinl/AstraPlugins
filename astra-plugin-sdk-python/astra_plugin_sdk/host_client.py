@@ -258,6 +258,14 @@ class HostClient:
                 asyncio.create_task(self._answer_later(inv.conversation_id))
             return "started"          # the turn can now finish
 
+        **Your text is text.** A message beginning ``/`` reaches the model as
+        those literal characters — a plugin cannot invoke a slash command by
+        writing one, nor supersede a person's turn. And the stream always ends:
+        a line that reached the conversation but that no turn will answer ends
+        it with an error chunk (``INTERNAL``, *"this message reached the
+        conversation, but no turn will answer it"*) whose hint says not to
+        resend.
+
         **When the conversation is gone** the send is refused, never redirected.
         ``StatusCode.NOT_FOUND`` with a message beginning ``conversation_gone:``
         means it was deleted — forget the id and fall back to your own thread.

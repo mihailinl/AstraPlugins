@@ -183,6 +183,18 @@ type nine things while waiting for one answer. Nine is reachable only by a
 client in a loop, and the ceiling exists so that a loop cannot turn into
 unbounded memory holding somebody's words.
 
+**The stream always ends**, including in the case that used to be silence. A
+line that reached the conversation but that no turn will ever answer ends the
+stream with an error chunk — `INTERNAL`, *"this message reached the conversation,
+but no turn will answer it"* — and its hint says the same thing the shape does:
+**do not resend**. The message is not lost and sending it again would post it
+twice.
+
+**Your text is text, never a command.** A message beginning `/` — `/help`,
+`/reset`, anything — reaches the model as those literal characters. A plugin
+cannot invoke a slash command by writing one, and cannot supersede a person's
+turn by writing one either. Sending `/stop` stops nothing; it says the word.
+
 **The pattern that is right on every daemon**: wait for `done` before sending
 again. On builds older than the queue, a message sent while a turn was running
 cut that turn short — a tool call in flight was abandoned and its result never
