@@ -349,6 +349,42 @@ impl<P: PluginCapability> Running<P> {
         self.plugin.call_tool(&self.ctx, name, args).await
     }
 
+    /// Call one tool as a conversation's turn would — the handler's
+    /// `ctx.invocation()` answers `Some`, with this conversation on it.
+    ///
+    /// `None` is the empty-string case the daemon also sends, and it must reach
+    /// the handler as `None`: a plugin cannot be given an id that resolves to
+    /// nothing.
+    pub async fn call_tool_from(
+        &self,
+        name: &str,
+        args: impl serde::Serialize,
+        conversation: Option<&str>,
+    ) -> Result<String, ToolError> {
+        let args = serde_json::to_string(&args).map_err(ToolError::from)?;
+        let ctx = self
+            .ctx
+            .clone()
+            .with_invocation(Some(crate::Invocation::new(conversation)));
+        self.plugin.call_tool(&ctx, name, &args).await
+    }
+
+    /// `execute_action` as a conversation's turn would call it. See
+    /// [`call_tool_from`](Self::call_tool_from).
+    pub async fn execute_action_from(
+        &self,
+        action_type: &str,
+        params: impl serde::Serialize,
+        conversation: Option<&str>,
+    ) -> Result<String, crate::ActionError> {
+        let params = serde_json::to_string(&params).map_err(crate::ActionError::from)?;
+        let ctx = self
+            .ctx
+            .clone()
+            .with_invocation(Some(crate::Invocation::new(conversation)));
+        self.plugin.execute_action(&ctx, action_type, &params).await
+    }
+
     // ── actions, triggers, UI ──
 
     /// `action_types()`.

@@ -216,3 +216,111 @@ async fn a_host_written_before_leases_existed_still_compiles_and_fires() {
         .await
         .expect("the default drops the cause rather than failing the fire");
 }
+
+// ── the lease and the invocation are two different facts on one call ─────────
+//
+// They arrive by different routes and must not be able to stand in for each
+// other: the lease is gRPC METADATA (`x-astra-cause`) and says *what run* is
+// calling; the invocation is a field in the request BODY and says *which
+// conversation* that run belongs to. A call can carry either, both or neither.
+//
+// The SDK reads them at two different moments for a mechanical reason —
+// `scoped()` runs while the request is still a `tonic::Request` and can only
+// see metadata; the invocation is not readable until `into_inner()`. A test
+// that exercised only one of them would not notice the second read being
+// dropped, or overwriting the first.
+
+/// Records what `ctx.invocation()` said, so a test can assert on it after the
+/// RPC has answered.
+#[derive(Clone, Default)]
+struct SeenInvocation(Arc<std::sync::Mutex<Vec<Option<String>>>>);
+
+struct Reporter(SeenInvocation);
+
+#[astra_plugin_sdk::async_trait]
+impl PluginCapability for Reporter {
+    type Config = NoConfig;
+
+    async fn call_tool(
+        &self,
+        ctx: &PluginContext,
+        _name: &str,
+        _args: &str,
+    ) -> Result<String, ToolError> {
+        self.0
+             .0
+            .lock()
+            .unwrap()
+            .push(ctx.invocation().and_then(|i| i.conversation()).map(str::to_string));
+        // Fire as well, so one call can be asked both questions.
+        let host = ctx.host().clone();
+        tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            let _ = host.fire_trigger("on_roll_value", "{}").await;
+        });
+        Ok("ok".into())
+    }
+}
+
+#[tokio::test]
+async fn a_lease_and_an_invocation_on_one_call_are_read_back_independently() {
+    let seen = SeenInvocation::default();
+    let harness = WireHarness::start(Reporter(seen.clone())).await.unwrap();
+
+    let mut request = harness.request(astra_plugin_sdk::proto::PluginCallToolRequest {
+        tool_name: "roll_dice".into(),
+        arguments_json: "{}".into(),
+        invocation: Some(astra_plugin_sdk::proto::PluginInvocation {
+            conversation_id: "conv-7".into(),
+        }),
+    });
+    request
+        .metadata_mut()
+        .insert(X_ASTRA_CAUSE, "lease-xyz".parse().unwrap());
+    harness.client().call_tool(request).await.unwrap();
+    wait_for_fires(&harness, 1).await;
+
+    assert_eq!(
+        seen.0.lock().unwrap().as_slice(),
+        [Some("conv-7".to_string())],
+        "the body's conversation must reach the handler's context"
+    );
+    assert_eq!(
+        harness.fired_triggers()[0].caused_by.as_deref(),
+        Some("lease-xyz"),
+        "and attaching the invocation must not have cost the metadata lease"
+    );
+}
+
+#[tokio::test]
+async fn an_invocation_with_no_lease_still_reaches_the_handler() {
+    // The case the review caught: a run that HAS a conversation but no lease —
+    // the two are independent, so neither implies the other.
+    let seen = SeenInvocation::default();
+    let harness = WireHarness::start(Reporter(seen.clone())).await.unwrap();
+
+    harness
+        .call_tool_from("roll_dice", "{}", Some("conv-8"))
+        .await
+        .unwrap();
+
+    assert_eq!(seen.0.lock().unwrap().as_slice(), [Some("conv-8".to_string())]);
+}
+
+#[tokio::test]
+async fn an_empty_conversation_id_is_no_conversation_at_all() {
+    // `""` is how a daemon spells "not from a conversation" in a message it
+    // still sends. Handing a plugin `Some("")` would give it an id that can
+    // never resolve, and it must be indistinguishable from an absent message.
+    let seen = SeenInvocation::default();
+    let harness = WireHarness::start(Reporter(seen.clone())).await.unwrap();
+
+    harness.call_tool_from("roll_dice", "{}", None).await.unwrap();
+    harness.call_tool("roll_dice", "{}").await.unwrap();
+
+    assert_eq!(
+        seen.0.lock().unwrap().as_slice(),
+        [None, None],
+        "an empty invocation and an absent one are the same answer"
+    );
+}

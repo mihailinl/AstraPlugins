@@ -787,6 +787,19 @@ impl<P: PluginCapability> CapabilityServiceImpl<P> {
     }
 }
 
+/// The invocation a plugin-bound request carries, as the SDK's own type.
+///
+/// `None` for an absent message and for one whose `conversation_id` is empty —
+/// the wire spells "not from a conversation" both ways depending on the
+/// daemon's age, and a plugin must not be able to tell them apart.
+fn invocation_of(invocation: Option<&proto::PluginInvocation>) -> Option<crate::Invocation> {
+    let inv = crate::Invocation::new(invocation.map(|i| i.conversation_id.clone()));
+    // `Invocation::new` drops an empty string, so an invocation that named
+    // nothing is indistinguishable from no invocation at all — which is what
+    // both mean.
+    inv.conversation().is_some().then_some(inv)
+}
+
 /// Run one hook, turning a panic into a `Status` the daemon can log.
 ///
 /// `INTERNAL`, never `UNIMPLEMENTED`: the daemon reads the latter as *this hook
@@ -843,6 +856,10 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
     ) -> Result<tonic::Response<proto::PluginCallToolResponse>, tonic::Status> {
         let ctx = self.scoped(&request);
         let req = request.into_inner();
+        // The lease is in the metadata and `scoped` already read it; the
+        // invocation is in the BODY, so it can only be attached once the
+        // message has been taken out of the request.
+        let ctx = ctx.with_invocation(invocation_of(req.invocation.as_ref()));
         // In-band, not `Status`: a tool that failed still ANSWERED, and the AI
         // loop has to read the answer. `wire_string()` prefixes the stable code
         // so "NOT_CONFIGURED" survives the trip through a `string error` field.
@@ -1220,6 +1237,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
     ) -> Result<tonic::Response<proto::PluginExecuteActionResponse>, tonic::Status> {
         let ctx = self.scoped(&request);
         let req = request.into_inner();
+        let ctx = ctx.with_invocation(invocation_of(req.invocation.as_ref()));
         let resp = match caught_tool(
             "execute_action",
             self.plugin
