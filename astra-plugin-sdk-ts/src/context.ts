@@ -83,6 +83,36 @@ export interface PluginContext {
   setVariable(name: string, value: string, scope?: string): Promise<void>;
   pushToUi(event: string, payload?: Record<string, unknown>): Promise<void>;
   setThemeContribution(theme: ThemeContribution): Promise<void>;
+  /**
+   * Send a chat message as this plugin and stream the assistant's reply.
+   *
+   * **Where it lands.** An empty `conversationId` posts to this plugin's own
+   * durable thread, which is the right default for anything that is not an
+   * answer to a specific call. Pass one only when you were TOLD it: the chunks
+   * of a reply you are streaming carry it, and so does `ctx.invocation` inside
+   * a tool call or an action. An id from an invocation may be stored, across
+   * restarts, and sent back later.
+   *
+   * **Never await this inside the call that told you the id.** It is a
+   * deadlock, not a slow path. The conversation that invoked your tool is still
+   * running the turn waiting for your answer; a message declares an intent for
+   * the *next* turn, so it queues behind the one that cannot finish until you
+   * return. Start it and do not await it:
+   *
+   * ```ts
+   * const id = ctx.invocation?.conversationId;
+   * if (id) void (async () => { for await (const _ of ctx.sendChatMessage("done", { conversationId: id })); })();
+   * return { result: "started" };          // the turn can now finish
+   * ```
+   *
+   * **When the conversation is gone** the send is refused, never redirected:
+   * `NOT_FOUND` (`err.code === 5`) whose message begins `conversation_gone:`
+   * means it was deleted — forget the id. `INVALID_ARGUMENT` means the id is
+   * not a UUID, or names a chat an Astra surface owns. A message accepted and
+   * then outlived by its chat ends the stream with an error chunk whose
+   * `errorDetail.code` is `PLUGIN_ERROR_NOT_FOUND`. An older daemon says
+   * `INTERNAL`, "chat processing failed: conversation … does not exist".
+   */
   sendChatMessage(
     text: string,
     opts?: { conversationId?: string; voiceEnabled?: boolean }

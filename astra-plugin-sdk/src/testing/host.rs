@@ -40,7 +40,7 @@ pub struct FiredTrigger {
     /// at `on_start`, genuinely has no cause. It is `Some` only when the fire
     /// happened through the context the runner scoped to a daemon call — which
     /// is what decides whether the trigger's output reaches the conversation
-    /// the user is looking at.
+    /// that made the call.
     pub caused_by: Option<String>,
 }
 

@@ -150,7 +150,7 @@ documentation said otherwise because they landed late.
 ## Where a fired trigger's output goes
 
 A trigger you fire while handling a call from Astra is attributed to that call,
-so whatever it causes lands in the conversation the user is actually looking at.
+so whatever it causes lands in the conversation that made the call.
 **You write nothing for this**, and it holds across `await`, `setTimeout` and
 promise chains — including through `ctx.fireTrigger`, `ctx.host.fireTrigger`
 and `this.fireTrigger` on a `Plugin` subclass, which all reach the same

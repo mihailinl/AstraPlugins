@@ -133,6 +133,48 @@ pub trait Host: Send + Sync + 'static {
     /// plugin session token is scoped to `PluginHostService`, so the
     /// `ChatService` route through [`Daemon`] answers `PERMISSION_DENIED` unless
     /// the daemon also granted a client session.
+    ///
+    /// # Where it lands
+    ///
+    /// An empty `conversation_id` posts to this plugin's own durable thread,
+    /// which is the right default for anything that is not an answer to a
+    /// specific call. Pass an id only when you were TOLD one: the chunks of a
+    /// reply you are streaming carry it, and so does
+    /// [`PluginContext::invocation`] inside a tool call or an action. An id from
+    /// an invocation may be stored, across restarts, and sent back later.
+    ///
+    /// # Never await this inside the call that told you the id
+    ///
+    /// **This is a deadlock, not a slow path.** The conversation that invoked
+    /// your tool is still running the turn that is waiting for your answer. A
+    /// message declares an intent for the *next* turn, so it queues behind that
+    /// one — and the turn cannot finish until your tool returns. Awaiting the
+    /// reply from inside the handler waits for a turn that is waiting for you,
+    /// and the call times out.
+    ///
+    /// Spawn it, or send later:
+    ///
+    /// ```ignore
+    /// let host = ctx.host().clone();
+    /// let id = ctx.invocation().and_then(|i| i.conversation()).map(str::to_string);
+    /// tokio::spawn(async move {
+    ///     if let Some(id) = id {
+    ///         let _ = host.send_chat_message("done", &id, false).await;
+    ///     }
+    /// });
+    /// return Ok("started".into());          // the turn can now finish
+    /// ```
+    ///
+    /// # When the conversation is gone
+    ///
+    /// A stored id can name a deleted conversation. That is refused, never
+    /// redirected: `NOT_FOUND` whose message begins `conversation_gone:` —
+    /// forget the id and fall back to your own thread. `INVALID_ARGUMENT` means
+    /// the id is not a UUID, or names a chat an Astra surface owns. A message
+    /// that was accepted and then outlived its chat ends the stream with an
+    /// error chunk whose `error_detail.code` is `PLUGIN_ERROR_NOT_FOUND`. A
+    /// daemon older than this contract says `INTERNAL`, *"chat processing
+    /// failed: conversation … does not exist"*, for the same situation.
     async fn send_chat_message(
         &self,
         text: &str,
@@ -502,7 +544,7 @@ impl PluginContext {
     ///
     /// While a handler is running this is the *scoped* host: a trigger fired
     /// through it names the daemon call that caused it, so its output lands in
-    /// the conversation the user is actually looking at. That property rides in
+    /// the conversation that made the call. That property rides in
     /// the `Arc` and therefore survives `clone()` and `tokio::spawn` — which it
     /// has to, because the shipped reference idiom fires from a detached task
     /// (`examples/dice-roller/src/main.rs`). Everywhere else — [`ctx()`], a host
