@@ -136,7 +136,7 @@ async fn the_tool_schemas_are_the_argument_types() {
     let h = dice().start().await.unwrap();
 
     let names: Vec<String> = h.tools().await.into_iter().map(|t| t.name).collect();
-    assert_eq!(names, ["roll_dice", "coin_flip"]);
+    assert_eq!(names, ["roll_dice", "roll_and_announce", "coin_flip"]);
 
     let roll = h.schema("roll_dice").await;
     roll.assert_is_a_parameters_object();
@@ -219,7 +219,7 @@ async fn the_daemon_can_start_it_call_it_and_receive_its_triggers() {
     assert_eq!(reg.capabilities, ["tools", "actions", "triggers"]);
 
     let tools: Vec<String> = w.list_tools().await.unwrap().into_iter().map(|t| t.name).collect();
-    assert_eq!(tools, ["roll_dice", "coin_flip"]);
+    assert_eq!(tools, ["roll_dice", "roll_and_announce", "coin_flip"]);
 
     let resp = w.call_tool("roll_dice", r#"{"count":2,"sides":6}"#).await.unwrap();
     assert!(resp.success, "{}", resp.error);
@@ -257,4 +257,55 @@ async fn a_revoked_permission_does_not_take_the_tool_down_with_it() {
     assert!(w.fired_triggers().is_empty());
 
     w.shutdown().await.unwrap();
+}
+
+// ── the reference use of `ctx.invocation()` ─────────────────────────────────
+
+/// Told a conversation, the tool says so and returns without waiting.
+///
+/// The return value is the observable half: this plugin answers the
+/// conversation from a DETACHED task, so a test that waited for the message to
+/// land would be waiting for the thing the deadlock warning says never to wait
+/// for. What is asserted is that the tool saw the conversation and came back —
+/// which is exactly what the turn calling it needs.
+#[tokio::test]
+async fn a_told_conversation_is_seen_and_the_tool_returns_at_once() {
+    let h = dice().start().await.unwrap();
+
+    let out = h
+        .call_tool_from("roll_and_announce", serde_json::json!({"count": 1, "sides": 6}), Some("conv-1"))
+        .await
+        .unwrap();
+
+    assert!(out.contains("announced in the conversation that asked"), "{out}");
+}
+
+/// Told nothing, it says nothing — and does not invent a conversation.
+///
+/// The case every daemon in the field produces today, and the one a plugin gets
+/// for a trigger, a timer, its own UI or a nested agent. A plugin that guessed
+/// here would post into a chat nobody pointed at.
+#[tokio::test]
+async fn with_no_conversation_it_declines_to_guess_one() {
+    let h = dice().start().await.unwrap();
+
+    let out = h
+        .call_tool("roll_and_announce", serde_json::json!({"count": 1, "sides": 6}))
+        .await
+        .unwrap();
+
+    assert!(out.contains("not called from a conversation"), "{out}");
+}
+
+/// An empty conversation id is the same answer as none.
+#[tokio::test]
+async fn an_invocation_naming_nothing_is_no_conversation() {
+    let h = dice().start().await.unwrap();
+
+    let out = h
+        .call_tool_from("roll_and_announce", serde_json::json!({"count": 1, "sides": 6}), None)
+        .await
+        .unwrap();
+
+    assert!(out.contains("not called from a conversation"), "{out}");
 }

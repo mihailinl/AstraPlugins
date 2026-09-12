@@ -62,6 +62,13 @@ fn one() -> u32 {
 pub struct DiceRoller {
     config: Config<DiceConfig>,
     total_rolls: AtomicU64,
+    /// The last conversation this plugin was told about.
+    ///
+    /// Keeping it is explicitly allowed — an invocation's conversation id is
+    /// stable and may be stored across restarts. This one lives only in memory
+    /// because a dice roller has nothing to say hours later; a plugin that did
+    /// would write it beside its own state.
+    last_conversation: std::sync::Mutex<Option<String>>,
 }
 
 // ── helpers: an ordinary inherent impl the macro never looks at ──────────────
@@ -151,6 +158,65 @@ impl DiceRoller {
         Ok(format!("Rolled {count}d{sides}: {results:?} = {sum}"))
     }
 
+    /// Roll dice and announce the result in the conversation that asked.
+    ///
+    /// The reference use of `ctx.invocation()`, and it is written the only way
+    /// that works.
+    ///
+    /// **The send is detached, and that is not a style choice.** The
+    /// conversation that invoked this tool is still running the turn waiting
+    /// for this function to return. A chat message declares an intent for the
+    /// *next* turn, so it queues behind the one that cannot finish until we
+    /// answer. Awaiting the send here waits for a turn that is waiting for us,
+    /// and the tool call times out. `tokio::spawn`, then return.
+    #[tool]
+    async fn roll_and_announce(&self, ctx: &PluginContext, a: RollArgs) -> Result<String, ToolError> {
+        let sides = a.sides.unwrap_or_else(|| self.default_sides()).max(2).min(1000);
+        let count = a.count.clamp(1, 100);
+        let results = self.roll(count, sides);
+        let sum: u32 = results.iter().sum();
+        let line = format!("You rolled {count}d{sides}: {results:?} = {sum}");
+
+        // `None` is the ordinary answer, not an error: a trigger, a timer, this
+        // plugin's own UI, a nested agent, or a daemon older than the field all
+        // arrive here identically. The right response to all of them is to say
+        // nothing rather than guess a conversation.
+        let Some(conversation) = ctx.invocation().and_then(|i| i.conversation()).map(str::to_string)
+        else {
+            return Ok(format!("{line} (nobody to tell — not called from a conversation)"));
+        };
+
+        *self.last_conversation.lock().unwrap() = Some(conversation.clone());
+
+        let host = ctx.host().clone();
+        let announced = line.clone();
+        tokio::spawn(async move {
+            // The stream is not drained here on purpose. A send into a deleted
+            // conversation is refused BEFORE any chunk — `NOT_FOUND` whose
+            // message begins `conversation_gone:` — which is the case a stored
+            // id actually produces, and it is visible in this `Result`. The
+            // other half of the contract, a message that was accepted and then
+            // outlived its chat in the queue, arrives as an error chunk inside
+            // the stream; reading it needs a `Stream` extension trait, and this
+            // example holds itself to one dependency (see `Cargo.toml`).
+            match host.send_chat_message(&line, &conversation, false).await {
+                Ok(_stream) => {}
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("conversation_gone:") {
+                        // Deleted while we held the id. Forget it — do not
+                        // retry, and do not fall back to another conversation.
+                        let _ = host.log_info("the conversation is gone; dropping the id").await;
+                    } else {
+                        let _ = host.log_warn(&format!("could not announce the roll: {msg}")).await;
+                    }
+                }
+            }
+        });
+
+        Ok(format!("{announced} — announced in the conversation that asked"))
+    }
+
     /// Flip one or more coins.
     #[tool]
     async fn coin_flip(&self, a: FlipArgs) -> Result<String, ToolError> {
@@ -219,6 +285,17 @@ impl DiceRoller {
         let results = self.roll(count, sides);
         let sum: u32 = results.iter().sum();
         self.fire_roll_values(ctx, &results, sides);
+
+        // An action is told its conversation on exactly the same terms a tool
+        // is — one field, one meaning, both arms. Logged rather than answered,
+        // because an action inside a command run has already got somewhere for
+        // its result to go: the run.
+        let told = match ctx.invocation().and_then(|i| i.conversation()) {
+            Some(id) => format!("action ran from conversation {id}"),
+            None => "action ran outside any conversation".to_string(),
+        };
+        let _ = ctx.host().log_info(&told).await;
+
         Ok(format!("{count}d{sides}: {results:?} = {sum}"))
     }
 
