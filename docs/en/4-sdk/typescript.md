@@ -80,13 +80,23 @@ One object, one key per thing your plugin does:
 |---|---|
 | `tools` | `Record<name, tool({...})>` |
 | `actions` | `Record<type, action({...})>` — steps in the command editor |
-| `triggers` | `Record<type, { label }>` |
+| `triggers` | `Record<type, { label, iconSvg?, fields? }>` |
 | `tts` · `stt` · `ai` | The provider definitions |
 | `ui` | Contributions, and the methods your iframe may call back into |
 | `events` | Which daemon events you want, and the handlers |
 | `client` | `{ onReady(daemon, ctx) }` — only for `client` plugins, and **the `daemon` it hands you does not work yet**: see below |
 | `configSchema` | An `s.object({...})` for your settings |
 | `onStart` · `onShutdown` · `onConfigChanged` · `onLanguageChanged` · `onActiveTriggers` · `healthCheck` | Lifecycle |
+
+**The glyph a step wears.** `iconSvg` on an action or a trigger is what the user
+sees on the canvas, in the palette and in the step's config header. Pass whole
+SVG markup, not a path string: give it a `viewBox` and no `width`/`height`
+(Astra sizes it, and those three surfaces are not the same size) and paint with
+`currentColor`, so it follows whatever each surface tints its icons. The markup
+is sanitised before it renders — scripts, event handlers and external references
+are stripped rather than refused — so keep it a plain line drawing. Omit it and
+the step still draws, falling back to your plugin's own icon and then to a
+generic plugin mark.
 
 `plugin()` returns `{ run(), instance, definition }`: `run()` is the last line
 of your entry point, `instance` is what the test harness drives, and

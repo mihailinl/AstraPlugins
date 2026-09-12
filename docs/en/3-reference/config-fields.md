@@ -252,6 +252,16 @@ needs a restart, which is why they are declarative rather than computed.
 
 Their parameter fields use the same `FieldDef` vocabulary as above.
 
+Each type also carries an **`icon_svg`** — whole SVG markup, not a path string
+— which is the glyph the step wears on the canvas, in the palette and in its
+config header. Give it a `viewBox` and no `width`/`height`, since Astra sizes it
+and those three surfaces differ, and paint with `currentColor` so it follows
+whatever each surface tints its icons. It is sanitised before it renders:
+scripts, event handlers and external references are stripped rather than
+refused. Leave it empty and the step still draws, falling back to your plugin's
+own icon and then to a generic plugin mark — so an icon is what tells your step
+apart from every other plugin's, not what makes it visible.
+
 ## Localisation
 
 `title`, `description`, `label` and `placeholder` may be `$keys` rather than

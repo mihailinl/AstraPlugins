@@ -87,11 +87,19 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 | | |
 |---|---|
 | `@tool("description")` | 一个模型可以调用的函数。参数会变成 schema |
-| `@action("label")` | 命令编辑器中的一个步骤 |
-| `@trigger(...)` | 一种触发器类型 |
+| `@action("label", icon_svg="…")` | 命令编辑器中的一个步骤，以及它在那里佩戴的图形 |
+| `@trigger("label", icon_svg="…")` | 一种触发器类型，以及它的图形 |
 | `@ui_call` | 插件自己的 UI iframe 可以调用的一个方法 |
 | `@ui_page` · `@ui_slot` · `@ui_effect` · `@ui_overlay` · `@ui_inject` | **类**装饰器。注册一个 UI 贡献，服务来自包内的 `ui/` 目录，或者插件自己提供的一个 URL |
 | `Field(...)` | 细化某一个参数的 schema —— 描述、范围、枚举值 |
+
+**步骤所佩戴的图形。** `@action` 或 `@trigger` 上的 `icon_svg`
+是用户在画布上、面板中以及该步骤的配置标题处所看到的内容。请传入完整的 SVG 标记，
+而不是路径字符串：给它一个 `viewBox`，不要写 `width`/`height`（尺寸由 Astra 决定，
+而这三处并非同样大小），并使用 `currentColor` 绘制，使其跟随每处为图标着色的方式。
+标记在渲染前会被净化——脚本、事件处理器和外部引用会被移除而非拒绝——因此请保持为
+简单的线条图形。省略它，步骤依然会绘制：它会回退到插件自身的图标，然后回退到通用的
+插件标记。
 
 其他一切都是对 `Plugin` 的重写：`tts_synthesize`、`tts_list_voices`、
 `tts_config_fields`、`stt_transcribe`、`stt_transcribe_stream`、

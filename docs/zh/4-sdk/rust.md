@@ -92,12 +92,20 @@ mod tests {
 |---|---|
 | `#[astra::plugin]` | 加在 `impl` 块上。把下面的成员转换成对应的 trait |
 | `#[tool]` | 一个模型可以调用的函数。文档注释就是它的描述 |
-| `#[action(label = "…")]` | 命令编辑器中的一个步骤 |
+| `#[action(label = "…", icon = "…")]` | 命令编辑器中的一个步骤，以及它在那里佩戴的图形 |
 | `#[hook]` | 其他任何按名字识别的 `PluginCapability` 方法 |
 | `#[ui_call]` | 你的 UI 贡献可以回调进来的一个方法 |
 | `#[astra::args]` | 加在一个工具的参数结构体上 |
 | `#[astra::config]` | 加在你的设置结构体上 —— 相当于 `args` 加上 `#[serde(default)]` |
 | `astra::main!(Plugin::default())` | 运行它的那个 `main` |
+
+**步骤所佩戴的图形。** `#[action]` 上的 `icon`，以及手工构建的 `ActionTypeDef` 或 `TriggerTypeDef` 上的 `with_icon_svg`
+是用户在画布上、面板中以及该步骤的配置标题处所看到的内容。请传入完整的 SVG 标记，
+而不是路径字符串：给它一个 `viewBox`，不要写 `width`/`height`（尺寸由 Astra 决定，
+而这三处并非同样大小），并使用 `currentColor` 绘制，使其跟随每处为图标着色的方式。
+标记在渲染前会被净化——脚本、事件处理器和外部引用会被移除而非拒绝——因此请保持为
+简单的线条图形。省略它，步骤依然会绘制：它会回退到插件自身的图标，然后回退到通用的
+插件标记。
 
 **为什么是 `#[astra::args]` 而不是 `#[derive(Deserialize, JsonSchema)]`：**
 serde 的 derive 会展开成 `extern crate serde as _serde`，这是在 extern

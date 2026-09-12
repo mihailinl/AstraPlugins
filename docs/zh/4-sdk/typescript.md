@@ -84,13 +84,21 @@ if (require.main === module) app.run();
 |---|---|
 | `tools` | `Record<name, tool({...})>` |
 | `actions` | `Record<type, action({...})>` —— 命令编辑器中的步骤 |
-| `triggers` | `Record<type, { label }>` |
+| `triggers` | `Record<type, { label, iconSvg?, fields? }>` |
 | `tts` · `stt` · `ai` | 提供者的定义 |
 | `ui` | 贡献内容，以及你的 iframe 可以回调进来的方法 |
 | `events` | 你想要哪些守护进程事件，以及对应的处理函数 |
 | `client` | `{ onReady(daemon, ctx) }` —— 仅用于 `client` 类型的插件，而且**它传给你的那个 `daemon` 目前还不能用**：见下文 |
 | `configSchema` | 用于你的设置的 `s.object({...})` |
 | `onStart` · `onShutdown` · `onConfigChanged` · `onLanguageChanged` · `onActiveTriggers` · `healthCheck` | 生命周期 |
+
+**步骤所佩戴的图形。** action 或 trigger 上的 `iconSvg`
+是用户在画布上、面板中以及该步骤的配置标题处所看到的内容。请传入完整的 SVG 标记，
+而不是路径字符串：给它一个 `viewBox`，不要写 `width`/`height`（尺寸由 Astra 决定，
+而这三处并非同样大小），并使用 `currentColor` 绘制，使其跟随每处为图标着色的方式。
+标记在渲染前会被净化——脚本、事件处理器和外部引用会被移除而非拒绝——因此请保持为
+简单的线条图形。省略它，步骤依然会绘制：它会回退到插件自身的图标，然后回退到通用的
+插件标记。
 
 `plugin()` 返回 `{ run(), instance, definition }`：`run()` 是你入口
 文件的最后一行，`instance` 是测试工具驱动的对象，`definition` 是留给

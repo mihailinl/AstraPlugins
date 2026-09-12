@@ -93,12 +93,22 @@ mod tests {
 |---|---|
 | `#[astra::plugin]` | `impl` ブロックに付けます。以下のメンバをトレイトに変換します |
 | `#[tool]` | モデルが呼び出せる関数です。doc コメントがその説明になります |
-| `#[action(label = "…")]` | コマンドエディタ内のステップです |
+| `#[action(label = "…", icon = "…")]` | コマンドエディタ内のステップと、そこでまとうグリフです |
 | `#[hook]` | 名前で判別されるその他の `PluginCapability` メソッドです |
 | `#[ui_call]` | あなたの UI コントリビューションがコールバックできるメソッドです |
 | `#[astra::args]` | ツールの引数構造体に付けます |
 | `#[astra::config]` | あなたの設定構造体に付けます — `args` に加えて `#[serde(default)]` |
 | `astra::main!(Plugin::default())` | これを実行する `main` です |
+
+**ステップがまとうグリフ。** `#[action]` の `icon`、手で組み立てた `ActionTypeDef` や `TriggerTypeDef` の `with_icon_svg`
+は、キャンバス上、パレット内、そしてステップの設定ヘッダーでユーザーが目にする
+ものです。パス文字列ではなく、SVG マークアップ全体を渡してください。`viewBox` を
+与え、`width`/`height` は指定しないこと（サイズは Astra が決め、この三つの面は同じ
+大きさではありません）。そして `currentColor` で描き、各面がアイコンに与える色に
+従わせます。マークアップは描画前にサニタイズされ、スクリプト・イベントハンドラ・
+外部参照は拒否されるのではなく取り除かれるので、単純な線画にとどめてください。
+省略してもステップは描画されます。プラグイン自身のアイコンに、次いで汎用の
+プラグインマークにフォールバックします。
 
 **なぜ `#[derive(Deserialize, JsonSchema)]` ではなく `#[astra::args]`
 なのか:** serde の derive は `extern crate serde as _serde` に展開

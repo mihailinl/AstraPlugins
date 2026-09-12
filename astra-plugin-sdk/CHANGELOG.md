@@ -16,14 +16,21 @@ are removable in.
 
 ## [0.7.2] — unreleased
 
-Additive. A tool call and an action can ask which conversation invoked them, and
-answer in it later.
+Two additions, and they ship together.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.1 compiles unchanged, and the scaffold's `astra-plugin-sdk = "0.7"` pin
+goes on accepting this one.
+
+### Which conversation called you
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md). Code written against 0.7.1
 compiles unchanged.
 
-### Added
+#### Added
 - **`Invocation`**, re-exported from the crate root and the `prelude`, reached
   through **`PluginContext::invocation()`**. Inside a tool call or an action
   that a conversation's assistant turn made, `.conversation()` on it is a UUID
@@ -37,7 +44,7 @@ compiles unchanged.
   directly. Passing `None` sends the invocation-that-names-nothing, a shape no
   ordinary call site can produce.
 
-### Changed
+#### Changed
 - `Host::send_chat_message`'s documentation retracts *"do not store one and send
   it back later"* and names the deadlock that replaces it: **never await a send
   into the conversation that is calling you, from inside that call.** That
@@ -51,7 +58,7 @@ compiles unchanged.
   difference matters now that a plugin can be told a conversation that is not on
   screen.
 
-### Notes
+#### Notes
 - **`None` is the ordinary answer, and never a cue to guess.** It covers a call
   no conversation made, a call whose cause the daemon holds no lease for (a
   nested sub-agent, or a command's *send to AI* step), and a daemon older than
@@ -62,6 +69,40 @@ compiles unchanged.
 - `protocol` stays **1**. The field is additive and the number is a handshake,
   not a behaviour switch.
 
+### Action and trigger types are built the way everything else here is
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.1 compiles unchanged, and the scaffold's `astra-plugin-sdk = "0.7"` pin
+goes on accepting this one.
+
+`ActionTypeDef` and `TriggerTypeDef` are re-exported prost structs, so every
+field was always reachable — with a struct literal and `..Default::default()`,
+which is what the examples showed and therefore what everybody wrote. Nothing
+was ever offered by autocompletion, and one field in particular went unnoticed
+for it: `icon_svg`, the glyph the step wears in the user's command editor. A
+plugin that never set it contributed steps that drew nothing at all.
+
+Astra now falls back to the plugin's own icon, and then to a generic plugin
+mark, so no step is blank any more. This is the other half: making the field
+findable.
+
+#### Added
+- `ActionTypeDef::new`, `.with_icon_svg`, `.with_fields`, `.with_ai`,
+  `.with_platforms` and `.unfinished`, matching the builders `UiContribution`
+  and `FieldDef` already had.
+- `TriggerTypeDef::new`, `.with_icon_svg` and `.with_fields`.
+
+`with_icon_svg` takes whole SVG markup, not a path string. Give it a `viewBox`
+and no `width`/`height` — Astra sizes it, and the three surfaces it is drawn on
+are not the same size — and paint with `currentColor` so it follows whatever
+each surface tints its icons. The markup is sanitised before it renders, so
+scripts, event handlers and external references are stripped rather than
+refused: keep it a plain line drawing.
+
+The struct literal still works and is not deprecated. `#[action(icon = "…")]`
+is unchanged and has carried an icon since 0.7.0.
 ## [0.7.1] — 2026-08-24
 
 Additive. A plugin can now translate its own runtime strings, and mark the ones

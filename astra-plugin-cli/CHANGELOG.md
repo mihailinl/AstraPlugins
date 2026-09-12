@@ -56,6 +56,12 @@ scaffold are additions and would have been a patch on their own.
   because every top-level `*.json` in there is loaded as a locale keyed on its
   stem — `locales/locales.lock.json` would become a phantom locale called
   `locales.lock`.
+- **`astra-plugin new` now scaffolds a step with an icon.** The `actions` and
+  `triggers` templates in all three languages set `icon_svg` (`iconSvg` in
+  TypeScript, `icon` on Rust's `#[action]`), so a plugin drawn from the
+  scaffold arrives in the command editor with a glyph of its own instead of a
+  generic plugin mark. The field always existed and nothing ever showed it
+  being used, which is why nearly no published plugin sets one.
 
 ### Changed (breaking)
 

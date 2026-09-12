@@ -84,11 +84,21 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 | | |
 |---|---|
 | `@tool("description")` | A function the model may call. Parameters become the schema |
-| `@action("label")` | A step in the command editor |
-| `@trigger(...)` | A trigger type |
+| `@action("label", icon_svg="…")` | A step in the command editor, and the glyph it wears there |
+| `@trigger("label", icon_svg="…")` | A trigger type, and its glyph |
 | `@ui_call` | A method the plugin's own UI iframe may call |
 | `@ui_page` · `@ui_slot` · `@ui_effect` · `@ui_overlay` · `@ui_inject` | **Class** decorators. Register a UI contribution served from the bundle's `ui/` directory or from a URL the plugin serves |
 | `Field(...)` | Refine one parameter's schema — description, range, enum |
+
+**The glyph a step wears.** `icon_svg` on `@action` or `@trigger` is what the
+user sees on the canvas, in the palette and in the step's config header. Pass
+whole SVG markup, not a path string: give it a `viewBox` and no `width`/`height`
+(Astra sizes it, and those three surfaces are not the same size) and paint with
+`currentColor`, so it follows whatever each surface tints its icons. The markup
+is sanitised before it renders — scripts, event handlers and external references
+are stripped rather than refused — so keep it a plain line drawing. Omit it and
+the step still draws, falling back to your plugin's own icon and then to a
+generic plugin mark.
 
 Everything else is an override on `Plugin`: `tts_synthesize`, `tts_list_voices`,
 `tts_config_fields`, `stt_transcribe`, `stt_transcribe_stream`,

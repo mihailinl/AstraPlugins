@@ -259,6 +259,17 @@ necesita un reinicio, por lo que son declarativos en lugar de calculados.
 
 Sus campos de parámetro usan el mismo vocabulario `FieldDef` de arriba.
 
+Cada tipo lleva además un **`icon_svg`** — marcado SVG completo, no una cadena
+de ruta —, el glifo que el paso lleva en el lienzo, en la paleta y en su
+cabecera de configuración. Dale un `viewBox` y ningún `width`/`height`, porque
+Astra le da el tamaño y esas tres superficies difieren, y píntalo con
+`currentColor` para que siga el tono que cada superficie da a sus iconos. Se
+sanea antes de dibujarse: los scripts, los manejadores de eventos y las
+referencias externas se eliminan en lugar de rechazarse. Déjalo vacío y el paso
+se dibuja igualmente, recurriendo al icono del propio complemento y después a
+una marca genérica — así que un icono distingue tu paso de los demás, no es lo
+que lo hace visible.
+
 ## Localización
 
 `label`, `placeholder` y `description` pueden ser claves i18n en lugar de

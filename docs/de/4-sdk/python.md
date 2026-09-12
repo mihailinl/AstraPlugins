@@ -87,11 +87,23 @@ def test_the_tool_is_registered_under_the_name_the_daemon_uses():
 | | |
 |---|---|
 | `@tool("description")` | Eine Funktion, die das Modell aufrufen darf. Parameter werden zum Schema |
-| `@action("label")` | Ein Schritt im Befehlseditor |
-| `@trigger(...)` | Ein Trigger-Typ |
+| `@action("label", icon_svg="…")` | Ein Schritt im Befehlseditor, und das Glyph, das er dort trägt |
+| `@trigger("label", icon_svg="…")` | Ein Trigger-Typ, und sein Glyph |
 | `@ui_call` | Eine Methode, die das eigene UI-iframe des Plugins aufrufen darf |
 | `@ui_page` · `@ui_slot` · `@ui_effect` · `@ui_overlay` · `@ui_inject` | **Klassen**-Decorators. Registrieren eine UI-Contribution, ausgeliefert aus dem `ui/`-Verzeichnis des Bundles oder von einer URL, die das Plugin bedient |
 | `Field(...)` | Verfeinert das Schema eines Parameters — Beschreibung, Bereich, Enum |
+
+**Das Glyph, das ein Schritt trägt.** `icon_svg` an `@action` oder `@trigger`
+ist das, was auf der Arbeitsfläche, in der Palette und in der
+Konfigurationskopfzeile des Schritts zu sehen ist. Übergeben Sie vollständiges
+SVG-Markup, keine Pfadzeichenkette: Geben Sie ihm eine `viewBox` und kein
+`width`/`height` (Astra bestimmt die Größe, und diese drei Flächen sind nicht
+gleich groß) und zeichnen Sie mit `currentColor`, damit es der Einfärbung folgt,
+die jede Fläche ihren Symbolen gibt. Das Markup wird vor dem Rendern bereinigt —
+Skripte, Ereignis-Handler und externe Verweise werden entfernt statt abgelehnt
+—, halten Sie es also bei einer einfachen Strichzeichnung. Lassen Sie es weg,
+und der Schritt wird trotzdem gezeichnet: Er fällt auf das eigene Symbol Ihres
+Plugins zurück und dann auf eine allgemeine Plugin-Markierung.
 
 Alles andere ist ein Override auf `Plugin`: `tts_synthesize`,
 `tts_list_voices`, `tts_config_fields`, `stt_transcribe`,
