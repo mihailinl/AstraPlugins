@@ -1,18 +1,24 @@
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::time::Duration;
 
-use anyhow::Result;
 use frankenstein::AsyncTelegramApi;
 use frankenstein::client_reqwest::Bot;
 use frankenstein::input_file::{FileUpload, InputFile};
 use frankenstein::methods::{
-    EditMessageTextParams, SendMessageDraftParams, SendMessageParams, SendPhotoParams,
+    CreateForumTopicParams, EditForumTopicParams, EditMessageTextParams, SendMessageDraftParams,
+    SendMessageParams, SendPhotoParams,
 };
-use frankenstein::types::{ChatId, ChatType, Message};
+use frankenstein::types::{ChatId, Message};
 use tracing::warn;
+
+use crate::types::ChatKey;
 
 /// The longest text Telegram accepts in one message. Replies are split on this,
 /// not truncated at it — an answer that ran long used to lose its ending.
 pub const MAX_MESSAGE_LENGTH: usize = 4096;
+
+/// How long to wait when Telegram says "too fast" and does not say for how long.
+const DEFAULT_RETRY_AFTER: Duration = Duration::from_secs(1);
 
 /// One update, as far as this bridge is concerned.
 ///
@@ -21,63 +27,129 @@ pub const MAX_MESSAGE_LENGTH: usize = 4096;
 pub enum Incoming {
     Said(Box<Message>),
     /// The stop button was pressed on a streaming draft.
-    Stopped { chat_id: i64, draft_id: i32 },
+    Stopped { chat: ChatKey, draft_id: i32 },
 }
 
+/// Why Telegram refused a call — at the three granularities this bridge reacts
+/// differently to, and no finer.
+///
+/// **This distinction is the difference between streaming and not streaming.**
+/// Every refusal used to read the same, so the first failed draft frame of a
+/// process turned streaming off for the whole reply — and a timeout on one HTTP
+/// request is not evidence that a chat cannot have drafts. A reply that streamed
+/// yesterday and arrived in one piece today, with no Stop button on it, is that
+/// bug from the outside.
+#[derive(Debug)]
+pub enum Refusal {
+    /// Telegram read the request and will answer the same way every time: the
+    /// method is not available in this chat, the bot was blocked, the draft id
+    /// is not acceptable. Retrying is pointless; the caller should stop asking.
+    Settled { code: u64, description: String },
+
+    /// A 429: the request was fine and arrived too soon after the last one.
+    /// `retry_after` is what Telegram said to wait, or one second when it said
+    /// nothing.
+    TooFast { retry_after: Duration },
+
+    /// The call did not reach Telegram, or Telegram had a bad moment (5xx, a
+    /// dropped connection, a body that did not parse). Nothing about the
+    /// request is wrong and the next identical one may well work.
+    Hiccup(String),
+}
+
+impl Refusal {
+    /// Read one frankenstein failure as one of the three.
+    ///
+    /// `error_code` is Telegram's own HTTP-shaped number: 429 is the rate limit,
+    /// 5xx is Telegram's side, and every other 4xx is a settled answer about the
+    /// request. A code outside those is treated as a hiccup — the kinder
+    /// assumption, because the cost of retrying something harmless is one extra
+    /// call and the cost of settling on a misread code is a feature switched off
+    /// for the life of the process.
+    pub fn of(error: &frankenstein::Error) -> Self {
+        match error {
+            frankenstein::Error::Api(api) => match api.error_code {
+                429 => Self::TooFast {
+                    retry_after: api
+                        .parameters
+                        .as_ref()
+                        .and_then(|p| p.retry_after)
+                        .map_or(DEFAULT_RETRY_AFTER, |s| Duration::from_secs(u64::from(s))),
+                },
+                code @ 400..=499 => Self::Settled {
+                    code,
+                    description: api.description.clone(),
+                },
+                code => Self::Hiccup(format!("Telegram answered {code}: {}", api.description)),
+            },
+            other => Self::Hiccup(other.to_string()),
+        }
+    }
+
+    /// Whether Telegram certainly did **not** do the thing — so asking again
+    /// cannot do it twice.
+    ///
+    /// Only a `429`. It is the one refusal with that guarantee: Telegram read
+    /// the request, refused it for arriving too soon, and says when to come
+    /// back. A [`Hiccup`](Self::Hiccup) is deliberately excluded even though
+    /// retrying it would often work — a request that failed *after* Telegram
+    /// took it would put the same answer in the chat twice, and a caller that
+    /// cannot tell the two apart must not guess with the user's chat.
+    pub fn certainly_refused(&self) -> bool {
+        matches!(self, Self::TooFast { .. })
+    }
+
+    /// How long Telegram asked the caller to wait.
+    pub fn retry_after(&self) -> Duration {
+        match self {
+            Self::TooFast { retry_after } => *retry_after,
+            _ => DEFAULT_RETRY_AFTER,
+        }
+    }
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Settled { code, description } => write!(f, "Telegram refused ({code}): {description}"),
+            Self::TooFast { retry_after } => {
+                write!(f, "Telegram says too fast; retry after {}s", retry_after.as_secs())
+            }
+            Self::Hiccup(why) => write!(f, "{why}"),
+        }
+    }
+}
+
+impl std::error::Error for Refusal {}
+
 /// Thin wrapper over frankenstein's async Bot providing convenience methods.
+///
+/// It holds **no chat**: every method is told which chat and which thread to
+/// write to, because one bot serves as many chats as talk to it and a single
+/// bound chat was what version 0.2 had instead of that. What a chat remembers —
+/// whether drafts work in it, which draft is on screen — belongs to the task
+/// serving that chat (`bot::Drafts`), not here.
 pub struct TelegramApi {
     bot: Bot,
     /// `getUpdates` is read through this rather than through `bot`. Everything
     /// else — sending, editing, drafts, photos — goes through frankenstein.
     http: reqwest::Client,
     token: String,
-    chat_id: AtomicI64,
-    /// Whether `sendMessageDraft` is worth trying in the bound chat. See
-    /// [`TelegramApi::send_draft`] for both ways this turns off.
-    drafts: AtomicBool,
-    /// Set the first time a draft is accepted. Until then a refusal is read as
-    /// *this chat cannot do drafts*; after it, as one lost frame.
-    drafts_proven: AtomicBool,
+    /// Shared by every chat, so two chats never show a draft under the same id.
+    /// Telegram scopes a draft id to a chat, so it need not be global — but a
+    /// number that is unique everywhere cannot be confused with another chat's
+    /// when a stop arrives naming it.
     draft_seq: AtomicI32,
 }
 
 impl TelegramApi {
-    pub fn new(token: &str, chat_id: i64) -> Self {
+    pub fn new(token: &str) -> Self {
         Self {
             bot: Bot::new(token),
             http: reqwest::Client::new(),
             token: token.to_string(),
-            chat_id: AtomicI64::new(chat_id),
-            // A guess, and only until the first message arrives: a private
-            // chat's id is positive and a group's is negative, which is all
-            // there is to go on for a `chat_id` restored from disk. `set_kind`
-            // replaces it with the type Telegram states.
-            drafts: AtomicBool::new(chat_id > 0),
-            drafts_proven: AtomicBool::new(false),
             draft_seq: AtomicI32::new(0),
         }
-    }
-
-    pub fn chat_id(&self) -> i64 {
-        self.chat_id.load(Ordering::Relaxed)
-    }
-
-    pub fn set_chat_id(&self, id: i64) {
-        self.chat_id.store(id, Ordering::Relaxed);
-    }
-
-    /// Record what kind of chat the bot is bound to.
-    ///
-    /// `sendMessageDraft` takes the numeric id of a **private** chat; a group,
-    /// supergroup or channel is refused. Telegram states the type on every
-    /// message, so the bridge asks rather than infers.
-    pub fn set_kind(&self, kind: ChatType) {
-        self.drafts
-            .store(matches!(kind, ChatType::Private), Ordering::Relaxed);
-    }
-
-    pub fn drafts_enabled(&self) -> bool {
-        self.drafts.load(Ordering::Relaxed)
     }
 
     /// A fresh id per reply. Telegram animates updates that share a `draft_id`
@@ -91,22 +163,22 @@ impl TelegramApi {
         }
     }
 
-    /// Send a plain-text message, optionally inside a forum topic.
+    /// Send a plain-text message into `chat`, inside its thread if it has one.
     ///
-    /// `thread_id` is where the message that prompted this arrived, so a reply
-    /// lands under the message it answers rather than at the bottom of the
-    /// group. A bot in a plain chat never sees one.
-    pub async fn send(&self, thread_id: Option<i64>, text: &str) -> Result<Message> {
+    /// A thread id is where the message that prompted this arrived, so a reply
+    /// lands under the topic it answers rather than at the bottom of the group.
+    /// A bot in a private chat never sees one.
+    pub async fn send(&self, chat: ChatKey, text: &str) -> Result<Message, Refusal> {
         let mut params = SendMessageParams::builder()
-            .chat_id(ChatId::Integer(self.chat_id()))
+            .chat_id(ChatId::Integer(chat.chat_id))
             .text(text)
             .build();
-        params.message_thread_id = thread_id.map(|t| t as i32);
+        params.message_thread_id = chat.thread();
         let resp = self
             .bot
             .send_message(&params)
             .await
-            .map_err(|e| anyhow::anyhow!("send_message: {e}"))?;
+            .map_err(|e| Refusal::of(&e))?;
         Ok(resp.result)
     }
 
@@ -119,96 +191,141 @@ impl TelegramApi {
     /// document instead.
     pub async fn send_photo(
         &self,
-        thread_id: Option<i64>,
+        chat: ChatKey,
         path: &std::path::Path,
         caption: &str,
-    ) -> Result<Message> {
+    ) -> Result<Message, Refusal> {
         let mut params = SendPhotoParams::builder()
-            .chat_id(ChatId::Integer(self.chat_id()))
+            .chat_id(ChatId::Integer(chat.chat_id))
             .photo(FileUpload::InputFile(InputFile {
                 path: path.to_path_buf(),
             }))
             .build();
         params.caption = Some(caption.to_string());
-        params.message_thread_id = thread_id.map(|t| t as i32);
+        params.message_thread_id = chat.thread();
 
         let resp = self
             .bot
             .send_photo(&params)
             .await
-            .map_err(|e| anyhow::anyhow!("send_photo: {e}"))?;
+            .map_err(|e| Refusal::of(&e))?;
         Ok(resp.result)
     }
 
     /// Stream a partial answer as a draft — Telegram's own method for this.
     ///
-    /// `sendMessageDraft` (Bot API 9.3, unrestricted since 9.5) exists because
-    /// editing a message once a second is a poor way to show text being
-    /// written: every edit is a visible jump, and the per-chat edit ceiling is
-    /// what sets that second. A draft animates instead, and empty `text` shows
-    /// Telegram's own "Thinking…" — so the user sees the turn start rather than
-    /// silence until the first token.
+    /// `sendMessageDraft` (Bot API 9.3; `can_stop` and the stop update came with
+    /// 10.3) exists because editing a message once a second is a poor way to
+    /// show text being written: every edit is a visible jump, and the per-chat
+    /// edit ceiling is what sets that second. A draft animates instead, and an
+    /// empty `text` shows Telegram's own "Thinking…" — so the user sees the turn
+    /// start rather than silence until the first token.
     ///
-    /// **A draft is not the message.** It is a preview that expires on its own
-    /// in about thirty seconds, and nothing persists it. What makes the answer
-    /// stay in the chat is the ordinary [`send`](Self::send) once the stream is
-    /// done — which is why nothing here needs undoing on failure.
+    /// **A draft is not the message.** Telegram calls it "a temporary 30-second
+    /// preview" and nothing persists it. What makes the answer stay in the chat
+    /// is the ordinary [`send`](Self::send) once the stream is done — which is
+    /// why nothing here needs undoing on failure.
     ///
-    /// Two things turn drafts off, and they are told apart by whether one has
-    /// ever worked: the first refusal means this chat cannot have them (a
-    /// group, or a Bot API older than 9.3) and drops the bridge back to editing
-    /// for good; a later one is a single lost frame of an animation and the
-    /// next is 250ms away.
-    pub async fn send_draft(&self, thread_id: Option<i64>, draft_id: i32, text: &str) -> Result<()> {
+    /// **It is a private-chat method.** `chat_id` is documented as "the target
+    /// private chat"; a group, supergroup or channel is refused. The caller
+    /// decides from the chat's own type rather than finding out the hard way
+    /// (`bot::Drafts`), and what comes back here says which kind of refusal it
+    /// was rather than leaving that to be guessed.
+    pub async fn send_draft(
+        &self,
+        chat: ChatKey,
+        draft_id: i32,
+        text: &str,
+    ) -> Result<(), Refusal> {
         let mut params = SendMessageDraftParams::builder()
-            .chat_id(ChatId::Integer(self.chat_id()))
+            .chat_id(ChatId::Integer(chat.chat_id))
             .text(text)
             .build();
         params.draft_id = Some(draft_id);
-        params.message_thread_id = thread_id.map(|t| t as i32);
+        params.message_thread_id = chat.thread();
         // The stop button, and the reason the bridge asks for
-        // `StoppedMessageGeneration` updates at all. `keep_on_stop` is left
+        // `stopped_message_generation` updates at all. `keep_on_stop` is left
         // unset — the partial answer is delivered as a real message the moment
         // the stream ends, so a draft kept alongside it would be the same text
         // twice, one copy of which quietly expires.
         params.can_stop = Some(true);
 
-        match self.bot.send_message_draft(&params).await {
-            Ok(_) => {
-                self.drafts_proven.store(true, Ordering::Relaxed);
-                Ok(())
-            }
-            Err(e) => {
-                if !self.drafts_proven.load(Ordering::Relaxed) {
-                    warn!(
-                        "This chat will not take streaming drafts ({e}) — falling back to \
-                         rewriting a posted message, which every Telegram client supports"
-                    );
-                    self.drafts.store(false, Ordering::Relaxed);
-                }
-                Err(anyhow::anyhow!("send_message_draft: {e}"))
-            }
-        }
+        self.bot
+            .send_message_draft(&params)
+            .await
+            .map(|_| ())
+            .map_err(|e| Refusal::of(&e))
     }
 
     /// Replace the text of a message this bot sent.
     ///
     /// The fallback for streaming where [`send_draft`](Self::send_draft) is not
-    /// available: post one message as soon as the first words arrive and
-    /// rewrite it as more do. `editMessageText` and `sendMessage` are the two
-    /// oldest methods in the Bot API, so this works wherever the newer one does
-    /// not.
-    pub async fn edit(&self, message_id: i32, text: &str) -> Result<()> {
+    /// available, which is every group: post one message as soon as the first
+    /// words arrive and rewrite it as more do. `editMessageText` and
+    /// `sendMessage` are the two oldest methods in the Bot API, so this works
+    /// wherever the newer one does not.
+    pub async fn edit(&self, chat: ChatKey, message_id: i32, text: &str) -> Result<(), Refusal> {
         let params = EditMessageTextParams::builder()
-            .chat_id(ChatId::Integer(self.chat_id()))
+            .chat_id(ChatId::Integer(chat.chat_id))
             .message_id(message_id)
             .text(text)
             .build();
         self.bot
             .edit_message_text(&params)
             .await
-            .map_err(|e| anyhow::anyhow!("edit_message: {e}"))?;
-        Ok(())
+            .map(|_| ())
+            .map_err(|e| Refusal::of(&e))
+    }
+
+    /// Open a new topic in a forum group, and say which thread it is.
+    ///
+    /// **This is the only way a bot can put a second chat in front of somebody.**
+    /// A private chat has one thread and no method to add another, so a new topic
+    /// in a forum group is the one place where two conversations can sit side by
+    /// side in Telegram the way they do in Astra's sidebar.
+    ///
+    /// The bot must be an administrator of that group with **Manage topics**.
+    /// Without it Telegram answers a settled 400, and the caller says so in the
+    /// chat rather than retrying: nothing the person types next gets past a
+    /// missing right, and the fix is in the group's settings.
+    pub async fn create_topic(&self, chat_id: i64, name: &str) -> Result<i32, Refusal> {
+        let params = CreateForumTopicParams::builder()
+            .chat_id(ChatId::Integer(chat_id))
+            .name(name)
+            .build();
+        let resp = self
+            .bot
+            .create_forum_topic(&params)
+            .await
+            .map_err(|e| Refusal::of(&e))?;
+        Ok(resp.result.message_thread_id)
+    }
+
+    /// Rename one topic.
+    ///
+    /// Telegram takes a name of 1 to 128 characters, and the caller derives it
+    /// from a message, so keeping it inside that is the caller's job. The same
+    /// **Manage topics** right as creating one is needed.
+    ///
+    /// The General topic of a forum is deliberately out of reach: it is renamed
+    /// by a different method (`editGeneralForumTopic`) and it is the group's own
+    /// first thread, whose name is not any one conversation's to take.
+    pub async fn rename_topic(
+        &self,
+        chat_id: i64,
+        thread_id: i32,
+        name: &str,
+    ) -> Result<(), Refusal> {
+        let params = EditForumTopicParams::builder()
+            .chat_id(ChatId::Integer(chat_id))
+            .message_thread_id(thread_id)
+            .name(name)
+            .build();
+        self.bot
+            .edit_forum_topic(&params)
+            .await
+            .map(|_| ())
+            .map_err(|e| Refusal::of(&e))
     }
 
     /// Long-poll for updates. Returns the offset to ask from next, and the
@@ -236,7 +353,11 @@ impl TelegramApi {
     ///
     /// So: the offset advances from the raw `update_id` whatever happens to the
     /// rest of the update, and each one is parsed on its own.
-    pub async fn poll_updates(&self, offset: i64, timeout: u32) -> Result<(i64, Vec<Incoming>)> {
+    pub async fn poll_updates(
+        &self,
+        offset: i64,
+        timeout: u32,
+    ) -> anyhow::Result<(i64, Vec<Incoming>)> {
         let response = self
             .http
             .post(format!(
@@ -301,12 +422,18 @@ fn digest_updates(values: Vec<serde_json::Value>) -> (Option<i64>, Vec<Incoming>
         }
 
         if let Some(stopped) = value.get("stopped_message_generation") {
+            // The thread is read too, so a stop inside a forum topic reaches the
+            // reply running in THAT topic rather than the group's other one.
+            let thread = stopped.get("message_thread_id").and_then(loose_i64);
             match (
-                stopped.get("chat").and_then(|c| c.get("id")).and_then(loose_i64),
+                stopped
+                    .get("chat")
+                    .and_then(|c| c.get("id"))
+                    .and_then(loose_i64),
                 stopped.get("draft_id").and_then(loose_i64),
             ) {
                 (Some(chat_id), Some(draft_id)) => updates.push(Incoming::Stopped {
-                    chat_id,
+                    chat: ChatKey::new(chat_id, thread),
                     draft_id: draft_id as i32,
                 }),
                 _ => warn!("A stop arrived without a chat or a draft id: {stopped}"),
@@ -341,21 +468,46 @@ fn loose_i64(value: &serde_json::Value) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frankenstein::response::{ErrorResponse, ResponseParameters};
 
-    /// The bridge asks Telegram what kind of chat it is in, and the answer
-    /// decides whether replies can stream as drafts at all.
+    fn api_error(code: u64, description: &str, retry_after: Option<u16>) -> frankenstein::Error {
+        frankenstein::Error::Api(ErrorResponse {
+            ok: false,
+            description: description.to_string(),
+            error_code: code,
+            parameters: retry_after.map(|retry_after| ResponseParameters {
+                migrate_to_chat_id: None,
+                retry_after: Some(retry_after),
+            }),
+        })
+    }
+
+    /// The classification the whole of streaming hangs on. A chat that cannot
+    /// take drafts says so with a 400 and means it; a 429 or a dropped
+    /// connection says nothing about the chat at all, and reading one as the
+    /// other is what turned streaming off for a whole reply.
     #[test]
-    fn only_a_private_chat_takes_drafts() {
-        let api = TelegramApi::new("test:token", -100123);
-        assert!(!api.drafts_enabled(), "a negative id reads as a group");
+    fn a_rate_limit_is_not_a_refusal_and_a_refusal_is_not_a_hiccup() {
+        let settled = Refusal::of(&api_error(400, "Bad Request: chat not found", None));
+        assert!(matches!(settled, Refusal::Settled { code: 400, .. }));
+        assert!(!settled.certainly_refused(), "asking again cannot help");
 
-        api.set_kind(ChatType::Private);
-        assert!(api.drafts_enabled());
+        let fast = Refusal::of(&api_error(429, "Too Many Requests", Some(7)));
+        assert!(matches!(fast, Refusal::TooFast { .. }));
+        assert!(fast.certainly_refused(), "the one refusal safe to retry");
+        assert_eq!(fast.retry_after(), Duration::from_secs(7), "Telegram said 7");
 
-        for kind in [ChatType::Group, ChatType::Supergroup, ChatType::Channel] {
-            api.set_kind(kind);
-            assert!(!api.drafts_enabled(), "{kind:?} cannot take a draft");
-        }
+        // 429 with no `parameters` still means wait, not "this cannot work".
+        let bare = Refusal::of(&api_error(429, "Too Many Requests", None));
+        assert!(bare.certainly_refused());
+        assert_eq!(bare.retry_after(), DEFAULT_RETRY_AFTER);
+
+        let theirs = Refusal::of(&api_error(502, "Bad Gateway", None));
+        assert!(matches!(theirs, Refusal::Hiccup(_)));
+        assert!(
+            !theirs.certainly_refused(),
+            "it may have gone through; sending it again could post it twice"
+        );
     }
 
     /// The batch that used to wedge the bridge, byte for byte from a real log.
@@ -384,9 +536,31 @@ mod tests {
         assert_eq!(updates.len(), 2, "neither update is lost to the other");
         assert!(matches!(
             updates[0],
-            Incoming::Stopped { chat_id: 811091354, draft_id: 1 }
+            Incoming::Stopped { chat: ChatKey { chat_id: 811091354, thread_id: None }, draft_id: 1 }
         ));
         assert!(matches!(&updates[1], Incoming::Said(m) if m.text.as_deref() == Some("что делаешь")));
+    }
+
+    /// A stop pressed inside a forum topic names that topic, and the bridge
+    /// keeps it — a reply is running per topic now, and the press must reach the
+    /// one it was shown on.
+    #[test]
+    fn a_stop_carries_the_topic_it_was_pressed_in() {
+        let batch: Vec<serde_json::Value> = serde_json::from_str(
+            r#"[{"update_id":1,"stopped_message_generation":{
+                  "chat":{"id":-1002,"type":"supergroup"},
+                  "message_thread_id":57,"draft_id":9}}]"#,
+        )
+        .unwrap();
+
+        let (_, updates) = digest_updates(batch);
+        assert!(matches!(
+            updates[0],
+            Incoming::Stopped {
+                chat: ChatKey { chat_id: -1002, thread_id: Some(57) },
+                draft_id: 9
+            }
+        ));
     }
 
     /// The shape of the bug, not just the one instance of it: whatever an
@@ -433,7 +607,7 @@ mod tests {
     /// Zero is not a draft id, and a counter that runs long enough reaches it.
     #[test]
     fn a_draft_id_is_never_zero() {
-        let api = TelegramApi::new("test:token", 1);
+        let api = TelegramApi::new("test:token");
         assert_eq!(api.next_draft_id(), 1, "the first reply gets a usable id");
         assert_ne!(api.next_draft_id(), 1, "a second reply gets its own");
 

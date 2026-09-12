@@ -1,8 +1,8 @@
 [plugin]
 id = "telegram-client"
 name = "Telegram Bot"
-version = "0.2.0"
-description = "Talk to Astra from Telegram — your message in, the reply streamed back as it is written"
+version = "0.4.0"
+description = "Talk to Astra from Telegram — every chat its own conversation, the reply streamed back as it is written"
 author = "Mihailin"
 license = "MIT"
 

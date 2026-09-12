@@ -1,22 +1,28 @@
 {
   "locales": {
     "ru": {
-      "bot.new": "38b4bf85dbdb",
+      "bot.clear": "68c461069f24",
+      "bot.new_created": "f716c1b36028",
+      "bot.new_failed": "9f3e26a4bde6",
+      "bot.new_here": "3a493c18a664",
+      "bot.new_opened": "6bd17084398b",
+      "bot.new_placeholder": "db18382a249e",
+      "bot.new_refused": "5a2b68a1d5b9",
       "bot.no_reply": "36c714e9999f",
       "bot.not_permitted": "3d97aa008f70",
       "bot.screenshot_failed": "b22ff06a3de3",
       "bot.screenshot_off": "18e0a7b2ae56",
       "bot.screenshot_unsupported": "6076a77b7db1",
       "bot.send_failed": "86d0277595a8",
-      "bot.start": "251c090fb5ea",
+      "bot.start": "8ab835261432",
       "bot.stopped": "05f4f3e08b12",
       "config.allow_screenshot.description": "51871990a248",
       "config.allow_screenshot.title": "d027582133de",
-      "config.allowed_usernames.description": "0a75a57e9795",
+      "config.allowed_usernames.description": "6d06a69cc370",
       "config.allowed_usernames.title": "da2e175c1bb3",
       "config.bot_token.description": "acafe29294f1",
       "config.bot_token.title": "cf8c0ac670d1",
-      "listing.description": "748481d7af97",
+      "listing.description": "1895fa1836c2",
       "listing.name": "cec2be6f871d"
     }
   },

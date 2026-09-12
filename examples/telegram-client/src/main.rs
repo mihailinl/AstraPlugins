@@ -50,8 +50,7 @@ impl TelegramBotPlugin {
         // Stop previous instance if running
         self.stop_bot().await;
 
-        let chat_id = self.state.read().await.chat_id;
-        let tg = Arc::new(TelegramApi::new(&cfg.bot_token, chat_id));
+        let tg = Arc::new(TelegramApi::new(&cfg.bot_token));
         *self.telegram.lock().await = Some(tg.clone());
 
         let (tx, rx) = watch::channel(false);
@@ -66,7 +65,10 @@ impl TelegramBotPlugin {
         });
         *self.polling_handle.lock().await = Some(handle);
 
-        info!("Telegram bot started (chat_id={chat_id})");
+        info!(
+            "Telegram bot started ({} chat(s) remembered)",
+            self.state.read().await.conversations.len()
+        );
     }
 
     async fn stop_bot(&self) {
@@ -138,8 +140,9 @@ impl PluginCapability for TelegramBotPlugin {
     /// its schema's defaults and then asks.
     async fn health_check(&self) -> (bool, String) {
         if self.telegram.lock().await.is_some() {
-            return if self.state.read().await.conversation_id.is_some() {
-                (true, "ok - bridged to a conversation".into())
+            let bridged = self.state.read().await.conversations.len();
+            return if bridged > 0 {
+                (true, format!("ok - bridged to {bridged} conversation(s)"))
             } else {
                 (true, "ok - no conversation opened yet".into())
             };
