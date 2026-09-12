@@ -15,6 +15,47 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.6.2] — unreleased
+
+Additive. A tool call and an action can ask which conversation invoked them, and
+answer in it later.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md). Code written against 0.6.1
+runs unchanged.
+
+### Added
+- **`astra_plugin_sdk.current_invocation()`** and **`Invocation`**. Inside a
+  tool call or an action that a conversation's assistant turn made,
+  `.conversation_id` is a UUID you MAY store — across restarts — and pass back
+  as `send_chat_message`'s `conversation_id` to answer in that same chat, as
+  yourself. A frozen dataclass: it describes a call that has already arrived.
+
+  A `ContextVar`, beside `current_cause()`, and with the same documented hole:
+  **`loop.run_in_executor` does not copy the context.** Read it in the coroutine
+  and pass the id as an argument, or carry the context across with
+  `contextvars.copy_context()`.
+- **A conversation argument on the harness** — `h.call_tool("look", "conv-1")`
+  and `h.execute_action("kind", "conv-1")`. Omitting it sends no invocation
+  message; passing `None` sends one naming no conversation, a shape the wire has
+  and no ordinary call site produces.
+
+### Changed
+- `send_chat_message`'s docstring retracts *"do not store one and send it back
+  later"* and names the deadlock that replaces it: **never await a send into the
+  conversation that is calling you, from inside that call.** That conversation
+  is still running the turn waiting for your answer, so the message queues
+  behind it and the call times out. Hand it to a task.
+
+### Notes
+- **An unset protobuf message field is not `None`.** `request.invocation`
+  returns a default-constructed `PluginInvocation`, so `if request.invocation:`
+  would report every call as coming from a conversation. The SDK uses
+  `HasField`, and a test asserts that on the message rather than through a
+  handler, so the reason survives somebody simplifying the check.
+- An empty `conversation_id`, and an invocation naming nothing, both normalise
+  to `None`.
+
 ## [0.6.1] — 2026-08-24
 
 Additive, plus one shutdown bug that made `conformance (R7)` flaky.

@@ -284,10 +284,26 @@ export class Harness {
     return schema;
   }
 
-  /** `CallTool`, through the real handler. `args` may be an object or JSON. */
-  async callTool(name: string, args: Record<string, unknown> | string = {}): Promise<ToolResult> {
+  /**
+   * `CallTool`, through the real handler. `args` may be an object or JSON.
+   *
+   * `opts.conversationId` sends the call as a conversation's turn would, so
+   * `ctx.invocation` answers inside the handler. Pass `null` for the
+   * invocation-that-names-nothing the daemon also sends.
+   */
+  async callTool(
+    name: string,
+    args: Record<string, unknown> | string = {},
+    opts: { conversationId?: string | null } = {}
+  ): Promise<ToolResult> {
     const argumentsJson = typeof args === "string" ? args : JSON.stringify(args);
-    return (await this.unary("CallTool", { toolName: name, argumentsJson })) as ToolResult;
+    return (await this.unary("CallTool", {
+      toolName: name,
+      argumentsJson,
+      ...(opts.conversationId === undefined
+        ? {}
+        : { invocation: { conversationId: opts.conversationId ?? "" } }),
+    })) as ToolResult;
   }
 
   /**

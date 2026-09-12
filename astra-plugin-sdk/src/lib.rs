@@ -89,8 +89,8 @@ pub mod wire;
 pub use auth::CapabilityAuth;
 pub use capability::*;
 pub use context::{
-    ActiveTriggers, ChatStream, Daemon, EventStream, FirehoseStream, Host, PluginContext, ctx,
-    install_context, try_ctx,
+    ActiveTriggers, ChatStream, Daemon, EventStream, FirehoseStream, Host, Invocation,
+    PluginContext, ctx, install_context, try_ctx,
 };
 pub use daemon_client::DaemonClient;
 pub use error::{ActionError, HookUnimplemented, ToolError, ToolErrorCode, unimplemented};
@@ -293,7 +293,9 @@ pub mod schema {
 /// Everything a plugin normally needs, in one `use`.
 pub mod prelude {
     pub use crate::capability::*;
-    pub use crate::context::{ActiveTriggers, Daemon, Host, PluginContext, ctx, try_ctx};
+    pub use crate::context::{
+        ActiveTriggers, Daemon, Host, Invocation, PluginContext, ctx, try_ctx,
+    };
     pub use crate::daemon_client::DaemonClient;
     pub use crate::error::{ActionError, ToolError, ToolErrorCode};
     pub use crate::events::{CommandCompletedEvent, CommandTriggeredEvent, StateChangedEvent};

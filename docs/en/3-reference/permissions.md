@@ -101,12 +101,52 @@ message, and the model answered each one holding no memory of the one before.
 The plugin that surfaced it was a Minecraft bridge: every sentence a player
 typed in game chat became its own Astra thread.
 
-Pass an id **only** to answer inside a conversation you were told about in the
-same exchange — `conversation_id` arrives on the chunks of a reply you are
-streaming right now. **Do not store one and send it back later.** Threads rotate
-and are pruned, so a stored id eventually names a conversation that is gone, and
-what happens then depends on how old the daemon in front of you is. Leaving the
-field empty is correct on every version.
+Pass an id **only** to answer inside a conversation you were actually told
+about. There are two ways to be told, and no third: the chunks of a reply you
+are streaming right now carry `conversation_id`, and a tool call or an action
+carries the conversation that invoked it — see below. Anything else is a guess,
+and there is no API for the guess on purpose.
+
+### Answering in the conversation that called you
+
+When the model calls one of your tools or runs one of your actions from inside a
+conversation, the daemon tells you which conversation that was. **You may store
+that id, including across restarts, and send it back later.** That is what the
+field is for: a plugin asked in one chat to go and do something can come back to
+that same chat with the answer, as itself, minutes or hours later.
+
+In Rust that is `ctx.invocation()`, and `.conversation()` on what it returns.
+In TypeScript it is `ctx.invocation?.conversationId`, or `currentInvocation()`
+where no context is to hand. In Python it is `current_invocation()`, then
+`.conversation_id`.
+
+**Absent is the common answer, and it is not a cue to guess.** You get nothing
+when the call was not made from a conversation at all — a trigger, a timer, your
+own UI — when the call has a cause the daemon holds no lease for, such as a
+nested sub-agent or a command's *send to AI* step, and when the daemon in front
+of you predates the field. All three arrive identically, and the right response
+to all three is the same: leave `conversation_id` empty and post to your own
+thread.
+
+**Never await a send into the conversation that is calling you, from inside that
+call.** That conversation is still running the turn that invoked you. Your
+message declares an intent for the *next* turn, so it queues behind the one
+waiting for your answer, and the tool call times out. Hand the send to a
+detached task, or do it later — `examples/dice-roller` ships the idiom.
+
+A conversation can be deleted while you hold its id. The send fails with a
+distinct, catchable answer rather than silently going somewhere else:
+
+A `NOT_FOUND` whose message begins `conversation_gone:` says it was deleted:
+forget the id and fall back to your own thread. An `INVALID_ARGUMENT` says the
+id is not a UUID, or names a chat an Astra surface owns. A message that was
+accepted and then outlived its chat ends the stream with an error chunk whose
+`error_detail.code` is `PLUGIN_ERROR_NOT_FOUND`. A daemon older than this
+contract reports that same situation as `INTERNAL`, *"chat processing failed:
+conversation … does not exist"*.
+
+Leaving the field empty remains correct on every version, and is still the right
+default for anything that is not an answer to a specific call.
 
 ### What happens if Astra is busy
 
@@ -142,6 +182,18 @@ deliberate. A queue is a person who has decided to wait, and a person does not
 type nine things while waiting for one answer. Nine is reachable only by a
 client in a loop, and the ceiling exists so that a loop cannot turn into
 unbounded memory holding somebody's words.
+
+**The stream always ends**, including in the case that used to be silence. A
+line that reached the conversation but that no turn will ever answer ends the
+stream with an error chunk — `INTERNAL`, *"this message reached the conversation,
+but no turn will answer it"* — and its hint says the same thing the shape does:
+**do not resend**. The message is not lost and sending it again would post it
+twice.
+
+**Your text is text, never a command.** A message beginning `/` — `/help`,
+`/reset`, anything — reaches the model as those literal characters. A plugin
+cannot invoke a slash command by writing one, and cannot supersede a person's
+turn by writing one either. Sending `/stop` stops nothing; it says the word.
 
 **The pattern that is right on every daemon**: wait for `done` before sending
 again. On builds older than the queue, a message sent while a turn was running

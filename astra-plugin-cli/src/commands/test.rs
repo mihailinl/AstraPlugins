@@ -1247,6 +1247,9 @@ async fn probe_one(
             probe_call!(client, rpc, call_tool(proto::PluginCallToolRequest {
                     tool_name: name.clone(),
                     arguments_json: "{}".into(),
+                    // `astra-plugin test` probes a plugin from outside any
+                    // conversation, which is exactly what None means.
+                    invocation: None,
                 }))
             .map(|r| {
                 if r.success {
@@ -1304,6 +1307,7 @@ async fn probe_one(
             probe_call!(client, rpc, execute_action(proto::PluginExecuteActionRequest {
                     action_type: action.clone(),
                     params_json: "{}".into(),
+                    invocation: None,
                 }))
             .map(|r| {
                 if r.success {

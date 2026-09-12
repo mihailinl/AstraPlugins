@@ -133,6 +133,60 @@ pub trait Host: Send + Sync + 'static {
     /// plugin session token is scoped to `PluginHostService`, so the
     /// `ChatService` route through [`Daemon`] answers `PERMISSION_DENIED` unless
     /// the daemon also granted a client session.
+    ///
+    /// # Where it lands
+    ///
+    /// An empty `conversation_id` posts to this plugin's own durable thread,
+    /// which is the right default for anything that is not an answer to a
+    /// specific call. Pass an id only when you were TOLD one: the chunks of a
+    /// reply you are streaming carry it, and so does
+    /// [`PluginContext::invocation`] inside a tool call or an action. An id from
+    /// an invocation may be stored, across restarts, and sent back later.
+    ///
+    /// # Never await this inside the call that told you the id
+    ///
+    /// **This is a deadlock, not a slow path.** The conversation that invoked
+    /// your tool is still running the turn that is waiting for your answer. A
+    /// message declares an intent for the *next* turn, so it queues behind that
+    /// one — and the turn cannot finish until your tool returns. Awaiting the
+    /// reply from inside the handler waits for a turn that is waiting for you,
+    /// and the call times out.
+    ///
+    /// Spawn it, or send later:
+    ///
+    /// ```ignore
+    /// let host = ctx.host().clone();
+    /// let id = ctx.invocation().and_then(|i| i.conversation()).map(str::to_string);
+    /// tokio::spawn(async move {
+    ///     if let Some(id) = id {
+    ///         let _ = host.send_chat_message("done", &id, false).await;
+    ///     }
+    /// });
+    /// return Ok("started".into());          // the turn can now finish
+    /// ```
+    ///
+    /// # Two things your text is not
+    ///
+    /// A message beginning `/` reaches the model as those literal characters.
+    /// A plugin cannot invoke a slash command by writing one, and cannot
+    /// supersede a person's turn by writing one.
+    ///
+    /// And the stream always ends. A line that reached the conversation but
+    /// that no turn will answer ends it with an error chunk — `INTERNAL`,
+    /// *"this message reached the conversation, but no turn will answer it"* —
+    /// whose hint says not to resend. It was delivered; sending it again posts
+    /// it twice.
+    ///
+    /// # When the conversation is gone
+    ///
+    /// A stored id can name a deleted conversation. That is refused, never
+    /// redirected: `NOT_FOUND` whose message begins `conversation_gone:` —
+    /// forget the id and fall back to your own thread. `INVALID_ARGUMENT` means
+    /// the id is not a UUID, or names a chat an Astra surface owns. A message
+    /// that was accepted and then outlived its chat ends the stream with an
+    /// error chunk whose `error_detail.code` is `PLUGIN_ERROR_NOT_FOUND`. A
+    /// daemon older than this contract says `INTERNAL`, *"chat processing
+    /// failed: conversation … does not exist"*, for the same situation.
     async fn send_chat_message(
         &self,
         text: &str,
@@ -315,6 +369,68 @@ impl std::fmt::Debug for ActiveTriggers {
 /// language is, what is listening, and the two clients.
 ///
 /// Cloning is five atomic increments — clone it into a `tokio::spawn` without
+/// What the daemon said about the ONE call being handled.
+///
+/// Reached through [`PluginContext::invocation`], and `None` unless this
+/// handler is running a tool call or an action. Every other hook — UI calls,
+/// triggers, TTS, STT, AI — gets `None`, because the daemon does not send an
+/// invocation on those and an SDK must never invent one.
+///
+/// # What `None` means, and what it does not
+///
+/// `None` means **this call was not made from a conversation**, and it is the
+/// answer for several different situations that a plugin cannot tell apart and
+/// does not need to:
+///
+/// - nothing conversational caused the call — a trigger fired, a timer ran, the
+///   user pressed something in your own UI;
+/// - the run that caused it has no conversation to name, such as a nested agent
+///   or a `SendToAi` run;
+/// - the daemon predates this field.
+///
+/// It is **never** a reason to guess. Do not fall back to "the conversation the
+/// user is looking at": there is no such API, on purpose, and a plugin that
+/// posted into a chat the user never pointed at would be doing something nobody
+/// asked for.
+///
+/// # Storing it
+///
+/// [`conversation`](Self::conversation) returns a UUID you MAY keep, including
+/// across restarts, and send back later as the conversation to post into. That
+/// is the whole point of the field: a plugin told "you were called from here"
+/// can answer there later, as itself.
+///
+/// The conversation can be deleted while you hold the id. See the send path's
+/// own documentation for the error that says so and for the one rule that
+/// matters: never await a send into the conversation that is calling you, from
+/// inside that call.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Invocation {
+    conversation: Option<String>,
+}
+
+impl Invocation {
+    /// Build one. Mostly for tests and harnesses — the runner builds the real
+    /// ones off the wire.
+    ///
+    /// An empty string is normalised to `None`: on the wire `""` is how a
+    /// daemon says "no conversation", and letting it through as `Some("")`
+    /// would hand plugins an id that can never resolve.
+    pub fn new(conversation: Option<impl Into<String>>) -> Self {
+        let conversation = conversation.map(Into::into).filter(|c| !c.is_empty());
+        Self { conversation }
+    }
+
+    /// The conversation whose turn made this call, or `None`.
+    ///
+    /// A UUID. Safe to store and send back later; see the type's documentation
+    /// for what `None` covers and why it is not a cue to guess.
+    pub fn conversation(&self) -> Option<&str> {
+        self.conversation.as_deref()
+    }
+}
+
 /// thinking about it. The mutable parts (language, active triggers) are shared,
 /// so a clone taken at startup sees later updates.
 #[derive(Clone)]
@@ -328,6 +444,12 @@ pub struct PluginContext {
     /// share one `Inner` share one identity, one language cell and one trigger
     /// set, and differ only in which host their handler fires through.
     scoped_host: Arc<dyn Host>,
+    /// What the daemon said about this one call. Beside `inner` for the same
+    /// reason `scoped_host` is: it varies per invocation, and `Inner` must not.
+    ///
+    /// `Arc` so that cloning a context — which every forwarded hook does — stays
+    /// a refcount bump rather than a string copy.
+    invocation: Option<Arc<Invocation>>,
 }
 
 struct Inner {
@@ -374,6 +496,9 @@ impl PluginContext {
         static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Self {
             scoped_host: host.clone(),
+            // A context built at startup belongs to no call. The runner scopes
+            // a per-invocation clone for the two hooks that have one.
+            invocation: None,
             inner: Arc::new(Inner {
                 // Relaxed: the only requirement is that no two contexts get the
                 // same number, which `fetch_add` gives on its own. Nothing is
@@ -431,7 +556,7 @@ impl PluginContext {
     ///
     /// While a handler is running this is the *scoped* host: a trigger fired
     /// through it names the daemon call that caused it, so its output lands in
-    /// the conversation the user is actually looking at. That property rides in
+    /// the conversation that made the call. That property rides in
     /// the `Arc` and therefore survives `clone()` and `tokio::spawn` — which it
     /// has to, because the shipped reference idiom fires from a detached task
     /// (`examples/dice-roller/src/main.rs`). Everywhere else — [`ctx()`], a host
@@ -461,9 +586,47 @@ impl PluginContext {
                     inner: self.inner.host.clone(),
                     cause,
                 }),
+                invocation: self.invocation.clone(),
             },
             None => self.clone(),
         }
+    }
+
+    /// This context, carrying what the daemon said about one call.
+    ///
+    /// Separate from [`for_invocation`](Self::for_invocation), and applied
+    /// after it, because the two read different halves of the same RPC: the
+    /// cause lease is in the request's METADATA and is readable before the body
+    /// is, while the invocation is a field IN the body and is not readable
+    /// until `into_inner()`. The runner does the metadata half as the request
+    /// arrives and this half once it has the message.
+    ///
+    /// `None` clears it, so an arm that has no invocation cannot inherit one
+    /// from a context it was cloned from.
+    pub(crate) fn with_invocation(mut self, invocation: Option<Invocation>) -> Self {
+        self.invocation = invocation.map(Arc::new);
+        self
+    }
+
+    /// What the daemon said about the call being handled, or `None`.
+    ///
+    /// `Some` only inside a tool call or an action, and only when that call was
+    /// made from a conversation. See [`Invocation`] for everything `None`
+    /// covers — it is several situations, and none of them is a cue to guess a
+    /// conversation.
+    ///
+    /// ```ignore
+    /// async fn call_tool(&self, ctx: &PluginContext, name: &str, args: &str)
+    ///     -> Result<String, ToolError>
+    /// {
+    ///     if let Some(id) = ctx.invocation().and_then(|i| i.conversation()) {
+    ///         self.remember(id);           // safe to store, across restarts
+    ///     }
+    ///     Ok("done".into())
+    /// }
+    /// ```
+    pub fn invocation(&self) -> Option<&Invocation> {
+        self.invocation.as_deref()
     }
 
     /// This context's process-unique number. See [`Inner::id`].

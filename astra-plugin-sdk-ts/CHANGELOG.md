@@ -51,6 +51,26 @@ runtime behaviour is backward compatible and the fix is one property.
   `I18n.empty()` — or use the level-1 harness, which builds one for you.
 
 ### Added
+- **`Invocation`** and **`currentInvocation()`**, plus an OPTIONAL
+  **`PluginContext.invocation`**. Inside a tool call or an action that a
+  conversation's assistant turn made, `invocation.conversationId` is a UUID you
+  MAY store — across restarts — and pass straight back as
+  `sendChatMessage(text, { conversationId })`. It is the same `conversationId`
+  that call already took: one concept, one name, a round trip.
+
+  Optional on the interface deliberately, so this is **not** the kind of break
+  `language` was: a plugin written before this compiles unchanged, and one
+  reading it is made to handle the absent case, which is the common one.
+
+  Implemented as a per-call `AsyncLocalStorage` store rather than a field on the
+  context, and the difference is a bug avoided: one `PluginContext` is built per
+  plugin and handed to every hook, so a field would be the same value for two
+  concurrent calls from two different chats.
+- **`MockDaemon.callTool(name, args, { conversationId })`** and the same option
+  on the level-1 harness. `null` there sends an invocation naming no
+  conversation — a real wire shape that no object literal produces.
+
+### Added
 - **`key()`** — marks a string the DAEMON renders (an action label, a
   config-field title, a `[ui]` label) as a `$key` reference into your
   `locales/`. `this.i18n` is the other plane and resolves in your process; the
@@ -108,6 +128,19 @@ none. Migrate at your convenience; the alias is a one-line rename.
 `PROTOCOL_VERSION` is unchanged at `1`. A plugin that ships no `locales/`
 directory is unaffected: `I18n.discover()` finds nothing, `hasLocales` is
 `false`, and `t()` returns the key exactly as before.
+
+### Changed (conversation ids)
+- `sendChatMessage`'s documentation retracts *"do not store one and send it back
+  later"* and names the deadlock that replaces it: **never await a send into the
+  conversation that is calling you, from inside that call.** That conversation
+  is still running the turn waiting for your answer, so the message queues
+  behind it and the call times out. Start the send and do not await it.
+- Three shapes normalise to `undefined`: no `invocation` message, one whose
+  `conversationId` is `""`, and `null` — the descriptor is loaded with
+  `keepCase: false` and an absent sub-message arrives as `null`, so a plain `?.`
+  chain would leak it through a type that promises `undefined`.
+- A sentence about a fired trigger's output said "the conversation the user is
+  actually looking at"; it now says "the conversation that made the call".
 
 ## [0.6.0] — 2026-08-16
 

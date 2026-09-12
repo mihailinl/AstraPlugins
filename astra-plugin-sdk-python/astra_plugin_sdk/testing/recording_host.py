@@ -45,8 +45,8 @@ class FiredTrigger:
     #: ``None`` is the normal answer almost everywhere: a plugin firing from a
     #: background task it started itself genuinely has no cause. It is set only
     #: when the fire happened inside a daemon call the daemon leased — which is
-    #: what decides whether the trigger's output reaches the conversation the
-    #: user is looking at. Defaulted so existing positional construction keeps
+    #: what decides whether the trigger's output reaches the conversation that
+    #: made the call. Defaulted so existing positional construction keeps
     #: working.
     caused_by: str | None = None
 

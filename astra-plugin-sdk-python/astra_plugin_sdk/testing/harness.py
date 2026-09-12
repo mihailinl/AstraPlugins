@@ -51,6 +51,31 @@ __all__ = ["Harness", "Result", "SttEvent", "HarnessError", "FakeContext"]
 DEFAULT_TIMEOUT = 5.0
 
 
+def _invocation_kwargs(conversation_id: str | None | _Unset) -> dict[str, Any]:
+    """The `invocation=` kwarg for a request, or nothing at all.
+
+    Three distinct inputs, because the wire has three shapes and a test has to
+    be able to send each one:
+
+    * `_UNSET` (the default) — no `invocation` sub-message. What a daemon that
+      predates the field sends, and what a call made outside any conversation
+      sends today.
+    * `None` — an `invocation` naming no conversation. A real message, and it
+      must reach the handler as `None` exactly like the absent case.
+    * a string — the conversation whose turn made the call.
+    """
+    if isinstance(conversation_id, _Unset):
+        return {}
+    return {"invocation": plugin_pb2.PluginInvocation(conversation_id=conversation_id or "")}
+
+
+class _Unset:
+    """Distinguishes "no invocation message" from "an invocation naming nothing"."""
+
+
+_UNSET = _Unset()
+
+
 class HarnessError(AssertionError):
     """The plugin failed in a way the harness was asked to treat as fatal."""
 
@@ -375,7 +400,9 @@ class Harness:
 
     # ── calls ──
 
-    def call_tool(self, name: str, /, **arguments: Any) -> Result:
+    def call_tool(
+        self, name: str, /, _conversation_id: str | None | _Unset = _UNSET, **arguments: Any
+    ) -> Result:
         """Call a tool the way the daemon does: by name, with JSON arguments.
 
         The tool name is POSITIONAL-ONLY, and the `/` is load-bearing: without
@@ -389,7 +416,9 @@ class Harness:
         response = self.run(
             self._servicer.CallTool(
                 plugin_pb2.PluginCallToolRequest(
-                    tool_name=name, arguments_json=json.dumps(arguments)
+                    tool_name=name,
+                    arguments_json=json.dumps(arguments),
+                    **_invocation_kwargs(_conversation_id),
                 ),
                 ctx,
             )
@@ -412,12 +441,20 @@ class Harness:
         )
         return _result(response, ctx)
 
-    def execute_action(self, action_type: str, /, **params: Any) -> Result:
+    def execute_action(
+        self,
+        action_type: str,
+        /,
+        _conversation_id: str | None | _Unset = _UNSET,
+        **params: Any,
+    ) -> Result:
         ctx = FakeContext()
         response = self.run(
             self._servicer.ExecuteAction(
                 plugin_pb2.PluginExecuteActionRequest(
-                    action_type=action_type, params_json=json.dumps(params)
+                    action_type=action_type,
+                    params_json=json.dumps(params),
+                    **_invocation_kwargs(_conversation_id),
                 ),
                 ctx,
             )

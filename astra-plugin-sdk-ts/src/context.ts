@@ -26,6 +26,7 @@
 import type { Host } from "./host.js";
 import type { I18n } from "./i18n.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
+import { currentInvocation, type Invocation } from "./invocation.js";
 
 /** What a handler is given. Cheap to hold: it reads through to the plugin. */
 export interface PluginContext {
@@ -39,6 +40,26 @@ export interface PluginContext {
   readonly activeTriggers: ReadonlySet<string>;
   /** The daemon, or `null` before registration / in a level-1 harness with none. */
   readonly host: Host | null;
+  /**
+   * Which conversation made THIS call, when one did.
+   *
+   * Present only inside a tool call or an action that a conversation's turn
+   * triggered. `undefined` everywhere else, and `undefined` is several
+   * situations at once — see `./invocation.js` — none of which is a cue to
+   * guess a conversation.
+   *
+   * Optional on purpose: a plugin written before this existed keeps compiling,
+   * and one reading it has to handle the absent case, which is the common one.
+   *
+   * ```ts
+   * async callTool(name: string, argsJson: string) {
+   *   const id = this.ctx.invocation?.conversationId;
+   *   if (id) this.remember(id);          // safe to store, across restarts
+   *   return { result: "done" };
+   * }
+   * ```
+   */
+  readonly invocation?: Invocation;
   /**
    * This plugin's translations, for the **runtime** plane.
    *
@@ -62,6 +83,43 @@ export interface PluginContext {
   setVariable(name: string, value: string, scope?: string): Promise<void>;
   pushToUi(event: string, payload?: Record<string, unknown>): Promise<void>;
   setThemeContribution(theme: ThemeContribution): Promise<void>;
+  /**
+   * Send a chat message as this plugin and stream the assistant's reply.
+   *
+   * **Where it lands.** An empty `conversationId` posts to this plugin's own
+   * durable thread, which is the right default for anything that is not an
+   * answer to a specific call. Pass one only when you were TOLD it: the chunks
+   * of a reply you are streaming carry it, and so does `ctx.invocation` inside
+   * a tool call or an action. An id from an invocation may be stored, across
+   * restarts, and sent back later.
+   *
+   * **Never await this inside the call that told you the id.** It is a
+   * deadlock, not a slow path. The conversation that invoked your tool is still
+   * running the turn waiting for your answer; a message declares an intent for
+   * the *next* turn, so it queues behind the one that cannot finish until you
+   * return. Start it and do not await it:
+   *
+   * ```ts
+   * const id = ctx.invocation?.conversationId;
+   * if (id) void (async () => { for await (const _ of ctx.sendChatMessage("done", { conversationId: id })); })();
+   * return { result: "started" };          // the turn can now finish
+   * ```
+   *
+   * **Your text is text.** A message beginning `/` reaches the model as those
+   * literal characters — a plugin cannot invoke a slash command by writing one,
+   * nor supersede a person's turn. And the stream always ends: a line that
+   * reached the conversation but that no turn will answer ends it with an error
+   * chunk (`INTERNAL`, "this message reached the conversation, but no turn will
+   * answer it") whose hint says not to resend.
+   *
+   * **When the conversation is gone** the send is refused, never redirected:
+   * `NOT_FOUND` (`err.code === 5`) whose message begins `conversation_gone:`
+   * means it was deleted — forget the id. `INVALID_ARGUMENT` means the id is
+   * not a UUID, or names a chat an Astra surface owns. A message accepted and
+   * then outlived by its chat ends the stream with an error chunk whose
+   * `errorDetail.code` is `PLUGIN_ERROR_NOT_FOUND`. An older daemon says
+   * `INTERNAL`, "chat processing failed: conversation … does not exist".
+   */
   sendChatMessage(
     text: string,
     opts?: { conversationId?: string; voiceEnabled?: boolean }
@@ -111,6 +169,17 @@ export class PluginContextImpl implements PluginContext {
   }
   get i18n(): I18n {
     return this.source.i18n;
+  }
+  /**
+   * Read through to the per-call store rather than held on the context.
+   *
+   * A `PluginContext` is built once and handed to every hook, so a field set at
+   * construction would be the same value for concurrent calls from two
+   * different chats. `AsyncLocalStorage` follows the await chain of the one
+   * call being handled, which is the only scope that can be correct here.
+   */
+  get invocation(): Invocation | undefined {
+    return currentInvocation();
   }
 
   configValue<T>(key: string, fallback: T): T {

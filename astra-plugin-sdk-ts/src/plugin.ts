@@ -14,6 +14,7 @@ import { EXIT_PROTOCOL_INCOMPATIBLE, ProtocolMismatchError } from "./protocol.js
 import { service } from "./proto-loader.js";
 import { addServiceChecked, type HandlerMap } from "./service-contract.js";
 import { causeFromCall, withCause } from "./causality.js";
+import { invocationFromCall, withInvocation } from "./invocation.js";
 import { assertNoReservedNames } from "./reserved.js";
 import { capabilityAuthMode, guardHandlers } from "./capability-auth.js";
 import type {
@@ -788,7 +789,12 @@ export abstract class Plugin {
       // goes stale in silence: a fourth stamped call site would produce a lease
       // this SDK receives and drops, with nothing anywhere reporting it. A call
       // with no lease enters no store at all, so this costs one map lookup.
-      withCause(causeFromCall(call), () => handler(call))
+      // Two stores, entered together and read apart. The lease comes off the
+      // metadata and the invocation out of the request body; a call may carry
+      // either, both or neither, and neither may stand in for the other.
+      withCause(causeFromCall(call), () =>
+        withInvocation(invocationFromCall(call), () => handler(call)),
+      )
         .then((result) => callback(null, result))
         .catch((err: unknown) => {
           if (err instanceof HookUnimplemented) {
@@ -809,7 +815,10 @@ export abstract class Plugin {
    * must be attributed the same way.
    */
   private wrapStream(handler: (call: any) => unknown) {
-    return (call: any) => withCause(causeFromCall(call), () => handler(call));
+    return (call: any) =>
+      withCause(causeFromCall(call), () =>
+        withInvocation(invocationFromCall(call), () => handler(call)),
+      );
   }
 
   /** The same three outcomes, on a server-streaming call. */

@@ -21,6 +21,11 @@ triggers = true
 # `triggers = true` is not what lets `fire_trigger` through. This is.
 [permissions]
 fire_trigger = { reason = "Fires the on_roll_value trigger so your commands can react to what you rolled" }
+# High-risk, and listed here because the reference use of `ctx.invocation()`
+# needs it: `roll_and_announce` posts the result back into the conversation that
+# asked. A release adding this trips `R_NEW_HIGH_RISK` at the registry and waits
+# for a person — which is the rule working, not an obstacle.
+send_chat_message = { reason = "Posts the roll back into the conversation that asked for it" }
 
 [config]
 schema = """

@@ -142,7 +142,7 @@ For when the daemon side lands: it is **`submit_user_message`**, not
 
 A trigger you fire while handling a call from Astra is attributed to that call,
 so whatever it causes — a command run, a spoken line, a chat message — lands in
-the conversation the user is actually looking at. **You write nothing for this.**
+the conversation that made the call. **You write nothing for this.**
 The SDK carries an opaque lease from the inbound call to the outbound
 `FireTrigger` for you:
 

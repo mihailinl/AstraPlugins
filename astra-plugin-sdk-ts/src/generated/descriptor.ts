@@ -59,6 +59,50 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "ToggleOverlay": {
               "requestType": "Empty",
               "responseType": "Empty"
+            },
+            "GetLogLocation": {
+              "requestType": "Empty",
+              "responseType": "LogLocationResponse"
+            },
+            "CollectLogs": {
+              "requestType": "Empty",
+              "responseType": "LogBundleResponse"
+            }
+          }
+        },
+        "LogBundleResponse": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "sizeBytes": {
+              "type": "int64",
+              "id": 2
+            },
+            "fileCount": {
+              "type": "int32",
+              "id": 3
+            },
+            "error": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "LogLocationResponse": {
+          "fields": {
+            "directory": {
+              "type": "string",
+              "id": 1
+            },
+            "currentFile": {
+              "type": "string",
+              "id": 2
+            },
+            "retentionDays": {
+              "type": "uint32",
+              "id": 3
             }
           }
         },
@@ -95,6 +139,50 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "startupStatus": {
               "type": "string",
               "id": 8
+            },
+            "updateVersion": {
+              "type": "string",
+              "id": 9
+            },
+            "updateNotes": {
+              "type": "string",
+              "id": 10
+            },
+            "updateProblem": {
+              "type": "string",
+              "id": 11
+            },
+            "updateCanApply": {
+              "type": "bool",
+              "id": 12
+            },
+            "updateCannotApplyReason": {
+              "type": "string",
+              "id": 13
+            },
+            "updateDismissed": {
+              "type": "bool",
+              "id": 14
+            },
+            "updatePhase": {
+              "type": "string",
+              "id": 15
+            },
+            "updateApplyProblem": {
+              "type": "string",
+              "id": 16
+            },
+            "updateRepoProblem": {
+              "type": "string",
+              "id": 17
+            },
+            "updateRepoRepairable": {
+              "type": "bool",
+              "id": 18
+            },
+            "updateRepoNeedsConsent": {
+              "type": "bool",
+              "id": 19
             }
           }
         },
@@ -139,7 +227,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "mcpServerChanged",
                 "mcpToolsChanged",
                 "memoryChanged",
-                "characterLibraryChanged"
+                "characterLibraryChanged",
+                "companionStatusChanged",
+                "conversationDeleted"
               ]
             }
           },
@@ -260,6 +350,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "CharacterLibraryChangedEvent",
               "id": 33
             },
+            "companionStatusChanged": {
+              "type": "CompanionStatusChangedEvent",
+              "id": 34
+            },
+            "conversationDeleted": {
+              "type": "ConversationDeletedEvent",
+              "id": 35
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
@@ -286,6 +384,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "fields": {
             "generation": {
               "type": "uint32",
+              "id": 1
+            }
+          }
+        },
+        "CompanionStatusChangedEvent": {
+          "fields": {
+            "connected": {
+              "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "ConversationDeletedEvent": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
               "id": 1
             }
           }
@@ -367,6 +481,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "persistent": {
               "type": "bool",
               "id": 4
+            },
+            "code": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -913,6 +1031,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "event": {
               "type": "ConversationEventMsg",
               "id": 2
+            },
+            "backlog": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -1002,6 +1124,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "queued": {
               "type": "bool",
               "id": 4
+            },
+            "replacedConversationId": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -1105,7 +1231,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "planUpdated",
                 "subagentActivity",
                 "commandExecuted",
-                "turnUsage"
+                "turnUsage",
+                "contextLoad",
+                "historyCompacted"
               ]
             }
           },
@@ -1201,6 +1329,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "turnUsage": {
               "type": "TurnUsageEvt",
               "id": 28
+            },
+            "contextLoad": {
+              "type": "ContextLoadEvt",
+              "id": 29
+            },
+            "historyCompacted": {
+              "type": "HistoryCompactedEvt",
+              "id": 30
             }
           }
         },
@@ -1233,6 +1369,70 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "roundsMeasured": {
               "type": "uint32",
               "id": 7
+            }
+          }
+        },
+        "ContextLoadEvt": {
+          "fields": {
+            "messages": {
+              "type": "uint32",
+              "id": 1
+            },
+            "maxMessages": {
+              "type": "uint32",
+              "id": 2
+            },
+            "tokens": {
+              "type": "uint32",
+              "id": 3
+            },
+            "roomTokens": {
+              "type": "uint32",
+              "id": 4
+            },
+            "trusted": {
+              "type": "bool",
+              "id": 5
+            },
+            "share": {
+              "type": "float",
+              "id": 6
+            },
+            "level": {
+              "type": "string",
+              "id": 7
+            },
+            "savingsTokens": {
+              "type": "uint32",
+              "id": 8
+            },
+            "binding": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "HistoryCompactedEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "summarizedMessages": {
+              "type": "uint32",
+              "id": 2
+            },
+            "keptMessages": {
+              "type": "uint32",
+              "id": 3
+            },
+            "generation": {
+              "type": "uint32",
+              "id": 4
+            },
+            "summary": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -1400,6 +1600,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "content": {
               "type": "string",
               "id": 2
+            },
+            "code": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -3064,6 +3268,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "ListBrowsers": {
               "requestType": "Empty",
               "responseType": "ListBrowsersResponse"
+            },
+            "StartIndexer": {
+              "requestType": "Empty",
+              "responseType": "StartIndexerResponse"
+            },
+            "RescanIndex": {
+              "requestType": "Empty",
+              "responseType": "StartIndexerResponse"
             }
           }
         },
@@ -3277,6 +3489,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "options": {
                 "proto3_optional": true
               }
+            }
+          }
+        },
+        "StartIndexerResponse": {
+          "fields": {
+            "started": {
+              "type": "bool",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -4100,6 +4324,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "wakeWordPatienceHits": {
               "type": "int32",
               "id": 26
+            },
+            "wakeChimeEnabled": {
+              "type": "bool",
+              "id": 29
             },
             "audioDuckingEnabled": {
               "type": "bool",
@@ -7361,6 +7589,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "PluginInvocation": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
         "PluginCallToolRequest": {
           "fields": {
             "toolName": {
@@ -7370,6 +7606,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "argumentsJson": {
               "type": "string",
               "id": 2
+            },
+            "invocation": {
+              "type": "PluginInvocation",
+              "id": 3
             }
           }
         },
@@ -7734,6 +7974,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "paramsJson": {
               "type": "string",
               "id": 2
+            },
+            "invocation": {
+              "type": "PluginInvocation",
+              "id": 3
             }
           }
         },

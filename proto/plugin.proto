@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: cd740c6c2701a4097706b4b17bac57e347944859a753a6c10bdaccfe5a4fdcfa
+// surface-sha256: 2946aa89c482e9283451c394c3e388c9c198e401638e7110b2e96fb055dee484
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -61,6 +61,56 @@ service CoreService {
     // regardless of whether the overlay hotkey is enabled — used by the guided
     // tutorial to demonstrate the overlay on demand.
     rpc ToggleOverlay(Empty) returns (Empty);
+
+    // Where this daemon's logs are. Asked by Settings -> About so a user can
+    // find them without being told to go looking in an OS config directory —
+    // and the daemon is the only process that knows, since it owns `Paths`.
+    // Strings only, so the Electron shell needs no handler of its own.
+    rpc GetLogLocation(Empty) returns (LogLocationResponse);
+
+    // Put every log worth sending into ONE archive and say where it is.
+    //
+    // GetLogLocation names a FOLDER, and a folder is not an answer to "which
+    // file do I send you?": it holds a fortnight of daily daemon logs, the
+    // overlay's beside them, and a tool-search directory. Support asked for
+    // "the log" and got one day of one process, or nothing.
+    //
+    // Strings and scalars only, same wire discipline as GetLogLocation, so the
+    // Electron shell still needs no handler of its own.
+    rpc CollectLogs(Empty) returns (LogBundleResponse);
+}
+
+message LogBundleResponse {
+    // Absolute path of the .zip that was written, ready to be attached to a
+    // message. Empty when `error` is set.
+    string path = 1;
+
+    // How big the archive is, so the UI can warn before somebody tries to send
+    // 40 MB over a chat app that refuses it.
+    int64 size_bytes = 2;
+
+    // How many log files went in. Zero with an empty `error` is a real answer:
+    // a daemon that has only just started has written nothing yet.
+    int32 file_count = 3;
+
+    // Empty on success. Set instead of failing the RPC, because the caller is a
+    // settings page and "we could not write the archive" is information for the
+    // user rather than a transport fault.
+    string error = 4;
+}
+
+message LogLocationResponse {
+    // Absolute path of the folder holding every log this install writes (the
+    // daemon's, the overlay's, the Tool Search traces).
+    string directory = 1;
+
+    // Absolute path of the file the daemon is writing RIGHT NOW. A new one is
+    // opened each UTC day; older ones sit beside it until they age out.
+    string current_file = 2;
+
+    // How many days a rotated file is kept before the daemon deletes it. Shown
+    // so "send me yesterday's log" has a knowable answer.
+    uint32 retention_days = 3;
 }
 
 message CoreStateResponse {
@@ -72,6 +122,93 @@ message CoreStateResponse {
     bool needs_oobe = 6;
     string version = 7;
     string startup_status = 8;  // i18n key for current daemon startup phase
+
+    // The update check's last answer. Empty strings mean "nothing to say", which is
+    // also what a deployment publishing no manifest produces — an absence, not a
+    // failure, and the panel says so rather than showing an error.
+    string update_version = 9;  // the version waiting, or empty
+    string update_notes = 10;  // plain text for the user's locale, never markup
+
+    // Why the last check produced no answer, in words. "Could not fetch" and "fetched
+    // but expired" are different diagnoses — the first is the network, the second is
+    // either our calendar obligation or this machine's clock — and a UI that collapses
+    // them into "update check failed" tells nobody anything.
+    string update_problem = 11;
+
+    // Whether the Update button on this machine may do anything at all. False on
+    // Steam (Valve owns that update path entirely), on a .deb/.rpm (the package
+    // manager owns those files), on a portable unpack, and on every non-Windows
+    // build — none of which has an installer to run.
+    bool update_can_apply = 12;
+
+    // Why not, as an i18n KEY the client resolves; empty when it can. A key and
+    // not a sentence because the daemon owns the TAXONOMY of refusals — which
+    // distinct things can be true — and the UI owns their wording.
+    string update_cannot_apply_reason = 13;
+
+    // Whether `update_version` is the one the user pressed "Later" on. Compared
+    // against THIS offer's version and never against the mere existence of a
+    // dismissal: a bare "something was dismissed" would silence the banner for
+    // every future release too, and nobody would ever be told about an update
+    // again. Pinned by `services::core::tests::a_dismissal_silences_one_version`.
+    bool update_dismissed = 14;
+
+    // How far an apply has got, as one of: "" | "downloading" | "installing" | "failed".
+    // A STRING and never an enum: strings, bools and int64 are what let this
+    // message cross both shells cheaply — though NOT by a generic pass-through:
+    // `coreStatePayload` in `src-electron/ipc-custom.ts` names every field by
+    // hand, which is why `the_core_state_payload_is_one_shape_on_both_shells`
+    // exists and why it fired on the two fields added below. An enum would
+    // force a hand-written decoder mirroring a hand-written struct — the exact
+    // shape that left this block's first three fields dead on both shells for
+    // their whole life. The words are pinned to the daemon's own by
+    // `consistency.rs::the_update_phase_vocabulary_is_one_list`.
+    string update_phase = 15;
+
+    // Why the last apply did not finish, in words; empty when none has failed.
+    // English prose and not a key, matching `update_problem` beside it: these
+    // name digests, byte counts and the installer's own log path, and turning a
+    // diagnostic into a translated sentence would leave the user with nothing to
+    // paste into a support mail.
+    string update_apply_problem = 16;
+
+    // ── The Linux package repository, on the machines where one is meaningful ──
+    //
+    // Windows has an installer to run and the button either works or says why.
+    // Linux has a package manager that owns those files, so "can this machine be
+    // updated" is a different question: is our source configured, is it enabled,
+    // does the key it names exist. Every way of answering NO is silent —
+    // `apt update` exits 0 on a disabled source and says nothing — so if Astra
+    // does not say it, nobody ever will.
+    //
+    // An i18n KEY and not a sentence, for the reason `update_cannot_apply_reason`
+    // beside it is one: the daemon owns which distinct things can be true, the UI
+    // owns their wording. Empty means there is nothing to say, which INCLUDES the
+    // machines where a system repository is meaningless — Steam, NixOS, an ostree
+    // image, the portable tarball. Telling a Steam Deck owner their update
+    // channel is broken, when Valve updates them perfectly well, would be the
+    // loudest wrong thing this field could do.
+    string update_repo_problem = 17;
+
+    // Whether to offer the Repair press, which is NOT the same as "there is a
+    // problem". A stale package index is worth saying and not worth a button that
+    // would rewrite files already correct; a channel the user turned off must not
+    // offer a button that undoes their own decision. A button that cannot help is
+    // how a user learns to ignore buttons.
+    bool update_repo_repairable = 18;
+
+    // Arch, and the one fault whose fix is not ours to make: our mirrorlist and
+    // our key are in place and `/etc/pacman.conf` has no `[astra]` section, so
+    // pacman has never heard of the repository and fetches nothing from it.
+    // Its own press (`ConsentUpdateChannel`), because the Repair press runs a
+    // verb that refuses to touch that file — see the RPC's comment.
+    //
+    // A THIRD bool here would be the wrong answer; the shape the daemon should
+    // then serve is one action id and one `RunRepoAction(id)`. The trigger and
+    // the reason it is not that today are stated once, at
+    // `updates::repo::RepoVerdict` — read it before adding a field beside this
+    // one.
+    bool update_repo_needs_consent = 19;
 }
 
 enum CoreState {
@@ -121,6 +258,8 @@ message AstraEvent {
         McpToolsChangedEvent mcp_tools_changed = 30;
         MemoryChangedEvent memory_changed = 32;
         CharacterLibraryChangedEvent character_library_changed = 33;
+        CompanionStatusChangedEvent companion_status_changed = 34;
+        ConversationDeletedEvent conversation_deleted = 35;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -181,6 +320,46 @@ message CharacterLibraryChangedEvent {
     uint32 generation = 1;
 }
 
+// The companion STATUS DOCUMENT moved — the one `CompanionService.GetCompanionStatus`
+// serves: `connected`, `state`, `model_name`, `model_path`, `audio_playing`,
+// `blendshape_names`.
+//
+// Before this member existed there was no presence fact on this stream at all.
+// `AstraEvent::CompanionDisconnected` and `CompanionToggled` are both
+// `EventAudience::Internal` — `services/core.rs` maps them to `None` — and the
+// arrival edge had no variant to map. The only answer a client could get was the
+// unary `GetCompanionStatus`, a PULL, so the Model page ran a 5 s `setInterval`
+// that lives only while that tab is mounted: the "change character" button was
+// absent for up to five seconds after every navigation, and frozen at the
+// boot-time `connected: false` in between.
+//
+// **`connected` is the EDGE; the unary is the DOCUMENT.** Everything else about
+// the companion — including who she is wearing — is read back through
+// `GetCompanionStatus`, which is where those values live. A read that happens
+// after this event supersedes this bool; nothing here is a second copy anybody
+// has to keep in step.
+//
+// Only `connected` rides the wire because it is the one field of that document
+// that is not the user's own writing: `model_name` is the name they typed for
+// their pet, and this event reaches plugins verbatim
+// (`astra-daemon/src/plugins/event_view.rs`).
+message CompanionStatusChangedEvent {
+    bool connected = 1;
+}
+
+// A conversation was deleted: its history and every store that held it are
+// gone, and this id will never name anything again. A client drops the id from
+// every holder it keeps — the open chat, the sidebar, a voice binding it pushed,
+// a draft's target — rather than learning it at the next send, which is refused
+// as `conversation_gone`.
+//
+// Published after the conversation is gone, never before, so a list reloaded on
+// receipt no longer contains it. Never delivered while the app is locked: an id
+// is content, and a window that was locked reloads its list when it unlocks.
+message ConversationDeletedEvent {
+    string conversation_id = 1;
+}
+
 message McpServerChangedEvent {
     string server_id = 1;
     string server_name = 2;
@@ -239,6 +418,18 @@ message NotificationEvent {
     // When true the UI must NOT auto-dismiss the toast — it stays until the user
     // closes it manually (fired reminders). Defaults to false.
     bool persistent = 4;
+
+    // WHICH condition this reports, when the daemon positively recognised one.
+    // `message` is already the sentence in the user's own language; this is the
+    // machine-readable half beside it, minted with it so the two cannot drift.
+    //
+    // It is here because a client sometimes owes the user an ACTION and not only
+    // a sentence — a spent allowance is worth a "see the plans" button — and the
+    // alternative on offer is a frontend matching English substrings inside a
+    // translated string. An OPEN vocabulary: render the sentence and ignore a
+    // code you do not know. Empty is the ordinary case and is what every daemon
+    // older than this field says.
+    string code = 5;
 }
 
 // A reminder reached its deadline. Unlike the generic NotificationEvent this
@@ -582,9 +773,21 @@ message SubscribeEventsRequest {
 }
 
 // A single event carrying its conversation identifier.
+//
+// `backlog` says WHERE this delivery came from, and it is the difference
+// between history and news. `SubscribeEvents` replays every cursored
+// conversation before it forwards anything live, and a replayed entry is
+// otherwise byte-identical to one that just happened — so a client with no
+// conversation open cannot tell "someone is writing to this chat right now"
+// from "this chat was written to at some point since you last looked". The
+// UI follows the first thing that writes while nothing is focused, which
+// made that ambiguity land the user in a random old conversation on every
+// launch. proto3 defaults it to false = LIVE, which is what an older daemon
+// and an older client both mean.
 message FirehoseEventMsg {
     string conversation_id = 1;
     ConversationEventMsg event = 2;
+    bool backlog = 3;  // true = replayed from the log for a cursor
 }
 
 // One-shot backlog request: read every event with seq > from_seq.
@@ -650,6 +853,13 @@ message SubmitUserMessageResponse {
     // 0 is not a valid seq, and this bool is what says which it is rather than
     // leaving a client to infer it.
     bool queued = 4;
+
+    // Set when the conversation named in the request no longer existed (it was
+    // deleted) and a new one was started for the person's message instead;
+    // `conversation_id` above is that new one. The client should follow
+    // `conversation_id` and tell the user their chat was deleted. Empty for
+    // every ordinary send.
+    string replaced_conversation_id = 5;
 }
 
 // Re-roll an assistant response. The daemon truncates the log at the
@@ -717,6 +927,8 @@ message ConversationEventMsg {
         SubagentActivityEvt subagent_activity = 26;
         CommandExecutedEvt command_executed = 27;
         TurnUsageEvt turn_usage = 28;
+        ContextLoadEvt context_load = 29;
+        HistoryCompactedEvt history_compacted = 30;
     }
 }
 
@@ -746,6 +958,105 @@ message TurnUsageEvt {
     // How many rounds reported a figure. Never zero on the wire: an unmeasured
     // turn is not sent.
     uint32 rounds_measured = 7;
+}
+
+// How full the conversation was when a turn began.
+//
+// Emitted on EVERY model turn, including the ones whose `level` is "none" —
+// the opposite of TurnUsageEvt's rule, and for the opposite reason: the daemon
+// always owns these numbers, so there is no "unmeasured" state to encode as an
+// absence. Unconditional emission is also what lets a client be a pure function
+// of the newest reading, so raising `ai.context_length` in response to the
+// notice clears it on the next turn instead of leaving a stale alarm on screen.
+//
+// Measured over the WHOLE stored history, before compaction trims it — never
+// over the un-summarized remainder, which sawtooths between the compaction
+// trigger and its keep-target and would make any notice built on it flap.
+//
+// `level` is the daemon's VERDICT and the only thing a client should branch on;
+// the counts beside it are the evidence, for display. Re-deriving the verdict
+// from `share` would be a second copy of a policy that lives in
+// `astra-core/src/ai/conversation_load.rs`.
+message ContextLoadEvt {
+    // Stored messages in the conversation, before any trim.
+    uint32 messages = 1;
+
+    // The message bound that actually applies — the generic cap, or a
+    // provider's own declared wire bound where that is tighter.
+    uint32 max_messages = 2;
+
+    // Estimated tokens of the whole history. An estimate at roughly four bytes
+    // to a token, so it reads LOW for Cyrillic text; `messages` is exact.
+    uint32 tokens = 3;
+
+    // Room the history has, in tokens. Zero means "not knowable here", which
+    // silences the token arm rather than reading as full.
+    uint32 room_tokens = 4;
+
+    // Whether `room_tokens` derives from a window the USER configured, as
+    // opposed to the assumed-window table. An assumed window is biased large,
+    // so it can only under-report.
+    bool trusted = 5;
+
+    // How full the conversation is ON THE ARM `binding` NAMES — the one number
+    // a client may put under that arm's sentence. Not the larger of the two
+    // fractions: the arms have different notice thresholds, so the larger raw
+    // fraction and the binding one disagree in a band, and there a client drew
+    // the message ratio as a percentage of the WINDOW. Uncapped: above 1.0
+    // means the conversation no longer fits in one request.
+    float share = 6;
+
+    // "none" | "long" | "full".
+    string level = 7;
+
+    // NOTE: keep this block and HistoryCompactedEvt below distinct in your head.
+    // This one is a FORECAST — how close the conversation is to the point where
+    // detail starts being dropped. That one is the RECORD that it happened.
+    // What starting a fresh conversation would save per request, in tokens —
+    // capped at the room, because once a conversation outgrows its window the
+    // request carries a summary rather than the whole log. Derived by
+    // ConversationLoad::savings_tokens so no client has to model it.
+    uint32 savings_tokens = 8;
+
+    // Which limit produced share: "tokens" | "messages". It decides what a
+    // client may SAY, not just what it draws — the two arms are different units
+    // and only one of them is the context window. A message-bound reading must
+    // be stated as a COUNT and must not offer a token saving: forty short turns
+    // weigh almost nothing, so the saving would be a true number making a false
+    // argument. Derived by ConversationLoad::binding.
+    string binding = 9;
+}
+
+// The oldest turns of a conversation were replaced by a summary.
+//
+// Written once per compaction, which is rare — not per turn. It carries the
+// summary itself because "what did it keep?" is the only question a person can
+// act on, and because nothing else in the system will ever show them.
+//
+// ANCHORING: message_id is the ASSISTANT reply of the turn during which
+// compaction ran, NOT the message it cut at. The cut point lives in a different
+// store (the model's history cache) whose ids do not correspond to this log's —
+// a rebuild after an edit mints fresh ones, and assistant/tool ids never
+// matched on either path. So a client draws the band above THAT reply, meaning
+// "before answering here, the older part of this conversation became a summary".
+message HistoryCompactedEvt {
+    string message_id = 1;
+
+    // Messages of the MODEL's history the summary now stands for — a tool-using
+    // turn is several of them, so this is not a count of bubbles.
+    uint32 summarized_messages = 2;
+
+    // How many were kept verbatim below it.
+    uint32 kept_messages = 3;
+
+    // How many times this conversation has been compacted, this one included.
+    // Each summary is an input to the next, so a high number means the earliest
+    // turns have been rewritten several times over.
+    uint32 generation = 4;
+
+    // The summary the model reads instead of those turns. Bounded at 4000 chars
+    // by the daemon.
+    string summary = 5;
 }
 
 // Marks every event with seq > after_seq as removed from the conversation.
@@ -825,6 +1136,12 @@ message AssistantCompleteEvt {
 message ErrorEvt {
     string message_id = 1;  // empty when not attached to a message
     string content = 2;
+
+    // WHICH failure this is, when the daemon positively recognised one — the
+    // machine-readable half of a `content` that is already localized prose.
+    // Same open vocabulary, and the same reason, as `NotificationEvent.code`.
+    // Empty means "no class named", which is most failures.
+    string code = 3;
 }
 
 message VoiceDeltaEvt {
@@ -1127,7 +1444,15 @@ service VoiceService {
     // Delete a downloaded embedding model
     rpc DeleteEmbeddingModel(DeleteEmbeddingModelRequest) returns (Empty);
 
-    // Set the conversation ID for voice processing (binds voice to UI's active conversation)
+    // Bind voice to the conversation the CALLING client chose: the next
+    // utterance is dispatched there. There is one binding, daemon-wide, and
+    // the last accepted call sets it.
+    //   * "" = no conversation: the next utterance auto-creates one.
+    //   * An id that no longer exists is refused NOT_FOUND, with a status
+    //     message starting `conversation_gone`, and the existing binding is
+    //     left UNCHANGED — a stale push from one client must not clobber the
+    //     binding another client set. A malformed id is INVALID_ARGUMENT.
+    //   * Deleting the bound conversation resets the binding to auto-create.
     rpc SetVoiceConversation(SetVoiceConversationRequest) returns (Empty);
 
     // Set images to attach to the next voice utterance. Passing an empty list
@@ -1281,7 +1606,11 @@ message DeleteEmbeddingModelRequest {
 }
 
 message SetVoiceConversationRequest {
-    string conversation_id = 1;  // UUID string; empty = auto-create on next utterance
+    // The conversation the calling client chose, as a UUID string; "" = none,
+    // and the next utterance auto-creates one. An id that no longer exists is
+    // refused NOT_FOUND (`conversation_gone`) and changes nothing — see
+    // VoiceService.SetVoiceConversation.
+    string conversation_id = 1;
 }
 
 message SetVoicePendingImagesRequest {
@@ -1703,6 +2032,27 @@ service ConfigService {
     // dropdown is built from). Empty list = no detection on this platform, so
     // the UI hides the picker and every link keeps going to the OS default.
     rpc ListBrowsers(Empty) returns (ListBrowsersResponse);
+
+    // Start the Astra indexer PROCESS without touching its scheduled task —
+    // the retry for a launch SmartScreen refused. Distinct from writing
+    // general.indexing_mode: that path re-registers the task, prompts for UAC,
+    // and is a NO-OP once the task exists, which is exactly the state a
+    // blocked launch leaves behind. Never fails with a Status: `reason` is a
+    // STABLE CODE the UI translates, never a shell sentence.
+    rpc StartIndexer(Empty) returns (StartIndexerResponse);
+
+    // Rebuild the whole file index from scratch. THE recovery path for a drive
+    // the indexer has left unindexed — a scan the user stopped, a scan that
+    // failed, a USN journal the OS recreated. Without it the only repairs were
+    // waiting for the next logon or deleting the index by hand, which is not
+    // something a product can ask of anyone.
+    //
+    // Starts the indexer first when it is not running, because "nothing is
+    // listening on the pipe" is the same request with one more step. Answers as
+    // soon as the scan is QUEUED; watch its progress on the background-tasks
+    // row, which mirrors this scan like any other. Same response shape and the
+    // same stable `reason` codes as StartIndexer, plus `rescan_failed`.
+    rpc RescanIndex(Empty) returns (StartIndexerResponse);
 }
 
 // One installed browser. `id` is what `general.browser` (and an OpenUrl
@@ -1796,6 +2146,17 @@ message CryptoRateResponse {
     // Percentage change of the crypto's USD price over the past 7 days. Absent
     // when no historical data is available.
     optional double week_change = 4;
+}
+
+// bool + string only, so the Electron generic pass-through carries it with no
+// custom handler of its own.
+message StartIndexerResponse {
+    bool started = 1;
+
+    // "" on success; else one of: not_enabled | not_installed | not_supported
+    // | launch_failed | rescan_failed (RescanIndex only — the indexer is
+    // running and refused the request).
+    string reason = 2;
 }
 
 message IndexerStatusResponse {
@@ -2132,6 +2493,11 @@ message VoiceSettings {
     // sending 2 here now asks for a much twitchier trigger, which the
     // daemon clamps into 1..=10 but otherwise honours.)
     int32 wake_word_patience_hits = 26;
+
+    // Play a short chime the instant the wake word fires. Off by default —
+    // the cue also sounds on a false positive, and a beep from a machine
+    // nobody spoke to is worse than the silence it replaces.
+    bool wake_chime_enabled = 29;
 
     // Audio ducking: dim the system volume while listening / speaking. Off by default.
     bool audio_ducking_enabled = 27;
@@ -3420,7 +3786,7 @@ message PluginFailure {
     // its own `Log` RPC, in the order the daemon saw them, oldest first.
     //
     // Bounded (a few dozen lines): this rides on every `ListPlugins`, and the
-    // full history is on disk at `<config>/plugins/<id>/logs/plugin.log`.
+    // full history is on disk at `<config>/logs/plugins/<id>.log`.
     repeated string log_tail = 6;
 
     // Consecutive failures — the auto-restart circuit breaker's counter. `1` is
@@ -4477,13 +4843,25 @@ message PluginChatRequest {
     string source_id = 2;  // Plugin ID as source
 
     // `""` = this plugin's own durable thread — one per plugin, rotated by the
-    // daemon. A UUID addresses that conversation instead. **There is no "active
-    // conversation"**: the daemon has no such notion and never had one, and the
-    // comment that claimed it here was false in four repositories at once.
+    // daemon, which follows the rotation for you. Keep sending "" for it.
     //
-    // A UUID that names no conversation is REFUSED, rather than silently
-    // starting a turn with an empty history whose reply lands somewhere no
-    // client can open.
+    // A UUID addresses that conversation instead. The way to obtain one is
+    // PluginInvocation.conversation_id — the conversation that called you. You
+    // may store it and send into it later; the message is shown as yours,
+    // never as something the user typed. Sending into it from INSIDE the call
+    // that told you it: see the deadlock trap on PluginInvocation.
+    //
+    // Refused before any reply chunk:
+    //   NOT_FOUND        — that conversation no longer exists (the user
+    //                      deleted it). The status message starts with the
+    //                      token `conversation_gone`. Forget the id.
+    //   INVALID_ARGUMENT — not a UUID, or a conversation owned by one of
+    //                      Astra's own narrowed surfaces (the command editor's
+    //                      builder chat), which only that surface writes to.
+    //
+    // **There is no "active conversation"**: the daemon has no such notion,
+    // never had one, and you cannot ask which conversation the user is
+    // looking at.
     string conversation_id = 3;
     bool voice_enabled = 4;
 }
@@ -4501,13 +4879,21 @@ message PluginChatChunk {
     // a new field would make an old plugin read the turn as still running.
     // Outside the oneof for the same reason: a field inside it would displace
     // `error` on the wire and an old SDK would see no error at all.
+    //
+    // A message that was QUEUED and then dropped ends with `content.error` and
+    // this set; code PLUGIN_ERROR_NOT_FOUND means its conversation was deleted
+    // while it waited — forget the id. The other drop codes:
+    // PLUGIN_ERROR_RATE_LIMITED (too many messages were waiting behind the turn
+    // in flight), PLUGIN_ERROR_UNAVAILABLE (Astra was locked) and
+    // PLUGIN_ERROR_INTERNAL (the daemon could not start the turn).
     PluginError error_detail = 5;
 
     // Which conversation this reply is being written into.
     //
-    // **Informational: do NOT cache it and send it back.** `""` is routed to
-    // your thread every time and follows it across rotation; a cached id pins
-    // you to a thread the daemon has retired and will eventually delete.
+    // Replying to a "" send, this is your OWN thread's current rotation: keep
+    // sending "" for that thread rather than this id — a stored own-thread id
+    // pins you to a thread the daemon retires, and is NOT_FOUND once pruned.
+    // An id you were given in PluginInvocation may be stored.
     string conversation_id = 6;
 }
 
@@ -4558,9 +4944,64 @@ message PluginToolListResponse {
     repeated PluginToolDef tools = 1;
 }
 
+// ── Invocation context ──
+
+// What the daemon tells a plugin about the call it is making. It travels
+// OUTSIDE the argument document on purpose: `arguments_json` is the model's and
+// `params_json` is the user's automation's, and neither may choose it.
+//
+// It is sent only when the daemon holds an invocation lease for the call —
+// PluginCallToolRequest.invocation says exactly when it does not. Treat an
+// absent PluginInvocation, a conversation_id of "", and a daemon that predates
+// this message ALIKE: the call was not invoked from a conversation you can
+// answer in.
+message PluginInvocation {
+    // The conversation whose assistant turn — or whose chat-matched command
+    // run — made this call. A UUID you MAY store, across restarts, and send
+    // back later as PluginChatRequest.conversation_id to post into that same
+    // conversation, as yourself.
+    //
+    // DEADLOCK TRAP. The conversation you were told is usually still running
+    // the turn that called you: from INSIDE this call, spawn the send and never
+    // await its reply in the handler — your message queues behind that turn and
+    // this call would time out.
+    //
+    // Your OWN thread: when the call came from a turn in your own thread (a
+    // turn you started with conversation_id ""), the told id is your thread's
+    // current rotation. Keep sending "" for it rather than storing that id —
+    // the daemon retires rotated threads, and a stored one is NOT_FOUND once
+    // pruned.
+    //
+    // "" = the run that made this call is not in any conversation (a scheduled
+    // or hotkey command, a command the assistant started on its own, a trigger
+    // you fired yourself). That is normal, not an error.
+    //
+    // It is never "the conversation the user is looking at": Astra has no such
+    // notion and no way to ask for one. A stored id stops working when the
+    // user deletes that conversation — SendChatMessage then fails NOT_FOUND,
+    // with a status message that starts with `conversation_gone`; forget the
+    // id.
+    string conversation_id = 1;
+}
+
 message PluginCallToolRequest {
     string tool_name = 1;
     string arguments_json = 2;
+
+    // Set when the daemon holds an invocation lease for this call: the model
+    // of a chat or voice turn, or of a command run, called your tool.
+    //
+    // ABSENT whenever it holds none, even though something plainly caused the
+    // call:
+    //   * the model of a nested sub-agent;
+    //   * the model of a command's "send to AI" step — even when the command
+    //     itself was matched in a conversation;
+    //   * a daemon that predates this field.
+    //
+    // Absent, a conversation_id of "", and an older daemon all mean the same
+    // thing: this call was not invoked from a conversation you can answer in.
+    // Never guess one. See PluginInvocation.
+    PluginInvocation invocation = 3;
 }
 
 message PluginCallToolResponse {
@@ -4748,6 +5189,14 @@ message PluginAiModelInfo {
 message PluginExecuteActionRequest {
     string action_type = 1;
     string params_json = 2;
+
+    // Set when the daemon holds an invocation lease for this call: the
+    // command run executing your action. Absent when the action runs with no
+    // run behind it, or from a daemon that predates this field. As with
+    // PluginCallToolRequest.invocation, absent, a conversation_id of "", and an
+    // older daemon all mean the same thing: not invoked from a conversation
+    // you can answer in.
+    PluginInvocation invocation = 3;
 }
 
 message PluginExecuteActionResponse {

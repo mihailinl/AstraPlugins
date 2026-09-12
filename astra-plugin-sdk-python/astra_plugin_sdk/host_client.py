@@ -239,6 +239,43 @@ class HostClient:
         the ``DaemonClient``/``ChatService`` route is ``permission_denied`` by
         construction. Requires the ``send_chat_message`` permission.
 
+        **Where it lands.** An empty ``conversation_id`` posts to this plugin's
+        own durable thread, the right default for anything that is not an answer
+        to a specific call. Pass one only when you were TOLD it: the chunks of a
+        reply you are streaming carry it, and so does
+        :func:`astra_plugin_sdk.current_invocation` inside a tool call or an
+        action. An id from an invocation may be stored, across restarts, and
+        sent back later.
+
+        **Never await this inside the call that told you the id.** It is a
+        deadlock, not a slow path. The conversation that invoked your tool is
+        still running the turn waiting for your answer; a message declares an
+        intent for the *next* turn, so it queues behind the one that cannot
+        finish until you return. Hand it to a task::
+
+            inv = current_invocation()
+            if inv and inv.conversation_id:
+                asyncio.create_task(self._answer_later(inv.conversation_id))
+            return "started"          # the turn can now finish
+
+        **Your text is text.** A message beginning ``/`` reaches the model as
+        those literal characters — a plugin cannot invoke a slash command by
+        writing one, nor supersede a person's turn. And the stream always ends:
+        a line that reached the conversation but that no turn will answer ends
+        it with an error chunk (``INTERNAL``, *"this message reached the
+        conversation, but no turn will answer it"*) whose hint says not to
+        resend.
+
+        **When the conversation is gone** the send is refused, never redirected.
+        ``StatusCode.NOT_FOUND`` with a message beginning ``conversation_gone:``
+        means it was deleted — forget the id and fall back to your own thread.
+        ``INVALID_ARGUMENT`` means the id is not a UUID, or names a chat an
+        Astra surface owns. A message accepted and then outlived by its chat
+        ends the stream with an error chunk whose ``error_detail.code`` is
+        ``PLUGIN_ERROR_NOT_FOUND``. A daemon older than this contract reports
+        the same situation as ``INTERNAL``, *"chat processing failed:
+        conversation … does not exist"*.
+
         **conversation_id** — Where the message lands. Pass the EMPTY STRING and it goes to this plugin's
         own durable thread: one thread per plugin, kept across calls, so a series of
         messages reads as one conversation. That is the right choice for almost every

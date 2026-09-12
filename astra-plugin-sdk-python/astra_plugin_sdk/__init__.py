@@ -57,6 +57,7 @@ from astra_plugin_sdk.protocol import (
     MIN_SUPPORTED_DAEMON_PROTOCOL,
     PROTOCOL_VERSION,
 )
+from astra_plugin_sdk.invocation import Invocation, current_invocation
 from astra_plugin_sdk.types import (
     AiChunk,
     AiCompleteRequest,
@@ -71,6 +72,9 @@ from astra_plugin_sdk.types import (
 
 __all__ = [
     "Plugin",
+    # ── which conversation called this handler ──
+    "Invocation",
+    "current_invocation",
     "HostClient",
     "HostClientBootstrap",
     "DaemonClient",
@@ -136,4 +140,4 @@ __all__ = [
 # 0.4.0), so the breaking changes below land inside the unreleased 0.5.0 rather
 # than spending a minor nobody can install. Bumping it would also strand the
 # CLI's Python scaffold, which pins `astra-plugin-sdk>=0.5,<0.6`.
-__version__ = "0.6.1"
+__version__ = "0.6.2"

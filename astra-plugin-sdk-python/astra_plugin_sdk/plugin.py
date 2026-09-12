@@ -22,6 +22,7 @@ import grpc
 from astra_plugin_sdk import limits, protocol, reserved
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
 from astra_plugin_sdk.causality import CauseInterceptor
+from astra_plugin_sdk.invocation import invocation_from_request, set_invocation
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
     AiModelInfo,
@@ -1265,6 +1266,11 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
     # ── per-call hooks, in-band failures ──
 
     async def CallTool(self, request, context):
+        # The lease came off the metadata in the interceptor, before this
+        # coroutine existed; the invocation is a field in the BODY and can only
+        # be read here. Two independent facts, two stores, neither standing in
+        # for the other.
+        set_invocation(invocation_from_request(request))
         # In-band, never a gRPC error: a failed tool call is data the AI loop
         # has to read. "You have no API key configured" is the model's cue to
         # tell the user what to do, and a transport error hides it from the
@@ -1278,6 +1284,7 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         return _result_response(plugin_pb2.PluginCallToolResponse, result)
 
     async def ExecuteAction(self, request, context):
+        set_invocation(invocation_from_request(request))
         try:
             result = await self.plugin.execute_action(request.action_type, request.params_json)
         except BaseException as e:  # noqa: BLE001 — every failure becomes a coded result

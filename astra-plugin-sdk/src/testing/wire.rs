@@ -646,32 +646,96 @@ impl WireHarness {
 
     /// `CallTool`, over the wire. A failed tool call is a *successful* RPC —
     /// the response carries `success = false` and the coded error.
+    ///
+    /// No invocation: this is the call that was not made from a conversation.
+    /// Use [`call_tool_from`](Self::call_tool_from) for the other case.
     pub async fn call_tool(
         &self,
         tool_name: &str,
         arguments_json: &str,
+    ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
+        self.call_tool_inner(tool_name, arguments_json, None).await
+    }
+
+    /// `CallTool` as the daemon sends it when a conversation's turn made the
+    /// call — the invocation travels in the request BODY, which is the half a
+    /// level-1 harness cannot exercise.
+    ///
+    /// Pass `None` to send an invocation message whose `conversation_id` is
+    /// empty, which is a real thing on the wire and must reach the handler as
+    /// `None` rather than as `Some("")`.
+    pub async fn call_tool_from(
+        &self,
+        tool_name: &str,
+        arguments_json: &str,
+        conversation: Option<&str>,
+    ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
+        self.call_tool_inner(
+            tool_name,
+            arguments_json,
+            Some(proto::PluginInvocation {
+                conversation_id: conversation.unwrap_or_default().to_string(),
+            }),
+        )
+        .await
+    }
+
+    async fn call_tool_inner(
+        &self,
+        tool_name: &str,
+        arguments_json: &str,
+        invocation: Option<proto::PluginInvocation>,
     ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
         let resp = self
             .client()
             .call_tool(self.request(proto::PluginCallToolRequest {
                 tool_name: tool_name.to_string(),
                 arguments_json: arguments_json.to_string(),
+                invocation,
             }))
             .await?;
         Ok(resp.into_inner())
     }
 
-    /// `ExecuteAction`, over the wire.
+    /// `ExecuteAction`, over the wire, from no conversation.
     pub async fn execute_action(
         &self,
         action_type: &str,
         params_json: &str,
+    ) -> Result<proto::PluginExecuteActionResponse, tonic::Status> {
+        self.execute_action_inner(action_type, params_json, None).await
+    }
+
+    /// `ExecuteAction` as the daemon sends it when a conversation's turn made
+    /// the call. See [`call_tool_from`](Self::call_tool_from).
+    pub async fn execute_action_from(
+        &self,
+        action_type: &str,
+        params_json: &str,
+        conversation: Option<&str>,
+    ) -> Result<proto::PluginExecuteActionResponse, tonic::Status> {
+        self.execute_action_inner(
+            action_type,
+            params_json,
+            Some(proto::PluginInvocation {
+                conversation_id: conversation.unwrap_or_default().to_string(),
+            }),
+        )
+        .await
+    }
+
+    async fn execute_action_inner(
+        &self,
+        action_type: &str,
+        params_json: &str,
+        invocation: Option<proto::PluginInvocation>,
     ) -> Result<proto::PluginExecuteActionResponse, tonic::Status> {
         let resp = self
             .client()
             .execute_action(self.request(proto::PluginExecuteActionRequest {
                 action_type: action_type.to_string(),
                 params_json: params_json.to_string(),
+                invocation,
             }))
             .await?;
         Ok(resp.into_inner())
