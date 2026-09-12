@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 2946aa89c482e9283451c394c3e388c9c198e401638e7110b2e96fb055dee484
+// surface-sha256: 2f8e9d9262b018f1cd21b12a2fb3f62e75bfb152e68646180befc0c4e1260fea
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -191,10 +191,10 @@ message CoreStateResponse {
     string update_repo_problem = 17;
 
     // Whether to offer the Repair press, which is NOT the same as "there is a
-    // problem". A stale package index is worth saying and not worth a button that
-    // would rewrite files already correct; a channel the user turned off must not
-    // offer a button that undoes their own decision. A button that cannot help is
-    // how a user learns to ignore buttons.
+    // problem". Some verdicts are worth saying and not worth a button that would
+    // rewrite files that are already correct; a channel the user turned off must
+    // not offer a button that undoes their own decision. A button that cannot help
+    // is how a user learns to ignore buttons.
     bool update_repo_repairable = 18;
 
     // Arch, and the one fault whose fix is not ours to make: our mirrorlist and
@@ -209,6 +209,37 @@ message CoreStateResponse {
     // `updates::repo::RepoVerdict` — read it before adding a field beside this
     // one.
     bool update_repo_needs_consent = 19;
+
+    // ── The update CHECK, as distinct from the offer it may have produced ──
+    //
+    // Fields 9-11 say what a check found; these say that one happened, when, and
+    // how it went — which is what tells "no newer release exists" apart from
+    // "the updater is broken". Before them both were the same blank panel.
+
+    // Epoch SECONDS of the last completed check on this machine, successful or
+    // not; 0 means never. Persisted in the update state file, so it survives a
+    // restart. int64 and not a Timestamp, for the pass-through reason above.
+    int64 update_last_checked = 20;
+
+    // How the last check went, as one of: "" | "up_to_date" | "available" | "not_offered" | "none_published" | "unreachable" | "refused".
+    // "" means never checked. `update_problem` carries the English detail for
+    // "unreachable" and "refused". "not_offered" is a manifest that answered and
+    // offers THIS machine nothing (a Linux build reading a Windows-only release);
+    // "none_published" is a deployment that publishes no manifest at all (404).
+    // Pinned to `updates::CheckOutcome::as_wire` and to the union in
+    // `types/daemon.ts` by `consistency.rs::the_update_check_outcome_vocabulary_is_one_list`.
+    string update_check_outcome = 21;
+
+    // A check is running right now — the timer's, a sign-in's, or a press of
+    // Check in any window.
+    bool update_checking = 22;
+
+    // How this Astra was installed, as one of: "installer" | "portable" | "package" | "steam".
+    // One word in place of three bools (can-check, site-fallback, repo-managed):
+    // the UI decides what to draw from it, the daemon decides what it is.
+    // Pinned to `updates::channel::InstallChannel::as_wire` and to the union in
+    // `types/daemon.ts` by `consistency.rs::the_update_channel_vocabulary_is_one_list`.
+    string update_channel = 23;
 }
 
 enum CoreState {
@@ -260,6 +291,15 @@ message AstraEvent {
         CharacterLibraryChangedEvent character_library_changed = 33;
         CompanionStatusChangedEvent companion_status_changed = 34;
         ConversationDeletedEvent conversation_deleted = 35;
+        // Something in the update block of `GetState` moved: a check started
+        // or finished, an offer came or went, an apply changed phase or failed.
+        // Empty by design — GetState is the document, and the client re-reads
+        // it. Withheld while Astra is locked, like every other content event;
+        // the UI re-reads on unlock. NEVER delivered to a plugin: a plugin
+        // token cannot call GetState, so the doorbell would tell a plugin only
+        // when somebody signed in or pressed a button. (The oneof skips 4, 9
+        // and 13 — do not reuse them.)
+        UpdateStateChangedEvent update_state_changed = 36;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -5340,5 +5380,13 @@ message PluginHealthResponse {
 // client that missed an event still converges. Output is DEBOUNCED daemon-side;
 // status changes are not.
 message BackgroundJobsChangedEvent {}
+
+// Emitted whenever the update block of `CoreStateResponse` changes — one
+// writer daemon-side (`edit`, the only mutable accessor of the update status
+// in `updates/mod.rs`), rung after the status lock is
+// released so a client that re-reads on it reads the NEW value. Empty by
+// design, for the reason `BackgroundJobsChangedEvent` is: GetState is the one
+// document, and a client that missed one converges on the next.
+message UpdateStateChangedEvent {}
 
 message CreditsChangedEvent {}

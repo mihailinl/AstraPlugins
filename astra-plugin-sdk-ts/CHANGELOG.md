@@ -142,6 +142,16 @@ directory is unaffected: `I18n.discover()` finds nothing, `hasLocales` is
 - A sentence about a fired trigger's output said "the conversation the user is
   actually looking at"; it now says "the conversation that made the call".
 
+### Notes (event vocabulary)
+- **`update_state_changed` is accepted in a `subscribe_events` allowlist and
+  never delivered.** A real member of the event enum, so naming it passes every
+  gate on this side; nothing then arrives, and the plugin waits for ever with no
+  error. It is the doorbell for the update block of `GetState`, which a plugin
+  token cannot call — so the ring would carry only the timing of somebody's
+  sign-in and button presses. Withheld deliberately. Nothing in this SDK can
+  warn you; `types` is free-form strings here and the vocabulary lives in the
+  daemon.
+
 ## [0.6.0] — 2026-08-16
 
 A trigger a plugin fires from inside a call now names the call that caused it.

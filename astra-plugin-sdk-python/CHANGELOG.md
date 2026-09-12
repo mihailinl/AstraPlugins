@@ -56,6 +56,16 @@ runs unchanged.
 - An empty `conversation_id`, and an invocation naming nothing, both normalise
   to `None`.
 
+### Notes (event vocabulary)
+- **`update_state_changed` is accepted in a `subscribe_events` allowlist and
+  never delivered.** A real member of the event enum, so naming it passes every
+  gate on this side; nothing then arrives, and the plugin waits for ever with no
+  error. It is the doorbell for the update block of `GetState`, which a plugin
+  token cannot call — so the ring would carry only the timing of somebody's
+  sign-in and button presses. Withheld deliberately. Nothing in this SDK can
+  warn you; `types` is free-form strings here and the vocabulary lives in the
+  daemon.
+
 ## [0.6.1] — 2026-08-24
 
 Additive, plus one shutdown bug that made `conformance (R7)` flaky.

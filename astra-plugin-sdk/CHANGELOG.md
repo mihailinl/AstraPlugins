@@ -69,6 +69,17 @@ compiles unchanged.
 - `protocol` stays **1**. The field is additive and the number is a handshake,
   not a behaviour switch.
 
+#### Notes
+- **`update_state_changed` is accepted in a `subscribe_events` allowlist and
+  never delivered.** It is a real member of the event enum, so naming it passes
+  every gate on this side, and then nothing arrives — the plugin waits for ever
+  with no error to say why. It is the doorbell for the update block of
+  `GetState`, and a plugin token cannot call `GetState`, so the ring would carry
+  only the timing of somebody's sign-in and button presses. Withheld on purpose.
+  Nothing here can warn you: `types` is free-form strings on this side and the
+  vocabulary lives in the daemon. See
+  [`docs/en/3-reference/permissions.md`](../docs/en/3-reference/permissions.md).
+
 ### Action and trigger types are built the way everything else here is
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per

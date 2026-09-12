@@ -183,6 +183,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "updateRepoNeedsConsent": {
               "type": "bool",
               "id": 19
+            },
+            "updateLastChecked": {
+              "type": "int64",
+              "id": 20
+            },
+            "updateCheckOutcome": {
+              "type": "string",
+              "id": 21
+            },
+            "updateChecking": {
+              "type": "bool",
+              "id": 22
+            },
+            "updateChannel": {
+              "type": "string",
+              "id": 23
             }
           }
         },
@@ -229,7 +245,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "memoryChanged",
                 "characterLibraryChanged",
                 "companionStatusChanged",
-                "conversationDeleted"
+                "conversationDeleted",
+                "updateStateChanged"
               ]
             }
           },
@@ -357,6 +374,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "conversationDeleted": {
               "type": "ConversationDeletedEvent",
               "id": 35
+            },
+            "updateStateChanged": {
+              "type": "UpdateStateChangedEvent",
+              "id": 36
             },
             "capabilityEpoch": {
               "type": "string",
@@ -8286,6 +8307,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "BackgroundJobsChangedEvent": {
+          "fields": {}
+        },
+        "UpdateStateChangedEvent": {
           "fields": {}
         },
         "CreditsChangedEvent": {

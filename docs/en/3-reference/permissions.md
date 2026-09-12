@@ -232,6 +232,27 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
   An empty list allows nothing.
 - **`set_variable.scopes`** is `"plugin"`, `"session"` or `"persistent"`.
 
+**One event type is accepted and never delivered: `update_state_changed`.** It
+is a real member of the event enum, so naming it in `types` is accepted at
+every gate — the CLI, the registry and the daemon's own grant all take it — and
+then nothing ever arrives. Your plugin waits for ever, with no error anywhere
+to say why.
+
+The reason is not an oversight in the delivery path. That event is the doorbell
+for the update block of `GetState`, and the pattern is *ring, then re-read the
+document*. A plugin cannot re-read it: every plugin session token is scoped to
+`PluginHostService`, so `GetState` is refused by construction. Delivering the
+doorbell would tell a plugin only the timing of somebody's sign-in and of their
+Check / Update / Later presses, with nothing it could act on — so it is
+withheld on purpose.
+
+Nothing on this side can warn you, and that is worth saying plainly rather than
+implying a check exists. `types` is a list of free-form strings here; the
+vocabulary of what each name means, and of which names reach a plugin at all,
+lives in the daemon. Until that vocabulary can mark an event non-deliverable,
+this paragraph is the only thing between an author and a subscription that
+silently never fires.
+
 ## Writing a reason
 
 The `reason` is rendered below Astra's own label for the permission, visually

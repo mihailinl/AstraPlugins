@@ -175,6 +175,22 @@
             "updateRepoNeedsConsent": {
               "type": "bool",
               "id": 19
+            },
+            "updateLastChecked": {
+              "type": "int64",
+              "id": 20
+            },
+            "updateCheckOutcome": {
+              "type": "string",
+              "id": 21
+            },
+            "updateChecking": {
+              "type": "bool",
+              "id": 22
+            },
+            "updateChannel": {
+              "type": "string",
+              "id": 23
             }
           }
         },
@@ -221,7 +237,8 @@
                 "memoryChanged",
                 "characterLibraryChanged",
                 "companionStatusChanged",
-                "conversationDeleted"
+                "conversationDeleted",
+                "updateStateChanged"
               ]
             }
           },
@@ -349,6 +366,10 @@
             "conversationDeleted": {
               "type": "ConversationDeletedEvent",
               "id": 35
+            },
+            "updateStateChanged": {
+              "type": "UpdateStateChangedEvent",
+              "id": 36
             },
             "capabilityEpoch": {
               "type": "string",
@@ -8278,6 +8299,9 @@
           }
         },
         "BackgroundJobsChangedEvent": {
+          "fields": {}
+        },
+        "UpdateStateChangedEvent": {
           "fields": {}
         },
         "CreditsChangedEvent": {
