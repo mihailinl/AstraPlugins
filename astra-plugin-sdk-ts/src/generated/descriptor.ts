@@ -991,6 +991,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "reasoningEffort": {
               "type": "string",
               "id": 9
+            },
+            "isGenerating": {
+              "type": "bool",
+              "id": 10
             }
           }
         },
@@ -2647,6 +2651,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "slashDescription": {
               "type": "string",
               "id": 11
+            },
+            "priority": {
+              "type": "int32",
+              "id": 12
             }
           }
         },
@@ -2690,6 +2698,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "_slashDescription": {
               "oneof": [
                 "slashDescription"
+              ]
+            },
+            "_priority": {
+              "oneof": [
+                "priority"
               ]
             }
           },
@@ -2765,6 +2778,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "slashDescription": {
               "type": "string",
               "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "priority": {
+              "type": "int32",
+              "id": 13,
               "options": {
                 "proto3_optional": true
               }
@@ -2943,6 +2963,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "slashDescription": {
               "type": "string",
               "id": 15
+            },
+            "priority": {
+              "type": "int32",
+              "id": 16
             }
           }
         },
@@ -3697,6 +3721,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "optimize": {
               "type": "OptimizeSettings",
               "id": 18
+            },
+            "companionAnimation": {
+              "type": "CompanionAnimationSettings",
+              "id": 19
             }
           }
         },
@@ -3705,6 +3733,63 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "cacheBodies": {
               "type": "bool",
               "id": 1
+            }
+          }
+        },
+        "CompanionAnimationSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "rules": {
+              "rule": "repeated",
+              "type": "AnimationRuleMsg",
+              "id": 2
+            },
+            "minIntervalMs": {
+              "type": "uint32",
+              "id": 3
+            },
+            "maxPerMinute": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "AnimationRuleMsg": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 2
+            },
+            "event": {
+              "type": "string",
+              "id": 3
+            },
+            "filter": {
+              "type": "string",
+              "id": 4
+            },
+            "mode": {
+              "type": "string",
+              "id": 5
+            },
+            "state": {
+              "type": "string",
+              "id": 6
+            },
+            "trigger": {
+              "type": "string",
+              "id": 7
+            },
+            "minIntervalMs": {
+              "type": "uint32",
+              "id": 8
             }
           }
         },
@@ -4132,6 +4217,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "aiMemoryAutoExtract"
               ]
+            },
+            "_hideAdvancedSettings": {
+              "oneof": [
+                "hideAdvancedSettings"
+              ]
             }
           },
           "fields": {
@@ -4237,6 +4327,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "aiMemoryAutoExtract": {
               "type": "bool",
               "id": 21,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "hideAdvancedSettings": {
+              "type": "bool",
+              "id": 22,
               "options": {
                 "proto3_optional": true
               }
@@ -4449,6 +4546,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "AiProviderCredentialsMsg",
               "id": 22
+            },
+            "customModels": {
+              "rule": "repeated",
+              "type": "CustomAiModelMsg",
+              "id": 23
             }
           },
           "reserved": [
@@ -4481,6 +4583,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             ],
             "api_key"
           ]
+        },
+        "CustomAiModelMsg": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "model": {
+              "type": "string",
+              "id": 2
+            }
+          }
         },
         "CustomAiProviderMsg": {
           "fields": {
@@ -5237,6 +5351,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "storagePath": {
               "type": "string",
               "id": 17
+            },
+            "advanced": {
+              "type": "bool",
+              "id": 18
             }
           }
         },
