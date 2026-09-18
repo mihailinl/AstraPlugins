@@ -174,9 +174,19 @@ def regenerate(into: Path) -> None:
             "  breaking, not the artifact drifting.",
             2,
         )
+    # `newline="\n"`, and on Windows it is the whole check. protoc writes LF
+    # on every platform and the committed artifact is LF, but `write_text`
+    # without it translates every \n to `os.linesep` — so the comparison below
+    # ran against a CRLF copy this function had just made, and
+    # `plugin_pb2_grpc.py` — the one artifact that is rewritten — failed as
+    # PROTOCOL DRIFT on a tree where nothing had drifted. `plugin_pb2.py`
+    # passed throughout, because protoc writes it and nothing here touches
+    # it, which is exactly what made the failure look like a real finding
+    # about one file.
     grpc_stub.write_text(
         re.sub(rf"^{re.escape(PROTOC_IMPORT)}$", PACKAGE_IMPORT, text, count=1, flags=re.M),
         encoding="utf-8",
+        newline="\n",
     )
 
 
