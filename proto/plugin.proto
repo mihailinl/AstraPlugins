@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 2f8e9d9262b018f1cd21b12a2fb3f62e75bfb152e68646180befc0c4e1260fea
+// surface-sha256: cc0c9f51ea52c953be0d1eedc765d18986b8b957960b77f9c494b4fd7124e5c9
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -776,6 +776,12 @@ message Conversation {
     // per-turn fields, so a turn-scoped effort would silently drop back to the
     // global default the moment the user re-rolled the answer they liked.
     string reasoning_effort = 9;
+
+    // A person is waiting on an assistant turn in this conversation right now.
+    // Derived from RunRegistry's live turn hold, never persisted in metadata.
+    // This lets a freshly opened UI offer Stop even when it missed the turn's
+    // AssistantStart event while its process was not running.
+    bool is_generating = 10;
 }
 
 message CreateConversationRequest {
@@ -1775,6 +1781,9 @@ message CreateCommandRequest {
     optional CommandExecutionOverride execution = 9;
     bool slash_enabled = 10;
     string slash_description = 11;
+
+    // Text-matching priority (1..10, default 4; higher levels win).
+    int32 priority = 12;
 }
 
 message UpdateCommandRequest {
@@ -1790,6 +1799,7 @@ message UpdateCommandRequest {
     optional CommandExecutionOverride execution = 10;
     optional bool slash_enabled = 11;
     optional string slash_description = 12;
+    optional int32 priority = 13;
 }
 
 message DeleteCommandRequest {
@@ -1859,6 +1869,9 @@ message CommandDefinition {
     // slash registry falls back to `description`. Kept separate from
     // `description` because that one drives semantic/voice matching.
     string slash_description = 15;
+
+    // Text-matching priority (1..10, default 4; higher levels win).
+    int32 priority = 16;
 }
 
 // Per-command override of the global CommandExecutionSettings. Mirrors
@@ -2452,6 +2465,16 @@ message GeneralSettings {
     // default is true, so a proto3 plain bool absent from a partial
     // UpdateSettings (OOBE does exactly that) would silently turn it off.
     optional bool ai_memory_auto_extract = 21;
+
+    // Fold the settings pages' tuning knobs behind an "Advanced settings"
+    // disclosure. A PRESENTATION switch — the daemon reads it nowhere; it is
+    // here so every client and the OOBE wizard agree about one answer.
+    //
+    // `optional` for the same presence reason as every bool above it: the
+    // default is TRUE, so a partial UpdateSettings that omits it (OOBE
+    // completion builds exactly one) would send a proto3 `false` and quietly
+    // un-hide everything the user just asked to hide.
+    optional bool hide_advanced_settings = 22;
 }
 
 message VoiceSettings {
@@ -2642,6 +2665,17 @@ message AiSettings {
     // credential in it. Changes go through the granular
     // `ai.provider_credentials` path.
     repeated AiProviderCredentialsMsg provider_credentials = 22;
+
+    // Model ids the user saved for a provider whose catalogue cannot offer
+    // them — a hosted endpoint that 404s GET /v1/models, a model too new to be
+    // listed. The picker shows them beside the discovered ones.
+    //
+    // Read-only here, exactly like custom_providers and provider_credentials
+    // above and for the same reason: UpdateSettings does NOT apply this list,
+    // because a client that does not manage it sends it empty and an empty
+    // list applied there deletes every saved model. Changes go through the
+    // granular `ai.custom_models` path.
+    repeated CustomAiModelMsg custom_models = 23;
 }
 
 // One provider's saved endpoint, as a CLIENT sees it.
@@ -2657,6 +2691,16 @@ message AiProviderCredentialsMsg {
     string api_base_url = 2;  // API ROOT only; "/v1" is added downstream
     reserved 3;
     reserved "api_key";
+}
+
+// One model id the user saved for one provider.
+//
+// A picker entry and nothing else — no endpoint, no key, no capabilities. The
+// endpoint that routes the id is whichever provider it is scoped to, which is
+// why the provider rides on the row: a model id means nothing away from it.
+message CustomAiModelMsg {
+    string provider = 1;  // built-in id, "custom__<slug>" or "plugin__<id>"
+    string model = 2;  // the id exactly as it goes on the wire
 }
 
 // One saved endpoint, as a CLIENT sees it.
@@ -3018,6 +3062,12 @@ message FieldDefinitionMsg {
     // Dotted settings path the field reads/writes (e.g. "voice.stt_language").
     // Empty = UI uses the convention "voice.provider_configs.<provider_id>.<field_id>".
     string storage_path = 17;
+
+    // A TUNING knob rather than a choice the user has to make: the client folds
+    // it behind its "Advanced settings" disclosure while
+    // general.hide_advanced_settings is on. Declared beside the field so a
+    // PLUGIN's knob can say it too — a list kept on the frontend could not.
+    bool advanced = 18;
 }
 
 // Condition for showing/hiding a field based on another field's value
