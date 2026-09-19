@@ -419,9 +419,9 @@ astra-plugin publish --notify
 - `registry/v1/trust.json` **现在已经**由 `astra-root-2026a` **签
   名**，并委托给一个索引签名密钥 `astra-index-2026a`。注册表自己的
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` 会确认
-  这一点，并打印出 bot 在证明中会接受的唯一那个可复用工作流 SHA
-  值，`e3329df252a46d747676cb540ae4b986af68a3ad` —— 即
-  `plugin-release/v1` 所指向的那个 commit。所以过去会拦住每一次摄入
+  这一点，并打印出 bot 在证明中会接受的那些可复用工作流 SHA 值 ——
+  自 2026-08-19 标签移动以来共有两个：`plugin-release/v1` 现在指向的那个
+  commit，以及它之前指向的那个。所以过去会拦住每一次摄入
   的 `E_TRUST_UNPROVISIONED`，现在已经不会再触发了；
 - **目录本身仍然是未签名的。** `registry/v1/index.json` 和
   `revocations.json` 携带的都是 `"signatures": []`，所以默认的

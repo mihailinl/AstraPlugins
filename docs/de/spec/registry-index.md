@@ -51,10 +51,10 @@ zuvor" zu sagen und nie „verifizierter Build".
   `trust.json`, das an einen Index-Signierschlüssel delegiert. **Dieses
   Dokument ist jetzt signiert.** `registry/v1/trust.json` verifiziert
   unter `astra-root-2026a`, delegiert an den Index-Signierschlüssel
-  `astra-index-2026a`, und benennt den einen
-  Reusable-Workflow-Commit, den der Bot in einer Build-Attestation
-  akzeptiert (`e3329df252a46d747676cb540ae4b986af68a3ad`, worauf das
-  Tag `plugin-release/v1` zeigt). Die eigene
+  `astra-index-2026a`, und benennt die
+  Reusable-Workflow-Commits, die der Bot in einer Build-Attestation
+  akzeptiert — zwei davon, seit das Tag am 2026-08-19 verschoben wurde:
+  worauf `plugin-release/v1` zeigt, und worauf es vorher zeigte. Die eigene
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` der
   Registry gibt alle drei Tatsachen aus. Also feuert
   `E_TRUST_UNPROVISIONED` beim Ingest nicht mehr.
@@ -608,7 +608,10 @@ Repository und die richtige Workflow-Datei benennen. Diese Allowlist
 zu ändern ist eine Root-Schlüssel-Zeremonie.
 
 Diese Allowlist existiert jetzt: die signierte `trust.json` benennt
-genau einen Commit, `e3329df252a46d747676cb540ae4b986af68a3ad`. Also
+zwei Commits, seit das Tag am 2026-08-19 verschoben wurde — worauf
+`plugin-release/v1` zeigt, und worauf es vorher zeigte —, und diese Seite
+benennt keinen von beiden, denn eine in eine Spezifikation kopierte SHA
+ist eine Kopie des Remotes, die niemand vergleicht. Also
 stoppt `E_TRUST_UNPROVISIONED` den Ingest nicht mehr, und Schritt 4 ist
 aktiv — ein von einem anderen Workflow erzeugter Build wird mit
 `E_WORKFLOW_NOT_ALLOWED` abgelehnt. Die Daemon-seitige Hälfte ist aus

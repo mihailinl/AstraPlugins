@@ -2528,6 +2528,74 @@ jobs:
       - name: C14, C20 the docs locales and the mirrored listing caps
         run: python3 tools/check-locales.py --rules C14,C20
 
+      # C24 — every documented `plugin-release/v1` SHA is that tag's commit.
+      #
+      # The bug: `init-ci` teaches an author to check their build by reading
+      # the pin it prints, so six pages in seven locales plus three READMEs
+      # printed that SHA for them to compare against. The tag moved on
+      # 2026-08-19 and eighty-one lines in forty-five files went on naming the
+      # retired commit — still allowed by `trust.json`, and no longer what the
+      # tag points at, so the number told a reader with a correct build to
+      # distrust it and a reader with a stale one to trust it. (This comment
+      # does not repeat that SHA: the rule bans it everywhere but in its own
+      # two files, and a CI comment is not one of them.)
+      # Nothing here compared a documented SHA against the tag, so nothing
+      # could have noticed; C0 above checks the OTHER pin, the tooling ref, and
+      # is the reason this one's absence was easy to miss.
+      #
+      # UNLIKE every other step in this job, this one reaches the network on
+      # purpose: the question is "what does the tag point at today", and no
+      # literal in this tree can answer it. A failed `git ls-remote` therefore
+      # FAILS the step and does not skip it — a rule about a remote fact that
+      # goes green when the remote is unreachable is the shape of check this
+      # repository has already shipped once and paid for.
+      #
+      # It is a public unauthenticated read of this same repository's tags, so
+      # it works on a fork's pull request, where the token is withheld. That is
+      # deliberate: C12 lives in `proto-upstream` precisely because it cannot.
+      - name: C24 the documented workflow pin is the tag's commit
+        run: python3 tools/check-registry-mirrors.py --rules C24
+
+      # C25 — no workflow here calls the plugins service.
+      #
+      # There is no bug behind this one yet, and that is the reason to write
+      # it now. The contract records the author audience, `author.wake`'s path
+      # and its body, so a generated workflow may legally call the service —
+      # and a call added to the template `astra-plugin init-ci` writes is not
+      # a line in this repository, it is a line compiled into every author's
+      # repository, kept working for twelve months after the first CLI release
+      # that stops emitting that template (ID-73), inside a job holding
+      # `contents: write`, `id-token: write` and `attestations: write`. The
+      # notify job is deferred (DEC-3), so at launch there is no call at all,
+      # and FLOW-56 — no service answer, refusal or outage may fail an
+      # author's release run — holds by construction rather than by care.
+      #
+      # This step is therefore a check on a promise, not a bug: the promise is
+      # only worth anything while something fails when it stops being true.
+      # `rule_C25`'s docstring is what a commit that adds a call must do, and
+      # it is written where the person deleting a clause will read it.
+      - name: C25 no workflow here calls the plugins service
+        run: python3 tools/check-registry-mirrors.py --rules C25
+
+      # C26 — the CLI holds no credential and calls no service.
+      #
+      # `astra-plugin` is the only part of this system that runs on the
+      # author's own machine, next to their GitHub token, their npm token and
+      # their login keychain. `publish` deliberately cannot act as them: it
+      # opens a browser at a form. Nothing enforced that, and "the CLI holds
+      # no credential" is a sentence in four documents and a promise this
+      # side makes to every author who installs it.
+      #
+      # It reads `Cargo.lock` rather than shelling out to `cargo tree`, which
+      # is what the plan called for. This job has no Rust toolchain, no
+      # registry cache and no reason to grow either, and a rule that only runs
+      # where cargo happens to be installed is a rule that stops running. The
+      # lockfile is also the stricter reading — it cannot exclude dev- and
+      # build-dependencies, and an HTTP client vendored for a test fixture is
+      # still one somebody will reach for.
+      - name: C26 the CLI holds no credential and calls no service
+        run: python3 tools/check-registry-mirrors.py --rules C26
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

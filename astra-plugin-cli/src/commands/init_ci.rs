@@ -877,6 +877,68 @@ mod tests {
         }
     }
 
+    /// The generated caller reaches exactly one thing: the reusable workflow.
+    ///
+    /// This file stops being ours the moment it is written. `init-ci` renders
+    /// it into the author's repository, where it stays and keeps running —
+    /// supported for twelve months after the first CLI release that stops
+    /// emitting this template (ID-73). So a call added here is a call we have
+    /// promised to keep answering for a year, from a job holding
+    /// `contents: write`, `id-token: write` and `attestations: write` in
+    /// somebody else's repository. DEC-3 defers the notify job; at launch
+    /// there is no call at all, which is how FLOW-56 — no service answer,
+    /// refusal or outage may fail an author's release run — holds by
+    /// construction rather than by care.
+    ///
+    /// C25 in `tools/check-registry-mirrors.py` asserts the same over the
+    /// template as TEXT, so that it runs in `couplings`, where there is no
+    /// Rust toolchain. This half reads what `render()` actually produces for
+    /// a real pin, which is the thing the author ends up with.
+    #[test]
+    fn the_generated_caller_calls_nothing_but_the_reusable_workflow() {
+        let text = render(
+            &pin("4f1a9c2e6b8d3057af21e94c7b0d6a58e3c1f902"),
+            ".",
+            "",
+            "v",
+        );
+
+        for literal in [
+            "api.minice.ai",
+            "/plugins/v1",
+            "author/wake",
+            "astra.plugins.author-wake",
+            "ACTIONS_ID_TOKEN_REQUEST_",
+        ] {
+            assert!(
+                !text.contains(literal),
+                "the generated caller names {literal:?}. Read `rule_C25` in \
+                 tools/check-registry-mirrors.py before deleting this \
+                 assertion: the matching C25 clause comes out, \
+                 `continue-on-error: true` goes on the calling step AND its \
+                 job, and FLOW-56's test — the job against a refusing endpoint \
+                 and against an unreachable one, both green — lands in the \
+                 same commit.",
+            );
+        }
+
+        // Nothing fetches, and nothing runs. The file is a `uses:` and its
+        // inputs; a `run:` step in it would be new in kind, not in degree.
+        for fetcher in ["curl", "wget", "Invoke-WebRequest", "run:"] {
+            assert!(
+                !text.contains(fetcher),
+                "the generated caller contains {fetcher:?}, so it does \
+                 something other than call the reusable workflow",
+            );
+        }
+
+        // The one thing it does reach, spelled out — so that a template which
+        // stopped calling the workflow altogether fails here instead of
+        // passing every assertion above by being empty.
+        assert!(text.contains(&format!("uses: {WORKFLOW_REPO}/{WORKFLOW_FILE}@")));
+        assert_eq!(text.matches("uses:").count(), 1);
+    }
+
     /// The whole point of the generated file: two runs at the same pin must
     /// produce identical bytes, or "re-run it to upgrade" is a lie that shows
     /// up as noise in every diff.

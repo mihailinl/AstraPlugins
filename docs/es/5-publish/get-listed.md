@@ -473,11 +473,12 @@ través del catálogo.** En concreto, y cada parte es comprobable:
 - `registry/v1/trust.json` **ya está firmado** por `astra-root-2026a` y
   delega en una clave de firma de índice, `astra-index-2026a`. El propio
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` del
-  registro lo confirma e imprime el único SHA de workflow reutilizable
-  que el bot aceptará en una attestation,
-  `e3329df252a46d747676cb540ae4b986af68a3ad` — el commit al que apunta
-  `plugin-release/v1`. Así que `E_TRUST_UNPROVISIONED`, que antes
-  detenía cada ingesta, ya no se dispara;
+  registro lo confirma e imprime los SHA de workflow reutilizable
+  que el bot aceptará en una attestation — dos de ellos desde que la
+  etiqueta se movió el 2026-08-19: el commit al que apunta
+  `plugin-release/v1`, y aquel al que apuntaba antes. Así que
+  `E_TRUST_UNPROVISIONED`, que antes detenía cada ingesta, ya no se
+  dispara;
 - **el catálogo en sí sigue sin firmar.** `registry/v1/index.json` y
   `revocations.json` llevan `"signatures": []`, así que una compilación
   por defecto de Astra no tiene firma que comprobar, clasifica cualquier

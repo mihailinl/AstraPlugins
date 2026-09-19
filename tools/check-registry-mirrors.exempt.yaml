@@ -1,0 +1,71 @@
+# Commit SHAs that C24 must NOT compare against `plugin-release/v1`.
+#
+# C24 fails any 7-to-40-hex token written beside the tag's name that is not a
+# prefix of the commit `git ls-remote` returns for it. That is the right
+# default — every such number is one a reader is invited to compare their own
+# build against — but four kinds of SHA are deliberately not the tag's commit:
+# one retired and kept as dated history, the commit that fixed a bug, an
+# invented one in a worked example, and a test fixture. Each gets a record
+# here, with the reason, and no record is a blanket `path: *` + `token: *`.
+#
+# An exemption that matches FEWER than its `min` fails the build. That is the
+# point of the file: a hole left open after the thing it excused was deleted
+# has the same shape as the stale pin this whole rule exists for, and so does
+# a rule that quietly stopped scanning what it thinks it scans.
+#
+# FORMAT — read by `read_exemptions()` in tools/check-registry-mirrors.py,
+# which hand-parses it for the same reason `spec/locales.yaml` has no parser:
+# the `couplings` job installs nothing, and a check that needs `pip install`
+# is a check that stops running the first time a runner image changes.
+#
+#   * records are separated by blank lines
+#   * one `key: value` per line; an INDENTED line continues the key above it
+#   * `#` begins a whole-line comment
+#   * keys: id, path, token, why (all required) and min (default 1)
+#   * `path` is an fnmatch glob over the repository-relative path; `*` is any
+#   * `token` is a SHA at any length, matched as a prefix in either direction,
+#     so a record written at 40 characters also covers `4f1a9c2e`; `*` is any
+#   * `min` is the number of occurrences at the commit that wrote the record
+#
+# The rule's own two files — check-registry-mirrors.py and this one — are not
+# scanned at all and need no record here. See `SELF` in that file.
+
+id: retired-tag-object
+path: *
+token: dc1a044876926e9cf1170f034e2eab533ec07641
+min: 24
+why: The tag OBJECT of `plugin-release/v1` while the tag was annotated, from
+  2026-08-11 to 2026-08-19. `init-ci` pinned it where GitHub needs a commit and
+  every author's first release died on it. Twenty-four pages carried that SHA
+  as a live diagnostic — "if your CLI prints this, reinstall" — and the
+  diagnostic became unreachable the day the tag was replaced by a lightweight
+  one, because a lightweight tag has no object to mispin. Each of those
+  twenty-four is now one dated history sentence, and this is the SHA in it.
+
+id: init-ci-fix-commit
+path: *
+token: 5b8ab22
+min: 24
+why: The commit that taught `init-ci` to ask for `refs/tags/<t>^{}` as well as
+  `refs/tags/<t>` and to prefer the peeled line. It is history in the same
+  sentence as `dc1a044…` — a commit in this repository, never a pin, and older
+  than any tag this rule reads.
+
+id: production-plan
+path: PRODUCTION_PLAN.md
+token: *
+min: 2
+why: A worked example of the workflow reference an author ends up with, written
+  before the reusable workflow existed and pinned to an invented
+  `4f1a9c2e…` at `v1.0.0`. It is a specimen of a shape, not a pin anybody can
+  run; that page is the plan this repository was built from and is not
+  maintained against the tag.
+
+id: init-ci-test-fixture
+path: astra-plugin-cli/src/commands/init_ci.rs
+token: 4f1a9c2e6b8d3057af21e94c7b0d6a58e3c1f902
+min: 2
+why: The `#[cfg(test)]` fixture `commit_shas_are_recognised_and_tags_are_not`
+  asserts on, at full and at abbreviated length. A test about the SHAPE of a
+  commit SHA that used the real pin would go red every time the tag moved,
+  which is the opposite of what it is for.

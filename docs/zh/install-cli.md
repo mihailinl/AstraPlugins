@@ -299,12 +299,16 @@ astra-plugin <version>
 astra-plugin init-ci
 ```
 
-包含修复的构建会报告固定值 `e3329df252a46d747676cb540ae4b986af68a3ad` —— 一个
-commit。不包含修复的构建会报告 `dc1a044876926e9cf1170f034e2eab533ec07641`，那是
-`plugin-release/v1` 的标签*对象*(tag object)，也正是 GitHub 会拒绝的东西。如果你
-看到的是后者，就用上面那行命令从 `master` 重新安装，然后再跑一次 `init-ci`。它可以
-安全地重复运行：它会保留你的输入，只重写固定值。它不会就地修复已有文件，所以已存在
-的 `release.yml` 在你重新运行之前会一直带着错误的 SHA。
+它报告的固定值必须是 `plugin-release/v1` 所指向的那个 commit，而能说出那是哪个
+的只有远端：`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'` —— 有 peel 过的
+`^{}` 行时就取那一行。如果对不上，就用上面那行命令从 `master` 重新安装，然后再跑
+一次 `init-ci`。它可以安全地重复运行：它会保留你的输入，只重写固定值。它不会就地
+修复已有文件，所以已存在的 `release.yml` 在你重新运行之前会一直带着过期的 SHA。
+这一节名字里的那个故障现在已经是历史了，而且是有日期的：`plugin-release/v1` 在
+2026-08-11 到 2026-08-19 之间是一个附注标签，早于提交 `5b8ab22` 的构建会报告它
+的标签*对象*(tag object) `dc1a044876926e9cf1170f034e2eab533ec07641`，那正是
+GitHub 会拒绝的东西 —— 今天这个标签是轻量标签，所以根本不会有构建报告那个 SHA。
 
 完整的命令集如下：
 

@@ -157,7 +157,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -171,18 +171,22 @@ root-signed `trust.json` allows — a build produced by any other workflow is
 refused with `E_WORKFLOW_NOT_ALLOWED`. Re-run `init-ci` any time to move the pin
 forward; it keeps the inputs you set.
 
-**Check the SHA it printed before you go on.** It must be
-`e3329df252a46d747676cb540ae4b986af68a3ad`. If it is
-`dc1a044876926e9cf1170f034e2eab533ec07641`, your CLI predates commit `5b8ab22`:
-that is the `plugin-release/v1` *tag object's* SHA, and `uses: …@<sha>` needs a
-commit, so your first `git push --tags` fails with `invalid value workflow
-reference` before any job starts. This is the one check worth doing; the version
-number cannot answer it, because the fix reached `master` before the number
-changed. Re-run the `cargo install` line on [Install the CLI](install-cli.md),
-then run `astra-plugin init-ci` again — it rewrites the pin and keeps your
-inputs. Nothing is repaired in place, so an existing `release.yml` keeps the bad
-SHA until you re-run it. This is the bug that broke a real author's first
-release.
+**Check the SHA it printed before you go on.** It must be the commit
+`plugin-release/v1` points at today, and the only thing that can tell you what
+that is, is the remote: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` — both refspecs, and the peeled `^{}` line
+wins when the remote sends one, which is the pair `init-ci` itself asks for. If
+your pin disagrees, re-run the `cargo install` line on
+[Install the CLI](install-cli.md), then run `astra-plugin init-ci` again — it
+rewrites the pin and keeps your inputs. Nothing is repaired in place, so an
+existing `release.yml` keeps the stale SHA until you re-run it. The rest is
+history, and dated: `plugin-release/v1` was an annotated tag from 2026-08-11 to
+2026-08-19, a CLI older than commit `5b8ab22` pinned its tag object
+`dc1a044876926e9cf1170f034e2eab533ec07641` where GitHub needs a commit, and
+that is the bug that broke a real author's first release with `invalid value
+workflow reference` before any job started; the tag is lightweight today, so no
+build reports that SHA any more.
 
 Detail, including what the generated file contains and why each of its three
 permissions is required: [Release with CI](5-publish/release-with-ci.md).
@@ -506,9 +510,10 @@ Ed25519 keys, and the daemon's `PRODUCTION_ROOT_KEYS` compiles in the same two.
 `registry/v1/trust.json` is now signed by `astra-root-2026a` and delegates to an
 index-signing key, `astra-index-2026a` — verified with the registry's own
 `node tools/sign-trust.mjs --verify registry/v1/trust.json`, which also prints
-the single reusable-workflow SHA the bot will accept in an attestation
-(`e3329df252a46d747676cb540ae4b986af68a3ad`, the commit `plugin-release/v1`
-points at). **The link still missing is the catalogue's own signature:**
+the reusable-workflow SHAs the bot will accept in an attestation — two of them
+since the tag moved on 2026-08-19: the commit `plugin-release/v1` points at, and
+the one it pointed at before. **The link still missing is the catalogue's own
+signature:**
 `registry/v1/index.json` and `revocations.json` carry `"signatures": []`, so a
 default Astra build has nothing to check and classifies every catalogue as
 unsigned. Nothing here promises a guarantee that is not yet in place; see

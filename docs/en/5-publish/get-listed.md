@@ -437,10 +437,10 @@ catalogue.** Precisely, and each part is checkable:
 - `registry/v1/trust.json` **is now signed** by `astra-root-2026a` and delegates
   to an index-signing key, `astra-index-2026a`. The registry's own
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` confirms it and
-  prints the one reusable-workflow SHA the bot will accept in an attestation,
-  `e3329df252a46d747676cb540ae4b986af68a3ad` — the commit `plugin-release/v1`
-  points at. So `E_TRUST_UNPROVISIONED`, which used to stop every ingest, no
-  longer fires;
+  prints the reusable-workflow SHAs the bot will accept in an attestation — two
+  of them since the tag moved on 2026-08-19: the commit `plugin-release/v1`
+  points at, and the one it pointed at before. So `E_TRUST_UNPROVISIONED`, which
+  used to stop every ingest, no longer fires;
 - **the catalogue itself is still unsigned.** `registry/v1/index.json` and
   `revocations.json` carry `"signatures": []`, so a default Astra build has no
   signature to check, classifies every catalogue as unsigned, and fails closed.

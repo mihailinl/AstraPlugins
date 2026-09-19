@@ -51,10 +51,10 @@ y nunca "compilación verificada".
   delega en una clave de firma de índice. **Ese documento ya está
   firmado.** `registry/v1/trust.json` se verifica bajo
   `astra-root-2026a`, delega en la clave de firma de índice
-  `astra-index-2026a`, y nombra el único commit del workflow
-  reutilizable que el bot aceptará en una attestation de compilación
-  (`e3329df252a46d747676cb540ae4b986af68a3ad`, al que apunta la
-  etiqueta `plugin-release/v1`). El propio
+  `astra-index-2026a`, y nombra los commits del workflow
+  reutilizable que el bot aceptará en una attestation de compilación — dos
+  de ellos desde que la etiqueta se movió el 2026-08-19: al que apunta
+  `plugin-release/v1`, y al que apuntaba antes. El propio
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` del
   registro imprime los tres hechos. Así que `E_TRUST_UNPROVISIONED`
   ya no se dispara en la ingesta.
@@ -599,8 +599,11 @@ commit y la attestation seguiría nombrando el repositorio y archivo de
 workflow correctos. Cambiar esa lista blanca es una ceremonia de clave
 raíz.
 
-Esa lista blanca ya existe: el `trust.json` firmado nombra exactamente
-un commit, `e3329df252a46d747676cb540ae4b986af68a3ad`. Así que
+Esa lista blanca ya existe: el `trust.json` firmado nombra dos commits
+desde que la etiqueta se movió el 2026-08-19 — al que apunta
+`plugin-release/v1`, y al que apuntaba antes —, y esta página no nombra
+ninguno, porque un SHA copiado a una especificación es una copia del remoto
+que nadie compara. Así que
 `E_TRUST_UNPROVISIONED` ya no detiene la ingesta, y el paso 4 está
 activo — un build producido por cualquier otro workflow se rechaza con
 `E_WORKFLOW_NOT_ALLOWED`. La mitad del lado del daemon sigue fallando

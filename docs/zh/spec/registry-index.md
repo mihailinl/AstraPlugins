@@ -45,9 +45,8 @@
   托给一个索引签名密钥。**那份文档现在已经签好了。**
   `registry/v1/trust.json` 能在 `astra-root-2026a` 下通过验证，委托
   给索引签名密钥 `astra-index-2026a`，并指名了 bot 在构建证明中会
-  接受的唯一那个可复用工作流提交
-  （`e3329df252a46d747676cb540ae4b986af68a3ad`，也就是标签
-  `plugin-release/v1` 所指向的那个）。注册表自己的
+  接受的那些可复用工作流提交 —— 自 2026-08-19 标签移动以来共有两个：
+  `plugin-release/v1` 现在指向的那个，以及它之前指向的那个。注册表自己的
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` 会把
   这三个事实全部打印出来。所以 `E_TRUST_UNPROVISIONED` 在摄入时已
   经不会再触发了。
@@ -524,8 +523,10 @@ release 按 semver 排序。如果提交进仓库的文件哪怕有一个字节�
 可以被重新指向任意一个 commit，而构建证明依然会正确地指名那个仓库
 和工作流文件。修改这份白名单需要一次根密钥仪式。
 
-那份白名单现在已经存在了：已签名的 `trust.json` 恰好指名了一个
-commit，`e3329df252a46d747676cb540ae4b986af68a3ad`。所以
+那份白名单现在已经存在了：自 2026-08-19 标签移动以来，已签名的
+`trust.json` 指名了两个 commit —— `plugin-release/v1` 现在指向的那个，以及
+它之前指向的那个 —— 而本页两个都不写出来，因为抄进规范里的 SHA，是一份
+没人去比对的远端副本。所以
 `E_TRUST_UNPROVISIONED` 已经不会再阻止摄入过程了，第 4 步已经在生
 效——由任何其他工作流产出的构建都会被以 `E_WORKFLOW_NOT_ALLOWED`
 拒绝。守护进程这一侧依然出于另一个原因保持 fail-closed：目录本身还

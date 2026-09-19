@@ -38,7 +38,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -50,13 +50,16 @@ astra-plugin init-ci
 `.github/workflows/plugin-release.yml` лежить на дефолтній гілці
 `mihailinl/AstraPlugins` — `git ls-tree -r master --name-only
 .github/workflows` його перелічує, — і випущений тег існує: `git ls-remote
---tags origin` розв'язує `plugin-release/v1` в
-`e3329df252a46d747676cb540ae4b986af68a3ad`. Оскільки тег існує, `init-ci`
-закріплює цей коміт, а не рухому голову гілки, і більше не друкує
-застереження «Not verified», яке цитували раніші версії цієї сторінки.
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` його розв'язує, і знята (`^{}`) рядок
+перемагає, якщо віддалений її надіслав. Оскільки тег існує, `init-ci`
+закріплює коміт, який тег називає, а не рухому голову гілки, і більше не
+друкує застереження «Not verified», яке цитували раніші версії цієї
+сторінки. Сам SHA цей абзац не наводить: літерал тут був би копією
+віддаленого репозиторію, яку ніхто не звіряє.
 
-Цей SHA — той самий, що підписаний коренем `trust.json` реєстру допускає в
-атестації збірки — `node tools/sign-trust.mjs --verify
+Цей SHA — один із тих, що підписаний коренем `trust.json` реєстру допускає
+в атестації збірки — `node tools/sign-trust.mjs --verify
 registry/v1/trust.json` в `astra-registry` друкує його під *SHA
 багаторазових workflow, які допускаються*. Збірка, вироблена будь-яким
 іншим workflow, відхиляється при прийомі з `E_WORKFLOW_NOT_ALLOWED`, тож
@@ -89,7 +92,7 @@ jobs:
     # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
     # step of every plugin that trusts it — and that build step runs in YOUR
     # repository with the token above. `astra-plugin init-ci` keeps this current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@c3f342469d186ef48458992930bf1b7c583c78d4  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"

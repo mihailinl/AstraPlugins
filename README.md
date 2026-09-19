@@ -131,11 +131,14 @@ release died with `invalid value workflow reference` before a job started
 bump that raised the number to `0.2.1` — so a build from `master` can carry the
 fix and still print `0.2.0`, and no `0.2.1` build lacks it. Installing from
 `master` today gets you the fix whatever the number says. To check rather than
-trust, run `astra-plugin init-ci` and read the SHA it pins:
-`e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is correct,
-`dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
-and is the bug. The pin is not repaired in place — re-run `init-ci` to rewrite
-it.
+trust, run `astra-plugin init-ci` and compare the SHA it pins with
+`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, preferring the
+peeled `^{}` line. The bug itself is dated: `plugin-release/v1` was an annotated
+tag from 2026-08-11 to 2026-08-19, a CLI older than `5b8ab22` pinned its tag
+object `dc1a044876926e9cf1170f034e2eab533ec07641`, and the tag is lightweight
+today, so no build prints that SHA. The pin is not repaired in place — re-run
+`init-ci` to rewrite it.
 
 [#2]: https://github.com/mihailinl/AstraPlugins/issues/2
 
@@ -349,9 +352,10 @@ true:
   2026-08-11: `astra-registry/registry/v1/root.json` publishes two Ed25519 keys
   and `astra-daemon/src/plugins/trust.rs` (`PRODUCTION_ROOT_KEYS`) compiles in
   the same two. `registry/v1/trust.json` is now signed by `astra-root-2026a`,
-  delegates to the index key `astra-index-2026a`, and names the one
-  reusable-workflow commit the registry accepts in an attestation
-  (`e3329df…`, which is what `plugin-release/v1` points at). **But
+  delegates to the index key `astra-index-2026a`, and names the
+  reusable-workflow commits the registry accepts in an attestation (two of them
+  since the tag moved on 2026-08-19: what `plugin-release/v1` points at, and
+  what it pointed at before). **But
   `registry/v1/index.json` and `revocations.json` still carry
   `"signatures": []`** — so no catalogue signature verifies, a default build
   still fails closed, and revocation is not enforced.
