@@ -2556,6 +2556,27 @@ jobs:
       - name: C24 the documented workflow pin is the tag's commit
         run: python3 tools/check-registry-mirrors.py --rules C24
 
+      # C25 — no workflow here calls the plugins service.
+      #
+      # There is no bug behind this one yet, and that is the reason to write
+      # it now. The contract records the author audience, `author.wake`'s path
+      # and its body, so a generated workflow may legally call the service —
+      # and a call added to the template `astra-plugin init-ci` writes is not
+      # a line in this repository, it is a line compiled into every author's
+      # repository, kept working for twelve months after the first CLI release
+      # that stops emitting that template (ID-73), inside a job holding
+      # `contents: write`, `id-token: write` and `attestations: write`. The
+      # notify job is deferred (DEC-3), so at launch there is no call at all,
+      # and FLOW-56 — no service answer, refusal or outage may fail an
+      # author's release run — holds by construction rather than by care.
+      #
+      # This step is therefore a check on a promise, not a bug: the promise is
+      # only worth anything while something fails when it stops being true.
+      # `rule_C25`'s docstring is what a commit that adds a call must do, and
+      # it is written where the person deleting a clause will read it.
+      - name: C25 no workflow here calls the plugins service
+        run: python3 tools/check-registry-mirrors.py --rules C25
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

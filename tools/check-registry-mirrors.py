@@ -46,11 +46,27 @@ C24 — every commit SHA that claims to be `plugin-release/v1` is that tag's
     whoever moves this tag next may well annotate it again, and that is the
     day `init-ci`'s first bug comes back.
 
-C25 — no workflow in this repository calls the plugins service.  (AP-4)
+C25 — no workflow in this repository calls the plugins service.
+
+    Neither `plugin-release.yml` nor the caller `astra-plugin init-ci`
+    generates names the service's host, path, author audience, wake path or
+    OIDC token-request variables, and neither fetches a host that is not
+    GitHub's. The reusable workflow keeps exactly the jobs `plan`, `build`
+    and `publish`.
+
+    The asymmetry is the point. A call in `plugin-release.yml` is a line we
+    can delete tomorrow; a call in the generated caller is compiled into
+    every author's repository and supported for twelve months after the
+    first CLI release that stops emitting it (ID-73). DEC-3 defers the notify
+    job, so at launch there is no call, and FLOW-56 — no service answer,
+    refusal or outage may fail an author's release run — holds by
+    construction. `rule_C25`'s docstring says what a commit that adds a call
+    has to do in the same commit.
+
 C26 — the CLI holds no credential and calls no service.          (AP-5)
 
-Those two are added by their own commits; this docstring names them so the
-reader of a `--rules` list knows what is meant to be here.
+That one is added by its own commit; this docstring names it so the reader
+of a `--rules` list knows what is meant to be here.
 """
 
 from __future__ import annotations
@@ -427,7 +443,183 @@ def rule_C24(fails: Fails) -> None:
     )
 
 
-RULES = {"C24": rule_C24}
+# ── C25 ──────────────────────────────────────────────────────────────────────
+
+PLUGIN_RELEASE = ROOT / ".github" / "workflows" / "plugin-release.yml"
+
+#: Every literal that would mean a release run talks to the plugins service,
+#: with what each one is. The audience and the wake path are the recorded
+#: values (contract 0.12.0, ID-32): a generated workflow could legally call
+#: them, which is exactly why their absence has to be checked rather than
+#: assumed.
+SERVICE_LITERALS = [
+    ("api.minice.ai", "the plugins service's host"),
+    ("/plugins/v1", "the plugins service's path prefix"),
+    ("https://api.minice.ai/plugins/v1/author", "the author audience (ID-32)"),
+    ("author/wake", "`author.wake`'s path (ID-32)"),
+    ("astra.plugins.author-wake", "the wake event name"),
+    ("ACTIONS_ID_TOKEN_REQUEST_", "the pair an OIDC-authenticated call needs"),
+]
+
+#: Anything that fetches. `Invoke-WebRequest` is here because the build job
+#: runs on windows-latest too, where it is the one that needs no install.
+FETCHERS = re.compile(r"\b(curl|wget|Invoke-WebRequest|iwr)\b", re.IGNORECASE)
+
+URL_HOST = re.compile(r"https?://([A-Za-z0-9._-]+)")
+
+#: Hosts a release run may already reach, because Actions itself reaches them.
+#: Everything else on a fetching line is a call this rule exists to refuse.
+GITHUB_HOSTS = {
+    "github.com",
+    "api.github.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "codeload.github.com",
+    "ghcr.io",
+    "uploads.github.com",
+}
+
+#: The jobs the reusable workflow has, and the reason the set is closed: the
+#: three-way split IS the security property the docs sell — `plan` reads the
+#: manifest with no token, `build` runs the author's code with no write token,
+#: `publish` holds `contents: write` and runs nothing of the author's. A fourth
+#: job is either a fourth trust boundary or the notify job DEC-3 defers.
+RELEASE_JOBS = {"plan", "build", "publish"}
+FLOOR_RELEASE_JOBS = 3
+
+
+def generated_caller() -> str:
+    """The template `astra-plugin init-ci` writes, read out of the CLI source.
+
+    Not by running the CLI: the `couplings` job has no Rust toolchain, and a
+    rule that only runs where a binary was built is a rule that stops running
+    the day somebody reorders the jobs. The template is one raw string literal
+    inside `render()`, so it is read as text — the same trick C24 uses on
+    `WORKFLOW_REPO`, and it fails loudly rather than silently scanning nothing.
+    """
+    text = INIT_CI.read_text(encoding="utf-8")
+    at = text.find("pub fn render(")
+    if at < 0:
+        raise SystemExit(
+            f"{INIT_CI.relative_to(ROOT)} has no `pub fn render(`. C25 reads the "
+            f"generated caller out of that function's raw string; if it moved or "
+            f"was renamed, move this with it rather than dropping the check."
+        )
+    start = text.find('r#"', at)
+    end = text.find('"#', start + 3) if start >= 0 else -1
+    if start < 0 or end < 0:
+        raise SystemExit(
+            f"{INIT_CI.relative_to(ROOT)}: `render()` no longer starts with an "
+            f'r#"…"# literal. C25 cannot read the generated caller, so it is not '
+            f"checking it — which is a red build, not a pass."
+        )
+    return text[start + 3:end]
+
+
+def top_level_jobs(text: str) -> list[str]:
+    """`jobs:`' immediate keys, by indentation. No YAML dependency; see C24."""
+    out: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if re.match(r"^jobs:\s*$", line):
+            inside = True
+            continue
+        if not inside:
+            continue
+        if line.strip() and not line[:1].isspace():
+            break  # a new top-level key ended the block
+        m = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if m:
+            out.append(m.group(1))
+    return out
+
+
+def rule_C25(fails: Fails) -> None:
+    """No workflow here calls the plugins service — neither ours nor theirs.
+
+    Two files, and the second is the one with reach. `plugin-release.yml` is
+    a file in this repository that we can edit tomorrow; the caller
+    `init-ci` generates is compiled into every author's repository and stays
+    there, supported for twelve months after the first CLI release that stops
+    emitting it (ID-73). A call added to the template is a call we are
+    promising to keep answering for a year, for a wake the poll already
+    provides.
+
+    DEC-3 defers the notify job to the owner's renewal decision, so at launch
+    there is no call at all — and FLOW-56, which says no service answer,
+    refusal or outage may fail an author's release run, holds by construction
+    rather than by care.
+
+    WHEN A CALL IS ADDED, the same commit must: delete the clause below that
+    it violates, set `continue-on-error: true` on the calling step AND its
+    job, and add FLOW-56's test — the job run against a refusing endpoint and
+    against an unreachable one, both green. Deleting the clause alone turns a
+    checked promise into an unchecked one.
+    """
+    if not PLUGIN_RELEASE.is_file():
+        fails.check(
+            False,
+            "C25 the reusable workflow is where this rule looks for it",
+            f"{PLUGIN_RELEASE.relative_to(ROOT)} is not there. Every author's "
+            f"release calls that path; if it moved, C0 and C25 both need moving.",
+        )
+        return
+
+    release_text = PLUGIN_RELEASE.read_text(encoding="utf-8")
+    subjects = [
+        (str(PLUGIN_RELEASE.relative_to(ROOT)), release_text),
+        (f"{INIT_CI.relative_to(ROOT)}::render()", generated_caller()),
+    ]
+
+    # ── leg 1: none of the service's own literals ────────────────────────────
+    hits: list[str] = []
+    for name, text in subjects:
+        for n, line in enumerate(text.splitlines(), 1):
+            for literal, what in SERVICE_LITERALS:
+                if literal in line:
+                    hits.append(f"{name}:{n}: {literal!r} — {what}")
+    fails.check(
+        not hits,
+        "C25 neither workflow names the plugins service",
+        "\n".join(hits)
+        + "\nA generated workflow that calls the service is compiled into authors'"
+        + "\nrepositories and supported for 12 months after the CLI stops emitting"
+        + "\nit (ID-73). If this call is intended, read this rule's docstring: the"
+        + "\nclause comes out, `continue-on-error` goes on the step and the job, and"
+        + "\nFLOW-56's refusing-and-unreachable test lands in the same commit.",
+    )
+
+    # ── leg 2: nothing fetches from a host that is not GitHub's ──────────────
+    fetched: list[str] = []
+    for name, text in subjects:
+        for n, line in enumerate(text.splitlines(), 1):
+            if not FETCHERS.search(line):
+                continue
+            for host in URL_HOST.findall(line):
+                if host in GITHUB_HOSTS or host.endswith(".github.com"):
+                    continue
+                fetched.append(f"{name}:{n}: fetches {host}")
+    fails.check(
+        not fetched,
+        "C25 neither workflow fetches a non-GitHub host",
+        "\n".join(fetched)
+        + "\nA release run holds `contents: write`, `id-token: write` and"
+        + "\n`attestations: write`. Anything it downloads runs inside those.",
+    )
+
+    # ── leg 3: the three-way split is still three ────────────────────────────
+    jobs = top_level_jobs(release_text)
+    fails.check(
+        set(jobs) == RELEASE_JOBS and len(jobs) >= FLOOR_RELEASE_JOBS,
+        f"C25 the reusable workflow's jobs are exactly {sorted(RELEASE_JOBS)}",
+        f"read {jobs}\nThe split is the security property: `plan` holds no token,"
+        + "\n`build` runs the author's code and cannot write, `publish` can write and"
+        + "\nruns none of it. A job that is neither is a fourth trust boundary — and"
+        + "\nthe notify job DEC-3 defers would arrive exactly here.",
+    )
+
+
+RULES = {"C24": rule_C24, "C25": rule_C25}
 
 
 def main() -> int:
