@@ -336,15 +336,21 @@ Das ist die Prüfung, die überhaupt nicht von der Version abhängt:
 astra-plugin init-ci
 ```
 
-Ein Build mit dem Fix meldet das Pinning
-`e3329df252a46d747676cb540ae4b986af68a3ad` — einen Commit. Ein Build ohne
-ihn meldet `dc1a044876926e9cf1170f034e2eab533ec07641`, das ist das
-*Tag-Objekt* von `plugin-release/v1` und das, was GitHub ablehnt. Wenn du
-das zweite siehst, installiere mit der Zeile oben neu aus `master` und führe
-`init-ci` erneut aus. Es kann gefahrlos erneut ausgeführt werden: es behält
-deine Eingaben und schreibt das Pinning neu. Nichts wird an Ort und Stelle
-repariert, eine bestehende `release.yml` behält also die falsche SHA, bis du
-es erneut ausführst.
+Das gemeldete Pinning muss der Commit sein, auf den `plugin-release/v1`
+zeigt, und nur das Remote kann sagen, welcher das ist: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'`, wobei die gepeelte `^{}`-Zeile gilt,
+wenn es eine gibt. Weicht dein Pinning ab, installiere mit der Zeile oben
+neu aus `master` und führe `init-ci` erneut aus. Es kann gefahrlos erneut
+ausgeführt werden: es behält deine Eingaben und schreibt das Pinning neu.
+Nichts wird an Ort und Stelle repariert, eine bestehende `release.yml`
+behält also die veraltete SHA, bis du es erneut ausführst. Der Fehler, nach
+dem dieser Abschnitt benannt ist, ist inzwischen Geschichte, und sie ist
+datiert: `plugin-release/v1` war von 2026-08-11 bis 2026-08-19 ein
+annotiertes Tag, und ein Build älter als Commit `5b8ab22` meldete dessen
+*Tag-Objekt* `dc1a044876926e9cf1170f034e2eab533ec07641`, das GitHub
+ablehnt — das Tag ist heute leichtgewichtig, also kann kein Build diese
+SHA überhaupt melden.
 
 Der Befehlssatz, vollständig:
 

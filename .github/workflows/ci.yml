@@ -2528,6 +2528,34 @@ jobs:
       - name: C14, C20 the docs locales and the mirrored listing caps
         run: python3 tools/check-locales.py --rules C14,C20
 
+      # C24 — every documented `plugin-release/v1` SHA is that tag's commit.
+      #
+      # The bug: `init-ci` teaches an author to check their build by reading
+      # the pin it prints, so six pages in seven locales plus three READMEs
+      # printed that SHA for them to compare against. The tag moved on
+      # 2026-08-19 and eighty-one lines in forty-five files went on naming the
+      # retired commit — still allowed by `trust.json`, and no longer what the
+      # tag points at, so the number told a reader with a correct build to
+      # distrust it and a reader with a stale one to trust it. (This comment
+      # does not repeat that SHA: the rule bans it everywhere but in its own
+      # two files, and a CI comment is not one of them.)
+      # Nothing here compared a documented SHA against the tag, so nothing
+      # could have noticed; C0 above checks the OTHER pin, the tooling ref, and
+      # is the reason this one's absence was easy to miss.
+      #
+      # UNLIKE every other step in this job, this one reaches the network on
+      # purpose: the question is "what does the tag point at today", and no
+      # literal in this tree can answer it. A failed `git ls-remote` therefore
+      # FAILS the step and does not skip it — a rule about a remote fact that
+      # goes green when the remote is unreachable is the shape of check this
+      # repository has already shipped once and paid for.
+      #
+      # It is a public unauthenticated read of this same repository's tags, so
+      # it works on a fork's pull request, where the token is withheld. That is
+      # deliberate: C12 lives in `proto-upstream` precisely because it cannot.
+      - name: C24 the documented workflow pin is the tag's commit
+        run: python3 tools/check-registry-mirrors.py --rules C24
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

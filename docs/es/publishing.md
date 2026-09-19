@@ -172,7 +172,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -187,20 +187,23 @@ producido por cualquier otro workflow se rechaza con
 `E_WORKFLOW_NOT_ALLOWED`. Vuelve a ejecutar `init-ci` en cualquier
 momento para avanzar el fijado; conserva las entradas que configuraste.
 
-**Comprueba el SHA que imprimió antes de continuar.** Debe ser
-`e3329df252a46d747676cb540ae4b986af68a3ad`. Si es
-`dc1a044876926e9cf1170f034e2eab533ec07641`, tu CLI es anterior al commit
-`5b8ab22`: ese es el SHA del *objeto de la etiqueta* `plugin-release/v1`,
-y `uses: …@<sha>` necesita un commit, así que tu primer `git push --tags`
-falla con `invalid value workflow reference` antes de que arranque ningún
-job. Esta es la comprobación que merece la pena; el número de versión no
-puede responderla, porque el arreglo llegó a `master` antes de que el
-número cambiara. Vuelve a ejecutar la línea de `cargo install` de
-[Instalar la CLI](install-cli.md), luego ejecuta
-`astra-plugin init-ci` de nuevo — reescribe el fijado y conserva tus
-entradas. Nada se repara en su sitio, así que un `release.yml`
-existente conserva el SHA malo hasta que lo vuelvas a ejecutar. Este es
-el bug que rompió el primer release de un autor real.
+**Comprueba el SHA que imprimió antes de continuar.** Debe ser el commit
+al que apunta hoy `plugin-release/v1`, y lo único que puede decírtelo es el
+remoto: `git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'` — ambos
+refspecs, y la línea pelada `^{}` gana cuando el remoto envía una, que es
+exactamente el par que pide `init-ci`. Si tu fijado no coincide, vuelve a
+ejecutar la línea de `cargo install` de [Instalar la CLI](install-cli.md),
+luego ejecuta `astra-plugin init-ci` de nuevo — reescribe el fijado y
+conserva tus entradas. Nada se repara en su sitio, así que un `release.yml`
+existente conserva el SHA obsoleto hasta que lo vuelvas a ejecutar. El
+resto es historia, y con fecha: `plugin-release/v1` fue una etiqueta
+anotada del 2026-08-11 al 2026-08-19, una CLI anterior al commit `5b8ab22`
+fijaba su objeto de etiqueta `dc1a044876926e9cf1170f034e2eab533ec07641`
+donde GitHub necesita un commit, y ese es el bug que rompió el primer
+release de un autor real con `invalid value workflow reference` antes de
+que arrancara ningún job; hoy la etiqueta es ligera, así que ninguna
+compilación informa ya de ese SHA.
 
 Detalle, incluyendo qué contiene el archivo generado y por qué es
 necesario cada uno de sus tres permisos:
@@ -546,10 +549,10 @@ ambos lados: `astra-registry/registry/v1/root.json` lleva
 delega en una clave de firma de índice, `astra-index-2026a` —
 verificado con el propio
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` del
-registro, que también imprime el único SHA de workflow reutilizable
-que el bot aceptará en una attestation
-(`e3329df252a46d747676cb540ae4b986af68a3ad`, el commit al que apunta
-`plugin-release/v1`). **El enlace que todavía falta es la firma del
+registro, que también imprime los SHA de workflow reutilizable
+que el bot aceptará en una attestation — dos de ellos desde que la etiqueta
+se movió el 2026-08-19: el commit al que apunta `plugin-release/v1`, y
+aquel al que apuntaba antes. **El enlace que todavía falta es la firma del
 propio catálogo:** `registry/v1/index.json` y `revocations.json`
 llevan `"signatures": []`, así que una compilación por defecto de
 Astra no tiene nada que comprobar y clasifica cualquier catálogo como

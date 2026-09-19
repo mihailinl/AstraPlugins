@@ -52,10 +52,13 @@ last `cli-v` tag**, because the version is bumped on the branch that will
 release it. A source build printing `0.3.0` while the newest release is
 `cli-v0.2.1` is that gap and not a fault. What matters for the `init-ci` bug is
 the fix commit `5b8ab22`: any `master` build has it, and so does every `0.2.1`
-archive. To confirm, run `astra-plugin init-ci` and read the SHA it pins —
-`e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is right,
-`dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1` tag object
-and is the bug that broke first releases.
+archive. To confirm, run `astra-plugin init-ci` and compare the SHA it pins
+with `git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, preferring the
+peeled `^{}` line. The bug that broke first releases is dated:
+`plugin-release/v1` was an annotated tag from 2026-08-11 to 2026-08-19 and a CLI
+older than `5b8ab22` pinned its tag object
+`dc1a044876926e9cf1170f034e2eab533ec07641`; the tag is lightweight now.
 
 **`cargo install astra-plugin-cli` does not work**, and will not until the
 manifest crate this one parses `plugin.toml` with is published. `plugin.toml` is

@@ -40,7 +40,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -52,14 +52,16 @@ astra-plugin init-ci
 `.github/workflows/plugin-release.yml` は `mihailinl/AstraPlugins` の
 デフォルトブランチにあります — `git ls-tree -r master --name-only
 .github/workflows` がそれを一覧表示します — そしてリリースされたタグ
-は存在します: `git ls-remote --tags origin` は `plugin-release/v1` を
-`e3329df252a46d747676cb540ae4b986af68a3ad` に解決します。タグが存在する
-ため、`init-ci` は動くブランチの先端ではなくそのコミットをピン留めし、
-このページの以前のバージョンが引用していた「Not verified」という留保
-はもう表示されません。
+は存在します: `git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'` がそれを解決し、
+リモートが peel 済みの `^{}` 行を返したときはそちらが勝ちます。タグが存在する
+ため、`init-ci` はそのタグが名指すコミットを、動くブランチの先端ではなく
+ピン留めし、このページの以前のバージョンが引用していた「Not verified」という
+留保はもう表示されません。この段落は自前の SHA を書きません: ここに書いた
+リテラルは、誰も比較しないリモートの複製になるからです。
 
 その SHA は、レジストリの root 署名済み `trust.json` がビルド証明の
-中で許可しているものと同じです — `astra-registry` の
+中で許可しているものの 1 つです — `astra-registry` の
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` は、これを
 *許可されている再利用可能ワークフローの SHA* の下に出力します。他の
 ワークフローで生成されたビルドは、取り込み時に `E_WORKFLOW_NOT_ALLOWED`
@@ -92,7 +94,7 @@ jobs:
     # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
     # step of every plugin that trusts it — and that build step runs in YOUR
     # repository with the token above. `astra-plugin init-ci` keeps this current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@c3f342469d186ef48458992930bf1b7c583c78d4  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"

@@ -64,9 +64,13 @@ astra-plugin --version
 时间*早于*把版本号提升到 `0.2.1` 的那次提交 —— 所以从 `master` 构建出来
 的东西可以既带修复又显示 `0.2.0`，而且不存在缺少该修复的 `0.2.1`。今天
 从 `master` 安装，无论数字是多少你都会拿到修复；想要验证而不是相信，就
-运行 `astra-plugin init-ci` 并读它打印出的 pin ——
-`e3329df252a46d747676cb540ae4b986af68a3ad` 是 commit，是对的；
-`dc1a044876926e9cf1170f034e2eab533ec07641` 是标签对象，是那个 bug。详细
+运行 `astra-plugin init-ci`，把它打印出的 pin 与 `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` 的结果比对 —— 有 peel 过的 `^{}` 行时就取
+那一行。这个比对就是那个 bug 留下的全部：`plugin-release/v1` 在 2026-08-11 到
+2026-08-19 之间是附注标签，早于 `5b8ab22` 的构建打印的是它的标签对象
+`dc1a044876926e9cf1170f034e2eab533ec07641`；今天这个标签是轻量标签，所以再也
+没有东西会打印那个 SHA 了。详细
 版本见
 [安装 CLI](../install-cli.md#会破坏第一次发布的那个-bug以及如何判断你的构建是否包含修复)。
 

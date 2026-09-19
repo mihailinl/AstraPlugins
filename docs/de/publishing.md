@@ -173,7 +173,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -188,20 +188,25 @@ erlaubt — ein von einem anderen Workflow erzeugter Build wird mit
 `E_WORKFLOW_NOT_ALLOWED` abgelehnt. Führe `init-ci` jederzeit erneut aus,
 um das Pinning voranzutreiben; es behält die von dir gesetzten Inputs.
 
-**Prüfe die ausgegebene SHA, bevor du weitermachst.** Sie muss
-`e3329df252a46d747676cb540ae4b986af68a3ad` sein. Ist es
-`dc1a044876926e9cf1170f034e2eab533ec07641`, ist deine CLI älter als der
-Commit `5b8ab22`: das ist die SHA des *Tag-Objekts* von
-`plugin-release/v1`, und `uses: …@<sha>` braucht einen Commit, dein erster
-`git push --tags` scheitert also mit `invalid value workflow reference`,
-bevor irgendein Job startet. Das ist die eine Prüfung, die sich lohnt; die
-Versionsnummer kann sie nicht beantworten, weil der Fix `master` erreichte,
-bevor sich die Zahl änderte. Führe die `cargo install`-Zeile auf
-[Die CLI installieren](install-cli.md) erneut aus, dann
-`astra-plugin init-ci` erneut — es schreibt das Pinning neu und behält
-deine Inputs. Nichts wird an Ort und Stelle repariert, eine bestehende
-`release.yml` behält die falsche SHA also, bis du sie erneut ausführst.
-Das ist der Bug, der das erste Release eines echten Autors kaputtmachte.
+**Prüfe die ausgegebene SHA, bevor du weitermachst.** Sie muss der
+Commit sein, auf den `plugin-release/v1` heute zeigt, und nur das Remote
+kann sagen, welcher das ist: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` — beide Refspecs, und die gepeelte
+`^{}`-Zeile gewinnt, wenn das Remote eine sendet; genau dieses Paar fragt
+`init-ci` selbst ab. Weicht dein Pinning ab, führe die
+`cargo install`-Zeile auf [Die CLI installieren](install-cli.md) erneut
+aus, dann `astra-plugin init-ci` erneut — es schreibt das Pinning neu und
+behält deine Inputs. Nichts wird an Ort und Stelle repariert, eine
+bestehende `release.yml` behält die veraltete SHA also, bis du sie erneut
+ausführst. Der Rest ist Geschichte, und sie ist datiert:
+`plugin-release/v1` war von 2026-08-11 bis 2026-08-19 ein annotiertes Tag,
+eine CLI älter als Commit `5b8ab22` pinnte dessen Tag-Objekt
+`dc1a044876926e9cf1170f034e2eab533ec07641`, wo GitHub einen Commit
+braucht, und das ist der Bug, der das erste Release eines echten Autors
+mit `invalid value workflow reference` kaputtmachte, bevor irgendein Job
+startete; das Tag ist heute leichtgewichtig, also meldet kein Build diese
+SHA mehr.
 
 Detail, einschließlich was die generierte Datei enthält und warum jede
 ihrer drei Permissions erforderlich ist:
@@ -554,10 +559,10 @@ auf beiden Seiten: `astra-registry/registry/v1/root.json` trägt
 delegiert an einen Index-Signierschlüssel, `astra-index-2026a` —
 verifiziert mit der eigenen
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` der
-Registry, die auch die eine Reusable-Workflow-SHA ausgibt, die der Bot
-in einer Attestation akzeptiert
-(`e3329df252a46d747676cb540ae4b986af68a3ad`, der Commit, auf den
-`plugin-release/v1` zeigt). **Der noch fehlende Link ist die Signatur
+Registry, die auch die Reusable-Workflow-SHAs ausgibt, die der Bot
+in einer Attestation akzeptiert — zwei davon, seit das Tag am 2026-08-19
+verschoben wurde: der Commit, auf den `plugin-release/v1` zeigt, und der,
+auf den es vorher zeigte. **Der noch fehlende Link ist die Signatur
 des Katalogs selbst:** `registry/v1/index.json` und
 `revocations.json` tragen `"signatures": []`, ein Standard-Astra-Build
 hat also nichts zu prüfen und stuft jeden Katalog als unsigniert ein.

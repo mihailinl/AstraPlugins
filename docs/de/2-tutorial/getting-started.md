@@ -70,10 +70,15 @@ landete, der die Zahl auf `0.2.1` hob — ein Build von `master` kann den
 Fix also tragen und trotzdem `0.2.0` ausgeben, und kein `0.2.1`-Build
 existiert ohne ihn. Wer heute von `master` installiert, bekommt den Fix,
 egal was die Zahl sagt; um zu prüfen statt zu vertrauen, führe
-`astra-plugin init-ci` aus und lies den ausgegebenen Pin —
-`e3329df252a46d747676cb540ae4b986af68a3ad` ist der Commit und ist richtig,
-`dc1a044876926e9cf1170f034e2eab533ec07641` ist das Tag-Objekt und ist der
-Bug. Lange Fassung:
+`astra-plugin init-ci` aus und vergleiche den ausgegebenen Pin mit
+`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, wobei die
+gepeelte `^{}`-Zeile gilt, wenn es eine gibt. Dieser Vergleich ist alles,
+was vom Bug übrig ist: `plugin-release/v1` war von 2026-08-11 bis
+2026-08-19 ein annotiertes Tag, und ein Build älter als `5b8ab22` gab
+stattdessen dessen Tag-Objekt
+`dc1a044876926e9cf1170f034e2eab533ec07641` aus; das Tag ist jetzt
+leichtgewichtig, also gibt nichts diese SHA mehr aus. Lange Fassung:
 [Die CLI installieren](../install-cli.md#der-bug-der-ein-erstes-release-kaputtmacht-und-wie-du-erkennst-ob-dein-build-den-fix-hat).
 
 Ein Nebenpunkt, der dich nicht aufhält: Die CLI ist nicht auf crates.io,

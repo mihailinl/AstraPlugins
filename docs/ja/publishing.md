@@ -162,7 +162,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -176,19 +176,23 @@ astra-plugin init-ci
 `E_WORKFLOW_NOT_ALLOWED` で拒否されます。ピンを進めたいときはいつでも `init-ci`
 を再実行してください。設定した入力値は保持されます。
 
-**先に進む前に、表示された SHA を確認してください。** それは
-`e3329df252a46d747676cb540ae4b986af68a3ad` でなければなりません。もし
-`dc1a044876926e9cf1170f034e2eab533ec07641` であれば、あなたの CLI はコミット
-`5b8ab22` より古いものです。それは `plugin-release/v1` の*タグオブジェクト*の
-SHA であり、`uses: …@<sha>` はコミットを必要とするため、最初の
-`git push --tags` はジョブが始まる前に `invalid value workflow reference` で
-失敗します。やる価値があるのはこの確認です。修正は番号が変わるより前に
-`master` に届いたので、バージョン番号ではこの問いに答えられません。
-[CLI をインストールする](install-cli.md)
+**先に進む前に、表示された SHA を確認してください。** それは今日
+`plugin-release/v1` が指すコミットでなければならず、それが何かを答えられるのは
+リモートだけです: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` — 両方の refspec を渡し、リモートが peel 済みの
+`^{}` 行を返したときはそちらが勝ちます。これは `init-ci` 自身が尋ねるのと同じ組
+です。ピンが食い違っていたら、[CLI をインストールする](install-cli.md)
 の `cargo install` の行を再実行し、それから `astra-plugin init-ci` をもう一度
 実行してください — ピンを書き換え、入力値は保持されます。既存のファイルはその場で
-修復されないため、既存の `release.yml` は再実行するまで悪い SHA を保持し続けます。
-これが実在する著者の最初のリリースを壊したバグです。
+修復されないため、既存の `release.yml` は再実行するまで古い SHA を保持し続けます。
+残りは歴史であり、日付が付いています: `plugin-release/v1` は 2026-08-11 から
+2026-08-19 まで注釈付きタグで、コミット `5b8ab22` より古い CLI は GitHub が
+コミットを求める場所にそのタグオブジェクト
+`dc1a044876926e9cf1170f034e2eab533ec07641` を固定していました。それが、ジョブが
+始まる前に `invalid value workflow reference` で実在する著者の最初のリリースを
+壊したバグです。今日このタグは軽量タグなので、その SHA を報告するビルドはもう
+ありません。
 
 生成されるファイルの中身と、その 3 つの権限それぞれがなぜ必要かについての詳細は
 [CI でリリースする](5-publish/release-with-ci.md) にあります。
@@ -521,9 +525,10 @@ astra-plugin publish --notify
 `astra-root-2026a` によって署名されており、インデックス署名キー
 `astra-index-2026a` に委譲しています — これはレジストリ自身の
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` で検証済みであり、
-これは同時に、bot が証明として受け入れる再利用可能ワークフローの SHA
-(`e3329df252a46d747676cb540ae4b986af68a3ad`、`plugin-release/v1` が指す
-コミット)も 1 つだけ出力します。**まだ欠けているリンクはカタログ自身の署名
+これは同時に、bot が証明として受け入れる再利用可能ワークフローの SHA も
+出力します — 2026-08-19 にタグが動いて以来、2 つあります:
+`plugin-release/v1` が今指しているコミットと、その前に指していたコミット
+です。**まだ欠けているリンクはカタログ自身の署名
 です。** `registry/v1/index.json` と `revocations.json` は `"signatures": []`
 を持っており、デフォルトの Astra ビルドにはチェックするものがなく、すべての
 カタログを未署名として分類します。ここでは、まだ実装されていない保証を約束

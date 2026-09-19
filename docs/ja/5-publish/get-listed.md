@@ -482,10 +482,10 @@ ping を打った人に対してでも、`.well-known/astra-plugin-owner` に対
   **署名されており**、インデックス署名キー `astra-index-2026a` に
   委譲しています。レジストリ自身の
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` がこれを
-  確認し、bot が証明として受け入れる唯一の再利用可能ワークフローの
-  SHA、`e3329df252a46d747676cb540ae4b986af68a3ad` — `plugin-release/v1`
-  が指すコミット — を出力します。そのため、以前はすべての取り込みを
-  止めていた `E_TRUST_UNPROVISIONED` はもう発生しません;
+  確認し、bot が証明として受け入れる再利用可能ワークフローの SHA を
+  出力します — 2026-08-19 にタグが動いて以来 2 つあり、`plugin-release/v1`
+  が今指すコミットと、その前に指していたコミットです。そのため、以前は
+  すべての取り込みを止めていた `E_TRUST_UNPROVISIONED` はもう発生しません;
 - **カタログ自体は今も未署名です。** `registry/v1/index.json` と
   `revocations.json` は `"signatures": []` を持っており、デフォルトの
   Astra ビルドにはチェックする署名がなく、すべてのカタログを未署名と

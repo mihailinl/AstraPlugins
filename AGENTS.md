@@ -39,10 +39,13 @@ number. The bug worth checking for is `init-ci` pinning an annotated tag's
 ([#2]); its fix is **commit `5b8ab22`**, which landed on `master` *before* the
 bump that named `0.2.1`. So: a `master` build has the fix whatever the number
 says, and no `0.2.1` build lacks it. The check that settles it reads the pin
-rather than the version — run `astra-plugin init-ci` and look at the SHA it
-reports: `e3329df252a46d747676cb540ae4b986af68a3ad` is the commit and is
-correct, `dc1a044876926e9cf1170f034e2eab533ec07641` is the `plugin-release/v1`
-tag object and is the bug.
+rather than the version — run `astra-plugin init-ci` and compare the SHA it
+reports with `git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, taking the peeled
+`^{}` line when there is one. The bug is dated: `plugin-release/v1` was an
+annotated tag from 2026-08-11 to 2026-08-19 and a CLI older than `5b8ab22`
+pinned its tag object `dc1a044876926e9cf1170f034e2eab533ec07641`; the tag is
+lightweight now, so nothing reports that SHA.
 
 [#2]: https://github.com/mihailinl/AstraPlugins/issues/2
 

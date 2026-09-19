@@ -488,11 +488,12 @@ den Katalog hindurch.** Genau genommen, und jeder Teil ist überprüfbar:
 - `registry/v1/trust.json` **ist jetzt signiert** von `astra-root-2026a`
   und delegiert an einen Index-Signierschlüssel, `astra-index-2026a`. Die
   eigene `node tools/sign-trust.mjs --verify registry/v1/trust.json` der
-  Registry bestätigt das und gibt die eine
-  Reusable-Workflow-SHA aus, die der Bot in einer Attestation akzeptiert,
-  `e3329df252a46d747676cb540ae4b986af68a3ad` — der Commit, auf den
-  `plugin-release/v1` zeigt. Also feuert `E_TRUST_UNPROVISIONED`, das
-  früher jeden Ingest stoppte, nicht mehr;
+  Registry bestätigt das und gibt die
+  Reusable-Workflow-SHAs aus, die der Bot in einer Attestation akzeptiert —
+  zwei davon, seit das Tag am 2026-08-19 verschoben wurde: der Commit, auf
+  den `plugin-release/v1` zeigt, und der, auf den es vorher zeigte. Also
+  feuert `E_TRUST_UNPROVISIONED`, das früher jeden Ingest stoppte, nicht
+  mehr;
 - **der Katalog selbst ist weiterhin unsigniert.** `registry/v1/index.json`
   und `revocations.json` tragen `"signatures": []`, sodass ein
   Standard-Astra-Build keine Signatur zu prüfen hat, jeden Katalog als

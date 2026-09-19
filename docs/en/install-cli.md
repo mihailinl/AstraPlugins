@@ -310,13 +310,18 @@ This is the check that does not depend on the version at all:
 astra-plugin init-ci
 ```
 
-A build with the fix reports the pin `e3329df252a46d747676cb540ae4b986af68a3ad`
-— a commit. A build without it reports `dc1a044876926e9cf1170f034e2eab533ec07641`,
-which is the `plugin-release/v1` tag *object* and is what GitHub rejects. If you
-see the second, reinstall from `master` with the line above and run `init-ci`
-again. It is safe to re-run: it keeps your inputs and rewrites the pin. Nothing
-is repaired in place, so an existing `release.yml` keeps the bad SHA until you
-re-run it.
+The pin it reports must be the commit `plugin-release/v1` points at, and only
+the remote can say what that is: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'`, taking the peeled `^{}` line when there is
+one. If your pin disagrees, reinstall from `master` with the line above and run
+`init-ci` again. It is safe to re-run: it keeps your inputs and rewrites the
+pin. Nothing is repaired in place, so an existing `release.yml` keeps the stale
+SHA until you re-run it. The failure this section is named for is history now,
+and dated: `plugin-release/v1` was an annotated tag from 2026-08-11 to
+2026-08-19, and a build older than commit `5b8ab22` reported its tag *object*
+`dc1a044876926e9cf1170f034e2eab533ec07641`, which GitHub rejects — the tag is
+lightweight today, so no build can report that SHA at all.
 
 The command set, in full:
 

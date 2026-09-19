@@ -39,7 +39,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -51,13 +51,15 @@ astra-plugin init-ci
 `.github/workflows/plugin-release.yml` está en la rama por defecto de
 `mihailinl/AstraPlugins` — `git ls-tree -r master --name-only
 .github/workflows` lo lista — y la etiqueta publicada existe:
-`git ls-remote --tags origin` resuelve `plugin-release/v1` a
-`e3329df252a46d747676cb540ae4b986af68a3ad`. Como la etiqueta existe,
-`init-ci` fija (pin) ese commit en lugar de una cabeza de rama móvil, y ya
-no imprime el aviso "Not verified" que citaban versiones anteriores de
-esta página.
+`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'` la resuelve,
+y la línea pelada `^{}` gana cuando el remoto envía una. Como la etiqueta
+existe, `init-ci` fija (pin) el commit que nombra en lugar de una cabeza de
+rama móvil, y ya no imprime el aviso "Not verified" que citaban versiones
+anteriores de esta página. Este párrafo no da un SHA propio: un literal
+aquí sería una copia del remoto que nadie compara.
 
-Ese SHA es el mismo que el `trust.json` firmado por la raíz del registro
+Ese SHA es uno de los que el `trust.json` firmado por la raíz del registro
 permite en una attestation de compilación —
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` en
 `astra-registry` lo imprime bajo *reusable-workflow SHAs it allows*. Un
@@ -92,7 +94,7 @@ jobs:
     # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
     # step of every plugin that trusts it — and that build step runs in YOUR
     # repository with the token above. `astra-plugin init-ci` keeps this current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@c3f342469d186ef48458992930bf1b7c583c78d4  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"

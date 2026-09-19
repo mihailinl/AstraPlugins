@@ -68,10 +68,14 @@ moría ahí. El arreglo es el commit `5b8ab22`, que llegó a `master`
 desde `master` puede llevar el arreglo y aun así imprimir `0.2.0`, y no
 existe ninguna `0.2.1` sin él. Instalar hoy desde `master` te da el
 arreglo diga lo que diga el número; para comprobarlo en lugar de
-confiar, ejecuta `astra-plugin init-ci` y lee el pin que imprime —
-`e3329df252a46d747676cb540ae4b986af68a3ad` es el commit y es el correcto,
-`dc1a044876926e9cf1170f034e2eab533ec07641` es el objeto de la etiqueta y es
-el bug. Versión larga:
+confiar, ejecuta `astra-plugin init-ci` y compara el pin que imprime con
+`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, tomando la
+línea pelada `^{}` cuando la haya. Esa comparación es todo lo que queda del
+bug: `plugin-release/v1` fue una etiqueta anotada del 2026-08-11 al
+2026-08-19 y una compilación anterior a `5b8ab22` imprimía en su lugar el
+objeto de la etiqueta `dc1a044876926e9cf1170f034e2eab533ec07641`; hoy la
+etiqueta es ligera, así que ya nada imprime ese SHA. Versión larga:
 [Instalar la CLI](../install-cli.md#el-bug-que-rompe-un-primer-release-y-cómo-saber-si-tu-compilación-lleva-el-arreglo).
 
 Un apunte, que no te bloquea: la CLI no está en crates.io, así que

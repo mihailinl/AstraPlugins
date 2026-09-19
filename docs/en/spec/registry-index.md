@@ -43,10 +43,10 @@ required to say "same author as before" and never "verified build".
 * **A root key does not sign a catalogue.** It signs `trust.json`, which
   delegates to an index-signing key. **That document is now signed.**
   `registry/v1/trust.json` verifies under `astra-root-2026a`, delegates to the
-  index-signing key `astra-index-2026a`, and names the single reusable-workflow
-  commit the bot will accept in a build attestation
-  (`e3329df252a46d747676cb540ae4b986af68a3ad`, which is what the tag
-  `plugin-release/v1` points at). The registry's own
+  index-signing key `astra-index-2026a`, and names the reusable-workflow
+  commits the bot will accept in a build attestation — two of them since the tag
+  moved on 2026-08-19: what `plugin-release/v1` points at, and what it pointed
+  at before. The registry's own
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` prints all three
   facts. So `E_TRUST_UNPROVISIONED` no longer fires at ingest.
 * Therefore, today: `trust.json` verifies and an index key is delegated, but
@@ -516,9 +516,11 @@ Step 4 is what makes a mutable `@v1` tag unusable as a supply chain: a tag can b
 repointed at any commit and the attestation would still name the right repository
 and workflow file. Changing that allowlist is a root-key ceremony.
 
-That allowlist now exists: the signed `trust.json` names exactly one commit,
-`e3329df252a46d747676cb540ae4b986af68a3ad`. So `E_TRUST_UNPROVISIONED` no longer
-stops ingest, and step 4 is live — a build produced by any other workflow is
+That allowlist now exists: the signed `trust.json` names two commits since the
+tag moved on 2026-08-19 — what `plugin-release/v1` points at, and what it
+pointed at before — and this page names neither, because a SHA copied into a
+specification is a copy of the remote that nothing compares. So
+`E_TRUST_UNPROVISIONED` no longer stops ingest, and step 4 is live — a build produced by any other workflow is
 refused with `E_WORKFLOW_NOT_ALLOWED`. The daemon-side half is still fail-closed
 for a different reason: the catalogue itself carries no signature (§0.1).
 

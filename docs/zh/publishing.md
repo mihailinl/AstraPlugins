@@ -151,7 +151,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -164,16 +164,19 @@ astra-plugin init-ci
 其他工作流产出的构建都会被以 `E_WORKFLOW_NOT_ALLOWED` 拒绝。想推进这个固定值，
 随时可以重新运行 `init-ci`；它会保留你已设置的输入值。
 
-**在继续之前，检查它打印出的 SHA。** 它必须是
-`e3329df252a46d747676cb540ae4b986af68a3ad`。如果是
-`dc1a044876926e9cf1170f034e2eab533ec07641`，说明你的 CLI 早于提交 `5b8ab22`：
-那是 `plugin-release/v1` 的*标签对象(tag object)*的 SHA，而 `uses: …@<sha>`
-需要的是 commit，所以你的第一次 `git push --tags` 会在任何 job 启动之前就以
-`invalid value workflow reference` 失败。这是唯一值得做的检查；版本号回答不了
-它，因为修复到达 `master` 的时间早于数字改变。重新运行 [安装 CLI](install-cli.md) 中的 `cargo install` 命令，然后再次
-运行 `astra-plugin init-ci` —— 它会重写固定值并保留你的输入。它不会就地修复
-文件，所以已存在的 `release.yml` 在你重新运行之前会一直带着错误的 SHA。这正是
-让一位真实作者的第一次发布失败的那个 bug。
+**在继续之前，检查它打印出的 SHA。** 它必须是 `plugin-release/v1` 今天所指向
+的那个 commit，而能回答这一点的只有远端：`git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'` —— 两个 refspec 都要问，远端若回了 peel 过的
+`^{}` 那一行，就以那一行为准；这正是 `init-ci` 自己问的那一对。如果你的固定值
+对不上，就重新运行 [安装 CLI](install-cli.md) 中的 `cargo install` 命令，然后
+再次运行 `astra-plugin init-ci` —— 它会重写固定值并保留你的输入。它不会就地修复
+文件，所以已存在的 `release.yml` 在你重新运行之前会一直带着过期的 SHA。剩下的
+都是历史，而且是有日期的：`plugin-release/v1` 在 2026-08-11 到 2026-08-19 之间
+是一个附注标签，早于提交 `5b8ab22` 的 CLI 会在 GitHub 需要 commit 的地方固定住
+它的标签对象 `dc1a044876926e9cf1170f034e2eab533ec07641`，那正是让一位真实作者的
+第一次发布在任何 job 启动之前就以 `invalid value workflow reference` 失败的那个
+bug；今天这个标签是轻量标签，所以再也没有构建会报告那个 SHA 了。
 
 关于生成文件的内容，以及它的三项权限各自为何必要的详细说明，见
 [用 CI 发布](5-publish/release-with-ci.md)。
@@ -479,9 +482,9 @@ astra-plugin publish --notify
 `registry/v1/trust.json` 现在由 `astra-root-2026a` 签名，并委托给一个索引
 签名密钥 `astra-index-2026a` —— 这已用注册表自己的
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` 验证过，该命令
-同时也会打印出 bot 在证明中会接受的唯一一个可复用工作流 SHA
-(`e3329df252a46d747676cb540ae4b986af68a3ad`，即 `plugin-release/v1` 所指向
-的那个 commit)。**仍然缺失的一环是目录本身的签名：**`registry/v1/index.json`
+同时也会打印出 bot 在证明中会接受的可复用工作流 SHA —— 自 2026-08-19 标签移动
+以来共有两个：`plugin-release/v1` 现在指向的那个 commit，以及它之前指向的那个。
+**仍然缺失的一环是目录本身的签名：**`registry/v1/index.json`
 和 `revocations.json` 携带的都是 `"signatures": []`，因此默认的 Astra 构建
 没有任何东西可以核对，会把所有目录都归类为未签名。这里没有对任何尚未落地的
 保证做出承诺；参见 [安全模型](1-orientation/security.md) 与

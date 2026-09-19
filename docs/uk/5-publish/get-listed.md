@@ -451,10 +451,11 @@ astra-plugin publish --notify
 - `registry/v1/trust.json` **тепер підписаний** `astra-root-2026a` і
   делегує ключу підпису індексу, `astra-index-2026a`. Власна команда реєстру
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` підтверджує це
-  і друкує єдиний SHA багаторазового workflow, який бот прийме в атестації,
-  `e3329df252a46d747676cb540ae4b986af68a3ad` — коміт, на який вказує
-  `plugin-release/v1`. Тож `E_TRUST_UNPROVISIONED`, який раніше зупиняв
-  кожен ingest, більше не спрацьовує;
+  і друкує SHA багаторазових workflow, які бот прийме в атестації — їх два
+  відтоді, як тег переїхав 2026-08-19: коміт, на який вказує
+  `plugin-release/v1`, і той, на який він вказував раніше. Тож
+  `E_TRUST_UNPROVISIONED`, який раніше зупиняв кожен ingest, більше не
+  спрацьовує;
 - **сам каталог досі не підписаний.** `registry/v1/index.json` і
   `revocations.json` несуть `"signatures": []`, тому звичайній збірці Astra
   нема чого перевіряти, вона класифікує будь-який каталог як непідписаний і

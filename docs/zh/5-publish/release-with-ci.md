@@ -37,7 +37,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned e3329df252a46d747676cb540ae4b986af68a3ad (plugin-release/v1)
+    pinned c3f342469d186ef48458992930bf1b7c583c78d4 (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -49,13 +49,15 @@ astra-plugin init-ci
 `.github/workflows/plugin-release.yml` 在 `mihailinl/AstraPlugins`
 的默认分支上 —— `git ls-tree -r master --name-only
 .github/workflows` 能列出它 —— 而且发布用的标签也存在：
-`git ls-remote --tags origin` 会把 `plugin-release/v1` 解析为
-`e3329df252a46d747676cb540ae4b986af68a3ad`。因为这个标签存在，
-`init-ci` 固定的是那个 commit，而不是一个会移动的分支头，它也不再打印
-本页早期版本引用过的"Not verified"提示。
+`git ls-remote https://github.com/mihailinl/AstraPlugins.git
+refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'` 会解析它，
+远端若回了 peel 过的 `^{}` 那一行，就以那一行为准。因为这个标签存在，
+`init-ci` 固定的是标签所指名的那个 commit，而不是一个会移动的分支头，它也
+不再打印本页早期版本引用过的"Not verified"提示。本段不写出它自己的 SHA：
+写在这里的字面值，会是一份没人去比对的远端副本。
 
-那个 SHA 和注册表经根签名的 `trust.json` 在构建证明中所允许的那个是
-同一个 —— `astra-registry` 中的
+那个 SHA 是注册表经根签名的 `trust.json` 在构建证明中所允许的那几个之一
+—— `astra-registry` 中的
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` 会在
 *允许的可复用工作流 SHA* 下把它打印出来。由任何其他工作流产出的构建，
 在摄入(ingest)时都会被以 `E_WORKFLOW_NOT_ALLOWED` 拒绝，所以这个固定
@@ -88,7 +90,7 @@ jobs:
     # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
     # step of every plugin that trusts it — and that build step runs in YOUR
     # repository with the token above. `astra-plugin init-ci` keeps this current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@e3329df252a46d747676cb540ae4b986af68a3ad  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@c3f342469d186ef48458992930bf1b7c583c78d4  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"

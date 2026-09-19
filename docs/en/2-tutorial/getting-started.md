@@ -63,9 +63,13 @@ which landed on `master` *before* the bump that raised the number to `0.2.1` —
 so a build from `master` can carry the fix and still print `0.2.0`, and no
 `0.2.1` build exists without it. Installing from `master` today gets you the fix
 whatever the number says; to check rather than trust, run `astra-plugin init-ci`
-and read the pin it prints — `e3329df252a46d747676cb540ae4b986af68a3ad` is the
-commit and is right, `dc1a044876926e9cf1170f034e2eab533ec07641` is the tag
-object and is the bug. Long version:
+and compare the pin it prints against `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'`, taking the peeled `^{}` line when there is
+one. That comparison is all that is left of the bug: `plugin-release/v1` was an
+annotated tag from 2026-08-11 to 2026-08-19 and a build older than `5b8ab22`
+printed its tag object `dc1a044876926e9cf1170f034e2eab533ec07641` instead, and
+the tag is lightweight now, so nothing prints that SHA any more. Long version:
 [Install the CLI](../install-cli.md#the-bug-that-breaks-a-first-release-and-how-to-tell-whether-your-build-has-the-fix).
 
 One aside, which does not block you: the CLI is not on crates.io, so

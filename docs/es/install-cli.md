@@ -332,15 +332,20 @@ Esta es la comprobación que no depende de la versión en absoluto:
 astra-plugin init-ci
 ```
 
-Una compilación con el arreglo reporta el fijado
-`e3329df252a46d747676cb540ae4b986af68a3ad` — un commit. Una sin él reporta
-`dc1a044876926e9cf1170f034e2eab533ec07641`, que es el *objeto* de la
-etiqueta `plugin-release/v1` y es lo que GitHub rechaza. Si ves el
-segundo, reinstala desde `master` con la línea de arriba y ejecuta
-`init-ci` otra vez. Se puede volver a ejecutar sin riesgo: conserva tus
-entradas y reescribe el fijado. Nada se repara en su sitio, así que un
-`release.yml` existente conserva el SHA malo hasta que lo vuelvas a
-ejecutar.
+El fijado que reporta debe ser el commit al que apunta
+`plugin-release/v1`, y solo el remoto puede decir cuál es: `git ls-remote
+https://github.com/mihailinl/AstraPlugins.git refs/tags/plugin-release/v1
+'refs/tags/plugin-release/v1^{}'`, tomando la línea pelada `^{}` cuando la
+haya. Si tu fijado no coincide, reinstala desde `master` con la línea de
+arriba y ejecuta `init-ci` otra vez. Se puede volver a ejecutar sin riesgo:
+conserva tus entradas y reescribe el fijado. Nada se repara en su sitio,
+así que un `release.yml` existente conserva el SHA obsoleto hasta que lo
+vuelvas a ejecutar. El fallo que da nombre a esta sección ya es historia, y
+con fecha: `plugin-release/v1` fue una etiqueta anotada del 2026-08-11 al
+2026-08-19, y una compilación anterior al commit `5b8ab22` reportaba su
+*objeto* de etiqueta `dc1a044876926e9cf1170f034e2eab533ec07641`, que GitHub
+rechaza — hoy la etiqueta es ligera, así que ninguna compilación puede
+reportar ese SHA en absoluto.
 
 El conjunto de comandos, completo:
 
