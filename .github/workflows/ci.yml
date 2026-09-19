@@ -2577,6 +2577,25 @@ jobs:
       - name: C25 no workflow here calls the plugins service
         run: python3 tools/check-registry-mirrors.py --rules C25
 
+      # C26 — the CLI holds no credential and calls no service.
+      #
+      # `astra-plugin` is the only part of this system that runs on the
+      # author's own machine, next to their GitHub token, their npm token and
+      # their login keychain. `publish` deliberately cannot act as them: it
+      # opens a browser at a form. Nothing enforced that, and "the CLI holds
+      # no credential" is a sentence in four documents and a promise this
+      # side makes to every author who installs it.
+      #
+      # It reads `Cargo.lock` rather than shelling out to `cargo tree`, which
+      # is what the plan called for. This job has no Rust toolchain, no
+      # registry cache and no reason to grow either, and a rule that only runs
+      # where cargo happens to be installed is a rule that stops running. The
+      # lockfile is also the stricter reading — it cannot exclude dev- and
+      # build-dependencies, and an HTTP client vendored for a test fixture is
+      # still one somebody will reach for.
+      - name: C26 the CLI holds no credential and calls no service
+        run: python3 tools/check-registry-mirrors.py --rules C26
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

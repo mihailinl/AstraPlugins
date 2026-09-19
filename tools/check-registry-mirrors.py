@@ -63,10 +63,17 @@ C25 — no workflow in this repository calls the plugins service.
     construction. `rule_C25`'s docstring says what a commit that adds a call
     has to do in the same commit.
 
-C26 — the CLI holds no credential and calls no service.          (AP-5)
+C26 — the CLI holds no credential and calls no service.
 
-That one is added by its own commit; this docstring names it so the reader
-of a `--rules` list knows what is meant to be here.
+    The one piece of this system that runs on the author's own machine, where
+    the GitHub token, the npm token and the login keychain all live. It
+    publishes by opening a browser at a form; it authenticates as nobody. Five
+    legs: no HTTP client or credential store in the lockfile and no second
+    path to `hyper`; no credential-shaped environment variable read outside
+    `#[cfg(test)]`; `minice.ai` and `/plugins/v1` only in `src/panel.yaml`;
+    no `Command::new` of `curl`, `wget` or `gh`, and `git ls-remote` spawned
+    from one file; and an inventory of every remaining URL literal, which the
+    first four legs are what make safe to call printed text.
 """
 
 from __future__ import annotations
@@ -619,7 +626,287 @@ def rule_C25(fails: Fails) -> None:
     )
 
 
-RULES = {"C24": rule_C24, "C25": rule_C25}
+# ── C26 ──────────────────────────────────────────────────────────────────────
+
+CLI = ROOT / "astra-plugin-cli"
+CARGO_LOCK = CLI / "Cargo.lock"
+CLI_SRC = CLI / "src"
+PANEL = "src/panel.yaml"
+
+#: Every crate whose presence would mean the CLI can speak HTTP, or hold a
+#: secret on the user's behalf. `keyring` and `oauth2` are here for the second
+#: reason: a CLI that can read the login keychain is a CLI that can be asked to.
+HTTP_CRATES = {
+    "reqwest", "ureq", "isahc", "curl", "curl-sys",
+    "surf", "attohttpc", "oauth2", "keyring",
+}
+
+#: `hyper` IS in the tree, and legitimately: tonic's channel is how the CLI
+#: drives a plugin over the loopback socket during `dev` and `test`. The rule
+#: is not "no hyper" — it is "no path to hyper except tonic's", because the day
+#: something else pulls it in is the day an HTTP client arrived by accident.
+HYPER_VIA = {"tonic", "hyper-util", "hyper-timeout"}
+
+#: An environment variable whose name looks like a credential.
+CREDENTIAL_ENV = re.compile(r"TOKEN|GH_|GITHUB_TOKEN|ACTIONS_ID_TOKEN|MINICE")
+
+ENV_READ = re.compile(r"env::var(?:_os)?\(\s*(\"[^\"]*\"|[A-Za-z_][A-Za-z0-9_]*)\s*\)")
+STR_CONST = re.compile(r'const\s+([A-Z_][A-Z0-9_]*)\s*:\s*&str\s*=\s*"([^"]*)"')
+
+#: What it reads at the commit that wrote this rule. A FLOOR, not a list: a
+#: fourth variable is somebody's business to justify, but finding zero means
+#: the scan broke, and a scan that finds nothing agrees with every rule here.
+FLOOR_ENV_READS = 3
+
+SPAWN = re.compile(r'Command::new\(\s*"([^"]+)"')
+
+#: Spawning one of these is how a program with no HTTP client makes an HTTP
+#: request anyway, and `gh` is how it borrows a credential it never stored.
+BANNED_SPAWN = {"curl", "wget", "gh", "Invoke-WebRequest"}
+
+URL_LITERAL = re.compile(r"https?://([A-Za-z0-9._-]+)")
+
+FLOOR_URL_LITERALS = 5
+
+
+def strip_cfg_test(text: str) -> str:
+    """`text` with every `#[cfg(test)]` item removed, by brace matching.
+
+    Crude on purpose. The question a rule about credentials asks is "does the
+    SHIPPED binary do this", and `#[cfg(test)]` is the line between shipped and
+    not. A test that spawns `curl` against a local fixture is not the failure
+    this rule is about; the same line in `publish.rs` is.
+    """
+    out = []
+    i = 0
+    while True:
+        at = text.find("#[cfg(test)]", i)
+        if at < 0:
+            out.append(text[i:])
+            return "".join(out)
+        out.append(text[i:at])
+        brace = text.find("{", at)
+        if brace < 0:
+            return "".join(out)
+        depth, j = 0, brace
+        while j < len(text):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        i = j + 1
+
+
+def cli_sources() -> list[tuple[str, str]]:
+    """Every `astra-plugin-cli/src/**/*.rs`, test modules removed."""
+    out = []
+    for p in sorted(CLI_SRC.rglob("*.rs")):
+        rel = p.relative_to(CLI).as_posix()
+        out.append((rel, strip_cfg_test(p.read_text(encoding="utf-8"))))
+    if not out:
+        raise SystemExit(
+            f"C26 found no .rs under {CLI_SRC.relative_to(ROOT)}. The scan is "
+            f"broken, and a broken scan agrees with every clause below."
+        )
+    return out
+
+
+def lock_packages() -> dict[str, list[str]]:
+    """`Cargo.lock` as {package: [dependency names]}. Hand-parsed; see C24."""
+    if not CARGO_LOCK.is_file():
+        raise SystemExit(
+            f"C26 has no {CARGO_LOCK.relative_to(ROOT)} to read. The CLI is "
+            f"installed with `--locked`, so a missing lockfile is its own bug."
+        )
+    graph: dict[str, list[str]] = {}
+    name = None
+    in_deps = False
+    for raw in CARGO_LOCK.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line == "[[package]]":
+            name, in_deps = None, False
+            continue
+        if line.startswith("name = "):
+            name = line.split("=", 1)[1].strip().strip('"')
+            graph.setdefault(name, [])
+            continue
+        if line == "dependencies = [":
+            in_deps = True
+            continue
+        if in_deps:
+            if line == "]":
+                in_deps = False
+            elif name:
+                graph[name].append(line.strip().strip(",").strip('"').split()[0])
+    return graph
+
+
+def rule_C26(fails: Fails) -> None:
+    """The CLI holds no credential and calls no service.
+
+    ROLL-34's Check, and the reason it is a Check rather than a sentence: the
+    CLI is the one piece of this system that runs on the author's own machine,
+    where the GitHub token, the npm token and the login keychain all are. It
+    publishes by opening a browser at a form; it never authenticates as
+    anybody. Nothing enforces that but this.
+
+    THE FIRST LEG DEVIATES from the plan, deliberately. The plan says
+    `cargo tree -e normal`; this reads `Cargo.lock`. Two reasons. The
+    `couplings` job has no Rust toolchain, no registry cache and no reason to
+    grow either, and a rule that only runs where cargo happens to be installed
+    is a rule that stops running. And the lockfile is STRICTER: it cannot
+    exclude dev- and build-dependencies, so an HTTP client vendored for a test
+    fixture goes red here where `-e normal` would pass it. That is the right
+    default for this list — if one of these nine ever has an honest
+    dev-dependency reason, the argument belongs in this docstring and in the
+    commit that adds it, not in a check that could not see it.
+    """
+    # ── leg 1: no HTTP client is linked in, and hyper arrives only via tonic ─
+    graph = lock_packages()
+    present = sorted(HTTP_CRATES & set(graph))
+    fails.check(
+        not present,
+        f"C26 no HTTP client or credential store in {CARGO_LOCK.relative_to(ROOT)}",
+        f"found {present}\nThe CLI speaks gRPC to a plugin on the loopback and "
+        f"nothing else. An HTTP\nclient in this tree is either a call to a "
+        f"service or the ability to make one.\nRead `rule_C26`'s docstring: this "
+        f"leg reads the lockfile, so it sees dev- and\nbuild-dependencies too.",
+    )
+    parents = sorted(p for p, deps in graph.items() if "hyper" in deps)
+    fails.check(
+        "hyper" not in graph or set(parents) <= HYPER_VIA,
+        f"C26 hyper is reached only through {sorted(HYPER_VIA)}",
+        f"reached from {parents}\nhyper is here for tonic's channel, which "
+        f"talks to a plugin on 127.0.0.1. A\nsecond path to it is an HTTP client "
+        f"that arrived without anybody deciding to\nadd one.",
+    )
+
+    sources = cli_sources()
+    consts = {}
+    for _, text in sources:
+        consts.update(dict(STR_CONST.findall(text)))
+
+    # ── leg 2: no credential-shaped environment variable is read ────────────
+    read_names: list[tuple[str, int, str]] = []
+    for rel, text in sources:
+        for n, line in enumerate(text.splitlines(), 1):
+            for m in ENV_READ.finditer(line):
+                tok = m.group(1)
+                name = tok[1:-1] if tok.startswith('"') else consts.get(tok, tok)
+                read_names.append((rel, n, name))
+    credentials = [
+        f"{rel}:{n}: {name}" for rel, n, name in read_names
+        if CREDENTIAL_ENV.search(name)
+    ]
+    fails.check(
+        not credentials,
+        "C26 the CLI reads no credential-shaped environment variable",
+        "\n".join(credentials)
+        + "\nA CLI that reads GITHUB_TOKEN is a CLI that can act as the author,"
+        + "\nand `publish` deliberately cannot: it opens a form in a browser.",
+    )
+    fails.check(
+        len(read_names) >= FLOOR_ENV_READS,
+        f"C26 floor: {len(read_names)} environment read(s) found "
+        f"(>= {FLOOR_ENV_READS})",
+        "At the commit that wrote this rule the CLI reads RUST_LOG, USERNAME and\n"
+        "ASTRA_PLUGIN_WORKFLOW_SHA. Finding fewer than three means the SCAN broke,\n"
+        "and a broken scan agrees with the clause above.",
+    )
+
+    # ── leg 3: the service's host and path are nowhere in the CLI ───────────
+    # `.rs` comes from `sources`, so the test that ASSERTS these strings are
+    # absent is not itself the thing that fails — the same reason C24 does not
+    # scan its own definition. Everything else under `src/` is read raw.
+    service_subjects = list(sources)
+    for p in sorted(CLI_SRC.rglob("*")):
+        rel = p.relative_to(CLI).as_posix()
+        if not p.is_file() or p.suffix == ".rs" or rel == PANEL:
+            continue  # PANEL is AP-8's panel constant, the one allowed site
+        try:
+            service_subjects.append((rel, p.read_text(encoding="utf-8")))
+        except (UnicodeDecodeError, OSError):
+            continue
+    service: list[str] = []
+    for rel, text in service_subjects:
+        for n, line in enumerate(text.splitlines(), 1):
+            for lit in ("minice.ai", "/plugins/v1"):
+                if lit in line:
+                    service.append(f"{rel}:{n}: {lit}")
+    fails.check(
+        not service,
+        f"C26 `minice.ai` and `/plugins/v1` appear only in {PANEL}",
+        "\n".join(service)
+        + f"\nThe only address of the service the CLI may carry is the panel URL"
+        + f"\nAP-8 puts in {PANEL} — a link it prints for a human to open, not an"
+        + "\nendpoint it calls. Anywhere else is a call, or the start of one.",
+    )
+
+    # ── leg 4: the only process it spawns that leaves the machine is git ────
+    spawned: dict[str, list[str]] = {}
+    for rel, text in sources:
+        for n, line in enumerate(text.splitlines(), 1):
+            for m in SPAWN.finditer(line):
+                spawned.setdefault(m.group(1), []).append(f"{rel}:{n}")
+    banned = sorted(
+        f"{where}: Command::new({prog!r})"
+        for prog, wheres in spawned.items() if prog in BANNED_SPAWN
+        for where in wheres
+    )
+    fails.check(
+        not banned,
+        f"C26 the CLI spawns none of {sorted(BANNED_SPAWN)}",
+        "\n".join(banned)
+        + "\nThis is how a program with no HTTP client makes an HTTP request"
+        + "\nanyway, and `gh` is how it borrows a credential it never stored.",
+    )
+    ls_remote = sorted(
+        rel for rel, text in sources if '"ls-remote"' in text
+    )
+    fails.check(
+        ls_remote == ["src/commands/init_ci.rs"],
+        "C26 `git ls-remote` is spawned from init_ci.rs and nowhere else",
+        f"found in {ls_remote}\nResolving the workflow tag is the ONE thing the "
+        f"CLI does that leaves the\nmachine. A second caller is a second network "
+        f"path, and the next one after\nthat is the one that carries a token.",
+    )
+
+    # ── leg 5: every other URL literal is text the CLI prints ───────────────
+    #
+    # It cannot be anything else, and that is established above rather than
+    # here: leg 1 says there is no HTTP client to fetch with, leg 4 says there
+    # is no fetching process to spawn. So this leg does not re-prove it — it
+    # takes the inventory, so that "they are all printed text" is a list a
+    # reader can check rather than a claim they have to take.
+    hosts: dict[str, list[str]] = {}
+    reachable: list[str] = []
+    for rel, text in sources:
+        for n, line in enumerate(text.splitlines(), 1):
+            for host in URL_LITERAL.findall(line):
+                host = host.rstrip(".")  # a URL at the end of an English sentence
+                hosts.setdefault(host, []).append(f"{rel}:{n}")
+                if SPAWN.search(line) or FETCHERS.search(line):
+                    reachable.append(f"{rel}:{n}: {host}")
+    fails.check(
+        not reachable,
+        "C26 no URL literal sits on a line that spawns or fetches",
+        "\n".join(reachable),
+    )
+    fails.check(
+        len(hosts) >= FLOOR_URL_LITERALS,
+        f"C26 floor: {len(hosts)} distinct URL host(s) inventoried "
+        f"(>= {FLOOR_URL_LITERALS})",
+        "Finding almost none means the scan broke, not that the CLI got quieter.",
+    )
+    for host in sorted(hosts):
+        print(f"note  C26 URL literal, printed not fetched: {host} "
+              f"({len(hosts[host])} site(s))")
+
+
+RULES = {"C24": rule_C24, "C25": rule_C25, "C26": rule_C26}
 
 
 def main() -> int:
