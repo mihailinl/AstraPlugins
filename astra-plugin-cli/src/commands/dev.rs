@@ -58,8 +58,17 @@ pub async fn run(path: &str, daemon_addr: Option<&str>, standalone: bool) -> Res
     println!("  Directory: {}", dir.display());
 
     // 1. Refuse to hand the daemon a manifest that is already wrong.
-    crate::commands::validate::run(&dir.to_string_lossy(), true)
-        .context("`astra-plugin check --strict` failed — fix the manifest before sideloading")?;
+    //
+    // `Gate::Dev`, so the registry's id rules are notes here and nothing else.
+    // This is the inner loop of writing a plugin, against a daemon on this
+    // machine; a catalogue the author may never submit to does not get to
+    // decide whether their own code runs on their own computer.
+    crate::commands::validate::run(
+        &dir.to_string_lossy(),
+        true,
+        crate::commands::validate::Gate::Dev,
+    )
+    .context("`astra-plugin check --strict` failed — fix the manifest before sideloading")?;
 
     // 2. Build once before the daemon is asked to spawn anything.
     crate::commands::build::build_project(&dir)?;

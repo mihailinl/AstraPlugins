@@ -74,12 +74,54 @@ C26 — the CLI holds no credential and calls no service.
     no `Command::new` of `curl`, `wget` or `gh`, and `git ls-remote` spawned
     from one file; and an inventory of every remaining URL literal, which the
     first four legs are what make safe to call printed text.
+
+C27 — `spec/reserved-ids.yaml` is astra-registry's reserved-id policy, still.
+
+    The ids nobody may list under are a security list in another repository,
+    and this one now carries a copy so that `astra-plugin check` can refuse a
+    name before the author pushes the tag that makes the refusal expensive. A
+    copy nobody compares is a guess, and this guess is wrong in both
+    directions: too few names and the CLI blesses an id ingest will refuse,
+    too many and it refuses one the registry would have taken — which reads,
+    to the author, as the tool being broken, because it is.
+
+    Three legs, answering three different questions.
+
+      * IN-REPO. The file parses, every value names the upstream it mirrors,
+        and the vendored copy in `astra-plugin-cli/src/` is byte-identical to
+        the spec. Needs no checkout, so it is the leg that really runs in the
+        `couplings` job. WHICH names are reserved is asserted by name in
+        `the_reserved_ids_are_the_ones_the_spec_declares`, in the CLI's own
+        suite, and against the registry below; a third enumeration here would
+        be a third place a released name has to be remembered, which is how a
+        list comes to have one stale copy.
+
+      * PINNED. The header names `astra-registry@<sha>`. With a checkout, the
+        copy has to be what that commit really held — the leg that says the
+        mirror was taken honestly rather than typed from memory.
+
+      * HEAD. The same comparison against the registry as it stands now. This
+        is the leg that goes red when the policy moves, and the PAIR is what
+        makes a red readable: head red with pinned green means the registry
+        changed and the mirror is stale; both red means somebody edited the
+        copy. The repair is never symmetric — astra-registry owns these names,
+        a name added here reserves nothing, and a name dropped here only stops
+        warning an author about a refusal they will meet anyway.
+
+    With no checkout the last two print what they took on trust and record
+    themselves as UNVERIFIED, the way C20 does in `tools/check-locales.py`.
+    That is not the choice C24 makes — C24 fails when the remote will not
+    answer — and the difference is deliberate: C24 asks about a public remote
+    every job can reach, this one needs a working copy of another repository
+    beside this one, which CI has never had.
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import json
+import os
 import re
 import subprocess
 import sys
@@ -151,6 +193,21 @@ class Fails(list):
     Same shape as `tools/check-locales.py`'s, deliberately: two files that
     report differently are two files a reader has to learn.
     """
+
+    #: What a rule declined to compare, as `(rule, why)`. A run that skipped
+    #: something must not be able to end on the word "pass" alone — printing
+    #: it once in the middle of the transcript, where nobody scrolls, is how a
+    #: check that stopped comparing anything goes on reading as green. Carried
+    #: from `tools/check-locales.py`, where C20 needs the same thing for the
+    #: same reason.
+    unverified: list[tuple[str, str]]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.unverified = []
+
+    def skip(self, rule: str, why: str) -> None:
+        self.unverified.append((rule, why))
 
     def check(self, ok: bool, msg: str, detail: str = "") -> bool:
         print(("ok    " if ok else "FAIL  ") + msg)
@@ -906,7 +963,321 @@ def rule_C26(fails: Fails) -> None:
               f"({len(hosts[host])} site(s))")
 
 
-RULES = {"C24": rule_C24, "C25": rule_C25, "C26": rule_C26}
+# ── C27 ──────────────────────────────────────────────────────────────────────
+
+RESERVED_SPEC = ROOT / "spec" / "reserved-ids.yaml"
+RESERVED_VENDORED = ROOT / "astra-plugin-cli" / "src" / "reserved-ids.yaml"
+
+#: Floors on the mirrored lists, at the real counts on 2026-09-19 — 22 ids and
+#: 3 prefixes, after ID-66 was narrowed from sixteen panel names to eight the
+#: same day it was written. A floor and not a target: the registry reserving a
+#: twenty-third name passes, and shrinkage is the deliberate act that has to be
+#: argued for somewhere a reader can find it.
+#:
+#: These are what notice a name deleted from BOTH copies, which the byte
+#: comparison between them cannot see. They are counts, so they cannot say
+#: WHICH name — `the_reserved_ids_are_the_ones_the_spec_declares` names three
+#: of them and the registry comparison below names any of them, and that split
+#: is on purpose: a count is a floor, a name is a policy, and a policy written
+#: down twice is a policy with one stale copy.
+MIN_RESERVED_IDS = 22
+MIN_RESERVED_PREFIXES = 3
+
+#: `# mirrors: astra-registry/<path> <key>`, the convention
+#: `spec/listing-limits.yaml` already uses. Read rather than hard-coded so that
+#: a definition moving upstream moves this comparison with it, instead of
+#: leaving it green against a file nothing reads any more.
+MIRRORS = re.compile(r"#\s*mirrors:\s*astra-registry/(\S+)\s+(.+)$")
+
+#: The provenance line in the spec file's header.
+PINNED_AT = re.compile(r"astra-registry@([0-9a-f]{40})")
+
+
+def read_reserved_spec() -> tuple[dict[str, object], dict[str, str], str | None]:
+    """(name -> value, name -> the upstream its `mirrors:` comment names, pin).
+
+    The format `spec/reserved-ids.yaml`'s own FORMAT paragraph promises, and
+    the same hand-parse the CLI does in `validate.rs::reserved_ids`. No YAML
+    dependency, for the reason that file states: the `couplings` job installs
+    nothing.
+    """
+    values: dict[str, object] = {}
+    sources: dict[str, str] = {}
+    pin: str | None = None
+    pending: str | None = None
+    current: str | None = None
+    for raw in RESERVED_SPEC.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            m = MIRRORS.match(line)
+            if m:
+                pending = f"{m.group(1)} {m.group(2).strip()}"
+            elif pin is None:
+                p = PINNED_AT.search(line)
+                if p:
+                    pin = p.group(1)
+            continue
+        if not line:
+            continue
+        if line.startswith("- "):
+            if current and isinstance(values.get(current), list):
+                values[current].append(line[2:].strip())  # type: ignore[union-attr]
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        key, value = key.strip(), value.strip()
+        if not value:
+            current = key
+            values[key] = []
+        else:
+            current = None
+            values[key] = value.strip('"')
+        if pending:
+            sources[key] = pending
+            pending = None
+    return values, sources, pin
+
+
+def _registry_dir() -> Path | None:
+    """A working copy of astra-registry, or None.
+
+    Same two candidates as `tools/check-locales.py`'s, and anchored on a file
+    this rule actually reads: a directory that happens to be named
+    astra-registry but holds no `policy/reserved-ids.json` is not a checkout
+    this rule can compare against, and saying so is better than reporting
+    every name as missing.
+    """
+    env = os.environ.get("ASTRA_REGISTRY_DIR")
+    candidates = [env] if env is not None else ["../astra-registry"]
+    for c in candidates:
+        if not c:
+            continue
+        p = Path(c)
+        if not p.is_absolute():
+            p = (ROOT / p).resolve()
+        if (p / "policy" / "reserved-ids.json").is_file():
+            return p
+    return None
+
+
+def _registry_text(registry: Path, rel: str, sha: str | None) -> str:
+    """One upstream file, at `sha` or as the checkout stands.
+
+    Raises `LookupError` with a sentence for the transcript rather than
+    returning None: every caller's next move is to record a failure naming the
+    file, and a rule that cannot read its own input has not passed.
+    """
+    if sha is None:
+        path = registry / rel
+        if not path.is_file():
+            raise LookupError(f"{rel} is not in that checkout")
+        return path.read_text(encoding="utf-8")
+    p = subprocess.run(
+        ["git", "-C", str(registry), "show", f"{sha}:{rel}"],
+        capture_output=True, text=True,
+    )
+    if p.returncode != 0:
+        raise LookupError(
+            f"`git show {sha[:12]}:{rel}` failed: {p.stderr.strip() or p.returncode}\n"
+            f"That commit is what spec/reserved-ids.yaml says this copy was taken from. A "
+            f"shallow clone will not have it (`git fetch --unshallow`); a SHA that is in no "
+            f"clone at all was never on a branch anybody can read, and the pin is fiction."
+        )
+    return p.stdout
+
+
+def _upstream_value(registry: Path, source: str, sha: str | None):
+    """Whatever `# mirrors: astra-registry/<path> <key>` names, upstream.
+
+    Three shapes, because three is what this file mirrors, and anything else
+    raises rather than guessing: a `mirrors:` line this cannot follow means
+    the convention grew a fourth shape and nobody taught the comparison about
+    it, which is a red build and not a pass.
+    """
+    rel, _, key = source.partition(" ")
+    key = key.strip()
+    text = _registry_text(registry, rel, sha)
+    if rel.endswith(".json"):
+        doc = json.loads(text)
+        if key not in doc:
+            raise LookupError(f"{rel} has no `{key}`")
+        return doc[key]
+    if key == "ID_PATTERN":
+        m = re.search(r'export const ID_PATTERN = "([^"]+)";', text)
+        if not m:
+            raise LookupError(
+                f"{rel} has no `export const ID_PATTERN = \"…\";`. The charset moved or was "
+                f"renamed upstream; this side is hand-implementing a pattern that is no longer "
+                f"the registry's."
+            )
+        return m.group(1)
+    if key.startswith("invalidId"):
+        # A rule rather than a value: the registry refuses `a--b` in
+        # `invalidId`, outside the pattern. Matched as the literal predicate,
+        # so a reword upstream is a red here — which is the right answer. A
+        # reworded rule is one somebody has just touched, and this copy is
+        # what decides whether an author hears about it before their tag.
+        return 'includes("--")' in text
+    raise LookupError(
+        f"cannot follow `mirrors: astra-registry/{source}` — this rule knows a JSON key, "
+        f"ID_PATTERN and invalidId's double-hyphen refusal, and nothing else"
+    )
+
+
+def _compare_against(fails: Fails, registry: Path, values, sources, sha: str | None) -> None:
+    """One leg: every mirrored value against the registry, at `sha` or at head."""
+    leg = f"pinned {sha[:12]}" if sha else "head"
+    compared = 0
+    problems: list[str] = []
+    for name in sorted(values):
+        source = sources.get(name)
+        if source is None:
+            continue  # the in-repo leg already failed this one
+        try:
+            theirs = _upstream_value(registry, source, sha)
+        except (LookupError, json.JSONDecodeError) as e:
+            problems.append(f"{name}: {e}")
+            continue
+        compared += 1
+        ours = values[name]
+        if isinstance(ours, list):
+            # Membership, never order: the registry sorts `astra` first and
+            # the rest alphabetically, and that is a convention for readable
+            # diffs, not a policy. Reported as names, both ways round, because
+            # "22 against 23" sends a reader counting instead of reading.
+            missing = sorted(set(theirs) - set(ours))
+            extra = sorted(set(ours) - set(theirs))
+            if missing:
+                problems.append(
+                    f"{name}: astra-registry has {', '.join(missing)} and this mirror does not, "
+                    f"so `astra-plugin check` tells an author those are theirs to publish under"
+                )
+            if extra:
+                problems.append(
+                    f"{name}: this mirror has {', '.join(extra)} and astra-registry does not, so "
+                    f"`astra-plugin check` refuses an id the registry would have listed"
+                )
+        elif isinstance(theirs, bool):
+            # A row that stands for a RULE being present upstream rather than
+            # for a value — `refuse_double_hyphen`. The bool test comes first
+            # because every scalar on this side is the string it was written
+            # as, so `"true" != True` and the string branch below would have
+            # reported the rule as drifted on a tree where it is fine. Watched
+            # doing exactly that on the first run against a real checkout.
+            if theirs != (ours == "true"):
+                problems.append(
+                    f"{name}: this file says {ours}, and astra-registry/{source} "
+                    f"{'has' if theirs else 'no longer has'} that rule"
+                )
+        elif str(theirs) != str(ours):
+            problems.append(f"{name}: we say {ours!r}, astra-registry/{source} says {theirs!r}")
+
+    fails.check(
+        compared >= 3 and not problems,
+        f"C27 spec/reserved-ids.yaml is astra-registry's policy ({leg}, {compared} value(s))",
+        "\n".join(problems) + "\n"
+        "THE REGISTRY OWNS THESE NAMES. A name added here reserves nothing and a name dropped\n"
+        "here only stops warning the author about a refusal they will meet at ingest anyway, so\n"
+        "the repair is: change it in astra-registry, then copy policy/reserved-ids.json's\n"
+        "`reserved` and `reserved_prefixes` into spec/reserved-ids.yaml, update the pinned SHA in\n"
+        "its header, copy the file to astra-plugin-cli/src/reserved-ids.yaml, and run\n"
+        "`cargo test --manifest-path astra-plugin-cli/Cargo.toml`.\n"
+        "\n"
+        "A name that vanished upstream may have been RELEASED on purpose — eight ordinary words\n"
+        "were, on 2026-09-19. policy/reserved-ids.json's `reserved_note` is where that argument\n"
+        "lives, and it is not copied here on purpose: a second copy of the reasoning is the copy\n"
+        "that rots. Read it there before deciding which side is wrong.",
+    )
+
+
+def rule_C27(fails: Fails) -> None:
+    # ── leg 0: the two copies in this repository ─────────────────────────────
+    spec_text = RESERVED_SPEC.read_text(encoding="utf-8")
+    vendored = (
+        RESERVED_VENDORED.read_text(encoding="utf-8")
+        if RESERVED_VENDORED.is_file()
+        else None
+    )
+    fails.check(
+        vendored == spec_text,
+        "C27 astra-plugin-cli/src/reserved-ids.yaml is byte-identical to spec/reserved-ids.yaml",
+        ("that file is not there" if vendored is None else "the two differ")
+        + "\nThe spec file cannot be `include_str!`d from inside the crate — `cargo package`"
+        + "\nrefuses a path outside the package directory — so the CLI carries a vendored copy,"
+        + "\nand the copy is what ships to authors. The spec file is the list; copy it over."
+        + "\n`cargo test --manifest-path astra-plugin-cli/Cargo.toml` says the same thing, and"
+        + "\nthis job has no Rust toolchain, which is why it is also said here.",
+    )
+
+    values, sources, pin = read_reserved_spec()
+    ids = values.get("reserved")
+    prefixes = values.get("reserved_prefixes")
+    fails.check(
+        isinstance(ids, list) and isinstance(prefixes, list),
+        "C27 spec/reserved-ids.yaml parses to two lists",
+        f"reserved={type(ids).__name__}, reserved_prefixes={type(prefixes).__name__}\n"
+        "That file's FORMAT paragraph promises `key:` and `  - item` lines. If it still looks\n"
+        "like that, THIS READER is what broke and nothing is unreserved; if it does not, the CLI's\n"
+        "own parser in validate.rs is reading the same file and has the same problem — and a\n"
+        "reserved list that parses to nothing reserves nothing.",
+    )
+    if not isinstance(ids, list) or not isinstance(prefixes, list):
+        return
+
+    fails.check(
+        len(ids) >= MIN_RESERVED_IDS,
+        f"C27 floor: {len(ids)} reserved id(s) (>= {MIN_RESERVED_IDS})",
+        "astra-registry listed 22 on 2026-09-19. Fewer here means a name was dropped from BOTH\n"
+        "copies in this repository — the byte comparison above cannot see that — or that an\n"
+        "older reservation came out upstream, which is a security change and not a cleanup.\n"
+        "This is a count and cannot tell you WHICH: the registry comparison below can, and so\n"
+        "can `cargo test -p astra-plugin-cli`.",
+    )
+    fails.check(
+        len(prefixes) >= MIN_RESERVED_PREFIXES,
+        f"C27 floor: {len(prefixes)} reserved prefix(es) (>= {MIN_RESERVED_PREFIXES})",
+        "astra-, official-, verified-. A prefix dropped here is an impersonation primitive"
+        "\nhanded back a release early, before the registry has stopped refusing it.",
+    )
+    unsourced = sorted(n for n in values if n not in sources)
+    fails.check(
+        not unsourced,
+        "C27 every mirrored value names the upstream it copies",
+        f"no `# mirrors:` line above: {unsourced}\n"
+        "A copy that does not say what it is a copy OF is a copy nothing can compare, which is\n"
+        "how a local decision comes to read as an echo of somebody else's policy.",
+    )
+    fails.check(
+        pin is not None,
+        "C27 spec/reserved-ids.yaml names the commit it was taken from",
+        "no `astra-registry@<40-hex>` in the header. The pinned leg has nothing to compare\n"
+        "against, so provenance becomes a claim rather than a check.",
+    )
+
+    # ── legs 1 and 2: pinned, and head ───────────────────────────────────────
+    registry = _registry_dir()
+    if registry is None:
+        print("C27 NOT VERIFIED: no astra-registry checkout at "
+              "$ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        {len(ids)} reserved id(s) taken on trust: {' '.join(sorted(ids))}")
+        print(f"        {len(prefixes)} reserved prefix(es): {' '.join(sorted(prefixes))}")
+        print(f"        id_pattern: {values.get('id_pattern')}")
+        print("        A name missing from that list is one `astra-plugin check` tells an author")
+        print("        they may publish under, and the refusal arrives at ingest, in a repository")
+        print("        they have never opened, after the tag. A name too many is a refusal here")
+        print("        for a listing the registry would have taken. Neither is visible from this")
+        print("        side alone — and neither is the question of whether the registry has")
+        print("        reserved something new since the pin.")
+        fails.skip("C27", "no astra-registry checkout")
+        return
+
+    if pin is not None:
+        _compare_against(fails, registry, values, sources, pin)
+    _compare_against(fails, registry, values, sources, None)
+
+
+RULES = {"C24": rule_C24, "C25": rule_C25, "C26": rule_C26, "C27": rule_C27}
 
 
 def main() -> int:
@@ -934,6 +1305,13 @@ def main() -> int:
         for f in fails:
             print("  " + f, file=sys.stderr)
         return 1
+    # A run that declined to compare something does not get to end on the word
+    # "pass" alone. Same sentence shape as `tools/check-locales.py`'s, so a
+    # reader who has learnt one transcript has learnt both.
+    if fails.unverified:
+        listed = "; ".join(f"{rule} ({why})" for rule, why in fails.unverified)
+        print(f"check-registry-mirrors: {', '.join(wanted)} pass, NOT VERIFIED: {listed}.")
+        return 0
     print(f"check-registry-mirrors: {', '.join(wanted)} pass.")
     return 0
 

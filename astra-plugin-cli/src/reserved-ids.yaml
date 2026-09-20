@@ -1,0 +1,136 @@
+# The ids an author may not list under, and the shape of the ones they may —
+# mirrored from astra-registry, and mirrored is exactly what they are.
+#
+# Nothing in Astra reads a line of this file. A plugin whose id is `moderation`
+# scaffolds, checks, builds, signs, sideloads and runs like any other: plugins
+# are not sandboxed and this is not a gate on running your own code. What it
+# guards is the one act an author cannot take back. `astra-plugin publish` ends
+# in a pushed tag; the registry reads the id out of the attested bundle and
+# refuses it at ingest with E_ID_RESERVED, in a repository the author has never
+# opened, after the release is already public — and the only way out is a
+# rename, which is a different id, a different directory on every user's disk,
+# and a listing that starts again from nothing.
+#
+# So the list is checked at `astra-plugin check` time, where the author can
+# still type something else, and this file exists so that "checked here" does
+# not mean "guessed here".
+#
+# PINNED AT
+#   astra-registry@2f0ea7d1e9d53ca56c8bbf99a8bd6faf13342946
+#
+#   The commit this copy was taken from — a record of provenance, not a claim
+#   that the registry has not moved since. `tools/check-registry-mirrors.py
+#   --rules C27` asks both questions separately: the PINNED leg, that this file
+#   is what that commit held, and the HEAD leg, that it is also what the
+#   registry holds now. A registry that has moved on turns the head leg red and
+#   leaves the pinned leg green, which is the pair of answers that says "the
+#   policy changed" rather than "somebody mistyped the mirror".
+#
+# WHAT IS DELIBERATELY NOT MIRRORED
+#
+#   `first_party_repos` and `first_party_owners` — the two allowlists that
+#   decide who MAY list under a reserved prefix. They are a trust allowlist, and
+#   a second copy of a trust allowlist is a second place trust can be granted
+#   and a second place it can go stale. One of those entries is already a
+#   renamed GitHub organisation whose old login anybody may register; a copy of
+#   it sitting in a CLI on ten thousand author machines, updated whenever
+#   somebody remembers, is a worse artifact than no copy at all. The
+#   consequence is written into the rule rather than hidden: a reserved PREFIX
+#   is a warning here and never a refusal, because this side cannot know
+#   whether the author's repository is one of the permitted ones — only the
+#   registry can, and it does, against a repository it has proved ownership of
+#   rather than against a claim.
+#
+#   The reasoning. `policy/reserved-ids.json` carries a `reserved_note` that
+#   says why each name is kept and why eight others were released; it is the
+#   argument, it is long, and it is the registry's. Copying it here would make
+#   this the copy that rots — read it there. This file copies two lists and one
+#   pattern, which are facts a checker can compare.
+#
+# WHAT THIS FILE DOES NOT COVER, AND WHO DOES
+#
+#   The Windows device names (`con`, `prn`, `aux`, `nul`, `com1`-`com9`,
+#   `lpt1`-`lpt9`) and the path-component rules are refused by
+#   `astra-plugin-manifest`, the daemon's own parser, which `check` already
+#   runs. They are Astra's rule and not the registry's, and an id that becomes
+#   `<plugins_dir>/<id>/` has to be refused whether anyone ever lists it or not.
+#   The manifest crate's charset is NOT tightened to match the registry's: it is
+#   vendored from Astra and byte-compared against it, sideloads must keep
+#   installing, and a private plugin that never sees the catalogue is a
+#   first-class thing to build.
+#
+# FORMAT
+#   `key: value` for a scalar, `key:` followed by `  - item` lines for a list,
+#   `#` for a comment. Hand-parsed twice — by `reserved_ids()` in
+#   `astra-plugin-cli/src/commands/validate.rs` and by `rule_C27` in
+#   `tools/check-registry-mirrors.py` — with no YAML dependency, for the reason
+#   `spec/locales.yaml` has none: the `couplings` job installs nothing, and a
+#   check that needs `pip install` is a check that stops running the first time
+#   a runner image changes.
+#
+#   Each value carries a `# mirrors:` comment naming the upstream it copies,
+#   the same convention `spec/listing-limits.yaml` uses. C27 reads those lines
+#   rather than hard-coding the paths, so moving a definition upstream moves
+#   the comparison with it instead of leaving it green against a file nothing
+#   reads any more.
+#
+# ORDER
+#   The registry's own: `astra` first, the rest sorted. Kept so that a diff
+#   between the two files reads as a diff. Nothing compares order — C27 and the
+#   CLI both compare membership — because order is not a policy fact.
+#
+# TO CHANGE ANY OF IT
+#   In astra-registry first. It owns these; a name added here reserves nothing
+#   and a name dropped here only stops warning the author before the refusal
+#   they are going to meet anyway. Then: copy this file to
+#   `astra-plugin-cli/src/reserved-ids.yaml`, update the pinned SHA above, run
+#   `cargo test --manifest-path astra-plugin-cli/Cargo.toml` and
+#   `python3 tools/check-registry-mirrors.py --rules C27`.
+
+# mirrors: astra-registry/tools/lib/ids.mjs ID_PATTERN
+#
+# 2 to 64 characters, lowercase letters, digits and hyphens, first and last
+# alphanumeric. Hand-implemented in validate.rs — this CLI has no regex crate
+# and is not getting one for a five-line predicate — and that implementation is
+# pinned to this literal by `the_reserved_ids_are_the_ones_the_spec_declares`,
+# so a registry that narrows `{0,62}` turns the test red until somebody has
+# read the new pattern rather than just copied it.
+id_pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$"
+
+# mirrors: astra-registry/tools/lib/ids.mjs invalidId includes("--")
+#
+# The one id rule that is not in the pattern. `a--b` matches `id_pattern` and is
+# still refused at ingest, so an author who reads only the pattern writes an id
+# that passes every check they can run and dies on the tag push.
+refuse_double_hyphen: true
+
+# mirrors: astra-registry/policy/reserved-ids.json reserved
+reserved:
+  - astra
+  - account
+  - admin
+  - api
+  - authors
+  - core
+  - daemon
+  - default
+  - internal
+  - login
+  - logout
+  - moderation
+  - official
+  - plugin
+  - plugins
+  - publish
+  - registry
+  - root
+  - system
+  - test
+  - transparency
+  - trust
+
+# mirrors: astra-registry/policy/reserved-ids.json reserved_prefixes
+reserved_prefixes:
+  - astra-
+  - official-
+  - verified-

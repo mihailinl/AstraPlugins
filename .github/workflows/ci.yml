@@ -2596,6 +2596,31 @@ jobs:
       - name: C26 the CLI holds no credential and calls no service
         run: python3 tools/check-registry-mirrors.py --rules C26
 
+      # C27 — the reserved-id mirror is still astra-registry's policy.
+      #
+      # `spec/reserved-ids.yaml` copies a security list that lives in another
+      # repository, so `astra-plugin check` can refuse a name while a rename
+      # is still free. Every cost of that copy is paid by somebody who cannot
+      # see it: a name missing here is one the CLI tells an author to go ahead
+      # with, and the refusal then arrives at ingest, in a repository they
+      # have never opened, after a tag they cannot unpush. A name too many is
+      # a refusal for a listing the registry would have taken, which reads as
+      # the tool being broken — and is.
+      #
+      # This job checks out one repository, so the two legs that compare
+      # against astra-registry cannot run here: they print what they took on
+      # trust and end the transcript with NOT VERIFIED rather than with the
+      # word "pass" alone. What runs for real is the half that needs no
+      # checkout — the file parses, every value names the upstream it mirrors,
+      # the counts have not shrunk, and the copy the CLI actually ships
+      # (`astra-plugin-cli/src/reserved-ids.yaml`, vendored because
+      # `include_str!` outside the package directory is what `cargo package`
+      # refuses) is byte-identical to the spec. `cargo test -p
+      # astra-plugin-cli` asserts that last one too, and this job has no Rust
+      # toolchain, which is why it is also asserted here.
+      - name: C27 the reserved-id mirror is astra-registry's policy
+        run: python3 tools/check-registry-mirrors.py --rules C27
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

@@ -1,7 +1,7 @@
 //! `astra-plugin check` — check manifest, config schema, structure, the
 //! versions the project declares, and the release workflow.
 //!
-//! Three severities, and the split is load-bearing:
+//! Four severities, and every split is load-bearing:
 //!
 //! * **error** — the daemon will refuse this, or silently do the wrong thing.
 //! * **warning** — it will bite at run time. `--strict` fails on these, and
@@ -9,6 +9,37 @@
 //! * **note** — publish-time metadata that is absent. Never strict-fatal, or
 //!   the first `astra-plugin dev` on a fresh scaffold would fail on an empty
 //!   `author` field before the plugin had ever run.
+//! * **registry** — the fourth, added with `spec/reserved-ids.yaml`. Somebody
+//!   else's rule, about somebody else's repository, and the three above cannot
+//!   express it.
+//!
+//! # Why the fourth one had to exist
+//!
+//! An error says *the daemon refuses this*, and the daemon does not: a plugin
+//! called `moderation` installs, sideloads and runs, and it always will —
+//! plugins are native processes with the user's own privileges and a private
+//! plugin that never sees the catalogue is a first-class thing to build. A
+//! warning says *this will bite at run time*, and it will not: it bites at
+//! ingest, once, in a repository the author has never opened, after a tag they
+//! cannot unpush. A note says nothing loudly enough for a refusal that costs a
+//! rename.
+//!
+//! So a registry finding is routed by WHO IS ASKING, which is [`Gate`]:
+//!
+//! * [`Gate::Check`] — `astra-plugin check` and `publish --dry-run`, both of
+//!   them a preflight for publishing. A registry **refusal** fails them: that
+//!   is the whole point, and it is the last moment it is free. A registry
+//!   **warning** never fails them, `--strict` included — see
+//!   [`check_registry_ids`] for why this side cannot decide a reserved prefix.
+//! * [`Gate::Dev`] — `astra-plugin dev`, which runs `--strict` on every start.
+//!   Every registry finding is a note. `dev` is the inner loop of writing a
+//!   plugin, and refusing to run somebody's code because a catalogue they may
+//!   never submit to would not list it is the sandboxing argument arriving
+//!   through the back door.
+//!
+//! `errors_only` — what `astra-plugin build` calls — is the same decision a
+//! third time: it returns errors, and a registry finding is not one, so a
+//! bundle packs under any id at all.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -44,12 +75,26 @@ pub fn check_capability_name(name: &str) -> Result<()> {
     anyhow::bail!("{}", explain_unknown_capability(name))
 }
 
+/// Which caller is asking, for the registry findings only.
+///
+/// Everything else `check` reports is the same sentence to everybody. The
+/// registry's rules are not: they decide whether a listing request will be
+/// accepted, and two of the three callers are not publishing anything. See the
+/// module docs for the argument.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Gate {
+    /// `astra-plugin check`, and `publish --dry-run`. A preflight for the tag.
+    Check,
+    /// `astra-plugin dev` — the inner loop. Registry findings are notes.
+    Dev,
+}
+
 /// Check a plugin directory.
 ///
 /// `strict` promotes every warning to an error — what CI and `astra-plugin dev`
 /// use, so a manifest problem is caught before the daemon is asked to run it.
-pub fn run(path: &str, strict: bool) -> Result<()> {
-    run_with(path, strict, false)
+pub fn run(path: &str, strict: bool, gate: Gate) -> Result<()> {
+    run_with(path, strict, false, gate)
 }
 
 /// `run`, plus the network-dependent half of the CI lint.
@@ -58,8 +103,8 @@ pub fn run(path: &str, strict: bool) -> Result<()> {
 /// `git ls-remote` on the hot path of the inner loop is a second of latency
 /// bought with nothing. In CI the release workflow exports
 /// [`WORKFLOW_SHA_ENV`] instead, which is both authoritative and free.
-pub fn run_with(path: &str, strict: bool, resolve_pin: bool) -> Result<()> {
-    match run_full(CheckOptions { path, strict, fix: false, resolve_pin })? {
+pub fn run_with(path: &str, strict: bool, resolve_pin: bool, gate: Gate) -> Result<()> {
+    match run_full(CheckOptions { path, strict, fix: false, resolve_pin, gate })? {
         Verdict::Pass => Ok(()),
         // `dev` and the other internal callers use `?` and want the sentence,
         // not an exit code. `main` gets the code from `run_full` directly.
@@ -75,6 +120,8 @@ pub struct CheckOptions<'a> {
     /// Apply the fixes that can be applied mechanically, then re-check.
     pub fix: bool,
     pub resolve_pin: bool,
+    /// Who is asking. Decides what a registry finding costs — nothing else.
+    pub gate: Gate,
 }
 
 /// `check`, with `--fix` and `--json`.
@@ -118,6 +165,7 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     check_ui(&manifest, &mut report);
     check_dependencies(&manifest, &mut report);
     check_call_timeout(&manifest, &mut report);
+    check_registry_ids(&manifest, &mut report);
 
     check_versions_agree(dir, &manifest.plugin.version, &mut report.warnings);
     check_release_workflow(dir, opts.resolve_pin, &mut report.warnings, &mut report.notes);
@@ -134,6 +182,18 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     for n in &report.notes {
         hprintln!("  NOTE: {n}");
     }
+    // The fourth severity prints under its own word, not under WARN or ERROR.
+    // An author who is told `ERROR` about a plugin that runs perfectly goes
+    // looking for a bug in their plugin; the line has to say whose rule it is
+    // and where it bites, and `dev` has to be able to say the same sentence
+    // without it reading as a refusal.
+    for f in &report.registry {
+        match (opts.gate, f.refusal) {
+            (Gate::Check, true) => hprintln!("  REGISTRY: {}", f.message),
+            (Gate::Check, false) => hprintln!("  REGISTRY WARN: {}", f.message),
+            (Gate::Dev, _) => hprintln!("  NOTE: {}", f.message),
+        }
+    }
     for w in &report.warnings {
         hprintln!("  WARN: {w}");
     }
@@ -141,11 +201,25 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
         hprintln!("  ERROR: {e}");
     }
 
-    let failed = !report.errors.is_empty() || (opts.strict && !report.warnings.is_empty());
+    // `--strict` is deliberately absent from the registry clause. It promotes
+    // warnings, and a registry warning is not a warning about this plugin: it
+    // is this side saying it cannot decide, because the allowlist that would
+    // decide it is the one thing `spec/reserved-ids.yaml` refuses to copy.
+    // Promoting "I cannot tell" to an error fails every first-party release.
+    let registry_refuses =
+        opts.gate == Gate::Check && report.registry.iter().any(|f| f.refusal);
+    let failed = !report.errors.is_empty()
+        || (opts.strict && !report.warnings.is_empty())
+        || registry_refuses;
     let verdict = Verdict::of(!failed);
 
     if failed {
-        if !report.errors.is_empty() {
+        if registry_refuses && report.errors.is_empty() {
+            hprintln!(
+                "  FAILED: {} registry refusal(s) — the plugin is fine, the id is not listable",
+                report.registry.iter().filter(|f| f.refusal).count()
+            );
+        } else if !report.errors.is_empty() {
             hprintln!(
                 "  FAILED: {} error(s) and {} warning(s)",
                 report.errors.len(),
@@ -188,6 +262,15 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
             "errors": report.errors,
             "warnings": report.warnings,
             "notes": report.notes,
+            // Its own key, with the code on each finding. A script that
+            // branches on `errors` must not start failing releases because a
+            // name was reserved upstream, and a script that wants to know
+            // "would the registry take this id" must not have to grep prose.
+            "registry": report.registry.iter().map(|f| serde_json::json!({
+                "code": f.code,
+                "refusal": f.refusal,
+                "message": f.message,
+            })).collect::<Vec<_>>(),
             "fixed": applied,
         }),
     );
@@ -210,6 +293,16 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
 /// promotes (`qps` in the bundle, a missing lock, a stale translation), each of
 /// which explains itself at the point it fires.
 ///
+/// **And never a registry finding.** [`check_registry_ids`] runs here so that
+/// the rule has one implementation and one set of messages, and its findings
+/// go nowhere: `build` packs a bundle, and a bundle is not a listing. An id the
+/// catalogue would refuse is still an id somebody can sideload, hand to a
+/// colleague, or ship inside a company that has never heard of the registry.
+/// `build_packs_a_plugin_whose_id_the_registry_refuses` is what holds this,
+/// because it is one line to "fix" and the fix would make `astra-plugin build`
+/// the first place in this project where the catalogue decides what a user may
+/// run on their own machine.
+///
 /// Nothing here touches the network: `check_release_workflow` produces
 /// warnings and notes only, so it is not run at all.
 pub fn errors_only(dir: &Path) -> Result<Vec<String>> {
@@ -228,14 +321,18 @@ pub fn errors_only(dir: &Path) -> Result<Vec<String>> {
     check_ui(&manifest, &mut report);
     check_dependencies(&manifest, &mut report);
     check_call_timeout(&manifest, &mut report);
+    check_registry_ids(&manifest, &mut report);
 
     let l = crate::commands::locale::findings(dir, &manifest, crate::commands::locale::Gate::Build);
     report.errors.extend(l.errors);
 
+    // `report.registry` is dropped on the floor here, deliberately and
+    // visibly. Returning it would make every caller decide again; the decision
+    // is in the doc comment above and the test named in it.
     Ok(report.errors)
 }
 
-/// The three severities, collected so the checks below can be read one at a
+/// The four severities, collected so the checks below can be read one at a
 /// time. See the module docs for what belongs in each.
 #[derive(Default)]
 struct Report {
@@ -246,6 +343,21 @@ struct Report {
     /// `astra-plugin dev` on a fresh scaffold would fail on an empty `author`
     /// field before the plugin had ever run.
     notes: Vec<String>,
+    /// Another repository's rules about this id. What each one costs is
+    /// [`Gate`]'s business and not this struct's — the same finding is a
+    /// refusal to `check` and a note to `dev`.
+    registry: Vec<RegistryFinding>,
+}
+
+/// One thing astra-registry would say about this id, in the registry's own
+/// vocabulary of codes so that the author can search for the same word twice.
+struct RegistryFinding {
+    /// The registry's code — `bot/lib/codes.mjs` and `docs/BOT-CHECKS.md` over
+    /// there carry the same one, with the remedy.
+    code: &'static str,
+    /// True when ingest would reject the listing outright.
+    refusal: bool,
+    message: String,
 }
 
 /// Parse `plugin.toml` with **the daemon's own parser**, and run the daemon's
@@ -610,6 +722,217 @@ fn check_call_timeout(m: &PluginManifest, report: &mut Report) {
     report
         .notes
         .push(format!("plugin.call_timeout_secs = {secs}"));
+}
+
+// ── the registry's id rules, mirrored ────────────────────────────────────────
+
+/// `spec/reserved-ids.yaml`, embedded.
+///
+/// A vendored copy inside `src/`, for the same reason `listing-limits.yaml`
+/// and `conformance.json` are: `include_str!` reaching outside this crate's
+/// package directory is what `cargo package` refuses, and a published crate
+/// that cannot see the spec file is a published crate that cannot check
+/// anything. `the_reserved_ids_are_the_ones_the_spec_declares` reads the spec
+/// at test time and fails until the two are byte-identical.
+const RESERVED_IDS_SPEC: &str = include_str!("../reserved-ids.yaml");
+
+/// `spec/reserved-ids.yaml`, parsed once.
+///
+/// Hand-parsed for the reason the file's own FORMAT paragraph gives. The
+/// parser is deliberately dull: `key: value`, `key:` then `  - item`, `#`
+/// comments, and anything it does not understand is skipped rather than
+/// guessed at — a reader that invents a row is worse than one that finds none,
+/// because the floor in the test notices none.
+struct ReservedIds {
+    ids: BTreeSet<String>,
+    prefixes: Vec<String>,
+    id_pattern: String,
+    refuse_double_hyphen: bool,
+}
+
+fn reserved_ids() -> &'static ReservedIds {
+    use std::sync::OnceLock;
+    static PARSED: OnceLock<ReservedIds> = OnceLock::new();
+    PARSED.get_or_init(|| {
+        let mut out = ReservedIds {
+            ids: BTreeSet::new(),
+            prefixes: Vec::new(),
+            id_pattern: String::new(),
+            refuse_double_hyphen: false,
+        };
+        let mut list: Option<&str> = None;
+        for raw in RESERVED_IDS_SPEC.lines() {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some(item) = line.strip_prefix("- ") {
+                match list {
+                    Some("reserved") => {
+                        out.ids.insert(item.trim().to_string());
+                    }
+                    Some("reserved_prefixes") => out.prefixes.push(item.trim().to_string()),
+                    _ => {}
+                }
+                continue;
+            }
+            let Some((key, value)) = line.split_once(':') else {
+                continue;
+            };
+            let (key, value) = (key.trim(), value.trim());
+            if value.is_empty() {
+                list = Some(match key {
+                    "reserved" => "reserved",
+                    "reserved_prefixes" => "reserved_prefixes",
+                    _ => "",
+                });
+                continue;
+            }
+            list = None;
+            match key {
+                "id_pattern" => out.id_pattern = value.trim_matches('"').to_string(),
+                "refuse_double_hyphen" => out.refuse_double_hyphen = value == "true",
+                _ => {}
+            }
+        }
+        out
+    })
+}
+
+/// Why the registry's charset refuses this id, or `None`.
+///
+/// The spec's `id_pattern` written out by hand, plus the one rule that is not
+/// in the pattern. There is no regex crate in this CLI's graph and a five-line
+/// predicate is not a reason to add one — C26 reads the lockfile and would
+/// have something to say about it. The cost of hand-implementing is that the
+/// implementation can quietly stop being the pattern, so the two are pinned
+/// together by `ID_PATTERN_IMPLEMENTED` in this module's tests: the registry
+/// narrowing `{0,62}` turns that test red with both strings printed, and
+/// nobody gets to copy a new pattern across without reading what it now says.
+///
+/// The reason is returned as a sentence rather than a boolean because the
+/// pattern is unreadable to most authors, and "does not match
+/// `^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$`" is a refusal nobody can act on
+/// without counting characters.
+fn id_charset_violation(id: &str) -> Option<String> {
+    let chars: Vec<char> = id.chars().collect();
+    if chars.len() < 2 {
+        return Some(format!(
+            "{} character{}; the shortest listable id is two",
+            chars.len(),
+            if chars.len() == 1 { "" } else { "s" }
+        ));
+    }
+    if chars.len() > 64 {
+        return Some(format!("{} characters; the cap is 64", chars.len()));
+    }
+    if let Some(bad) = chars
+        .iter()
+        .find(|c| !(c.is_ascii_lowercase() || c.is_ascii_digit() || **c == '-'))
+    {
+        return Some(format!(
+            "contains {bad:?}; only lowercase ASCII letters, digits and hyphens are allowed"
+        ));
+    }
+    if chars[0] == '-' {
+        return Some("starts with a hyphen; the first character must be a letter or digit".into());
+    }
+    if chars[chars.len() - 1] == '-' {
+        return Some("ends with a hyphen; the last character must be a letter or digit".into());
+    }
+    if reserved_ids().refuse_double_hyphen && id.contains("--") {
+        return Some(
+            "contains a double hyphen. This one is not in the charset pattern — it is a separate \
+             refusal in the registry's `invalidId`, so an id that reads as legal by the pattern \
+             alone still dies at ingest"
+                .into(),
+        );
+    }
+    None
+}
+
+/// What astra-registry would say about `plugin.id`, said here instead.
+///
+/// Three findings, and the third is the interesting one.
+///
+/// * `E_ID_RESERVED` — a refusal. The name is on a list nobody but the
+///   registry's maintainers may list under, and the list is mirrored, so this
+///   side can answer it outright.
+/// * `E_ID_CHARSET` — a refusal. The registry's charset is *tighter* than the
+///   daemon's, which is why this can fire on an id `check` has already
+///   accepted: the daemon cares whether the id is a safe directory name, the
+///   registry also caps it at 64 characters and refuses a single character.
+/// * `E_ID_RESERVED_PREFIX` — a **warning, and never fatal, `--strict`
+///   included.** Whether `astra-foo` is refused depends on
+///   `first_party_repos` / `first_party_owners` in
+///   `astra-registry/policy/reserved-ids.json`, matched against a repository
+///   the registry has proved the author owns. `spec/reserved-ids.yaml`
+///   deliberately does not mirror those two lists — a copy of a trust
+///   allowlist is a second place to grant trust, and a stale one grants it to
+///   an account somebody else has since registered. So this side genuinely
+///   does not know, and says so. Promoting it under `--strict` would fail
+///   every first-party release in CI, which is the shape of check that gets
+///   deleted rather than fixed.
+///
+/// Every message names where the refusal happens and what it costs, because
+/// the failure this whole file exists for is an author reading `ERROR` about a
+/// plugin that works perfectly and going to look for the bug in their code.
+fn check_registry_ids(m: &PluginManifest, report: &mut Report) {
+    let id = m.plugin.id.as_str();
+    if id.is_empty() {
+        // The manifest crate's own `validate()` has already said so, as an
+        // error. A second sentence about the same empty field, in another
+        // vocabulary, is noise.
+        return;
+    }
+
+    if reserved_ids().ids.contains(id) {
+        report.registry.push(RegistryFinding {
+            code: "E_ID_RESERVED",
+            refusal: true,
+            message: format!(
+                "E_ID_RESERVED: plugin.id '{id}' is reserved by the registry, so a listing \
+                 request for it is refused at ingest — after your tag is pushed and your release \
+                 is public, and the only way out is a different id. The list is \
+                 astra-registry/policy/reserved-ids.json, mirrored in spec/reserved-ids.yaml; \
+                 that file's `reserved_note` says why each name is kept. Nothing here stops you \
+                 building, signing, sideloading or `astra-plugin dev`-ing this plugin under this \
+                 id — it is the catalogue that will not carry it."
+            ),
+        });
+    }
+
+    if let Some(why) = id_charset_violation(id) {
+        report.registry.push(RegistryFinding {
+            code: "E_ID_CHARSET",
+            refusal: true,
+            message: format!(
+                "E_ID_CHARSET: plugin.id '{id}' is not a shape the registry accepts — {why}. Its \
+                 charset is {pattern} (spec/reserved-ids.yaml). The daemon's rules are looser and \
+                 this plugin installs, so `check` is the only place you hear about it before the \
+                 tag.",
+                pattern = reserved_ids().id_pattern,
+            ),
+        });
+    }
+
+    for prefix in &reserved_ids().prefixes {
+        if id.starts_with(prefix.as_str()) {
+            report.registry.push(RegistryFinding {
+                code: "E_ID_RESERVED_PREFIX",
+                refusal: false,
+                message: format!(
+                    "E_ID_RESERVED_PREFIX: plugin.id '{id}' begins with '{prefix}', which the \
+                     registry reserves for first-party repositories. Whether yours is one is \
+                     decided by an allowlist this CLI does not mirror — copying a trust allowlist \
+                     would be a second place to grant trust — so this cannot be answered here, \
+                     and it is a warning rather than a refusal even under --strict. If your \
+                     repository is not on it, the listing is refused at ingest."
+                ),
+            });
+            break;
+        }
+    }
 }
 
 /// `plugin.toml` is the authority; every other manifest in the project must
@@ -1055,5 +1378,290 @@ label = "Sink"
                 "plugin.id '{id}' must be refused by `check`"
             );
         }
+    }
+
+    // ── the registry's id rules ─────────────────────────────────────────────
+
+    /// The pattern [`id_charset_violation`] implements, written once more so
+    /// that the spec's literal has something to be compared against.
+    ///
+    /// It lives here rather than beside the implementation because it is not
+    /// an input to anything: the code does not read it, the test does. Two
+    /// spellings of one rule with nothing comparing them is the shape this
+    /// file's whole mirror exists to avoid, so the comparison is the point of
+    /// the constant.
+    const ID_PATTERN_IMPLEMENTED: &str = "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$";
+
+    /// `spec/reserved-ids.yaml` is the list; `src/reserved-ids.yaml` mirrors it.
+    ///
+    /// Byte-equality first, because the spec file sits outside this crate's
+    /// package directory and cannot be `include_str!`d — the same reason
+    /// `listing-limits.yaml` and `conformance.json` are vendored, and the same
+    /// test.
+    ///
+    /// **Then the names, and only then the counts.** A name deleted from one
+    /// file is caught by the byte comparison; a name deleted from BOTH is
+    /// byte-equal and clears any floor by one. With the floor asserted first,
+    /// dropping `moderation` reports *"lists 21 and listed 22"* — true, and it
+    /// never says the word that a stranger may now list under, so the reader
+    /// goes counting instead of reading. astra-registry's
+    /// `tools/selftest/validation.mjs` was written the other way round,
+    /// watched saying exactly that, and turned around on 2026-09-19; this is
+    /// the same lesson on this side of the mirror.
+    ///
+    /// The named set is deliberately small, and it is NOT a second copy of the
+    /// eight panel names — astra-registry's selftest enumerates those, with
+    /// the eight it released beside them, and a third copy here is the third
+    /// place a policy change has to be remembered. What is named here is what
+    /// this crate's own behaviour rests on. Everything else is held by C27
+    /// against the registry itself, which is the only check that can tell a
+    /// deletion from a deliberate release.
+    #[test]
+    fn the_reserved_ids_are_the_ones_the_spec_declares() {
+        let spec_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/reserved-ids.yaml");
+        let spec = std::fs::read_to_string(&spec_path)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", spec_path.display()));
+        // `assert!`, not `assert_eq!`, and the difference is whether anybody
+        // reads the failure. These files are a hundred and forty lines and
+        // `assert_eq!` prints both of them, escaped, on two lines — watched
+        // doing it, while dropping `trust` from the vendored copy. The line
+        // that differs is the whole answer.
+        if spec != RESERVED_IDS_SPEC {
+            let at = spec
+                .lines()
+                .zip(RESERVED_IDS_SPEC.lines())
+                .position(|(a, b)| a != b);
+            let differs = match at {
+                Some(n) => format!(
+                    "line {}: the spec says {:?}, the vendored copy says {:?}",
+                    n + 1,
+                    spec.lines().nth(n).unwrap_or(""),
+                    RESERVED_IDS_SPEC.lines().nth(n).unwrap_or(""),
+                ),
+                None => format!(
+                    "one file is a prefix of the other — {} line(s) against {}",
+                    spec.lines().count(),
+                    RESERVED_IDS_SPEC.lines().count(),
+                ),
+            };
+            panic!(
+                "spec/reserved-ids.yaml and astra-plugin-cli/src/reserved-ids.yaml differ at \
+                 {differs}. The spec file is the list; copy it over. And if astra-registry is \
+                 what changed, change it THERE first — `python3 \
+                 tools/check-registry-mirrors.py --rules C27` is what compares the two \
+                 repositories, and a name added here reserves nothing."
+            );
+        }
+
+        let parsed = reserved_ids();
+
+        // Which names, before any count.
+        for (id, why) in [
+            (
+                "astra",
+                "the bare form of the `astra-` prefix, and the plainest impersonation there is",
+            ),
+            (
+                "moderation",
+                "the panel page a user is sent to when they report a plugin, and the exemplar \
+                 `check_refuses_what_the_registry_refuses` is written against",
+            ),
+            (
+                "test",
+                "one of the oldest reservations, and the id a scaffold reaches for by accident",
+            ),
+        ] {
+            assert!(
+                parsed.ids.contains(id),
+                "'{id}' is no longer in spec/reserved-ids.yaml, so `astra-plugin check` now tells \
+                 an author it is theirs to publish under — {why}. If astra-registry released it \
+                 on purpose, its `reserved_note` says so and this list changes with the mirror; \
+                 read that note before deciding which side is wrong."
+            );
+        }
+        for prefix in ["astra-", "official-", "verified-"] {
+            assert!(
+                parsed.prefixes.iter().any(|p| p == prefix),
+                "the reserved prefix '{prefix}' is not in spec/reserved-ids.yaml. A prefix \
+                 dropped here is an impersonation primitive handed back, and this side stops \
+                 warning about it a release before the registry stops refusing it."
+            );
+        }
+
+        // And then the counts, which are about the entries nothing above names.
+        assert!(
+            parsed.ids.len() >= 22,
+            "parsed {} reserved id(s); astra-registry listed 22 on 2026-09-19 and every name \
+             asserted above is still here, so either an older reservation was taken out — a \
+             security change, not a cleanup — or this file's FORMAT changed and the parser above \
+             is what broke.",
+            parsed.ids.len()
+        );
+        assert!(
+            parsed.prefixes.len() >= 3,
+            "parsed {} reserved prefix(es), and there were 3.",
+            parsed.prefixes.len()
+        );
+
+        // The pattern is hand-implemented, so the literal is what pins it.
+        assert_eq!(
+            parsed.id_pattern, ID_PATTERN_IMPLEMENTED,
+            "spec/reserved-ids.yaml declares a charset this module does not implement. \
+             `id_charset_violation` is `{ID_PATTERN_IMPLEMENTED}` written out by hand; somebody \
+             has to read the new pattern and change the code, and copying the literal across is \
+             not that."
+        );
+        assert!(
+            parsed.refuse_double_hyphen,
+            "the double-hyphen row is gone from spec/reserved-ids.yaml, so `a--b` now passes \
+             `check` and is refused at ingest."
+        );
+    }
+
+    /// The pattern, at its edges, without a manifest in the way.
+    #[test]
+    fn the_registry_charset_is_the_pattern_the_spec_declares() {
+        for ok in ["ab", "a1", "dice-roller", &"a".repeat(64)] {
+            assert!(
+                id_charset_violation(ok).is_none(),
+                "'{ok}' is a listable id and was refused: {:?}",
+                id_charset_violation(ok)
+            );
+        }
+        for (bad, expect) in [
+            ("p", "shortest listable id is two"),
+            (&"a".repeat(65), "the cap is 64"),
+            ("Bad", "only lowercase"),
+            ("-lead", "starts with a hyphen"),
+            ("trail-", "ends with a hyphen"),
+            ("a--b", "double hyphen"),
+        ] {
+            let why = id_charset_violation(bad)
+                .unwrap_or_else(|| panic!("'{bad}' is not listable and was accepted"));
+            assert!(why.contains(expect), "'{bad}': {why}");
+        }
+    }
+
+    fn scratch(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "astra-reserved-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A plugin directory whose only unusual feature is its id.
+    ///
+    /// The control below is what makes every assertion in these tests legible:
+    /// `kitchen-sink` passes `check --strict` with no locales, no workflow and
+    /// no lock, so a failure under another id is about the NAME and not about
+    /// the tree. astra-registry's selftest builds its reserved-id fixtures the
+    /// same way, for the same reason.
+    fn plugin_dir(tag: &str, id: &str) -> std::path::PathBuf {
+        let dir = scratch(tag);
+        std::fs::write(
+            dir.join("plugin.toml"),
+            KITCHEN_SINK.replace("kitchen-sink", id),
+        )
+        .unwrap();
+        dir
+    }
+
+    fn check_verdict(dir: &Path, strict: bool, gate: Gate) -> Verdict {
+        run_full(CheckOptions {
+            path: &dir.to_string_lossy(),
+            strict,
+            fix: false,
+            resolve_pin: false,
+            gate,
+        })
+        .expect("the check ran")
+    }
+
+    /// `check` is the preflight for the tag, so it fails on what ingest fails
+    /// on — while a rename is still free.
+    #[test]
+    fn check_refuses_what_the_registry_refuses() {
+        let control = plugin_dir("control", "dice-roller");
+        assert_eq!(
+            check_verdict(&control, true, Gate::Check),
+            Verdict::Pass,
+            "the fixture is refused under a name nobody reserved, so nothing below is about the \
+             id at all"
+        );
+
+        // `test` and `moderation` are reserved; `p` is one character and the
+        // 65th is one past the cap. `search` was this test's exemplar until
+        // 2026-09-19, when astra-registry released it along with seven other
+        // ordinary words — written against `search` this test would have gone
+        // red on the day the mirror first held the real list, which is the
+        // mirror working and reads as the mirror broken.
+        for id in ["test", "moderation", "p", &"a".repeat(65)] {
+            let dir = plugin_dir("refused", id);
+            assert_eq!(
+                check_verdict(&dir, false, Gate::Check),
+                Verdict::Fail,
+                "`astra-plugin check` accepted '{id}', which the registry refuses at ingest — \
+                 after the author's tag is pushed"
+            );
+        }
+
+        // The prefix, the other way. Not fatal, `--strict` included: this side
+        // does not mirror the first-party allowlist, so it cannot know, and a
+        // "cannot know" promoted to an error fails every first-party release.
+        let prefixed = plugin_dir("prefixed", "astra-foo");
+        assert_eq!(
+            check_verdict(&prefixed, true, Gate::Check),
+            Verdict::Pass,
+            "a reserved PREFIX became strict-fatal. Whether `astra-foo` may be listed depends on \
+             astra-registry's first_party_repos / first_party_owners, which spec/reserved-ids.yaml \
+             deliberately does not copy — so the honest answer here is a warning, and it stays a \
+             warning under --strict."
+        );
+        let mut report = Report::default();
+        let m = parse_manifest(&KITCHEN_SINK.replace("kitchen-sink", "astra-foo"), &mut report)
+            .expect("the manifest parses");
+        check_registry_ids(&m, &mut report);
+        let f = report
+            .registry
+            .iter()
+            .find(|f| f.code == "E_ID_RESERVED_PREFIX")
+            .expect("no E_ID_RESERVED_PREFIX finding for 'astra-foo'");
+        assert!(!f.refusal, "the prefix finding is a refusal: {}", f.message);
+    }
+
+    /// `dev` runs the author's code. It is not the catalogue's gate.
+    #[test]
+    fn dev_runs_a_plugin_whose_id_the_registry_refuses() {
+        let dir = plugin_dir("dev", "moderation");
+        assert_eq!(
+            check_verdict(&dir, true, Gate::Check),
+            Verdict::Fail,
+            "the control for this test: `check` must refuse this id, or Gate::Dev passing below \
+             proves nothing"
+        );
+        assert_eq!(
+            check_verdict(&dir, true, Gate::Dev),
+            Verdict::Pass,
+            "`astra-plugin dev` refused to start a plugin because a catalogue this author may \
+             never submit to would not list its id. Plugins are not sandboxed and this would be \
+             the first place in the project where the registry decides what a user may run on \
+             their own machine — Gate::Dev makes every registry finding a note."
+        );
+    }
+
+    /// `build` packs a bundle. A bundle is not a listing.
+    #[test]
+    fn build_packs_a_plugin_whose_id_the_registry_refuses() {
+        let dir = plugin_dir("build", "moderation");
+        let refusals = errors_only(&dir).expect("errors_only ran");
+        assert!(
+            refusals.is_empty(),
+            "`astra-plugin build` refused to pack an id the registry would not list: {refusals:?}. \
+             A bundle is sideloaded, handed to a colleague and installed inside companies that \
+             have never heard of the catalogue."
+        );
     }
 }
