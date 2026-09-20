@@ -170,7 +170,14 @@ fn dry_run(dir: &Path, manifest: &PluginManifest, tag: &str) -> Result<()> {
     hprintln!("Dry run: {id} {version}, expected release tag {tag}\n");
 
     hprintln!("── checked here ─────────────────────────────────────────────");
-    crate::commands::validate::run_with(&dir.to_string_lossy(), true, false)?;
+    // `Gate::Check`: this IS the preflight for a listing request, so a reserved
+    // or unlistable id stops it here rather than at ingest.
+    crate::commands::validate::run_with(
+        &dir.to_string_lossy(),
+        true,
+        false,
+        crate::commands::validate::Gate::Check,
+    )?;
 
     let bundles = find_bundles(dir, id, version);
     if bundles.is_empty() {

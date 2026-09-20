@@ -609,6 +609,9 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             strict,
             fix,
             resolve_pin,
+            // The command an author runs before they publish, so it is the one
+            // that answers for the registry's rules while a rename is free.
+            gate: commands::validate::Gate::Check,
         }),
         Commands::InitCi {
             path,
