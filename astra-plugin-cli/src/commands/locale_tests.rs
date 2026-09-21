@@ -1512,3 +1512,157 @@ fn a_block_identical_to_the_english_card_costs_nothing() {
     );
     let _ = fs::remove_dir_all(&dir);
 }
+
+// ── C19: the lock digest, against a table neither implementation wrote ───────
+
+/// The fewest vectors this reader may find before it concludes that IT broke
+/// rather than that the table shrank.
+///
+/// Written above the reader, as a floor rather than today's count, so adding a
+/// vector is free and reading none is not.
+const MIN_DIGEST_VECTORS: usize = 20;
+
+/// **C19, and the half of it nothing used to check.**
+///
+/// [`digest`] writes the values in a bundle's `locales.lock.json`;
+/// `englishDigest` in `astra-registry/bot/lib/locales.mjs` reads them. One
+/// hash, one input, two languages, two repositories — and until
+/// `testdata/locales/digest-vectors.json` existed, **nothing had ever compared
+/// the two**. They were run against the same English once and produced the same
+/// values, which is agreement by luck: no comparison existed, so none could
+/// have noticed the day it stopped holding.
+///
+/// What a disagreement costs is quiet and asymmetric. Either every translation
+/// looks stale to the registry and every card silently falls back to English
+/// while `astra-plugin check` reports the lock fresh, or a genuinely stale
+/// translation is published as current. From an author's side both read as
+/// nothing happening, which is why this is a test and not a comment.
+///
+/// **The table was written by neither side.** Every `digest` in it is what
+/// coreutils `sha256sum` returns for the vector's exact UTF-8 bytes, and
+/// `testdata/locales/digest-handcheck.sh` re-derives all of them that way. Two
+/// programs that share a mistake can agree with each other; they cannot agree
+/// with coreutils. The registry's reader is held to the same file, so the two
+/// meet on a fact rather than on each other.
+///
+/// The shared rule corpus does not reach this and cannot be made to. Staleness
+/// is a NOTE on this side and a WARNING on the registry's, and both readers of
+/// that corpus compare ERROR id sets — so a fixture whose lock is one hash
+/// behind proves both sides stayed quiet, never that both computed the same
+/// number. `pass/plural-families` ships digests that deliberately do not match,
+/// which is the clearest statement available that the corpus is not the
+/// instrument for this coupling.
+#[test]
+fn the_lock_digest_agrees_with_a_table_neither_implementation_wrote() {
+    let file = corpus().join("digest-vectors.json");
+    let text = fs::read_to_string(&file).unwrap_or_else(|e| {
+        panic!(
+            "cannot read {}: {e}. That file is the only thing comparing this crate's `digest` \
+             with astra-registry's `englishDigest` (coupling C19, gap 9). If it is not there, \
+             THIS SCAN is what broke — an absent table reads exactly like a passing one.",
+            file.display()
+        )
+    });
+    let doc: Value = serde_json::from_str(&text)
+        .unwrap_or_else(|e| panic!("{} is not JSON: {e}", file.display()));
+    let vectors = doc["vectors"].as_array().unwrap_or_else(|| {
+        panic!(
+            "{} has no `vectors` array. The reader looks for one object per vector with `name`, \
+             `english` and `digest`.",
+            file.display()
+        )
+    });
+
+    // The floor, BEFORE any comparison, and the two failures it separates need
+    // opposite fixes: a shorter table is somebody deleting a vector, and an
+    // empty one is this reader pointed at the wrong file.
+    assert!(
+        vectors.len() >= MIN_DIGEST_VECTORS,
+        "found {} vector(s) in {} (floor: {MIN_DIGEST_VECTORS}).\n\
+         If that file still holds one object per vector, VECTORS are what shrank.\n\
+         If it does not, this SCAN is what broke, and a reader that enumerates nothing passes \
+         quietly for ever while reading as coverage.",
+        vectors.len(),
+        file.display()
+    );
+
+    // Every mismatch, not the first: a normalisation added to `digest` breaks
+    // one class of vector and leaves the rest alone, and which class it is
+    // names the change. A panic on the first would hide that.
+    let mut wrong: Vec<String> = Vec::new();
+    for v in vectors {
+        let name = v["name"].as_str().expect("vector has no name");
+        let english = v["english"].as_str().expect("vector has no english");
+        let want = v["digest"].as_str().expect("vector has no digest");
+        let got = digest(english);
+        if got != want {
+            wrong.push(format!(
+                "  {name}: sha256sum says {want}, `digest` says {got}\n    it catches: {}",
+                v["catches"].as_str().unwrap_or("(nothing written down)")
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "`digest` disagrees with coreutils on {} of {} vector(s):\n{}\n\n\
+         The rule is the first 12 hex of sha256 over the EXACT English UTF-8 bytes, with no \
+         normalisation of either side. A digest this crate computes differently from \
+         astra-registry's `englishDigest` makes every translation look stale to the registry — \
+         every card silently falling back to English — while `astra-plugin check` reports the \
+         lock fresh. Re-derive with testdata/locales/digest-handcheck.sh before believing the \
+         table is wrong.",
+        wrong.len(),
+        vectors.len(),
+        wrong.join("\n")
+    );
+
+    // The width, said separately. A `take(6)` that becomes `take(8)` is one of
+    // the two changes this gap was recorded for, and it would otherwise arrive
+    // as thirty-two identical-looking mismatches with no sentence naming it.
+    for v in vectors {
+        let name = v["name"].as_str().unwrap_or("?");
+        let got = digest(v["english"].as_str().unwrap_or(""));
+        assert!(
+            got.len() == 12
+                && got
+                    .chars()
+                    .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
+            "`digest` returned {got:?} for {name}: {} character(s), and the lock's single rule is \
+             12 LOWER-CASE hex. A width or case change here is silent on this side and turns \
+             every recorded entry stale on the registry's.",
+            got.len()
+        );
+    }
+
+    // The table's own halves. Five pairs, each one normalisation somebody could
+    // add to either implementation; if a pair ever collides, the vector that
+    // was supposed to catch that normalisation has quietly stopped being able
+    // to, and every per-vector comparison above still passes.
+    let by: BTreeMap<&str, &str> = vectors
+        .iter()
+        .map(|v| {
+            (
+                v["name"].as_str().unwrap_or_default(),
+                v["english"].as_str().unwrap_or_default(),
+            )
+        })
+        .collect();
+    for (a, b) in [
+        ("lf", "crlf"),
+        ("case-upper", "case-lower"),
+        ("nfc-e-acute", "nfd-e-acute"),
+        ("nfc-short-i", "nfd-short-i"),
+        ("empty", "single-space"),
+    ] {
+        let (ea, eb) = (
+            by.get(a).unwrap_or_else(|| panic!("vector {a} is gone")),
+            by.get(b).unwrap_or_else(|| panic!("vector {b} is gone")),
+        );
+        assert_ne!(
+            digest(ea),
+            digest(eb),
+            "{a} and {b} hash the same, so the normalisation that pair exists to catch is \
+             already in `digest` — or one of the two vectors was edited into the other."
+        );
+    }
+}
