@@ -1399,9 +1399,9 @@ label = "Sink"
     /// `listing-limits.yaml` and `conformance.json` are vendored, and the same
     /// test.
     ///
-    /// **Then the names, and only then the counts.** A name deleted from one
-    /// file is caught by the byte comparison; a name deleted from BOTH is
-    /// byte-equal and clears any floor by one. With the floor asserted first,
+    /// **Then the names, and no count at all.** A name deleted from one file
+    /// is caught by the byte comparison; a name deleted from BOTH is
+    /// byte-equal and clears any floor by one. With a floor asserted first,
     /// dropping `moderation` reports *"lists 21 and listed 22"* — true, and it
     /// never says the word that a stranger may now list under, so the reader
     /// goes counting instead of reading. astra-registry's
@@ -1416,6 +1416,27 @@ label = "Sink"
     /// this crate's own behaviour rests on. Everything else is held by C27
     /// against the registry itself, which is the only check that can tell a
     /// deletion from a deliberate release.
+    ///
+    /// **There is no `ids.len() >= N` here, and putting one back is the bug
+    /// this test shipped with.** It asserted `>= 22`, which was the exact
+    /// number of names the registry reserved on the day it was written. A
+    /// floor set to today's census is not a floor; it is the release history,
+    /// copied into a third file, and it fails on the one act it cannot tell
+    /// apart from damage: a NARROWING release, the kind ID-66 performed on
+    /// 2026-09-19 when it handed `search` and `sitemap` back to authors. On
+    /// the day the next such release was mirrored here, `>= 22` would have
+    /// gone red saying *"an older reservation was taken out — a security
+    /// change, not a cleanup"* about a decision somebody took on purpose,
+    /// while the two legs that compare against the registry — the only ones
+    /// that can tell the difference — both said pass. Watched doing exactly
+    /// that, against a registry clone with one name released.
+    ///
+    /// The job a floor really does — *a scan that found nothing must not read
+    /// as green* — is done above and better: an empty or truncated parse loses
+    /// `astra` before it loses anything else, and the assertion that catches
+    /// it says a name instead of a number. C27's own floor stays a count
+    /// because C27 knows no names; it is set far below the census for the same
+    /// reason this one is gone.
     #[test]
     fn the_reserved_ids_are_the_ones_the_spec_declares() {
         let spec_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/reserved-ids.yaml");
@@ -1476,7 +1497,14 @@ label = "Sink"
                 "'{id}' is no longer in spec/reserved-ids.yaml, so `astra-plugin check` now tells \
                  an author it is theirs to publish under — {why}. If astra-registry released it \
                  on purpose, its `reserved_note` says so and this list changes with the mirror; \
-                 read that note before deciding which side is wrong."
+                 read that note before deciding which side is wrong. \
+                 \n\nThe other hypothesis is that nothing was released and this file's FORMAT \
+                 changed under `reserved_ids()`, which is why the size of the parse is printed \
+                 rather than compared: {} id(s) and {} prefix(es) came back. A handful when the \
+                 file still lists dozens is the parser, not the policy — and zero is the parser \
+                 every time.",
+                parsed.ids.len(),
+                parsed.prefixes.len(),
             );
         }
         for prefix in ["astra-", "official-", "verified-"] {
@@ -1488,20 +1516,15 @@ label = "Sink"
             );
         }
 
-        // And then the counts, which are about the entries nothing above names.
-        assert!(
-            parsed.ids.len() >= 22,
-            "parsed {} reserved id(s); astra-registry listed 22 on 2026-09-19 and every name \
-             asserted above is still here, so either an older reservation was taken out — a \
-             security change, not a cleanup — or this file's FORMAT changed and the parser above \
-             is what broke.",
-            parsed.ids.len()
-        );
-        assert!(
-            parsed.prefixes.len() >= 3,
-            "parsed {} reserved prefix(es), and there were 3.",
-            parsed.prefixes.len()
-        );
+        // No count follows, and the two that used to be here are the reason
+        // the doc comment above is as long as it is. `ids.len() >= 22` and
+        // `prefixes.len() >= 3` were both the exact counts of the day, so the
+        // first went red on a narrowing release and the second could not go
+        // red at all — three named prefixes present already means three
+        // prefixes. A floor that duplicates the policy above it checks
+        // nothing; a floor that duplicates the registry's release history
+        // checks the wrong thing loudly. What the entries nothing above names
+        // are held by is C27, against astra-registry itself.
 
         // The pattern is hand-implemented, so the literal is what pins it.
         assert_eq!(

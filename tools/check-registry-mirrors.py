@@ -94,7 +94,10 @@ C27 — `spec/reserved-ids.yaml` is astra-registry's reserved-id policy, still.
         `the_reserved_ids_are_the_ones_the_spec_declares`, in the CLI's own
         suite, and against the registry below; a third enumeration here would
         be a third place a released name has to be remembered, which is how a
-        list comes to have one stale copy.
+        list comes to have one stale copy. Nor is HOW MANY: this leg's floors
+        say only that the lists are not empty, because a floor set to the
+        number of names reserved today is that same third copy wearing
+        arithmetic, and it goes red on the day the registry releases one.
 
       * PINNED. The header names `astra-registry@<sha>`. With a checkout, the
         copy has to be what that commit really held — the leg that says the
@@ -968,20 +971,40 @@ def rule_C26(fails: Fails) -> None:
 RESERVED_SPEC = ROOT / "spec" / "reserved-ids.yaml"
 RESERVED_VENDORED = ROOT / "astra-plugin-cli" / "src" / "reserved-ids.yaml"
 
-#: Floors on the mirrored lists, at the real counts on 2026-09-19 — 22 ids and
-#: 3 prefixes, after ID-66 was narrowed from sixteen panel names to eight the
-#: same day it was written. A floor and not a target: the registry reserving a
-#: twenty-third name passes, and shrinkage is the deliberate act that has to be
-#: argued for somewhere a reader can find it.
+#: Floors on the MACHINERY, not on the content — the same distinction
+#: `FLOOR_EXEMPT_MATCHES` above is written around, and here for a sharper
+#: reason.
 #:
-#: These are what notice a name deleted from BOTH copies, which the byte
-#: comparison between them cannot see. They are counts, so they cannot say
-#: WHICH name — `the_reserved_ids_are_the_ones_the_spec_declares` names three
-#: of them and the registry comparison below names any of them, and that split
-#: is on purpose: a count is a floor, a name is a policy, and a policy written
-#: down twice is a policy with one stale copy.
-MIN_RESERVED_IDS = 22
-MIN_RESERVED_PREFIXES = 3
+#: These were 22 and 3, the real counts on 2026-09-19, after ID-66 narrowed
+#: the panel names from sixteen to eight the same day. That is the one thing a
+#: floor must never be. `reserved` shrinks whenever the registry RELEASES a
+#: name back to authors — ID-66 did it to `search` and `sitemap`, and it is an
+#: ordinary, argued, deliberate act — so a floor standing at the census goes
+#: red the first time this mirror is updated CORRECTLY, naming a name somebody
+#: released on purpose, while the pinned and head legs below, the only ones
+#: that can tell a release from a deletion, both pass. Watched doing exactly
+#: that against a registry clone with one name released. `validate.rs` carried
+#: the same `>= 22` and no longer does: the three ids it names are its floor.
+#:
+#: What is left is the job a floor actually has, and C27 cannot hand it to the
+#: names the way the cargo test can. This rule knows no names on purpose —
+#: `the_reserved_ids_are_the_ones_the_spec_declares` names three ids and three
+#: prefixes, the registry comparison below names any of them, and a third
+#: enumeration here would be a third place a released name has to be
+#: remembered. So a count is all that stands between "the file parsed" and
+#: "the file parsed to nothing": `isinstance(ids, list)` is just as true of
+#: `[]`, and in the `couplings` job, which has no registry checkout, the two
+#: comparing legs do not run at all. An empty or truncated parse must not
+#: reach `NOT VERIFIED` reading like a scan that looked and was happy.
+#:
+#: Hence: far below any census, and low enough that no narrowing the registry
+#: could plausibly argue for reaches them. Three ids is what survives a
+#: release of everything but the structural names. One prefix is the whole
+#: floor the prefixes need, because all three of them are asserted BY NAME in
+#: the CLI's own suite — a prefix dropped from both copies is caught there, by
+#: name, which is the answer a reader can act on, and not by arithmetic here.
+MIN_RESERVED_IDS = 3
+MIN_RESERVED_PREFIXES = 1
 
 #: `# mirrors: astra-registry/<path> <key>`, the convention
 #: `spec/listing-limits.yaml` already uses. Read rather than hard-coded so that
@@ -1228,17 +1251,22 @@ def rule_C27(fails: Fails) -> None:
     fails.check(
         len(ids) >= MIN_RESERVED_IDS,
         f"C27 floor: {len(ids)} reserved id(s) (>= {MIN_RESERVED_IDS})",
-        "astra-registry listed 22 on 2026-09-19. Fewer here means a name was dropped from BOTH\n"
-        "copies in this repository — the byte comparison above cannot see that — or that an\n"
-        "older reservation came out upstream, which is a security change and not a cleanup.\n"
-        "This is a count and cannot tell you WHICH: the registry comparison below can, and so\n"
-        "can `cargo test -p astra-plugin-cli`.",
+        "This floor is not a count of the policy and must never be set to one — see the comment\n"
+        "on MIN_RESERVED_IDS. It is here so that a `reserved:` block that parsed to nothing, or\n"
+        "to the first two lines of itself, cannot reach the NOT VERIFIED notice below reading\n"
+        "like a scan that looked and was happy. Under it, the question is not WHICH name went:\n"
+        "it is whether this file still says what its FORMAT paragraph promises and whether\n"
+        "`read_reserved_spec` still reads it. If both are fine and the list really is this\n"
+        "short, the registry has released nearly everything and that is a conversation, not a\n"
+        "red build. WHICH name is a question for the two legs below and for\n"
+        "`cargo test -p astra-plugin-cli`, which name three of them.",
     )
     fails.check(
         len(prefixes) >= MIN_RESERVED_PREFIXES,
         f"C27 floor: {len(prefixes)} reserved prefix(es) (>= {MIN_RESERVED_PREFIXES})",
-        "astra-, official-, verified-. A prefix dropped here is an impersonation primitive"
-        "\nhanded back a release early, before the registry has stopped refusing it.",
+        "Empty. `reserved_prefixes:` is the block that parsed to nothing, so nothing on this\n"
+        "side warns an author about `astra-`, `official-` or `verified-` any more. Which of the\n"
+        "three it is, if it is not all of them, is what the CLI's own suite says by name.",
     )
     unsourced = sorted(n for n in values if n not in sources)
     fails.check(
