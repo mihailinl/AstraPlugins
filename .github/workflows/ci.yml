@@ -2612,7 +2612,8 @@ jobs:
       # trust and end the transcript with NOT VERIFIED rather than with the
       # word "pass" alone. What runs for real is the half that needs no
       # checkout — the file parses, every value names the upstream it mirrors,
-      # the counts have not shrunk, and the copy the CLI actually ships
+      # the lists parsed to something rather than to nothing, and the copy the
+      # CLI actually ships
       # (`astra-plugin-cli/src/reserved-ids.yaml`, vendored because
       # `include_str!` outside the package directory is what `cargo package`
       # refuses) is byte-identical to the spec. `cargo test -p
