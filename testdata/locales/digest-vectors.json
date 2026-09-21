@@ -1,0 +1,235 @@
+{
+  "schema": "astra.locale.digest-vectors/1",
+  "why": [
+    "One hash, one input, two implementations, two repositories \u2014 and until",
+    "this file nothing had ever compared them. `astra-plugin locale sync`",
+    "WRITES the digests in `locales.lock.json` (`digest` in",
+    "astra-plugin-cli/src/commands/locale.rs); `bot/lib/locales.mjs` in",
+    "astra-registry READS them (`englishDigest`). They were run against the",
+    "same English once and produced the same values, which is agreement by",
+    "luck: nothing compared them, so nothing could have noticed the day they",
+    "stopped agreeing.",
+    "",
+    "What that costs is quiet and asymmetric. If the two diverge, either",
+    "every translation looks stale to the registry and every card silently",
+    "falls back to English while `astra-plugin check` reports the lock",
+    "fresh, or a genuinely stale translation is published as current. Both",
+    "read, from the author's side, as nothing happening.",
+    "",
+    "So the two are held to a table instead of to each other, and the table",
+    "was not written by either of them: every `digest` below is what",
+    "coreutils `sha256sum` returns for the vector's exact UTF-8 bytes.",
+    "`testdata/locales/digest-handcheck.sh` re-derives all of them that way",
+    "on every CI run. Two programs that share a mistake can agree with each",
+    "other; they cannot agree with coreutils.",
+    "",
+    "Read by astra-plugin-cli/src/commands/locale_tests.rs and by",
+    "checkLocaleDigestVectors in astra-registry/tools/validate.mjs. Coupling",
+    "C19, gap 9.",
+    "",
+    "Every reader asserts a FLOOR on what it loaded before it asserts",
+    "anything else: an empty vector file must fail as an empty vector file,",
+    "not pass as a clean run."
+  ],
+  "how_to_read_this": {
+    "rule": "digest = the first 12 hex of sha256 over the EXACT English UTF-8 bytes. No normalisation, of either the English or the translation. Lower-case hex.",
+    "vectors": "name -> { english: the exact string, digest: the expected 12 hex, catches: the change this vector exists to turn red }.",
+    "escaping": "Every non-ASCII character is written as a \\uXXXX escape and this file is 7-bit ASCII on purpose. A vector that can be silently renormalised by an editor, a transfer or a merge tool is a vector that stops testing what it says it tests \u2014 and Unicode normalisation is one of the two failures this table is for.",
+    "pairs": "Five pairs must NOT collide: lf/crlf, case-upper/case-lower, nfc-e-acute/nfd-e-acute, nfc-short-i/nfd-short-i, empty/single-space. Each pair is one normalisation somebody could add to one side. A reader is free to assert this; the generator does.",
+    "adding_one": "Add the vector, write `catches`, re-derive with digest-handcheck.sh \u2014 and then break the digest function on purpose and watch the new vector go red. A vector that has never failed is a vector that might be asserting nothing."
+  },
+  "vectors": [
+    {
+      "name": "corpus-listing-name",
+      "english": "Fixture",
+      "catches": "the value `pass/lock-up-to-date` records as 2ab25f10948b: the vector table and the committed lock fixtures have to be the same hash or one of them is lying",
+      "digest": "2ab25f10948b"
+    },
+    {
+      "name": "corpus-listing-description",
+      "english": "A fixture whose lock is entirely up to date",
+      "catches": "the same, for the other reserved key \u2014 the only two the registry reads out of a lock",
+      "digest": "9cc6ca9e98e0"
+    },
+    {
+      "name": "corpus-plural-one",
+      "english": "Handled {n} item",
+      "catches": "a CLDR `one` row, recorded as 4c4da057c076",
+      "digest": "4c4da057c076"
+    },
+    {
+      "name": "corpus-plural-other",
+      "english": "Handled {n} items",
+      "catches": "the `other` row a whole plural FAMILY is anchored on, recorded as cebf7dcf32e8",
+      "digest": "cebf7dcf32e8"
+    },
+    {
+      "name": "empty",
+      "english": "",
+      "catches": "a reader that treats empty English as a miss and records nothing, or returns \"\" rather than a digest. Python alone once treated \"\" as a miss in the I18n SDKs",
+      "digest": "e3b0c44298fc"
+    },
+    {
+      "name": "single-space",
+      "english": " ",
+      "catches": "a trim that turns a one-space string into the empty one \u2014 this must not equal `empty`",
+      "digest": "36a9e7f1c95b"
+    },
+    {
+      "name": "leading-space",
+      "english": "  Chess",
+      "catches": "String.trimStart / str::trim_start",
+      "digest": "03ff1c287a32"
+    },
+    {
+      "name": "trailing-space",
+      "english": "Chess  ",
+      "catches": "String.trimEnd / str::trim_end",
+      "digest": "58f8afa76d85"
+    },
+    {
+      "name": "inner-double-space",
+      "english": "A  fixture  corpus",
+      "catches": "whitespace collapsing",
+      "digest": "ba308989111f"
+    },
+    {
+      "name": "tab",
+      "english": "Col\tumn",
+      "catches": "a tab normalised to a space",
+      "digest": "c4eb474efead"
+    },
+    {
+      "name": "lf",
+      "english": "one\ntwo",
+      "catches": "the LF half of the pair below",
+      "digest": "21066d108d53"
+    },
+    {
+      "name": "crlf",
+      "english": "one\r\ntwo",
+      "catches": "a newline normalisation: this MUST NOT equal `lf`. Git's own autocrlf is the reason a reader may be handed either",
+      "digest": "29a776bb35ef"
+    },
+    {
+      "name": "trailing-lf",
+      "english": "Chess\n",
+      "catches": "a reader that strips a trailing newline, which is what reading a file with `read_to_string().trim()` does",
+      "digest": "d76c48b34bff"
+    },
+    {
+      "name": "non-breaking-space",
+      "english": "Chess\u00a0Plugin",
+      "catches": "a whitespace normalisation that reaches U+00A0 \u2014 a plain trim does not, a regex \\s in JavaScript does",
+      "digest": "761ae61e878e"
+    },
+    {
+      "name": "soft-hyphen",
+      "english": "Chess\u00adPlugin",
+      "catches": "an invisible-character strip. `unsafeDisplayText` exists in the registry and a digest that ran after it would be a different number",
+      "digest": "8b770f84568c"
+    },
+    {
+      "name": "case-upper",
+      "english": "Chess",
+      "catches": "the pair below",
+      "digest": "c1aade825397"
+    },
+    {
+      "name": "case-lower",
+      "english": "chess",
+      "catches": "a lowercasing: this MUST NOT equal `case-upper`",
+      "digest": "ac739dccd121"
+    },
+    {
+      "name": "nfc-e-acute",
+      "english": "caf\u00e9",
+      "catches": "the NFC half of the pair below",
+      "digest": "850f7dc43910"
+    },
+    {
+      "name": "nfd-e-acute",
+      "english": "cafe\u0301",
+      "catches": "NFC/NFD: this MUST NOT equal `nfc-e-acute`. JavaScript has String.normalize() and one call added anywhere is this gap's whole failure",
+      "digest": "81ef060bcd98"
+    },
+    {
+      "name": "nfc-short-i",
+      "english": "\u041a\u0440\u0430\u0442\u043a\u0438\u0439",
+      "catches": "Russian `Kratkiy` with a composed U+0439 \u2014 the NFC half of the pair below",
+      "digest": "d5f1c098dec2"
+    },
+    {
+      "name": "nfd-short-i",
+      "english": "\u041a\u0440\u0430\u0442\u043a\u0438\u0438\u0306",
+      "catches": "the same word with U+0438 + combining breve. MUST NOT equal `nfc-short-i`. Russian is the language this system's plural families are written for, so this is the decomposition an author actually hits",
+      "digest": "3c9721e00641"
+    },
+    {
+      "name": "cyrillic-card",
+      "english": "\u041d\u0430\u0431\u043e\u0440 \u0434\u043b\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u043f\u0440\u0430\u0432\u0438\u043b \u043b\u043e\u043a\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u0438",
+      "catches": "multi-byte UTF-8 that is not Latin",
+      "digest": "b533adb09c47"
+    },
+    {
+      "name": "japanese-card",
+      "english": "\u30ed\u30fc\u30ab\u30e9\u30a4\u30ba\u898f\u5247\u306e\u691c\u8a3c\u7528\u30d5\u30a3\u30af\u30b9\u30c1\u30e3",
+      "catches": "three-byte UTF-8 throughout",
+      "digest": "4a34609b8ea5"
+    },
+    {
+      "name": "arabic-rtl",
+      "english": "\u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0634\u0637\u0631\u0646\u062c",
+      "catches": "right-to-left text, which a bidi-aware sanitiser would rewrite",
+      "digest": "20601e1534c6"
+    },
+    {
+      "name": "astral-emoji",
+      "english": "Done \ud83d\udd25",
+      "catches": "a surrogate pair. A JavaScript implementation that hashed UTF-16 code units, or sliced by .length before encoding, gets a different answer here and nowhere in the ASCII vectors",
+      "digest": "c08268b037f3"
+    },
+    {
+      "name": "bom-prefixed",
+      "english": "\ufeffChess",
+      "catches": "a BOM strip. A locale file that arrives with one is a real thing; a digest computed after stripping it is a second rule nobody wrote down",
+      "digest": "c803aea14224"
+    },
+    {
+      "name": "nul-inside",
+      "english": "a\u0000b",
+      "catches": "a C-string truncation, and any FFI boundary that introduces one",
+      "digest": "59b271ae1bbc"
+    },
+    {
+      "name": "backslash-and-quote",
+      "english": "He said \"\\n\" and \\ stayed",
+      "catches": "a double-unescape when this file is read: a reader that decodes the JSON twice gets a literal newline here and a different digest",
+      "digest": "2a0b21424212"
+    },
+    {
+      "name": "brace-placeholders",
+      "english": "{0} and {0} and {1}",
+      "catches": "the substitution syntax the SDKs implement \u2014 a digest taken after interpolation rather than before",
+      "digest": "2e9140c40b74"
+    },
+    {
+      "name": "dollar-key",
+      "english": "$action.play.label",
+      "catches": "the `$key` form the daemon resolves. A digest taken after resolution is a digest of a different string",
+      "digest": "1dedeaed7200"
+    },
+    {
+      "name": "angle-and-amp",
+      "english": "<b>Chess</b> & co",
+      "catches": "an HTML-escaping pass between reading and hashing",
+      "digest": "463610657db7"
+    },
+    {
+      "name": "long-1024",
+      "english": "Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card text, repeated to outrun a buffer. Astra plugin card",
+      "catches": "a cap applied before the hash rather than after. 1024 characters is far over max_description_length, which is the point: the digest function has no cap and must not grow one",
+      "digest": "2cbb58436573"
+    }
+  ]
+}

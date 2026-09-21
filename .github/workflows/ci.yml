@@ -2503,6 +2503,62 @@ jobs:
           fi
           echo "ok    $found SDK test(s) read testdata/i18n/vectors.json"
 
+      # C19 — the lock digest, and the only thing that has ever compared its two
+      # implementations.
+      #
+      # `locales.lock.json` records, per translated key, the first 12 hex of
+      # sha256 over the English bytes that translation was made against.
+      # `astra-plugin locale sync` WRITES those digests (`digest` in
+      # astra-plugin-cli/src/commands/locale.rs); `bot/lib/locales.mjs` in
+      # astra-registry READS them (`englishDigest`). One hash, one input, two
+      # languages, two repositories — and nothing compared them. They were run
+      # against the same English once and produced the same values, which is
+      # agreement by luck: no comparison existed, so none could have noticed the
+      # day it stopped holding.
+      #
+      # The shared rule corpus cannot do this and could not be made to. Staleness
+      # is a NOTE here and a WARNING there, and both readers of that corpus
+      # compare ERROR id sets only — so a case whose lock is one hash behind
+      # proves both sides stayed quiet, never that both computed the same number.
+      #
+      # So the two are held to a TABLE, and this step is why the table means
+      # anything: every digest in testdata/locales/digest-vectors.json is
+      # re-derived here with coreutils `sha256sum`, not with the Rust `digest`
+      # and not with Node's `crypto`. Two programs that share a mistake can agree
+      # with each other; they cannot agree with coreutils. The same argument, in
+      # the same words, as testdata/bundles/handcheck.sh.
+      #
+      # The other two legs run elsewhere and must not be moved here.
+      # `the_lock_digest_agrees_with_a_table_neither_implementation_wrote` in
+      # astra-plugin-cli holds THIS crate to the table on every `cargo test`;
+      # `checkLocaleDigestVectors` in astra-registry/tools/validate.mjs holds the
+      # bot to it on every push and every PR over there, through the
+      # `testdata/locales` sparse-checkout build-index.yml already fetches. This
+      # step is the third leg: it holds the TABLE to something that is neither.
+      - name: C19 the locale lock digests re-derive with coreutils
+        run: bash testdata/locales/digest-handcheck.sh
+
+      # C19 — and the reader that holds this crate to the table is still there.
+      #
+      # The guard on the guard, exactly as C17's is: the table is inert unless
+      # something reads it, and a deleted or repointed test is a silently smaller
+      # check that looks identical to a passing one.
+      - name: C19 the CLI still reads the shared digest vectors
+        run: |
+          set -euo pipefail
+          r=astra-plugin-cli/src/commands/locale_tests.rs
+          if [ ! -f "$r" ]; then
+            echo "::error::$r is gone. It is the leg of C19 that holds this crate's" >&2
+            echo "\`digest\` to testdata/locales/digest-vectors.json." >&2
+            exit 1
+          fi
+          if ! grep -q 'digest-vectors.json' "$r"; then
+            echo "::error::$r no longer names digest-vectors.json, so this crate's digest" >&2
+            echo "is tested against itself rather than against astra-registry's englishDigest." >&2
+            exit 1
+          fi
+          echo "ok    $r reads testdata/locales/digest-vectors.json"
+
       # C14 — the documentation's locale directories are languages Astra can
       # actually be set to, and something knows they are there.
       #
