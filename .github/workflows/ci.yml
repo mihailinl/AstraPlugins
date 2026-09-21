@@ -2622,6 +2622,42 @@ jobs:
       - name: C27 the reserved-id mirror is astra-registry's policy
         run: python3 tools/check-registry-mirrors.py --rules C27
 
+      # C31 — the binding-line corpus is still astra-registry's corpus.
+      #
+      # `testdata/binding-line/vectors.json` is thirty-one files a stranger
+      # could commit to `.well-known/astra-plugin-owner`, each with the
+      # outcome ID-23 and ID-24 require. Three programs read that file — the
+      # registry bot, the plugins service, and `astra-plugin-cli`'s reader and
+      # writer — and until the corpus existed each side's suite could only
+      # prove it agreed with itself. A CLI that is laxer than the bot tells an
+      # author their tag is fine and the refusal arrives at ingest; a CLI that
+      # is stricter refuses a repository the author bound correctly.
+      #
+      # astra-registry owns it; this repository holds a copy, because a suite
+      # whose fixtures live in a repository CI never clones is a suite that
+      # skips quietly and passes for ever.
+      #
+      # WHAT RUNS HERE FOR REAL, with no checkout and no network: the copy is
+      # hashed and compared against the `SHA256SUMS` the registry WROTE and
+      # this copy carries byte-identically, and against the same digest
+      # written a second time in the README's provenance block beside the
+      # registry commit it was taken from — so no one of the three can be
+      # moved alone. Also here: the corpus still parses, and
+      # `tools/vendor-testdata.sh` has not grown a source or destination that
+      # would let the next vendor run `rm -f` this directory, which is a
+      # DELETION between two green runs rather than a mismatch anybody sees.
+      #
+      # WHAT DOES NOT: this job checks out one repository, so the two legs
+      # that compare against astra-registry itself — at the pinned commit, and
+      # at its head — print what they took on trust and end the run with NOT
+      # VERIFIED instead of the word "pass". That notice is printed on a run
+      # that is otherwise green, on purpose. From here a stale mirror and an
+      # edited one look identical, and saying so every time is cheaper than a
+      # verifier this job cannot host. Same choice as C27 above and C20 in
+      # `tools/check-locales.py`.
+      - name: C31 the binding-line corpus is astra-registry's corpus
+        run: python3 tools/check-registry-mirrors.py --rules C31
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

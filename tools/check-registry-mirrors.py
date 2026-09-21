@@ -117,12 +117,68 @@ C27 — `spec/reserved-ids.yaml` is astra-registry's reserved-id policy, still.
     answer — and the difference is deliberate: C24 asks about a public remote
     every job can reach, this one needs a working copy of another repository
     beside this one, which CI has never had.
+
+C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
+
+    Thirty-one files a stranger could commit to `.well-known/astra-plugin-owner`
+    with the outcome ID-23 and ID-24 require, so that the bot, the CLI and the
+    plugins service are measured against one fact instead of three separate
+    self-agreements. `astra-registry:tests/binding-line/vectors.json` is
+    canonical; this repository holds a copy, because the CLI's reader and writer
+    (`astra-plugin-cli/src/binding.rs`, plan task AP-8) are tested against it
+    and a suite whose fixtures live in a repository CI never clones is a suite
+    that silently skips and passes forever.
+
+    A copy of a corpus is the coupling this estate has already paid for several
+    times: two files in two repositories that are supposed to be the same bytes,
+    with nothing comparing them. What is different here is that the registry
+    ships `SHA256SUMS` beside the corpus, and that file is small enough to
+    travel — so the comparison exists even where the other repository does not.
+
+    Four legs.
+
+      * IN-REPO. `vectors.json` hashes to the digest in the vendored
+        `SHA256SUMS`, which is byte-identical to the registry's; the provenance
+        block in `README.md` names the same digest and a 40-hex registry commit;
+        and the file still parses to a corpus. **This is a real comparison
+        against a registry-authored artifact, and it needs no checkout and no
+        network** — which is why it is the leg that actually runs in the
+        `couplings` job. What it cannot see is whether `SHA256SUMS` is itself
+        the registry's.
+
+      * SWEEP. `tools/vendor-testdata.sh` copies `testdata/bundles` OUT to the
+        daemon and to the registry, and sweeps each destination with `rm -f`,
+        deleting everything the bundle corpus's own file list does not name.
+        This corpus travels the other way and is not in that list, so the day
+        it becomes one of that script's destinations is the day a vendor run
+        deletes it — quietly, between two green test runs, because nothing
+        would then read the file the CLI suite iterates. So the script's source
+        and destinations are re-read here rather than remembered. astra-registry
+        holds the mirror image of this guard: `bot/tests/binding.test.mjs`
+        asserts that `tests/vectors/` — which the sweep does own — holds no
+        subdirectory.
+
+      * PINNED. These bytes are what `astra-registry@<sha>` really held. The
+        leg that says the copy was taken rather than typed.
+
+      * HEAD. The same bytes against the registry as it stands now. Head red
+        with pinned green means upstream moved and this copy is stale; both red
+        means somebody edited this one. The repair is never symmetric: a case
+        added here proves nothing, and a case removed here only stops this
+        repository noticing a disagreement it still has.
+
+    The last two need a checkout and record themselves UNVERIFIED without one,
+    exactly as C27 does. That notice is printed on every GREEN run, in the
+    middle of a passing transcript, on purpose. A check that says "I did not
+    compare the other side" every time it passes is cheaper, and more honest,
+    than a verifier that cannot exist in the job where it would have to run.
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -1062,14 +1118,17 @@ def read_reserved_spec() -> tuple[dict[str, object], dict[str, str], str | None]
     return values, sources, pin
 
 
-def _registry_dir() -> Path | None:
+def _registry_dir(anchor: str = "policy/reserved-ids.json") -> Path | None:
     """A working copy of astra-registry, or None.
 
     Same two candidates as `tools/check-locales.py`'s, and anchored on a file
-    this rule actually reads: a directory that happens to be named
+    the CALLING rule actually reads: a directory that happens to be named
     astra-registry but holds no `policy/reserved-ids.json` is not a checkout
-    this rule can compare against, and saying so is better than reporting
-    every name as missing.
+    C27 can compare against, and saying so is better than reporting every name
+    as missing. C31 passes its own anchor for the same reason — a checkout
+    parked on a branch that predates `tests/binding-line/` cannot answer its
+    question either, and "no corpus there" is a sentence a reader can act on
+    where "every case differs" is not.
     """
     env = os.environ.get("ASTRA_REGISTRY_DIR")
     candidates = [env] if env is not None else ["../astra-registry"]
@@ -1079,7 +1138,7 @@ def _registry_dir() -> Path | None:
         p = Path(c)
         if not p.is_absolute():
             p = (ROOT / p).resolve()
-        if (p / "policy" / "reserved-ids.json").is_file():
+        if (p / anchor).is_file():
             return p
     return None
 
@@ -1305,7 +1364,327 @@ def rule_C27(fails: Fails) -> None:
     _compare_against(fails, registry, values, sources, None)
 
 
-RULES = {"C24": rule_C24, "C25": rule_C25, "C26": rule_C26, "C27": rule_C27}
+# ── C31 ──────────────────────────────────────────────────────────────────────
+
+BINDING_DIR = ROOT / "testdata" / "binding-line"
+BINDING_VECTORS = BINDING_DIR / "vectors.json"
+BINDING_SUMS = BINDING_DIR / "SHA256SUMS"
+BINDING_README = BINDING_DIR / "README.md"
+
+VENDOR_SCRIPT = ROOT / "tools" / "vendor-testdata.sh"
+
+#: `mirrors:  astra-registry@<40-hex>:<path>` in the corpus README's provenance
+#: block. The upstream PATH is read rather than hard-coded, the way C27 reads
+#: its `# mirrors:` comments, so that a corpus moving upstream moves this
+#: comparison with it instead of leaving it green against a file nothing reads.
+BINDING_PIN = re.compile(r"astra-registry@([0-9a-f]{40}):(\S+)")
+
+#: `sha256:   <64-hex>  <name>` in the same block, and the one line of
+#: `SHA256SUMS`. Two spellings of one fact, in two files, so that neither can be
+#: moved alone — a pin updated without its digest is a pin that says the copy
+#: came from somewhere it did not.
+BINDING_DIGEST = re.compile(r"^[ \t]*sha256:[ \t]+([0-9a-f]{64})[ \t]+(\S+)[ \t]*$", re.M)
+SUMS_LINE = re.compile(r"^([0-9a-f]{64})[ \t]+\*?(\S+)$")
+
+#: A floor on the MACHINERY, not on the corpus — the same distinction
+#: `MIN_RESERVED_IDS` is written around, and the reasoning transfers exactly.
+#:
+#: The census is 31 cases over 25 vector numbers, and it is written down twice
+#: already: in `vectors.json`'s own `floors` member, and by name in
+#: `astra-registry:bot/tests/binding.test.mjs`, which asserts it before it
+#: parses a case. A third copy here would be a third place a corpus that grows
+#: has to be remembered, and it would go red the first time this mirror is
+#: updated CORRECTLY.
+#:
+#: What is left is the job a floor actually has. The digest leg above already
+#: catches a truncated or edited file, so this one is not about the bytes: it is
+#: about THIS READER still reading them. `isinstance(cases, list)` is just as
+#: true of `[]`, and in the `couplings` job the two comparing legs do not run at
+#: all, so a parse that produced nothing must not reach the NOT VERIFIED notice
+#: looking like a scan that looked and was happy.
+MIN_BINDING_CASES = 3
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _sums_entries(text: str) -> dict[str, str]:
+    """`SHA256SUMS` as {name: digest}, in `sha256sum`'s own format."""
+    out: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = SUMS_LINE.match(line)
+        if m:
+            out[m.group(2)] = m.group(1)
+    return out
+
+
+def _registry_blob(registry: Path, rel: str, sha: str | None) -> bytes:
+    """One upstream file's BYTES, at `sha` or as the checkout stands.
+
+    Bytes and not text, unlike `_registry_text`: this is a fixture whose whole
+    value is that both sides hold the same octets, and a corpus compared after
+    a decode is a corpus that agrees about a BOM it may not agree about. Raises
+    `LookupError` with a sentence for the transcript, for the same reason.
+    """
+    if sha is None:
+        path = registry / rel
+        if not path.is_file():
+            raise LookupError(
+                f"{rel} is not in that checkout. It is a working copy of astra-registry, so "
+                f"either it is parked on a branch that predates the corpus, or the corpus moved "
+                f"and this side's provenance line still names the old path."
+            )
+        return path.read_bytes()
+    p = subprocess.run(
+        ["git", "-C", str(registry), "show", f"{sha}:{rel}"],
+        capture_output=True,
+    )
+    if p.returncode != 0:
+        raise LookupError(
+            f"`git show {sha[:12]}:{rel}` failed: "
+            f"{p.stderr.decode('utf-8', 'replace').strip() or p.returncode}\n"
+            f"That commit is what testdata/binding-line/README.md says this copy was taken from. "
+            f"A shallow clone will not have it (`git fetch --unshallow`); a SHA that is in no "
+            f"clone at all was never on a branch anybody can read, and the pin is fiction."
+        )
+    return p.stdout
+
+
+def _binding_compare(fails: Fails, registry: Path, rel: str, sha: str | None) -> None:
+    """One leg: the vendored corpus against the registry, at `sha` or at head."""
+    leg = f"pinned {sha[:12]}" if sha else "head"
+    sums_rel = rel.rsplit("/", 1)[0] + "/SHA256SUMS"
+    problems: list[str] = []
+    for ours_path, upstream_rel in ((BINDING_VECTORS, rel), (BINDING_SUMS, sums_rel)):
+        try:
+            theirs = _registry_blob(registry, upstream_rel, sha)
+        except LookupError as e:
+            problems.append(f"{upstream_rel}: {e}")
+            continue
+        ours = ours_path.read_bytes()
+        if ours != theirs:
+            problems.append(
+                f"{ours_path.relative_to(ROOT)} is {len(ours)} byte(s) hashing to "
+                f"{_sha256(ours)[:16]}…; astra-registry/{upstream_rel} is {len(theirs)} byte(s) "
+                f"hashing to {_sha256(theirs)[:16]}…"
+            )
+
+    fails.check(
+        not problems,
+        f"C31 testdata/binding-line is astra-registry's corpus, byte for byte ({leg})",
+        "\n".join(problems) + "\n"
+        "THE REGISTRY OWNS THIS CORPUS (plan B-T2.4). A case added here proves nothing and a\n"
+        "case removed here only stops this repository noticing a disagreement it still has, so\n"
+        "the repair is: change `tests/binding-line/generate.mjs` in astra-registry and run it,\n"
+        "then copy `vectors.json` AND `SHA256SUMS` into testdata/binding-line/ and move both\n"
+        "lines of README.md's provenance block.\n"
+        "\n"
+        "HEAD red with PINNED green is the ordinary case and means upstream moved: this copy is\n"
+        "stale, and nothing here was edited. Both red means this copy was edited. The corpus's\n"
+        "own README upstream is where the argument for each case lives, and it is deliberately\n"
+        "not duplicated here — read it there before deciding which side is wrong.",
+    )
+
+
+def rule_C31(fails: Fails) -> None:
+    # ── leg 0: the copy agrees with the digest that travelled with it ────────
+    missing = [
+        str(p.relative_to(ROOT))
+        for p in (BINDING_VECTORS, BINDING_SUMS, BINDING_README)
+        if not p.is_file()
+    ]
+    if not fails.check(
+        not missing,
+        "C31 the vendored binding-line corpus is present",
+        f"not there: {missing}\n"
+        "`astra-plugin-cli/src/binding.rs` (AP-8) is tested against this corpus. A suite whose\n"
+        "fixtures are missing is a suite that skips quietly and passes for ever, which is the\n"
+        "failure `tools/vendor-testdata.sh`'s header is written around. Take the files from\n"
+        "astra-registry:tests/binding-line/ — vectors.json and SHA256SUMS, unmodified.",
+    ):
+        return
+
+    sums_text = BINDING_SUMS.read_text(encoding="utf-8")
+    entries = _sums_entries(sums_text)
+    if not fails.check(
+        list(entries) == ["vectors.json"],
+        "C31 SHA256SUMS covers vectors.json and nothing else",
+        f"it names {sorted(entries) or 'nothing'}\n"
+        "Upstream's SHA256SUMS covers one file on purpose: the READMEs on the two sides differ,\n"
+        "because this one names the registry commit the copy was taken from, and a sums file\n"
+        "covering prose would make that provenance line impossible to write honestly. A sums\n"
+        "file that has grown or lost an entry is not the registry's file any more, and the two\n"
+        "legs below are what say which side changed.",
+    ):
+        return
+
+    vectors_bytes = BINDING_VECTORS.read_bytes()
+    actual = _sha256(vectors_bytes)
+    fails.check(
+        actual == entries["vectors.json"],
+        "C31 vectors.json hashes to the digest in SHA256SUMS",
+        f"SHA256SUMS says {entries['vectors.json']}\n"
+        f"these bytes are  {actual}\n"
+        "This is the one leg that compares against a registry-authored artifact with no checkout\n"
+        "and no network, so it is the leg that really runs in CI — and it is red. Either the\n"
+        "corpus was edited here (it must not be: it is a copy, and upstream owns it) or the copy\n"
+        "is half-done, with new bytes beside an old sums file.",
+    )
+
+    readme = BINDING_README.read_text(encoding="utf-8")
+    pin_m = BINDING_PIN.search(readme)
+    fails.check(
+        pin_m is not None,
+        "C31 README.md names the registry commit and path this copy came from",
+        "no `astra-registry@<40-hex>:<path>` in the provenance block. The pinned leg has nothing\n"
+        "to compare against, so provenance becomes a claim rather than a check — and there is\n"
+        "then no way to tell a stale mirror from an edited one.",
+    )
+    digest_m = BINDING_DIGEST.search(readme)
+    if fails.check(
+        digest_m is not None,
+        "C31 README.md names the digest as well as the commit",
+        "no `sha256:  <64-hex>  <name>` line in the provenance block.\n"
+        "The commit and the digest are written in two files so that neither can be moved alone:\n"
+        "a pin bumped without its digest says the copy came from somewhere it did not, and a\n"
+        "digest bumped without its pin says a commit held bytes it never held.",
+    ):
+        fails.check(
+            digest_m.group(1) == entries["vectors.json"]
+            and digest_m.group(2) == "vectors.json",
+            "C31 README.md's digest is SHA256SUMS' digest",
+            f"README.md says {digest_m.group(1)}  {digest_m.group(2)}\n"
+            f"SHA256SUMS says {entries['vectors.json']}  vectors.json\n"
+            "Half a refresh. Whichever of the two was updated, the other was not, and the\n"
+            "provenance block is now a sentence about bytes that are not these.",
+        )
+
+    # The reader, not the bytes: the digest leg above already owns those.
+    try:
+        doc = json.loads(vectors_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        fails.check(False, "C31 vectors.json parses", str(e))
+        return
+    cases = doc.get("cases")
+    floors = doc.get("floors")
+    n_cases = len(cases) if isinstance(cases, list) else 0
+    numbering = {
+        c.get("vector") for c in (cases if isinstance(cases, list) else [])
+        if isinstance(c, dict)
+    }
+    fails.check(
+        isinstance(cases, list) and n_cases >= MIN_BINDING_CASES,
+        f"C31 floor: {n_cases if isinstance(cases, list) else 'no'} case(s) "
+        f"(>= {MIN_BINDING_CASES})",
+        "This floor is not a count of the corpus and must never be set to one — see the comment\n"
+        "on MIN_BINDING_CASES. The census is 31 over 25 vector numbers and it is asserted by\n"
+        "name in astra-registry:bot/tests/binding.test.mjs, and by AP-8's cargo suite, both of\n"
+        "which read the corpus's own `floors` member. This is here so a `cases` block that\n"
+        "parsed to nothing cannot reach the NOT VERIFIED notice below reading like a scan that\n"
+        "looked and was happy.",
+    )
+    fails.check(
+        isinstance(floors, dict) and {"vectors", "cases"} <= set(floors),
+        "C31 vectors.json still declares its own floors",
+        f"`floors` is {type(floors).__name__}\n"
+        "Upstream writes the corpus's floors into the corpus so that the three readers do not\n"
+        "each keep a census. If that member is gone, the shape changed upstream and nobody\n"
+        "taught this reader — which is a red build and not a pass, because the CLI suite and\n"
+        "the bot's read the same member.",
+    )
+    if isinstance(cases, list) and isinstance(floors, dict):
+        want = floors.get("cases")
+        fails.check(
+            isinstance(want, int) and n_cases >= want,
+            f"C31 the corpus meets the floor it declares ({n_cases} case(s), "
+            f"floor {want})",
+            "The file's own `floors.cases` is what upstream's suite asserts before it parses a\n"
+            "case. A copy under it is a copy that lost cases in transit — the digest leg above\n"
+            "says whether the bytes were edited, and this says what the edit cost.",
+        )
+        fails.check(
+            isinstance(floors.get("vectors"), int)
+            and numbering >= set(range(1, floors["vectors"] + 1)),
+            f"C31 vector numbers 1..{floors.get('vectors')} all have a case",
+            f"present: {sorted(n for n in numbering if isinstance(n, int))}\n"
+            "B-T2.4's numbering is read by three tasks and two other repositories. A gap is a\n"
+            "case that went missing, not a rule that got smaller.",
+        )
+
+    # ── leg 1: the vendor sweep cannot reach this directory ──────────────────
+    #
+    # The failure this leg exists for is a deletion, not a mismatch: a hand-
+    # copied file inside a directory `vendor-testdata.sh` sweeps is a file the
+    # next vendor run removes, between two green runs, with the CLI suite then
+    # iterating an empty corpus.
+    if VENDOR_SCRIPT.is_file():
+        script = VENDOR_SCRIPT.read_text(encoding="utf-8")
+        src_m = re.search(r'^\s*src="\$here/(\S+?)"', script, re.M)
+        dests = re.findall(r'^\s*\w*_?dest="([^"]+)"', script, re.M)
+        local_dests = [d for d in dests if d.startswith("$here")]
+        fails.check(
+            src_m is not None and src_m.group(1) == "testdata/bundles"
+            and not local_dests
+            and "binding-line" not in script,
+            "C31 tools/vendor-testdata.sh neither copies nor sweeps testdata/binding-line",
+            f"src={src_m.group(1) if src_m else 'unreadable'}, "
+            f"destinations inside this repository: {local_dests or 'none'}, "
+            f"names binding-line: {'binding-line' in script}\n"
+            "That script pushes `testdata/bundles` OUT to the daemon and to the registry and\n"
+            "sweeps each destination with `rm -f`, deleting whatever the bundle corpus's file\n"
+            "list does not name (tools/vendor-testdata.sh:101-112). This corpus travels the\n"
+            "OTHER way — astra-registry owns it — so it must be neither a source nor a\n"
+            "destination of that script. If a second corpus really does need vendoring, it needs\n"
+            "its own source, its own sums file and its own sweep; sharing this one's would make\n"
+            "AstraPlugins look canonical for a file it only copies.\n"
+            "astra-registry holds the mirror image of this guard: bot/tests/binding.test.mjs\n"
+            "asserts that tests/vectors/ — which the sweep does own — holds no subdirectory.",
+        )
+    else:
+        fails.check(
+            False,
+            "C31 tools/vendor-testdata.sh is where this rule looks for it",
+            f"no {VENDOR_SCRIPT.relative_to(ROOT)}. If it moved, this leg is looking at nothing\n"
+            "and the sweep it guards against is unguarded.",
+        )
+
+    if pin_m is None:
+        return
+    pin, upstream_rel = pin_m.group(1), pin_m.group(2)
+
+    # ── legs 2 and 3: pinned, and head ───────────────────────────────────────
+    registry = _registry_dir(upstream_rel)
+    if registry is None:
+        print("C31 NOT VERIFIED: no astra-registry checkout holding "
+              f"{upstream_rel} at $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        taken on trust: {n_cases} case(s) over "
+              f"{len(numbering)} vector number(s),")
+        print(f"        {len(vectors_bytes)} bytes hashing to {actual},")
+        print(f"        claimed to be astra-registry@{pin[:12]}…:{upstream_rel}.")
+        print("        The digest above WAS compared, against the SHA256SUMS the registry wrote")
+        print("        and this copy carries. What was not compared is whether that sums file is")
+        print("        still the registry's, and whether the registry has changed the corpus")
+        print("        since the pin. A stale mirror and an edited one look identical from here,")
+        print("        and the difference decides whether `astra-plugin check` predicts what the")
+        print("        bot will actually do to an author's tag.")
+        fails.skip("C31", "no astra-registry checkout")
+        return
+
+    _binding_compare(fails, registry, upstream_rel, pin)
+    _binding_compare(fails, registry, upstream_rel, None)
+
+
+RULES = {
+    "C24": rule_C24,
+    "C25": rule_C25,
+    "C26": rule_C26,
+    "C27": rule_C27,
+    "C31": rule_C31,
+}
 
 
 def main() -> int:
