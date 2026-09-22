@@ -90,7 +90,7 @@ before you have a project, a manifest, or any reason to suspect a protobuf
 compiler. Without it `cargo install` stops at
 `error: failed to run custom build command for astra-plugin-sdk`, with
 `Could not find `protoc`` some lines further down. This repository's own CI
-installs it in every Rust job (`arduino/setup-protoc@v3`, seven times in
+installs it in every Rust job (`arduino/setup-protoc@v3`, in every Rust job of
 `.github/workflows/ci.yml`), which is the clearest evidence that it is not
 optional.
 
