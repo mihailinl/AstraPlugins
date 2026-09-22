@@ -560,11 +560,11 @@ def _own_checkout(tree: Path) -> bool:
     Not `rev-parse --is-inside-work-tree`: in CI `_registry` sits INSIDE the
     AstraPlugins checkout, so a `_registry` whose `.git` went missing would be
     answered for by the parent. `tools/check-registry-mirrors.py` has the same
-    function for the same reason.
+    function for the same reason, and both are now `checkout_top(tree, "")`,
+    the rule C22 is held to (tools/checkouts.py), rather than two more copies
+    of it.
     """
-    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
-                       capture_output=True, text=True)
-    return p.returncode == 0 and Path(p.stdout.strip()).resolve() == tree.resolve()
+    return checkout_top(tree, "")[0] is not None
 
 
 def _registry_label(tree: Path, rels: list[str]) -> str:

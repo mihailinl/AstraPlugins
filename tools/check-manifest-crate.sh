@@ -165,9 +165,29 @@ WORKTREE_CRATE="$ASTRA_REPO/$UPSTREAM_REL"
 
 git_astra() { git -C "$ASTRA_REPO" "$@"; }
 
+# Whether `$ASTRA_REPO` is a git checkout OF ITS OWN — the top of the work tree
+# git finds for it — and not merely a directory INSIDE some other repository.
+#
+# `git -C <dir>` searches upward. This used to ask `rev-parse --git-dir`, which
+# any enclosing repository answers, and in CI Astra is checked out INSIDE this
+# repository, at `_astra`. Measured with a `.git`-less `_astra` and the CI step's
+# own env (ASTRA_REF=HEAD): HEAD resolved in the AstraPlugins checkout, and the
+# script failed "HEAD carries no astra-rs/astra-plugin-manifest", blaming the ref.
+# With the maintainer default, `../Astra` inside a parent repository, it failed
+# "origin/main does not resolve" and advised a fetch into that parent; with
+# ASTRA_REF=worktree it passed and named the parent's commit as Astra's (entry
+# 121). This is `checkout_top(tree, "")` in tools/checkouts.py, in bash: the top
+# git reports must BE this directory, compared as physical paths so that a
+# trailing slash, a relative path or a symlink to a real clone is still that clone.
 astra_is_git=0
-if git_astra rev-parse --git-dir >/dev/null 2>&1; then
-    astra_is_git=1
+# When `$ASTRA_REPO` is inside a checkout but not its top: that checkout's top.
+astra_encloser=""
+if astra_top="$(git_astra rev-parse --show-toplevel 2>/dev/null)" && [ -n "$astra_top" ]; then
+    if [ "$(CDPATH='' cd -- "$astra_top" && pwd -P)" = "$(CDPATH='' cd -- "$ASTRA_REPO" && pwd -P)" ]; then
+        astra_is_git=1
+    else
+        astra_encloser="$astra_top"
+    fi
 fi
 
 # A one-line description of what the vendored copy is being held against. It is
@@ -195,6 +215,8 @@ if [ "$ASTRA_REF" = "worktree" ]; then
             drift=", and origin/main does not resolve — this checkout has no fetched upstream"
         fi
         UPSTREAM_DESC="the WORKING TREE of $ASTRA_REPO (HEAD $head_sha on $head_ref$drift, $dirty)"
+    elif [ -n "$astra_encloser" ]; then
+        UPSTREAM_DESC="the WORKING TREE of $ASTRA_REPO (not a git checkout of its own: git would answer for $astra_encloser, the repository around it — the bytes cannot be named at all)"
     else
         UPSTREAM_DESC="the WORKING TREE of $ASTRA_REPO (not a git repository — the bytes cannot be named at all)"
     fi
@@ -203,6 +225,17 @@ if [ "$ASTRA_REF" = "worktree" ]; then
     printf '                           on no other machine; a green run here proves nothing about\n'
     printf '                           what Astra has published.\n'
 else
+    if [ -n "$astra_encloser" ]; then
+        printf 'check-manifest-crate: FAIL %s is not a git checkout of its own.\n' "$ASTRA_REPO" >&2
+        printf '                           It is inside %s, and git answers for that repository:\n' "$astra_encloser" >&2
+        printf '                           %s would name a commit of THAT repository, compared as if\n' "$ASTRA_REF" >&2
+        printf '                           it were Astra. An Astra checkout whose .git went missing, or a\n' >&2
+        printf '                           copy of one, is not a tree this check can name — and a fetch\n' >&2
+        printf '                           into it would be a fetch into the repository around it. Point\n' >&2
+        printf '                           ASTRA_REPO at the top of a real clone, or ask for the unnamed\n' >&2
+        printf '                           tree on purpose with ASTRA_REF=worktree.\n' >&2
+        exit 1
+    fi
     if [ "$astra_is_git" -eq 0 ]; then
         printf 'check-manifest-crate: FAIL %s is not a git repository.\n' "$ASTRA_REPO" >&2
         printf '                           This check compares the vendored crate against a NAMED ref\n' >&2

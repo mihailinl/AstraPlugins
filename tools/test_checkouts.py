@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """C22 and C35 hold the daemon's tree to the top-level `astra-rs/` of its own checkout;
-C27's and C31's pinned legs hold the registry to being its own checkout's top.
+C27's and C31's pinned legs, and tools/check-manifest-crate.sh, hold the registry and
+Astra to being their own checkout's top.
 
     python3 tools/test_checkouts.py        # what the `couplings` job runs
 
@@ -25,6 +26,12 @@ had its pins looked up in whatever repository enclosed it. CI always passes
 built from this repository's own two mirrors, so that both legs have something
 true to compare, and the pins the rules read are pointed at its one commit — the
 real pins name commits no fixture can hold.
+
+The third class is the same rule in bash. `tools/check-manifest-crate.sh` asked
+`git -C "$ASTRA_REPO" rev-parse --git-dir`, which any enclosing repository answers,
+so an `_astra` without its `.git` had `HEAD` resolved in the AstraPlugins checkout
+(entry 121). It now holds `--show-toplevel` to `$ASTRA_REPO`, and a canary holds that
+spelling of the rule to `checkout_top`'s on every layout.
 
 No Astra, no token, no network — which is why it runs in `couplings`, on every
 pull request including a fork's, and not in `proto-upstream`'s full mode.
@@ -53,7 +60,7 @@ from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is s
 
 #: The fewest tests a run may report before it is a broken file rather than a
 #: pass. The count of test methods below; raise it when you add one.
-MIN_TESTS = 16
+MIN_TESTS = 23
 
 #: What C22's refusal says about a tree inside some other checkout.
 NOT_TOP = f"in a git checkout, but not as its top-level {DAEMON_IN_REPO}/"
@@ -435,6 +442,146 @@ class RegistryPinnedLegsReadOnlyItsOwnCheckout(unittest.TestCase):
         self.assertIn("is not a git checkout of its own, and the pinned leg reads a commit. "
                       "It was passed explicitly, so this is an error and not a skip.", p.stderr)
         self.assertNotIn("NOT VERIFIED (pinned leg)", p.stdout)
+
+
+#: `tools/check-manifest-crate.sh`'s refusal of a directory inside another checkout.
+MANIFEST_NOT_OWN = "is not a git checkout of its own."
+
+
+class ManifestCrateReadsOnlyAstrasOwnCheckout(unittest.TestCase):
+    """`tools/check-manifest-crate.sh` reads Astra through `git -C "$ASTRA_REPO"`, in bash.
+
+    It used to ask `rev-parse --git-dir`, which any enclosing repository answers,
+    so with an `_astra` whose `.git` went missing and the CI step's own env
+    (ASTRA_REF=HEAD) it resolved HEAD in the AstraPlugins checkout and failed
+    "HEAD carries no astra-rs/astra-plugin-manifest", blaming the ref (entry 121).
+    It now holds `git rev-parse --show-toplevel` to `$ASTRA_REPO` — the rule
+    `checkout_top(tree, "")` states in Python — and the last test here is the
+    canary that the two spellings of it agree on every layout.
+    """
+
+    tmp: Path
+    env: dict[str, str]
+    trees: dict[str, Path]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="astra-crate-")).resolve()
+        cls.env = _fixture_env(cls.tmp)
+        for k in ("ASTRA_REPO", "ASTRA_REF"):
+            cls.env.pop(k, None)
+
+        # An Astra whose manifest crate IS the vendored one, so the check has a
+        # true answer to give on a checkout it may read.
+        astra = cls.tmp / "Astra"
+        crate = astra / DAEMON_IN_REPO / "astra-plugin-manifest"
+        shutil.copytree(ROOT / "astra-plugin-cli" / "vendor" / "astra-plugin-manifest", crate)
+        _git(cls.env, "init", "-q", "-b", "main", str(astra))
+        _git(cls.env, "-C", str(astra), "add", "-A")
+        _git(cls.env, "-C", str(astra), "commit", "-q", "-m", "an Astra")
+        _git(cls.env, "-C", str(astra), "update-ref", "refs/remotes/origin/main", "HEAD")
+
+        no_git = shutil.ignore_patterns(".git")
+        # The AstraPlugins checkout, with an `_astra` inside it that has no `.git`.
+        outer = cls.tmp / "astraplugins"
+        outer.mkdir()
+        (outer / "README.md").write_text("AstraPlugins, as a fixture\n")
+        _git(cls.env, "init", "-q", "-b", "master", str(outer))
+        _git(cls.env, "-C", str(outer), "add", "-A")
+        _git(cls.env, "-C", str(outer), "commit", "-q", "-m", "AstraPlugins")
+        _git(cls.env, "-C", str(outer), "update-ref", "refs/remotes/origin/main", "HEAD")
+        shutil.copytree(astra, outer / "_astra", ignore=no_git)
+        # A copy nested inside the real Astra checkout.
+        shutil.copytree(astra, astra / "vendor" / "Astra", ignore=no_git)
+        # In no checkout at all.
+        shutil.copytree(astra, cls.tmp / "loose" / "Astra", ignore=no_git)
+        # A symlink to the real one.
+        (cls.tmp / "link").symlink_to(astra)
+
+        cls.trees = {
+            "own": astra,
+            "enclosed": outer / "_astra",
+            "nested": astra / "vendor" / "Astra",
+            "loose": cls.tmp / "loose" / "Astra",
+            "link": cls.tmp / "link",
+        }
+        _assert_layouts(cls.env, cls.trees, {"own": astra, "enclosed": outer, "nested": astra,
+                                             "loose": None, "link": astra})
+        for name, tree in cls.trees.items():
+            assert (tree / DAEMON_IN_REPO / "astra-plugin-manifest" / "src" / "lib.rs").is_file(), name
+            assert (name in ("own", "link")) == (tree / ".git").exists(), name
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def crate_check(self, repo: str | Path, ref: str = "HEAD"):
+        """The script as `proto-upstream` runs it: ASTRA_REPO and ASTRA_REF=HEAD in the env."""
+        env = dict(self.env, ASTRA_REPO=str(repo), ASTRA_REF=ref)
+        return subprocess.run(["bash", str(HERE / "check-manifest-crate.sh")],
+                              capture_output=True, text=True, env=env, cwd=ROOT)
+
+    def passes(self, repo: str | Path) -> None:
+        p = self.crate_check(repo)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("check-manifest-crate: one plugin.toml definition,", p.stdout)
+
+    def refused_by_name(self, name: str) -> None:
+        tree = self.trees[name]
+        p = self.crate_check(tree)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(f"check-manifest-crate: FAIL {tree} {MANIFEST_NOT_OWN}", p.stderr)
+        # refused BEFORE a ref was resolved: nothing blames the ref or the crate
+        self.assertNotIn("carries no", p.stderr)
+        self.assertNotIn("does not resolve", p.stderr)
+        self.assertNotIn("comparing against", p.stdout)
+
+    # ── the controls: Astra's own checkout is read ─────────────────────────
+    def test_manifest_crate_own_checkout_passes(self) -> None:
+        self.passes(self.trees["own"])
+
+    def test_manifest_crate_symlink_trailing_slash_and_relative_path_are_that_checkout(self) -> None:
+        self.passes(self.trees["link"])
+        self.passes(f"{self.trees['own']}/")
+        self.passes(os.path.relpath(self.trees["own"], ROOT))
+
+    def test_manifest_crate_loose_copy_is_not_a_git_repository(self) -> None:
+        p = self.crate_check(self.trees["loose"])
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(f"check-manifest-crate: FAIL {self.trees['loose']} is not a git repository.",
+                      p.stderr)
+
+    # ── entry 121 ────────────────────────────────────────────────────────────
+    def test_manifest_crate_astra_without_git_inside_astraplugins_is_refused_by_name(self) -> None:
+        # Before the fix: HEAD resolved in the AstraPlugins checkout, and the
+        # script failed "HEAD carries no astra-rs/astra-plugin-manifest".
+        self.refused_by_name("enclosed")
+
+    def test_manifest_crate_copy_nested_in_an_astra_checkout_is_refused_by_name(self) -> None:
+        self.refused_by_name("nested")
+
+    def test_manifest_crate_worktree_mode_names_no_enclosing_commit(self) -> None:
+        # Before the fix: exit 0, describing the AstraPlugins checkout's HEAD,
+        # branch and distance from origin/main as Astra's.
+        tree = self.trees["enclosed"]
+        p = self.crate_check(tree, "worktree")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn(f"comparing against the WORKING TREE of {tree} (not a git checkout of its own: "
+                      f"git would answer for {tree.parent},", p.stdout)
+        self.assertNotIn(" on master", p.stdout)
+
+    # ── the canary: the bash rule and checkout_top agree ────────────────────
+    def test_manifest_crate_and_checkout_top_agree_on_every_layout(self) -> None:
+        with mock.patch.dict(os.environ, self.env, clear=True):
+            python = {name: checkout_top(tree, "")[0] is not None for name, tree in self.trees.items()}
+        bash = {}
+        for name, tree in self.trees.items():
+            p = self.crate_check(tree)
+            refused = (MANIFEST_NOT_OWN in p.stderr) or ("is not a git repository." in p.stderr)
+            bash[name] = not refused
+        self.assertEqual(bash, python)
+        self.assertEqual(python, {"own": True, "enclosed": False, "nested": False, "loose": False,
+                                  "link": True})
 
 
 if __name__ == "__main__":

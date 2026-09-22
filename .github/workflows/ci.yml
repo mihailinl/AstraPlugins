@@ -821,6 +821,11 @@ jobs:
       # `vars.ASTRA_REF` is ever set again: that fetch refspec brings down only
       # the requested branch, so `origin/main` would not exist here to compare
       # against. The script prints the sha and subject it resolved either way.
+      #
+      # `ASTRA_REPO` must be the top of Astra's OWN checkout. An `_astra` that
+      # lost its `.git` sits inside this checkout, and the script used to resolve
+      # `HEAD` here and blame the ref; it is now refused by name (entry 121;
+      # `couplings` proves it on fixtures).
       - name: one plugin.toml definition (vendored crate == Astra's)
         if: env.MODE == 'full'
         env:
@@ -3275,7 +3280,15 @@ jobs:
       # up in whatever repository enclosed it — red blaming a fetch into the
       # wrong repository, or green on the enclosing registry's history (entry
       # 120). CI always passes `--registry-dir`, so this is the only run of it.
-      - name: C22, C27, C31, C35 a tree from another repository is read through its own checkout, never one that encloses it
+      #
+      # tools/check-manifest-crate.sh is the same rule in bash, for `$ASTRA_REPO`.
+      # It asked `rev-parse --git-dir`, which the enclosing repository answers:
+      # with an `_astra` without its `.git` and `proto-upstream`'s own env it
+      # resolved `HEAD` HERE and failed "HEAD carries no
+      # astra-rs/astra-plugin-manifest", blaming the ref (entry 121). The test
+      # runs the script on the same layouts, and a canary holds its verdicts to
+      # `checkout_top`'s, so the two spellings cannot drift apart.
+      - name: C22, C27, C31, C35 and the manifest-crate check read a tree from another repository through its own checkout, never one that encloses it
         run: python3 tools/test_checkouts.py
 
       # C24 — every documented `plugin-release/v1` SHA is that tag's commit.
