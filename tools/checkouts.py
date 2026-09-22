@@ -21,6 +21,14 @@ C31's PINNED legs read a commit (`git cat-file`, `git show <pin>:<path>`), and i
 `_own_checkout` is this call. Those legs used to ask only of an explicit
 `--registry-dir`, so a `$ASTRA_REGISTRY_DIR` or `../astra-registry` that was a copy
 of the files had its pins looked up in whatever repository enclosed it (entry 120).
+`tools/check-locales.py`'s `_own_checkout`, which guards C20's registry, is this call
+too.
+
+`tools/check-manifest-crate.sh` is bash and cannot import this, so it spells the
+same rule itself: `git rev-parse --show-toplevel` must be `$ASTRA_REPO`, compared as
+physical paths. It used to ask `rev-parse --git-dir`, which any enclosing repository
+answers (entry 121). `tools/test_checkouts.py` runs the script and this function on
+the same layouts and fails if their verdicts differ.
 """
 
 from __future__ import annotations
