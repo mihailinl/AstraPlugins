@@ -60,6 +60,78 @@ alone — `spec/registry-index.md` has `issued_at + 30 days` in a cell, and
 for the reason the rest of this file leaves prose alone: `yes`/`ja` and
 `**none**`/`**keine**` are translations, not drift.
 
+Table rows were not enough either, and the hole was the same shape a fourth and
+a fifth time. Both were filed as separate problems and both are here:
+
+* A section can exist in English and in no translation, and if its tables do
+  not lead with a name, nothing notices. Four such sections were measured on
+  2026-08-23 and written down as a frozen four; a fifth
+  (`### Answering in the conversation that called you`) was appended to the
+  English page on 2026-09-11 and joined them in silence. A list that grows
+  while nobody is counting is the failure, not the four. So heading SKELETONS
+  are compared:
+
+  - the sequence of heading levels on a translated page must equal English's,
+    minus exactly the headings `GRANDFATHERED` below declares absent; and
+  - the inline-code spans inside a heading — `astra-plugin locale`,
+    `ListTools` — must match position for position, because a heading that
+    names a machine thing names it the same in every language. Unlike a table
+    cell, a span WITH whitespace counts: a cell may hold a phrase, a heading
+    holds a title, and ``## There is no `astra-plugin login` `` is a command
+    line in all seven languages. That distinction was measured, not assumed —
+    the narrow rule let a rename of exactly that heading through.
+
+  Heading TEXT is not compared and cannot be: `## Everywhere` is `## Überall`
+  and that is correct German.
+
+* A GENERATED sentence mirrored by hand is a copy nobody regenerates, exactly
+  as a generated table was. `reference/protocol.md`'s opening paragraph names
+  the slice's `surface-sha256` and the digest `proto/PROTO_VERSION` pins. On
+  2026-09-18 the six translations carried `sha256:2bccd2f5…` where English
+  carried something else, and named a `source-sha256` header the slice had
+  stopped carrying — two generations stale and documenting a retired field,
+  green here every run, because a hash in a paragraph is neither a table row
+  nor a sample. What that cost is worth stating in full: **a reader verifying
+  a vendored slice against the documented hash could not tell a stale page
+  from a tampered slice.** So digests are compared:
+
+  - every run of 8 or more hex digits outside a fenced block is collected per
+    page and must appear the same number of times in every language; and
+  - `PINNED_DIGESTS` below names the digests that have a ground truth in this
+    repository, and each one is checked against that file in EVERY language,
+    not only English. That second rule is the one that matters: comparing six
+    translations with English cannot catch a value all seven got wrong, and
+    `docgen --check` — which does compare English with its generator — is one
+    file wide by design.
+
+THE GRANDFATHERED LIST IS DATA, AND IT ONLY RATCHETS DOWN
+
+An exemption with no reason is indistinguishable from an exemption somebody
+added to make a test pass. So every entry in `GRANDFATHERED` carries a reason,
+the reason is required rather than optional, and it must begin `Leaves this
+list when ` — a shape the script enforces, because the sentence that matters
+is not why the exemption exists but what would have to be true for it to stop
+existing.
+
+`GRANDFATHERED_CEILING` must equal the length of that list exactly. Adding a
+sixth entry fails until somebody raises the literal, and removing one fails
+until somebody lowers it. That is a ratchet, and it is honest to say what it
+is not: it is **not** shrink-only, because the same commit that adds an entry
+can raise the ceiling. What it buys is that accretion can no longer happen by
+appending to a list — it costs a number in the diff, with a reviewer looking at
+it. Making it truly shrink-only needs a base ref (the ceiling in the
+merge-base's copy of this file), which is the same thing the gate below needs
+and is the maintainer's call for the same reason.
+
+THE FLOOR
+
+Every comparison counts itself, and `main` fails if a count comes in under its
+floor. A guard that silently reached nothing passes for years; two have shipped
+here already. The floors are round numbers well under today's measurements, so
+that deleting a page is not automatically red — a floor set to today's count
+turns a deliberate deletion into a failure, which is how a check teaches people
+to edit the check.
+
 WHAT THIS DOES NOT CHECK, AND WHY IT IS SAID OUT LOUD
 
 Meaning. Nothing here, and nothing anywhere in CI, can tell that a translated
@@ -74,23 +146,21 @@ block is not compared. Those bodies are code, every one of them is executed by
 Their runner *positions* are still compared, so a block that disappears from a
 translation is still caught.
 
-A whole SECTION that exists in English and in no translation — **unless it
-contains a table whose rows lead with a name, in which case it IS a failure.**
-That sentence used to stop at the dash, and it was wrong in the half that
-matters. Measured on this tree: appending an English-only section of prose
-leaves `mirror.py` green; appending one containing a single row
-`| ``--brand-new`` | does a thing |` produces six TABLE findings and exit 1.
+A heading's WORDS. Only its level and its code spans are compared, so renaming
+`## Everywhere` to `## Anywhere` in English is invisible here and always will
+be. Renaming ``## There is no `astra-plugin login` `` is not: the name inside
+the span is a machine's, and it is the same word in seven languages.
 
-The distinction is not a special case, it is the rule stated properly. Table
-rows are keyed by name rather than position, and a name-keyed row is derived
-data: it exists in every language or in none. Prose is not. So an English-only
-section costs nothing until it carries a table, and then it costs six edits.
-
-What is grandfathered rather than allowed: `3-reference/permissions.md`'s three
-sections and `reference/cli.md`'s one table are absent from six translations
-today and are not failures, because their rows are absent on both sides —
-nothing to compare. Add a row to the English copy of one of those and this
-script will ask for it in six files.
+Whether a section SAYS the same thing. An English-only section is now a
+failure — that is the first of the two rules above, and it is a change from
+what this file used to promise. Until 2026-09-21 the sentence here read "a
+whole section that exists in English and in no translation is not a failure
+unless it contains a table whose rows lead with a name", and it was true: a
+section of prose cost nothing, a section with one row `| ``--brand-new`` | does
+a thing |` cost six TABLE findings. That asymmetry is what let four sections
+become five without anybody noticing. Now the heading itself is the unit, and
+an English-only section costs six edits or one `GRANDFATHERED` entry with a
+reason attached.
 
 The policy question below — whether an English edit should be blocked until
 somebody translates it — is still the maintainer's. This paragraph is only about
@@ -115,7 +185,8 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 # The translations. A new locale is still NOT picked up automatically — adding
@@ -151,6 +222,163 @@ def _doctest_module():
 
 
 DT = _doctest_module()
+
+
+# ── the grandfathered sections, as data ──────────────────────────────────────
+
+#: Every `reason` must begin with this. Not decoration: an exemption's reason
+#: has to name its own exit condition, or it is a permanent exemption wearing a
+#: temporary one's clothes. The prefix is what makes the requirement checkable
+#: rather than aspirational.
+LEAVE_PREFIX = "Leaves this list when "
+
+#: A reason shorter than this is not a reason. The number is deliberately low —
+#: it exists to refuse `reason="TODO"`, not to legislate prose length.
+MIN_REASON = 80
+
+
+@dataclass(frozen=True)
+class Grandfathered:
+    """One English heading that six translations are allowed not to have.
+
+    `heading` is the English heading LINE, verbatim, `#` markers included. It
+    is matched against the English page and must be found there exactly once —
+    so an exemption whose heading was renamed, re-levelled or deleted fails
+    instead of quietly protecting nothing. That is the second half of the
+    ratchet: the list cannot rot in place either.
+    """
+
+    page: str
+    heading: str
+    reason: str
+
+
+#: The five English sections that no translation carries. Four were measured on
+#: 2026-08-23; the fifth arrived on 2026-09-11 and nothing counted it, which is
+#: the whole argument for `GRANDFATHERED_CEILING` below.
+GRANDFATHERED = (
+    Grandfathered(
+        page="3-reference/permissions.md",
+        heading="## Sending a chat message",
+        reason=(
+            LEAVE_PREFIX + "a translator writes this section in all six "
+            "languages. It landed in English on 2026-08-21 (AstraPlugins "
+            "d22125c) and no translation followed. It is the only "
+            "documentation of the one path a plugin has into a conversation, "
+            "so a reader in any other language is told the path exists and "
+            "nothing about how to use it."
+        ),
+    ),
+    Grandfathered(
+        page="3-reference/permissions.md",
+        heading="### Where it lands",
+        reason=(
+            LEAVE_PREFIX + "all six languages carry it. It retracts a contract "
+            "that the protocol and two of the three SDKs documented backwards "
+            "— an empty `conversation_id` was written up as *the active "
+            "conversation*, and there has never been one — so a reader who "
+            "cannot read English is still being taught the retracted version "
+            "by the SDK in front of them."
+        ),
+    ),
+    Grandfathered(
+        page="3-reference/permissions.md",
+        heading="### Answering in the conversation that called you",
+        reason=(
+            LEAVE_PREFIX + "all six languages carry it. This is the fifth "
+            "entry and it is not one of the original four: it landed on "
+            "2026-09-11 (AstraPlugins 5f6d8d1), nineteen days after this list "
+            "was measured at four, and joined it in silence. It is the entry "
+            "this ceiling exists because of."
+        ),
+    ),
+    Grandfathered(
+        page="3-reference/permissions.md",
+        heading="### What happens if Astra is busy",
+        reason=(
+            LEAVE_PREFIX + "all six languages carry it, the queued / dropped / "
+            "refused table included. Those three shapes demand opposite "
+            "reactions — wait, say so, back off — and are distinguishable only "
+            "by shape, so a reader without English has no way to tell which of "
+            "the three just happened to them."
+        ),
+    ),
+    Grandfathered(
+        page="reference/cli.md",
+        heading="## astra-plugin locale",
+        reason=(
+            LEAVE_PREFIX + "all six languages carry it. `astra-plugin locale` "
+            "landed on 2026-08-22 (AstraPlugins b56de3c) and is the only "
+            "documented way to create `locales/<code>.json`, so the "
+            "localisation this whole tree exists to serve is documented in "
+            "English and nowhere else."
+        ),
+    ),
+)
+
+#: Must equal `len(GRANDFATHERED)` exactly, in both directions. A sixth entry
+#: fails until somebody raises this literal; removing one fails until somebody
+#: lowers it. See the docstring for what this is and — more importantly — what
+#: it is not.
+GRANDFATHERED_CEILING = 5
+
+
+# ── generated values that have a ground truth in this repository ─────────────
+
+
+@dataclass(frozen=True)
+class PinnedDigest:
+    """A digest a page prints as prose, and the file that actually holds it.
+
+    Checked in EVERY language, English included. Comparing six translations
+    with English cannot catch a value all seven got wrong, and the check that
+    does compare English with its generator (`docgen --check`) reads one file.
+    """
+
+    page: str
+    label: str
+    source: str
+    pattern: str
+    reason: str
+
+
+PINNED_DIGESTS = (
+    PinnedDigest(
+        page="reference/protocol.md",
+        label="sha256",
+        source="proto/PROTO_VERSION",
+        pattern=r"^\s*sha256\s*=\s*([0-9a-f]{64})\s*$",
+        reason=(
+            "The digest every vendored copy of the proto must have. A reader "
+            "checks a slice against this number; a stale page and a tampered "
+            "slice look identical to them."
+        ),
+    ),
+    PinnedDigest(
+        page="reference/protocol.md",
+        label="surface-sha256",
+        source="proto/plugin.proto",
+        pattern=r"^//\s*surface-sha256:\s*([0-9a-f]{64})\s*$",
+        reason=(
+            "The digest of the plugin-facing body itself. The six "
+            "translations named a `source-sha256` here until 2026-09-21 — a "
+            "header the slice had already stopped carrying, so the field a "
+            "reader was told to look for did not exist."
+        ),
+    ),
+)
+
+
+# ── floors ───────────────────────────────────────────────────────────────────
+
+#: Round numbers well under today's tree (38 pages, 6 locales, ~2400 heading
+#: comparisons, ~50000 prose lines scanned). Under, not at: a floor set to
+#: today's count turns a deliberate page deletion red, and a check that
+#: punishes correct work teaches people to edit the check.
+FLOOR_LOCALES = 6
+FLOOR_PAGES = 30
+FLOOR_HEADINGS = 1500
+FLOOR_PROSE_LINES = 20000
 
 #: Runners whose body must be identical in every language. A transcript is what
 #: a program printed, so there is nothing in it to translate.
@@ -316,6 +544,334 @@ def compare_tables(rel: str, loc: str, en_page: Path, loc_page: Path) -> int:
     return bad
 
 
+# ── heading skeletons ────────────────────────────────────────────────────────
+
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
+
+#: Any inline-code span inside a heading, whitespace included — and that is
+#: where this rule is deliberately WIDER than `TOKEN_CELL`. A cell may hold a
+#: phrase (`issued_at + 30 days`, correctly `issued_at + 30 Tage` in German), so
+#: cells with a space in them are left alone. A heading holds a title, and a
+#: code span in a title is the thing being titled: ``## There is no
+#: `astra-plugin login` `` has a space in its span and is still a command line,
+#: not German. Measured across the tree before widening it — 38 pages, six
+#: locales, zero findings — so this costs nothing and catches the rename that
+#: the narrow rule let through.
+HEADING_TOKEN = re.compile(r"`([^`\n]+)`")
+
+
+@dataclass(frozen=True)
+class Heading:
+    level: int
+    text: str
+    line: int
+
+    @property
+    def raw(self) -> str:
+        """The heading line as it is written, which is what `GRANDFATHERED` keys on."""
+        return "#" * self.level + " " + self.text
+
+    @property
+    def shape(self) -> tuple:
+        """The part of a heading that is the same in every language."""
+        return (self.level, tuple(HEADING_TOKEN.findall(self.text)))
+
+
+def prose_lines(path: Path) -> list[tuple[int, str]]:
+    """Every line of a page outside a fenced block, numbered.
+
+    Same fence handling as `table_rows`, same reason — a sample may quote a
+    heading or a digest it does not own. `spec/bundle-v2.md` fences two example
+    manifests whose hashes are deliberately not this repository's.
+    """
+    out: list[tuple[int, str]] = []
+    fence: str | None = None
+    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        f = DT.FENCE_RE.match(raw)
+        if f:
+            token = f.group("fence")
+            if fence is None:
+                fence = token[0] * len(token)
+            elif raw.strip().startswith(fence):
+                fence = None
+            continue
+        if fence is not None:
+            continue
+        out.append((lineno, raw))
+    return out
+
+
+def headings(path: Path) -> list[Heading]:
+    return [
+        Heading(len(m.group(1)), m.group(2), lineno)
+        for lineno, raw in prose_lines(path)
+        if (m := HEADING_RE.match(raw))
+    ]
+
+
+def audit_grandfathered(en: set[str]) -> int:
+    """The exemption list, held to its own rules before it is allowed to excuse anything.
+
+    Four checks, and the order matters: the ceiling first, because that is the
+    one that stops accretion; then the reason, because an exemption without one
+    is indistinguishable from an exemption added to make a test pass; then that
+    the heading it names still exists in English, because an exemption
+    protecting nothing is a line nobody will ever delete.
+    """
+    bad = 0
+    if len(GRANDFATHERED) > GRANDFATHERED_CEILING:
+        print(
+            f"CEILING  docs/tools/mirror.py  — GRANDFATHERED has "
+            f"{len(GRANDFATHERED)} entr(ies) and GRANDFATHERED_CEILING is "
+            f"{GRANDFATHERED_CEILING}. This list ratchets DOWN, so a new entry "
+            f"is refused here rather than accepted quietly.\n"
+            f"           Translating the section costs six files once. Every "
+            f"entry on this list costs every reader of those six languages, "
+            f"for as long as it stays. If it genuinely has to go on the list, "
+            f"raise the ceiling to {len(GRANDFATHERED)} in the same commit — "
+            f"deliberately, where a reviewer sees the number move"
+        )
+        bad += 1
+    elif len(GRANDFATHERED) < GRANDFATHERED_CEILING:
+        print(
+            f"CEILING  docs/tools/mirror.py  — GRANDFATHERED has "
+            f"{len(GRANDFATHERED)} entr(ies) and GRANDFATHERED_CEILING is "
+            f"still {GRANDFATHERED_CEILING}. An entry left; lower the ceiling "
+            f"to {len(GRANDFATHERED)} so the room it freed cannot be taken by "
+            f"the next one without anybody deciding to give it"
+        )
+        bad += 1
+
+    seen: set[tuple[str, str]] = set()
+    for g in GRANDFATHERED:
+        where = f"{g.page} :: {g.heading}"
+        if (g.page, g.heading) in seen:
+            print(f"REASON   {where}  — listed twice")
+            bad += 1
+        seen.add((g.page, g.heading))
+
+        if not g.reason.startswith(LEAVE_PREFIX):
+            print(
+                f"REASON   {where}  — its reason must begin {LEAVE_PREFIX!r}. "
+                f"An exemption has to name its own exit condition; a reason "
+                f"that only explains why it exists is how a temporary "
+                f"exemption becomes permanent"
+            )
+            bad += 1
+        elif len(g.reason) < MIN_REASON:
+            print(
+                f"REASON   {where}  — its reason is {len(g.reason)} characters "
+                f"and the floor is {MIN_REASON}. Say what would have to be true "
+                f"for this entry to leave, and what its absence costs a reader"
+            )
+            bad += 1
+
+        if g.page not in en:
+            print(
+                f"STALE    {where}  — docs/en/{g.page} does not exist. Delete "
+                f"this entry and lower GRANDFATHERED_CEILING"
+            )
+            bad += 1
+            continue
+        hit = [h for h in headings(EN / g.page) if h.raw == g.heading]
+        if len(hit) != 1:
+            print(
+                f"STALE    {where}  — appears {len(hit)} time(s) in "
+                f"docs/en/{g.page}, expected exactly once. A renamed, "
+                f"re-levelled or deleted English heading leaves this entry "
+                f"excusing nothing; delete it and lower "
+                f"GRANDFATHERED_CEILING, or correct it to the heading as "
+                f"English writes it now"
+            )
+            bad += 1
+    return bad
+
+
+def compare_headings(rel: str, loc: str, en_page: Path, loc_page: Path) -> tuple[int, int]:
+    """One translated page's heading skeleton against English's.
+
+    Returns `(findings, headings compared)` — the second is the floor's
+    evidence that this pass reached something.
+    """
+    exempt = {g.heading for g in GRANDFATHERED if g.page == rel}
+    en_all = headings(en_page)
+    expected = [h for h in en_all if h.raw not in exempt]
+    got = headings(loc_page)
+
+    for i in range(max(len(expected), len(got))):
+        mine = expected[i] if i < len(expected) else None
+        theirs = got[i] if i < len(got) else None
+        if mine is not None and theirs is not None and mine.shape == theirs.shape:
+            continue
+        skipped = len(en_all) - len(expected)
+        note = f", {skipped} grandfathered" if skipped else ""
+        untranslated = (
+            "Translate the section, or — if it is genuinely not going to be "
+            "translated — add it to GRANDFATHERED in docs/tools/mirror.py with "
+            "a reason and raise GRANDFATHERED_CEILING, which is a decision "
+            "somebody has to make on purpose"
+        )
+        if mine is None:
+            what = (
+                f"docs/{loc}/{rel}:{theirs.line} has {theirs.raw!r} and "
+                f"docs/en/{rel} has nothing left to mirror it"
+            )
+            remedy = (
+                "A translated section whose English original is gone will "
+                "never be corrected again and a reader has no way to tell. "
+                "Delete it here, or restore the English heading it mirrors. "
+                "If English still HAS that heading, a GRANDFATHERED entry is "
+                "hiding it: the list excuses sections nobody translated, and "
+                "it cannot be used to excuse one somebody did"
+            )
+        elif theirs is None:
+            what = (
+                f"docs/en/{rel}:{mine.line} is {mine.raw!r} and this "
+                f"translation stops before it"
+            )
+            remedy = untranslated
+        elif mine.level != theirs.level:
+            what = (
+                f"docs/en/{rel}:{mine.line} is a level-{mine.level} heading "
+                f"and docs/{loc}/{rel}:{theirs.line} is level-{theirs.level} "
+                f"({theirs.raw!r})"
+            )
+            remedy = untranslated
+        else:
+            what = (
+                f"docs/en/{rel}:{mine.line} names {list(mine.shape[1])} and "
+                f"docs/{loc}/{rel}:{theirs.line} names {list(theirs.shape[1])} "
+                f"({theirs.raw!r}). A name inside a code span is a machine's "
+                f"word and is the same in every language"
+            )
+            remedy = (
+                "If English is right, carry the rename into this heading and "
+                "the five other languages. If English is wrong, fix whatever "
+                "renamed it — editing the English heading back to match a "
+                "translation is the fast way to green and it is never the fix"
+            )
+        print(
+            f"HEADING  docs/{loc}/{rel}  — {len(got)} heading(s) against "
+            f"{len(expected)} to mirror{note}. First divergence at heading "
+            f"{i + 1}: {what}.\n"
+            f"           {remedy}"
+        )
+        return 1, min(len(expected), len(got))
+    return 0, len(got)
+
+
+# ── generated values ─────────────────────────────────────────────────────────
+
+#: Eight or more hex digits, at least one of them a digit, bounded by
+#: non-alphanumerics. The digit requirement is not paranoia about `deadbeef`:
+#: it is what keeps an English word made of a–f out of a check that would
+#: otherwise fire on prose in one language and not another.
+DIGEST_RE = re.compile(r"(?<![0-9A-Za-z])(?=[0-9a-f]*[0-9])[0-9a-f]{8,}(?![0-9A-Za-z])")
+
+
+def digests(path: Path) -> Counter:
+    found: Counter = Counter()
+    for _, raw in prose_lines(path):
+        for m in DIGEST_RE.finditer(raw):
+            found[m.group(0)] += 1
+    return found
+
+
+def compare_digests(rel: str, loc: str, en_page: Path, loc_page: Path) -> int:
+    """Every digest a translated page prints, against the English page's."""
+    en, got = digests(en_page), digests(loc_page)
+    bad = 0
+    for value in sorted(set(en) | set(got)):
+        if en[value] == got[value]:
+            continue
+        if got[value] and not en[value]:
+            print(
+                f"DIGEST   docs/{loc}/{rel}  — prints {value}…, which "
+                f"docs/en/{rel} does not print at all. A hash is a machine's "
+                f"word: this page is carrying a generation English has moved "
+                f"past, and a reader checking a slice against it cannot tell "
+                f"a stale page from a tampered slice"
+            )
+        elif en[value] and not got[value]:
+            print(
+                f"DIGEST   docs/{loc}/{rel}  — does not print {value}…, which "
+                f"docs/en/{rel} does. Copy the English paragraph's value; it "
+                f"is generated, and re-deriving it by hand is how this drifted "
+                f"two generations the last time"
+            )
+        else:
+            print(
+                f"DIGEST   docs/{loc}/{rel}  — prints {value}… "
+                f"{got[value]} time(s) and docs/en/{rel} prints it "
+                f"{en[value]} time(s)"
+            )
+        bad += 1
+    return bad
+
+
+def pin_truth(pin: PinnedDigest) -> str | None:
+    """The digest `pin.source` actually holds, or None if the file cannot say."""
+    src = ROOT / pin.source
+    if not src.is_file():
+        return None
+    m = re.search(pin.pattern, src.read_text(encoding="utf-8"), re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def check_pinned() -> tuple[int, int]:
+    """Every pinned digest, in every language, against the file that holds it.
+
+    This is the rule that does not depend on English being right. Six
+    translations compared with English go green the moment all seven agree on a
+    wrong number, and the check that holds English to its generator reads one
+    file. Returns `(findings, assertions made)`.
+    """
+    bad = 0
+    made = 0
+    for pin in PINNED_DIGESTS:
+        truth = pin_truth(pin)
+        if truth is None:
+            print(
+                f"PIN      {pin.source}  — no digest matching "
+                f"{pin.pattern!r}. This is the ground truth for "
+                f"`{pin.label}` on docs/*/{pin.page}; without it that value is "
+                f"documented and verified by nothing"
+            )
+            bad += 1
+            continue
+        label = re.compile(
+            rf"(?<![\w-]){re.escape(pin.label)}\s*[:=]\s*([0-9a-f]{{8,}})"
+        )
+        for loc in ("en",) + tuple(TRANSLATIONS):
+            page = DOCS / loc / pin.page
+            if not page.is_file():
+                continue
+            # Joined, because `ja` and `zh` wrap a line inside the code span
+            # that carries the value and a line-at-a-time scan splits the
+            # label off its digits.
+            text = " ".join(raw for _, raw in prose_lines(page))
+            hits = label.findall(text)
+            if not hits:
+                print(
+                    f"PIN      docs/{loc}/{pin.page}  — no `{pin.label}` value "
+                    f"in the prose of this page. If it deliberately stopped "
+                    f"printing one, delete this PINNED_DIGESTS row; until then "
+                    f"the row says a value is being checked here and none is"
+                )
+                bad += 1
+                continue
+            for hit in hits:
+                made += 1
+                if not truth.startswith(hit):
+                    print(
+                        f"PIN      docs/{loc}/{pin.page}  — says `{pin.label}: "
+                        f"{hit}…` and {pin.source} says {truth[:len(hit)]}….\n"
+                        f"           {pin.reason}"
+                    )
+                    bad += 1
+    return bad, made
+
+
 def pages(base: Path) -> set[str]:
     if not base.is_dir():
         return set()
@@ -328,15 +884,25 @@ def main() -> int:
         print("mirror: FAIL — docs/en has no pages", file=sys.stderr)
         return 1
 
+    exemptions = audit_grandfathered(en)
+    pinned, assertions = check_pinned()
+
     bad = 0
     drift = 0
     tables = 0
+    skeleton = 0
+    values = 0
+    locales_seen = 0
+    pages_compared = 0
+    headings_compared = 0
+    prose_scanned = 0
     for loc in TRANSLATIONS:
         base = DOCS / loc
         if not base.is_dir():
             print(f"MISSING  docs/{loc}/  — the locale directory does not exist")
             bad += 1
             continue
+        locales_seen += 1
         got = pages(base)
         for rel in sorted(en - got):
             print(f"MISSING  docs/{loc}/{rel}  — docs/en/{rel} exists and has "
@@ -352,17 +918,64 @@ def main() -> int:
         shared = sorted(en & got)
         here = sum(compare_samples(rel, loc, EN / rel, base / rel) for rel in shared)
         rows = sum(compare_tables(rel, loc, EN / rel, base / rel) for rel in shared)
+        heads = 0
+        marks = 0
+        for rel in shared:
+            found, counted = compare_headings(rel, loc, EN / rel, base / rel)
+            heads += found
+            headings_compared += counted
+            marks += compare_digests(rel, loc, EN / rel, base / rel)
+            prose_scanned += len(prose_lines(base / rel))
+        pages_compared = max(pages_compared, len(shared))
         drift += here
         tables += rows
-        if got == en and not here and not rows:
+        skeleton += heads
+        values += marks
+        if got == en and not (here or rows or heads or marks):
             print(f"ok       docs/{loc}/  — {len(got)} page(s), same set, same "
-                  f"samples and same table names as docs/en")
+                  f"samples, same table names, same heading skeleton and same "
+                  f"generated values as docs/en")
 
-    verdict = "ok" if not (bad or drift or tables) else "FAIL"
+    # The floor. Every number above is evidence that this run reached
+    # something; a guard that compared nothing and said "ok" is the failure
+    # mode two checks in this repository shipped with.
+    floor = 0
+    for name, saw, least in (
+        ("locales", locales_seen, FLOOR_LOCALES),
+        ("pages", pages_compared, FLOOR_PAGES),
+        ("headings", headings_compared, FLOOR_HEADINGS),
+        ("prose lines", prose_scanned, FLOOR_PROSE_LINES),
+    ):
+        if saw < least:
+            print(
+                f"FLOOR    mirror.py  — compared {saw} {name}, and the floor "
+                f"is {least}. Either this run reached far less of the tree "
+                f"than it should have, or the tree really did shrink that far "
+                f"and the floor is the thing to change — deliberately, in a "
+                f"commit that says which"
+            )
+            floor += 1
+    if assertions < len(PINNED_DIGESTS):
+        print(
+            f"FLOOR    mirror.py  — made {assertions} pinned-digest "
+            f"assertion(s) for {len(PINNED_DIGESTS)} PINNED_DIGESTS row(s). A "
+            f"row that asserts nothing is a row that says a value is watched "
+            f"and does not watch it"
+        )
+        floor += 1
+
+    total = bad + drift + tables + skeleton + values + exemptions + pinned + floor
+    verdict = "ok" if not total else "FAIL"
     print(f"mirror: {verdict} — {len(en)} English page(s), "
           f"{len(TRANSLATIONS)} locale(s), {bad} page-set mismatch(es), "
-          f"{drift} sample drift(s), {tables} table drift(s)")
-    return 1 if (bad or drift or tables) else 0
+          f"{drift} sample drift(s), {tables} table drift(s), "
+          f"{skeleton} heading drift(s), {values} digest drift(s), "
+          f"{exemptions} exemption fault(s), {pinned} pinned-digest fault(s)")
+    print(f"mirror: floor — {locales_seen} locale(s), {pages_compared} page(s), "
+          f"{headings_compared} heading(s), {prose_scanned} prose line(s), "
+          f"{assertions} pinned-digest assertion(s), "
+          f"{len(GRANDFATHERED)}/{GRANDFATHERED_CEILING} grandfathered")
+    return 1 if total else 0
 
 
 if __name__ == "__main__":
