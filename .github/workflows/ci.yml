@@ -80,6 +80,43 @@ on:
     branches: [master, main, "feat/**"]
   pull_request:
   workflow_dispatch:
+  # ── WHY A CRON ────────────────────────────────────────────────────────────
+  #
+  # Every trigger above is an event in THIS repository. `proto-upstream`'s full
+  # mode is the only place two of the cross-repo couplings are ever compared,
+  # and both of them can break without a commit here:
+  #
+  #   * the proto slice. `tools/sync-proto.sh` treats proto/plugin.proto as
+  #     canonical and propagates it inward; the hop OUT of
+  #     astra-rs/astra-proto/generated/plugin.proto into this repo is a manual
+  #     `cp`. `gen-proto-lock.sh --check` and the byte-for-byte regeneration
+  #     below catch a stale copy — and only in full mode.
+  #   * spec/{limits,wire}.yaml -> the daemon. The `couplings` job runs
+  #     `gen-limits.mjs --check` with no Astra checkout, so it verifies the six
+  #     SDK files and skips the daemon block; the daemon's own `assert!` compares
+  #     its constants with the generated mirror beside them and a regeneration
+  #     moves both. Only "C1 (full)" holds the spec against the daemon. The bug
+  #     that names this one was 500 in the daemon against 32 in the SDK: it
+  #     truncated every utterance and raised nothing anywhere.
+  #
+  # Push and pull_request answer "did THIS commit break the agreement". Neither
+  # can answer "did the daemon move under us last Tuesday" — until somebody here
+  # happens to push, which in a quiet week is nobody. The cadence is the only
+  # trigger that fires on the other repository's clock.
+  #
+  # Scheduled runs use the DEFAULT BRANCH (master) and do get secrets, so
+  # HAVE_TOKEN is `yes` and proto-upstream runs full. That is the whole point;
+  # a cron that landed in degraded mode would prove nothing at all.
+  #
+  # KNOWN AND UNGUARDED: GitHub disables a repository's scheduled workflows
+  # after 60 days with no activity, and stops them silently. Nothing here can
+  # tell this cron running quietly from its having stopped — the same hazard
+  # already recorded against the registry's schedule. Do not read the absence of
+  # a red cadence run as the couplings holding.
+  schedule:
+    # 06:17 UTC daily. Off the hour deliberately: GitHub queues the on-the-hour
+    # crons of the whole world at once and drops the overflow.
+    - cron: "17 6 * * *"
   # release-sdks.yml gates the publish on this whole matrix by calling it, so
   # the release cannot run a weaker CI than a PR does.
   workflow_call:
@@ -97,7 +134,15 @@ permissions:
 concurrency:
   # Safe to cancel: this workflow publishes nothing. release-sdks.yml deliberately
   # does not do this.
-  group: ci-${{ github.ref }}
+  #
+  # `github.event_name` is in the key because of the cron above. A scheduled run
+  # has `github.ref` == refs/heads/master, exactly like a push to master — so on
+  # the old key the 06:17 cron and a push landing at 06:16 shared a group, and
+  # `cancel-in-progress` would have killed the push's still-running CI. A commit
+  # reported as `cancelled` and never re-run is precisely the kind of green
+  # nobody looks at twice. Push and pull_request already differ in `github.ref`
+  # (refs/heads/x vs refs/pull/N/merge), so this changes nothing for them.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -277,6 +322,11 @@ jobs:
               echo "own \`assert!\` only compares its constants with the mirror beside them, and"
               echo "a regeneration moves both. A spec edit that never reached the daemon is"
               echo "green everywhere until a full-mode run says otherwise."
+              echo
+              echo "**\`spec/icon-formats.yaml\` was NOT compared with the store's renderer either.**"
+              echo "\`INLINE_IMAGE\` in \`astra-ui/src/lib/listingMedia.ts\` decides whether a signed"
+              echo "icon becomes an \`<img src>\`, and an icon it refuses draws the placeholder with"
+              echo "no error anywhere. Only a full-mode run holds the two lists against each other."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -697,6 +747,213 @@ jobs:
               sys.exit(1)
           print("ok   the daemon delegates plugins/manifest.rs to astra-plugin-manifest")
           PY
+
+      # C32 — the icon formats an author may ship are ones the store can draw.
+      #
+      # spec/icon-formats.yaml has three mirrors and two of them are checked:
+      # `astra-plugin build`'s ICON_FILENAMES (a unit test reads this file) and
+      # the registry's ICON_FORMATS (tools/validate.mjs compares the names). The
+      # third is `INLINE_IMAGE` in astra-ui/src/lib/listingMedia.ts — the regex
+      # that decides whether a signed `data:image/…;base64,` icon becomes an
+      # `<img src>` — and it is held by nothing but a comment saying it "has to
+      # cover all of" this file.
+      #
+      # The failure is silent at every single link. An author ships icon.webp;
+      # the packer packs it because the spec says so; the build attests it; the
+      # registry inlines it and signs it; the store receives it and the regex
+      # says no, so `listingIconSrc` returns null and the card draws the
+      # placeholder. No error, no console warning, no annotation — a listing
+      # that is permanently blank and an author with no way to learn why.
+      # `image/x-icon` was exactly that for a while: icon.ico joined the spec
+      # after listingMedia.ts was written, and the gap was invisible from both
+      # sides because neither side can see the other.
+      #
+      # WHY IT WAS NOT ALREADY CAUGHT. The daemon has a canary —
+      # consistency.rs::the_publishing_document_names_icons_the_window_can_draw
+      # — and it is real, but it compares the allowlist against
+      # CATALOGUE_ICON_FILES, which is `[icon.png, icon.svg]`: the narrow pair
+      # the publishing document promises. Four of the spec's six — webp, jpg,
+      # jpeg, ico — are named by no check on either side. That canary also
+      # cannot be widened in place: the Astra checkout has no view of
+      # AstraPlugins, so `spec/icon-formats.yaml` is not a file it can read.
+      # This job is the only one that holds both trees, so this is the only
+      # place the comparison can be made at all.
+      #
+      # MUTATION-TESTED, not reasoned about. Eleven mutations, each red with a
+      # non-zero exit: a format deleted from the spec; a seventh format added to
+      # the spec and not to the UI; `webp` dropped from the regex; `x-icon`
+      # dropped while its IANA alias stays; `webp` dropped from the regex but
+      # left in the prose directly above it (the file-wide-scrape trap the
+      # daemon canary documents); the allowlist rewritten as a joined array; the
+      # spec emptied to comments; listingMedia.ts absent; a second `^data:image`
+      # line; `INLINE_IMAGE` renamed. And a control: a harmless reformat of the
+      # spec stays green.
+      - name: C32 (full) spec/icon-formats.yaml == the store's inline-image allowlist
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          SPEC = pathlib.Path("spec/icon-formats.yaml")
+          UI = pathlib.Path("_astra/astra-rs/astra-ui/src/lib/listingMedia.ts")
+
+          # FLOOR. A guard that reaches nothing must not be able to print PASS, and the
+          # cheapest way to reach nothing here is a parser that quietly stops understanding
+          # spec/icon-formats.yaml and compares an empty list against an allowlist.
+          #
+          # Named rather than counted, so the failure says WHICH format went missing. This
+          # is the set the spec declared on 2026-09-21; it is a floor, not a mirror — the
+          # spec may grow past it freely and every new entry is compared like the rest.
+          # Shrinking it is a deliberate narrowing of what an author may ship, and editing
+          # this line is how that gets said out loud.
+          FLOOR = ("icon.png", "icon.webp", "icon.svg", "icon.jpg", "icon.jpeg", "icon.ico")
+          MIN_SUBTYPES = 4
+
+          # extension -> (the media type the registry actually inlines those bytes under,
+          #               other spellings of the same bytes that may also be carried)
+          #
+          # This pairing exists in exactly one place — astra-registry/bot/lib/assets.mjs's
+          # ICON_FORMATS — and that repository is not checked out in this job.
+          # spec/icon-formats.yaml carries filenames alone on purpose: its own comment says
+          # both of its parsers are three lines long and neither takes a dependency to read
+          # it. So the map is mirrored here, and AN EXTENSION MISSING FROM IT IS A FAILURE,
+          # never a skip. That is the half of this check that catches a format nobody here
+          # has heard of yet, rather than only today's six.
+          EMITTED = {
+              "png": ("image/png", ()),
+              "webp": ("image/webp", ()),
+              "svg": ("image/svg+xml", ()),
+              "jpg": ("image/jpeg", ()),
+              "jpeg": ("image/jpeg", ()),
+              "ico": ("image/x-icon", ("image/vnd.microsoft.icon",)),
+          }
+
+          fail = []
+
+          def die(msg):
+              print(msg, file=sys.stderr)
+              sys.exit(1)
+
+          for p in (SPEC, UI):
+              if not p.is_file():
+                  die(f"FAIL {p} does not exist. This check compares two trees and it has one.")
+
+          names = [
+              ln.strip()
+              for ln in SPEC.read_text().splitlines()
+              if ln.strip() and not ln.strip().startswith("#")
+          ]
+          missing = [n for n in FLOOR if n not in names]
+          if missing:
+              die(
+                  f"FAIL {SPEC} no longer declares {', '.join(missing)}.\n"
+                  f"     Parsed {len(names)} filename(s): {' '.join(names) or '(none)'}\n"
+                  f"     Either this parser stopped understanding the file — in which case it was\n"
+                  f"     about to compare nothing and pass — or a format really was withdrawn, which\n"
+                  f"     narrows what every author may ship. If it is the second, drop it from FLOOR\n"
+                  f"     in this step in the same commit, and from the six docs/*/5-publish pages and\n"
+                  f"     the CLI's ICON_FILENAMES that also name it."
+              )
+
+          ui = UI.read_text()
+          if "const INLINE_IMAGE" not in ui:
+              die(
+                  f"FAIL {UI} no longer names its allowlist `INLINE_IMAGE`.\n"
+                  f"     Check this step still reads the right line before trusting it."
+              )
+
+          # The REGEX LINE, not the file. listingMedia.ts explains itself at length directly
+          # above the allowlist and names `image/png`, `image/svg+xml`, `image/x-icon` and
+          # `vnd.microsoft.icon` in that PROSE — so a file-wide scrape matches the comment
+          # and stays green while the allowlist says something else. Drop `svg\+xml` from
+          # the regex on a "no SVG icons" change and a file-wide scrape is still green,
+          # `astra-plugin build` still packs icon.svg, and the card draws the placeholder:
+          # verbatim the failure this exists to catch.
+          lines = [ln for ln in ui.splitlines() if "^data:image" in ln]
+          if len(lines) != 1:
+              die(
+                  f"FAIL expected exactly one `^data:image` line in {UI}, found {len(lines)}.\n"
+                  f"     Teach this step the new spelling rather than accepting the green — the\n"
+                  f"     failure it guards is invisible from every other side."
+              )
+
+          m = re.search(r"\^data:image\\?/\(\?:([^)]*)\)", lines[0])
+          if not m:
+              die(
+                  f"FAIL could not read the media-type alternation out of {UI}'s allowlist:\n"
+                  f"       {lines[0].strip()}\n"
+                  f"     This step expects `^data:image\\/(?:a|b|c)`. It fails rather than falling\n"
+                  f"     back to a substring scan, because a substring scan over a rewritten regex\n"
+                  f"     is exactly a check that passes without comparing anything."
+              )
+
+          accepted = {alt.replace("\\", "").strip() for alt in m.group(1).split("|") if alt.strip()}
+          junk = sorted(a for a in accepted if not re.fullmatch(r"[a-z0-9][a-z0-9.+-]*", a))
+          if junk or len(accepted) < MIN_SUBTYPES:
+              die(
+                  f"FAIL this step did not get a list of media subtypes out of {UI}:\n"
+                  f"       {lines[0].strip()}\n"
+                  f"     parsed {len(accepted)}: {sorted(accepted)}"
+                  + (f"\n     not media subtypes: {junk}" if junk else "")
+                  + f"\n     The allowlist has been rewritten into a shape this scraper does not\n"
+                  f"     understand — a template literal or a joined array, most likely. Teach it the\n"
+                  f"     new spelling. It refuses rather than reporting a comparison it did not make."
+              )
+
+          compared = 0
+          for name in names:
+              if not name.startswith("icon."):
+                  fail.append(
+                      f"  {name!r} is not of the form `icon.<ext>`; this step cannot tell what media\n"
+                      f"  type it would arrive under. Teach it, or fix the spec."
+                  )
+                  continue
+              ext = name.rsplit(".", 1)[-1].lower()
+              if ext not in EMITTED:
+                  fail.append(
+                      f"  {name} is in spec/icon-formats.yaml and this step has no media type for\n"
+                      f"  `.{ext}`. Add it to EMITTED here with the type astra-registry's ICON_FORMATS\n"
+                      f"  inlines it under, and make sure INLINE_IMAGE in listingMedia.ts accepts that\n"
+                      f"  type. Until both are true, an author who ships {name} gets a blank card."
+                  )
+                  continue
+              media, aliases = EMITTED[ext]
+              subtype = media.split("/", 1)[1]
+              compared += 1
+              if subtype not in accepted:
+                  also = f" (aliases carried: {', '.join(aliases)})" if aliases else ""
+                  fail.append(
+                      f"  spec/icon-formats.yaml accepts {name}, the registry inlines it as `{media}`,\n"
+                      f"  and INLINE_IMAGE in listingMedia.ts does not accept `{subtype}`{also}.\n"
+                      f"  That icon survives packing, attestation, derivation and signing and then\n"
+                      f"  draws the placeholder, with nothing anywhere saying why and no way for the\n"
+                      f"  author to find out. Allowlist is: {sorted(accepted)}"
+                  )
+
+          if compared < len(FLOOR):
+              fail.append(
+                  f"  only {compared} format(s) reached the comparison, floor is {len(FLOOR)}.\n"
+                  f"  A run that reaches nothing must not pass."
+              )
+
+          if fail:
+              print("FAIL spec/icon-formats.yaml and the store's inline-image allowlist disagree:",
+                    file=sys.stderr)
+              print(file=sys.stderr)
+              for f in fail:
+                  print(f, file=sys.stderr)
+                  print(file=sys.stderr)
+              sys.exit(1)
+
+          print(f"ok   {compared} icon format(s) in spec/icon-formats.yaml, every one of them")
+          print(f"     accepted by INLINE_IMAGE in astra-ui/src/lib/listingMedia.ts")
+          print(f"     spec:      {' '.join(names)}")
+          print(f"     allowlist: {' '.join(sorted(accepted))}")
+          PY
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
+          ### icons: **full** — `spec/icon-formats.yaml` was compared with `INLINE_IMAGE` in `astra-ui/src/lib/listingMedia.ts`
+          MSG
 
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
