@@ -3,6 +3,8 @@
 
     python3 tools/check-registry-mirrors.py                  # every rule
     python3 tools/check-registry-mirrors.py --rules C24      # one of them
+    python3 tools/check-registry-mirrors.py --rules C27,C31 --pins
+                                  # the registry commits their PINNED legs read
 
 Every rule here compares a literal written down in AstraPlugins against the
 thing it is a copy of — a tag on the remote, a workflow file, the CLI's own
@@ -115,8 +117,16 @@ C27 — `spec/reserved-ids.yaml` is astra-registry's reserved-id policy, still.
     themselves as UNVERIFIED, the way C20 does in `tools/check-locales.py`.
     That is not the choice C24 makes — C24 fails when the remote will not
     answer — and the difference is deliberate: C24 asks about a public remote
-    every job can reach, this one needs a working copy of another repository
-    beside this one, which CI has never had.
+    every job can reach, this one needs a working copy of another repository.
+
+    In CI that copy is `proto-upstream`'s `_registry`, passed as
+    `--registry-dir`, and the last two legs run there for real, in both modes.
+    The `couplings` job has no registry and goes on printing the notice. The
+    checkout is one commit deep, and the pinned leg reads a second commit, so
+    the step fetches exactly that one by SHA first; `--pins` prints it, from
+    the same header this rule reads, so the step and the rule cannot disagree
+    about which commit that is. Until that step, every CI transcript this rule
+    ever produced ended on NOT VERIFIED.
 
 C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
 
@@ -172,6 +182,10 @@ C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
     middle of a passing transcript, on purpose. A check that says "I did not
     compare the other side" every time it passes is cheaper, and more honest,
     than a verifier that cannot exist in the job where it would have to run.
+    In CI both run in `proto-upstream`, against `_registry`, in the same step
+    as C27's and wired the same way — the README's pinned commit fetched by
+    SHA, then `--registry-dir`. The notice stays in the `couplings` job, which
+    has no registry.
 
 C35 — the media type C32 pairs with each icon extension is astra-registry's.
 
@@ -1181,7 +1195,20 @@ def read_reserved_spec() -> tuple[dict[str, object], dict[str, str], str | None]
 EXPLICIT: dict[str, str | None] = {"registry": None, "astra": None}
 
 
-def _explicit_checkout(flag: str, given: str, anchor: str) -> Path:
+def _own_checkout(tree: Path) -> bool:
+    """Whether `tree` is the top of a git work tree of its own.
+
+    Not `rev-parse --is-inside-work-tree`: in CI `_registry` sits INSIDE the
+    AstraPlugins checkout, so a `_registry` whose `.git` went missing would be
+    answered for by the parent, and `git -C _registry show <pin>:…` would go
+    looking for the registry's commit in this repository's history.
+    """
+    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True)
+    return p.returncode == 0 and Path(p.stdout.strip()).resolve() == tree.resolve()
+
+
+def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool = False) -> Path:
     p = Path(given)
     if not p.is_absolute():
         p = (ROOT / p).resolve()
@@ -1189,10 +1216,19 @@ def _explicit_checkout(flag: str, given: str, anchor: str) -> Path:
         print(f"{flag} {given!r} holds no {anchor}. It was passed explicitly, so this is "
               "an error and not a skip.", file=sys.stderr)
         raise SystemExit(2)
+    if need_git and not _own_checkout(p):
+        # C27's and C31's PINNED legs read a commit, not the files on disk, so
+        # a copy of the files is not a checkout they can use. Refused here, by
+        # name, rather than left to reach `git show` in whatever repository
+        # happens to enclose the directory.
+        print(f"{flag} {given!r} holds {anchor} but is not a git checkout of its own, and the "
+              "pinned leg reads a commit. It was passed explicitly, so this is an error and "
+              "not a skip.", file=sys.stderr)
+        raise SystemExit(2)
     return p
 
 
-def _registry_dir(anchor: str = "policy/reserved-ids.json") -> Path | None:
+def _registry_dir(anchor: str = "policy/reserved-ids.json", need_git: bool = False) -> Path | None:
     """A working copy of astra-registry, or None.
 
     Same two candidates as `tools/check-locales.py`'s, and anchored on a file
@@ -1204,11 +1240,13 @@ def _registry_dir(anchor: str = "policy/reserved-ids.json") -> Path | None:
     question either, and "no corpus there" is a sentence a reader can act on
     where "every case differs" is not.
 
-    `--registry-dir` comes first and is never a skip; see `EXPLICIT`.
+    `--registry-dir` comes first and is never a skip; see `EXPLICIT`. With
+    `need_git`, which the two rules with a PINNED leg pass, it must also be a
+    git checkout of its own.
     """
     explicit = EXPLICIT["registry"]
     if explicit is not None:
-        return _explicit_checkout("--registry-dir", explicit, anchor)
+        return _explicit_checkout("--registry-dir", explicit, anchor, need_git)
     env = os.environ.get("ASTRA_REGISTRY_DIR")
     candidates = [env] if env is not None else ["../astra-registry"]
     for c in candidates:
@@ -1241,11 +1279,35 @@ def _registry_text(registry: Path, rel: str, sha: str | None) -> str:
     if p.returncode != 0:
         raise LookupError(
             f"`git show {sha[:12]}:{rel}` failed: {p.stderr.strip() or p.returncode}\n"
-            f"That commit is what spec/reserved-ids.yaml says this copy was taken from. A "
-            f"shallow clone will not have it (`git fetch --unshallow`); a SHA that is in no "
-            f"clone at all was never on a branch anybody can read, and the pin is fiction."
+            f"The commit IS in that checkout (the leg asked before it read), so the pin names a "
+            f"commit that does not hold this file at this path: one from before it existed, or "
+            f"from before it moved. The pin in spec/reserved-ids.yaml is what is wrong."
         )
     return p.stdout
+
+
+def _has_commit(registry: Path, sha: str) -> bool:
+    p = subprocess.run(["git", "-C", str(registry), "cat-file", "-e", f"{sha}^{{commit}}"],
+                       capture_output=True)
+    return p.returncode == 0
+
+
+def _pin_absent(registry: Path, sha: str, named_in: str) -> str:
+    """The one sentence for a pinned leg whose commit the checkout does not hold.
+
+    Asked once, before any file is read at the pin. Left to `git show`, a
+    shallow clone answers "path 'policy/reserved-ids.json' exists on disk, but
+    not in '<sha>'" once per mirrored value — true, and useless: it names the
+    file, when what is missing is the commit.
+    """
+    return (
+        f"commit {sha} is not in the checkout at {registry}.\n"
+        f"It is the commit {named_in} says this copy was taken from, and the pinned leg reads\n"
+        f"the file as that commit held it. A one-commit-deep checkout holds only its own tip:\n"
+        f"fetch exactly this one, `git -C {registry} fetch --depth=1 origin {sha}`, which is\n"
+        f"what proto-upstream's step does before it runs this. If the remote answers `not our\n"
+        f"ref`, no ref on GitHub reaches that SHA, and the pin is fiction."
+    )
 
 
 def _upstream_value(registry: Path, source: str, sha: str | None):
@@ -1288,7 +1350,14 @@ def _upstream_value(registry: Path, source: str, sha: str | None):
 
 def _compare_against(fails: Fails, registry: Path, values, sources, sha: str | None) -> None:
     """One leg: every mirrored value against the registry, at `sha` or at head."""
-    leg = f"pinned {sha[:12]}" if sha else "head"
+    leg = f"pinned {sha[:12]}" if sha else f"head {_git_head(registry)}"
+    if sha and not _has_commit(registry, sha):
+        fails.check(
+            False,
+            f"C27 spec/reserved-ids.yaml is astra-registry's policy ({leg}, 0 value(s))",
+            _pin_absent(registry, sha, "spec/reserved-ids.yaml"),
+        )
+        return
     compared = 0
     problems: list[str] = []
     for name in sorted(values):
@@ -1422,7 +1491,7 @@ def rule_C27(fails: Fails) -> None:
     )
 
     # ── legs 1 and 2: pinned, and head ───────────────────────────────────────
-    registry = _registry_dir()
+    registry = _registry_dir(need_git=True)
     if registry is None:
         print("C27 NOT VERIFIED: no astra-registry checkout at "
               "$ASTRA_REGISTRY_DIR or ../astra-registry.")
@@ -1484,6 +1553,19 @@ SUMS_LINE = re.compile(r"^([0-9a-f]{64})[ \t]+\*?(\S+)$")
 MIN_BINDING_CASES = 3
 
 
+def read_binding_pin(readme: str | None = None) -> re.Match[str] | None:
+    """`astra-registry@<commit>:<path>` out of the corpus README, or None.
+
+    One reader for the rule and for `--pins`, so that the commit CI fetches
+    and the commit the pinned leg compares against cannot be two readings.
+    """
+    if readme is None:
+        if not BINDING_README.is_file():
+            return None
+        readme = BINDING_README.read_text(encoding="utf-8")
+    return BINDING_PIN.search(readme)
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -1526,16 +1608,24 @@ def _registry_blob(registry: Path, rel: str, sha: str | None) -> bytes:
         raise LookupError(
             f"`git show {sha[:12]}:{rel}` failed: "
             f"{p.stderr.decode('utf-8', 'replace').strip() or p.returncode}\n"
-            f"That commit is what testdata/binding-line/README.md says this copy was taken from. "
-            f"A shallow clone will not have it (`git fetch --unshallow`); a SHA that is in no "
-            f"clone at all was never on a branch anybody can read, and the pin is fiction."
+            f"The commit IS in that checkout (the leg asked before it read), so the pin names a "
+            f"commit that does not hold this file at this path: one from before the corpus "
+            f"existed, or from before it moved. The pin in testdata/binding-line/README.md is "
+            f"what is wrong."
         )
     return p.stdout
 
 
 def _binding_compare(fails: Fails, registry: Path, rel: str, sha: str | None) -> None:
     """One leg: the vendored corpus against the registry, at `sha` or at head."""
-    leg = f"pinned {sha[:12]}" if sha else "head"
+    leg = f"pinned {sha[:12]}" if sha else f"head {_git_head(registry)}"
+    if sha and not _has_commit(registry, sha):
+        fails.check(
+            False,
+            f"C31 testdata/binding-line is astra-registry's corpus, byte for byte ({leg})",
+            _pin_absent(registry, sha, "testdata/binding-line/README.md"),
+        )
+        return
     sums_rel = rel.rsplit("/", 1)[0] + "/SHA256SUMS"
     problems: list[str] = []
     for ours_path, upstream_rel in ((BINDING_VECTORS, rel), (BINDING_SUMS, sums_rel)):
@@ -1615,7 +1705,7 @@ def rule_C31(fails: Fails) -> None:
     )
 
     readme = BINDING_README.read_text(encoding="utf-8")
-    pin_m = BINDING_PIN.search(readme)
+    pin_m = read_binding_pin(readme)
     fails.check(
         pin_m is not None,
         "C31 README.md names the registry commit and path this copy came from",
@@ -1736,7 +1826,7 @@ def rule_C31(fails: Fails) -> None:
     pin, upstream_rel = pin_m.group(1), pin_m.group(2)
 
     # ── legs 2 and 3: pinned, and head ───────────────────────────────────────
-    registry = _registry_dir(upstream_rel)
+    registry = _registry_dir(upstream_rel, need_git=True)
     if registry is None:
         print("C31 NOT VERIFIED: no astra-registry checkout holding "
               f"{upstream_rel} at $ASTRA_REGISTRY_DIR or ../astra-registry.")
@@ -1801,7 +1891,15 @@ MIN_ICON_FORMATS = 2
 
 
 def _git_head(tree: Path) -> str:
-    """The checkout's commit, for the transcript. A label, not an input."""
+    """The checkout's commit, for the transcript. A label, not an input.
+
+    Only for a checkout of its own: `_registry` sits inside the AstraPlugins
+    checkout, and asked about a `_registry` with no `.git`, git would answer
+    with THIS repository's HEAD and the transcript would name it as the
+    registry's.
+    """
+    if not _own_checkout(tree):
+        return "HEAD unknown: not a git checkout"
     p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=12", "HEAD"],
                        capture_output=True, text=True)
     return p.stdout.strip() if p.returncode == 0 else "HEAD unknown: not a git checkout"
@@ -2104,6 +2202,42 @@ RULES = {
     "C35": rule_C35,
 }
 
+#: The rules with a PINNED leg: what reads the commit, and the file that names
+#: it. The same readers the rules call, never a second parse of either file.
+PINS = {
+    "C27": (lambda: read_reserved_spec()[2], RESERVED_SPEC),
+    "C31": (lambda: (m.group(1) if (m := read_binding_pin()) else None), BINDING_README),
+}
+
+
+def print_pins(wanted: list[str]) -> int:
+    """`--pins`: `<rule> <commit> <file that names it>`, one line per pinned rule asked for.
+
+    For the CI step that gives a one-commit-deep astra-registry checkout the
+    commits the PINNED legs read, and nothing more. A pinned rule whose pin
+    cannot be read is exit 1 and a sentence, never a line quietly left out: the
+    step would then fetch nothing for it, and "nothing to fetch" must not look
+    like "nothing needed". The rule's own in-repo leg says what is wrong with
+    the file; this only refuses to pretend.
+    """
+    asked = [r for r in wanted if r in PINS]
+    if not asked:
+        print(f"check-registry-mirrors: --pins: none of {', '.join(wanted)} has a pinned leg; "
+              f"the rules that do are {', '.join(PINS)}.", file=sys.stderr)
+        return 2
+    status = 0
+    for r in asked:
+        read, where = PINS[r]
+        rel = where.relative_to(ROOT)
+        sha = read() if where.is_file() else None
+        if sha is None:
+            print(f"check-registry-mirrors: --pins: {r} names no astra-registry@<40-hex> in "
+                  f"{rel}, so its pinned leg has no commit to read.", file=sys.stderr)
+            status = 1
+            continue
+        print(f"{r} {sha} {rel}")
+    return status
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -2125,6 +2259,12 @@ def main() -> int:
         help="an Astra/astra-rs checkout for C35's daemon leg; else $ASTRA_RS_DIR, else "
              "../Astra/astra-rs. Passed explicitly, a directory that is not one is exit 2.",
     )
+    ap.add_argument(
+        "--pins",
+        action="store_true",
+        help="run nothing; print `<rule> <commit> <file>` for each rule asked for that has a "
+             "PINNED leg (" + ", ".join(PINS) + "), read from the file the rule reads it from",
+    )
     args = ap.parse_args()
     EXPLICIT["registry"] = args.registry_dir
     EXPLICIT["astra"] = args.astra_dir
@@ -2134,6 +2274,8 @@ def main() -> int:
     if unknown:
         print(f"check-registry-mirrors: no such rule: {', '.join(unknown)}", file=sys.stderr)
         return 2
+    if args.pins:
+        return print_pins(wanted)
 
     fails = Fails()
     for r in wanted:

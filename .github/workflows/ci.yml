@@ -773,7 +773,12 @@ jobs:
       # `--registry-dir` and `--astra-dir` are passed explicitly on purpose. An
       # explicit directory that holds no checkout is exit 2, never NOT VERIFIED,
       # so a checkout path that moves turns this red instead of into a skip.
+      #
+      # One commit deep on purpose, and C27/C31 at the end of this job fetch
+      # the two extra commits they read; the reasoning and the measurement are
+      # on that step. `id:` is what that step's `if:` asks.
       - name: checkout astra-registry
+        id: registry
         uses: actions/checkout@v4
         with:
           repository: mihailinl/astra-registry
@@ -1020,6 +1025,94 @@ jobs:
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### icons: **full** — `spec/icon-formats.yaml` was compared with `INLINE_IMAGE` in `astra-ui/src/lib/listingMedia.ts`
           MSG
+
+      # C27, C31 — the reserved-id mirror and the binding-line corpus, compared
+      # with astra-registry itself: at the commit each copy says it was taken
+      # from, and at the registry's head. Both modes, one step: neither rule
+      # has a leg that needs Astra, and the registry is public.
+      #
+      # Both rules also run in the `couplings` job, which checks out one
+      # repository, so until this step their comparing legs had never run in
+      # CI. Every `couplings` transcript from AP-7's first run on 2026-09-20 to
+      # C35's on 2026-09-22 ends on NOT VERIFIED: 27 logs read, C27 in all 27,
+      # C31 in the 23 that ran it, and not one comparison. `_registry` has
+      # been in this job since C35, but it is one commit deep, and each PINNED
+      # leg reads `git show <pin>:<path>` at a second commit. Run there as it
+      # was, both would go red on a missing commit, which says nothing about
+      # either copy.
+      #
+      # So each pinned commit is fetched by SHA, one commit deep. The other
+      # way was `fetch-depth: 0`. Both were measured on 2026-09-22 against
+      # astra-registry main at e665b47b (462 commits, 49 branches), each from
+      # a clean `git init`, three runs:
+      #
+      #   main at depth 1, plus the two pins    4.78 MB .git,  966 objects, 2 fetches, 1.2-1.6 s
+      #   every branch, full depth              5.63 MB .git, 3877 objects, 1 fetch,   0.7-1.0 s
+      #
+      # The narrow form fetches a quarter of the objects, and it costs one
+      # more round trip. It grows with the registry's tree, never with its
+      # history, and main gained 27 commits while these were being measured.
+      # It is also exactly what these legs read. `--pins` prints the
+      # commits from the same readers the rules use, so the fetch and the
+      # comparison cannot name two different commits.
+      #
+      # NOT ASSERTED by either form: that a pin is on the registry's `main`.
+      # GitHub serves any SHA that some ref reaches. A commit that exists only
+      # on an unmerged branch fetched fine when measured. A SHA that no ref
+      # reaches gets `not our ref`, and that is red here. Proving ancestry
+      # would need main's history back to the pin, or the compare API and a
+      # token, and this step adds no token. The HEAD leg is what catches a
+      # copy taken from an unmerged branch, on the day it differs from main.
+      #
+      # This step is LAST, under `!cancelled()` instead of the default
+      # `success()`. It depends on no earlier step except the checkout. Its
+      # usual red is the registry changing either list, and that must not
+      # skip C32; a C32 red must not skip this step either. A red before the
+      # checkout still skips it, just as it skips C35 and C32.
+      #
+      # `--registry-dir` is explicit, as it is for C35. A `_registry` that is
+      # missing, or that holds the files but is not a git checkout of its own,
+      # is exit 2 and never NOT VERIFIED.
+      - name: C27, C31 the reserved-id mirror and the binding-line corpus are astra-registry's, at their pins and at head
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          status=0
+          # `|| status=1`, never `$(…)` or a bare command: under `set -e` either
+          # ends the step at the first red and swallows the rule's own account
+          # of it, which is the part a reader needs.
+          python3 tools/check-registry-mirrors.py --rules C27,C31 --pins \
+            > "$RUNNER_TEMP/pins.txt" || status=1
+          while read -r rule sha file; do
+            fetched=no
+            for delay in 0 5 15; do
+              sleep "$delay"
+              if git -C _registry fetch --quiet --no-tags --depth=1 origin "$sha"; then
+                fetched=yes
+                break
+              fi
+            done
+            if [ "$fetched" = yes ]; then
+              echo "ok    fetched astra-registry@$sha, which $file names as $rule's source"
+            else
+              echo "::error::could not fetch astra-registry@$sha, the commit $file says $rule's copy was taken from (three tries; git's reason is above). If it says 'not our ref', no ref on GitHub reaches that SHA and the pin is fiction."
+              status=1
+            fi
+          done < "$RUNNER_TEMP/pins.txt"
+          python3 tools/check-registry-mirrors.py --rules C27,C31 --registry-dir _registry \
+            | tee "$RUNNER_TEMP/c27-c31.txt" || status=1
+          {
+            if [ "$status" = 0 ]; then
+              echo "### registry mirrors: **C27, C31 compared**, pinned and head, against astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
+            else
+              echo "### registry mirrors: **C27, C31 RED**. The step log names the leg"
+            fi
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/pins.txt" "$RUNNER_TEMP/c27-c31.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
@@ -3004,7 +3097,9 @@ jobs:
       # This job checks out one repository, so the two legs that compare
       # against astra-registry cannot run here: they print what they took on
       # trust and end the transcript with NOT VERIFIED rather than with the
-      # word "pass" alone. What runs for real is the half that needs no
+      # word "pass" alone. They run in `proto-upstream`, against its
+      # `_registry` checkout with the pinned commit fetched, in the last step
+      # of that job. What runs here is the half that needs no
       # checkout — the file parses, every value names the upstream it mirrors,
       # the lists parsed to something rather than to nothing, and the copy the
       # CLI actually ships
@@ -3013,7 +3108,7 @@ jobs:
       # refuses) is byte-identical to the spec. `cargo test -p
       # astra-plugin-cli` asserts that last one too, and this job has no Rust
       # toolchain, which is why it is also asserted here.
-      - name: C27 the reserved-id mirror is astra-registry's policy
+      - name: C27 (in-repo legs) the reserved-id mirror parses and names its source; proto-upstream compares it
         run: python3 tools/check-registry-mirrors.py --rules C27
 
       # C31 — the binding-line corpus is still astra-registry's corpus.
@@ -3046,10 +3141,11 @@ jobs:
       # at its head — print what they took on trust and end the run with NOT
       # VERIFIED instead of the word "pass". That notice is printed on a run
       # that is otherwise green, on purpose. From here a stale mirror and an
-      # edited one look identical, and saying so every time is cheaper than a
-      # verifier this job cannot host. Same choice as C27 above and C20 in
-      # `tools/check-locales.py`.
-      - name: C31 the binding-line corpus is astra-registry's corpus
+      # edited one look identical. Same choice as C27 above and C20 in
+      # `tools/check-locales.py`. Those two legs run in `proto-upstream`'s
+      # last step, beside C27's, against `_registry` with the README's pinned
+      # commit fetched.
+      - name: C31 (in-repo and sweep legs) the binding-line copy agrees with its sums and is out of the vendor sweep; proto-upstream compares it
         run: python3 tools/check-registry-mirrors.py --rules C31
 
       # C34 — a doc comment is markdown, and markdown turns indentation into

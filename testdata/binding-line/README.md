@@ -80,22 +80,31 @@ C31, in `tools/check-registry-mirrors.py`, in four legs:
 | **pinned** | an astra-registry checkout | these bytes are not what `astra-registry@<sha>` above really held. The provenance line was typed from memory rather than taken. |
 | **head** | an astra-registry checkout | upstream has moved. **Head red with pinned green is the ordinary case** and means this copy is stale; both red means somebody edited this one. |
 
-The first two legs run in CI, in the `couplings` job, on every push. The last
-two **do not**: that job checks out one repository, and there has never been an
-astra-registry working copy beside it. So C31 prints what it took on trust and
-ends the run with `NOT VERIFIED` rather than with the word "pass" — on every
-green run, in the middle of a passing transcript, deliberately. A nag that
-appears when everything is fine is the only honest report a check can give about
-a comparison it did not make, and it is cheaper than a verifier that cannot
-exist. C20 in `tools/check-locales.py` and C27 in this same file say the same
-sentence for the same reason.
+All four legs run in CI on every push, in two jobs. The first two run in the
+`couplings` job, which checks out one repository, so there C31 prints what it
+took on trust and ends the run with `NOT VERIFIED` rather than with the word
+"pass" — on every green run, in the middle of a passing transcript,
+deliberately. A nag that appears when everything is fine is the only honest
+report a check can give about a comparison it did not make. C20 in
+`tools/check-locales.py` and C27 in the same file as C31 say the same sentence
+for the same reason.
+
+The last two run in `proto-upstream`'s last step, against the astra-registry
+checkout that job holds at `_registry`. That checkout is one commit deep, so
+the step first fetches the commit named on the `mirrors:` line above by its
+SHA. It reads that SHA with `--pins`, from this file, through the same reader
+C31 uses. Before that step existed, the pinned and head legs had never run in
+CI.
 
 To run the two comparing legs locally — the thing worth doing before you move
-the pin — put a checkout beside this one or name it:
+the pin — name a checkout that holds the pinned commit:
 
 ```sh
-ASTRA_REGISTRY_DIR=../astra-registry python3 tools/check-registry-mirrors.py --rules C31
+python3 tools/check-registry-mirrors.py --rules C31 --registry-dir ../astra-registry
 ```
+
+A checkout that is missing the commit is red and says which fetch to run. A
+directory that is not a git checkout of its own is exit 2.
 
 ## Licence
 
