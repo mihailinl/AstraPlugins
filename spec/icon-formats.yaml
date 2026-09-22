@@ -24,6 +24,11 @@
 #      are inlined under and the signature they must actually begin with;
 #      `tools/validate.mjs` compares the names against this file whenever an
 #      AstraPlugins checkout is reachable.
+#   4. Give it the same media type in `EMITTED`, in `.github/workflows/ci.yml`'s
+#      C32 step, and make sure the store's `INLINE_IMAGE` accepts that type.
+#      C35 (`tools/check-registry-mirrors.py`) holds EMITTED against
+#      ICON_FORMATS; C32 holds the spec and EMITTED against the store. Both run
+#      in `proto-upstream`, C32 in full mode only.
 #
 # ORDER IS PREFERENCE. When a bundle carries more than one, the first match
 # wins. Raster formats come before SVG deliberately: a raster image has no
