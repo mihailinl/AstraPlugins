@@ -106,6 +106,18 @@ C22 — does the release the scaffold requires actually resolve plugin labels?
     carries the resolver. Read the tag name in the evidence line rather than
     assuming the two agree.
 
+    **The tags come from the checkout whose top-level `astra-rs/` the tree is,
+    and from no other repository.** `git -C <dir>` searches upward, and in CI
+    Astra is checked out INSIDE this repository, at `_astra`. Until entry 115 in
+    the ops register this rule took whatever top-level git found, so (measured on
+    fixtures laid out as `proto-upstream` lays them out) an `_astra` that lost its
+    `.git` had its tags read from the AstraPlugins checkout, which went red for a
+    reason it misnamed — "the Astra checkout has no `origin/main`" — and a copy of
+    `astra-rs/` nested inside another Astra checkout read THAT checkout's tags and
+    went green. `checkout_top` in `tools/checkouts.py`, the rule C35's daemon
+    label is held to, now refuses both before a tag is read: exit 2 for an
+    explicit `--astra-dir`, NOT VERIFIED for `$ASTRA_RS_DIR` or the default.
+
 C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs/.
     A translated documentation directory is the most likely place an author
     learns a locale name, and for months `docs/zh-CN` taught a spelling Astra
@@ -132,6 +144,10 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The daemon tree's own-checkout rule, shared with tools/check-registry-mirrors.py's C35.
+from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "spec" / "locales.yaml"
@@ -830,7 +846,17 @@ def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int], head: str) ->
 #: Serve-time resolution of a plugin's action labels — `get_config_schema` has
 #: resolved config schemas for far longer, and that is not what this watches.
 RESOLVER_SYMBOL = "resolve_action_type"
-RESOLVER_FILE = "astra-rs/astra-daemon/src/plugins/i18n.rs"
+#: Read with `git show <ref>:<path>` from the top of the checkout, so its first
+#: component is where the daemon's tree sits in that checkout — the same fact
+#: `checkout_top` holds `--astra-dir` to, and one constant for both.
+RESOLVER_FILE = f"{DAEMON_IN_REPO}/astra-daemon/src/plugins/i18n.rs"
+
+#: Why C22 refuses a tree that is not the top-level `astra-rs/` of its own
+#: checkout, where C12 (which reads files) does not: `git -C` searches upward,
+#: so anything else would have C22 read the tags of whatever repository
+#: encloses the tree — in CI, an `_astra` that lost its `.git` is enclosed by
+#: this one.
+C22_NEEDS_GIT = "C22 reads release tags only from the daemon's own checkout"
 
 #: The NAMED ref this rule proves its own anchor against before it believes a
 #: word a tag says.
@@ -978,7 +1004,9 @@ def _scaffold_floor(fails: Fails) -> str | None:
     return found.group(1)
 
 
-def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> None:
+def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF,
+             explicit: str | None = None) -> None:
+    """`explicit` is the `--astra-dir` the caller passed, if it passed one."""
     if astra is None:
         print("C22 NOT VERIFIED: no Astra checkout at "
               f"{_default_astra_hint()}. Nothing here can see whether the release")
@@ -990,9 +1018,30 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF) -> 
         fails.skip("C22", "no Astra checkout")
         return
 
+    # Whose tags, BEFORE any are read: the checkout whose top-level astra-rs/
+    # this tree is, and never whatever repository happens to enclose it.
     try:
-        top = subprocess.run(["git", "-C", str(astra), "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True, check=True).stdout.strip()
+        found, why = checkout_top(astra, DAEMON_IN_REPO)
+    except OSError as exc:
+        fails.check(False, "C22 the Astra checkout's tags are readable", str(exc))
+        return
+    if found is None:
+        if explicit:
+            print(f"--astra-dir {explicit!r} is {why}, and {C22_NEEDS_GIT}. It was "
+                  "passed explicitly, so this is an error and not a skip.", file=sys.stderr)
+            raise SystemExit(2)
+        print(f"C22 NOT VERIFIED: the Astra tree at {astra} is {why},")
+        print("        so it is not a checkout this rule can read release tags from. `git`")
+        print("        searches upward from a directory, and asked about an `_astra` whose")
+        print("        `.git` went missing it answers for the AstraPlugins checkout around")
+        print("        it; asked about a copy of astra-rs/ it answers for wherever the copy")
+        print("        sits. Either way the tags would be some other repository's, read as")
+        print("        the daemon's. Point $ASTRA_RS_DIR at the astra-rs/ of an Astra clone.")
+        fails.skip("C22", f"the Astra tree is {why}")
+        return
+
+    top = str(found)
+    try:
         tags = subprocess.run(
             ["git", "-C", top, "tag", "--list", "v*", "--sort=-v:refname"],
             capture_output=True, text=True, check=True).stdout.split()
@@ -1116,7 +1165,10 @@ def main() -> int:
                     help="comma-separated subset of C12,C14,C20,C22 (default: all)")
     ap.add_argument("--astra-dir", default=None,
                     help="an Astra/astra-rs checkout; else $ASTRA_RS_DIR, else "
-                         "../Astra/astra-rs. C12 says so out loud when there is none.")
+                         "../Astra/astra-rs. C12 says so out loud when there is none. C22 "
+                         "also needs it to be the top-level astra-rs/ of its own git "
+                         "checkout: passed explicitly, one that is not is exit 2, never NOT "
+                         "VERIFIED.")
     ap.add_argument("--registry-dir", default=None,
                     help="an astra-registry checkout for C20; else $ASTRA_REGISTRY_DIR, else "
                          "../astra-registry. Passed explicitly, a directory that holds no "
@@ -1155,7 +1207,7 @@ def main() -> int:
     if "C12" in wanted:
         rule_C12(fails, resolve_astra(args.astra_dir))
     if "C22" in wanted:
-        rule_C22(fails, resolve_astra(args.astra_dir), args.astra_ref)
+        rule_C22(fails, resolve_astra(args.astra_dir), args.astra_ref, args.astra_dir or None)
 
     print()
     sys.stdout.flush()

@@ -697,6 +697,11 @@ jobs:
       # refs/remotes/origin/<ref> for the branch it took. It reaches the shell
       # through `env` and never through `${{ }}` interpolated into the script,
       # for the reason the slicer step above states at length.
+      #
+      # C22 reads tags from `_astra` only while `_astra/astra-rs` is the
+      # top-level `astra-rs/` of `_astra`'s own checkout. An `_astra` without its
+      # `.git` sits inside this checkout, whose tags C22 once read as Astra's;
+      # it is now exit 2, by name (entry 115; `couplings` proves it on fixtures).
       - name: C12, C22 (full) the vocabulary, and whether the scaffold's flip is due
         if: env.MODE == 'full'
         env:
@@ -3246,6 +3251,24 @@ jobs:
       # its `_registry` checkout.
       - name: C14, C20 (in-repo legs) the docs locales, and the listing caps parse and name their sources; proto-upstream compares them
         run: python3 tools/check-locales.py --rules C14,C20
+
+      # C22 and C35 read Astra's `astra-rs/`, and both ask git about it. In
+      # `proto-upstream` Astra is checked out INSIDE this repository, at
+      # `_astra`, and `git -C` searches upward: an `_astra` that lost its `.git`
+      # is answered for by this checkout. For C35 that was a label naming the
+      # wrong commit (entry 108). For C22 it was an input, and nothing had ever
+      # checked it: C22 read THIS repository's tags as the daemon's and went red
+      # blaming "the Astra checkout" for a missing `origin/main`, and a copy of
+      # `astra-rs/` nested inside another Astra checkout read that checkout's
+      # tags and went green (entry 115, both measured on fixtures).
+      #
+      # `tools/checkouts.py` is now the one rule both call: the tree must be the
+      # top-level `astra-rs/` of its own checkout. This proves it end to end on
+      # fixtures, because the case exists nowhere else — no run of
+      # `proto-upstream` has had an `_astra` without its `.git` — and it needs
+      # no Astra and no token, so it runs here, on every pull request.
+      - name: C22, C35 the daemon's tree is the top-level astra-rs/ of its own checkout, or no tag and no commit is read from it
+        run: python3 tools/test_checkouts.py
 
       # C24 — every documented `plugin-release/v1` SHA is that tag's commit.
       #
