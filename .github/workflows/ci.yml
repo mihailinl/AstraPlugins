@@ -79,7 +79,17 @@ on:
   push:
     branches: [master, main, "feat/**"]
   pull_request:
+  # `degraded` is the manual half of the degraded-mode exercise; the weekly
+  # cron below is the scheduled half. `proto-upstream` says why both exist.
   workflow_dispatch:
+    inputs:
+      degraded:
+        description: >-
+          Run proto-upstream in degraded mode, as a pull request from a fork
+          runs it: ASTRA_REPO_TOKEN is withheld from every step. Leave false
+          for an ordinary full run.
+        type: boolean
+        default: false
   # ── WHY A CRON ────────────────────────────────────────────────────────────
   #
   # Every trigger above is an event in THIS repository. `proto-upstream`'s full
@@ -106,7 +116,9 @@ on:
   #
   # Scheduled runs use the DEFAULT BRANCH (master) and do get secrets, so
   # HAVE_TOKEN is `yes` and proto-upstream runs full. That is the whole point;
-  # a cron that landed in degraded mode would prove nothing at all.
+  # a cron that landed in degraded mode would prove nothing at all about the
+  # couplings. The one exception is the weekly cron below, and it proves
+  # something else: that degraded mode itself still works.
   #
   # KNOWN AND UNGUARDED: GitHub disables a repository's scheduled workflows
   # after 60 days with no activity, and stops them silently. Nothing here can
@@ -117,6 +129,16 @@ on:
     # 06:17 UTC daily. Off the hour deliberately: GitHub queues the on-the-hour
     # crons of the whole world at once and drops the overflow.
     - cron: "17 6 * * *"
+    # Mondays 18:43 UTC: the DEGRADED exercise. proto-upstream withholds the
+    # token from this schedule and only this one (its HAVE_TOKEN says how), so
+    # the path a fork's pull request takes runs on a runner every week instead
+    # of never. About twelve hours from the daily cron, because both share the
+    # `ci-schedule-refs/heads/master` concurrency group and a late one must not
+    # cancel the other (the one daily run so far arrived 5 h 18 min late).
+    # Change this string and HAVE_TOKEN's together; proto-upstream's step
+    # "the weekly degraded run's schedule is one this workflow fires" is red
+    # while they differ.
+    - cron: "43 18 * * 1"
   # release-sdks.yml gates the publish on this whole matrix by calling it, so
   # the release cannot run a weaker CI than a PR does.
   workflow_call:
@@ -291,25 +313,54 @@ jobs:
       # GitHub rejects the workflow at parse time for `if: secrets.X != ''`.
       # A job-level `env:` hoist is the only supported shape, and every step
       # below branches on this string, never on `secrets` directly.
-      HAVE_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
+      #
+      # THREE VALUES, and `withheld` is the one that exists on purpose. From
+      # 2026-08-23 to 2026-09-22 all 129 runs of this job ran full, because
+      # each was a same-repository run with the secret. So the degraded steps
+      # below had run only in local exports and never on a runner: the lock
+      # check, C12's NOT VERIFIED, and C35 (degraded) (ops register, entry
+      # 107). The first pull request from a fork would have been their first
+      # run. A dispatch with `degraded: true`, and the weekly cron named in
+      # this expression, therefore get `withheld`, and the job takes the
+      # degraded path. For them the expression stops before it reaches
+      # `secrets`. The one step that names the secret (checkout Astra) passes
+      # it only when this is `yes`, so no step is handed the token.
+      #
+      # Every other trigger evaluates exactly as before: push, pull_request,
+      # the daily cron, a plain dispatch, and release-sdks.yml's call. ci.yml
+      # declares no workflow_call inputs, so `inputs.degraded` is unset there.
+      HAVE_TOKEN: ${{ (inputs.degraded || github.event.schedule == '43 18 * * 1') && 'withheld' || secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: which mode this job is running in
         run: |
           set -euo pipefail
+          echo "HAVE_TOKEN=$HAVE_TOKEN (event: $GITHUB_EVENT_NAME)"
           if [ "$HAVE_TOKEN" = yes ]; then
             echo "MODE=full"    >> "$GITHUB_ENV"
+            echo "MODE=full"
             echo "### proto-upstream: **full** — regenerating from the Astra checkout" \
               >> "$GITHUB_STEP_SUMMARY"
-          else
+          elif [ "$HAVE_TOKEN" = no ] || [ "$HAVE_TOKEN" = withheld ]; then
             echo "MODE=degraded" >> "$GITHUB_ENV"
+            echo "MODE=degraded"
             {
-              echo "### proto-upstream: **DEGRADED — upstream drift was NOT checked**"
-              echo
-              echo "\`ASTRA_REPO_TOKEN\` is unset. Astra is a private repository, so this"
-              echo "run cannot see it — which is the normal state for a pull request from"
-              echo "a fork, where GitHub withholds secrets by design."
+              if [ "$HAVE_TOKEN" = withheld ]; then
+                echo "### proto-upstream: **DEGRADED ON PURPOSE — upstream drift was NOT checked**"
+                echo
+                echo "This run exercises degraded mode. It was started by a dispatch with"
+                echo "\`degraded: true\` or by the weekly cron, and \`ASTRA_REPO_TOKEN\` was withheld"
+                echo "from every step. So it took the path a pull request from a fork takes, which"
+                echo "no same-repository run takes. Its result says whether that path works. It"
+                echo "does not say whether the couplings hold; the daily full run says that."
+              else
+                echo "### proto-upstream: **DEGRADED — upstream drift was NOT checked**"
+                echo
+                echo "\`ASTRA_REPO_TOKEN\` is unset. Astra is a private repository, so this"
+                echo "run cannot see it — which is the normal state for a pull request from"
+                echo "a fork, where GitHub withholds secrets by design."
+              fi
               echo
               echo "What ran instead: \`proto/ASTRA_PROTO.lock\` was verified against the"
               echo "checked-in protocol. That proves the protocol has not moved since a"
@@ -328,7 +379,50 @@ jobs:
               echo "icon becomes an \`<img src>\`, and an icon it refuses draws the placeholder with"
               echo "no error anywhere. Only a full-mode run holds the two lists against each other."
             } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::HAVE_TOKEN is '$HAVE_TOKEN'. This step knows yes, no and withheld, and will not guess a mode."
+            exit 1
           fi
+
+      # The weekly degraded run hangs on one string that is written twice: the
+      # cron in `on.schedule` and the comparison in HAVE_TOKEN above. If one
+      # changes without the other, nothing fails. The cron keeps firing and
+      # runs FULL, or the comparison names a schedule that never fires, and
+      # degraded mode goes back to never running, silently, which is how entry
+      # 107 began. This holds the two together on every run, in both modes.
+      # A misspelt `inputs.<name>` is the `actionlint` job's to catch; it
+      # checks every `inputs` property against the declared inputs.
+      - name: the weekly degraded run's schedule is one this workflow fires
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, sys
+          path = ".github/workflows/ci.yml"
+          text = open(path, encoding="utf-8").read()
+          crons = re.findall(r'^\s*- cron: "([^"]*)"\s*$', text, re.M)
+          named = re.findall(r"github\.event\.schedule == '([^']*)'", text)
+          bad = []
+          if len(named) != 1:
+              bad.append(f"{path} compares github.event.schedule with {len(named)} string(s) "
+                         f"{named}; HAVE_TOKEN compares it with exactly one, the weekly cron.")
+          if len(crons) != len(set(crons)):
+              bad.append(f"on.schedule lists a cron twice: {crons}")
+          for c in named:
+              if c not in crons:
+                  bad.append(f"HAVE_TOKEN withholds the token from the schedule '{c}', and "
+                             f"on.schedule has no such cron ({crons}). The weekly degraded run "
+                             f"never fires, and any renamed cron runs full.")
+          if not [c for c in crons if c not in named]:
+              bad.append(f"every cron in on.schedule ({crons}) is one HAVE_TOKEN withholds the "
+                         f"token from, so no scheduled run is full any more.")
+          for b in bad:
+              print(f"::error::{b}")
+          if bad:
+              sys.exit(1)
+          full = [c for c in crons if c not in named]
+          print(f"ok    the weekly degraded run's cron '{named[0]}' is in on.schedule, "
+                f"and {full} still run full")
+          PY
 
       # ── degraded mode ────────────────────────────────────────────────────
       #
@@ -471,7 +565,10 @@ jobs:
         with:
           repository: mihailinl/Astra
           ref: ${{ vars.ASTRA_REF || 'main' }}
-          token: ${{ secrets.ASTRA_REPO_TOKEN }}
+          # Only when HAVE_TOKEN is `yes`, which is also the only value under
+          # which this step runs. A run that withholds the token hands it to
+          # no step at all, even if this step's `if:` is ever loosened.
+          token: ${{ env.HAVE_TOKEN == 'yes' && secrets.ASTRA_REPO_TOKEN || '' }}
           path: _astra
           # The slicer reads astra.proto and plugin-surface.toml only; no history
           # is needed and the repo is large.
