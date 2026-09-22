@@ -1160,6 +1160,55 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
+      # C20 — spec/listing-limits.yaml, the caps `astra-plugin` enforces at
+      # pack time on astra-registry's behalf, against the registry's own
+      # numbers: `policy/limits.json` and one `maxLength` in
+      # `schema/version-v1.json`. Both ways. Forward, every row here names a
+      # registry constant and equals it. Reverse, every cap the registry marks
+      # `<name>_mirrored_by` has a row here. Both modes, against `_registry` at
+      # `main`.
+      #
+      # C20 also runs in the `couplings` job, which checks out one repository,
+      # so until this step its comparison had never run in CI. From C20's
+      # first run on 2026-08-23 to #54's merge on 2026-09-22, 126 `couplings`
+      # logs ran it. All 126 printed `C20 NOT VERIFIED: no astra-registry
+      # checkout`, and none printed a comparison. Counted by downloading every
+      # completed CI run's `couplings` log with `gh api …/actions/jobs/<id>/logs`.
+      #
+      # HEAD, not a pin: spec/listing-limits.yaml names no registry commit,
+      # so C20 has no pinned leg and needs no fetch beyond the checkout. A
+      # cap the registry changes on `main`, or a new `_mirrored_by` it
+      # declares, turns this red on the next run here, the daily schedule at
+      # the latest. The step log names the cap and which side to edit. The
+      # CLI's vendored copy is held to this file by `cargo test`, not here.
+      #
+      # Same shape as the two steps above: last, under `!cancelled()`, so a
+      # red in C32, C27/C31 or C21 does not skip it and it does not skip them.
+      # `--registry-dir` is explicit, so a `_registry` without
+      # policy/limits.json, or one that is not a git checkout of its own, is
+      # exit 2 and never NOT VERIFIED. The passing lines name the registry
+      # commit they compared against, and a copy of the files has none.
+      # `--require C20` turns any other skip into a red too.
+      - name: C20 the mirrored listing caps are astra-registry's numbers, both ways
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          status=0
+          python3 tools/check-locales.py --rules C20 --require C20 --registry-dir _registry \
+            | tee "$RUNNER_TEMP/c20.txt" || status=1
+          {
+            if [ "$status" = 0 ]; then
+              echo "### listing caps: **C20 compared** — spec/listing-limits.yaml against policy/limits.json and schema/version-v1.json at astra-registry@$(git -C _registry rev-parse --short=12 HEAD), both ways"
+            else
+              echo "### listing caps: **C20 RED**. The step log names each cap that differs and which repository to edit, or why \`_registry\` could not be read"
+            fi
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/c20.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
   sdk-rust:
@@ -3055,10 +3104,12 @@ jobs:
       # C20 rides along, and its two halves land differently here. The in-repo
       # half — the file parses, and every cap names the upstream constant it
       # mirrors — runs for real. The comparison against astra-registry's own
-      # numbers cannot: this job checks out one repository. It prints the four
-      # values it took on trust and says it did not verify them, which is the
-      # only honest thing a mirror check can do with one side missing.
-      - name: C14, C20 the docs locales and the mirrored listing caps
+      # numbers cannot: this job checks out one repository. It prints every
+      # value it took on trust and says it did not verify them, which is the
+      # only honest thing a mirror check can do with one side missing. The
+      # comparison, both ways, runs in `proto-upstream`'s last step, against
+      # its `_registry` checkout.
+      - name: C14, C20 (in-repo legs) the docs locales, and the listing caps parse and name their sources; proto-upstream compares them
         run: python3 tools/check-locales.py --rules C14,C20
 
       # C24 — every documented `plugin-release/v1` SHA is that tag's commit.

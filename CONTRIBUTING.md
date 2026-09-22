@@ -146,8 +146,9 @@ proof:
   the `docs/` locale directories, against `docs/tools/locales.py` and
   `spec/locales.yaml`. What needs an `Astra` checkout (`../Astra/astra-rs`,
   `$ASTRA_RS_DIR`, or `--astra-dir`): everything compared against the daemon.
-  What needs an `astra-registry` checkout: the far half of the mirrored listing
-  caps. **C13 is not in this script at all** — it is a `#[test]` in
+  What needs an `astra-registry` checkout (`../astra-registry`,
+  `$ASTRA_REGISTRY_DIR`, or `--registry-dir`): the far half of the mirrored
+  listing caps. **C13 is not in this script at all** — it is a `#[test]` in
   `astra-plugin-cli`, so it runs under `cargo test` with no checkout and no
   secret, which is why it is the one the vocabulary actually rests on.
 - `python3 tools/check-python-stubs.py` needs **the exact grpcio-tools version
