@@ -1261,7 +1261,12 @@ def _own_checkout(tree: Path) -> bool:
     return p.returncode == 0 and Path(p.stdout.strip()).resolve() == tree.resolve()
 
 
-def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool = False) -> Path:
+#: Why a rule passing `need_git=True` needs a commit and not only the files.
+#: C21 passes its own sentence instead of `True`; the refusal is the same.
+PINNED_NEEDS_GIT = "the pinned leg reads a commit"
+
+
+def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool | str = False) -> Path:
     p = Path(given)
     if not p.is_absolute():
         p = (ROOT / p).resolve()
@@ -1274,14 +1279,14 @@ def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool = Fals
         # a copy of the files is not a checkout they can use. Refused here, by
         # name, rather than left to reach `git show` in whatever repository
         # happens to enclose the directory.
-        print(f"{flag} {given!r} holds {anchor} but is not a git checkout of its own, and the "
-              "pinned leg reads a commit. It was passed explicitly, so this is an error and "
-              "not a skip.", file=sys.stderr)
+        why = need_git if isinstance(need_git, str) else PINNED_NEEDS_GIT
+        print(f"{flag} {given!r} holds {anchor} but is not a git checkout of its own, and {why}. "
+              "It was passed explicitly, so this is an error and not a skip.", file=sys.stderr)
         raise SystemExit(2)
     return p
 
 
-def _registry_dir(anchor: str = "policy/reserved-ids.json", need_git: bool = False) -> Path | None:
+def _registry_dir(anchor: str = "policy/reserved-ids.json", need_git: bool | str = False) -> Path | None:
     """A working copy of astra-registry, or None.
 
     Same two candidates as `tools/check-locales.py`'s, and anchored on a file
@@ -1295,7 +1300,7 @@ def _registry_dir(anchor: str = "policy/reserved-ids.json", need_git: bool = Fal
 
     `--registry-dir` comes first and is never a skip; see `EXPLICIT`. With
     `need_git`, which the two rules with a PINNED leg pass, it must also be a
-    git checkout of its own.
+    git checkout of its own; C21 passes the sentence saying why it needs one.
     """
     explicit = EXPLICIT["registry"]
     if explicit is not None:
@@ -2293,6 +2298,14 @@ SCHEMA_REFUSED = (
 MIN_INDEX_OBJECTS = 2
 MIN_INDEX_MEMBERS = 10
 
+#: Why an explicit `--registry-dir` must be a git checkout of its own for C21,
+#: which reads the file off disk and has no pinned leg: its passing line names
+#: the registry commit it compared against, and CI's summary repeats it. From a
+#: copy of the files that commit is unknowable, and from a directory nested in
+#: another repository — `_registry` sits inside the AstraPlugins checkout —
+#: `git` would answer with the wrong repository's commit.
+C21_NEEDS_GIT = "C21's passing line names the registry commit it compared against"
+
 
 def _index_cells(row: str) -> list[str]:
     body = row.strip()
@@ -2509,13 +2522,23 @@ def read_schema_members(schema: dict) -> dict[str, dict[str, str]]:
 
 
 def _registry_label(tree: Path) -> str:
-    """The checkout's commit for the transcript, or a sentence saying there is none.
+    """The checkout's commit for the transcript, or a sentence saying why it is not one.
 
-    `_git_head` alone answers for an ENCLOSING repository: in CI `_registry`
-    sits inside the AstraPlugins checkout, so a `_registry` whose `.git` went
-    missing would be labelled with this repository's commit.
+    C21 reads the schema off disk, so the commit is what the file was compared
+    AT only when the file is unmodified — and `_git_head` alone answers for an
+    ENCLOSING repository: in CI `_registry` sits inside the AstraPlugins
+    checkout, so a `_registry` whose `.git` went missing would be labelled with
+    this repository's commit. A label, not an input; the comparison is of the
+    bytes on disk either way.
     """
-    return _git_head(tree) if _own_checkout(tree) else "not a git checkout of its own, so no commit"
+    if not _own_checkout(tree):
+        return "not a git checkout of its own, so no commit"
+    head = _git_head(tree)
+    p = subprocess.run(["git", "-C", str(tree), "status", "--porcelain", "--", INDEX_SCHEMA],
+                       capture_output=True, text=True)
+    if p.returncode != 0 or p.stdout.strip():
+        return f"{head} with {INDEX_SCHEMA} modified in the working tree"
+    return head
 
 
 def rule_C21(fails: Fails) -> None:
@@ -2542,7 +2565,7 @@ def rule_C21(fails: Fails) -> None:
         return
 
     # ── leg 1: against the registry ──────────────────────────────────────────
-    registry = _registry_dir(INDEX_SCHEMA)
+    registry = _registry_dir(INDEX_SCHEMA, need_git=C21_NEEDS_GIT)
     if registry is None:
         print("C21 NOT VERIFIED: no astra-registry checkout holding "
               f"{INDEX_SCHEMA} at --registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry.")

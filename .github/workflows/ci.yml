@@ -1137,7 +1137,9 @@ jobs:
       # Same shape as the step above: last, under `!cancelled()`, so a red in
       # C32 or C27/C31 does not skip it and it does not skip them;
       # `--registry-dir` explicit, so a `_registry` without
-      # schema/index-v1.json is exit 2 and never NOT VERIFIED.
+      # schema/index-v1.json, or one that is not a git checkout of its own, is
+      # exit 2 and never NOT VERIFIED: the passing line names the registry
+      # commit it compared against, and a copy of the files has none.
       - name: C21 the index spec documents every member of astra-registry's index schema, both ways
         if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
         run: |
