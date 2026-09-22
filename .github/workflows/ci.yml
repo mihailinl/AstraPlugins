@@ -1020,6 +1020,21 @@ jobs:
       - name: cargo test (astra-plugin-macros)
         run: cargo test --manifest-path astra-plugin-macros/Cargo.toml --all-targets
 
+      # `--all-targets` above is lib, bins, tests, examples and benches — and
+      # rustdoc is none of them, so it does NOT include doctests. The SDK's two
+      # steps say this by being two steps; this crate had only the first, and
+      # its seven doctests had therefore never been compiled by any lane on this
+      # repository. Watched: a bare indented block in `src/lib.rs`'s `//!`
+      # header leaves `--all-targets` green at exit 0 and fails `--doc` at
+      # exit 101, `error: unknown start of token`.
+      #
+      # That the seven are all ```ignore today is not a reason to skip it. An
+      # `ignore` block is still collected and still parsed as an info string,
+      # and the next example written here may not be one — the step exists so
+      # that this crate's doc comments are compiled at all.
+      - name: cargo test --doc (astra-plugin-macros)
+        run: cargo test --manifest-path astra-plugin-macros/Cargo.toml --doc
+
       - name: cargo clippy (astra-plugin-macros)
         run: cargo clippy --manifest-path astra-plugin-macros/Cargo.toml --all-targets
 
@@ -2970,6 +2985,38 @@ jobs:
       # `tools/check-locales.py`.
       - name: C31 the binding-line corpus is astra-registry's corpus
         run: python3 tools/check-registry-mirrors.py --rules C31
+
+      # C34 — a doc comment is markdown, and markdown turns indentation into
+      # code. Four spaces after a blank line is a CommonMark code block, a code
+      # block with no info string is Rust, and rustdoc compiles it. So a table,
+      # a diagram or an aligned list of numbers, typed into a `//!` the way
+      # anyone would type it into a paragraph, is handed to the compiler — and
+      # the failure is a lexer error about a character in a sentence, in a file
+      # whose only change was prose.
+      #
+      # The plugins service hit exactly that next door: a measurement table with
+      # backticks and a `←`, `error: unknown start of token: \u{2190}`. It
+      # survived review because prose does not look like a test run, and the
+      # author verified the suite they believed they had touched, a dozen times.
+      #
+      # This tree's convention is already unanimous — 33 code blocks across the
+      # five crates, 33 fenced, none bare — which is the reason to write it
+      # down rather than a reason not to. The second leg is the one that was
+      # broken: `--all-targets` does not include doctests, so a library crate
+      # tested only that way can carry a doc comment that does not compile, for
+      # ever, with every lane green. `astra-plugin-macros` was that crate.
+      #
+      # Why here and not in `cargo test`: `astra-plugin-cli` and the ten
+      # `examples/*` are binary crates. `cargo test --doc` on a bin does not run
+      # an empty suite, it refuses — `no library targets found` — so rustdoc
+      # will never read their doc comments at all, and this scan is the only
+      # thing that ever will. No Rust toolchain is needed or wanted in this job
+      # (same reason as C25's Python leg), and the walker is stdlib: it was held
+      # against markdown-it-py over all 1703 doc-comment runs in this tree and
+      # eighteen nesting cases, and against rustdoc's own
+      # `cargo test --doc -- --list`, line for line.
+      - name: C34 no doc comment is accidentally a doctest
+        run: python3 tools/check-doc-fences.py
 
       - name: C2-C11 the couplings nothing else checks
         run: |
