@@ -172,6 +172,59 @@ C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
     middle of a passing transcript, on purpose. A check that says "I did not
     compare the other side" every time it passes is cheaper, and more honest,
     than a verifier that cannot exist in the job where it would have to run.
+
+C35 — the media type C32 pairs with each icon extension is astra-registry's.
+
+    `spec/icon-formats.yaml` carries filenames alone, deliberately, so which
+    media type an `icon.<ext>` is inlined under lives in astra-registry's
+    `ICON_FORMATS` — `iconDataUri` writes `format.media` into every signed
+    `data:` URI, so that table IS what the store receives. C32, in
+    `proto-upstream`, holds the spec against the renderer's allowlist and
+    needs that pairing to do it; the registry was not checked out in its job,
+    so it carries a hand copy, `EMITTED`. Nothing compared the copy with the
+    table. C32 fails closed on an extension it cannot pair, so this was never
+    a silent green — it was a misleading red: the registry changes a type, C32
+    goes on judging the old one, and when it fails it blames `listingMedia.ts`
+    for a disagreement that is the registry's.
+
+    Three legs.
+
+      * IN-REPO. `EMITTED` parses out of ci.yml's C32 step: exactly one step,
+        exactly one `EMITTED = {`, every line inside it a one-line row this
+        reader understands, no extension twice. Runs everywhere.
+
+      * REGISTRY. `EMITTED` against `ICON_FORMATS` at the checkout's head, as
+        sets both ways — an extension on one side only is named, and so is an
+        extension whose type differs. The alias column (`vnd.microsoft.icon`
+        beside `x-icon`) is this side's own and is not compared: the registry
+        emits one type per extension. No PINNED leg, because `EMITTED` names
+        no commit it was taken from.
+
+      * DAEMON. Astra's publishing document carries a fourth copy,
+        `CATALOGUE_ICON_FILES`: two pairs, deliberately fewer than the
+        registry accepts, each "with the media type the registry inlines each
+        one under". The daemon's own canary holds those types against the
+        renderer and nothing held them against the registry. Each pair it
+        names must be the registry's pair — a subset, never an equality.
+
+    Needs an astra-registry checkout for the last two and an Astra checkout for
+    the third. `proto-upstream` checks the registry out in both modes (it is
+    public) and Astra in full mode only, so a fork's pull request compares the
+    first two copies and prints NOT VERIFIED for the daemon's.
+
+    Both upstream files are read as TEXT and never imported. Full mode holds a
+    private repository's token on disk, and executing another repository's
+    module in that job to learn six strings is a trust boundary this rule has
+    no reason to cross. The cost is that a reformatted table is a red here,
+    naming the line it did not understand. That is the right cost: the
+    alternative is a reader that guesses.
+
+    Not compared, and why: the registry's own pin on the same table
+    (`bot/tests/presentation.test.mjs`'s `media`), which the registry's suite
+    holds against `ICON_FORMATS` itself; and the two generic extension-to-type
+    tables Astra serves a plugin's own UI files with, which are not in the icon
+    path at all — `listingIconSrc` refuses every scheme but an inline `data:`
+    image and `https:`.
 """
 
 from __future__ import annotations
@@ -1118,6 +1171,27 @@ def read_reserved_spec() -> tuple[dict[str, object], dict[str, str], str | None]
     return values, sources, pin
 
 
+#: `--registry-dir` and `--astra-dir`, set by `main`. A directory passed on the
+#: command line is a caller asserting the tree is there, so one that does not
+#: hold the file a rule reads is exit 2, not the NOT VERIFIED the environment
+#: variables fall back to. `tools/check-locales.py`'s `resolve_astra` draws the
+#: same line for the same reason: the CI step that checked a tree out must go
+#: red the day that path moves, not degrade into the skip it shares a script
+#: with and go on reading as green.
+EXPLICIT: dict[str, str | None] = {"registry": None, "astra": None}
+
+
+def _explicit_checkout(flag: str, given: str, anchor: str) -> Path:
+    p = Path(given)
+    if not p.is_absolute():
+        p = (ROOT / p).resolve()
+    if not (p / anchor).is_file():
+        print(f"{flag} {given!r} holds no {anchor}. It was passed explicitly, so this is "
+              "an error and not a skip.", file=sys.stderr)
+        raise SystemExit(2)
+    return p
+
+
 def _registry_dir(anchor: str = "policy/reserved-ids.json") -> Path | None:
     """A working copy of astra-registry, or None.
 
@@ -1129,7 +1203,12 @@ def _registry_dir(anchor: str = "policy/reserved-ids.json") -> Path | None:
     parked on a branch that predates `tests/binding-line/` cannot answer its
     question either, and "no corpus there" is a sentence a reader can act on
     where "every case differs" is not.
+
+    `--registry-dir` comes first and is never a skip; see `EXPLICIT`.
     """
+    explicit = EXPLICIT["registry"]
+    if explicit is not None:
+        return _explicit_checkout("--registry-dir", explicit, anchor)
     env = os.environ.get("ASTRA_REGISTRY_DIR")
     candidates = [env] if env is not None else ["../astra-registry"]
     for c in candidates:
@@ -1678,12 +1757,351 @@ def rule_C31(fails: Fails) -> None:
     _binding_compare(fails, registry, upstream_rel, None)
 
 
+# ── C35 ──────────────────────────────────────────────────────────────────────
+
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+
+#: The step whose `EMITTED` this rule reads, matched on the name's prefix so
+#: that rewording what the step says about itself keeps working.
+C32_STEP = "- name: C32 (full)"
+
+#: astra-registry's emitter, relative to a checkout of it.
+ICON_EMITTER = "bot/lib/assets.mjs"
+
+#: The daemon's copy, relative to `astra-rs/`.
+CATALOGUE_ICONS = "astra-daemon/src/plugins/authoring/publishing.rs"
+
+#: `"ext": ("type/subtype", ("alias", ...)),` — one row of `EMITTED`.
+EMITTED_ROW = re.compile(
+    r'"([a-z0-9]+)":\s*\(\s*"([a-z]+/[a-z0-9][a-z0-9.+-]*)"\s*,'
+    r'\s*\(((?:\s*"[a-z]+/[a-z0-9][a-z0-9.+-]*"\s*,?)*)\s*\)\s*\),'
+)
+
+#: `{ name: "icon.<ext>", media: "type/subtype", …},` — one row of
+#: `ICON_FORMATS`. The rest of the row (the signature bytes) is not this
+#: rule's business; that each row is one line, and ends as a row, is.
+FORMAT_ROW = re.compile(r'\{\s*name:\s*"([^"]*)"\s*,\s*media:\s*"([^"]*)"\s*,.*\}\s*,?')
+
+#: `("icon.<ext>", "type/subtype")` — one pair of `CATALOGUE_ICON_FILES`.
+CATALOGUE_PAIR = re.compile(r'\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)')
+CATALOGUE_CONST = re.compile(
+    r"pub const CATALOGUE_ICON_FILES\s*:\s*&\[\(&str,\s*&str\)\]\s*=\s*&\[(.*?)\];", re.S
+)
+
+ICON_NAME = re.compile(r"icon\.([a-z0-9]+)")
+MEDIA_TYPE = re.compile(r"[a-z]+/[a-z0-9][a-z0-9.+-]*")
+
+#: A floor on each of the two parses, not a census of either. The comparison
+#: is an equality, and two readers that both return nothing are equal; this is
+#: what stops that. Two is the pair every link in the chain has always handled
+#: (PNG and SVG) — far below the six of today, so that no deliberate narrowing
+#: trips it, and above zero, which is the only number it exists to refuse.
+#: Which extension went missing is the comparison's to say, by name.
+MIN_ICON_FORMATS = 2
+
+
+def _git_head(tree: Path) -> str:
+    """The checkout's commit, for the transcript. A label, not an input."""
+    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=12", "HEAD"],
+                       capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else "HEAD unknown: not a git checkout"
+
+
+def _astra_dir(anchor: str) -> Path | None:
+    """An `astra-rs/` checkout holding `anchor`, or None.
+
+    `--astra-dir` first, and never a skip. Then `$ASTRA_RS_DIR` — set but wrong
+    is the skip, with no fall-through, which is how CONTRIBUTING.md tells a
+    maintainer to force it — and then `../Astra/astra-rs`. The same three steps
+    as `tools/check-locales.py`'s `resolve_astra`.
+    """
+    explicit = EXPLICIT["astra"]
+    if explicit is not None:
+        return _explicit_checkout("--astra-dir", explicit, anchor)
+    env = os.environ.get("ASTRA_RS_DIR")
+    given = env if env is not None else "../Astra/astra-rs"
+    if not given:
+        return None
+    p = Path(given)
+    if not p.is_absolute():
+        p = (ROOT / p).resolve()
+    return p if (p / anchor).is_file() else None
+
+
+def read_emitted() -> dict[str, tuple[str, tuple[str, ...]]]:
+    """ext -> (media type, aliases), out of ci.yml's C32 step.
+
+    Raises `LookupError` with a sentence for the transcript. Every anchor here
+    has to match exactly once: a reader that falls back to "none found" is a
+    comparison of nothing against something, which C35 exists to refuse.
+    """
+    rel = CI_WORKFLOW.relative_to(ROOT)
+    lines = CI_WORKFLOW.read_text(encoding="utf-8").splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.strip().startswith(C32_STEP)]
+    if len(starts) != 1:
+        raise LookupError(
+            f"{rel} has {len(starts)} step(s) whose name starts `{C32_STEP[2:]}`, and this rule "
+            f"reads EMITTED out of exactly one. If C32 was renamed, rename C32_STEP here with it."
+        )
+    s = starts[0]
+    indent = len(lines[s]) - len(lines[s].lstrip())
+    end = next(
+        (j for j in range(s + 1, len(lines))
+         if lines[j].strip() and len(lines[j]) - len(lines[j].lstrip()) <= indent),
+        len(lines),
+    )
+    step = lines[s + 1:end]
+    opens = [k for k, ln in enumerate(step) if ln.strip() == "EMITTED = {"]
+    if len(opens) != 1:
+        raise LookupError(
+            f"the C32 step in {rel} has {len(opens)} line(s) reading `EMITTED = {{`, want exactly 1."
+        )
+    rows: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for ln in step[opens[0] + 1:]:
+        st = ln.strip()
+        if st == "}":
+            break
+        if not st or st.startswith("#"):
+            continue
+        m = EMITTED_ROW.fullmatch(st)
+        if not m:
+            raise LookupError(
+                f"a line inside C32's EMITTED is not a row this rule can read:\n  {st}\n"
+                f'It reads one row per line, `"ext": ("type/subtype", ("alias", ...)),`. Keep '
+                f"that shape, or teach EMITTED_ROW the new one — it refuses rather than skipping "
+                f"a line, because a skipped row is an extension nobody compares."
+            )
+        ext = m.group(1)
+        if ext in rows:
+            raise LookupError(
+                f"C32's EMITTED names `.{ext}` twice. Python keeps the second without a word, so "
+                f"the first row is a type C32 never uses."
+            )
+        rows[ext] = (m.group(2), tuple(re.findall(r'"([^"]+)"', m.group(3))))
+    else:
+        raise LookupError(f"C32's EMITTED in {rel} is never closed by a line holding only `}}`.")
+    return rows
+
+
+def read_icon_formats(registry: Path) -> dict[str, tuple[str, str]]:
+    """ext -> (filename, media type), out of astra-registry's ICON_FORMATS, as text."""
+    lines = (registry / ICON_EMITTER).read_text(encoding="utf-8").splitlines()
+    opens = [i for i, ln in enumerate(lines) if ln.strip() == "export const ICON_FORMATS = ["]
+    if len(opens) != 1:
+        raise LookupError(
+            f"astra-registry/{ICON_EMITTER} has {len(opens)} line(s) reading "
+            f"`export const ICON_FORMATS = [`, want exactly 1. The table moved or was renamed "
+            f"upstream; find where `iconDataUri` gets `format.media` from now and point "
+            f"ICON_EMITTER at it."
+        )
+    rows: dict[str, tuple[str, str]] = {}
+    for ln in lines[opens[0] + 1:]:
+        st = ln.strip()
+        if st == "];":
+            break
+        if not st or st.startswith("//"):
+            continue
+        m = FORMAT_ROW.fullmatch(st)
+        if not m:
+            raise LookupError(
+                f"a line inside astra-registry's ICON_FORMATS is not a row this rule can read:\n"
+                f"  {st}\n"
+                f'It reads one row per line, `{{ name: "icon.<ext>", media: "type/subtype", … }},`. '
+                f"If the registry reformatted the table, teach FORMAT_ROW the new shape; it refuses "
+                f"rather than skipping, because a skipped row is a type nobody compares."
+            )
+        name, media = m.groups()
+        n = ICON_NAME.fullmatch(name)
+        if not n or not MEDIA_TYPE.fullmatch(media):
+            raise LookupError(
+                f"astra-registry's ICON_FORMATS has a row this rule cannot pair: name {name!r}, "
+                f"media {media!r}. It expects `icon.<ext>` and `type/subtype`."
+            )
+        ext = n.group(1)
+        if ext in rows:
+            raise LookupError(
+                f"astra-registry's ICON_FORMATS names {name} twice. `formatOf` takes the first "
+                f"with `find`, so the second row is dead there, and this rule will not guess which "
+                f"one a reader meant."
+            )
+        rows[ext] = (name, media)
+    else:
+        raise LookupError(f"astra-registry's ICON_FORMATS is never closed by a line holding `];`.")
+    return rows
+
+
+def read_catalogue_icon_files(astra_rs: Path) -> dict[str, str]:
+    """filename -> media type, out of the daemon's `CATALOGUE_ICON_FILES`, as text."""
+    text = (astra_rs / CATALOGUE_ICONS).read_text(encoding="utf-8")
+    declared = text.count("pub const CATALOGUE_ICON_FILES")
+    if declared != 1:
+        raise LookupError(
+            f"astra-rs/{CATALOGUE_ICONS} declares `pub const CATALOGUE_ICON_FILES` {declared} "
+            f"time(s), want exactly 1. If the table moved, point CATALOGUE_ICONS at it."
+        )
+    m = CATALOGUE_CONST.search(text)
+    if not m:
+        raise LookupError(
+            f"`CATALOGUE_ICON_FILES` in astra-rs/{CATALOGUE_ICONS} is no longer "
+            f"`&[(&str, &str)] = &[ … ];`. Teach CATALOGUE_CONST the new shape."
+        )
+    body = m.group(1)
+    residue = CATALOGUE_PAIR.sub("", body).replace(",", "").strip()
+    if residue:
+        raise LookupError(
+            f"`CATALOGUE_ICON_FILES` holds something that is not a (\"name\", \"type\") pair: "
+            f"{residue!r}. This rule reads pairs and nothing else, and refuses rather than "
+            f"comparing the pairs it happened to recognise."
+        )
+    rows: dict[str, str] = {}
+    for name, media in CATALOGUE_PAIR.findall(body):
+        if name in rows:
+            raise LookupError(f"`CATALOGUE_ICON_FILES` names {name} twice.")
+        rows[name] = media
+    return rows
+
+
+def rule_C35(fails: Fails) -> None:
+    # ── leg 0: the copy in this repository ───────────────────────────────────
+    try:
+        emitted = read_emitted()
+    except (LookupError, OSError) as e:
+        fails.check(False, "C35 EMITTED parses out of ci.yml's C32 step", str(e))
+        return
+    ok = fails.check(
+        len(emitted) >= MIN_ICON_FORMATS,
+        f"C35 floor: C32's EMITTED has {len(emitted)} row(s) (>= {MIN_ICON_FORMATS})",
+        "Either the table really was cut to almost nothing, or this reader stopped at the wrong\n"
+        "line and is about to compare an empty map with the registry's. See MIN_ICON_FORMATS.",
+    )
+    if not ok:
+        return
+
+    # ── leg 1: against the registry ──────────────────────────────────────────
+    registry = _registry_dir(ICON_EMITTER)
+    if registry is None:
+        print("C35 NOT VERIFIED: no astra-registry checkout holding "
+              f"{ICON_EMITTER} at --registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        taken on trust, {len(emitted)} pairing(s) C32 judges the renderer with:")
+        for ext, (media, _aliases) in sorted(emitted.items()):
+            print(f"          .{ext:<5} {media}")
+        print("        Whether the registry still inlines each of those under that type was not")
+        print("        asked, and neither was the daemon's CATALOGUE_ICON_FILES. From here a")
+        print("        registry that changed a type and a C32 that is right look identical.")
+        fails.skip("C35", "no astra-registry checkout")
+        return
+
+    head = _git_head(registry)
+    try:
+        theirs = read_icon_formats(registry)
+    except (LookupError, OSError) as e:
+        fails.check(False, f"C35 astra-registry's ICON_FORMATS parses ({head})", str(e))
+        return
+    ok = fails.check(
+        len(theirs) >= MIN_ICON_FORMATS,
+        f"C35 floor: astra-registry's ICON_FORMATS has {len(theirs)} row(s) "
+        f"(>= {MIN_ICON_FORMATS}, {head})",
+        "Either the registry accepts almost no icon at all, or this reader stopped at the wrong\n"
+        "line. See MIN_ICON_FORMATS.",
+    )
+    if not ok:
+        return
+
+    problems: list[str] = []
+    for ext in sorted(set(theirs) - set(emitted)):
+        name, media = theirs[ext]
+        problems.append(
+            f".{ext}: astra-registry inlines {name} as `{media}`, and C32's EMITTED has no row "
+            f"for `.{ext}`."
+        )
+    for ext in sorted(set(emitted) - set(theirs)):
+        problems.append(
+            f".{ext}: C32's EMITTED pairs it with `{emitted[ext][0]}`, and astra-registry's "
+            f"ICON_FORMATS has no icon.{ext} — the registry refuses that file, so the row "
+            f"describes an icon nobody can publish."
+        )
+    for ext in sorted(set(emitted) & set(theirs)):
+        ours, (name, media) = emitted[ext][0], theirs[ext]
+        if ours != media:
+            problems.append(
+                f".{ext}: C32's EMITTED says `{ours}`, and astra-registry inlines {name} as "
+                f"`{media}`. C32 is judging the renderer against a type the store is never sent."
+            )
+    fails.check(
+        not problems,
+        f"C35 C32's EMITTED is astra-registry's ICON_FORMATS, both ways "
+        f"({head}, {len(set(emitted) | set(theirs))} extension(s))",
+        "\n".join(problems) + "\n"
+        "ASTRA-REGISTRY OWNS THIS PAIRING. `iconDataUri` in bot/lib/assets.mjs writes\n"
+        "`format.media` into every signed data: URI, so ICON_FORMATS is what the store receives\n"
+        "and EMITTED is a copy of it. If the registry's change was meant, copy its row into\n"
+        "EMITTED in .github/workflows/ci.yml's C32 step, and let C32 say whether INLINE_IMAGE in\n"
+        "listingMedia.ts accepts the type — that is C32's question, not this one's. If it was not\n"
+        "meant, the repair is in astra-registry, whose bot/tests/presentation.test.mjs pins the\n"
+        "same rows. Until the two agree, a C32 red names the renderer for the registry's change.\n"
+        "(Gap 36 in the ops register.)",
+    )
+
+    # ── leg 2: the daemon's copy, against the registry ───────────────────────
+    astra = _astra_dir(CATALOGUE_ICONS)
+    if astra is None:
+        print("C35 NOT VERIFIED: no Astra checkout holding "
+              f"astra-rs/{CATALOGUE_ICONS} at --astra-dir, $ASTRA_RS_DIR or ../Astra/astra-rs.")
+        print("        The daemon's publishing document names icon files with the media type it")
+        print("        says the registry inlines each one under, and the daemon's own canary holds")
+        print("        those types against the renderer. Whether they are still the registry's was")
+        print("        not asked: that needs the private repository, which only proto-upstream's")
+        print("        full mode checks out.")
+        fails.skip("C35", "no Astra checkout, so the daemon's CATALOGUE_ICON_FILES was not compared")
+        return
+
+    try:
+        daemon = read_catalogue_icon_files(astra)
+    except (LookupError, OSError) as e:
+        fails.check(False, f"C35 the daemon's CATALOGUE_ICON_FILES parses ({_git_head(astra)})",
+                    str(e))
+        return
+    ok = fails.check(
+        len(daemon) >= 1,
+        f"C35 floor: the daemon's CATALOGUE_ICON_FILES has {len(daemon)} pair(s) (>= 1)",
+        "Empty, so there is nothing to compare — and a publishing document that names no icon\n"
+        "file at all is a product change, not a refactor. Say so in the commit that made it.",
+    )
+    if not ok:
+        return
+    problems = []
+    by_name = {name: (ext, media) for ext, (name, media) in theirs.items()}
+    for name, media in sorted(daemon.items()):
+        if name not in by_name:
+            problems.append(
+                f"{name}: the daemon's publishing document names it, inlined as `{media}`, and "
+                f"astra-registry's ICON_FORMATS has no {name} — the document recommends a file "
+                f"the registry refuses."
+            )
+        elif by_name[name][1] != media:
+            problems.append(
+                f"{name}: the daemon says the registry inlines it as `{media}`; astra-registry "
+                f"inlines it as `{by_name[name][1]}`. The daemon's canary is proving the renderer "
+                f"draws a type the store is never sent."
+            )
+    fails.check(
+        not problems,
+        f"C35 the daemon's CATALOGUE_ICON_FILES pairs are astra-registry's "
+        f"({_git_head(astra)}, {len(daemon)} pair(s), a subset on purpose)",
+        "\n".join(problems) + "\n"
+        "The daemon's table is deliberately shorter than the registry's (its own comment says\n"
+        "why), so this is a subset, never an equality. The repair is in Astra's\n"
+        f"astra-rs/{CATALOGUE_ICONS}, unless the registry's change was the mistake.",
+    )
+
+
 RULES = {
     "C24": rule_C24,
     "C25": rule_C25,
     "C26": rule_C26,
     "C27": rule_C27,
     "C31": rule_C31,
+    "C35": rule_C35,
 }
 
 
@@ -1694,7 +2112,22 @@ def main() -> int:
         default=",".join(RULES),
         help="comma-separated rule ids (default: all of " + ", ".join(RULES) + ")",
     )
+    ap.add_argument(
+        "--registry-dir",
+        default=None,
+        help="an astra-registry checkout for C27, C31 and C35; else $ASTRA_REGISTRY_DIR, else "
+             "../astra-registry. Passed explicitly, a directory that is not one is exit 2, "
+             "never NOT VERIFIED.",
+    )
+    ap.add_argument(
+        "--astra-dir",
+        default=None,
+        help="an Astra/astra-rs checkout for C35's daemon leg; else $ASTRA_RS_DIR, else "
+             "../Astra/astra-rs. Passed explicitly, a directory that is not one is exit 2.",
+    )
     args = ap.parse_args()
+    EXPLICIT["registry"] = args.registry_dir
+    EXPLICIT["astra"] = args.astra_dir
 
     wanted = [r.strip() for r in args.rules.split(",") if r.strip()]
     unknown = [r for r in wanted if r not in RULES]

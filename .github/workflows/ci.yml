@@ -748,6 +748,66 @@ jobs:
           print("ok   the daemon delegates plugins/manifest.rs to astra-plugin-manifest")
           PY
 
+      # C35 — the media type C32 pairs with each icon extension is the one
+      # astra-registry actually inlines it under. Both modes.
+      #
+      # C32 below needs extension -> media type to judge the renderer, and that
+      # pairing is astra-registry's (`ICON_FORMATS` in bot/lib/assets.mjs, whose
+      # `iconDataUri` writes it into every signed `data:` URI). The registry was
+      # never checked out here, so C32 carries a hand copy, EMITTED, and nothing
+      # compared the two. That was not a false green — C32 fails closed on an
+      # extension it cannot pair — it was a misleading red: the registry changes
+      # a type, C32 goes on judging the old one, and its failure blames
+      # listingMedia.ts for the registry's change. This makes the job hold all
+      # three trees, and this step comes BEFORE C32 so that a registry drift
+      # goes red here, naming the row, before C32 can blame the wrong file.
+      #
+      # The registry is public, so it is checked out in degraded mode too, with
+      # the default token and no credentials left on disk. What degraded mode
+      # cannot compare is the fourth copy, the daemon's CATALOGUE_ICON_FILES,
+      # which needs the private checkout; that step says so rather than passing
+      # quietly. Both upstream files are read as text by
+      # tools/check-registry-mirrors.py and never executed: this job holds a
+      # private repository's token on disk in full mode.
+      #
+      # `--registry-dir` and `--astra-dir` are passed explicitly on purpose. An
+      # explicit directory that holds no checkout is exit 2, never NOT VERIFIED,
+      # so a checkout path that moves turns this red instead of into a skip.
+      - name: checkout astra-registry
+        uses: actions/checkout@v4
+        with:
+          repository: mihailinl/astra-registry
+          ref: main
+          path: _registry
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: C35 (degraded) C32's EMITTED is astra-registry's ICON_FORMATS; the daemon's copy was NOT compared
+        if: env.MODE == 'degraded'
+        # `tee`, not `out=$(…)`: under `set -e` a failing command substitution
+        # exits before the `echo`, and a red run printed its one-line summary
+        # with every detail line swallowed. Watched doing exactly that.
+        run: |
+          set -euo pipefail
+          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry \
+            | tee "$RUNNER_TEMP/c35.txt"
+          {
+            echo "### icons: **C35 half-verified** — \`EMITTED\` was compared with astra-registry's \`ICON_FORMATS\`; the daemon's \`CATALOGUE_ICON_FILES\` was NOT"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/c35.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: C35 (full) C32's EMITTED and the daemon's CATALOGUE_ICON_FILES are astra-registry's ICON_FORMATS
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry --astra-dir _astra/astra-rs
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
+          ### icons: **C35 full** — C32's `EMITTED` and the daemon's `CATALOGUE_ICON_FILES` were compared with astra-registry's `ICON_FORMATS`
+          MSG
+
       # C32 — the icon formats an author may ship are ones the store can draw.
       #
       # spec/icon-formats.yaml has three mirrors and two of them are checked:
@@ -813,13 +873,19 @@ jobs:
           # extension -> (the media type the registry actually inlines those bytes under,
           #               other spellings of the same bytes that may also be carried)
           #
-          # This pairing exists in exactly one place — astra-registry/bot/lib/assets.mjs's
-          # ICON_FORMATS — and that repository is not checked out in this job.
-          # spec/icon-formats.yaml carries filenames alone on purpose: its own comment says
-          # both of its parsers are three lines long and neither takes a dependency to read
-          # it. So the map is mirrored here, and AN EXTENSION MISSING FROM IT IS A FAILURE,
-          # never a skip. That is the half of this check that catches a format nobody here
-          # has heard of yet, rather than only today's six.
+          # This pairing is astra-registry's — bot/lib/assets.mjs's ICON_FORMATS, which
+          # `iconDataUri` writes into every signed data: URI. spec/icon-formats.yaml
+          # carries filenames alone on purpose: its own comment says both of its parsers
+          # are three lines long and neither takes a dependency to read it. So the map is
+          # mirrored here, and AN EXTENSION MISSING FROM IT IS A FAILURE, never a skip.
+          # That is the half of this check that catches a format nobody here has heard of
+          # yet, rather than only today's six.
+          #
+          # The mirror is COMPARED, by C35 in the step before this one, against the
+          # `_registry` checkout: every extension both ways and the type of each (the
+          # alias column is this side's own and is not). C35 reads this dict as text, one
+          # row per line — keep that shape, or teach EMITTED_ROW in
+          # tools/check-registry-mirrors.py the new one; it refuses a line it cannot read.
           EMITTED = {
               "png": ("image/png", ()),
               "webp": ("image/webp", ()),
