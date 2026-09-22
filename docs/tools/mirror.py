@@ -309,9 +309,11 @@ GRANDFATHERED = (
         reason=(
             LEAVE_PREFIX + "all six languages carry it. `astra-plugin locale` "
             "landed on 2026-08-22 (AstraPlugins b56de3c) and is the only "
-            "documented way to create `locales/<code>.json`, so the "
-            "localisation this whole tree exists to serve is documented in "
-            "English and nowhere else."
+            "documented way to create `locales/<code>.json`. Measured "
+            "2026-09-21: all six translations of `3-reference/localisation.md` "
+            "send the reader to that command by name, and the section "
+            "describing it exists in English only — so every one of them "
+            "points at a page the reader cannot read."
         ),
     ),
 )
