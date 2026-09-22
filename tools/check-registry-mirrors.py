@@ -1406,12 +1406,13 @@ def _pinned_leg_may_read(fails: Fails, rule: str, registry: Path, sha: str, name
     if top is not None:
         return True
     print(f"{rule} NOT VERIFIED (pinned leg): the astra-registry tree at {registry} is {why},")
-    print(f"        so no commit in it can be read, and the pin {named_in} names ({sha[:12]}) was")
-    print("        not looked for. `git` searches upward from a directory: asked about a copy of")
-    print("        the registry it answers for whatever repository the copy sits in, and this leg")
-    print("        would read, or fail to find, the pin in THAT repository's history. The head leg")
-    print("        below reads the files on disk and still runs. Point $ASTRA_REGISTRY_DIR at a")
-    print("        clone of astra-registry that holds the pin to compare against it.")
+    print("        so it is not a checkout this leg can read a commit from. The pin")
+    print(f"        {named_in} names, {sha[:12]}, was not looked for. `git` searches")
+    print("        upward from a directory: asked about a copy of the registry it answers for")
+    print("        whatever repository the copy sits in, and this leg would read, or fail to")
+    print("        find, the pin in THAT repository's history. The head leg below reads the files")
+    print("        on disk and still runs. Point $ASTRA_REGISTRY_DIR at a clone of astra-registry")
+    print("        that holds the pin to compare against it.")
     fails.skip(rule, f"pinned leg: the astra-registry tree is {why}")
     return False
 
