@@ -2,7 +2,8 @@
 
 `doctest.py` proves the **samples** are true. `linkcheck.py` proves the
 **navigation** is. `mirror.py` proves the six translations still carry
-English's pages, English's samples and English's table names. All three run in the `docs (samples execute)` job in
+English's pages, English's samples, English's table names, English's heading
+skeleton and English's generated digests. All three run in the `docs (samples execute)` job in
 `.github/workflows/ci.yml`.
 
 `locales.py` is not a check. It is the one place the set of translated
@@ -20,7 +21,7 @@ python3 docs/tools/doctest.py --only rust-plugin,ts-plugin
 python3 docs/tools/doctest.py docs/en/2-tutorial
 python3 docs/tools/linkcheck.py               # every relative link resolves
 python3 docs/tools/linkcheck.py docs/ru       # one subtree
-python3 docs/tools/mirror.py                  # every locale carries en's pages, samples and table names
+python3 docs/tools/mirror.py                  # every locale carries en's pages, samples, table names, headings and digests
 astra-plugin --version
 ```
 
@@ -179,7 +180,7 @@ module docstring; add to that list only with a reason of the same kind.
 
 ## `mirror.py`
 
-Three assertions, all against `docs/en`, for each of the six translations. Each
+Five assertions, all against `docs/en`, for each of the six translations. Each
 one exists because the one before it was not enough, and that is the pattern
 worth carrying away: every time, what was not compared was the part a machine
 had written and a human had copied.
@@ -210,20 +211,54 @@ left alone: `spec/registry-index.md` has `issued_at + 30 days` in a cell, and
 `issued_at + 30 Tage` is the correct German for it. So are plain cells —
 `yes`/`ja` and `**none**`/`**keine**` are translations, not drift.
 
-Rows are keyed by name rather than compared by position on purpose, and the
-consequence needs stating carefully, because the short version of it was wrong
-here until it was measured. A whole section that exists in English and in no
-translation is **not** a failure — **unless it contains a table whose rows lead
-with a name**, and then it is six failures. Appending an English-only section of
-prose leaves this green; appending one with a single row
-`| ``--brand-new`` | does a thing |` gives six TABLE findings and exit 1.
+Rows are keyed by name rather than compared by position on purpose. Until
+2026-09-21 that had a consequence this page stated as a feature: a whole section
+that existed in English and in no translation was **not** a failure unless it
+carried a table whose rows lead with a name. It was true and it was measured —
+appending an English-only section of prose left this green, appending one with
+`| ``--brand-new`` | does a thing |` gave six TABLE findings. It is also how
+four untranslated sections became five without anybody noticing, so the heading
+is now the unit.
 
-A name-keyed row is derived data and exists in every language or in none; prose
-is not and does not. Three sections of `3-reference/permissions.md` and one
-table of `reference/cli.md` are absent from six translations today and are not
-failures **because their rows are absent on both sides** — there is nothing to
-compare. Add a row to the English copy of one of them and this script asks for
-it in six files.
+**The heading skeleton.** A translated page's sequence of heading levels must
+equal English's, minus exactly the headings `GRANDFATHERED` in `mirror.py`
+declares absent, and the inline-code spans inside a heading must match position
+for position. Heading *words* are not compared and never will be — `## Überall`
+is correct German for `## Everywhere`. A code span in a heading is, unlike a
+table cell, compared even when it has a space in it: a cell may hold a phrase,
+a heading holds a title, and ``## There is no `astra-plugin login` `` is a
+command line in all seven languages.
+
+`GRANDFATHERED` is the five English sections no translation carries — four in
+`3-reference/permissions.md`, one in `reference/cli.md`. Every entry carries a
+**required** reason that must begin `Leaves this list when `, because an
+exemption with no exit condition is indistinguishable from one somebody added to
+make a test pass. `GRANDFATHERED_CEILING` must equal the list's length exactly:
+a sixth entry fails until the number is raised, and removing one fails until it
+is lowered. That is a ratchet, not a lock — the same commit can raise it — and
+what it buys is that accretion costs a number in the diff instead of an
+appended line.
+
+**The generated values.** Every run of 8 or more hex digits outside a fenced
+block must appear the same number of times in every language, and
+`PINNED_DIGESTS` names the digests that have a ground truth in this repository —
+today `proto/PROTO_VERSION`'s `sha256` and `proto/plugin.proto`'s
+`surface-sha256`, both quoted in `reference/protocol.md`'s opening paragraph.
+Those are checked against the file that holds them in **every** language,
+English included, because six translations compared with English go green the
+moment all seven agree on a wrong number.
+
+That rule found the six translated `protocol.md` pages two generations stale and
+naming a `source-sha256` header the slice had already stopped carrying. What it
+cost is the part to remember: a reader verifying a vendored slice against the
+documented hash could not tell a stale page from a tampered slice.
+
+**The floor.** Every comparison counts itself and the run fails if a count comes
+in under its floor — locales, pages, headings, prose lines, pinned-digest
+assertions. A guard that silently reached nothing passes for years, and two have
+shipped in this repository already. The floors are round numbers well under
+today's tree on purpose: a floor set to today's count turns a deliberate page
+deletion red, which is how a check teaches people to edit the check.
 
 Whether an English edit should be blocked until somebody translates it is still
 the maintainer's decision, as in the last paragraph. This paragraph is only
