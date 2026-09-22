@@ -1114,6 +1114,50 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
+      # C21 — docs/en/spec/registry-index.md §5.1 names every member of
+      # astra-registry's schema/index-v1.json, and no member it does not have,
+      # with the same requiredness. Both modes, against `_registry` at `main`.
+      #
+      # The page is what somebody building a verifier or a store implements
+      # against, and it had fallen 28 members behind the schema — `i18n`,
+      # `readme`, `publisher`, the whole `publishers` map among them — while
+      # saying the schema "is the authority on the field list". The
+      # localization plan reserved C21 for this comparison in August and
+      # predicted it would be red the day it was written; run on the page as
+      # it stood, it was.
+      #
+      # HEAD, not a pin: the page describes the catalogue the registry serves,
+      # which is built from `main`, and it names no registry commit. So a
+      # member added on the registry's `main` turns this red on the next run
+      # here — the daily schedule at the latest — until section 5.1 has a row
+      # for it. The failure names the member path; the step's summary says
+      # what to do. The page's translations are held to its rows by
+      # docs/tools/mirror.py, not here.
+      #
+      # Same shape as the step above: last, under `!cancelled()`, so a red in
+      # C32 or C27/C31 does not skip it and it does not skip them;
+      # `--registry-dir` explicit, so a `_registry` without
+      # schema/index-v1.json is exit 2 and never NOT VERIFIED.
+      - name: C21 the index spec documents every member of astra-registry's index schema, both ways
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          status=0
+          python3 tools/check-registry-mirrors.py --rules C21 --registry-dir _registry \
+            | tee "$RUNNER_TEMP/c21.txt" || status=1
+          {
+            if [ "$status" = 0 ]; then
+              echo "### index spec: **C21 compared** — docs/en/spec/registry-index.md against schema/index-v1.json at astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
+            else
+              echo "### index spec: **C21 RED**. The step log names every member path that differs, and what to do about each"
+            fi
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/c21.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
   sdk-rust:

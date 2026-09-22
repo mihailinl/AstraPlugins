@@ -239,6 +239,59 @@ C35 — the media type C32 pairs with each icon extension is astra-registry's.
     tables Astra serves a plugin's own UI files with, which are not in the icon
     path at all — `listingIconSrc` refuses every scheme but an inline `data:`
     image and `https:`.
+
+C21 — `docs/en/spec/registry-index.md` §5.1 names every member of
+    astra-registry's `schema/index-v1.json`, and no member it does not have.
+
+    The page is what somebody implementing a verifier or a store reads; the
+    schema is what the registry validates its catalogue with. The number was
+    reserved for this comparison by the localization plan, which also predicted
+    its first result: red on the day it was written. It was. Counted object by
+    object under `signed`, the page named 33 of the schema's 61 members —
+    `i18n`, `readme`, `publisher`, the whole `publishers` map, `commit`,
+    `permissions` and twenty-two more had reached the schema and the served
+    index without reaching the page, which said all the while that the schema
+    "is the authority on the field list". An incomplete page that says so is
+    still read as complete, and the member a reader never hears of is the one
+    their verifier has no answer for.
+
+    Each object is a table in the page headed `| member | type | rule |`,
+    named by the first code span of the paragraph above it — `signed`,
+    `signed.plugins[]`, `signed.plugins[].releases[].artifacts.<platform>` —
+    and each rule begins `required`, `optional` or `required when`. The schema
+    is walked from `$defs/signed` through `$ref`, array items and map values to
+    the same paths. Two legs.
+
+      * IN-REPO. The page parses: every member table has a lead-in naming an
+        object under `signed`, no object has two tables, no member two rows,
+        and every row states its requiredness. Runs everywhere.
+
+      * REGISTRY. Both ways, object by object: an object or a member on one
+        side only is named by its path, and so is a member whose requiredness
+        differs — `required` is the object's `required`, `required when` a
+        `oneOf` branch's, `optional` neither. Against the checkout's HEAD,
+        which in CI is `main`: the page describes the catalogue the registry
+        serves, and that is built from `main`. No PINNED leg, because the page
+        names no registry commit and should not — a pin would be a number on a
+        normative page that is stale the day after it is right. The price is
+        the one C35 pays: a member added on the registry's `main` turns this
+        red here, on the next run, until the page documents it. That is the
+        point of the rule, and the red says which member.
+
+    Names and requiredness are compared; types, patterns, lengths and meanings
+    are prose and are not. A reader that parsed "string, ≤ 64 characters" would
+    be a second schema, and the one copy of those constraints CI can trust is
+    the schema itself. The envelope — `$comment`, `signed`, `signatures` — is
+    §1's, shared with `revocations.json` and `trust.json`, and is not in these
+    tables either.
+
+    The schema is read as JSON text and never executed. A keyword the walker
+    does not understand (`allOf`, `anyOf`, `if`, `patternProperties`, …) where
+    it could introduce or require a member is a red naming the path, not a
+    guess: a member that exists only inside a keyword nobody taught this
+    reader is a member nobody compares. The six translations of the page are
+    not read here; `docs/tools/mirror.py` holds their table rows to the
+    English page's, name for name.
 """
 
 from __future__ import annotations
@@ -2193,7 +2246,383 @@ def rule_C35(fails: Fails) -> None:
     )
 
 
+# ── C21 ──────────────────────────────────────────────────────────────────────
+
+INDEX_SPEC = ROOT / "docs" / "en" / "spec" / "registry-index.md"
+
+#: astra-registry's index schema, relative to a checkout of it.
+INDEX_SCHEMA = "schema/index-v1.json"
+
+#: The header row that makes a table a member table, compared as lowercased
+#: cell words so that re-aligning the pipes keeps working. A table with any
+#: other header is not read — and its members are then missing from the page's
+#: side, which is a red, not a skip.
+MEMBER_HEADER = ["member", "type", "rule"]
+
+#: The object a member table describes: the FIRST code span of the paragraph
+#: directly above it. `[]` is an array element and `<…>` a map value; the word
+#: inside the angle brackets is the page's own and is not compared.
+OBJECT_PATH = re.compile(r"signed(?:\.[a-z_][a-z0-9_]*(?:\[\])?|\.<[a-z_]+>)*")
+MAP_VALUE = re.compile(r"<[a-z_]+>")
+MEMBER_CELL = re.compile(r"`([A-Za-z_$][A-Za-z0-9_]*)`")
+
+#: The first words of a rule cell, longest first: `required when` is a member
+#: some other member's value makes required, which is a third state and not a
+#: spelling of either of the other two.
+REQUIREDNESS = re.compile(r"(required when|required|optional)\b")
+
+INDEX_FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+INDEX_TABLE_RULE = re.compile(r"^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$")
+INDEX_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+
+#: Keywords that can introduce or require a member and that this walker does
+#: not read. Met anywhere it descends, each is a red naming the path: the
+#: alternative is a member that lives inside one and is compared by nobody.
+#: `oneOf` is read, at an object, and only as extra `required` lists over the
+#: object's own `properties` — the one shape the schema uses today.
+SCHEMA_REFUSED = (
+    "allOf", "anyOf", "not", "if", "then", "else", "dependentRequired",
+    "dependentSchemas", "patternProperties", "unevaluatedProperties", "prefixItems",
+)
+
+#: Floors on the two parses, not a census of either. The comparison is an
+#: equality, and two readers that both return nothing are equal. Two objects is
+#: what a reader that stopped after the `signed` table would fail; ten members
+#: is fewer than `signed.plugins[]` has required ones. Which member went is the
+#: comparison's to say, by path.
+MIN_INDEX_OBJECTS = 2
+MIN_INDEX_MEMBERS = 10
+
+
+def _index_cells(row: str) -> list[str]:
+    body = row.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    return [c.strip() for c in INDEX_CELL_SPLIT.split(body)]
+
+
+def _norm_path(path: str) -> str:
+    return MAP_VALUE.sub("<*>", path)
+
+
+def read_spec_members() -> tuple[dict[str, dict[str, tuple[str, int]]], dict[str, str], list[str]]:
+    """(object -> member -> (requiredness, line), object -> the page's spelling, problems).
+
+    Objects are keyed by normalised path (`<…>` becomes `<*>`). A table that
+    cannot be read is a problem with a line number, never a table skipped: a
+    skipped table is a set of members reported missing for the wrong reason.
+    """
+    lines = INDEX_SPEC.read_text(encoding="utf-8").splitlines()
+    rel = INDEX_SPEC.relative_to(ROOT)
+    objects: dict[str, dict[str, tuple[str, int]]] = {}
+    spelled: dict[str, str] = {}
+    where: dict[str, int] = {}
+    problems: list[str] = []
+    fence: str | None = None
+    i = 0
+    while i < len(lines):
+        st = lines[i].strip()
+        f = INDEX_FENCE.match(lines[i])
+        if f:
+            tok = f.group(1)
+            if fence is None:
+                fence = tok[0] * 3
+            elif st.startswith(fence):
+                fence = None
+            i += 1
+            continue
+        if fence is not None or not st.startswith("|") or i + 1 >= len(lines) \
+                or not INDEX_TABLE_RULE.match(lines[i + 1].strip()):
+            i += 1
+            continue
+        header = [c.lower() for c in _index_cells(st)]
+        end = i + 2
+        while end < len(lines) and lines[end].strip().startswith("|"):
+            end += 1
+        if header != MEMBER_HEADER:
+            i = end
+            continue
+
+        # The lead-in: the paragraph directly above the header, blank lines
+        # skipped, ending at the previous blank line, heading or table.
+        k = i - 1
+        while k >= 0 and not lines[k].strip():
+            k -= 1
+        para: list[str] = []
+        while k >= 0 and lines[k].strip() and not lines[k].lstrip().startswith(("#", "|")):
+            para.insert(0, lines[k].strip())
+            k -= 1
+        lead = " ".join(para)
+        spans = re.findall(r"`([^`]+)`", lead)
+        if not lead.endswith(":") or not spans or not OBJECT_PATH.fullmatch(spans[0]):
+            problems.append(
+                f"{rel}:{i + 1}: a `| member | type | rule |` table whose lead-in does not name "
+                f"its object. The paragraph above it must end in `:` and its first code span must "
+                f"be the object's path under `signed` — `signed.plugins[]`, "
+                f"`signed.publishers.<owner>`. Read: {lead[:160]!r}"
+            )
+            i = end
+            continue
+        path = _norm_path(spans[0])
+        if path in objects:
+            problems.append(
+                f"{rel}:{i + 1}: `{spans[0]}` has a second table; the first is at line "
+                f"{where[path]}. One object, one table, or the two will come to disagree."
+            )
+            i = end
+            continue
+        members: dict[str, tuple[str, int]] = {}
+        for n in range(i + 2, end):
+            cells = _index_cells(lines[n])
+            if len(cells) != 3:
+                problems.append(f"{rel}:{n + 1}: a member row with {len(cells)} cell(s), want 3")
+                continue
+            m = MEMBER_CELL.fullmatch(cells[0])
+            if not m:
+                problems.append(
+                    f"{rel}:{n + 1}: the first cell of a member row must be one member name in "
+                    f"backticks, and it is {cells[0]!r}"
+                )
+                continue
+            r = REQUIREDNESS.match(cells[2])
+            if not r:
+                problems.append(
+                    f"{rel}:{n + 1}: `{spans[0]}.{m.group(1)}` states no requiredness. Its rule "
+                    f"must begin `required`, `optional` or `required when`, and says {cells[2][:80]!r}"
+                )
+                continue
+            if m.group(1) in members:
+                problems.append(
+                    f"{rel}:{n + 1}: `{spans[0]}.{m.group(1)}` has a second row; the first is at "
+                    f"line {members[m.group(1)][1]}"
+                )
+                continue
+            members[m.group(1)] = (r.group(1), n + 1)
+        objects[path] = members
+        spelled[path] = spans[0]
+        where[path] = i + 1
+        i = end
+    return objects, spelled, problems
+
+
+def _schema_resolve(schema: dict, node, path: str):
+    """Follow `$ref` within the one file. Anything else is refused, by path."""
+    hops = 0
+    while isinstance(node, dict) and "$ref" in node:
+        ref = node["$ref"]
+        if not isinstance(ref, str) or not ref.startswith("#/"):
+            raise LookupError(f"{path}: `$ref` {ref!r} points outside {INDEX_SCHEMA}, and C21 reads one file")
+        extra = sorted(set(node) - {"$ref", "$comment", "description", "title"})
+        if extra:
+            raise LookupError(
+                f"{path}: `$ref` beside {extra}. In 2020-12 those apply too, and this reader follows "
+                f"the reference alone; teach it, rather than let it drop them."
+            )
+        target = schema
+        for part in ref[2:].split("/"):
+            if not isinstance(target, dict) or part not in target:
+                raise LookupError(f"{path}: `$ref` {ref!r} resolves to nothing")
+            target = target[part]
+        node = target
+        hops += 1
+        if hops > 32:
+            raise LookupError(f"{path}: `$ref` {ref!r} does not terminate")
+    return node
+
+
+def read_schema_members(schema: dict) -> dict[str, dict[str, str]]:
+    """Normalised object path -> member -> requiredness, from `$defs/signed` down."""
+    objects: dict[str, dict[str, str]] = {}
+
+    def refuse(node: dict, path: str) -> None:
+        found = [k for k in SCHEMA_REFUSED if k in node]
+        if found:
+            raise LookupError(
+                f"{path}: carries {', '.join('`' + k + '`' for k in found)}, which C21 does not read. "
+                f"A member introduced or required there would be compared by nobody; teach "
+                f"read_schema_members the shape rather than let it pass unread."
+            )
+
+    def descend(node, path: str) -> None:
+        node = _schema_resolve(schema, node, path)
+        if not isinstance(node, dict):
+            return
+        refuse(node, path)
+        if "properties" in node:
+            walk(node, path)
+        elif "oneOf" in node:
+            raise LookupError(
+                f"{path}: `oneOf` on something with no `properties`; C21 reads it only at an object"
+            )
+        items = node.get("items")
+        if isinstance(items, dict):
+            descend(items, path + "[]")
+        extra = node.get("additionalProperties")
+        if isinstance(extra, dict):
+            descend(extra, path + ".<*>")
+
+    def walk(node: dict, path: str) -> None:
+        props = node["properties"]
+        if not isinstance(props, dict):
+            raise LookupError(f"{path}: `properties` is not an object")
+        required = set(node.get("required", []))
+        conditional: set[str] = set()
+        for b, branch in enumerate(node.get("oneOf", [])):
+            if not isinstance(branch, dict):
+                raise LookupError(f"{path}: `oneOf` branch {b} is not an object")
+            refuse(branch, f"{path} (oneOf branch {b})")
+            unknown = sorted(set(branch) - {"title", "description", "$comment", "properties", "required"})
+            if unknown:
+                raise LookupError(f"{path}: `oneOf` branch {b} carries {unknown}, which C21 does not read")
+            stray = sorted(set(branch.get("properties", {})) - set(props))
+            if stray:
+                raise LookupError(
+                    f"{path}: `oneOf` branch {b} declares {stray}, which the object's own "
+                    f"`properties` do not; C21 reads a branch only as a `required` list over them"
+                )
+            conditional |= set(branch.get("required", []))
+        undeclared = sorted((required | conditional) - set(props))
+        if undeclared:
+            raise LookupError(
+                f"{path}: `required` names {undeclared}, which `properties` does not declare"
+            )
+        if path in objects:
+            raise LookupError(f"{path}: reached twice")
+        objects[path] = {
+            name: "required" if name in required else "required when" if name in conditional
+            else "optional"
+            for name in props
+        }
+        for name, sub in props.items():
+            descend(sub, f"{path}.{name}")
+
+    defs = schema.get("$defs")
+    if not isinstance(defs, dict) or "signed" not in defs:
+        raise LookupError(
+            f"{INDEX_SCHEMA} has no `$defs.signed`. C21 walks from there; if the envelope was "
+            f"reshaped, point it at where `signed` is defined now"
+        )
+    descend(defs["signed"], "signed")
+    return objects
+
+
+def _registry_label(tree: Path) -> str:
+    """The checkout's commit for the transcript, or a sentence saying there is none.
+
+    `_git_head` alone answers for an ENCLOSING repository: in CI `_registry`
+    sits inside the AstraPlugins checkout, so a `_registry` whose `.git` went
+    missing would be labelled with this repository's commit.
+    """
+    return _git_head(tree) if _own_checkout(tree) else "not a git checkout of its own, so no commit"
+
+
+def rule_C21(fails: Fails) -> None:
+    rel = INDEX_SPEC.relative_to(ROOT)
+    # ── leg 0: the page ──────────────────────────────────────────────────────
+    ours, spelled, problems = read_spec_members()
+    n_ours = sum(len(m) for m in ours.values())
+    parsed = fails.check(
+        not problems,
+        f"C21 {rel} parses to member tables ({len(ours)} object(s), {n_ours} member(s))",
+        "\n".join(problems) + "\n"
+        "Each object under `signed` is one `| member | type | rule |` table; the paragraph above\n"
+        "it ends in `:` and its first code span is the object's path; each rule begins\n"
+        "`required`, `optional` or `required when`. Section 5.1 of the page says the same.",
+    )
+    floored = fails.check(
+        len(ours) >= MIN_INDEX_OBJECTS and n_ours >= MIN_INDEX_MEMBERS,
+        f"C21 floor: the page has {len(ours)} member table(s) and {n_ours} member row(s) "
+        f"(>= {MIN_INDEX_OBJECTS}, >= {MIN_INDEX_MEMBERS})",
+        "Either the tables were cut to almost nothing, or this reader stopped at the wrong line and\n"
+        "is about to compare an empty page with the schema. See MIN_INDEX_OBJECTS.",
+    )
+    if not (parsed and floored):
+        return
+
+    # ── leg 1: against the registry ──────────────────────────────────────────
+    registry = _registry_dir(INDEX_SCHEMA)
+    if registry is None:
+        print("C21 NOT VERIFIED: no astra-registry checkout holding "
+              f"{INDEX_SCHEMA} at --registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        taken on trust: the {n_ours} member(s) in {len(ours)} object(s) {rel}")
+        print("        documents. Whether the schema has a member the page does not name, or has")
+        print("        dropped one the page still names, or disagrees about a requiredness, was")
+        print("        not asked.")
+        fails.skip("C21", "no astra-registry checkout")
+        return
+
+    head = _registry_label(registry)
+    try:
+        theirs = read_schema_members(
+            json.loads((registry / INDEX_SCHEMA).read_text(encoding="utf-8"))
+        )
+    except (LookupError, OSError, json.JSONDecodeError) as e:
+        fails.check(False, f"C21 astra-registry's {INDEX_SCHEMA} walks to member lists ({head})", str(e))
+        return
+    n_theirs = sum(len(m) for m in theirs.values())
+    ok = fails.check(
+        len(theirs) >= MIN_INDEX_OBJECTS and n_theirs >= MIN_INDEX_MEMBERS,
+        f"C21 floor: astra-registry's {INDEX_SCHEMA} has {len(theirs)} object(s) and "
+        f"{n_theirs} member(s) under `signed` (>= {MIN_INDEX_OBJECTS}, >= {MIN_INDEX_MEMBERS}, "
+        f"{head})",
+        "Either the index lost nearly every member, or this walker stopped at `$defs/signed`\n"
+        "and is about to call an empty schema documented. See MIN_INDEX_OBJECTS.",
+    )
+    if not ok:
+        return
+
+    def show(path: str) -> str:
+        return spelled.get(path, path)
+
+    diffs: list[str] = []
+    for path in sorted(set(theirs) - set(ours)):
+        names = ", ".join(f"{m} ({r})" for m, r in theirs[path].items())
+        diffs.append(
+            f"{path}: an object in the schema with {len(theirs[path])} member(s) — {names} — and "
+            f"no table in the page"
+        )
+    for path in sorted(set(ours) - set(theirs)):
+        diffs.append(f"{show(path)}: a table in the page, and the schema has no such object")
+    for path in sorted(set(ours) & set(theirs)):
+        mine, yours = ours[path], theirs[path]
+        for m in sorted(set(yours) - set(mine)):
+            diffs.append(
+                f"{show(path)}.{m}: in the schema ({yours[m]}), and not documented in the page"
+            )
+        for m in sorted(set(mine) - set(yours)):
+            diffs.append(
+                f"{show(path)}.{m}: documented at {rel}:{mine[m][1]} ({mine[m][0]}), and the "
+                f"schema has no such member"
+            )
+        for m in sorted(set(mine) & set(yours)):
+            if mine[m][0] != yours[m]:
+                diffs.append(
+                    f"{show(path)}.{m}: the page says {mine[m][0]} ({rel}:{mine[m][1]}), the "
+                    f"schema says {yours[m]}"
+                )
+    fails.check(
+        not diffs,
+        f"C21 {rel} documents astra-registry's {INDEX_SCHEMA}, both ways "
+        f"({head}, {len(set(ours) | set(theirs))} object(s), {n_theirs} member(s))",
+        "\n".join(diffs) + "\n"
+        "ASTRA-REGISTRY OWNS THE SHAPE. schema/index-v1.json is what the catalogue is validated\n"
+        "with and tools/build-index.mjs is what writes it; the page is what a verifier is built\n"
+        "from. A member the schema has and the page does not is one a reader never hears of:\n"
+        "give it a row in its object's table in section 5.1 — the rule beginning `required`,\n"
+        "`optional` or `required when`, the meaning taken from the schema's `description` and\n"
+        "the generator, never invented — and carry the row into the six translations, which\n"
+        "docs/tools/mirror.py requires. A member the page has and the schema does not was\n"
+        "removed upstream or never existed: delete its row in all seven. A requiredness that\n"
+        "differs is the schema's to decide, unless the schema is what is wrong, in which case\n"
+        "the repair is in astra-registry and this stays red until it lands. (Gap 10 in the ops\n"
+        "register.)",
+    )
+
+
 RULES = {
+    "C21": rule_C21,
     "C24": rule_C24,
     "C25": rule_C25,
     "C26": rule_C26,
@@ -2249,7 +2678,7 @@ def main() -> int:
     ap.add_argument(
         "--registry-dir",
         default=None,
-        help="an astra-registry checkout for C27, C31 and C35; else $ASTRA_REGISTRY_DIR, else "
+        help="an astra-registry checkout for C21, C27, C31 and C35; else $ASTRA_REGISTRY_DIR, else "
              "../astra-registry. Passed explicitly, a directory that is not one is exit 2, "
              "never NOT VERIFIED.",
     )

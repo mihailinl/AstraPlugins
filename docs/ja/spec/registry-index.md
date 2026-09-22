@@ -299,6 +299,7 @@ Rust の検証ツールがバイト単位でチェックする文書を保持し
 | `issued_at` | `YYYY-MM-DDTHH:MM:SSZ` | **署名時**に刻印され、コミットされたツリーにはない |
 | `expires_at` | 同上 | `issued_at + 30 日` |
 | `plugins` | array | 掲載された各プラグインにつき 1 レコード、`id` でソート |
+| `publishers` | object, GitHub login → `signed.publishers.<owner>` | optional: one record per account a listing's `publisher` names, and absent when none does |
 
 タイムスタンプは RFC 3339 UTC、**秒精度、ミリ秒なし、オフセットなし**
 です。1 つの瞬間の 2 通りの綴りは 2 つの異なる署名済み文書です。
@@ -339,6 +340,105 @@ Rust の検証ツールがバイト単位でチェックする文書を保持し
 とマークされ、**`platform_downloads` と `download_url` から省かれ**、
 構造上インストール不可能です: ダイジェストがなければ、インストール
 もありません。
+
+> **These tables are in English in every language.** The `publishers` row of the
+> table above and every table below are the English page's, copied as they are:
+> they document `astra-registry/schema/index-v1.json` member for member, C21 in
+> `tools/check-registry-mirrors.py` holds the English page to that file, and nobody
+> on this side can review a translation of them. Each table is one object, named in
+> the line above it; a rule begins with *required*, *optional* or *required when*,
+> which are the schema's `required` lists. A translation is welcome; English stays
+> authoritative either way.
+
+A plugin record, `signed.plugins[]`, is:
+
+| member | type | rule |
+|---|---|---|
+| `id` | string, 2–64 characters of `a-z`, `0-9` and `-`, beginning and ending with a letter or digit | required: the listing's directory name in the registry; records are sorted by it |
+| `name` | string, 1–64 characters | required: the card's title, in English |
+| `version` | string | required: the latest listed release, `releases[0].version` |
+| `description` | string, ≤ 200 characters | required: the one-line card text, in English — `plugin.json`'s `summary`, under the name the daemon already reads. It is not `plugin.json`'s own `description`, which the index does not carry |
+| `i18n` | object, locale code → `signed.plugins[].i18n.<code>` | optional: the card in other languages, read out of the attested bundle's `locales/<code>.json`. The codes are `ru`, `uk`, `de`, `fr`, `es`, `pt`, `ja`, `zh` and `ko`; `en` is never one, because `name` and `description` are the English. A client that does not read this member renders English |
+| `readme` | string, ≤ 16384 characters | optional: the plugin's own README, inlined so the signature covers it and opening the store asks no third party for anything. GitHub-flavoured markdown with no raw HTML and no image outside GitHub's asset hosts. The registry's own cap is 16384 UTF-8 **bytes** (`MAX_README_BYTES`), and the schema's character bound is its backstop. Absent when the plugin ships no README |
+| `author` | string, ≤ 64 characters | optional: `plugin.json`'s `author.name` — whatever the author typed, not an identity the registry proves (that is `publisher`) |
+| `author_url` | string, `^https://` | optional: `plugin.json`'s `author.url` |
+| `license` | string, ≤ 64 characters | required: `plugin.json`'s `license`, which `tools/validate.mjs` holds to `policy/spdx-allowlist.json` |
+| `capabilities` | array of unique strings | required: `releases[0].capabilities`, or `[]` when that release declares none |
+| `categories` | array of unique strings | optional: `plugin.json`'s `categories`, sorted |
+| `keywords` | array of unique strings | optional: `plugin.json`'s `keywords`, sorted |
+| `homepage` | string, `^https://` | optional: `plugin.json`'s `homepage` |
+| `repository_url` | string, `^https://github\.com/` | required: `https://github.com/` followed by `source.repo` |
+| `icon_url` | string: a `data:image/…;base64,…` URI, or empty | required: the store card's picture, inlined from the icon committed beside the listing so that it is inside the signature; the empty string when there is none. Never an `https://` URL |
+| `source` | object, `signed.plugins[].source` | required: where the bytes come from |
+| `downloads` | integer ≥ 0 | required: always `0` |
+| `stars` | integer ≥ 0 | required: always `0` |
+| `updated_at` | `YYYY-MM-DDTHH:MM:SSZ` | required: `releases[0].published_at` |
+| `added_at` | `YYYY-MM-DD` | optional: the day the plugin was first listed. `schema/plugin-v1.json` requires it of every listing, and the generator copies it through |
+| `staging` | boolean | optional: `true` when the latest listed release has no artifact digest yet (*Staging entries*, above); never written as `false` |
+| `download_url` | string | required: the legacy platform-agnostic URL. Empty except for an installable `noarch` release, which has one artifact for every host |
+| `platform_downloads` | object, platform key → `https://` URL | required: the projection of `releases[0].artifacts`. `{}` when that release is not installable — staging, or any artifact without both `sha256` and `size` |
+| `releases` | array of `signed.plugins[].releases[]`, at least one | required: newest first by semver precedence. A yanked version is not listed |
+| `publisher` | string | optional: the key into `signed.publishers` — the login of the reviewed publisher record that the owner half of `source.repo` resolves to, case-insensitively, as that record's own login or one it `covers`. **Absent** when no reviewed record exists, and the absence is the answer: a client that badges on this member being present badges every listing. Never the `author` string |
+
+The card in one other language, `signed.plugins[].i18n.<code>`, is:
+
+| member | type | rule |
+|---|---|---|
+| `name` | string, 1–64 characters | required: the card's title in that language, from the locale's `listing.name` |
+| `description` | string, 1–200 characters | required: the one-line card text in that language, from the locale's `listing.description`. A half the locale does not translate is filled from English, so a block always has both, and a block identical to the English card is left out |
+
+Where a plugin's bytes come from, `signed.plugins[].source`, is:
+
+| member | type | rule |
+|---|---|---|
+| `kind` | const `github` | required |
+| `repo` | string, `owner/name` | required: the GitHub repository the plugin is published from. `repository_url` is built from it, and `publisher` is resolved from its owner half |
+| `subdirectory` | string | optional: copied through from `plugin.json`'s `source.subdirectory` |
+
+One release, `signed.plugins[].releases[]`, is:
+
+| member | type | rule |
+|---|---|---|
+| `version` | string | required: this release's semver version |
+| `published_at` | `YYYY-MM-DDTHH:MM:SSZ` | required: the GitHub Release's publication time, recorded in the version file rather than read from a clock |
+| `protocol` | integer, 0–65535 | optional: the plugin protocol version the bundle speaks |
+| `min_astra_version` | string | optional: the lowest Astra version the plugin's manifest says it needs |
+| `capabilities` | array of unique strings | optional: the daemon's capability names, verbatim, sorted |
+| `permissions` | object | optional: the manifest's `[permissions]` section, copied through unchanged. The one open object in this document (`additionalProperties: true`): its ids are the app's vocabulary, so an id this schema has never heard of is carried rather than refused. `schema/version-v1.json` says what the daemon reads from it |
+| `changelog_url` | string, `^https://` | optional: copied through from the version file |
+| `staging` | boolean | optional: `true` on a release that exists on paper and has no artifact digest yet; never written as `false` |
+| `staging_reason` | string | optional: written only beside `staging: true`, copied through from the version file |
+| `release` | object, `signed.plugins[].releases[].release` | required: where the artifacts are served from, which is what their URLs must sit under (§5.2) |
+| `artifacts` | object, platform key → `signed.plugins[].releases[].artifacts.<platform>`, at least one | required |
+
+Where a release is served from, `signed.plugins[].releases[].release`, is:
+
+| member | type | rule |
+|---|---|---|
+| `kind` | `github_release` or `direct` | required |
+| `repo` | string, `owner/name` | required when `kind` is `github_release`: the repository whose release serves the artifacts |
+| `tag` | string | required when `kind` is `github_release`: that release's tag |
+| `commit` | string, 40 lowercase hex digits | optional: the source commit that built the artifacts, recorded at ingest. The bot refuses a Release whose commit disagrees with its build attestation's |
+| `base_url` | string, `^https://` | required when `kind` is `direct`: the prefix every artifact URL of this release sits under. Policy keeps `direct` out of the public catalogue (§5.2) |
+
+One artifact, `signed.plugins[].releases[].artifacts.<platform>`, is:
+
+| member | type | rule |
+|---|---|---|
+| `url` | string, `https://`, ≤ 1024 characters | required: where the file is downloaded from. It must sit under the prefix its release implies and end in `filename` (§5.2) |
+| `filename` | string, ending `.astraplugin` | required |
+| `sha256` | string, 64 lowercase hex digits | optional: the SHA-256 of the whole `.astraplugin` file (§5.2). Absent only on a staging release, which is uninstallable by construction |
+| `size` | integer, 1 byte to 256 MiB | optional: that file's length in bytes (§5.2) |
+
+A publisher record, `signed.publishers.<owner>`, is what the registry knows about the account behind a listing, keyed by that account's GitHub login. It is inside `signed`, so the signature a client already checks covers it — a badge is a claim the registry makes, and a claim outside the signature is one whoever serves the bytes could invent:
+
+| member | type | rule |
+|---|---|---|
+| `display_name` | string, 1–64 characters | required: what a person sees beside the badge |
+| `description` | string, 1–120 characters | optional: one line saying who this publisher is to Astra. A client renders nothing when it is absent rather than inventing a default |
+| `tier` | `astra_team` or `verified` | required: a client **MUST** render on explicit membership — equal to `astra_team` or equal to `verified` — and never on the value merely being present or non-empty. An unrecognised tier is not a badge |
+| `verified_at` | `YYYY-MM-DD` | required: when the evidence behind the tier was first accepted |
+| `last_confirmed_at` | `YYYY-MM-DD` | optional: when that evidence last held |
 
 ### 5.2 アーティファクトダイジェスト、そして URL がどこを指してよいか
 
