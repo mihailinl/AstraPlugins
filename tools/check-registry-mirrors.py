@@ -306,6 +306,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The daemon tree's own-checkout rule, shared with tools/check-locales.py's C22.
+from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
+
 ROOT = Path(__file__).resolve().parents[1]
 
 #: Where `init-ci`'s own constants live. C24 reads the repository and the tag
@@ -1948,14 +1952,6 @@ MEDIA_TYPE = re.compile(r"[a-z]+/[a-z0-9][a-z0-9.+-]*")
 MIN_ICON_FORMATS = 2
 
 
-#: Where the daemon's tree sits inside the Astra repository: `astra-rs/`, at
-#: its top. CI checks Astra out at `_astra` and passes `--astra-dir
-#: _astra/astra-rs`; a maintainer's default is `../Astra/astra-rs`. Either way
-#: the directory C35 reads is never a checkout's top, which is what
-#: `_git_head` has to be told.
-DAEMON_IN_REPO = "astra-rs"
-
-
 def _git_head(tree: Path, in_repo: str = "") -> str:
     """The commit of the checkout `tree` belongs to, for the transcript. A label, not an input.
 
@@ -1977,6 +1973,10 @@ def _git_head(tree: Path, in_repo: str = "") -> str:
       instead would bring back the registry's hazard one level down: an `_astra`
       whose `.git` went missing is enclosed by the AstraPlugins checkout, as
       `_astra/astra-rs`, and would be labelled with this repository's commit.
+      That rule is `checkout_top` in tools/checkouts.py, and C22 in
+      tools/check-locales.py calls it too: there the enclosing repository would
+      not be a label but the source of the release tags the rule reads (entry
+      115).
 
     A directory that is in no git checkout at all names no commit either way.
     """
@@ -1984,16 +1984,9 @@ def _git_head(tree: Path, in_repo: str = "") -> str:
         if not _own_checkout(tree):
             return "HEAD unknown: not a git checkout"
     else:
-        p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
-                           capture_output=True, text=True)
-        if p.returncode != 0:
-            return "HEAD unknown: not in a git checkout"
-        try:
-            rel = tree.resolve().relative_to(Path(p.stdout.strip()).resolve()).as_posix()
-        except ValueError:
-            rel = None
-        if rel != in_repo:
-            return f"HEAD unknown: in a git checkout, but not as its top-level {in_repo}/"
+        top, why = checkout_top(tree, in_repo)
+        if top is None:
+            return f"HEAD unknown: {why}"
     p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=12", "HEAD"],
                        capture_output=True, text=True)
     if p.returncode == 0:
