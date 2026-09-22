@@ -627,9 +627,10 @@ def audit_grandfathered(en: set[str]) -> int:
             f"{len(GRANDFATHERED)} entr(ies) and GRANDFATHERED_CEILING is "
             f"{GRANDFATHERED_CEILING}. This list ratchets DOWN, so a new entry "
             f"is refused here rather than accepted quietly.\n"
-            f"           Translating the section costs six files once. Every "
-            f"entry on this list costs every reader of those six languages, "
-            f"for as long as it stays. If it genuinely has to go on the list, "
+            f"           Translating the section costs {len(TRANSLATIONS)} "
+            f"files once. Every entry on this list costs every reader of those "
+            f"{len(TRANSLATIONS)} languages, for as long as it stays. If it "
+            f"genuinely has to go on the list, "
             f"raise the ceiling to {len(GRANDFATHERED)} in the same commit — "
             f"deliberately, where a reviewer sees the number move"
         )
@@ -747,10 +748,11 @@ def compare_headings(rel: str, loc: str, en_page: Path, loc_page: Path) -> tuple
                 f"word and is the same in every language"
             )
             remedy = (
-                "If English is right, carry the rename into this heading and "
-                "the five other languages. If English is wrong, fix whatever "
-                "renamed it — editing the English heading back to match a "
-                "translation is the fast way to green and it is never the fix"
+                f"If English is right, carry the rename into this heading and "
+                f"the {len(TRANSLATIONS) - 1} other translation(s). If English "
+                f"is wrong, fix whatever renamed it — editing the English "
+                f"heading back to match a translation is the fast way to green "
+                f"and it is never the fix"
             )
         print(
             f"HEADING  docs/{loc}/{rel}  — {len(got)} heading(s) against "
