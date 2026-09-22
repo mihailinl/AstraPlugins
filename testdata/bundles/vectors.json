@@ -414,6 +414,48 @@
       "manifest_digest_central": "b099f8d47335331e3081cc70c25f30bedec68428d44f6c0f7dc0020dbce3841e"
     },
     {
+      "name": "manifest-first-by-offset-only",
+      "file": "manifest-first-by-offset-only.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The manifest IS at byte zero — the local record a reader lifts it out of is the first one in the file — and the central directory lists it second. A reader that learns invariant 1 from the bytes at offset 0 sees nothing wrong here, so this is the vector that asks the central-directory half of §13 step 6 on its own. It matters because the ZIP reader every later check runs on walks the central directory: 'entry 0' means one thing to the pass that hashed the manifest and another to the pass that enumerates what the archive contains, and an archive where those disagree is one no packer produces by accident.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "07f9b256a0c524dc7f84b4786e1cf572b3939dacfa8b5c088ba4f40796ce1cca",
+      "artifact_size": 1331,
+      "manifest_sha256": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "050ef3c5faa7966a231fa3f6303af0e96fd0fe4c4a56a33bb1d81e60563c38f7",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
+      "name": "manifest-first-by-index-only",
+      "file": "manifest-first-by-index-only.astraplugin",
+      "verdict": "reject",
+      "layer": "bundle-structure",
+      "why_it_matters": "The mirror, and the half that is actually dangerous. The central directory says `MANIFEST.json` is entry 0 — so every index-reading check is satisfied — while byte zero holds `plugin.toml`. The daemon does not read the index to find the manifest; it reads the local header at offset 0 and refuses what it finds there. A reader that took 'the manifest is first' from the central directory would approve a bundle no daemon can even open, and would do it without any of the repointing `header-disagree` needs: the two records here describe the same bytes, they are just not in the same order.",
+      "plugin_id": "vector-plugin",
+      "version": "1.0.0",
+      "platform_key": "linux-x64",
+      "artifact_sha256": "db73be87a2aa08f2a3c96099f1aae95d2469759fd81946f48ee6a38a7513e68b",
+      "artifact_size": 1331,
+      "manifest_sha256": null,
+      "manifest_digest": null,
+      "manifest_sha256_intended": "2e16024e4557332a2a404a89a94b124807e0b4741046e29fc3f6b94ea1b69682",
+      "manifest_digest_intended": "8e88f82cc6dbb9c253e3a4409a03f763668ca1a46439f994e2a45a6da23ccaf4",
+      "legacy_concat_sha256": "deabecbd1e424b114d17ffb2797062ed685d512bde422b437ccf112ef24eac8e",
+      "expect": {
+        "cli": "reject",
+        "daemon": "reject",
+        "registry": "reject"
+      }
+    },
+    {
       "name": "path-traversal",
       "file": "path-traversal.astraplugin",
       "verdict": "reject",

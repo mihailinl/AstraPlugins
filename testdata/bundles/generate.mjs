@@ -89,10 +89,18 @@ function permissionsHash(permissions) {
  * Reimplemented here — from `PluginManager::verify_signature` — for one
  * purpose: to show that it maps two different archives to one number. Nothing
  * else in this repo should ever compute it.
+ *
+ * **ZIP index order is the CENTRAL DIRECTORY's order**, which is why this takes
+ * the permutation rather than walking `entries` in the order they were laid
+ * down. For every vector whose central directory is in local order the two are
+ * the same sequence and this number is unchanged; for the two that separate
+ * them it is the order a reader walking the archive sees, which is the only
+ * order the recorded value could honestly describe.
  */
-function legacyConcatDigest(entries) {
+function legacyConcatDigest(entries, centralOrder) {
   const h = crypto.createHash("sha256");
-  for (const e of entries) {
+  for (const i of centralOrder ?? entries.map((_, n) => n)) {
+    const e = entries[i];
     if (e.name === "SIGNATURE" || e.name === "PUBKEY" || e.hidden) continue;
     h.update(Buffer.from(e.name, "utf8"));
     h.update(Buffer.isBuffer(e.data) ? e.data : Buffer.from(e.data, "utf8"));
@@ -185,7 +193,8 @@ const vectors = [];
  * @param {{cli: string, daemon: string, registry: string}} v.expect
  * @param {object} [v.divergence]
  * @param {object} [v.extra] extra fields recorded in vectors.json
- * @param {{entries: object[], centralOverrides?: object, manifestBytes?: Buffer}} v.archive
+ * @param {{entries: object[], centralOverrides?: object, centralOrder?: number[],
+ *          manifestBytes?: Buffer}} v.archive
  */
 function vector(v) {
   vectors.push(v);
@@ -704,6 +713,78 @@ function vector(v) {
   });
 }
 
+// ── "first" is two properties, and this pair separates them ───────────────
+//
+// A ZIP has two orders, and every honest packer keeps them equal: the order the
+// LOCAL records are laid down in, and the order the CENTRAL directory lists
+// them in. Invariant 1 is stated over both — the spec reads the manifest out of
+// the local header at offset 0 (§4) and then requires the central directory's
+// entry 0 to be `MANIFEST.json` carrying those same bytes (§13 step 6) — but
+// the two are separate facts about an archive, and until this pair existed no
+// vector in this directory told them apart. `manifest-not-first` violates BOTH
+// at once (the manifest is entry 1 by index AND is not at byte zero), and in
+// every other vector the manifest that is first by index is also first by
+// offset. So a reader could enforce either one and pass all 27.
+//
+// What that hid, measured in astra-registry on 2026-09-22: its
+// `E_MANIFEST_NOT_FIRST` tests the central-directory INDEX, and its
+// `E_MANIFEST_LOCAL_HEADER` tests BYTE ZERO. On `manifest-not-first` both fire,
+// so neither rule was ever the sole reason that bundle was refused, and a suite
+// that asserted "something rejected it" could not tell which had gone missing.
+//
+// These two vectors each isolate one half. They are a pair and only work as
+// one: separately each looks like a stricter `manifest-not-first`; together
+// they are the statement that the name of the rule and the property it tests
+// are two different things, in two directions.
+
+{
+  const m = manifestBytes(baseManifest());
+  vector({
+    name: "manifest-first-by-offset-only",
+    verdict: "reject",
+    layer: "bundle-structure",
+    why:
+      "The manifest IS at byte zero — the local record a reader lifts it out of is the " +
+      "first one in the file — and the central directory lists it second. A reader that " +
+      "learns invariant 1 from the bytes at offset 0 sees nothing wrong here, so this is " +
+      "the vector that asks the central-directory half of §13 step 6 on its own. It " +
+      "matters because the ZIP reader every later check runs on walks the central " +
+      "directory: 'entry 0' means one thing to the pass that hashed the manifest and " +
+      "another to the pass that enumerates what the archive contains, and an archive " +
+      "where those disagree is one no packer produces by accident.",
+    expect: { cli: "reject", daemon: "reject", registry: "reject" },
+    archive: {
+      entries: [manifestEntry(m), ENTRY_BIN, ENTRY_TOML],
+      centralOrder: [1, 0, 2],
+      manifestBytes: m,
+    },
+  });
+}
+
+{
+  const m = manifestBytes(baseManifest());
+  vector({
+    name: "manifest-first-by-index-only",
+    verdict: "reject",
+    layer: "bundle-structure",
+    why:
+      "The mirror, and the half that is actually dangerous. The central directory says " +
+      "`MANIFEST.json` is entry 0 — so every index-reading check is satisfied — while " +
+      "byte zero holds `plugin.toml`. The daemon does not read the index to find the " +
+      "manifest; it reads the local header at offset 0 and refuses what it finds there. " +
+      "A reader that took 'the manifest is first' from the central directory would " +
+      "approve a bundle no daemon can even open, and would do it without any of the " +
+      "repointing `header-disagree` needs: the two records here describe the same bytes, " +
+      "they are just not in the same order.",
+    expect: { cli: "reject", daemon: "reject", registry: "reject" },
+    archive: {
+      entries: [ENTRY_TOML, manifestEntry(m), ENTRY_BIN],
+      centralOrder: [1, 0, 2],
+      manifestBytes: m,
+    },
+  });
+}
+
 // ── path shape ────────────────────────────────────────────────────────────
 //
 // These carry the offending entry UNLISTED. The listed variants belong to the
@@ -929,13 +1010,21 @@ function build(v) {
     if (hiddenOffset === null) throw new Error(`${v.name}: repointFirstAtHidden with no hidden entry`);
     overrides = { 0: { offset: hiddenOffset } };
   }
-  return writeZip(a.entries, overrides);
+  return writeZip(a.entries, overrides, a.centralOrder ?? null);
 }
 
 /**
  * Is entry zero a STORED `MANIFEST.json`? That, and only that, is where a
  * manifest digest can honestly be computed from — invariant 1 exists so a
  * reader never has to consult the central directory to find it.
+ *
+ * `entries[0]` is the record at BYTE ZERO, and `centralOrder` deliberately does
+ * not reach this function: `manifest-first-by-index-only` is first in the
+ * central directory and has no readable manifest at offset 0, so it records
+ * null here, and `manifest-first-by-offset-only` is the converse and records
+ * both digests. Resolving this through the index would hand a consumer a
+ * plausible 64-character answer for bytes no daemon will read, which is the
+ * substitution the whole pair exists to expose.
  */
 function manifestAtOffsetZero(v) {
   const first = v.archive.entries[0];
@@ -998,7 +1087,7 @@ for (const v of vectors) {
           manifest_digest_intended: manifestDigest(v.archive.manifestBytes),
         }
       : {}),
-    legacy_concat_sha256: legacyConcatDigest(v.archive.entries),
+    legacy_concat_sha256: legacyConcatDigest(v.archive.entries, v.archive.centralOrder ?? null),
     expect: v.expect,
     ...(v.archive.manifestBytesCentral
       ? {

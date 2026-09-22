@@ -758,7 +758,7 @@ y el listado.
 
 ## 14. Vectores dorados
 
-`testdata/bundles/` contiene 27 archivos `.astraplugin` congelados,
+`testdata/bundles/` contiene los archivos `.astraplugin` congelados,
 `vectors.json` (veredicto, capa, ambos digests, y qué hace hoy cada
 implementación) y `SHA256SUMS`. Los dos consumidores tienen copias
 vendorizadas (`Astra/astra-rs/astra-daemon/testdata/bundles/`,
@@ -770,7 +770,7 @@ vendorizadas (`Astra/astra-rs/astra-daemon/testdata/bundles/`,
 entradas a partir del código de hoy estaría afirmando que el código de
 hoy concuerda consigo mismo.
 
-### Aceptar (5)
+### Aceptar
 
 | vector | qué demuestra |
 |---|---|
@@ -780,7 +780,7 @@ hoy concuerda consigo mismo.
 | `ok-legacy-signed` | el par en retirada, dos últimas entradas, en orden (§11) |
 | `collision-a-bc` | la mitad honesta del par de colisión (§3.3) |
 
-### Rechazar (22)
+### Rechazar
 
 | vector | regla que rechaza |
 |---|---|
@@ -798,6 +798,8 @@ hoy concuerda consigo mismo.
 | `manifest-not-first` | §4 |
 | `manifest-compressed` | §4 |
 | `header-disagree` | §4.1 |
+| `manifest-first-by-offset-only` | §13 paso 6 — la entrada 0 del directorio central |
+| `manifest-first-by-index-only` | §4 — la cabecera local en el offset 0 |
 | `path-traversal` | §6.6 (y §7.1: la entrada no está listada) |
 | `path-ads` | §6.4 (y §7.1) |
 | `path-trailing-dot` | §6.7 (y §7.1) |
@@ -813,16 +815,27 @@ implemente §7.1 rechaza los tres. Aun así debería implementar §6 — el
 día en que un manifiesto liste tal ruta, la exhaustividad no tiene
 nada que decir y solo las reglas de nombre sí.
 
+Nota sobre `manifest-first-by-offset-only` y
+`manifest-first-by-index-only`: un ZIP tiene dos órdenes — el orden en
+que se escriben los registros locales y el orden en que el directorio
+central los lista — y §13 pregunta por ambos, en el paso 2 y otra vez
+en el paso 6. Todos los demás vectores de aquí mantienen los dos
+iguales, y `manifest-not-first` rompe ambos a la vez, así que un
+verificador que solo implementara uno de esos pasos pasaría todas las
+demás filas de esta tabla. Estos dos rompen uno cada uno, en
+direcciones opuestas, y solo son una prueba como par.
+
 ### 14.1 Valores de autocomprobación
 
 Para cualquier implementación, la comprobación inicial más rápida es
 que ambos digests de cada vector coincidan con `artifact_sha256` y
 `manifest_digest` de `vectors.json`. Esos números no vienen de ninguno
 de los tres programas: `testdata/bundles/handcheck.sh` los deriva de
-nuevo a partir de `dd`, `od`, `printf`, `cat` y `sha256sum`. 27 digests
-de artefacto y 25 digests de manifiesto coinciden — las dos omisiones
-son `manifest-not-first` y `manifest-compressed`, cuya entrada cero
-por construcción no es un manifiesto almacenado. Un bug compartido
+nuevo a partir de `dd`, `od`, `printf`, `cat` y `sha256sum`. Todos los
+digests de artefacto coinciden, y también todos los digests de
+manifiesto que existen: las omisiones son los vectores cuya entrada
+cero por construcción no es un manifiesto almacenado, que son
+exactamente los registros que llevan `manifest_digest: null`. Un bug compartido
 puede hacer que tres programas concuerden entre sí; no puede hacer que
 concuerden con coreutils.
 
