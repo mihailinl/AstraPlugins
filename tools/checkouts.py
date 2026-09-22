@@ -14,6 +14,13 @@ resolves plugin labels would have been another repository's (entry 115).
 So the rule is here once, and neither script can drift from the other: the tree must
 sit at exactly `in_repo` below the top of the checkout git finds for it, with no
 fall-back to whatever repository encloses it.
+
+`in_repo = ""` is the same rule for a tree that must BE its checkout's top: an
+astra-registry checkout. `tools/check-registry-mirrors.py` asks it before C27's and
+C31's PINNED legs read a commit (`git cat-file`, `git show <pin>:<path>`), and its
+`_own_checkout` is this call. Those legs used to ask only of an explicit
+`--registry-dir`, so a `$ASTRA_REGISTRY_DIR` or `../astra-registry` that was a copy
+of the files had its pins looked up in whatever repository enclosed it (entry 120).
 """
 
 from __future__ import annotations
@@ -36,8 +43,10 @@ def checkout_top(tree: Path, in_repo: str) -> tuple[Path | None, str]:
     sentence "the tree is …": `not in a git checkout`, or `in a git checkout, but
     not as its top-level astra-rs/` — the second being an `_astra` that lost its
     `.git` (enclosed by the AstraPlugins checkout), a copy nested one level
-    deeper in another checkout, or a clone whose top IS `astra-rs/`. A symlink is
-    followed, so a link to a real checkout's `astra-rs/` is that checkout.
+    deeper in another checkout, or a clone whose top IS `astra-rs/`. With
+    `in_repo = ""` the second reads `in a git checkout, but not as its top`. A
+    symlink is followed, so a link to a real checkout's `astra-rs/` is that
+    checkout.
     """
     p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
                        capture_output=True, text=True)
@@ -48,6 +57,11 @@ def checkout_top(tree: Path, in_repo: str) -> tuple[Path | None, str]:
         rel = tree.resolve().relative_to(top.resolve()).as_posix()
     except ValueError:
         rel = None
+    # `relative_to` spells the top itself ".", and `in_repo` spells it "". Until
+    # entry 120 nothing called this with "", and every tree was refused.
+    if rel == ".":
+        rel = ""
     if rel != in_repo:
-        return None, f"in a git checkout, but not as its top-level {in_repo}/"
+        where = f"its top-level {in_repo}/" if in_repo else "its top"
+        return None, f"in a git checkout, but not as {where}"
     return top, ""
