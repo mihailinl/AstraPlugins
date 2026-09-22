@@ -1200,7 +1200,7 @@ jobs:
             if [ "$status" = 0 ]; then
               echo "### listing caps: **C20 compared** — spec/listing-limits.yaml against policy/limits.json and schema/version-v1.json at astra-registry@$(git -C _registry rev-parse --short=12 HEAD), both ways"
             else
-              echo "### listing caps: **C20 RED**. The step log names every cap that differs, and which repository to edit"
+              echo "### listing caps: **C20 RED**. The step log names each cap that differs and which repository to edit, or why \`_registry\` could not be read"
             fi
             echo
             echo '```'
