@@ -87,15 +87,19 @@
 #      `include_str!`d without breaking `cargo package`), and
 #      `the_listing_limits_are_the_ones_the_spec_declares` reads THIS FILE at
 #      test time. That check runs on every fork PR with no second checkout.
-#   4. `python3 tools/check-locales.py --rules C20` — C20 compares this file
-#      with astra-registry's own, in BOTH directions, when that checkout is
-#      reachable, and says out loud that it did not when it is not.
+#   4. `python3 tools/check-locales.py --rules C20 --registry-dir ../astra-registry`
+#      — C20 compares this file with astra-registry's own, in BOTH directions,
+#      when that checkout is reachable, and says out loud that it did not when
+#      it is not. In CI the comparison runs in `proto-upstream`, against
+#      astra-registry `main`, on every pull request, every push to master
+#      and the daily schedule. The `couplings` job has no astra-registry
+#      checkout and prints NOT VERIFIED for it, on purpose. Until 2026-09-22
+#      that job was the only place C20 ran, and it had never once compared
+#      a number.
 #   5. On the registry side, `node tools/validate.mjs` runs the same comparison
-#      from the other end and is the half that actually executes in CI: this
-#      repository's `couplings` job has no astra-registry checkout, and
-#      astra-registry's `build-index.yml` checks THIS repository out at the
-#      `ASTRA_PLUGINS_REF` pin. A row added here reaches that comparison when
-#      the pin moves, not when this merges.
+#      from the other end, and astra-registry's `build-index.yml` checks THIS
+#      repository out for it at the `ASTRA_PLUGINS_REF` pin. A row added here
+#      reaches that comparison when the pin moves, not when this merges.
 #
 # NOT EVERY ROW IS ENFORCED HERE, and the ones that are not say so in their own
 # comment. A row that nothing local executes on is still worth carrying — it is

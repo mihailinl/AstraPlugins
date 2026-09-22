@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """The locale vocabulary, held against the two things that can contradict it.
 
-    python3 tools/check-locales.py                       # C12 and C14
-    python3 tools/check-locales.py --rules C14           # what the couplings job runs
-    python3 tools/check-locales.py --rules C12 \\
-        --astra-dir ../Astra/astra-rs                    # what proto-upstream runs, full mode
+    python3 tools/check-locales.py                       # all four
+    python3 tools/check-locales.py --rules C14,C20       # what the couplings job runs
+    python3 tools/check-locales.py --rules C12,C22 --require C22 \\
+        --astra-dir _astra/astra-rs --astra-ref origin/main   # proto-upstream, full mode
+    python3 tools/check-locales.py --rules C20 --require C20 \\
+        --registry-dir _registry                         # proto-upstream, both modes
 
 `spec/locales.yaml` is a mirror of a list that lives in another repository, and
 a mirror nobody compares is a guess. Two rules compare it:
@@ -29,6 +31,17 @@ C20 — spec/listing-limits.yaml vs astra-registry's own numbers, both ways.
     against `policy/limits.json` and `schema/version-v1.json` — whenever an
     astra-registry checkout is reachable, and says out loud that it did not when
     there is none.
+
+    **In CI the comparison runs in `proto-upstream`, and only there.** That job
+    checks astra-registry `main` out at `_registry` and passes it as
+    `--registry-dir`, in both modes. The `couplings` job runs the in-repo legs
+    and has no registry, so it prints NOT VERIFIED on every run, on purpose.
+    Before 2026-09-22 that NOT VERIFIED was the whole of C20's life in CI: of the
+    `couplings` logs from its first run on 2026-08-23 to #54's merge, each
+    downloaded and searched, 126 ran C20, all 126 printed NOT VERIFIED, and not
+    one printed a comparison. No pinned leg: `spec/listing-limits.yaml`
+    names no registry commit, so the question is only ever *does it agree with
+    the registry as it stands*, and the passing lines name the commit that was.
 
     **Both ways since 2026-08-23**, and the second way is the one that had teeth
     to grow. The first asks, of each row in `spec/listing-limits.yaml`, *does
@@ -510,7 +523,86 @@ def read_listing_limits() -> tuple[dict[str, int], dict[str, str]]:
     return values, sources
 
 
-def _registry_dir() -> Path | None:
+#: The file C20 reads first, and so the file a directory must hold to be a
+#: checkout C20 can compare against.
+REGISTRY_ANCHOR = "policy/limits.json"
+
+#: Why an explicit `--registry-dir` must be a git checkout of its own and not
+#: only a directory holding the files. C20 reads the files off disk and has no
+#: pinned leg, but its passing lines name the registry commit they compared
+#: against, and `ci.yml`'s summary repeats it. From a copy of the files that
+#: commit is unknowable, and from a directory nested in another repository —
+#: `_registry` sits inside the AstraPlugins checkout in CI — `git` would answer
+#: with the wrong repository's commit. The same refusal, for the same reason, as
+#: C21's in `tools/check-registry-mirrors.py`.
+C20_NEEDS_GIT = "C20's passing lines name the registry commit they compared against"
+
+
+def _own_checkout(tree: Path) -> bool:
+    """Whether `tree` is the top of a git work tree of its own.
+
+    Not `rev-parse --is-inside-work-tree`: in CI `_registry` sits INSIDE the
+    AstraPlugins checkout, so a `_registry` whose `.git` went missing would be
+    answered for by the parent. `tools/check-registry-mirrors.py` has the same
+    function for the same reason.
+    """
+    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True)
+    return p.returncode == 0 and Path(p.stdout.strip()).resolve() == tree.resolve()
+
+
+def _registry_label(tree: Path, rels: list[str]) -> str:
+    """The checkout's commit for the transcript, or a sentence saying why it is not one.
+
+    A label, not an input: the comparison is of the bytes on disk either way.
+    The commit is what the files were compared AT only while they are
+    unmodified, so a working-tree edit to any file C20 read is said out loud —
+    which is also how a mutation of `_registry` shows up in its own transcript.
+    """
+    if not _own_checkout(tree):
+        return "not a git checkout of its own, so no commit"
+    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=12", "HEAD"],
+                       capture_output=True, text=True)
+    head = p.stdout.strip() if p.returncode == 0 else "HEAD unknown"
+    p = subprocess.run(["git", "-C", str(tree), "status", "--porcelain", "--", *rels],
+                       capture_output=True, text=True)
+    if p.returncode != 0:
+        return f"{head}, working tree unreadable"
+    touched = sorted(line[3:] for line in p.stdout.splitlines() if line.strip())
+    if touched:
+        return f"{head} with {', '.join(touched)} modified in the working tree"
+    return head
+
+
+def resolve_registry(arg: str | None) -> Path | None:
+    """The astra-registry checkout C20 compares against, or None — never None by accident.
+
+    The same line `resolve_astra` below draws, and for the same reason. An
+    explicit `--registry-dir` is a caller asserting the tree is there, so one
+    that holds no `policy/limits.json`, or that is not a git checkout of its
+    own, is exit 2 and never the NOT VERIFIED the other two candidates fall back
+    to. `proto-upstream` passes `--registry-dir _registry` after checking the
+    registry out; if that path ever stops being a checkout the step must go red
+    instead of degrading into the skip `couplings` prints on every run.
+
+    `$ASTRA_REGISTRY_DIR` is the opposite case by convention: set but wrong is
+    the skip, with no fall-through to `../astra-registry`, so a maintainer and
+    CI print the same thing for the same command.
+    """
+    if arg is not None:
+        p = Path(arg)
+        if not p.is_absolute():
+            p = (ROOT / p).resolve()
+        if not (p / REGISTRY_ANCHOR).is_file():
+            print(f"--registry-dir {arg!r} holds no {REGISTRY_ANCHOR}. It was passed "
+                  "explicitly, so this is an error and not a skip.", file=sys.stderr)
+            raise SystemExit(2)
+        if not _own_checkout(p):
+            print(f"--registry-dir {arg!r} holds {REGISTRY_ANCHOR} but is not a git checkout "
+                  f"of its own, and {C20_NEEDS_GIT}. It was passed explicitly, so this is an "
+                  "error and not a skip.", file=sys.stderr)
+            raise SystemExit(2)
+        return p
     env = os.environ.get("ASTRA_REGISTRY_DIR")
     candidates = [env] if env is not None else ["../astra-registry"]
     for c in candidates:
@@ -519,7 +611,7 @@ def _registry_dir() -> Path | None:
         p = Path(c)
         if not p.is_absolute():
             p = (ROOT / p).resolve()
-        if (p / "policy" / "limits.json").is_file():
+        if (p / REGISTRY_ANCHOR).is_file():
             return p
     return None
 
@@ -552,7 +644,7 @@ def _json_pointer(doc, pointer: str):
     return node
 
 
-def rule_C20(fails: Fails) -> None:
+def rule_C20(fails: Fails, registry: Path | None) -> None:
     values, sources = read_listing_limits()
     fails.check(
         len(values) >= MIN_LIMIT_ROWS,
@@ -576,10 +668,9 @@ def rule_C20(fails: Fails) -> None:
         "astra-registry/policy/limits.json, which this is the other half of.",
     )
 
-    registry = _registry_dir()
     if registry is None:
         print("C20 NOT VERIFIED: no astra-registry checkout at "
-              "$ASTRA_REGISTRY_DIR or ../astra-registry.")
+              "--registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry.")
         for name, value in sorted(values.items()):
             print(f"        {name} = {value} taken on trust "
                   f"(mirrors {sources.get(name, 'nothing stated')})")
@@ -595,7 +686,7 @@ def rule_C20(fails: Fails) -> None:
         fails.skip("C20", "no astra-registry checkout")
         return
 
-    policy = json.loads((registry / "policy" / "limits.json").read_text(encoding="utf-8"))
+    policy = json.loads((registry / REGISTRY_ANCHOR).read_text(encoding="utf-8"))
     schemas: dict[str, dict] = {}
     compared = 0
     drift: list[str] = []
@@ -630,9 +721,10 @@ def rule_C20(fails: Fails) -> None:
         if theirs != ours:
             drift.append(f"{name}: we say {ours}, {source} says {theirs}")
 
+    head = _registry_label(registry, [REGISTRY_ANCHOR, *sorted(schemas)])
     fails.check(
         compared >= MIN_LIMIT_ROWS,
-        f"C20 at least {MIN_LIMIT_ROWS} cap(s) were actually compared ({compared})",
+        f"C20 at least {MIN_LIMIT_ROWS} cap(s) were actually compared ({compared}, {head})",
         "\n".join(unreadable) + "\n"
         "A checkout WAS supplied, so an anchor that cannot be found means it moved\n"
         "rather than that it is absent — and a comparison whose inputs stopped being\n"
@@ -640,7 +732,7 @@ def rule_C20(fails: Fails) -> None:
     )
     fails.check(
         not drift,
-        f"C20 spec/listing-limits.yaml agrees with astra-registry ({compared} cap(s))",
+        f"C20 spec/listing-limits.yaml agrees with astra-registry ({head}, {compared} cap(s))",
         "\n".join(drift) + "\n"
         "These are the REGISTRY's numbers. Change them there first: a cap lowered\n"
         "here refuses a listing the registry would have accepted, and one raised here\n"
@@ -649,10 +741,10 @@ def rule_C20(fails: Fails) -> None:
         "vendored copy of this file.",
     )
 
-    _c20_reverse(fails, policy, values)
+    _c20_reverse(fails, policy, values, head)
 
 
-def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int]) -> None:
+def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int], head: str) -> None:
     """Every cap astra-registry says we mirror, we actually mirror.
 
     The direction the rule above cannot see. It walks `spec/listing-limits.yaml`
@@ -690,7 +782,7 @@ def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int]) -> None:
     if not fails.check(
         len(declared) >= MIN_MIRRORED_BY,
         f"C20 astra-registry declares at least {MIN_MIRRORED_BY} cap(s) as mirrored here "
-        f"({len(declared)} found)",
+        f"({len(declared)} found, {head})",
         "`policy/limits.json` is expected to carry a `<name>_mirrored_by` sibling for every\n"
         "cap an author can trip from their own source tree. Finding fewer than the floor\n"
         "means one of two opposite things and they need opposite fixes:\n"
@@ -706,7 +798,7 @@ def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int]) -> None:
     fails.check(
         not missing,
         f"C20 every cap astra-registry says we mirror is in spec/listing-limits.yaml "
-        f"({len(declared)} declared)",
+        f"({head}, {len(declared)} declared)",
         "\n".join(
             f"{n}: policy/limits.json says `{n}{MIRRORED_BY_SUFFIX}: {declared[n]}` "
             f"and spec/listing-limits.yaml has no `{n}` row"
@@ -1025,6 +1117,11 @@ def main() -> int:
     ap.add_argument("--astra-dir", default=None,
                     help="an Astra/astra-rs checkout; else $ASTRA_RS_DIR, else "
                          "../Astra/astra-rs. C12 says so out loud when there is none.")
+    ap.add_argument("--registry-dir", default=None,
+                    help="an astra-registry checkout for C20; else $ASTRA_REGISTRY_DIR, else "
+                         "../astra-registry. Passed explicitly, a directory that holds no "
+                         "policy/limits.json, or that is not a git checkout of its own, is exit "
+                         "2, never NOT VERIFIED.")
     ap.add_argument("--astra-ref", default=ANCHOR_REF,
                     help=f"the NAMED ref C22 proves its own anchor against before it reads a "
                          f"tag (default: {ANCHOR_REF}). Never HEAD. CI passes "
@@ -1054,7 +1151,7 @@ def main() -> int:
     if "C14" in wanted:
         rule_C14(fails)
     if "C20" in wanted:
-        rule_C20(fails)
+        rule_C20(fails, resolve_registry(args.registry_dir))
     if "C12" in wanted:
         rule_C12(fails, resolve_astra(args.astra_dir))
     if "C22" in wanted:
