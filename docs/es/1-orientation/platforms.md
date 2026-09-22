@@ -97,8 +97,8 @@ antes de tener un proyecto, un manifiesto, o cualquier razón para sospechar
 de un compilador de protobuf. Sin él, `cargo install` se detiene en
 `error: failed to run custom build command for astra-plugin-sdk`, con
 `Could not find `protoc`` unas líneas más abajo. La propia CI de este
-repositorio lo instala en cada job de Rust (`arduino/setup-protoc@v3`, siete
-veces en `.github/workflows/ci.yml`), lo cual es la prueba más clara de que
+repositorio lo instala en cada job de Rust (`arduino/setup-protoc@v3`, en cada
+job de Rust de `.github/workflows/ci.yml`), lo cual es la prueba más clara de que
 no es opcional.
 
 `astra-plugin doctor` responde todo esto con un solo comando, en la máquina

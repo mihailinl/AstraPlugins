@@ -100,7 +100,7 @@ CLI は Rust SDK に依存しているため、*`astra-plugin` 自体をイン�
 `error: failed to run custom build command for astra-plugin-sdk` で止まり、
 数行下に `Could not find `protoc`` と出ます。このリポジトリ自身の CI は
 すべての Rust ジョブでこれをインストールしています
-(`arduino/setup-protoc@v3`、`.github/workflows/ci.yml` 内で 7 回)。
+(`arduino/setup-protoc@v3`、`.github/workflows/ci.yml` のすべての Rust ジョブで)。
 これがそれが任意ではないことの何よりの証拠です。
 
 `astra-plugin doctor` はこれらすべてに、あなたが実際にいるマシン上で、

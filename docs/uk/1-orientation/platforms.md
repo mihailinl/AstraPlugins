@@ -94,7 +94,7 @@ Rust SDK, тому він потрібен, щоб *встановити сам 
 `error: failed to run custom build command for astra-plugin-sdk`, з
 `Could not find `protoc`` кількома рядками нижче. Власний CI цього
 репозиторію встановлює його в кожному Rust-завданні (`arduino/setup-protoc@v3`,
-сім разів у `.github/workflows/ci.yml`), що і є найяснішим доказом того, що
+у кожному Rust-завданні `.github/workflows/ci.yml`), що і є найяснішим доказом того, що
 він не опціональний.
 
 `astra-plugin doctor` відповідає на все це однією командою, на тій машині, на

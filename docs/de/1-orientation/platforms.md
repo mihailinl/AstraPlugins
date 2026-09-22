@@ -98,7 +98,7 @@ Grund hast, einen Protobuf-Compiler zu vermuten. Ohne `protoc` bleibt
 `error: failed to run custom build command for astra-plugin-sdk` stehen, mit
 `Could not find `protoc`` einige Zeilen weiter unten. Die eigene CI dieses
 Repositorys installiert `protoc` in jedem Rust-Job
-(`arduino/setup-protoc@v3`, siebenmal in `.github/workflows/ci.yml`), was der
+(`arduino/setup-protoc@v3`, in jedem Rust-Job von `.github/workflows/ci.yml`), was der
 klarste Beweis dafür ist, dass es nicht optional ist.
 
 `astra-plugin doctor` beantwortet all das mit einem einzigen Befehl, auf der

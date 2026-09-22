@@ -91,7 +91,7 @@ SDK，所以*安装 `astra-plugin` 本身*就需要它 —— 在你还没有项
 `cargo install` 会停在
 `error: failed to run custom build command for astra-plugin-sdk`，
 再往下几行会看到 `Could not find `protoc``。本仓库自己的 CI 在每一个
-Rust job 里都会安装它（`.github/workflows/ci.yml` 中出现了七次
+Rust job 里都会安装它（`.github/workflows/ci.yml` 的每个 Rust job 中都有
 `arduino/setup-protoc@v3`），这就是它绝非可选项的最有力证据。
 
 `astra-plugin doctor` 会在你实际所在的这台机器上，用一条命令回答这一切：
