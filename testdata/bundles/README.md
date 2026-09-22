@@ -1,7 +1,9 @@
 # `testdata/bundles` — the cross-repo bundle vectors
 
-Twenty-seven `.astraplugin` files, each with a written-down verdict, and the two
-digests every implementation of the v2 format has to agree on.
+The `.astraplugin` files in this directory, each with a written-down verdict,
+and the two digests every implementation of the v2 format has to agree on. How
+many there are is in `vectors.json`, which is generated from them; a number
+written here is a sentence the next vector falsifies and nothing checks.
 
 Three programs read this format:
 
@@ -86,11 +88,13 @@ ac3d49a2fc2b7408d5b3c805ec91541510c272547a16e3bc7a30f269ba801aed  8e88f82…  ok
 ```
 
 Nothing of ours is in that path — not node's crypto, not `sha2`, not this
-repo's ZIP code. Run it over the whole directory and compare to `vectors.json`;
-27 artifact digests and 25 manifest digests match (the two skips are
-`manifest-not-first` and `manifest-compressed`, whose entry zero is by
-construction not a stored manifest). A shared bug can make three programs agree
-with each other. It cannot make them agree with `sha256sum`.
+repo's ZIP code. Run it over the whole directory and compare to `vectors.json`:
+every artifact digest matches, and so does every manifest digest that exists.
+The skips are the vectors whose entry zero is by construction not a stored
+`MANIFEST.json` — they are exactly the records carrying `manifest_digest: null`,
+which is a rule a reader can check rather than a count that goes stale. A shared
+bug can make three programs agree with each other. It cannot make them agree
+with `sha256sum`.
 
 ## The two digests
 
@@ -204,6 +208,8 @@ Nothing in this project should ever compute it for any other.
 | `manifest-not-first` | invariant 1. Moving the manifest must never fall back to the pre-v2 rules |
 | `manifest-compressed` | reading it must not require inflating unchecked bytes |
 | `header-disagree` | the central directory points at a manifest that is not the one at byte zero |
+| `manifest-first-by-offset-only` | at byte zero, and second in the central directory |
+| `manifest-first-by-index-only` | first in the central directory, and not at byte zero |
 | `path-traversal` | `../escape` — zip-slip |
 | `path-ads` | `bin/fixture:stream` writes *into* `bin/fixture` on Windows, invisibly |
 | `path-trailing-dot` | Windows strips it, so two entries become one file |
@@ -229,6 +235,17 @@ are the additions:
   reader learn what the archive is *allowed* to contain before it has trusted
   any of it. Without vectors, losing it is silent: reordering one entry would be
   enough to switch off per-file hashing, which is the only thing v2 adds.
+* **`manifest-first-by-offset-only` / `manifest-first-by-index-only`** — "first"
+  is two properties, and until this pair existed nothing here told them apart. A
+  ZIP has two orders: the order the local records are laid down in and the order
+  the central directory lists them in. Every other vector keeps them equal, and
+  `manifest-not-first` breaks **both at once** — so a reader could enforce
+  either one alone and pass the whole directory. The pair breaks one each. It
+  was found in astra-registry, where `E_MANIFEST_NOT_FIRST` tests the
+  central-directory index and `E_MANIFEST_LOCAL_HEADER` tests byte zero: on
+  `manifest-not-first` both fire, so neither was ever the sole reason that
+  bundle was refused, and a suite asserting only *that* it was refused could not
+  see either one go missing. Each of these is refused by exactly one of the two.
 * **`content-digest-mismatch`** — the plan's cases are all about the file *set*.
   This is the *content* half, and it is the one a swapped binary trips.
 * **`size-mismatch` / `mode-mismatch` / `uppercase-digest` / `unsorted-files`** —

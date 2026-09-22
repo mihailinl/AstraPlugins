@@ -762,7 +762,7 @@ und das Listing.
 
 ## 14. Goldene Vektoren
 
-`testdata/bundles/` hält 27 eingefrorene `.astraplugin`-Dateien,
+`testdata/bundles/` hält die eingefrorenen `.astraplugin`-Dateien,
 `vectors.json` (Urteil, Ebene, beide Digests, und was jede
 Implementierung heute tut) und `SHA256SUMS`. Die zwei Konsumenten
 halten gevendorte Kopien
@@ -775,7 +775,7 @@ halten gevendorte Kopien
 Eingaben aus dem heutigen Code gebaut hätte, würde behaupten, dass der
 heutige Code mit sich selbst übereinstimmt.
 
-### Accept (5)
+### Accept
 
 | Vektor | Was er beweist |
 |---|---|
@@ -785,7 +785,7 @@ heutige Code mit sich selbst übereinstimmt.
 | `ok-legacy-signed` | das auslaufende Paar, letzte zwei Einträge, in Reihenfolge (§11) |
 | `collision-a-bc` | die ehrliche Hälfte des Kollisionspaars (§3.3) |
 
-### Reject (22)
+### Reject
 
 | Vektor | Regel, die ablehnt |
 |---|---|
@@ -803,6 +803,8 @@ heutige Code mit sich selbst übereinstimmt.
 | `manifest-not-first` | §4 |
 | `manifest-compressed` | §4 |
 | `header-disagree` | §4.1 |
+| `manifest-first-by-offset-only` | §13 Schritt 6 — Eintrag 0 des Zentralverzeichnisses |
+| `manifest-first-by-index-only` | §4 — der lokale Header bei Offset 0 |
 | `path-traversal` | §6.6 (und §7.1: der Eintrag ist ungelistet) |
 | `path-ads` | §6.4 (und §7.1) |
 | `path-trailing-dot` | §6.7 (und §7.1) |
@@ -819,6 +821,16 @@ der nur §7.1 implementiert, lehnt also alle drei ab. Er sollte trotzdem
 listet, hat die Vollständigkeit nichts zu sagen, und nur die
 Namensregeln haben es.
 
+Anmerkung zu `manifest-first-by-offset-only` und
+`manifest-first-by-index-only`: ein ZIP hat zwei Reihenfolgen — die, in
+der die lokalen Records abgelegt werden, und die, in der das
+Zentralverzeichnis sie auflistet — und §13 fragt nach beiden, in
+Schritt 2 und noch einmal in Schritt 6. Jeder andere Vektor hier hält
+die beiden gleich, und `manifest-not-first` bricht beide auf einmal,
+sodass ein Verifier, der nur einen dieser Schritte implementiert hätte,
+jede andere Zeile dieser Tabelle bestünde. Diese zwei brechen je einen,
+in entgegengesetzte Richtungen, und sind nur als Paar ein Test.
+
 ### 14.1 Selbsttest-Werte
 
 Für jede Implementierung ist die schnellste erste Prüfung, dass beide
@@ -826,10 +838,11 @@ Digests jedes Vektors mit `vectors.json`s `artifact_sha256` und
 `manifest_digest` übereinstimmen. Diese Zahlen kommen von keinem der
 drei Programme:
 `testdata/bundles/handcheck.sh` leitet sie erneut aus `dd`, `od`,
-`printf`, `cat` und `sha256sum` ab. 27 Artefakt-Digests und 25
-Manifest-Digests stimmen überein — die zwei ausgelassenen sind
-`manifest-not-first` und `manifest-compressed`, deren Eintrag null per
-Konstruktion kein gespeichertes Manifest ist. Ein gemeinsamer Bug kann
+`printf`, `cat` und `sha256sum` ab. Jeder Artefakt-Digest stimmt
+überein, und ebenso jeder Manifest-Digest, den es gibt: ausgelassen
+sind die Vektoren, deren Eintrag null per Konstruktion kein
+gespeichertes Manifest ist — genau die Datensätze, die
+`manifest_digest: null` tragen. Ein gemeinsamer Bug kann
 drei Programme dazu bringen, einander zuzustimmen; er kann sie nicht
 dazu bringen, coreutils zuzustimmen.
 

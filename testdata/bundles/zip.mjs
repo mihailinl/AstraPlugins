@@ -88,11 +88,23 @@ function deflateRawStoredBlocks(raw) {
  * zero, which is the exact split between "what the registry hashed" and "what
  * the daemon enforces".
  *
+ * `centralOrder` separates the two orders a ZIP has and every honest packer
+ * keeps equal: the order the LOCAL records are laid down in, and the order the
+ * CENTRAL directory lists them in. Pass a permutation of local indices to emit
+ * the central records in that order; the local records, and therefore every
+ * byte offset, are untouched. Nothing in the ZIP format ties the two together —
+ * an entry can be first by offset and second by index, or the reverse — and
+ * `manifest-first-by-offset-only` / `manifest-first-by-index-only` are the two
+ * halves of that, which no honest packer will produce for us either.
+ *
  * @param {ZipEntry[]} entries
  * @param {Record<number, Partial<{name: string, offset: number}>>} [centralOverrides]
+ *   keyed by position in the EMITTED central directory, i.e. after `centralOrder`
+ * @param {number[]|null} [centralOrder] a permutation of the non-hidden entries'
+ *   indices in `entries`
  * @returns {Buffer}
  */
-export function writeZip(entries, centralOverrides = {}) {
+export function writeZip(entries, centralOverrides = {}, centralOrder = null) {
   const locals = [];
   const records = [];
   let offset = 0;
@@ -133,10 +145,28 @@ export function writeZip(entries, centralOverrides = {}) {
     offset += local.length + stored.length;
   }
 
+  // The central directory, in `centralOrder` if one was given and in local
+  // order otherwise. `records[i]` is `entries[i]`, so the permutation is over
+  // local indices — names would be ambiguous, since two entries may share one
+  // (`duplicate-entry`).
+  const visible = records.map((r, i) => ({ r, i })).filter(({ r }) => !r.hidden);
+  let ordered;
+  if (centralOrder === null) {
+    ordered = visible.map(({ r }) => r);
+  } else {
+    const allowed = new Set(visible.map(({ i }) => i));
+    if (centralOrder.length !== allowed.size || new Set(centralOrder).size !== centralOrder.length) {
+      throw new Error("centralOrder must be a permutation of every non-hidden entry index");
+    }
+    ordered = centralOrder.map((i) => {
+      if (!allowed.has(i)) throw new Error(`centralOrder names entry ${i}, which is hidden or absent`);
+      return records[i];
+    });
+  }
+
   const centrals = [];
   let index = 0;
-  for (const r of records) {
-    if (r.hidden) continue;
+  for (const r of ordered) {
     const o = centralOverrides[index] ?? {};
     index++;
     const name = o.name !== undefined ? Buffer.from(o.name, "utf8") : r.name;

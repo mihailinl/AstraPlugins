@@ -660,7 +660,7 @@ Steps A–E need only the file. Step F needs the file and the listing.
 
 ## 14. Golden vectors
 
-`testdata/bundles/` holds 27 frozen `.astraplugin` files, `vectors.json` (verdict,
+`testdata/bundles/` holds the frozen `.astraplugin` files, `vectors.json` (verdict,
 layer, both digests, and what each implementation does today) and `SHA256SUMS`.
 The two consumers hold vendored copies (`Astra/astra-rs/astra-daemon/testdata/bundles/`,
 `astra-registry/tests/vectors/`), refreshed by `tools/vendor-testdata.sh`. Each
@@ -669,7 +669,7 @@ suite verifies its copy against `SHA256SUMS` before reading a single vector.
 **No suite regenerates its fixtures.** A suite that built its inputs from today's
 code would be asserting that today's code agrees with itself.
 
-### Accept (5)
+### Accept
 
 | vector | what it proves |
 |---|---|
@@ -679,7 +679,7 @@ code would be asserting that today's code agrees with itself.
 | `ok-legacy-signed` | the retiring pair, last two entries, in order (§11) |
 | `collision-a-bc` | the honest half of the collision pair (§3.3) |
 
-### Reject (22)
+### Reject
 
 | vector | rule that rejects it |
 |---|---|
@@ -697,6 +697,8 @@ code would be asserting that today's code agrees with itself.
 | `manifest-not-first` | §4 |
 | `manifest-compressed` | §4 |
 | `header-disagree` | §4.1 |
+| `manifest-first-by-offset-only` | §13 step 6 — the central directory's entry 0 |
+| `manifest-first-by-index-only` | §4 — the local header at offset 0 |
 | `path-traversal` | §6.6 (and §7.1: the entry is unlisted) |
 | `path-ads` | §6.4 (and §7.1) |
 | `path-trailing-dot` | §6.7 (and §7.1) |
@@ -711,16 +713,25 @@ Note on the three `path-*` vectors: each hides its hostile entry *outside*
 should still implement §6 — the day a manifest lists such a path, exhaustiveness
 has nothing to say and only the name rules do.
 
+Note on `manifest-first-by-offset-only` and `manifest-first-by-index-only`: a
+ZIP has two orders — the order the local records are laid down in and the order
+the central directory lists them in — and §13 asks about both, at step 2 and
+again at step 6. Every other vector here keeps the two equal, and
+`manifest-not-first` breaks both at once, so a verifier that implemented only
+one of those steps would pass every other row of this table. These two break one
+each, in opposite directions, and are only a test as a pair.
+
 ### 14.1 Self-test values
 
 For any implementation, the fastest first check is that both digests of every
 vector match `vectors.json`'s `artifact_sha256` and `manifest_digest`. Those
 numbers do not come from any of the three programs:
 `testdata/bundles/handcheck.sh` derives them again from `dd`, `od`, `printf`,
-`cat` and `sha256sum`. 27 artifact digests and 25 manifest digests match — the
-two skips are `manifest-not-first` and `manifest-compressed`, whose entry zero is
-by construction not a stored manifest. A shared bug can make three programs agree
-with each other; it cannot make them agree with coreutils.
+`cat` and `sha256sum`. Every artifact digest matches, and so does every manifest
+digest that exists: the skips are the vectors whose entry zero is by
+construction not a stored manifest, which are exactly the records carrying
+`manifest_digest: null`. A shared bug can make three programs agree with each
+other; it cannot make them agree with coreutils.
 
 ## 15. Known divergences
 
