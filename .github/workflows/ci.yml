@@ -796,6 +796,16 @@ jobs:
           set -euo pipefail
           python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry \
             | tee "$RUNNER_TEMP/c35.txt"
+          # The label canary; the full step below says why it exists.
+          reg=$(git --git-dir=_registry/.git rev-parse --short=12 HEAD) \
+            || { echo "::error::_registry is not a git checkout of its own, so there is no commit to hold C35's label to."; exit 1; }
+          want="C35 C32's EMITTED is astra-registry's ICON_FORMATS, both ways ($reg, "
+          n=$(grep -cF -- "$want" "$RUNNER_TEMP/c35.txt" || true)
+          if [ "$n" != 1 ]; then
+            echo "::error::C35 passed, and its transcript does not name the registry commit this job checked out: want exactly one line containing \"$want\", found $n."
+            exit 1
+          fi
+          echo "ok    C35's passing line names astra-registry@$reg, the commit this job checked out"
           {
             echo "### icons: **C35 half-verified** — \`EMITTED\` was compared with astra-registry's \`ICON_FORMATS\`; the daemon's \`CATALOGUE_ICON_FILES\` was NOT"
             echo
@@ -804,11 +814,39 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # THE LABEL CANARY, after the rule passes. Each passing line carries the
+      # commit it compared against, and the rule works that label out for
+      # itself: from #53 until entry 108's fix it printed `HEAD unknown: not a
+      # git checkout` on the daemon line of every run of this step, and the
+      # step was green over it, because a label is not an input and nothing
+      # compared it with anything. `_astra/astra-rs` is a directory inside the
+      # Astra checkout, never a checkout's top, and the rule had been taught
+      # only the registry's layout. So the step holds each label to the commit
+      # it checked out: a checkout path that moves, or a label rule that
+      # changes, goes red here instead of blank.
       - name: C35 (full) C32's EMITTED and the daemon's CATALOGUE_ICON_FILES are astra-registry's ICON_FORMATS
         if: env.MODE == 'full'
         run: |
           set -euo pipefail
-          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry --astra-dir _astra/astra-rs
+          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry --astra-dir _astra/astra-rs \
+            | tee "$RUNNER_TEMP/c35.txt"
+          # `--git-dir`, not `-C`: `-C` searches upward, and a checkout that lost
+          # its `.git` would be answered for by this repository, which is the
+          # very mislabelling this canary exists to catch.
+          reg=$(git --git-dir=_registry/.git rev-parse --short=12 HEAD) \
+            || { echo "::error::_registry is not a git checkout of its own, so there is no commit to hold C35's label to."; exit 1; }
+          astra=$(git --git-dir=_astra/.git rev-parse --short=12 HEAD) \
+            || { echo "::error::_astra is not a git checkout of its own, so there is no commit to hold C35's label to."; exit 1; }
+          for want in \
+            "C35 C32's EMITTED is astra-registry's ICON_FORMATS, both ways ($reg, " \
+            "C35 the daemon's CATALOGUE_ICON_FILES pairs are astra-registry's ($astra, "; do
+            n=$(grep -cF -- "$want" "$RUNNER_TEMP/c35.txt" || true)
+            if [ "$n" != 1 ]; then
+              echo "::error::C35 passed, and its transcript does not name the commit this job checked out: want exactly one line containing \"$want\", found $n."
+              exit 1
+            fi
+          done
+          echo "ok    C35's passing lines name astra-registry@$reg and Astra@$astra, the commits this job checked out"
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### icons: **C35 full** — C32's `EMITTED` and the daemon's `CATALOGUE_ICON_FILES` were compared with astra-registry's `ICON_FORMATS`
           MSG

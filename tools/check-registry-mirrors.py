@@ -1948,19 +1948,57 @@ MEDIA_TYPE = re.compile(r"[a-z]+/[a-z0-9][a-z0-9.+-]*")
 MIN_ICON_FORMATS = 2
 
 
-def _git_head(tree: Path) -> str:
-    """The checkout's commit, for the transcript. A label, not an input.
+#: Where the daemon's tree sits inside the Astra repository: `astra-rs/`, at
+#: its top. CI checks Astra out at `_astra` and passes `--astra-dir
+#: _astra/astra-rs`; a maintainer's default is `../Astra/astra-rs`. Either way
+#: the directory C35 reads is never a checkout's top, which is what
+#: `_git_head` has to be told.
+DAEMON_IN_REPO = "astra-rs"
 
-    Only for a checkout of its own: `_registry` sits inside the AstraPlugins
-    checkout, and asked about a `_registry` with no `.git`, git would answer
-    with THIS repository's HEAD and the transcript would name it as the
-    registry's.
+
+def _git_head(tree: Path, in_repo: str = "") -> str:
+    """The commit of the checkout `tree` belongs to, for the transcript. A label, not an input.
+
+    `in_repo` is where `tree` sits inside its repository BY DESIGN, and the
+    toplevel git reports must be exactly `tree` with that taken off. Any other
+    enclosing repository is the wrong one to name:
+
+    * astra-registry (`""`, the default): a checkout of the registry IS the
+      tree, so the toplevel must be `tree` itself. `_registry` sits inside the
+      AstraPlugins checkout in CI, and asked about a `_registry` with no `.git`,
+      git would answer with THIS repository's HEAD and the transcript would name
+      it as the registry's. Where a rule needs the commit and not only a label,
+      `--registry-dir` refuses such a directory outright (`_explicit_checkout`).
+    * the daemon (`DAEMON_IN_REPO`): `astra-rs/` is a directory at the top of
+      the Astra repository, so the toplevel is `tree`'s parent and never `tree`.
+      Holding it to the registry's rule printed `HEAD unknown: not a git
+      checkout` on the daemon line of every full-mode run from #53 on (ops
+      register, entry 108). Holding it to "whatever repository encloses it"
+      instead would bring back the registry's hazard one level down: an `_astra`
+      whose `.git` went missing is enclosed by the AstraPlugins checkout, as
+      `_astra/astra-rs`, and would be labelled with this repository's commit.
+
+    A directory that is in no git checkout at all names no commit either way.
     """
-    if not _own_checkout(tree):
-        return "HEAD unknown: not a git checkout"
+    if not in_repo:
+        if not _own_checkout(tree):
+            return "HEAD unknown: not a git checkout"
+    else:
+        p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
+                           capture_output=True, text=True)
+        if p.returncode != 0:
+            return "HEAD unknown: not in a git checkout"
+        try:
+            rel = tree.resolve().relative_to(Path(p.stdout.strip()).resolve()).as_posix()
+        except ValueError:
+            rel = None
+        if rel != in_repo:
+            return f"HEAD unknown: in a git checkout, but not as its top-level {in_repo}/"
     p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=12", "HEAD"],
                        capture_output=True, text=True)
-    return p.stdout.strip() if p.returncode == 0 else "HEAD unknown: not a git checkout"
+    if p.returncode == 0:
+        return p.stdout.strip()
+    return "HEAD unknown: not a git checkout" if not in_repo else "HEAD unknown: its checkout has no commit"
 
 
 def _astra_dir(anchor: str) -> Path | None:
@@ -2214,7 +2252,7 @@ def rule_C35(fails: Fails) -> None:
     try:
         daemon = read_catalogue_icon_files(astra)
     except (LookupError, OSError) as e:
-        fails.check(False, f"C35 the daemon's CATALOGUE_ICON_FILES parses ({_git_head(astra)})",
+        fails.check(False, f"C35 the daemon's CATALOGUE_ICON_FILES parses ({_git_head(astra, DAEMON_IN_REPO)})",
                     str(e))
         return
     ok = fails.check(
@@ -2243,7 +2281,7 @@ def rule_C35(fails: Fails) -> None:
     fails.check(
         not problems,
         f"C35 the daemon's CATALOGUE_ICON_FILES pairs are astra-registry's "
-        f"({_git_head(astra)}, {len(daemon)} pair(s), a subset on purpose)",
+        f"({_git_head(astra, DAEMON_IN_REPO)}, {len(daemon)} pair(s), a subset on purpose)",
         "\n".join(problems) + "\n"
         "The daemon's table is deliberately shorter than the registry's (its own comment says\n"
         "why), so this is a subset, never an equality. The repair is in Astra's\n"
