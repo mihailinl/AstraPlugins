@@ -128,6 +128,13 @@ C27 — `spec/reserved-ids.yaml` is astra-registry's reserved-id policy, still.
     about which commit that is. Until that step, every CI transcript this rule
     ever produced ended on NOT VERIFIED.
 
+    The pinned leg reads a COMMIT, so its registry must be a git checkout of
+    its own, never a copy of the files that some other repository encloses —
+    `git -C` searches upward. An explicit `--registry-dir` that is not one is
+    exit 2. A `$ASTRA_REGISTRY_DIR` or `../astra-registry` that is not one
+    leaves the pinned leg NOT VERIFIED, by name, and the head leg, which reads
+    files, still runs (entry 120). C31's pinned leg is held to the same rule.
+
 C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
 
     Thirty-one files a stranger could commit to `.well-known/astra-plugin-owner`
@@ -307,7 +314,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-# The daemon tree's own-checkout rule, shared with tools/check-locales.py's C22.
+# The own-checkout rule, shared with tools/check-locales.py's C22: the daemon's tree
+# for C35's label, and (with `in_repo = ""`) the registry's for every pinned leg.
 from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1259,10 +1267,11 @@ def _own_checkout(tree: Path) -> bool:
     AstraPlugins checkout, so a `_registry` whose `.git` went missing would be
     answered for by the parent, and `git -C _registry show <pin>:…` would go
     looking for the registry's commit in this repository's history.
+
+    `checkout_top(tree, "")`, the rule C22 and C35's daemon label are held to,
+    so there is one of it (tools/checkouts.py).
     """
-    p = subprocess.run(["git", "-C", str(tree), "rev-parse", "--show-toplevel"],
-                       capture_output=True, text=True)
-    return p.returncode == 0 and Path(p.stdout.strip()).resolve() == tree.resolve()
+    return checkout_top(tree, "")[0] is not None
 
 
 #: Why a rule passing `need_git=True` needs a commit and not only the files.
@@ -1370,6 +1379,41 @@ def _pin_absent(registry: Path, sha: str, named_in: str) -> str:
         f"what proto-upstream's step does before it runs this. If the remote answers `not our\n"
         f"ref`, no ref on GitHub reaches that SHA, and the pin is fiction."
     )
+
+
+def _pinned_leg_may_read(fails: Fails, rule: str, registry: Path, sha: str, named_in: str) -> bool:
+    """Whether a PINNED leg may read commits out of `registry`; if not, says why, by name.
+
+    A pinned leg reads a commit (`git cat-file`, then `git show <pin>:<path>`),
+    and `git -C` searches upward, so a directory that is not its own checkout's
+    top is answered for by whatever repository encloses it. An explicit
+    `--registry-dir` never gets here unchecked: `_explicit_checkout` refuses it
+    with exit 2. `$ASTRA_REGISTRY_DIR` and `../astra-registry` used not to be
+    asked at all (entry 120), and measured on copies of astra-registry `main`
+    with both pins fetched:
+
+      a copy inside the AstraPlugins checkout   both pinned legs FAIL, "commit … is not
+                                                in the checkout at …/regcopy", with a
+                                                `git -C … fetch` into THIS repository
+      a copy in no checkout at all              the same FAIL, and a fetch into nothing
+      a copy nested inside a registry checkout  both pinned legs GREEN, the pins read
+                                                out of the ENCLOSING checkout
+
+    So this leg is NOT VERIFIED, by name, and only this leg: the head leg reads
+    the files on disk, which are what the variable pointed at, and it runs.
+    """
+    top, why = checkout_top(registry, "")
+    if top is not None:
+        return True
+    print(f"{rule} NOT VERIFIED (pinned leg): the astra-registry tree at {registry} is {why},")
+    print(f"        so no commit in it can be read, and the pin {named_in} names ({sha[:12]}) was")
+    print("        not looked for. `git` searches upward from a directory: asked about a copy of")
+    print("        the registry it answers for whatever repository the copy sits in, and this leg")
+    print("        would read, or fail to find, the pin in THAT repository's history. The head leg")
+    print("        below reads the files on disk and still runs. Point $ASTRA_REGISTRY_DIR at a")
+    print("        clone of astra-registry that holds the pin to compare against it.")
+    fails.skip(rule, f"pinned leg: the astra-registry tree is {why}")
+    return False
 
 
 def _upstream_value(registry: Path, source: str, sha: str | None):
@@ -1569,7 +1613,7 @@ def rule_C27(fails: Fails) -> None:
         fails.skip("C27", "no astra-registry checkout")
         return
 
-    if pin is not None:
+    if pin is not None and _pinned_leg_may_read(fails, "C27", registry, pin, "spec/reserved-ids.yaml"):
         _compare_against(fails, registry, values, sources, pin)
     _compare_against(fails, registry, values, sources, None)
 
@@ -1905,7 +1949,8 @@ def rule_C31(fails: Fails) -> None:
         fails.skip("C31", "no astra-registry checkout")
         return
 
-    _binding_compare(fails, registry, upstream_rel, pin)
+    if _pinned_leg_may_read(fails, "C31", registry, pin, "testdata/binding-line/README.md"):
+        _binding_compare(fails, registry, upstream_rel, pin)
     _binding_compare(fails, registry, upstream_rel, None)
 
 
@@ -2734,7 +2779,8 @@ def main() -> int:
         default=None,
         help="an astra-registry checkout for C21, C27, C31 and C35; else $ASTRA_REGISTRY_DIR, else "
              "../astra-registry. Passed explicitly, a directory that is not one is exit 2, "
-             "never NOT VERIFIED.",
+             "never NOT VERIFIED. Found implicitly, one that is not a git checkout of its own "
+             "leaves C27's and C31's pinned legs NOT VERIFIED; their head legs still run.",
     )
     ap.add_argument(
         "--astra-dir",

@@ -3267,7 +3267,15 @@ jobs:
       # fixtures, because the case exists nowhere else — no run of
       # `proto-upstream` has had an `_astra` without its `.git` — and it needs
       # no Astra and no token, so it runs here, on every pull request.
-      - name: C22, C35 the daemon's tree is the top-level astra-rs/ of its own checkout, or no tag and no commit is read from it
+      #
+      # C27's and C31's PINNED legs read a commit out of astra-registry, and
+      # are held to the same rule with the registry as its checkout's top.
+      # Only an explicit `--registry-dir` used to be; a `$ASTRA_REGISTRY_DIR`
+      # or `../astra-registry` that was a copy of the files had its pins looked
+      # up in whatever repository enclosed it — red blaming a fetch into the
+      # wrong repository, or green on the enclosing registry's history (entry
+      # 120). CI always passes `--registry-dir`, so this is the only run of it.
+      - name: C22, C27, C31, C35 a tree from another repository is read through its own checkout, never one that encloses it
         run: python3 tools/test_checkouts.py
 
       # C24 — every documented `plugin-release/v1` SHA is that tag's commit.
