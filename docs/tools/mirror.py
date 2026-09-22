@@ -146,6 +146,31 @@ block is not compared. Those bodies are code, every one of them is executed by
 Their runner *positions* are still compared, so a block that disappears from a
 translation is still caught.
 
+A COUNT asserted in prose about another file. This one is worth naming with
+its live example, because it is the same genre as the digests above and the
+rules above do not reach it: `docs/*/1-orientation/platforms.md` says
+`arduino/setup-protoc@v3` appears **seven times** in
+`.github/workflows/ci.yml`, in all seven languages. It appears **eight**
+times, measured 2026-09-21, and has for some time.
+
+Nothing here catches it and nothing here can, which was verified rather than
+assumed: setting the English page to the true number while six translations
+keep the false one leaves this script at exit 0, every locale reporting `ok`.
+The reason is that the number is spelled seven different ways — `seven
+times`, `siebenmal`, `siete veces`, `7 回`, `семь раз`, `сім разів`, `七次`
+— one compound German word, one Arabic digit, one Chinese numeral. A
+cross-locale integer rule sees the `7` in Japanese, nothing in five others,
+and fires as noise instead of as the finding; measured over the whole tree it
+costs 220 findings on a green day, because English writes small counts as
+words and Japanese writes the same sentence in digits.
+
+`PINNED_DIGESTS` is the shape that would reach it — a value in prose, checked
+against the file that holds it, in every language — and a digest works there
+only because a hex string is spelled the same everywhere. So the durable fix
+for a count is not a rule: **it is a sentence that does not carry the count.**
+"installs it in every Rust job (`arduino/setup-protoc@v3`)" is true however
+many times CI grows, needs no check, and loses a reader nothing.
+
 A heading's WORDS. Only its level and its code spans are compared, so renaming
 `## Everywhere` to `## Anywhere` in English is invisible here and always will
 be. Renaming ``## There is no `astra-plugin login` `` is not: the name inside
