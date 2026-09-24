@@ -161,13 +161,13 @@ installiere sie stattdessen von der Plugins-Seite, oder lies
 [lokale Installation](../5-publish/local-install.md) dafür, was der
 Import kostet.
 
-Heute ist die Vertrauenskette **einen Link zu kurz** verankert: die
-Root-Schlüssel existieren und die root-signierte `trust.json`, die einen
-Index-Signierschlüssel delegiert, existiert jetzt auch, aber
-`registry/v1/index.json` und `revocations.json` tragen weiterhin
-`"signatures": []`. Ohne Signatur auf dem Katalog gibt es nichts, das der
-delegierte Schlüssel prüfen könnte, ein Katalog wird also als unsigniert
-eingestuft, und Widerruf wird nicht durchgesetzt. Siehe
+Heute ist die Vertrauenskette **beim Widerruf einen Link zu kurz**: die
+Root-Schlüssel existieren, die root-signierte `trust.json` delegiert einen
+Index-Signierschlüssel, und der Katalog, den Clients bekommen, ist damit
+signiert. Die auf `main` der Registry committeten Kopien tragen
+`"signatures": []` mit Absicht, und kein Client liest sie. Was Pages noch
+nicht ausliefert, ist eine signierte Widerrufsliste, Widerruf wird also nicht
+durchgesetzt. Siehe
 [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## Ein Tool-Aufruf scheitert auf eine Weise, die das Modell nicht beheben kann

@@ -514,8 +514,7 @@ astra-plugin publish --notify
 
 有一件事，读者在按照本页操作之前应该知道。
 
-**签名链已经锚定到了委托(delegation)这一层，但还没有贯穿到目录
-(catalogue)本身。** 具体来说，每一部分都是可以核实的：
+**签名链已经贯穿到了目录(catalogue)本身，但还没有贯穿到撤回列表。** 具体来说，每一部分都是可以核实的：
 
 - 根密钥两边都存在 —— `registry/v1/root.json` 携带
   `"status": "provisioned"`，以及两个 Ed25519 密钥，守护进程内编译进
@@ -527,18 +526,19 @@ astra-plugin publish --notify
   自 2026-08-19 标签移动以来共有两个：`plugin-release/v1` 现在指向的那个
   commit，以及它之前指向的那个。所以过去会拦住每一次摄入
   的 `E_TRUST_UNPROVISIONED`，现在已经不会再触发了；
-- **目录本身仍然是未签名的。** `registry/v1/index.json` 和
-  `revocations.json` 携带的都是 `"signatures": []`，所以默认的
-  Astra 构建没有签名可以核对，会把所有目录都归类为未签名，并安全
-  失败(fail closed)。出于同样的原因，失效强制机制也没有生效。
+- **客户端拿到的目录是已签名的。** 从 2026-09-20 起，注册表的签名器用
+  `astra-index-2026a` 给 `index.json` 签名并把它部署到 Pages。提交在
+  `main` 上的副本 `registry/v1/index.json` 和 `revocations.json` 是有意
+  携带 `"signatures": []` 的，没有任何客户端读取它们。Pages 提供的撤回
+  列表仍然是那份已提交的未签名列表，所以失效强制机制尚未生效。
 
 参见 [`spec/registry-index.md` §0.1](../spec/registry-index.md) 和
 [安全模型](../1-orientation/security.md)。
 
 这对你意味着什么：本页描述的提交路径今天已经端到端可用 —— 你的
 issue 会被读取，各项检查会运行，bot 会给出回应，一次上架会被提交。
-仍然悬而未决的，是让 Astra 能够*从*注册表所发布的内容中*安装*插件所
-需要的那个签名。等它落地之后，本页的内容不会有任何变化。
+仍然悬而未决的，是 Pages 上那份已签名的撤回列表，有了它，注册表才能从
+已经装上的副本中撤回某个版本。等它落地之后，本页的内容不会有任何变化。
 
 ## 另请参阅
 

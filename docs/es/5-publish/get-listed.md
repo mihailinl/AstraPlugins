@@ -589,8 +589,8 @@ hacerle a la máquina. No hay sandbox. Consulta
 
 Algo que un lector merece saber antes de seguir esta página.
 
-**La cadena de firma está anclada hasta la delegación, pero todavía no a
-través del catálogo.** En concreto, y cada parte es comprobable:
+**La cadena de firma está anclada a través del catálogo, pero todavía no a
+través de la lista de retirada.** En concreto, y cada parte es comprobable:
 
 - las claves raíz existen en ambos lados — `registry/v1/root.json` lleva
   `"status": "provisioned"` con dos claves Ed25519, y
@@ -604,11 +604,13 @@ través del catálogo.** En concreto, y cada parte es comprobable:
   `plugin-release/v1`, y aquel al que apuntaba antes. Así que
   `E_TRUST_UNPROVISIONED`, que antes detenía cada ingesta, ya no se
   dispara;
-- **el catálogo en sí sigue sin firmar.** `registry/v1/index.json` y
-  `revocations.json` llevan `"signatures": []`, así que una compilación
-  por defecto de Astra no tiene firma que comprobar, clasifica cualquier
-  catálogo como sin firmar, y falla cerrada (fail closed). La aplicación
-  de revocaciones tampoco está activa, por la misma razón.
+- **el catálogo que reciben los clientes está firmado.** Desde el 2026-09-20
+  el firmante del registro firma `index.json` con `astra-index-2026a` y lo
+  despliega en Pages. Las copias confirmadas en `main`,
+  `registry/v1/index.json` y `revocations.json`, llevan `"signatures": []`
+  a propósito, y ningún cliente las lee. La lista de retirada que sirve Pages
+  sigue siendo la confirmada sin firmar, así que la aplicación de
+  revocaciones todavía no está activa.
 
 Consulta [`spec/registry-index.md` §0.1](../spec/registry-index.md) y
 [el modelo de seguridad](../1-orientation/security.md).
@@ -616,8 +618,9 @@ Consulta [`spec/registry-index.md` §0.1](../spec/registry-index.md) y
 Lo que eso significa para ti: la vía de envío de esta página funciona
 hoy de principio a fin — tu issue se lee, las comprobaciones se
 ejecutan, el bot responde, y un listado se confirma. Lo que sigue
-pendiente es la firma que le permite a Astra *instalar* a partir de lo
-que publica el registro. Nada de esta página cambia cuando llegue.
+pendiente es la lista de retirada firmada en Pages, que le permite al
+registro retirar una versión de las copias ya instaladas. Nada de esta página
+cambia cuando llegue.
 
 ## Ver también
 

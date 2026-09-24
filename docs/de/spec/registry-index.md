@@ -3,9 +3,10 @@
 # Die signierten Registry-Dokumente — normative Spezifikation
 
 **Status:** normativ für die Dokumentformate und die
-Verifikationsregeln. **Noch nicht in Kraft:** die hier beschriebene
-Signaturkette ist spezifiziert, auf beiden Seiten implementiert und
-**nicht verankert** — siehe §0.1, bevor du dich auf irgendeinen Satz in
+Verifikationsregeln. **Teilweise in Kraft:** die hier beschriebene
+Signaturkette ist spezifiziert, auf beiden Seiten implementiert und durch den
+Katalog verankert, aber noch nicht durch die Widerrufsliste — siehe §0.1, bevor
+du dich auf irgendeinen Satz in
 dieser Datei als Sicherheitsgarantie verlässt.
 
 Vier Dokumente, drei Schemas, eine Signaturkonstruktion:
@@ -36,7 +37,7 @@ Autor, beim ersten Install gepinnt (TOFU) und an die Download-URL
 gebunden — siehe §7.3. Der UI-Text ist verpflichtet, „gleicher Autor wie
 zuvor" zu sagen und nie „verifizierter Build".
 
-### 0.1 Die Kette ist noch nicht verankert — lies das zuerst
+### 0.1 Wo die Kette steht — lies das zuerst
 
 * `astra-registry/registry/v1/root.json` trägt
   `"status": "provisioned"` und zwei Ed25519-Schlüssel. Die Zeremonie in
@@ -58,36 +59,38 @@ zuvor" zu sagen und nie „verifizierter Build".
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` der
   Registry gibt alle drei Tatsachen aus. Also feuert
   `E_TRUST_UNPROVISIONED` beim Ingest nicht mehr.
-* Also heute: `trust.json` verifiziert, und ein Index-Schlüssel ist
-  delegiert, aber **nichts hat den Katalog damit signiert**. Jeder
-  Katalog wird weiterhin als `UNSIGNED` eingestuft, doch die Zeremonie hat
-  den Grund geändert — von `NoTrustAnchor` zu **`NoSignatures`**.
-  `classify_signature` im Daemon trennt die beiden genau: `NoTrustAnchor`
-  heißt, dass kein verifiziertes `trust.json` den Build erreicht hat, es
-  also keinen Schlüssel gibt, gegen den irgendeine Signatur geprüft werden
-  könnte — der Katalog kann durchaus signiert sein; `NoSignatures` heißt,
-  der Anker ist da und der Katalog selbst trägt keine. Was sich verschoben
-  hat, ist, welcher Link fehlt: die Lücke liegt jetzt zwischen dem
-  delegierten Schlüssel und dem Index, nicht zwischen der Root und der
-  Delegation.
-* `registry/v1/index.json` und `registry/v1/revocations.json` sind mit
-  `"signatures": []` committed — „unsigniert" laut ausgesprochen, wo
-  ein fehlendes Member nicht von einem entfernten unterschieden werden
-  könnte.
-* Konsequenzen, die daraus folgen und nicht wegkaschiert werden dürfen:
-  ein unsignierter Katalog kann einen Record nie auf
-  installierbar-mit-vollem-Vertrauen hochstufen, und weil
-  `verify_revocations_document` strikt ist (§6.4), **wird eine
-  unsignierte Widerrufsliste abgelehnt, die Durchsetzung von Widerruf
-  ist also ebenfalls nicht aktiv** — `RevocationFreshness::NotEnforced`,
-  bis einmal eine signaturgültige Liste geholt wird.
+* **Der Katalog, den Clients bekommen, ist damit signiert.** Seit 2026-09-20
+  ist der Signer der Registry (`astra-registry/.github/workflows/sign.yml`)
+  der einzige Herausgeber dessen, was Clients lesen. Er signiert
+  `index.json` und `revocations.json` mit `astra-index-2026a`, committet
+  sie in den Branch `signed` und deployt die Dokumente dieses Branches nach
+  Pages. Geprüft am 2026-09-24: das `index.json`, das Pages ausliefert,
+  verifiziert unter `astra-index-2026a` gegen das daneben ausgelieferte
+  `trust.json`, bei Seriennummer 52. `classify_signature` im Daemon trennt
+  die zwei Wege, auf denen ein Katalog weiterhin unsigniert ankommen kann:
+  `NoTrustAnchor` heißt, dass kein verifiziertes `trust.json` den Build
+  erreicht hat, es also keinen Schlüssel gibt, gegen den irgendeine Signatur
+  geprüft werden könnte; `NoSignatures` heißt, der Anker ist da und der
+  Katalog selbst trägt keine.
+* Die auf `main` der Registry committeten Kopien — `registry/v1/index.json`
+  und `registry/v1/revocations.json` — tragen `"signatures": []` mit
+  Absicht: „unsigniert" laut ausgesprochen, wo ein fehlendes Member nicht von
+  einem entfernten unterschieden werden könnte. Kein Client liest sie; die
+  signierten Kopien liegen auf `signed` und auf Pages.
+* Eine Konsequenz gilt weiterhin und darf nicht wegkaschiert werden. Pages
+  liefert weiterhin die committete, unsignierte Widerrufsliste aus, bis die
+  Registry dort die signierte scharf schaltet, und weil
+  `verify_revocations_document` strikt ist (§6.4), **wird eine unsignierte
+  Widerrufsliste abgelehnt, die Durchsetzung von Widerruf ist also noch nicht
+  aktiv** — `RevocationFreshness::NotEnforced`, bis einmal eine
+  signaturgültige Liste geholt wird.
 
 Alles unten beschreibt das Format und den Algorithmus, und nichts davon
 ändert sich, wenn der verbleibende Link ankommt. Die Root-Zeremonie ist
-bereits gelaufen, und die Delegation ist signiert; was fehlt, ist, dass
-eine Signatur im `signatures`-Array eines veröffentlichten
-`index.json` erscheint, an dem Punkt fängt die Kette an, auf der
-Maschine eines Nutzers Gewicht zu tragen.
+gelaufen, die Delegation ist signiert, und das `index.json`, das Clients
+bekommen, trägt eine Signatur in seinem `signatures`-Array, sodass die
+Katalog-Hälfte der Kette auf der Maschine eines Nutzers Gewicht trägt. Was
+fehlt, ist die Hälfte der Widerrufsliste: eine signierte Liste auf Pages.
 
 ## 1. Der Umschlag
 

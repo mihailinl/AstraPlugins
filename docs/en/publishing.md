@@ -538,11 +538,12 @@ index-signing key, `astra-index-2026a` — verified with the registry's own
 `node tools/sign-trust.mjs --verify registry/v1/trust.json`, which also prints
 the reusable-workflow SHAs the bot will accept in an attestation — two of them
 since the tag moved on 2026-08-19: the commit `plugin-release/v1` points at, and
-the one it pointed at before. **The link still missing is the catalogue's own
-signature:**
-`registry/v1/index.json` and `revocations.json` carry `"signatures": []`, so a
-default Astra build has nothing to check and classifies every catalogue as
-unsigned. Nothing here promises a guarantee that is not yet in place; see
+the one it pointed at before. Since 2026-09-20 the catalogue clients are served
+is signed with that key; the copies committed on the registry's `main`,
+`registry/v1/index.json` and `revocations.json`, carry `"signatures": []` by
+design, and no client reads them. **The link still missing is a signed
+withdrawal list on Pages**, so revocation is not enforced yet. Nothing here
+promises a guarantee that is not yet in place; see
 [the security model](1-orientation/security.md) and
 [`spec/registry-index.md` §0.1](spec/registry-index.md).
 

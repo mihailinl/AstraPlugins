@@ -157,12 +157,12 @@ instálalo desde la página de Plugins en su lugar, o lee
 [instalación local](../5-publish/local-install.md) para saber qué cuesta
 importarlo.
 
-Hoy la cadena de confianza está anclada **un eslabón corta**: las claves
-raíz existen y el `trust.json` firmado por la raíz que delega una clave
-de firma de índice también existe ya, pero `registry/v1/index.json` y
-`revocations.json` todavía llevan `"signatures": []`. Sin firma en el
-catálogo, no hay nada que la clave delegada pueda comprobar, así que un
-catálogo se clasifica como sin firmar y la revocación no se aplica.
+Hoy a la cadena de confianza le falta **un eslabón, el de la retirada**: las
+claves raíz existen, el `trust.json` firmado por la raíz delega una clave de
+firma de índice, y el catálogo que reciben los clientes está firmado con ella.
+Las copias confirmadas en `main` del registro llevan `"signatures": []` a
+propósito, y ningún cliente las lee. Lo que Pages todavía no sirve es una
+lista de retirada firmada, así que la revocación no se aplica.
 Consulta [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## Una llamada a un tool falla de una forma que el modelo no puede arreglar
