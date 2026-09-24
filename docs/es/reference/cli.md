@@ -2,7 +2,7 @@
 
 # Referencia de la CLI
 
-`astra-plugin 0.4.0`. Cada flag de abajo se leyó del binario, así que
+`astra-plugin 0.5.0`. Cada flag de abajo se leyó del binario, así que
 esta página no puede describir una opción que no exista. La fuente es
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
@@ -31,7 +31,7 @@ Astra Plugin Development CLI
 | [`check`](#astra-plugin-check) | `validate` | Comprueba un manifiesto de plugin, el schema de config y el workflow de release |
 | [`init-ci`](#astra-plugin-init-ci) | — | Escribe .github/workflows/release.yml, fijado a un commit del workflow reutilizable de Astra. Vuelve a ejecutarlo para actualizar el fijado; conserva tus entradas |
 | [`version`](#astra-plugin-version) | — | Establece la versión en plugin.toml y en cualquier otro manifiesto a la vez |
-| [`publish`](#astra-plugin-publish) | — | Consigue que se liste un release: haz un preflight, o abre un envío prerrellenado |
+| [`publish`](#astra-plugin-publish) | — | Consigue que se liste un release: haz un preflight, o abre la página de envío del panel |
 | [`keygen`](#astra-plugin-keygen) | — | Genera el par de claves Ed25519 OPCIONAL que usa `astra-plugin sign` |
 
 ### No existe `astra-plugin login`
@@ -321,12 +321,14 @@ Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
 
 ## astra-plugin publish
 
-Consigue que se liste un release: haz un preflight, o abre un envío
-prerrellenado.
+Consigue que se liste un release: haz un preflight, o abre la página
+de envío del panel.
 
 No sube nada y no guarda ninguna credencial — el registro lee los
 paquetes certificados de tu Release de GitHub y verifica cada uno desde
-cero, así que un envío lleva solo tu repositorio y una etiqueta.
+cero, así que un envío lleva solo tu repositorio y una etiqueta. Lo
+envías en el panel, con la sesión iniciada en la cuenta de Minice a la
+que está vinculado el repositorio.
 
 ```
 Usage: astra-plugin publish [OPTIONS] [PATH]
@@ -343,7 +345,7 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Opción | Descripción |
 |---|---|
 | `--dry-run` | Ejecuta cada comprobación del registro que puede correr en local, nombra las que solo el registro puede ejecutar, y se detiene |
-| `--notify` | Un ping de release para un plugin que YA está listado — la vía de escape manual de la tarea 3.4, para cuando el registro no ha notado un release por sí mismo. Sin esto, abre una solicitud de primer listado |
+| `--notify` | Ya no hace falta, y se elimina en la próxima versión menor: el registro detecta una etiqueta nueva por sí mismo. Lo dice y luego abre la misma página de envío |
 | `--repo <REPO>` | Repositorio fuente como `owner/name`. Por defecto: el remoto `origin` |
 | `--tag <TAG>` | Etiqueta de release. Por defecto: el prefijo de etiqueta del plugin más su versión |
 | `--print-url` | Imprime la URL y no abre un navegador |

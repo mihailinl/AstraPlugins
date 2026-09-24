@@ -298,7 +298,14 @@ sig    = Ed25519(private_key, digest)
 都不需要专门知道这个词
 （`PLATFORM_KEYS_FOR_NOARCH = ["linux-x64", "windows-x64"]`）。
 
-`downloads` 和 `stars` 永远是 `0`。这个注册表什么都不计数。
+`downloads` 和 `stars` 在签名目录中永远是 `0`，并且保持为 `0`：计数永远不会被
+签名，也永远不会成为信任、安装或更新的输入。**2026-09-27 修订(ROLL-47 第 B1 行):**
+本页以前还说注册表什么都不计数。自插件服务支持安装的部署起，安装和更新会按
+插件汇总计数，并发布在目录旁边的
+`https://registry.minice.ai/stats/v1/stats.json`(`astra.plugins.stats/1`：
+`generated_at`、`catalogue_serial`，以及每个插件的 `installs`、`updates`，
+评分达到五个时还有 `ratings` 直方图)。这个文档里没有任何成员叫 `downloads`
+或 `stars`。
 
 **Staging 条目**——一个发布记录在纸面上存在、但还没有构件摘要的上
 架条目——会被标记为 `staging: true`，**从 `platform_downloads` 和

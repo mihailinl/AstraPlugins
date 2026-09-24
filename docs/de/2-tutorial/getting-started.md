@@ -470,22 +470,19 @@ Dann eine einzige Einreichung, ein einziges Mal, und jedes spätere Release
 läuft ohne weiteres Zutun.
 
 **Eine Sache, die du vor dieser Einreichung erledigen solltest** — der
-einzige Schritt, dessen Fehlen ein korrektes Plugin abgelehnt bekommt:
-committe `.well-known/astra-plugin-owner` auf den Default-Branch deines
-Repositorys, mit deinem GitHub-Login darin. So stellt die Registry fest,
-dass du das Repository kontrollierst, das du listest — die
-Build-Attestation beweist, woher das Bundle kam, nicht, wer du bist. Zwei
-Zeilen, zusammen mit deinem ersten Push:
+einzige Schritt, dessen Fehlen ein korrektes Plugin abgelehnt bekommt: Binde
+das Repository an dein Minice-Konto. Erzeuge im Panel unter
+https://astra.minice.ai/plugins ein Token, und ein Befehl schreibt es in
+`.well-known/astra-plugin-owner`, das du auf deinem Default-Branch committest:
 
-<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+<!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
+astra-plugin init-ci --binding <token>
 ```
 
-Details, und warum die automatischen Prüfungen das nicht für dich
-beantworten können:
-[Gelistet werden §2](../5-publish/get-listed.md#2--beweisen-dass-du-das-repository-kontrollierst).
+So erkennt die Registry, welches Konto für das Repository spricht, das du
+listest — die Build-Attestation beweist, woher das Bundle kam, nicht, wer du
+bist. Details: [Gelistet werden — Das Repository binden](../5-publish/get-listed.md#das-repository-binden).
 
 Beachte, was Veröffentlichen **nicht** ist: Dieses Repository auf GitHub zu
 pushen veröffentlicht dein Plugin nicht, ebenso wenig jemandem die gerade

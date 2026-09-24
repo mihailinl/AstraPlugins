@@ -342,7 +342,16 @@ reservadas `linux-arm64`, `windows-arm64`, `macos-x64`,
 plataforma soportada**, así que ningún cliente necesita conocer la
 palabra (`PLATFORM_KEYS_FOR_NOARCH = ["linux-x64", "windows-x64"]`).
 
-`downloads` y `stars` son siempre `0`. Este registro no cuenta nada.
+`downloads` y `stars` son siempre `0` en el catálogo firmado, y siguen en `0`:
+un recuento nunca se firma y nunca es una entrada de confianza, instalación o
+actualización. **Modificado el 2026-09-27 (ROLL-47, fila B1):** esta página añadía
+antes que el registro no cuenta nada. Desde el despliegue de instalaciones del
+servicio de plugins, las instalaciones y las actualizaciones se cuentan como
+agregados por plugin y se publican junto al catálogo, en
+`https://registry.minice.ai/stats/v1/stats.json` (`astra.plugins.stats/1`:
+`generated_at`, `catalogue_serial` y, por plugin, `installs`, `updates` y, a
+partir de cinco valoraciones, un histograma `ratings`). Ningún miembro de ese
+documento se llama `downloads` ni `stars`.
 
 Las **entradas en staging** — un listado cuyo release existe sobre el
 papel pero todavía no tiene digest de artefacto — se marcan

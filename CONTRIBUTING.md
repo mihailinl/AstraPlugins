@@ -226,11 +226,14 @@ optional:
 ## Security
 
 Do not open a public issue for a vulnerability in Astra, the daemon, the
-registry or the signing chain. Contact the maintainers privately.
+registry or the signing chain. Write to **security@minice.ai**, which the
+project owner reads. A report about somebody else's plugin — one that is not
+what it says it is — is the panel's, at https://astra.minice.ai/plugins.
 
-Two things about the security model that are true today and that a
-well-meaning report often gets backwards: **there is no plugin sandbox** — a
-plugin is a native process with the user's full privileges, and isolation is
-planned but unbuilt — and a **local signature (`astra-plugin sign` /
-`keygen`) is not a trust signal**. Trust comes from CI attestation and the
-registry.
+Two things about the security model that are true and that a well-meaning
+report often gets backwards: **there is no plugin sandbox, and there will not
+be one** — a plugin is a native process with the user's full privileges, by
+design, so that users can build what Astra does not ship; a permission decides
+what the daemon will do *for* a plugin, never what the plugin's process may do
+— and a **local signature (`astra-plugin sign` / `keygen`) is not a trust
+signal**. Trust comes from CI attestation and the registry.

@@ -441,20 +441,19 @@ provenance, and attaches them to a GitHub Release.
 Then one submission, once ever, and every later release is zero-touch.
 
 **One thing to do before that submission**, because it is the only step whose
-absence gets a correct plugin refused: commit `.well-known/astra-plugin-owner`
-to your repository's default branch, containing your GitHub login. It is how the
-registry establishes that you control the repository you are listing — the build
-attestation proves where the bundle came from, not who you are. Two lines,
-alongside your first push:
+absence gets a correct plugin refused: bind the repository to your Minice
+account. Mint a token in the panel at https://astra.minice.ai/plugins, and one
+command writes it into `.well-known/astra-plugin-owner`, to be committed on your
+default branch:
 
-<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+<!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
+astra-plugin init-ci --binding <token>
 ```
 
-Details, and why the automatic checks cannot answer it for you:
-[Get listed §2](../5-publish/get-listed.md#2--prove-you-control-the-repository).
+It is how the registry knows which account speaks for the repository you are
+listing — the build attestation proves where the bundle came from, not who you
+are. Details: [Get listed — Bind your repository](../5-publish/get-listed.md#bind-your-repository).
 
 Note what publishing is **not**: pushing this repository to GitHub does not
 publish your plugin, and neither does sending someone the `.astraplugin` you

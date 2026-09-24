@@ -2,7 +2,7 @@
 
 # CLI-Referenz
 
-`astra-plugin 0.4.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
+`astra-plugin 0.5.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
 diese Seite kann also keine Option beschreiben, die nicht existiert. Die
 Quelle ist
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
@@ -32,7 +32,7 @@ Astra Plugin Development CLI
 | [`check`](#astra-plugin-check) | `validate` | Prüft ein Plugin-Manifest, Config-Schema und Release-Workflow |
 | [`init-ci`](#astra-plugin-init-ci) | — | Schreibt .github/workflows/release.yml, gepinnt auf einen Commit des wiederverwendbaren Astra-Workflows. Erneut ausführen, um das Pinning zu aktualisieren; es behält deine Inputs |
 | [`version`](#astra-plugin-version) | — | Setzt die Version in plugin.toml und jedem anderen Manifest auf einmal |
-| [`publish`](#astra-plugin-publish) | — | Bringt ein Release ins Listing: Preflight es, oder öffnet eine vorausgefüllte Einreichung |
+| [`publish`](#astra-plugin-publish) | — | Bringt ein Release ins Listing: Preflight es, oder öffnet die Einreichungsseite des Panels |
 | [`keygen`](#astra-plugin-keygen) | — | Erzeugt das OPTIONALE Ed25519-Schlüsselpaar, das `astra-plugin sign` verwendet |
 
 ### Es gibt kein `astra-plugin login`
@@ -322,12 +322,14 @@ Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
 
 ## astra-plugin publish
 
-Bringt ein Release ins Listing: Preflight es, oder öffnet eine
-vorausgefüllte Einreichung.
+Bringt ein Release ins Listing: Preflight es, oder öffnet die
+Einreichungsseite des Panels.
 
 Lädt nichts hoch und hält keine Zugangsdaten — die Registry liest die
 bezeugten Bundles vom GitHub-Release und verifiziert jedes von Grund
-auf, eine Einreichung trägt also nur dein Repository und ein Tag.
+auf, eine Einreichung trägt also nur dein Repository und ein Tag. Du
+reichst sie im Panel ein, angemeldet bei dem Minice-Konto, an das das
+Repository gebunden ist.
 
 ```
 Usage: astra-plugin publish [OPTIONS] [PATH]
@@ -344,7 +346,7 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Option | Beschreibung |
 |---|---|
 | `--dry-run` | Führt jede Prüfung aus, die die Registry ausführt und die lokal laufen kann, benennt die, die nur die Registry ausführen kann, und stoppt |
-| `--notify` | Ein Release-Ping für ein Plugin, das BEREITS gelistet ist — die manuelle Notfalllösung aus Aufgabe 3.4, für den Fall, dass die Registry ein Release nicht von selbst bemerkt hat. Ohne es öffnet dies eine Erst-Listing-Anfrage |
+| `--notify` | Nicht mehr nötig und in der nächsten Minor-Version entfernt: Die Registry bemerkt einen neuen Tag von selbst. Sagt das und öffnet dann dieselbe Einreichungsseite |
 | `--repo <REPO>` | Quell-Repository als `owner/name`. Default: das `origin`-Remote |
 | `--tag <TAG>` | Release-Tag. Default: das Tag-Prefix des Plugins plus seine Version |
 | `--print-url` | Gibt die URL aus und öffnet keinen Browser |
