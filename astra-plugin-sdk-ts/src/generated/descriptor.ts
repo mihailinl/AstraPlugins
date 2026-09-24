@@ -3725,6 +3725,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "companionAnimation": {
               "type": "CompanionAnimationSettings",
               "id": 19
+            },
+            "companionMusic": {
+              "type": "CompanionMusicSettings",
+              "id": 20
+            },
+            "companionAppIcon": {
+              "type": "CompanionAppIconSettings",
+              "id": 21
             }
           }
         },
@@ -3754,6 +3762,46 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "maxPerMinute": {
               "type": "uint32",
               "id": 4
+            }
+          }
+        },
+        "CompanionMusicSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "midFromBpm": {
+              "type": "float",
+              "id": 2
+            },
+            "fastFromBpm": {
+              "type": "float",
+              "id": 3
+            },
+            "hysteresisBpm": {
+              "type": "float",
+              "id": 4
+            },
+            "minAgreement": {
+              "type": "float",
+              "id": 5
+            },
+            "restateSecs": {
+              "type": "uint32",
+              "id": 6
+            },
+            "suppressWhileSpeaking": {
+              "type": "bool",
+              "id": 7
+            }
+          }
+        },
+        "CompanionAppIconSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
             }
           }
         },

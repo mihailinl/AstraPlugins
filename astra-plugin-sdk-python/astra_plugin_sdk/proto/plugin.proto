@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 2e972fc90d3c76ab7857030f143672816f5e01ce35422e293acf64b64ab98dcd
+// surface-sha256: d173c81fd30bb6fd1d979e3208dbf3d0facf2ded334c5bb889b45c602d1cea2d
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2271,6 +2271,8 @@ message SettingsResponse {
     MailSettings mail = 17;
     OptimizeSettings optimize = 18;
     CompanionAnimationSettings companion_animation = 19;
+    CompanionMusicSettings companion_music = 20;
+    CompanionAppIconSettings companion_app_icon = 21;
 }
 
 // Inbox-widget preferences that are not per-mailbox. The mailboxes themselves
@@ -2303,6 +2305,53 @@ message CompanionAnimationSettings {
     // Across all rules, per rolling minute. 0 = no ceiling (the spelling
     // ai.max_tool_rounds uses); the way to stop her reacting is `enabled`.
     uint32 max_per_minute = 4;
+}
+
+// Whether she listens to the machine's own output for a tempo, and where the
+// edges between the bands fall. Deliberately absent from UpdateSettingsRequest,
+// like CompanionAnimationSettings: the Model page writes one field at a time
+// through SetSetting.
+//
+// `enabled` defaults to FALSE and is the only thing that opens an audio
+// capture. The capture is loopback-only — the system's own output, no
+// microphone at all — so the OS microphone indicator never lights.
+message CompanionMusicSettings {
+    bool enabled = 1;
+
+    // Where `slow` ends and `mid` begins, in BPM.
+    float mid_from_bpm = 2;
+
+    // Where `mid` ends and `fast` begins, in BPM.
+    float fast_from_bpm = 3;
+
+    // How far past a boundary an estimate must go before the band may change.
+    // Without it a track sitting on an edge restarts a clip on every wobble.
+    float hysteresis_bpm = 4;
+
+    // The share of recent estimates that must agree before a tempo is a lock.
+    // One of two gates and not the whole test: measured as a per-file median it
+    // separates cleanly (music >= 0.73, speech <= 0.36), but per window real
+    // speech reached 0.82. The second gate is a property of the signal and has
+    // no setting.
+    float min_agreement = 5;
+
+    // How often the current band is re-stated to the pet, in seconds. A band is
+    // a level, not an edge: the heartbeat is what puts a pet who was picked up
+    // or set to work back into the dance.
+    uint32 restate_secs = 6;
+
+    // Hold the analysis while Astra speaks, rather than feeding her own voice
+    // into it. What this prevents is a real lock being LOST for the length of
+    // an answer.
+    bool suppress_while_speaking = 7;
+}
+
+// Whether the pet shows the ICON of an application Astra has just launched
+// (`CompanionCommand.app_icon`, tag 19). EXPERIMENTAL and off by default: the
+// daemon's producer reads it before extracting anything, so a switched-off
+// feature costs no shell call and no bytes on the wire.
+message CompanionAppIconSettings {
+    bool enabled = 1;
 }
 
 // One reaction: when this happens, ask the pet to play that.
