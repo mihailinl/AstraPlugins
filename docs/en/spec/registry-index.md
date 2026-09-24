@@ -292,7 +292,15 @@ Platform keys: `linux-x64`, `windows-x64`, `noarch`, plus the reserved
 is written under **every supported platform key**, so no client needs to know the
 word (`PLATFORM_KEYS_FOR_NOARCH = ["linux-x64", "windows-x64"]`).
 
-`downloads` and `stars` are always `0`. This registry counts nothing.
+`downloads` and `stars` are always `0` in the signed catalogue, and stay `0`: a
+count is never signed and is never a trust, install or update input.
+**Amended 2026-09-27 (ROLL-47 row B1):** this page used to add that the registry counts
+nothing. From the plugins service's install deploy, installs and updates are
+counted as aggregates per plugin and published beside the catalogue, at
+`https://registry.minice.ai/stats/v1/stats.json` (`astra.plugins.stats/1`:
+`generated_at`, `catalogue_serial`, and per plugin `installs`, `updates` and,
+from five ratings, a `ratings` histogram). No member of that document is named
+`downloads` or `stars`.
 
 **Staging entries** — a listing whose release exists on paper but has no artifact
 digest yet — are marked `staging: true`, are **omitted from
