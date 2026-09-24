@@ -1,0 +1,55 @@
+# The public submission vocabulary an author meets in the panel — the `B_*`
+# binding codes and the states a submission moves through — mirrored from
+# astra-registry's copy of the contract's token file, with each name's state.
+#
+# Nothing in the CLI reads this file. The author docs do: from the registry's
+# cutover, `docs/en/5-publish/get-listed.md` carries a table row for every code
+# and state below whose state is `live`, and `docs/tools/mirror.py` carries each
+# keyed row to the six translations. `tools/check-registry-mirrors.py --rules
+# C29` holds this file to the token file and the docs to this file:
+#
+#   * `live`        — docs/en MUST carry a row whose first cell is the name
+#   * `until <step>` — docs/en MAY carry one; the name is still emitted, and
+#                      retires at that rollout step
+#   * `retired`     — docs/en MUST NOT carry one: the panel no longer shows it
+#
+# PINNED AT
+#   astra-registry@564f2a5860b83afb6ec92f3d71c38d03ec24d224
+#
+#   The commit this copy was taken from: `schema/contract-tokens-v1.json`,
+#   contract 1.2.0. C29's PINNED leg asserts these names and states are what
+#   that commit held; its HEAD leg, that they are what the registry holds now.
+#   Head red with pinned green is the vocabulary having moved.
+#
+# TO CHANGE IT
+#
+#   Change the contract, then astra-registry's token file; copy the names and
+#   their `state` here, move the PINNED AT commit, and fix the rows in
+#   docs/en/5-publish/get-listed.md (and so in every locale). Then run
+#   `python3 tools/check-registry-mirrors.py --rules C29` and
+#   `python3 docs/tools/mirror.py`.
+#
+# FORMAT: `section:`, then indented `NAME: state` lines, and `#` comments.
+# Hand-parsed; the couplings job installs nothing.
+
+# mirrors: astra-registry/schema/contract-tokens-v1.json reason_code B_*
+codes:
+  B_UNBOUND: live
+  B_BINDING_MALFORMED: live
+  B_BINDING_UNUSABLE: live
+  B_BINDING_INVALID: live
+  B_ACCOUNT_INELIGIBLE: live
+  B_OWNER_CHANGED: live
+  B_REPOSITORY_RECYCLED: live
+
+# mirrors: astra-registry/schema/contract-tokens-v1.json list:states:submission
+states:
+  received: live
+  checking: live
+  held: live
+  approved: live
+  delayed: live
+  published: live
+  served: live
+  refused: live
+  stopped: live
