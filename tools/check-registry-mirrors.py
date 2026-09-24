@@ -194,6 +194,36 @@ C31 — `testdata/binding-line/` is astra-registry's binding-line corpus, still.
     SHA, then `--registry-dir`. The notice stays in the `couplings` job, which
     has no registry.
 
+C28 — `spec/panel.yaml` is the panel's submission page, as astra-registry's
+token file records it, and everything that prints it agrees.
+
+    From CLI 0.4.0, `astra-plugin publish` sends a bound repository to the
+    panel's submission page (contract FLOW-77) instead of an issue form. The
+    address and its two query parameter names are the plugins service's, and
+    astra-registry records them in `schema/contract-tokens-v1.json`, entry
+    `page:FLOW-77`, as two members: `url`, the address alone, and `query`, the
+    parameter names in order. This repository carries them four times — the
+    spec file, the CLI's vendored copy, every docs literal in seven locales,
+    and (through the vendored copy) the URL the CLI builds.
+
+    Legs:
+
+      * IN-REPO. `spec/panel.yaml` parses to an https `url` with no `?` and a
+        non-empty `query`; each value names the upstream member it mirrors; the
+        header names a 40-hex registry commit; and
+        `astra-plugin-cli/src/panel.yaml` is byte-identical.
+      * DOCS. Every literal of that address anywhere under `docs/` is followed
+        by exactly the declared parameter names, in order — or by nothing at
+        all. A floor of one literal per docs locale, because the author docs
+        (AP-9) name the page in every language, and a rename that took the
+        literal out of a page would otherwise pass as "no literal disagrees".
+      * PINNED and HEAD. The entry at the header's commit, and at the
+        registry's head, member by member: `url` against `url`, `query` against
+        `query`. An entry whose `url` carries a `?`, or that has no `query`
+        list, is a shape this rule refuses rather than parses — a single joined
+        string would compare equal to a spliced one by luck, and the client
+        plan's reader of the same entry compares the same two members.
+
 C35 — the media type C32 pairs with each icon extension is astra-registry's.
 
     `spec/icon-formats.yaml` carries filenames alone, deliberately, so which
@@ -2721,12 +2751,194 @@ def rule_C21(fails: Fails) -> None:
     )
 
 
+# ── C28 ──────────────────────────────────────────────────────────────────────
+
+PANEL_SPEC = ROOT / "spec" / "panel.yaml"
+PANEL_VENDORED = ROOT / "astra-plugin-cli" / "src" / "panel.yaml"
+TOKEN_FILE = "schema/contract-tokens-v1.json"
+FLOW_77 = "page:FLOW-77"
+#: The seven docs locales. `docs/tools/locales.py` is the declaration; read,
+#: not copied, so a locale added there is a locale this floor counts.
+sys.path.insert(0, str(ROOT / "docs" / "tools"))
+from locales import LOCALES as DOC_LOCALES  # noqa: E402
+
+
+def read_panel_spec() -> tuple[dict[str, object], dict[str, str], str | None]:
+    """(name -> value, name -> the upstream its `mirrors:` comment names, pin).
+
+    The same `key: value` / `key:` + `  - item` hand-parse the CLI runs in
+    `panel.rs`, and `read_reserved_spec` runs for C27.
+    """
+    values: dict[str, object] = {}
+    sources: dict[str, str] = {}
+    pin: str | None = None
+    pending: str | None = None
+    current: str | None = None
+    for raw in PANEL_SPEC.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            m = MIRRORS.match(line)
+            if m:
+                pending = f"{m.group(1)} {m.group(2).strip()}"
+            elif pin is None:
+                p = PINNED_AT.search(line)
+                if p:
+                    pin = p.group(1)
+            continue
+        if not line:
+            continue
+        if line.startswith("- "):
+            if current and isinstance(values.get(current), list):
+                values[current].append(line[2:].strip())  # type: ignore[union-attr]
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        key, value = key.strip(), value.strip()
+        if not value:
+            current = key
+            values[key] = []
+        else:
+            current = None
+            values[key] = value
+        if pending:
+            sources[key] = pending
+            pending = None
+    return values, sources, pin
+
+
+#: A docs literal of the page and whatever query string follows it. The
+#: character class stops where markdown or prose would: a backtick, a closing
+#: bracket or parenthesis, whitespace, a quote, or `<` (an autolink's end).
+PANEL_LITERAL = re.compile(r"https://astra\.minice\.ai/plugins/_/submit(\?[^\s`)\]\"'<>]*)?")
+
+
+def _docs_panel_literals() -> list[tuple[str, int, list[str]]]:
+    """Every docs literal of the page: (file, line, the parameter names it carries)."""
+    out = []
+    for p in sorted((ROOT / "docs").rglob("*.md")):
+        rel = p.relative_to(ROOT).as_posix()
+        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            for m in PANEL_LITERAL.finditer(line):
+                qs = (m.group(1) or "")[1:]
+                names = [kv.split("=", 1)[0] for kv in qs.split("&") if kv] if qs else []
+                out.append((rel, n, names))
+    return out
+
+
+def _flow77_entry(registry: Path, sha: str | None) -> dict:
+    doc = json.loads(_registry_text(registry, TOKEN_FILE, sha))
+    entries = doc.get("entries")
+    if not isinstance(entries, list):
+        raise LookupError(f"{TOKEN_FILE} has no `entries` list")
+    found = [e for e in entries if isinstance(e, dict) and e.get("id") == FLOW_77]
+    if len(found) != 1:
+        raise LookupError(f"{TOKEN_FILE} has {len(found)} entries with id `{FLOW_77}`, not one")
+    return found[0]
+
+
+def _panel_compare(fails: Fails, registry: Path, values: dict, sha: str | None) -> None:
+    leg = f"pinned {sha[:12]}" if sha else f"head {_git_head(registry)}"
+    if sha and not _has_commit(registry, sha):
+        fails.check(False, f"C28 spec/panel.yaml is the token file's {FLOW_77} ({leg})",
+                    _pin_absent(registry, sha, "spec/panel.yaml"))
+        return
+    try:
+        entry = _flow77_entry(registry, sha)
+    except (LookupError, json.JSONDecodeError) as e:
+        fails.check(False, f"C28 spec/panel.yaml is the token file's {FLOW_77} ({leg})", str(e))
+        return
+    problems = []
+    url, query = entry.get("url"), entry.get("query")
+    # SHAPE FIRST. A joined string — `url` carrying `?repo=…&tag=…` and no
+    # `query` — is a different record, and comparing it by splitting would
+    # make two different shapes agree. RC-R2-1 writes two members.
+    if not isinstance(url, str) or "?" in url or not url.startswith("https://"):
+        problems.append(f"the entry's `url` is {url!r}: not an https address without a query string")
+    if not (isinstance(query, list) and query and all(isinstance(q, str) for q in query)):
+        problems.append(f"the entry's `query` is {query!r}: not a non-empty list of parameter names")
+    if not problems:
+        if url != values.get("url"):
+            problems.append(f"url: we say {values.get('url')!r}, the entry says {url!r}")
+        if query != values.get("query"):
+            problems.append(f"query: we say {values.get('query')!r}, the entry says {query!r}")
+    fails.check(
+        not problems,
+        f"C28 spec/panel.yaml is the token file's {FLOW_77}, member by member ({leg})",
+        "\n".join(problems) + "\n"
+        "The page is the plugins service's, recorded by astra-registry's token file. Change it\n"
+        "there first; then copy `url` and `query` into spec/panel.yaml, move its PINNED AT commit,\n"
+        "copy the file to astra-plugin-cli/src/panel.yaml, and fix every docs literal C28 names.",
+    )
+
+
+def rule_C28(fails: Fails) -> None:
+    spec_text = PANEL_SPEC.read_text(encoding="utf-8") if PANEL_SPEC.is_file() else None
+    fails.check(spec_text is not None, "C28 spec/panel.yaml exists", "AP-8's mirror of FLOW-77's page")
+    if spec_text is None:
+        return
+    vendored = PANEL_VENDORED.read_text(encoding="utf-8") if PANEL_VENDORED.is_file() else None
+    fails.check(
+        vendored == spec_text,
+        "C28 astra-plugin-cli/src/panel.yaml is byte-identical to spec/panel.yaml",
+        ("that file is not there" if vendored is None else "the two differ")
+        + "\nThe CLI builds its submission link from the vendored copy; the spec file is the"
+        + "\nmirror. Copy it over. `cargo test` (panel::tests::panel_yaml_is_the_spec) agrees.",
+    )
+    values, sources, pin = read_panel_spec()
+    url, query = values.get("url"), values.get("query")
+    fails.check(
+        isinstance(url, str) and url.startswith("https://") and "?" not in url
+        and isinstance(query, list) and bool(query),
+        "C28 spec/panel.yaml parses to an https `url` with no query string and a `query` list",
+        f"url={url!r}, query={query!r}",
+    )
+    fails.check(
+        sources.get("url", "").endswith(f"{FLOW_77} url") and sources.get("query", "").endswith(f"{FLOW_77} query"),
+        f"C28 each value names the {FLOW_77} member it mirrors",
+        f"`# mirrors:` lines read: {sources}",
+    )
+    fails.check(pin is not None, "C28 spec/panel.yaml names the registry commit it was taken from",
+                "no `astra-registry@<40-hex>` in the header")
+
+    # ── docs ─────────────────────────────────────────────────────────────────
+    literals = _docs_panel_literals()
+    bad = [f"{f}:{n}: carries {names or 'no parameters'}" for f, n, names in literals
+           if names and names != query]
+    fails.check(
+        not bad,
+        f"C28 every docs literal of the page carries exactly {query} ({len(literals)} literal(s))",
+        "\n".join(bad) + "\nA link with a renamed or missing parameter opens the page with an empty field,"
+        "\nand the author submits a form they believe is filled.",
+    )
+    per_locale = {loc: sum(1 for f, _, _ in literals if f.startswith(f"docs/{loc}/")) for loc in DOC_LOCALES}
+    missing = sorted(loc for loc, c in per_locale.items() if c == 0)
+    fails.check(
+        not missing,
+        f"C28 floor: the page is named in every docs locale ({per_locale})",
+        f"no literal in docs/{', docs/'.join(missing)}. The author docs name the page in every\n"
+        "language (AP-9's binding section); a locale with none is one this rule compares nothing in.",
+    )
+
+    # ── pinned and head ──────────────────────────────────────────────────────
+    registry = _registry_dir(anchor=TOKEN_FILE, need_git=True)
+    if registry is None:
+        print("C28 NOT VERIFIED: no astra-registry checkout at $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        url {url} and query {query} taken on trust against {TOKEN_FILE}'s {FLOW_77}.")
+        fails.skip("C28", "no astra-registry checkout")
+        return
+    if pin is not None and _pinned_leg_may_read(fails, "C28", registry, pin, "spec/panel.yaml"):
+        _panel_compare(fails, registry, values, pin)
+    _panel_compare(fails, registry, values, None)
+
+
 RULES = {
     "C21": rule_C21,
     "C24": rule_C24,
     "C25": rule_C25,
     "C26": rule_C26,
     "C27": rule_C27,
+    "C28": rule_C28,
     "C31": rule_C31,
     "C35": rule_C35,
 }
@@ -2735,6 +2947,7 @@ RULES = {
 #: it. The same readers the rules call, never a second parse of either file.
 PINS = {
     "C27": (lambda: read_reserved_spec()[2], RESERVED_SPEC),
+    "C28": (lambda: read_panel_spec()[2], PANEL_SPEC),
     "C31": (lambda: (m.group(1) if (m := read_binding_pin()) else None), BINDING_README),
 }
 

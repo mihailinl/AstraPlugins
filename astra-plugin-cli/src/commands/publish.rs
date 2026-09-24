@@ -23,6 +23,18 @@
 //! What the registry does with it afterwards — published immediately, delayed
 //! 24 hours, or held for a person — is `docs/POLICY.md` in the registry
 //! repository, and the bot says which on the issue.
+//!
+//! # A bound repository gets the panel, not an issue (CLI 0.4.0)
+//!
+//! When the owner file at `HEAD` carries one valid binding line, `publish` —
+//! with or without `--notify` — prints and opens the panel's submission page
+//! (contract FLOW-77; `src/panel.yaml`) instead of an issue form. The registry
+//! makes issue commands inert for a bound submission (its BOT-77), so an issue
+//! link for a bound repository is a door that opens onto nothing. An UNBOUND
+//! repository keeps the issue form until the registry's cutover, when the issue
+//! channel closes and `publish` opens the panel for everybody (FLOW-45's second
+//! half). The page, like the form, fills itself in from the link and submits
+//! nothing: the author submits it, signed in, in their own browser.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -104,7 +116,15 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
         None => detect_repo(&dir)?,
     };
 
-    let (what, url) = if opts.notify {
+    let bound = bound_at_head(&dir);
+    let (what, url) = if bound.is_some() {
+        // FLOW-45's first half. The same page for `--notify`: a ping issue for
+        // a bound repository is one the registry's bot no longer acts on.
+        (
+            "submission (the panel)",
+            crate::panel::submission_url(&repo, &tag).map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+    } else if opts.notify {
         (
             "release ping",
             format!(
@@ -129,7 +149,15 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
 
     hprintln!("{id} {version} — {what} for {repo}@{tag}\n");
     warn_if_tag_is_missing(&dir, &tag);
-    if opts.notify {
+    if let Some(token) = &bound {
+        hprintln!(
+            "  This repository is bound: `astra-binding: {token}` is line 1 of its owner file at\n\
+             \x20 HEAD, so the submission is made in the panel, signed in to the Minice account that\n\
+             \x20 minted that token. The page fills itself in from this link and submits nothing\n\
+             \x20 until you do. The registry reads the tag's commit, not HEAD — run\n\
+             \x20 `astra-plugin check --tag {tag}` if the line may have changed since.\n"
+        );
+    } else if opts.notify {
         hprintln!(
             "  The registry usually notices a release by itself, within minutes. Use this when it\n\
              \x20 has not: it carries your repository and the tag, and nothing else. The bot then\n\
@@ -207,17 +235,58 @@ fn dry_run(dir: &Path, manifest: &PluginManifest, tag: &str) -> Result<()> {
 
 /// The checks that need the network, the catalogue, or a signature — named
 /// rather than implied.
-const REGISTRY_ONLY_CHECKS: &[&str] = &[
+///
+/// FLOW-48 adds the four the binding brings, each with the code a failure
+/// produces, so an author can search for the same word twice. The owner-file
+/// login line stays, qualified, for as long as the issue form is a way in: it
+/// is what the registry checks for an unbound request until the cutover.
+pub const REGISTRY_ONLY_CHECKS: &[&str] = &[
     "the build attestation, and that it was produced by the pinned Astra release workflow \
      (a hand-built bundle is refused however good it is)",
+    "that the attestation's workflow commit is one the registry's trust.json allows \
+     (E_WORKFLOW_NOT_ALLOWED)",
     "that the release assets are served from your repository's own release namespace",
-    "that `.well-known/astra-plugin-owner` on your default branch names the account opening \
-     the listing request",
+    "the binding verdict: that the token on the binding line at the tagged commit is bound to \
+     a Minice account (B_BINDING_UNUSABLE)",
+    "eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)",
+    "the ids against the identity record: that the repository and its owner are the ones this \
+     listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)",
+    "for a request through the issue form, until the registry's cutover: that \
+     `.well-known/astra-plugin-owner` on your default branch names the account opening it",
     "that the id and display name do not collide with a listed plugin",
     "that the licence is on the registry's SPDX allowlist",
     "that the version is strictly newer than the listed one",
     "the declared-vs-called host RPC scan",
 ];
+
+/// The token on the binding line of the owner file at `HEAD`, when there is
+/// exactly one valid line — `None` for no line, a malformed file, no commit,
+/// or no git repository at all.
+///
+/// `HEAD`, not the working tree: a line typed and never committed binds
+/// nothing, and linking such an author to the panel would send them to a
+/// submission the registry refuses. `check --tag` is the exact prediction for
+/// a tag; this only decides which door to print.
+pub fn bound_at_head(dir: &Path) -> Option<String> {
+    let root = repo_root(dir)?;
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["cat-file", "blob", &format!("HEAD:{}", crate::binding::OWNER_FILE)])
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_COMMON_DIR")
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    match crate::binding::parse(&out.stdout) {
+        crate::binding::Outcome::One { token, .. } => Some(token),
+        _ => None,
+    }
+}
 
 // ── the repository ──────────────────────────────────────────────────────────
 

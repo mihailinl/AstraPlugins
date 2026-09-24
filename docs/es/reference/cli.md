@@ -40,10 +40,20 @@ No hay **`login`**. Conseguir que se liste un plugin pasa por un
 navegador en el que el autor ya tiene sesión iniciada — el registro lee
 paquetes certificados de un Release de GitHub y verifica cada uno desde
 cero, así que un envío lleva solo un repositorio y una etiqueta y nada
-más. Eso significa ninguna segunda cuenta que crear, ningún llavero con
+más. Eso significa ningún llavero con
 el que integrarse, ningún archivo de credenciales que pueda filtrarse, y
 ningún token en un historial de shell. Un `login` aquí sería un
 almacén de credenciales construido para guardar algo que nada pide.
+
+**Modificado el 2026-09-24, CLI 0.4.0 (contrato ROLL-47, fila C3).** Este
+párrafo añadía antes «ninguna segunda cuenta que crear», y desde esta
+versión eso es falso. Un repositorio se vincula ahora a una cuenta de Minice
+que tiene `astraUser`: el autor genera un token de vinculación en el panel,
+con la sesión iniciada en esa cuenta, e `init-ci --binding <token>` lo escribe
+en el archivo de propietario. El resto sigue en pie, y C26 es lo que lo
+sostiene: esta CLI sigue sin `login`, no guarda ninguna credencial y no llama a
+ningún servicio; el token es texto público en un archivo, y el panel es una
+página que `publish` abre en el propio navegador del autor.
 
 ## astra-plugin new
 
@@ -260,6 +270,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 | `--strict` | Trata los avisos como errores |
 | `--fix` | Aplica las correcciones que se pueden aplicar mecánicamente, luego vuelve a comprobar. Solo reescribe lo que puede demostrar; todo lo demás se sigue reportando |
 | `--resolve-pin` | Le pregunta a GitHub si el fijado del workflow de release está actualizado. Desactivado por defecto: `astra-plugin dev` ejecuta `check --strict` en cada arranque, y el workflow de release le dice a la comprobación desde qué se está ejecutando mediante ASTRA_PLUGIN_WORKFLOW_SHA, así que ninguno de los dos necesita la red |
+| `--tag <TAG>` | Lee la línea de vinculación del commit de esta etiqueta en lugar del árbol de trabajo, como hará el registro: `<tag>^{commit}` de la raíz del repositorio, diga lo que diga `plugin-dir`. Solo git local |
 
 ## astra-plugin init-ci
 
@@ -284,6 +295,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 | `--ref <WORKFLOW_REF>` | Un commit de 40 caracteres hex a fijar (usado tal cual, sin red), o un nombre de ref a resolver. Por defecto: la etiqueta de workflow publicada, si no la cabeza de la rama por defecto |
 | `--linux-packages <LINUX_PACKAGES>` | Establece la entrada linux-packages, p. ej. "libasound2-dev pkg-config". Si se omite, se conserva el valor de un archivo existente |
 | `--offline` | Nunca toca la red: conserva el fijado ya presente en el archivo |
+| `--binding <TOKEN>` | Escribe `astra-binding: <TOKEN>` como primera línea del `.well-known/astra-plugin-owner` de la raíz del repositorio, elimina toda línea de vinculación anterior en cualquier combinación de mayúsculas y no hace nada más. TOKEN es el que generó el panel. Sin red |
 
 ## astra-plugin version
 

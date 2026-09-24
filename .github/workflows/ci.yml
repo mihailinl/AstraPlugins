@@ -1218,7 +1218,7 @@ jobs:
       # `--registry-dir` is explicit, as it is for C35. A `_registry` that is
       # missing, or that holds the files but is not a git checkout of its own,
       # is exit 2 and never NOT VERIFIED.
-      - name: C27, C31 the reserved-id mirror and the binding-line corpus are astra-registry's, at their pins and at head
+      - name: C27, C28, C31 the reserved-id mirror, the panel page and the binding-line corpus are astra-registry's, at their pins and at head
         if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
         run: |
           set -euo pipefail
@@ -1226,7 +1226,7 @@ jobs:
           # `|| status=1`, never `$(…)` or a bare command: under `set -e` either
           # ends the step at the first red and swallows the rule's own account
           # of it, which is the part a reader needs.
-          python3 tools/check-registry-mirrors.py --rules C27,C31 --pins \
+          python3 tools/check-registry-mirrors.py --rules C27,C28,C31 --pins \
             > "$RUNNER_TEMP/pins.txt" || status=1
           while read -r rule sha file; do
             fetched=no
@@ -1244,13 +1244,13 @@ jobs:
               status=1
             fi
           done < "$RUNNER_TEMP/pins.txt"
-          python3 tools/check-registry-mirrors.py --rules C27,C31 --registry-dir _registry \
+          python3 tools/check-registry-mirrors.py --rules C27,C28,C31 --registry-dir _registry \
             | tee "$RUNNER_TEMP/c27-c31.txt" || status=1
           {
             if [ "$status" = 0 ]; then
-              echo "### registry mirrors: **C27, C31 compared**, pinned and head, against astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
+              echo "### registry mirrors: **C27, C28, C31 compared**, pinned and head, against astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
             else
-              echo "### registry mirrors: **C27, C31 RED**. The step log names the leg"
+              echo "### registry mirrors: **C27, C28, C31 RED**. The step log names the leg"
             fi
             echo
             echo '```'
@@ -3395,6 +3395,16 @@ jobs:
       # toolchain, which is why it is also asserted here.
       - name: C27 (in-repo legs) the reserved-id mirror parses and names its source; proto-upstream compares it
         run: python3 tools/check-registry-mirrors.py --rules C27
+
+      # C28 — the panel's submission page (contract FLOW-77), which CLI 0.4.0
+      # opens for a bound repository instead of an issue form. `spec/panel.yaml`
+      # mirrors astra-registry's token file, entry `page:FLOW-77`, member by
+      # member (`url`, `query`); the CLI builds its link from a byte copy of it;
+      # and every docs literal of the page, in seven locales, must carry exactly
+      # its parameters. Here: the in-repo legs and the docs leg, which need no
+      # checkout. `proto-upstream` compares the entry at the pin and at head.
+      - name: C28 (in-repo and docs legs) the panel page parses, names its source, and every docs literal carries its parameters; proto-upstream compares it
+        run: python3 tools/check-registry-mirrors.py --rules C28
 
       # C31 — the binding-line corpus is still astra-registry's corpus.
       #

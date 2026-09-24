@@ -201,6 +201,8 @@ astra-plugin check --strict
 Checking plugin at ....
   NOTE: Missing plugin.author
   NOTE: Pin freshness not checked (pass --resolve-pin, or set ASTRA_PLUGIN_WORKFLOW_SHA)
+  REGISTRY WARN: B_UNBOUND predicted once this listing needs a binding: there is no .well-known/astra-plugin-owner at the repository root (working tree). From the registry's cutover every first listing needs one, and every listing after the binding deadline; a release without it is refused B_UNBOUND. Mint a token in the panel and run `astra-plugin init-ci --binding <token>` — https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+  NOT CHECKED: B_BINDING_UNUSABLE, B_OWNER_CHANGED, B_REPOSITORY_RECYCLED, E_WORKFLOW_NOT_ALLOWED — only the registry can answer these, from the plugins service, GitHub and trust.json
   sections: [plugin], [entry], [capabilities]
   OK: plugin 'dice-roller' v0.1.0 is valid (0 warning(s), 2 note(s), capabilities: tools)
 ```
@@ -239,6 +241,26 @@ tells the registry `403` when it asks who has `admin` on a repository it has no
 visibility into, and the release author is `github-actions[bot]` — the workflow
 from step 3 publishes the release, not you. The full explanation is
 [Get listed §2](5-publish/get-listed.md#2--prove-you-control-the-repository).
+
+### Bind it to your Minice account
+
+From the registry's cutover a first listing needs one more line in the same
+file: a **binding** of this repository to the Minice account that will publish
+it. Mint a token in the panel at https://astra.minice.ai/plugins, signed in to
+that account, and let the CLI write the line:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+git commit -am "Bind this repository to my Minice account" && git push
+astra-plugin check --strict
+```
+
+Once you have tagged in the next step, `astra-plugin check --tag v0.1.0` reads
+the line back from the tag's commit, as the registry will. The token is public
+and authenticates no release, so never merge a binding line you did not mint
+yourself. What it records, how long it lasts, and what a rename does to it are
+in [Get listed — Bind your repository](5-publish/get-listed.md#bind-your-repository).
 
 ## 5 · Tag — this is the release
 
@@ -354,8 +376,12 @@ unproven:
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one

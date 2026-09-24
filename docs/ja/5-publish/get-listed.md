@@ -45,8 +45,12 @@ astra-plugin publish --dry-run
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -216,6 +220,124 @@ push もされていない、あるいはディレクトリが先頭のドット
 最初の方法での `403` はあなたに不利には働かず、それ単独で拒否になる
 ことは決してありません。拒否が起きるのは 3 つすべてが何も返さない
 場合だけであり、それはまさにこのファイルが存在しないときに起きることです。
+
+## リポジトリをバインドする
+
+**掲載は GitHub のログインから Minice アカウントへ移りつつあります。** 上の
+所有権ファイルは GitHub のログインを記しており、今日レジストリの issue
+フォームを通じた最初の掲載はそれで証明されます。レジストリのカットオーバー
+以降は、すべての最初の掲載に代わりに**バインディング**が必要です。同じ
+ファイルにもう 1 行、公開を行う Minice アカウントでサインインしたパネルで
+あなたが発行したトークンから、CLI が書き込む行です。今バインドしておくのは
+コマンド 1 つで済み、すべての掲載がそこへ向かっています。既存の掲載には
+バインディング期限(下記)までの猶予があります。
+
+**1 · トークンを発行する。** 掲載の所有者となる Minice アカウントで
+https://astra.minice.ai/plugins にサインインし — Astra の所有に伴う
+`astraUser` が必要です — このリポジトリ用のバインディングトークンを発行します。
+
+**2 · 行を書き込む。** リポジトリ内のどこででも:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+これはリポジトリのルートにある `.well-known/astra-plugin-owner` の**1 行目**に
+`astra-binding: <token>` を書き込み、どんな綴りであれ以前のバインディング行を
+削除し、あなたのログイン行を残し、ネットワークは使いません:
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · デフォルトブランチにコミットしてから、タグを打つ。** タグを push する
+前に、レジストリと同じやり方で行を読み戻してください — 作業ツリーからでは
+なく、タグのコミットから:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+不正な行はここで、`B_BINDING_MALFORMED` として失敗します。直すのにまだ何も
+かからないうちに。行がなければ `B_UNBOUND` を予測する警告になります。
+レジストリにしか出せない 4 つの答えは、毎回「チェックしていない」と名指し
+されます。
+
+**4 · パネルで提出する。** バインドされたリポジトリからは、
+`astra-plugin publish` がリポジトリとタグを記入済みのパネルの提出ページを
+開きます。たとえば
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 です。
+あなたがサインインして提出するまで、このページは何も提出しません。
+
+**トークンとは何で、何ではないか。** バインディングトークンは**公開**されて
+います。公開リポジトリのファイルの中にあるからです。それはこのリポジトリから
+公開するという **1 つのアカウントの同意**を記録するもので、**どのリリースも
+認証しません** — 何にも遅延されないリリースは、アカウントに知らされる前に
+公開されます。だから**自分で発行していないバインディング行は決してマージ
+しないでください**。それを追加または変更するプルリクエストは、あなたの掲載を
+他人のアカウントに渡すよう求めているのです。
+
+**行がなければならない場所。** プラグインがどのディレクトリにあっても
+リポジトリのルートに、リリースタグが指すコミットの中に、そしてファイルの
+最初の 4096 バイト以内に。1 行でリポジトリ内のすべてのプラグインを
+カバーします。後でデフォルトブランチから削除しても、すでにバインドされた
+ものは何も終わりません。
+
+**発行したトークンの有効期間。** 発行したトークンは、発行から 30 日後に失効
+します。ただし、生きている提出がそれを指名しているか、ルールが適用される
+時点でその行がリポジトリのデフォルトブランチにある場合は別です — ルールは
+失効の判断のたびに改めて確認されます。したがって、デフォルトブランチに行が
+ないままずっと後でタグを打つ作者は発行し直すことになり、ルールが適用される
+時点で行がまだそのブランチにある作者はその必要がありません。コミットして
+後で削除した行は、トークンを生かし続けません。
+
+**サインイン。** レジストリはアカウントの適格性を最後の検証済みサインイン
+から読み取り、それは 12 時間有効です。バインドされたリポジトリのリリースは、
+その時間内にアカウントがサインインしていない間は待機します。パネルがそう
+表示し、`notice.sign_in` 通知がサインインを求めます。サインインするまで何も
+公開されません。
+
+**通知の届け先。** Minice アカウントの検証済みメールアドレスと、パネルです。
+Telegram は連携できる任意の追加チャネルで、何もそれを必要としません。
+
+**名前の変更や移管は、インストール済みのコピーを取り残します。** Astra は
+インストール済みのプラグインをそのリポジトリ `github:owner/name` で識別
+します。リポジトリの名前を変えたり別の所有者へ移管したりすると、インストール
+済みのコピーはすべて、新しい名前から再インストールされるまで更新を受け取らなく
+なります。これを覆す手段はありません。
+
+**すでに掲載されているプラグインの場合。** バインドされていない掲載は
+`grandfathered` です。バインディング期限とレジストリのカットオーバーのうち
+遅いほうまで、今日と同じように公開を続けます。期限はサードパーティの
+バインディングが始まる前に定められ、レジストリが公開します。その後、
+バインドされていない掲載は `frozen` になります。インストール済みのコピーは
+動き続け、インストールもできますが、バインディング行を持つリリースが公開
+されるまで、新しいリリースは公開されません — バインドされたリリースで凍結は
+解け、ペナルティはありません。バインディング行を持つ最初のリリースは、人による
+レビューのために一度保留されます(`R_FIRST_BINDING`)。そしてカットオーバー
+以降、`grandfathered` の掲載の遅延またはレビュー対象のリリースは、掲載が
+バインドされるまで待機します。
+
+**事前確認。** `astra-plugin check` は、レジストリが拒否する ID — 予約済みの
+ID や、レジストリの ID パターンから外れるもの — と、不正なバインディング行を
+拒否します。`astra-plugin dev` と `astra-plugin build` はどちらも拒否しません。
+レジストリのルールが決めるのは何が掲載されるかであって、あなたが何を実行して
+よいかではありません。
 
 ## 3 · 提出する
 

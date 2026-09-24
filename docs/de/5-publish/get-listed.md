@@ -44,8 +44,12 @@ die Registry ausführen kann**, sodass du weißt, was noch unbewiesen ist:
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -218,6 +222,129 @@ Ein `403` beim ersten Weg wird dir nicht angelastet und wird niemals für
 sich allein zu einer Ablehnung. Die Ablehnung passiert nur, wenn alle drei
 nichts liefern, und das ist genau das, was passiert, wenn diese Datei
 nicht existiert.
+
+## Das Repository binden
+
+**Ein Listing wandert von einem GitHub-Login zu einem Minice-Konto.** Die
+Owner-Datei oben nennt einen GitHub-Login, und so wird ein erstes Listing über
+das Issue-Formular der Registry heute belegt. Ab dem Cutover der Registry braucht
+jedes erste Listing stattdessen eine **Bindung**: eine weitere Zeile in derselben
+Datei, von der CLI geschrieben aus einem Token, das du im Panel erzeugst,
+angemeldet bei dem Minice-Konto, das veröffentlichen wird. Binden kostet jetzt
+einen Befehl, und dorthin geht jedes Listing; ein bestehendes Listing hat bis
+zur Binding-Frist Zeit (unten).
+
+**1 · Ein Token erzeugen.** Melde dich unter https://astra.minice.ai/plugins mit
+dem Minice-Konto an, dem das Listing gehören wird — es braucht `astraUser`, das
+mit dem Besitz von Astra kommt — und erzeuge ein Binding-Token für dieses
+Repository.
+
+**2 · Die Zeile schreiben.** Irgendwo innerhalb des Repositorys:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+Das schreibt `astra-binding: <token>` als **erste Zeile** von
+`.well-known/astra-plugin-owner` in der Repository-Wurzel, entfernt jede
+frühere Binding-Zeile in jeder Schreibweise, behält deine Login-Zeilen und
+nutzt kein Netzwerk:
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · Auf deinem Default-Branch committen, dann taggen.** Bevor du den Tag
+pushst, lies die Zeile genau so zurück, wie die Registry es tun wird — aus dem
+Commit des Tags, nicht aus deinem Arbeitsverzeichnis:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+Eine fehlerhafte Zeile scheitert hier, mit `B_BINDING_MALFORMED`, solange die
+Korrektur noch nichts kostet. Eine fehlende ist eine Warnung, die `B_UNBOUND`
+vorhersagt. Vier Antworten, die nur die Registry geben kann, werden jedes Mal
+als nicht geprüft genannt.
+
+**4 · Im Panel einreichen.** Aus einem gebundenen Repository öffnet
+`astra-plugin publish` die Einreichungsseite des Panels mit Repository und Tag
+schon ausgefüllt, zum Beispiel
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 — die
+Seite reicht nichts ein, bis du es tust, angemeldet.
+
+**Was das Token ist, und was nicht.** Ein Binding-Token ist **öffentlich**: Es
+steht in einer Datei in einem öffentlichen Repository. Es hält die **Zustimmung
+eines Kontos** fest, aus diesem Repository zu veröffentlichen, und es
+**authentifiziert kein Release** — ein Release, das nichts verzögert, wird
+veröffentlicht, bevor das Konto davon erfährt. Merge deshalb **nie eine
+Binding-Zeile, die du nicht selbst erzeugt hast**: Ein Pull-Request, der eine
+hinzufügt oder ändert, bittet dich, dein Listing dem Konto eines anderen zu
+übergeben.
+
+**Wo die Zeile stehen muss.** In der Wurzel des Repositorys, egal in welchem
+Verzeichnis dein Plugin liegt; im Commit, auf den dein Release-Tag zeigt; und
+innerhalb der ersten 4096 Bytes der Datei. Eine Zeile gilt für jedes Plugin im
+Repository. Sie später vom Default-Branch zu löschen, beendet nichts, was schon
+gebunden ist.
+
+**Wie lange ein erzeugtes Token gilt.** Ein erzeugtes Token verfällt 30 Tage
+nach seiner Erzeugung, es sei denn, eine laufende Einreichung nennt es oder
+seine Zeile steht auf dem Default-Branch des Repositorys, wenn die Regel
+angewendet wird — die Regel wird vor jeder Verfallsentscheidung neu geprüft.
+Ein Autor, der viel später taggt, ohne die Zeile auf dem Default-Branch, erzeugt
+also ein neues, und einer, dessen Zeile noch auf diesem Branch steht, wenn die
+Regel angewendet wird, nicht. Eine Zeile, die committet und später entfernt
+wurde, hält kein Token am Leben.
+
+**Anmelden.** Die Registry liest die Berechtigung des Kontos aus seiner letzten
+verifizierten Anmeldung, und die zählt 12 Stunden. Ein Release eines gebundenen
+Repositorys wartet, solange sich das Konto in dieser Zeit nicht angemeldet hat;
+das Panel sagt es, und eine `notice.sign_in`-Benachrichtigung bittet dich, dich
+anzumelden. Nichts wird veröffentlicht, bis du es tust.
+
+**Wohin Benachrichtigungen gehen.** An die verifizierte E-Mail-Adresse des
+Minice-Kontos und ins Panel. Telegram ist ein optionaler zusätzlicher Kanal, den
+du verknüpfen kannst; nichts verlangt ihn.
+
+**Ein Umbenennen oder eine Übertragung lässt installierte Kopien stranden.**
+Astra erkennt ein installiertes Plugin an seinem Repository,
+`github:owner/name`. Benenne das Repository um oder übertrage es an einen
+anderen Besitzer, und jede installierte Kopie bekommt keine Updates mehr, bis
+sie unter dem neuen Namen neu installiert wird. Nichts setzt das außer Kraft.
+
+**Für ein Plugin, das schon gelistet ist.** Ein ungebundenes Listing ist
+`grandfathered`: Es veröffentlicht weiter wie heute, bis zum späteren von
+Binding-Frist und Cutover der Registry. Die Frist wird festgelegt, bevor
+Bindungen durch Dritte öffnen, und von der Registry veröffentlicht. Danach ist
+ein ungebundenes Listing `frozen`: Installierte Kopien funktionieren weiter und
+es bleibt installierbar, aber kein neues Release davon wird veröffentlicht, bis
+eines mit Binding-Zeile veröffentlicht ist — ein gebundenes Release taut es auf,
+ohne Strafe. Das erste Release mit Binding-Zeile wird einmal für die Prüfung
+durch einen Menschen angehalten, `R_FIRST_BINDING`. Und ab dem Cutover wartet
+ein verzögertes oder geprüftes Release eines `grandfathered`-Listings, bis das
+Listing gebunden ist.
+
+**Vorabprüfung.** `astra-plugin check` lehnt eine ID ab, die die Registry
+ablehnt — eine reservierte ID oder eine außerhalb des ID-Musters der Registry —,
+und eine fehlerhafte Binding-Zeile. `astra-plugin dev` und `astra-plugin build`
+lehnen keines von beiden ab: Die Regeln der Registry entscheiden, was gelistet
+wird, nie, was du ausführen darfst.
 
 ## 3 · Einreichen
 

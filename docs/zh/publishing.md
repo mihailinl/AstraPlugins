@@ -191,6 +191,8 @@ astra-plugin check --strict
 Checking plugin at ....
   NOTE: Missing plugin.author
   NOTE: Pin freshness not checked (pass --resolve-pin, or set ASTRA_PLUGIN_WORKFLOW_SHA)
+  REGISTRY WARN: B_UNBOUND predicted once this listing needs a binding: there is no .well-known/astra-plugin-owner at the repository root (working tree). From the registry's cutover every first listing needs one, and every listing after the binding deadline; a release without it is refused B_UNBOUND. Mint a token in the panel and run `astra-plugin init-ci --binding <token>` — https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+  NOT CHECKED: B_BINDING_UNUSABLE, B_OWNER_CHANGED, B_REPOSITORY_RECYCLED, E_WORKFLOW_NOT_ALLOWED — only the registry can answer these, from the plugins service, GitHub and trust.json
   sections: [plugin], [entry], [capabilities]
   OK: plugin 'dice-roller' v0.1.0 is valid (0 warning(s), 2 note(s), capabilities: tools)
 ```
@@ -227,6 +229,24 @@ astra-plugin check --strict
 `github-actions[bot]` —— 是第 3 步的工作流发布了这次 release，而不是
 你。完整的说明见
 [申请上架 §2](5-publish/get-listed.md#2--证明你控制着这个仓库)。
+
+### 绑定到你的 Minice 账户
+
+从注册表切换起，首次上架需要在同一个文件里再多一行：把这个仓库**绑定**到将来
+负责发布它的 Minice 账户。以该账户登录 https://astra.minice.ai/plugins 的面板
+铸造一个令牌，然后让 CLI 写入这一行：
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+git commit -am "Bind this repository to my Minice account" && git push
+astra-plugin check --strict
+```
+
+等你在下一步打好标签后，`astra-plugin check --tag v0.1.0` 会像注册表一样，从
+标签的提交把这一行读回来。令牌是公开的，不认证任何发布，所以绝不要合并一行
+不是你自己铸造的绑定行。它记录了什么、能用多久、重命名会对它造成什么，见
+[上架 —— 绑定你的仓库](5-publish/get-listed.md#绑定你的仓库)。
 
 ## 5 · 打标签 —— 这才是发布
 
@@ -338,8 +358,12 @@ astra-plugin publish --dry-run
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one

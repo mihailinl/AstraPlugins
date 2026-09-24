@@ -39,11 +39,20 @@ Astra Plugin Development CLI
 **`login`** тут **немає**. Потрапляння плагіна до каталогу йде через
 браузер, у якому автор уже увійшов до облікового запису, — реєстр читає
 засвідчені бандли з релізу GitHub і верифікує кожен з нуля, тож заявка
-несе репозиторій і тег, і нічого більше. Це означає: не треба створювати
-другий обліковий запис, нічого інтегрувати з keyring'ом, немає файлу
+несе репозиторій і тег, і нічого більше. Це означає: нічого
+інтегрувати з keyring'ом, немає файлу
 облікових даних, який можна злити, і немає токена в історії оболонки.
 `login` тут був би сховищем облікових даних, побудованим заради того, про
 що ніхто не просить.
+
+**Змінено 2026-09-24, CLI 0.4.0 (контракт ROLL-47, рядок C3).** Раніше
+цей абзац додавав «не треба створювати другий акаунт», і з цього релізу це
+неправда. Репозиторій тепер прив'язується до акаунта Minice з `astraUser`:
+автор випускає токен прив'язки в панелі, увійшовши в цей акаунт, а
+`init-ci --binding <token>` записує його у файл власника. Решта в силі, і
+тримає це C26: у цього CLI і далі немає `login`, він не зберігає облікових
+даних і не звертається до жодного сервісу — токен це публічний текст у файлі,
+а панель це сторінка, яку `publish` відкриває в браузері самого автора.
 
 ## astra-plugin new
 
@@ -245,6 +254,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 | `--strict` | Treat warnings as errors |
 | `--fix` | Apply the fixes that can be applied mechanically, then re-check. Only rewrites what it can prove; everything else is still reported |
 | `--resolve-pin` | Ask GitHub whether the release workflow pin is current. Off by default: `astra-plugin dev` runs `check --strict` on every start, and the release workflow tells the check what it is running from through ASTRA_PLUGIN_WORKFLOW_SHA, so neither needs the network |
+| `--tag <TAG>` | Read the binding line from this tag's commit instead of the working tree, as the registry will: `<tag>^{commit}` of the repository root, whatever `plugin-dir` says. Local git only |
 
 ## astra-plugin init-ci
 
@@ -267,6 +277,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 | `--ref <WORKFLOW_REF>` | A 40-hex commit to pin (used verbatim, no network), or a ref name to resolve. Default: the released workflow tag, else the default branch head |
 | `--linux-packages <LINUX_PACKAGES>` | Set the linux-packages input, e.g. "libasound2-dev pkg-config". Omitted, an existing file's value is kept |
 | `--offline` | Never touch the network: keep the pin already in the file |
+| `--binding <TOKEN>` | Write `astra-binding: <TOKEN>` as the first line of the repository root's `.well-known/astra-plugin-owner`, removing every earlier binding line in any case, and do nothing else. TOKEN is the one the panel minted. No network |
 
 ## astra-plugin version
 

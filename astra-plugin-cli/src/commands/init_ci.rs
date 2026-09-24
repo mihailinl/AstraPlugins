@@ -27,6 +27,21 @@
 //! tag exists, otherwise the default branch's head, with a warning saying so.
 //! `--ref` takes either an explicit 40-hex commit (used verbatim, no network)
 //! or any ref name to resolve.
+//!
+//! # `--binding <token>`: the other file this command writes
+//!
+//! A repository is bound to a Minice account by one line in the root
+//! `.well-known/astra-plugin-owner`: `astra-binding: <token>`, where the token
+//! is what the panel minted for that account (contract ID-22 to ID-24). With
+//! `--binding`, `init-ci` writes that line and nothing else — see
+//! [`run_binding`] and [`crate::binding::rewrite`] for exactly what it keeps
+//! and what it removes (FLOW-49), and what it refuses (FLOW-50).
+//!
+//! It does not also rewrite the release workflow. That half resolves a pin
+//! over the network, and a binding is required to use none: it must not fail
+//! because GitHub is unreachable, and it must not quietly move a workflow pin
+//! as a side effect of recording who owns the repository. Run `init-ci` without
+//! the flag for the workflow.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -91,9 +106,88 @@ pub struct InitCiOptions<'a> {
     /// Skip the network entirely and keep the pin already in the file. Fails
     /// if there is no file to keep a pin from.
     pub offline: bool,
+    /// Write the binding line for this token into the root owner file, and do
+    /// nothing else. No network.
+    pub binding: Option<&'a str>,
+}
+
+/// Where the author docs say what a binding token is and is not (contract
+/// ID-14): public, one account's consent, and no authentication of any release.
+/// `init-ci --binding` prints it. `the_binding_docs_anchor_exists` holds the
+/// anchor to a heading that exists in `docs/en`, so a renamed heading is a red
+/// test rather than a dead link printed to every author who binds.
+pub const BINDING_DOCS_URL: &str = "https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository";
+
+/// `init-ci --binding <token>`: FLOW-49 and FLOW-50, and nothing else.
+///
+/// The line goes at the REPOSITORY root, whatever directory the plugin is in:
+/// the registry reads the root file at the tagged commit (ID-22), and one line
+/// covers every plugin in the repository. Outside a git repository there is no
+/// root to find, so this refuses rather than guess one.
+pub fn run_binding(path: &str, token: &str) -> Result<()> {
+    if !crate::binding::cli_accepts(token) {
+        anyhow::bail!("{}", crate::binding::refusal(token));
+    }
+    let dir = Path::new(path)
+        .canonicalize()
+        .with_context(|| format!("Invalid path: {path}"))?;
+    let root = repo_root(&dir).with_context(|| {
+        format!(
+            "{} is not inside a git repository. The binding line belongs at the root of the              repository you release from — the registry reads it there, at the tagged commit —              and without git there is no root to find.",
+            dir.display()
+        )
+    })?;
+    let file = root.join(crate::binding::OWNER_FILE);
+    let existing = match std::fs::read(&file) {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e).with_context(|| format!("Failed to read {}", file.display())),
+    };
+    let before = existing.as_deref().unwrap_or_default();
+    let rewritten =
+        crate::binding::rewrite(before, token).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let lines = |b: &[u8]| if b.is_empty() { 0 } else { b.split(|&c| c == b'\n').filter(|l| !l.is_empty()).count() };
+    let removed = before
+        .split(|&c| c == b'\n')
+        .filter(|l| crate::binding::near_miss_prefix(l.strip_suffix(b"\r").unwrap_or(l)))
+        .count();
+    let kept = lines(&rewritten).saturating_sub(1);
+
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create {}", parent.display()))?;
+    }
+    std::fs::write(&file, &rewritten)
+        .with_context(|| format!("Failed to write {}", file.display()))?;
+
+    let shown = file.strip_prefix(&root).unwrap_or(&file);
+    let verb = if existing.is_some() { "Rewrote" } else { "Created" };
+    hprintln!("  {verb}: {}", shown.display());
+    hprintln!("    line 1   astra-binding: {token}");
+    if removed > 0 {
+        hprintln!("    removed  {removed} earlier binding line(s), any case — a second one is B_BINDING_MALFORMED");
+    }
+    if kept > 0 {
+        hprintln!("    kept     {kept} other line(s), byte for byte");
+    }
+    hprintln!();
+    hprintln!("  This token is public once you push it. It records one Minice account's consent");
+    hprintln!("  to publish from this repository, and it authenticates no release: never merge a");
+    hprintln!("  binding line you did not mint yourself. What that means, and what a rename or a");
+    hprintln!("  transfer does to it:");
+    hprintln!("    {BINDING_DOCS_URL}");
+    hprintln!();
+    hprintln!("  Next: commit this file on your default branch, then tag. Before you push the tag,");
+    hprintln!("    astra-plugin check --tag <tag>");
+    hprintln!("  reads the line back from the tagged commit, as the registry will.");
+    Ok(())
 }
 
 pub fn run(opts: InitCiOptions<'_>) -> Result<()> {
+    if let Some(token) = opts.binding {
+        return run_binding(opts.path, token);
+    }
     let plugin_dir = Path::new(opts.path)
         .canonicalize()
         .with_context(|| format!("Invalid path: {}", opts.path))?;
@@ -794,6 +888,71 @@ fn unquote(v: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// GitHub's heading slug, as `docs/tools/linkcheck.py` computes it: strip
+    /// markup, lowercase, drop punctuation except `-` and `_`, spaces to `-`.
+    fn slug(heading: &str) -> String {
+        heading
+            .chars()
+            .filter(|c| !matches!(c, '`' | '*'))
+            .flat_map(char::to_lowercase)
+            .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
+            .map(|c| if c == ' ' { '-' } else { c })
+            .collect()
+    }
+
+    fn docs_en(rel: &str) -> String {
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/en").join(rel))
+            .unwrap_or_else(|e| panic!("docs/en/{rel}: {e}"))
+    }
+
+    /// ID-14: the CLI links the section that says what a binding token is.
+    /// A heading renamed in docs/en would otherwise leave every author who
+    /// binds with a link to the top of a long page and no sentence about it.
+    #[test]
+    fn the_binding_docs_anchor_exists() {
+        let (page, anchor) = BINDING_DOCS_URL
+            .strip_prefix("https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/")
+            .and_then(|r| r.split_once('#'))
+            .expect("BINDING_DOCS_URL points into docs/en on master, with an anchor");
+        let text = docs_en(page);
+        let anchors: Vec<String> = text
+            .lines()
+            .filter_map(|l| l.strip_prefix("## ").or_else(|| l.strip_prefix("### ")))
+            .map(slug)
+            .collect();
+        assert!(
+            anchors.iter().any(|a| a == anchor),
+            "docs/en/{page} has no heading whose anchor is #{anchor}; `init-ci --binding` prints \
+             that link. Headings there: {anchors:?}"
+        );
+    }
+
+    /// ID-16 as 0.14.0 words it, and as MIG-14's notices and the panel's mint
+    /// page word it: the line keeps a token alive when it is on the default
+    /// branch WHEN THE RULE IS APPLIED. "At expiry" or "by then" reads as one
+    /// test at day 30, under which a line committed once and deleted keeps a
+    /// token alive for ever — the wording ID-16 was changed to rule out.
+    #[test]
+    fn the_expiry_sentence_says_when_the_rule_is_applied() {
+        let page = docs_en("5-publish/get-listed.md");
+        let start = page.find("## Bind your repository").expect("the binding section");
+        let end = page[start + 3..].find("\n## ").map_or(page.len(), |i| start + 3 + i);
+        let section = &page[start..end];
+        let flat = section.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            flat.contains("expires 30 days after its mint unless a live submission names it or its \
+                           line is on the repository's default branch when the rule is applied"),
+            "the expiry sentence no longer says \"when the rule is applied\""
+        );
+        assert!(
+            flat.contains("without the line on the default branch mints again"),
+            "the consequent must say WITHOUT the line (0.15.0, n25)"
+        );
+        for wrong in ["at expiry", "by then"] {
+            assert!(!flat.contains(wrong), "the binding section says {wrong:?}; ID-16 re-tests the line before each expiry decision");
+        }
+    }
 
     fn pin(sha: &str) -> Pin {
         Pin {
