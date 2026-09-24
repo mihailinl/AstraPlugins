@@ -2,7 +2,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.3.0`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.4.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 

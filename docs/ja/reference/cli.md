@@ -2,7 +2,7 @@
 
 # CLI リファレンス
 
-`astra-plugin 0.3.0`。以下のすべてのフラグはバイナリから読み取られた
+`astra-plugin 0.4.0`。以下のすべてのフラグはバイナリから読み取られた
 ものであるため、このページが存在しないオプションを説明することは
 あり得ません。出典は
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)
