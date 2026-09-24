@@ -378,7 +378,7 @@ pub fn generate_package_json(name: &str) -> String {
     "node": ">=20"
   }},
   "dependencies": {{
-    "astra-plugin-sdk": "^0.6.0",
+    "astra-plugin-sdk": "^0.7.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }},

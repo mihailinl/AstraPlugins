@@ -14,15 +14,14 @@
 | **协议版本** | `proto/PROTO_VERSION`（`protocol=1`），在每个 SDK 中都以 `PROTOCOL_VERSION` 的形式镜像 | 插件与守护进程之间的通信契约 |
 | **你插件的版本** | 你的 `plugin.toml` | 属于你自己。注册表以它来给各个发布排序 |
 
-三个 SDK 的版本号被有意地保持不一致。当前的发布列车是 `sdk-v0.7.0`，它发布的
-是：
-
-| 包 | 注册表 | 版本 |
-| --- | --- | --- |
-| `astra-plugin-sdk`（Rust） | crates.io | 0.7.0 |
-| `astra-plugin-macros` | crates.io | 0.7.0 —— 由于 SDK 按版本号依赖它，所以**先于** SDK 发布 |
-| `astra-plugin-sdk`（Python） | PyPI | 0.6.0 |
-| `astra-plugin-sdk`（TypeScript） | npm | 0.6.0 |
+三个 SDK 的版本号被有意地保持不一致：一个 `sdk-v<VERSION>` 标签发布的是
+每个包自己的清单文件里写着的那个版本，而 `astra-plugin-macros` 会**先于**
+按版本号依赖它的 Rust SDK 发布。这些版本今天具体是多少，本页不写。本页以前
+写着当前的发布列车，在 `sdk-v0.7.1` 发布之后还继续写着 `sdk-v0.7.0` 整整一个
+月 —— 所以这些数字只放在一个地方：README 里的
+[Publication state](../../README.md#publication-state) 表格。在那里，耦合检查
+C23 把 *In this tree* 列与各清单文件对照，C23b 把 *Published* 列与
+crates.io、PyPI 和 npm 对照。
 
 版本号回答的是"我正在针对哪个 API 编写代码"这个问题，所以破坏性发布更少的
 包，其版本号也就更小。这条发布列车所保证的是：共享同一个标签的各个包说的是
@@ -46,6 +45,35 @@
 - 每个 SDK 中的 `MIN_SUPPORTED_DAEMON_PROTOCOL` 是该 SDK 愿意注册的最旧
   守护进程版本。低于这个版本，插件会在第一次调用失败之前就直接退出，并
   给出一句指明修复方法的话。
+
+## 生成的协议类型
+
+每个 SDK 暴露的协议消息 —— Rust 里的 `astra_plugin_sdk::proto::*`、Python 里的
+`_pb2` 消息类、TypeScript SDK 加载的描述符 —— 都是从 `proto/plugin.proto`
+生成的。它是守护进程自己的切片，守护进程的协议每增长一次就重新同步一次。它们
+的版本规则是：
+
+| 对生成类型的改动 | 槽位 |
+| --- | --- |
+| 新增一个字段或一条消息 | patch —— 一项新增 |
+| 删除、重命名、重新编号或更改类型的字段 | minor —— 一次破坏 |
+
+**patch 的承诺在 Rust 里覆盖什么：** 用 `..Default::default()` 构造消息，或者先用
+`Default::default()` 构造再给字段赋值。它**不**覆盖穷举式的结构体字面量 ——
+列出每一个字段、没有 `..` 的那种 —— 新增一个字段就会让它以 `E0063 missing
+fields` 报错，正如对 `#[non_exhaustive]` 枚举做 `match` 也不在覆盖范围内一样。
+`astra-plugin new` 写出的是带 `..Default::default()` 的形式。Python 的消息类接受
+关键字参数，TypeScript SDK 在运行时读取描述符，所以在这两者里新增字段不会破坏
+任何东西。
+
+为什么新增字段不算 minor：每次同步守护进程的切片都会新增字段 —— 在
+`sdk-v0.7.1` 到 0.7.2 之间，已有消息上新增了 37 个 —— 如果每个字段都算一次
+minor，那么每次同步都会是 minor，minor 槽位也就不再意味着"你的代码可能无法再
+编译"。为什么不给生成的结构体加上 `#[non_exhaustive]`，把规则交给编译器：它同样
+禁止在 crate 之外使用 `..Default::default()`，也就是为了防明天的破坏而在今天
+破坏每个插件的字面量。线上(wire)兼容性根本不是这条规则的职责，那是上面讲的
+协议整数的职责。SDK 手写的类型仍然适用普通规则，这就是 `Invocation` 标记为
+`#[non_exhaustive]` 的原因。
 
 ## 弃用策略
 

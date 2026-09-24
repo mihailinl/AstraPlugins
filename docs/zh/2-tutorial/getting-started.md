@@ -139,9 +139,9 @@ dice-roller/
 
 | 语言 | 脚手架固定的版本 | 已发布版本 |
 |---|---|---|
-| Rust | `astra-plugin-sdk = "0.6"` | crates.io 0.6.0 |
-| Python | `astra-plugin-sdk>=0.5,<0.6` | PyPI 0.5.0 |
-| TypeScript | `"astra-plugin-sdk": "^0.5.0"` | npm 0.5.0 |
+| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.1 |
+| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.1 |
+| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.0 |
 
 这些版本号能从各自的注册表解析成功，所以在一个全新项目里，`cargo build`、
 `pip install -r requirements.txt` 和 `bun install` 不需要任何额外配置就
