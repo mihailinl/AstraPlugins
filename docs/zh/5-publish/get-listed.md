@@ -82,8 +82,12 @@ icon.png    icon.webp    icon.svg    icon.jpg    icon.ico
 **`README.md`** —— 你插件的详情页，在有人点击卡片时展示。这是一个人在
 决定是否安装你的插件时会读的内容，因此它比那一行摘要更有价值。
 
-它会以 GitHub 风味的 markdown 渲染，包括表格。截图也能正常显示，一段
-只由图片组成的段落会变成一行图库(gallery)：
+它会以 GitHub 风味的 markdown 渲染，包括表格。
+
+**Astra 不显示 README 中的任何图片，只显示它的 alt 文本。** 在本该出现
+图片的位置，商店会显示方括号中的文字。这段文字就是读者能从你的截图中得到
+的全部信息，而 alt 文本为空的图片 `![](docs/editor.png)` 什么也不会显示。
+请把 alt 文本写成你希望读者读到的那句话，而不是文件名或“截图”二字：
 
 <!-- doctest: illustrative reason="markdown an author writes in their own README; there is nothing here for a runner to execute" -->
 ```markdown
@@ -91,7 +95,9 @@ icon.png    icon.webp    icon.svg    icon.jpg    icon.ico
 ![The trigger firing on a natural 20](docs/trigger.png)
 ```
 
-有三条规则，注册表在推导你的上架条目时都会应用：
+注册表在推导你的上架条目时会应用三条规则。前两条决定了在这项改动之前
+发布的 Astra 版本会显示什么，因为那些版本仍然会显示托管在 GitHub 上的
+图片：
 
 - **用相对路径链接图片**，并把它们提交到你的仓库中。它们会被重写为
   指向你发布所构建的那个确切 commit，所以在有人批准了这次上架之后，

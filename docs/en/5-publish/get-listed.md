@@ -84,8 +84,13 @@ software — but you get a warning saying so, and nobody sees your icon.
 what a person reads while deciding whether to install you, which makes it worth
 more than the one-line summary.
 
-It renders as GitHub-flavoured markdown, including tables. Screenshots work, and
-a paragraph made only of images becomes a gallery row:
+It renders as GitHub-flavoured markdown, including tables.
+
+**Astra shows no README image, only its alt text.** Where an image would be,
+the store prints the text between the square brackets, so that text is all a
+reader learns from your screenshot, and an image with empty alt text,
+`![](docs/editor.png)`, shows nothing at all. Write alt text as the sentence
+you want read, not as a file name or the word "screenshot":
 
 <!-- doctest: illustrative reason="markdown an author writes in their own README; there is nothing here for a runner to execute" -->
 ```markdown
@@ -93,7 +98,9 @@ a paragraph made only of images becomes a gallery row:
 ![The trigger firing on a natural 20](docs/trigger.png)
 ```
 
-Three rules, all of which the registry applies when it derives your listing:
+The registry applies three rules when it derives your listing. The first two
+decide what an Astra release from before this change displays, because those
+releases still show GitHub-hosted images:
 
 - **Link images with a relative path**, and commit them to your repository. They
   are rewritten to point at the exact commit your release was built from, so a

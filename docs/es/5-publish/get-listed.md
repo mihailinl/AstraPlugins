@@ -93,9 +93,14 @@ y nadie ve tu icono.
 clic en la tarjeta. Es lo que lee una persona mientras decide si
 instalarte, lo que lo hace más valioso que el resumen de una línea.
 
-Se renderiza como markdown al estilo GitHub, tablas incluidas. Las
-capturas de pantalla funcionan, y un párrafo formado solo por imágenes se
-convierte en una fila de galería:
+Se renderiza como markdown al estilo GitHub, tablas incluidas.
+
+**Astra no muestra ninguna imagen del README, solo su texto alternativo.**
+Donde iría una imagen, la tienda escribe el texto entre los corchetes. Ese
+texto es todo lo que un lector sabrá de tu captura, y una imagen con el
+texto alternativo vacío, `![](docs/editor.png)`, no muestra nada. Escribe
+el texto alternativo como la frase que quieres que se lea, no como un
+nombre de archivo ni como la palabra «captura»:
 
 <!-- doctest: illustrative reason="markdown an author writes in their own README; there is nothing here for a runner to execute" -->
 ```markdown
@@ -103,7 +108,9 @@ convierte en una fila de galería:
 ![The trigger firing on a natural 20](docs/trigger.png)
 ```
 
-Tres reglas, todas las cuales aplica el registro al derivar tu listado:
+El registro aplica tres reglas al derivar tu listado. Las dos primeras
+deciden qué muestra una versión de Astra anterior a este cambio, porque esas
+versiones todavía muestran las imágenes alojadas en GitHub:
 
 - **Enlaza las imágenes con una ruta relativa**, y súbelas a tu
   repositorio. Se reescriben para apuntar exactamente al commit desde el
