@@ -30,15 +30,31 @@ spec = importlib.util.spec_from_file_location("cps", ROOT / "tools/check-publica
 cps = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cps)
 
-# What the registries held when this test was written (2026-09-24). Only the
-# shape matters to the cases below; each case edits the answer it is about.
-REGISTRIES = {
-    "crates.io/astra-plugin-sdk": {"latest": "0.7.1", "versions": ["0.6.0", "0.7.0", "0.7.1"]},
-    "crates.io/astra-plugin-macros": {"latest": "0.7.1", "versions": ["0.6.0", "0.7.0", "0.7.1"]},
-    "crates.io/astra-plugin-cli": None,
-    "pypi/astra-plugin-sdk": {"latest": "0.6.1", "versions": ["0.5.0", "0.6.0", "0.6.1"]},
-    "npm/astra-plugin-sdk": {"latest": "0.7.0", "versions": ["0.5.0", "0.6.0", "0.7.0"]},
-}
+def registries_matching_this_tree() -> dict:
+    """Registry answers that agree with this tree's README, whatever it says today.
+
+    Derived, never typed: a fixture written as "what the registries held on the
+    day" goes red on the first correct post-release commit, which is the one
+    moment this check must be green. Each package's newest version is README's
+    Published cell; the CLI row is a 404.
+    """
+    rows = cps.readme_rows(ROOT)
+    out: dict = {}
+    for label, (key, name, _) in cps.ROWS.items():
+        cell = rows.get(label, "")
+        m = cps.SEMVER.search(cell)
+        if cps.NOT_PUBLISHED in cell or not m:
+            out[f"{key}/{name}"] = None
+        else:
+            out[f"{key}/{name}"] = {"latest": m.group(1), "versions": [m.group(1)]}
+    return out
+
+
+REGISTRIES = registries_matching_this_tree()
+
+
+def published(key: str) -> str:
+    return REGISTRIES[key]["latest"]
 
 
 def files() -> list[str]:
@@ -110,31 +126,36 @@ class C23b(unittest.TestCase):
         self.assertNotIn("FAIL", out)
 
     def test_entry_151_is_red_and_names_npm(self):
-        """npm has 0.7.0; the tree calls 0.7.0 unreleased and says npm is at 0.6.0."""
+        """npm has version N; the tree calls N unreleased and says npm is behind it.
+
+        On 2026-08-25 N was 0.7.0 and the README said "0.6.0 — the 0.7.0 publish
+        failed". Rebuilt from whatever npm version this tree names, so the case
+        stays the case as the tree moves on.
+        """
+        n = published("npm/astra-plugin-sdk")
         with Tree() as t:
             t.edit("README.md", ts_row(),
-                   "| `astra-plugin-sdk` (npm) | 0.7.0 | **0.6.0 — the 0.7.0 publish failed**, "
+                   f"| `astra-plugin-sdk` (npm) | {n} | **0.0.1 — the {n} publish failed**, "
                    "see below | `npm install astra-plugin-sdk` |")
-            # The TS CHANGELOG as it read from 83c4a9f until this commit: one
-            # `[0.7.0] — unreleased` heading on top, and no 0.7.1.
-            t.edit("astra-plugin-sdk-ts/CHANGELOG.md", ts_heading(), "## [0.7.0] — unreleased")
+            t.edit("astra-plugin-sdk-ts/CHANGELOG.md", ts_heading(), f"## [{n}] — unreleased")
             code, out = t.run(REGISTRIES)
         self.assertEqual(code, 1, out)
-        self.assertIn("FAIL C23b README's Published cell for `astra-plugin-sdk` (npm) is npm's newest, 0.7.0", out)
-        self.assertIn("FAIL C23b astra-plugin-sdk-ts/CHANGELOG.md's `[0.7.0] — unreleased` is not on npm", out)
+        self.assertIn(f"FAIL C23b README's Published cell for `astra-plugin-sdk` (npm) is npm's newest, {n}", out)
+        self.assertIn(f"FAIL C23b astra-plugin-sdk-ts/CHANGELOG.md's `[{n}] — unreleased` is not on npm", out)
         self.assertIn("gate 1 refuses", out)
 
     def test_an_unreleased_heading_is_red_on_its_own(self):
         """The CHANGELOG half alone, with README right: the release-blocking half."""
-        reg = {**REGISTRIES, "npm/astra-plugin-sdk": {"latest": "0.7.0",
-                                                      "versions": ["0.6.0", "0.7.0", "0.7.1"]}}
+        n = published("npm/astra-plugin-sdk")
         with Tree() as t:
-            code, out = t.run(reg)
+            t.edit("astra-plugin-sdk-ts/CHANGELOG.md", ts_heading(), f"## [{n}] — unreleased")
+            code, out = t.run(REGISTRIES)
         self.assertEqual(code, 1, out)
-        self.assertIn("FAIL C23b astra-plugin-sdk-ts/CHANGELOG.md's `[0.7.1] — unreleased` is not on npm", out)
+        self.assertIn(f"FAIL C23b astra-plugin-sdk-ts/CHANGELOG.md's `[{n}] — unreleased` is not on npm", out)
+        self.assertNotIn("FAIL C23b README's Published cell", out)
 
     def test_a_cli_that_reached_crates_io_is_red(self):
-        reg = {**REGISTRIES, "crates.io/astra-plugin-cli": {"latest": "0.3.0", "versions": ["0.3.0"]}}
+        reg = {**REGISTRIES, "crates.io/astra-plugin-cli": {"latest": "9.9.9", "versions": ["9.9.9"]}}
         with Tree() as t:
             code, out = t.run(reg)
         self.assertEqual(code, 1, out)
