@@ -17,15 +17,15 @@ Linux и Windows, файл контрольных сумм и пакет Sigstor
 Берите этот путь, если вы на платформе без архива — сегодня это macOS и ARM
 Linux, — либо если хотите читать или менять CLI, а не только запускать её.
 
-**`cargo install astra-plugin-cli` — не один из путей и работать не будет.**
-Крейт зависит от завендоренного `astra-plugin-manifest` по пути
-(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`), cargo
-никогда не упаковывает исходники зависимости по пути, и публикация поэтому
-падает с *all dependencies must have a version requirement specified* — так
-что крейта вообще нет на crates.io (`https://index.crates.io/as/tr/astra-plugin-cli`
-отвечает `404` сегодня, тогда как `astra-plugin-sdk` на том же индексе
-отвечает `200`). Снять блокировку означает сначала выпустить крейт манифеста
-от Astra, и эта страница не обещает дату для этого.
+**`cargo install astra-plugin-cli` станет одним из путей, только когда CLI
+появится на crates.io, а до 0.4.0 включительно его там не было ни разу.** Крейт
+зависел от завендоренного `astra-plugin-manifest` только по пути, а
+`cargo publish` отвергает такое с *all dependencies must have a version
+requirement specified* — поэтому релизы `cli-v0.2.1`, `cli-v0.3.0` и
+`cli-v0.4.0` выпустили бинарники и ничего не загрузили на crates.io. Теперь у
+зависимости есть версия, и релиз CLI загружает сначала `astra-plugin-manifest`,
+а затем сам CLI. Пока `https://index.crates.io/as/tr/astra-plugin-cli` отвечает
+`404`, а не `200`, берите бинарник или соберите из исходников.
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 
