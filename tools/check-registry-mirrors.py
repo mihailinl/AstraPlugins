@@ -224,6 +224,33 @@ token file records it, and everything that prints it agrees.
         string would compare equal to a spliced one by luck, and the client
         plan's reader of the same entry compares the same two members.
 
+C29 — `spec/submission-tokens.yaml` is the token file's public submission
+vocabulary, and the author docs carry every name of it that is live.
+
+    The `B_*` binding codes and the submission states are what an author reads
+    in the panel from the cutover. The token file (astra-registry
+    `schema/contract-tokens-v1.json`) records each with a state: `live`,
+    `until <step>` or `retired`. Legs: the spec parses, names its source and
+    pin, and meets its floors (5 codes, 9 states); docs/en carries a table row
+    keyed on every `live` name, may carry an `until` name, and carries no
+    `retired` one (mirror.py carries each keyed row to the other locales); and,
+    against a registry checkout, the names and states at the pin and at head.
+
+C30 — no door to the registry's issue channel from the cutover, and no promise
+that a change made false.
+
+    Three legs, read from `tools/check-registry-mirrors.c30.yaml`:
+      * CHANNEL. Every `channel` literal, once armed, is absent from the docs in
+        every locale, every README, AGENTS.md, CLAUDE.md, CONTRIBUTING.md, the
+        issue templates and the CLI's sources — and, from R5, the three proto
+        copies — except where an `exempt` record lets it through. Floor: 266
+        docs pages scanned. An exemption that matches fewer than its `min`, or
+        whose `expires` has come, is red.
+      * PROMISE. Each ROLL-47 sentence, per locale: unarmed, present exactly
+        once (a real anchor); armed, present exactly once at its `prefix`
+        commit and absent now. Matched with whitespace removed.
+      * The proto's report copy is two promise records (B6) armed at R5.
+
 C35 — the media type C32 pairs with each icon extension is astra-registry's.
 
     `spec/icon-formats.yaml` carries filenames alone, deliberately, so which
@@ -3135,6 +3162,304 @@ def rule_C36(fails: Fails) -> None:
     )
 
 
+# ── C29 ──────────────────────────────────────────────────────────────────────
+
+SUBMISSION_SPEC = ROOT / "spec" / "submission-tokens.yaml"
+C29_FLOORS = {"codes": 5, "states": 9}
+STATE_RE = re.compile(r"^(live|retired|until R\d+[a-z]?)$")
+
+
+def read_submission_spec() -> tuple[dict[str, dict[str, str]], dict[str, str], str | None]:
+    """({section: {name: state}}, {section: the `mirrors:` source}, pin)."""
+    sections: dict[str, dict[str, str]] = {}
+    sources: dict[str, str] = {}
+    pin: str | None = None
+    pending: str | None = None
+    current: str | None = None
+    for raw in SUBMISSION_SPEC.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            m = MIRRORS.match(line)
+            if m:
+                pending = f"{m.group(1)} {m.group(2).strip()}"
+            elif pin is None and (pm := PINNED_AT.search(line)):
+                pin = pm.group(1)
+            continue
+        if not line:
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        if raw[:1] not in (" ", "\t") and not value.strip():
+            current = key.strip()
+            sections[current] = {}
+            if pending:
+                sources[current] = pending
+                pending = None
+        elif current is not None:
+            sections[current][key.strip()] = value.strip()
+    return sections, sources, pin
+
+
+def _token_file_vocabulary(registry: Path, sha: str | None) -> dict[str, dict[str, str]]:
+    doc = json.loads(_registry_text(registry, TOKEN_FILE, sha))
+    codes, states = {}, {}
+    for e in doc.get("entries", []):
+        if not isinstance(e, dict):
+            continue
+        if e.get("kind") == "reason_code" and str(e.get("name", "")).startswith("B_"):
+            codes[e["name"]] = e.get("state")
+        if e.get("id") == "list:states:submission":
+            per = e.get("per_value_state") or {}
+            for v in e.get("values", []):
+                states[v] = per.get(v, e.get("state"))
+    return {"codes": codes, "states": states}
+
+
+def _docs_keyed_names() -> dict[str, list[str]]:
+    """name -> ["file:line", …] for every docs/en table row whose first cell is `name`."""
+    out: dict[str, list[str]] = {}
+    for p in sorted((ROOT / "docs" / "en").rglob("*.md")):
+        fence = False
+        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                fence = not fence
+                continue
+            if fence:
+                continue
+            m = re.match(r"^\|\s*`([A-Za-z_][A-Za-z0-9_]*)`\s*\|", line)
+            if m:
+                out.setdefault(m.group(1), []).append(f"{p.relative_to(ROOT).as_posix()}:{n}")
+    return out
+
+
+def rule_C29(fails: Fails) -> None:
+    exists = SUBMISSION_SPEC.is_file()
+    fails.check(exists, "C29 spec/submission-tokens.yaml exists")
+    if not exists:
+        return
+    sections, sources, pin = read_submission_spec()
+    for name, floor in C29_FLOORS.items():
+        got = sections.get(name, {})
+        fails.check(len(got) >= floor, f"C29 floor: {len(got)} {name} (>= {floor})",
+                    f"the `{name}:` section parsed to {sorted(got)}")
+    bad = sorted(f"{s}.{n}: {v!r}" for s, d in sections.items() for n, v in d.items() if not STATE_RE.match(v))
+    fails.check(not bad, "C29 every state is `live`, `until <step>` or `retired`", "\n".join(bad))
+    fails.check(set(sources) >= set(C29_FLOORS), "C29 each section names the token-file list it mirrors",
+                f"`# mirrors:` lines read: {sources}")
+    fails.check(pin is not None, "C29 spec/submission-tokens.yaml names the registry commit it was taken from")
+
+    keyed = _docs_keyed_names()
+    missing, retired_present = [], []
+    for section, names in sections.items():
+        for name, state in names.items():
+            if state == "live" and name not in keyed:
+                missing.append(f"{section}: `{name}`")
+            if state == "retired" and name in keyed:
+                retired_present.append(f"`{name}` at {', '.join(keyed[name])}")
+    live = sum(1 for d in sections.values() for v in d.values() if v == "live")
+    fails.check(
+        not missing,
+        f"C29 docs/en carries a keyed table row for every live name ({live - len(missing)}/{live})",
+        "no row whose first cell is:\n  " + "\n  ".join(missing) + "\n"
+        "From the cutover an author meets each of these in the panel; the author docs\n"
+        "(docs/en/5-publish/get-listed.md) explain each one in a table row that leads with\n"
+        "the name, and docs/tools/mirror.py carries that row to every locale.",
+    )
+    fails.check(not retired_present, "C29 docs/en carries no row for a retired name",
+                "\n".join(retired_present))
+
+    registry = _registry_dir(anchor=TOKEN_FILE, need_git=True)
+    if registry is None:
+        print("C29 NOT VERIFIED: no astra-registry checkout at $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        fails.skip("C29", "no astra-registry checkout")
+        return
+
+    def compare(sha: str | None) -> None:
+        leg = f"pinned {sha[:12]}" if sha else f"head {_git_head(registry)}"
+        if sha and not _has_commit(registry, sha):
+            fails.check(False, f"C29 spec/submission-tokens.yaml is the token file's ({leg})",
+                        _pin_absent(registry, sha, "spec/submission-tokens.yaml"))
+            return
+        try:
+            theirs = _token_file_vocabulary(registry, sha)
+        except (LookupError, json.JSONDecodeError) as e:
+            fails.check(False, f"C29 spec/submission-tokens.yaml is the token file's ({leg})", str(e))
+            return
+        problems = []
+        for section in C29_FLOORS:
+            ours, other = sections.get(section, {}), theirs[section]
+            for n in sorted(set(ours) | set(other)):
+                if ours.get(n) != other.get(n):
+                    problems.append(f"{section}.{n}: we say {ours.get(n)!r}, the token file says {other.get(n)!r}")
+        fails.check(not problems, f"C29 spec/submission-tokens.yaml is the token file's, name by name ({leg})",
+                    "\n".join(problems))
+
+    if pin is not None and _pinned_leg_may_read(fails, "C29", registry, pin, "spec/submission-tokens.yaml"):
+        compare(pin)
+    compare(None)
+
+
+# ── C30 ──────────────────────────────────────────────────────────────────────
+
+C30_FILE = ROOT / "tools" / "check-registry-mirrors.c30.yaml"
+C30_DOCS_FLOOR = 266
+
+
+def read_c30() -> list[dict[str, str]]:
+    """The same record format as `read_exemptions`, from the C30 file."""
+    records: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    last_key: str | None = None
+    for n, raw in enumerate(C30_FILE.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if line.startswith("#"):
+            continue
+        if not line:
+            if current:
+                records.append(current)
+                current = {}
+            last_key = None
+            continue
+        if raw[:1] in (" ", "\t") and last_key:
+            current[last_key] = (current[last_key] + " " + line).strip()
+            continue
+        if ":" not in line:
+            raise SystemExit(f"{C30_FILE.name}:{n}: not `key: value`: {raw!r}")
+        key, _, value = line.partition(":")
+        last_key = key.strip()
+        current[last_key] = value.strip()
+    if current:
+        records.append(current)
+    need = {"channel": ("id", "literal", "armed", "why"), "exempt": ("id", "path", "literal", "why"),
+            "promise": ("id", "path", "literal", "armed", "why"), "scope": ("id", "path", "armed", "why")}
+    for r in records:
+        kind = r.get("kind")
+        if kind not in need:
+            raise SystemExit(f"{C30_FILE.name}: record {r.get('id')!r} has kind {kind!r}")
+        for k in need[kind]:
+            if k not in r:
+                raise SystemExit(f"{C30_FILE.name}: {kind} record {r.get('id')!r} has no `{k}`")
+        if r.get("armed", "no") not in ("yes", "no"):
+            raise SystemExit(f"{C30_FILE.name}: record {r['id']!r}: armed is yes or no")
+        if kind == "promise" and r["armed"] == "yes" and not re.fullmatch(r"[0-9a-f]{40}", r.get("prefix", "")):
+            raise SystemExit(f"{C30_FILE.name}: armed promise {r['id']!r} names no 40-hex `prefix`")
+    return records
+
+
+def _tracked() -> list[str]:
+    p = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"], capture_output=True)
+    if p.returncode != 0:
+        raise SystemExit("C30 could not list this repository's files with git")
+    return [f for f in p.stdout.decode("utf-8").split("\0") if f]
+
+
+def _c30_subject(rel: str) -> bool:
+    if rel.endswith("CHANGELOG.md") or rel == "PRODUCTION_PLAN.md":
+        return False  # history: what was true when it was written
+    return ((rel.startswith("docs/") and rel.endswith(".md"))
+            or rel.endswith("README.md")
+            or rel in ("AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md")
+            or rel.startswith(".github/ISSUE_TEMPLATE/")
+            or rel.startswith("astra-plugin-cli/src/"))
+
+
+def _squash(s: str) -> str:
+    return re.sub(r"\s+", "", s)
+
+
+def _cli_minor() -> int:
+    m = re.search(r'^version = "(\d+)\.(\d+)\.', (ROOT / "astra-plugin-cli" / "Cargo.toml").read_text(encoding="utf-8"), re.M)
+    return int(m.group(2)) if m else -1
+
+
+def rule_C30(fails: Fails) -> None:
+    records = read_c30()
+    files = _tracked()
+    channels = [r for r in records if r["kind"] == "channel" and r["armed"] == "yes"]
+    exempts = [r for r in records if r["kind"] == "exempt"]
+    scopes = [r for r in records if r["kind"] == "scope" and r["armed"] == "yes"]
+    subjects = [f for f in files if _c30_subject(f) or any(fnmatch.fnmatch(f, s["path"]) for s in scopes)]
+    docs_pages = sum(1 for f in subjects if f.startswith("docs/") and f.endswith(".md"))
+    fails.check(docs_pages >= C30_DOCS_FLOOR, f"C30 floor: {docs_pages} docs page(s) in scope (>= {C30_DOCS_FLOOR})",
+                "the scan no longer sees the docs tree it is meant to search")
+
+    # ── channel ──────────────────────────────────────────────────────────────
+    hits: list[str] = []
+    used = {e["id"]: 0 for e in exempts}
+    for rel in subjects:
+        try:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, FileNotFoundError):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            for c in channels:
+                k = line.count(c["literal"])
+                if not k:
+                    continue
+                ex = next((e for e in exempts if fnmatch.fnmatch(rel, e["path"])
+                           and e["literal"] in ("*", c["literal"])), None)
+                if ex:
+                    used[ex["id"]] += k
+                else:
+                    hits.append(f"{rel}:{n}: `{c['literal']}` ({c['id']})")
+    fails.check(
+        not hits,
+        f"C30 no armed issue-channel literal in {len(subjects)} file(s) "
+        f"({len(channels)} literal(s) armed: {', '.join(c['literal'] for c in channels) or 'none'})",
+        "\n".join(hits[:60]) + (f"\n… and {len(hits) - 60} more" if len(hits) > 60 else "") + "\n"
+        "From the cutover the registry has no issue channel: listing, release detection,\n"
+        "Recheck, reports and appeals are the panel's. A page that still sends an author to\n"
+        "an issue sends them somewhere nothing answers.",
+    )
+    if channels:
+        minor = _cli_minor()
+        for e in exempts:
+            got, want = used[e["id"]], int(e.get("min", "1"))
+            fails.check(got >= want, f"C30 exemption `{e['id']}` matched {got} (>= {want})",
+                        "an exemption that lets nothing through is a hole left open after the "
+                        "thing it excused has gone; delete the record")
+            exp = e.get("expires", "")
+            if m := re.fullmatch(r"cli-minor>(\d+)", exp):
+                fails.check(minor <= int(m.group(1)),
+                            f"C30 exemption `{e['id']}` has not expired (cli minor {minor}, expires past {m.group(1)})",
+                            e["why"])
+
+    # ── promises ─────────────────────────────────────────────────────────────
+    promises = [r for r in records if r["kind"] == "promise"]
+    armed = unarmed = 0
+    for r in promises:
+        paths = [f for f in files if fnmatch.fnmatch(f, r["path"])]
+        if not paths:
+            fails.check(False, f"C30 promise `{r['id']}` names a file that exists", f"no tracked file matches {r['path']}")
+            continue
+        lit = _squash(r["literal"])
+        for rel in paths:
+            now = _squash((ROOT / rel).read_text(encoding="utf-8")).count(lit)
+            if r["armed"] == "no":
+                unarmed += 1
+                fails.check(now == 1, f"C30 promise `{r['id']}` (unarmed, {r.get('promise', '')}) is anchored once in {rel}",
+                            f"found {now} time(s). An unarmed promise must name its sentence exactly as it\n"
+                            "stands, once, so that the change which makes it false has one sentence to amend\n"
+                            "and this record can be armed against it.")
+                continue
+            armed += 1
+            if subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{r['prefix']}^{{commit}}"],
+                              capture_output=True).returncode != 0:
+                fails.check(False, f"C30 promise `{r['id']}` was real: once in {rel} at {r['prefix'][:12]}",
+                            f"commit {r['prefix']} is not in this checkout. `prefix` must be a commit of this\n"
+                            "repository from before the amendment; CI checks out full history for this job.")
+                continue
+            p = subprocess.run(["git", "-C", str(ROOT), "show", f"{r['prefix']}:{rel}"], capture_output=True)
+            before = _squash(p.stdout.decode("utf-8", "replace")).count(lit) if p.returncode == 0 else -1
+            fails.check(before == 1, f"C30 promise `{r['id']}` was real: once in {rel} at {r['prefix'][:12]}",
+                        "found " + (f"{before} time(s)" if before >= 0 else f"no {rel} at that commit") +
+                        ". The literal must be the sentence as it stood before the amendment.")
+            fails.check(now == 0, f"C30 promise `{r['id']}` ({r.get('promise', '')}) is gone from {rel}",
+                        f"still present {now} time(s) — {r['why']}")
+    fails.check(armed + unarmed >= 7, f"C30 floor: {armed} armed and {unarmed} unarmed promise file(s) checked (>= 7)")
+
+
 RULES = {
     "C21": rule_C21,
     "C24": rule_C24,
@@ -3142,6 +3467,8 @@ RULES = {
     "C26": rule_C26,
     "C27": rule_C27,
     "C28": rule_C28,
+    "C29": rule_C29,
+    "C30": rule_C30,
     "C31": rule_C31,
     "C35": rule_C35,
     "C36": rule_C36,
@@ -3152,6 +3479,7 @@ RULES = {
 PINS = {
     "C27": (lambda: read_reserved_spec()[2], RESERVED_SPEC),
     "C28": (lambda: read_panel_spec()[2], PANEL_SPEC),
+    "C29": (lambda: read_submission_spec()[2], SUBMISSION_SPEC),
     "C31": (lambda: (m.group(1) if (m := read_binding_pin()) else None), BINDING_README),
 }
 

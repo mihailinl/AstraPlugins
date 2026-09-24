@@ -21,7 +21,7 @@
 //! # CLI 0.5.0: the panel for everybody (FLOW-45)
 //!
 //! From the registry's cutover there is no issue channel: no listing form, no
-//! release ping, no `/recheck`. A new tag is noticed by the registry's poll, a
+//! release ping, no issue command. A new tag is noticed by the registry's poll, a
 //! first listing is submitted in the panel, and everything that follows — a
 //! hold, a delay, a stop, a Recheck, an appeal — is the panel's. So `publish`
 //! opens the submission page for every repository. A repository with no
