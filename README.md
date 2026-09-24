@@ -223,7 +223,7 @@ defaulting to `127.0.0.1:32000`.
 ### 4. Release
 
 **Publishing a plugin means one specific thing: a tagged release that GitHub's
-CI builds and attests, plus one listing request, ever.** Pushing your source to
+CI builds and attests, plus one submission in the panel, ever.** Pushing your source to
 GitHub is not publishing. Sending someone a zip is not publishing. Asking a
 maintainer to build your plugin is not publishing. The registry pins your plugin
 by the digest of the exact file a user downloads and reads GitHub's build
@@ -255,46 +255,36 @@ does not prove the code is safe.
 
 ### 5. Get listed — once, ever
 
-**First, prove you control the repository.** Commit your GitHub login to
-`.well-known/astra-plugin-owner` on the default branch:
+**First, bind the repository to your Minice account.** Sign in at
+https://astra.minice.ai/plugins with the account that will publish, mint a
+binding token for your repository, and let the CLI write it:
 
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
-git add .well-known/astra-plugin-owner && git commit -m "Astra registry owner" && git push
+astra-plugin init-ci --binding <token>   # writes .well-known/astra-plugin-owner
+git add .well-known && git commit -m "Bind this repository" && git push
 ```
 
-The attestation proves which repository built the bundle; this proves that the
-person requesting the listing controls that repository, so a stranger cannot
-list someone else's plugin and own its updates. Skip it and the first answer you
-get is `E_OWNERSHIP_UNPROVEN` — the automatic checks cannot cover for you,
-because GitHub answers `403` when the registry asks who has `admin` on a
-repository it cannot see into, and the release author is `github-actions[bot]`
-rather than you whenever CI publishes the release. Full explanation:
-[Get listed §2](docs/en/5-publish/get-listed.md#2--prove-you-control-the-repository).
+The attestation proves which repository built the bundle; the binding says which
+account speaks for that repository, so a stranger cannot list someone else's
+plugin and own its updates. Skip it and the first answer is `B_UNBOUND`. The
+token is public and authenticates no release: never merge a binding line you did
+not mint. Full explanation:
+[Get listed — Bind your repository](docs/en/5-publish/get-listed.md#bind-your-repository).
 
 Then:
 
 ```bash
+astra-plugin check --tag v0.1.0  # reads the binding line from the tag, as the registry will
 astra-plugin publish --dry-run   # every registry check that can run locally
-astra-plugin publish             # opens a prefilled listing request
+astra-plugin publish             # opens the panel's submission page, prefilled
 ```
 
 `publish` uploads nothing and holds no credential: the submission carries only
-`owner/repo` and a tag. The registry reads your GitHub Release, verifies every
-asset from scratch, and lists it. After that, a new tag is the whole release —
-the registry notices it (`astra-plugin publish --notify` is the manual nudge if
-it does not). Astra then installs from **your** GitHub Release, with the digest
-pinned by the index.
-
-**Use the URL `publish` gives you.** It targets the registry's issue template,
-which applies the `listing` label, and the registry's bot only starts an ingest
-for an issue carrying that label. Two real listing requests once arrived
-unlabelled and got no answer at all, not even a refusal. Both halves of that are
-closed now: the registry has turned blank issues off, so the form is the only
-door, and a request that still reaches the bot unlabelled gets a comment naming
-the label instead of silence. The template link is the one that starts
-verification with nobody having to intervene.
+`owner/repo` and a tag, and you submit it in the panel, signed in. The registry
+reads your GitHub Release, verifies every asset from scratch, and lists it after
+a person has read it once. After that, a new tag is the whole release — the
+registry detects it by itself, and the panel shows its state. Astra then
+installs from **your** GitHub Release, with the digest pinned by the index.
 
 There is no `astra-plugin login`. Nothing in this toolchain asks you for a
 credential.

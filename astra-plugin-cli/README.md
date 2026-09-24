@@ -149,7 +149,7 @@ than a missing feature.
 | `verify <FILE>` | Verify a built bundle and print its digests |
 | `version <VERSION> [PATH]` | Set the version in `plugin.toml` and every other manifest at once. `--allow-downgrade` |
 | `init-ci` | Write `.github/workflows/release.yml`, pinned to a commit of the reusable workflow. Idempotent — re-run it to upgrade the pin, it keeps your inputs |
-| `publish [PATH]` | Preflight a release, or open a prefilled listing request. `--dry-run`, `--notify`, `--repo`, `--print-url` |
+| `publish [PATH]` | Preflight a release, or open the panel's submission page, prefilled. `--dry-run`, `--repo`, `--tag`, `--print-url` |
 | `sign <FILE>` | Append the **retiring** in-ZIP `SIGNATURE`/`PUBKEY` pair. `--key` |
 | `keygen` | Generate the **optional** Ed25519 keypair `sign` uses |
 
@@ -214,21 +214,22 @@ that omits one rather than letting the run fail after the build.
 ## Getting listed
 
 ```bash
-astra-plugin publish --dry-run   # every registry check that can run locally
-astra-plugin publish             # opens a prefilled listing request
-astra-plugin publish --notify    # a release ping for a plugin already listed
+astra-plugin init-ci --binding <token>   # bind the repository to your Minice account
+astra-plugin check --tag v0.1.0          # read the binding line from the tag, as the registry will
+astra-plugin publish --dry-run           # every registry check that can run locally
+astra-plugin publish                     # open the panel's submission page, prefilled
 ```
 
 **This command never uploads a bundle and never holds a credential.** The
 artifacts are GitHub Release assets your CI attached and attested; the registry
 reads them from your repository and verifies every one from scratch. So a
 submission carries only `owner/repo` and a tag — which is exactly why it can be
-a URL you open in a browser you are already signed in to, rather than a token
-this program would have to be trusted with.
+a page you open in a browser you are already signed in to, rather than a token
+this program would have to be trusted with. The binding token is public text in
+a file, not a credential either.
 
-`publish` targets `mihailinl/astra-registry`, which is public and open for
-submissions. (An earlier note here said that repository returned 404. It does
-not — checked with `gh repo view mihailinl/astra-registry`.)
+A new release of a plugin already listed needs nothing from this command: the
+registry detects the tag by itself, and the panel shows its state.
 
 ## About `sign` and `keygen`
 
