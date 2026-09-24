@@ -2,7 +2,7 @@
 
 # Das TypeScript-SDK
 
-`astra-plugin-sdk` **0.5.0 — die Version, die diese Seite beschreibt**, und
+`astra-plugin-sdk` **0.7.0 — die Version, die diese Seite beschreibt**, und
 die, die npm ausliefert. `npm install astra-plugin-sdk` (oder `bun add`)
 löst sie auf; das ist auch, was `astra-plugin new --lang typescript` pinnt.
 Nimm 0.5.0 oder neuer: 0.4.0 sendet kein Session-Token, und der Daemon
@@ -16,7 +16,7 @@ schlichtweg fehlschlägt.
 ```json
 {
   "dependencies": {
-    "astra-plugin-sdk": "^0.5.0",
+    "astra-plugin-sdk": "^0.7.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }

@@ -2,12 +2,12 @@
 
 # El SDK de Python
 
-`astra-plugin-sdk` 0.5.0 en PyPI. Hereda de `Plugin`, decora métodos,
+`astra-plugin-sdk` 0.6.1 en PyPI. Hereda de `Plugin`, decora métodos,
 ejecútalo.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
 ```
-astra-plugin-sdk>=0.5,<0.6
+astra-plugin-sdk>=0.6,<0.7
 grpcio>=1.60.0
 grpcio-tools>=1.60.0
 protobuf>=4.25.0

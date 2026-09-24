@@ -2,7 +2,7 @@
 
 > Переклад. Джерело істини — [docs/en](../../en/4-sdk/typescript.md); за розбіжності відповідає англійська версія.
 
-`astra-plugin-sdk` **0.5.0 — версія, яку описує ця сторінка**, і та, що
+`astra-plugin-sdk` **0.7.0 — версія, яку описує ця сторінка**, і та, що
 віддає npm. `npm install astra-plugin-sdk` (або `bun add`) її розв'язує; це
 ж закріплює `astra-plugin new --lang typescript`. Беріть 0.5.0 або новіший:
 0.4.0 не надсилає токен сесії, і демон відхиляє кожен виклик хоста, який
@@ -16,7 +16,7 @@
 ```json
 {
   "dependencies": {
-    "astra-plugin-sdk": "^0.5.0",
+    "astra-plugin-sdk": "^0.7.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }

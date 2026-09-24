@@ -1,12 +1,12 @@
 # The Rust SDK
 
-`astra-plugin-sdk` 0.6.0. One dependency, and everything the macros expand to
+`astra-plugin-sdk` 0.7.1. One dependency, and everything the macros expand to
 comes through it.
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->
 ```toml
 [dependencies]
-astra-plugin-sdk = "0.6"
+astra-plugin-sdk = "0.7"
 ```
 
 0.6 is the first release whose `HostClient` attaches `x-session-token`. Against

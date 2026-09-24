@@ -15,15 +15,15 @@ como datos en lugar de como una promesa que alguien tiene que recordar.
 | **Versión de protocolo** | `proto/PROTO_VERSION` (`protocol=1`), reflejada como `PROTOCOL_VERSION` en cada SDK | El contrato de cable entre un plugin y el daemon. |
 | **La versión de tu plugin** | tu `plugin.toml` | La tuya. El registro ordena los releases por ella. |
 
-Las tres versiones de SDK deliberadamente no se mantienen iguales. El
-tren actual es `sdk-v0.7.0`, y publica:
-
-| Paquete | Registro | Versión |
-| --- | --- | --- |
-| `astra-plugin-sdk` (Rust) | crates.io | 0.7.0 |
-| `astra-plugin-macros` | crates.io | 0.7.0 — publicado **antes** que el SDK, que depende de él por versión |
-| `astra-plugin-sdk` (Python) | PyPI | 0.6.0 |
-| `astra-plugin-sdk` (TypeScript) | npm | 0.6.0 |
+Las tres versiones del SDK no se mantienen iguales a propósito: un tag
+`sdk-v<VERSION>` publica la versión que lleve el manifiesto de cada paquete, y
+`astra-plugin-macros` sube **antes** que el SDK de Rust, que depende de él por
+versión. Qué números son hoy no está escrito en esta página. Antes nombraba el
+tren actual, y siguió nombrando `sdk-v0.7.0` durante un mes después de que
+`sdk-v0.7.1` saliera — así que los números viven en un solo sitio, la tabla
+[Publication state](../../README.md#publication-state) del README, donde el
+acoplamiento C23 ata la columna *In this tree* a los manifiestos y C23b ata la
+columna *Published* a crates.io, PyPI y npm.
 
 Un número de versión responde "contra qué API estoy escribiendo", así
 que un paquete que ha tenido menos releases con cambios incompatibles
@@ -55,6 +55,40 @@ sino un mecanismo:
   con el que ese SDK se registrará. Por debajo de eso, el plugin sale
   con una frase que nombra la solución en lugar de fallar en la primera
   llamada.
+
+## Tipos de protocolo generados
+
+Los mensajes de protocolo que expone cada SDK — `astra_plugin_sdk::proto::*` en
+Rust, las clases de mensaje `_pb2` en Python, el descriptor que carga el SDK de
+TypeScript — se generan a partir de `proto/plugin.proto`, el recorte del propio
+daemon, que se vuelve a sincronizar cada vez que el protocolo del daemon crece.
+La regla de versiones para ellos:
+
+| Cambio en un tipo generado | Hueco |
+| --- | --- |
+| un campo o un mensaje añadido | patch — una adición |
+| un campo eliminado, renombrado, renumerado o con otro tipo | minor — una ruptura |
+
+**Qué cubre la promesa de patch, en Rust:** construir un mensaje con
+`..Default::default()`, o con `Default::default()` y asignando después sus
+campos. **No** cubre un literal de struct exhaustivo — uno que nombra cada
+campo y no tiene `..` —, que un campo nuevo rompe con `E0063 missing fields`,
+igual que un `match` sobre un enum `#[non_exhaustive]` tampoco está cubierto.
+`astra-plugin new` escribe la forma con `..Default::default()`. Las clases de
+mensaje de Python reciben argumentos con nombre y el SDK de TypeScript lee su
+descriptor en tiempo de ejecución, así que en esos dos un campo nuevo no rompe
+nada.
+
+Por qué un campo nuevo no es un minor: cada sincronización del recorte del
+daemon añade campos — 37 en mensajes que ya existían, entre `sdk-v0.7.1` y
+0.7.2 —, así que un minor por campo convertiría cada sincronización en un minor,
+y el hueco de minor dejaría de significar *tu código puede dejar de compilar*.
+Por qué no `#[non_exhaustive]` en los structs generados, que haría de la regla
+la del compilador: también prohíbe `..Default::default()` desde fuera del crate,
+así que rompería hoy el literal de cada plugin para protegerlo de una ruptura
+mañana. La compatibilidad del wire no es en absoluto tarea de esta regla; es la
+del entero de protocolo, más arriba. Los tipos que el SDK escribe a mano siguen
+bajo la regla ordinaria, y por eso `Invocation` es `#[non_exhaustive]`.
 
 ## La política de desuso
 

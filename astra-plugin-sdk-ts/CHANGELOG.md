@@ -15,7 +15,86 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.0] — unreleased
+## [0.7.1] — unreleased
+
+Additive. A tool call and an action can ask which conversation invoked them, and
+answer in it later; and the chat firehose stops retrying a refusal that cannot
+change.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.0 compiles unchanged — every new member is optional, and every new
+parameter has a default.
+
+**Why this number is 0.7.1 and not 0.7.0.** Until this entry, the heading below
+said `[0.7.0] — unreleased` while npm had served 0.7.0 since
+2026-08-25T04:33:04Z. The `sdk-v0.7.1` train's npm leg failed on 2026-08-24; the
+`registries: npm` run that finished it (Release SDKs run 32808164014, dispatched
+at `83c4a9f`) published the package, and its `released` summary job then went
+red, counting the two legs it had been told to skip as missing. The run read as
+failed, so nothing here was dated, and the additions below landed under a
+heading whose version was already taken. `release-sdks.yml` gate 1 refuses a
+version npm already has, so the next train could not have shipped from this
+tree. Everything under this heading reached the tree after `83c4a9f`; what npm
+serves as 0.7.0 is the section below it, as it read at that commit.
+
+### Added
+- **`Invocation`** and **`currentInvocation()`**, plus an OPTIONAL
+  **`PluginContext.invocation`**. Inside a tool call or an action that a
+  conversation's assistant turn made, `invocation.conversationId` is a UUID you
+  MAY store — across restarts — and pass straight back as
+  `sendChatMessage(text, { conversationId })`. It is the same `conversationId`
+  that call already took: one concept, one name, a round trip.
+
+  Optional on the interface deliberately, so this is **not** the kind of break
+  `language` was: a plugin written before this compiles unchanged, and one
+  reading it is made to handle the absent case, which is the common one.
+
+  Implemented as a per-call `AsyncLocalStorage` store rather than a field on the
+  context, and the difference is a bug avoided: one `PluginContext` is built per
+  plugin and handed to every hook, so a field would be the same value for two
+  concurrent calls from two different chats.
+- **`MockDaemon.callTool(name, args, { conversationId })`** and the same option
+  on the level-1 harness. `null` there sends an invocation naming no
+  conversation — a real wire shape that no object literal produces.
+
+### Fixed
+- **The chat firehose retried a refusal that cannot change, every two seconds,
+  for the life of the plugin.** The daemon registers every plugin as a plugin
+  client and refuses that identity on any gRPC path outside
+  `/astra.PluginHostService/`, so `onConversationEvent`'s stream answered
+  `PERMISSION_DENIED` on every reconnect and wrote the same line into the log
+  pane a user opens to find out what is wrong. It now says so once, names the
+  path that does work (`HostClient.sendChatMessage`, permission
+  `send_chat_message`), and stops. `UNIMPLEMENTED` stops it too. Every other
+  code is still retried, `UNAUTHENTICATED` included. The predicate reads the
+  gRPC code, never the daemon's wording (`00624d4`).
+
+### Changed (conversation ids)
+- `sendChatMessage`'s documentation retracts *"do not store one and send it back
+  later"* and names the deadlock that replaces it: **never await a send into the
+  conversation that is calling you, from inside that call.** That conversation
+  is still running the turn waiting for your answer, so the message queues
+  behind it and the call times out. Start the send and do not await it.
+- Three shapes normalise to `undefined`: no `invocation` message, one whose
+  `conversationId` is `""`, and `null` — the descriptor is loaded with
+  `keepCase: false` and an absent sub-message arrives as `null`, so a plain `?.`
+  chain would leak it through a type that promises `undefined`.
+- A sentence about a fired trigger's output said "the conversation the user is
+  actually looking at"; it now says "the conversation that made the call".
+
+### Notes (event vocabulary)
+- **`update_state_changed` is accepted in a `subscribe_events` allowlist and
+  never delivered.** A real member of the event enum, so naming it passes every
+  gate on this side; nothing then arrives, and the plugin waits for ever with no
+  error. It is the doorbell for the update block of `GetState`, which a plugin
+  token cannot call — so the ring would carry only the timing of somebody's
+  sign-in and button presses. Withheld deliberately. Nothing in this SDK can
+  warn you; `types` is free-form strings here and the vocabulary lives in the
+  daemon.
+
+## [0.7.0] — 2026-08-25
 
 A plugin can translate its own runtime strings; and `DaemonInfo` finally
 declares the language field the wire has always carried.
@@ -49,26 +128,6 @@ runtime behaviour is backward compatible and the fix is one property.
 - **`PluginContext.i18n: I18n` is required**, and so is `ContextSource.i18n`.
   Both are exported types. If you hand-roll a `PluginContext` in a test, take
   `I18n.empty()` — or use the level-1 harness, which builds one for you.
-
-### Added
-- **`Invocation`** and **`currentInvocation()`**, plus an OPTIONAL
-  **`PluginContext.invocation`**. Inside a tool call or an action that a
-  conversation's assistant turn made, `invocation.conversationId` is a UUID you
-  MAY store — across restarts — and pass straight back as
-  `sendChatMessage(text, { conversationId })`. It is the same `conversationId`
-  that call already took: one concept, one name, a round trip.
-
-  Optional on the interface deliberately, so this is **not** the kind of break
-  `language` was: a plugin written before this compiles unchanged, and one
-  reading it is made to handle the absent case, which is the common one.
-
-  Implemented as a per-call `AsyncLocalStorage` store rather than a field on the
-  context, and the difference is a bug avoided: one `PluginContext` is built per
-  plugin and handed to every hook, so a field would be the same value for two
-  concurrent calls from two different chats.
-- **`MockDaemon.callTool(name, args, { conversationId })`** and the same option
-  on the level-1 harness. `null` there sends an invocation naming no
-  conversation — a real wire shape that no object literal produces.
 
 ### Added
 - **`key()`** — marks a string the DAEMON renders (an action label, a
@@ -128,29 +187,6 @@ none. Migrate at your convenience; the alias is a one-line rename.
 `PROTOCOL_VERSION` is unchanged at `1`. A plugin that ships no `locales/`
 directory is unaffected: `I18n.discover()` finds nothing, `hasLocales` is
 `false`, and `t()` returns the key exactly as before.
-
-### Changed (conversation ids)
-- `sendChatMessage`'s documentation retracts *"do not store one and send it back
-  later"* and names the deadlock that replaces it: **never await a send into the
-  conversation that is calling you, from inside that call.** That conversation
-  is still running the turn waiting for your answer, so the message queues
-  behind it and the call times out. Start the send and do not await it.
-- Three shapes normalise to `undefined`: no `invocation` message, one whose
-  `conversationId` is `""`, and `null` — the descriptor is loaded with
-  `keepCase: false` and an absent sub-message arrives as `null`, so a plain `?.`
-  chain would leak it through a type that promises `undefined`.
-- A sentence about a fired trigger's output said "the conversation the user is
-  actually looking at"; it now says "the conversation that made the call".
-
-### Notes (event vocabulary)
-- **`update_state_changed` is accepted in a `subscribe_events` allowlist and
-  never delivered.** A real member of the event enum, so naming it passes every
-  gate on this side; nothing then arrives, and the plugin waits for ever with no
-  error. It is the doorbell for the update block of `GetState`, which a plugin
-  token cannot call — so the ring would carry only the timing of somebody's
-  sign-in and button presses. Withheld deliberately. Nothing in this SDK can
-  warn you; `types` is free-form strings here and the vocabulary lives in the
-  daemon.
 
 ## [0.6.0] — 2026-08-16
 
