@@ -515,8 +515,8 @@ since the tag moved on 2026-08-19: the commit `plugin-release/v1` points at, and
 the one it pointed at before. Since 2026-09-20 the catalogue clients are served
 is signed with that key; the copies committed on the registry's `main`,
 `registry/v1/index.json` and `revocations.json`, carry `"signatures": []` by
-design, and no client reads them. **The link still missing is a signed
-withdrawal list on Pages**, so revocation is not enforced yet. Nothing here
+design, and no client reads them. The withdrawal list Pages serves is signed
+too, so revocation is enforced. Nothing here
 promises a guarantee that is not yet in place; see
 [the security model](1-orientation/security.md) and
 [`spec/registry-index.md` §0.1](spec/registry-index.md).

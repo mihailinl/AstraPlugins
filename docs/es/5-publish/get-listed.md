@@ -464,8 +464,8 @@ hacerle a la máquina. No hay sandbox. Consulta
 
 Algo que un lector merece saber antes de seguir esta página.
 
-**La cadena de firma está anclada a través del catálogo, pero todavía no a
-través de la lista de retirada.** En concreto, y cada parte es comprobable:
+**La cadena de firma está anclada de extremo a extremo, a través del catálogo
+y de la lista de retirada.** En concreto, y cada parte es comprobable:
 
 - las claves raíz existen en ambos lados — `registry/v1/root.json` lleva
   `"status": "provisioned"` con dos claves Ed25519, y
@@ -484,18 +484,16 @@ través de la lista de retirada.** En concreto, y cada parte es comprobable:
   despliega en Pages. Las copias confirmadas en `main`,
   `registry/v1/index.json` y `revocations.json`, llevan `"signatures": []`
   a propósito, y ningún cliente las lee. La lista de retirada que sirve Pages
-  sigue siendo la confirmada sin firmar, así que la aplicación de
-  revocaciones todavía no está activa.
+  también está firmada, desde el commit de astra-registry `@FLAG7@`
+  (@ARMED_DATE@), así que las revocaciones se aplican.
 
 Consulta [`spec/registry-index.md` §0.1](../spec/registry-index.md) y
 [el modelo de seguridad](../1-orientation/security.md).
 
 Lo que eso significa para ti: la vía de envío de esta página funciona
 hoy de principio a fin — tu issue se lee, las comprobaciones se
-ejecutan, el bot responde, y un listado se confirma. Lo que sigue
-pendiente es la lista de retirada firmada en Pages, que le permite al
-registro retirar una versión de las copias ya instaladas. Nada de esta página
-cambia cuando llegue.
+ejecutan, el bot responde, un listado se confirma, y el registro puede
+retirar una versión de las copias ya instaladas.
 
 ## Ver también
 

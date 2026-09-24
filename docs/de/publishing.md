@@ -565,9 +565,9 @@ verschoben wurde: der Commit, auf den `plugin-release/v1` zeigt, und der,
 auf den es vorher zeigte. Seit 2026-09-20 ist der Katalog, den Clients
 bekommen, mit diesem Schlüssel signiert; die auf `main` der Registry
 committeten Kopien, `registry/v1/index.json` und `revocations.json`, tragen
-`"signatures": []` mit Absicht, und kein Client liest sie. **Der noch
-fehlende Link ist eine signierte Widerrufsliste auf Pages**, Widerruf wird
-also noch nicht durchgesetzt.
+`"signatures": []` mit Absicht, und kein Client liest sie. Die
+Widerrufsliste, die Pages ausliefert, ist ebenfalls signiert, Widerruf wird
+also durchgesetzt.
 Nichts hier verspricht eine Garantie, die noch nicht vorhanden ist;
 siehe [das Sicherheitsmodell](1-orientation/security.md) und
 [`spec/registry-index.md` §0.1](spec/registry-index.md).

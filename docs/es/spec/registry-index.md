@@ -3,9 +3,9 @@
 # Los documentos firmados del registro — especificación normativa
 
 **Estado:** normativo para los formatos de documento y las reglas de
-verificación. **En vigor en parte:** la cadena de firmas descrita aquí
-está especificada, implementada en ambos extremos, y anclada a través del
-catálogo, pero todavía no a través de la lista de retirada — consulta el §0.1
+verificación. **En vigor:** la cadena de firmas descrita aquí está
+especificada, implementada en ambos extremos, y anclada de extremo a extremo —
+consulta el §0.1
 antes de confiar en ninguna frase de este
 archivo como garantía de seguridad.
 
@@ -76,21 +76,21 @@ y nunca "compilación verificada".
   "sin firmar" dicho en voz alta, donde un miembro ausente no podría
   distinguirse de uno eliminado. Ningún cliente las lee; las copias firmadas
   están en `signed` y en Pages.
-* Una consecuencia sigue vigente y no debe disimularse. Pages todavía sirve
-  la lista de retirada confirmada y sin firmar hasta que el registro active
-  allí la firmada, y porque `verify_revocations_document` es estricto
-  (§6.4), **una lista de retirada sin firmar se rechaza, así que la
-  aplicación de revocaciones todavía no está activa** —
-  `RevocationFreshness::NotEnforced` hasta que se obtenga una vez una
-  lista con firma válida.
+* **La lista de retirada que sirve Pages también está firmada**, desde el
+  commit de astra-registry `@FLAG7@` (@ARMED_DATE@), que añadió
+  `policy/pages-withdrawal-list.json`. Porque `verify_revocations_document`
+  es estricto (§6.4), un daemon sigue en `RevocationFreshness::NotEnforced`
+  solo hasta que obtiene una vez una lista con firma válida. A partir de
+  entonces aplica las retiradas, le afecta el bloqueo de 7 días de §5.5, y no
+  vuelve a desarmarse.
 
 Todo lo de abajo describe el formato y el algoritmo, y nada de eso
 cambia cuando llegue el enlace que falta. La ceremonia de la raíz ya
 se ha ejecutado, la delegación está firmada, y el `index.json` que
 reciben los clientes lleva una firma en su array `signatures`, así que la
 mitad de la cadena que corresponde al catálogo tiene peso en la máquina de
-un usuario. Lo que falta es la mitad de la lista de retirada: una lista
-firmada en Pages.
+un usuario, y también la mitad de la lista de retirada: Pages sirve la
+lista firmada.
 
 ## 1. El sobre
 

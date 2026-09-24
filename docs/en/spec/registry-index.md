@@ -1,10 +1,9 @@
 # The signed registry documents — normative specification
 
 **Status:** normative for the document formats and the verification rules.
-**Partly in force:** the signature chain described here is specified,
-implemented on both ends, and anchored through the catalogue, not yet through
-the withdrawal list — see §0.1 before you rely on any sentence in this file as
-a security guarantee.
+**In force:** the signature chain described here is specified, implemented on
+both ends, and anchored end to end — §0.1 says where it stands and what was
+checked.
 
 Four documents, three schemas, one signature construction:
 
@@ -66,19 +65,19 @@ required to say "same author as before" and never "verified build".
   "unsigned" said out loud, where an absent member could not be told from a
   stripped one. No client reads them; the signed copies are on `signed` and on
   Pages.
-* One consequence is still live and must not be papered over. Pages still
-  serves the committed, unsigned withdrawal list until the registry arms the
-  signed one there, and because `verify_revocations_document` is strict
-  (§6.4), **an unsigned withdrawal list is refused, so revocation enforcement
-  is not live yet** — `RevocationFreshness::NotEnforced` until a
-  signature-valid list is fetched once.
+* **The withdrawal list Pages serves is signed too**, from astra-registry
+  commit `@FLAG7@` (@ARMED_DATE@), which added
+  `policy/pages-withdrawal-list.json`. Because `verify_revocations_document`
+  is strict (§6.4), a daemon stays `RevocationFreshness::NotEnforced` only
+  until it fetches a signature-valid list once. From then on it enforces
+  withdrawal, the 7-day block of §5.5 applies to it, and it does not disarm.
 
 Everything below describes the format and the algorithm, and none of it changes
 when the remaining link lands. The root ceremony has run, the delegation is
 signed, and the `index.json` clients are served carries a signature in its
 `signatures` array, so the catalogue's half of the chain carries weight on a
-user's machine. What is left is the withdrawal list's half: a signed list on
-Pages.
+user's machine, and so does the withdrawal list's half: Pages serves the
+signed list.
 
 ## 1. The envelope
 

@@ -43,11 +43,11 @@ not.
 
 ## Two things that are true today and will not be softened
 
-### The trust chain is specified, implemented, and one link short at withdrawal
+### The trust chain is specified, implemented, and anchored end to end
 
 The root keys exist, the delegation below them does too, and so does **the
-catalogue's own signature**. What a user's machine does not get yet is a signed
-withdrawal list. Concretely
+catalogue's own signature**, and the withdrawal list Pages serves is signed
+too. Concretely
 ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 
 - the registry's `root.json` carries `"status": "provisioned"` and two Ed25519
@@ -67,14 +67,14 @@ withdrawal list. Concretely
   to Pages, so a default build has a catalogue signature to check. The copies
   committed on the registry's `main` still carry `"signatures": []`, by
   design, and no client reads them;
-- **but Pages still serves the unsigned withdrawal list** until the registry
-  arms the signed one there, and because withdrawal lists are verified
-  strictly, an unsigned one is refused, so **revocation enforcement is not
-  live yet**.
+- **and the withdrawal list Pages serves is signed**, since astra-registry
+  commit `@FLAG7@` (@ARMED_DATE@). A default build enforces withdrawal from
+  its first fetch of a signature-valid list, and from then on it refuses new
+  installs while the list it holds is more than 7 days old
+  ([`spec/registry-index.md` §5.5](../spec/registry-index.md)).
 
 Nothing here is a promise about a guarantee you do not have today. The
-catalogue's signature carries weight for a user now; withdrawal will, once the
-signed list is on Pages.
+catalogue's signature and the withdrawal list both carry weight for a user now.
 
 ### A local signing key confers no trust at all
 
@@ -179,7 +179,7 @@ Named, rather than left for a reader to discover:
 | A plugin reading your files, your keys, your network | **Not defended.** No isolation exists — Phase 7 |
 | A plugin reading `daemon.token` and registering as a client | **Not defended.** Same reason |
 | A malicious or compromised registry serving different bytes | Defended *by design* — the index countersigns a digest and the daemon re-hashes — and the roots are provisioned (`registry/v1/root.json`, the same two keys compiled into the daemon). Since 2026-09-20 the catalogue clients are served is signed under them |
-| A withdrawn version already installed | Specified; not enforced today, because Pages still serves an unsigned withdrawal list and an unsigned list is refused |
+| A withdrawn version already installed | **Defended.** The withdrawal list Pages serves is signed, and a default build enforces it from its first fetch of a signature-valid list |
 | Another local process calling into your plugin's capability server | **Defended.** The daemon presents the spawn token on every call and sets `ASTRA_PLUGIN_CAPABILITY_AUTH=require`, so the SDK refuses a call without it. Under a daemon too old to send the header the SDK stays at `warn` — a wrong token refused, a missing one accepted — because there is nothing else it could do |
 | A plugin editing its own manifest to widen its permissions | **Defended at tiers 1 and 2** — grants come from a daemon-owned trust record, not from the manifest. **Not defended at tier 3**: for a sideloaded directory the manifest *is* the grant and has no ceiling, so it can take every permission in the vocabulary by editing its own file |
 | A hand-planted sideload marker | Defended. The daemon refuses a marker it did not write |

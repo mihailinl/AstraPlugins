@@ -428,7 +428,7 @@ is no sandbox. See [the security model](../1-orientation/security.md).
 
 One thing a reader deserves to know before following this page.
 
-**The signing chain is anchored through the catalogue, and not yet through the
+**The signing chain is anchored end to end, through the catalogue and the
 withdrawal list.** Precisely, and each part is checkable:
 
 - the root keys exist on both sides — `registry/v1/root.json` carries
@@ -445,17 +445,16 @@ withdrawal list.** Precisely, and each part is checkable:
   registry's signer signs `index.json` with `astra-index-2026a` and deploys it
   to Pages. The copies committed on `main`, `registry/v1/index.json` and
   `revocations.json`, carry `"signatures": []` by design, and no client reads
-  them. The withdrawal list Pages serves is still the unsigned committed one,
-  so revocation enforcement is not live yet.
+  them. The withdrawal list Pages serves is signed too, since astra-registry
+  commit `@FLAG7@` (@ARMED_DATE@), so revocation is enforced.
 
 See [`spec/registry-index.md` §0.1](../spec/registry-index.md) and
 [the security model](../1-orientation/security.md).
 
 What that means for you: the submission path on this page works end to end
 today — your issue is read, the checks run, the bot answers, and a listing is
-committed. What is still pending is the signed withdrawal list on Pages, which
-lets the registry withdraw a version from copies already installed. Nothing on
-this page changes when it lands.
+committed, and the registry can withdraw a version from copies already
+installed.
 
 ## See also
 

@@ -555,9 +555,9 @@ se movió el 2026-08-19: el commit al que apunta `plugin-release/v1`, y
 aquel al que apuntaba antes. Desde el 2026-09-20 el catálogo que reciben
 los clientes está firmado con esa clave; las copias confirmadas en `main` del
 registro, `registry/v1/index.json` y `revocations.json`, llevan
-`"signatures": []` a propósito, y ningún cliente las lee. **El enlace que
-todavía falta es una lista de retirada firmada en Pages**, así que la
-revocación todavía no se aplica. Nada aquí promete una garantía que todavía no esté en su
+`"signatures": []` a propósito, y ningún cliente las lee. La lista de retirada
+que sirve Pages también está firmada, así que la revocación se aplica. Nada
+aquí promete una garantía que todavía no esté en su
 sitio; consulta [el modelo de seguridad](1-orientation/security.md) y
 [`spec/registry-index.md` §0.1](spec/registry-index.md).
 

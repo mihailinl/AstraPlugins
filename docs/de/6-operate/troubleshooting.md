@@ -161,13 +161,13 @@ installiere sie stattdessen von der Plugins-Seite, oder lies
 [lokale Installation](../5-publish/local-install.md) dafür, was der
 Import kostet.
 
-Heute ist die Vertrauenskette **beim Widerruf einen Link zu kurz**: die
-Root-Schlüssel existieren, die root-signierte `trust.json` delegiert einen
-Index-Signierschlüssel, und der Katalog, den Clients bekommen, ist damit
-signiert. Die auf `main` der Registry committeten Kopien tragen
-`"signatures": []` mit Absicht, und kein Client liest sie. Was Pages noch
-nicht ausliefert, ist eine signierte Widerrufsliste, Widerruf wird also nicht
-durchgesetzt. Siehe
+Heute ist die Vertrauenskette **durchgehend** verankert: die Root-Schlüssel
+existieren, die root-signierte `trust.json` delegiert einen
+Index-Signierschlüssel, und der Katalog und die Widerrufsliste, die Clients
+bekommen, sind beide damit signiert. Die auf `main` der Registry committeten
+Kopien tragen `"signatures": []` mit Absicht, und kein Client liest sie.
+**`REVOCATIONS_STALE`** heißt, dass die Widerrufsliste auf dieser Maschine
+älter als 7 Tage ist: verbinde dich, und Astra holt eine frische. Siehe
 [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## Ein Tool-Aufruf scheitert auf eine Weise, die das Modell nicht beheben kann

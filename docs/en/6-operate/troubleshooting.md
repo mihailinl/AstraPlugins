@@ -144,12 +144,13 @@ override**, and each names which of two things happened.
 Plugins page instead, or read [local install](../5-publish/local-install.md) for
 what importing it costs.
 
-Today the trust chain is anchored **one link short, at withdrawal**. The root
-keys exist, the root-signed `trust.json` delegates an index-signing key, and
-the catalogue clients are served is signed with it. The copies committed on the
-registry's `main` carry `"signatures": []` by design, and no client reads
-them. What Pages does not serve yet is a signed withdrawal list, so revocation
-is not enforced. See [`spec/registry-index.md` §0.1](../spec/registry-index.md).
+Today the trust chain is anchored **end to end**. The root keys exist, the
+root-signed `trust.json` delegates an index-signing key, and the catalogue and
+the withdrawal list clients are served are both signed with it. The copies
+committed on the registry's `main` carry `"signatures": []` by design, and no
+client reads them. **`REVOCATIONS_STALE`** means the withdrawal list this
+machine holds is more than 7 days old: reconnect, and Astra fetches a fresh
+one. See [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## A tool call fails in a way the model cannot fix
 

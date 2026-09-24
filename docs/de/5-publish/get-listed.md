@@ -479,8 +479,8 @@ des Plugins mit der Maschine anstellen darf. Es gibt keine Sandbox. Siehe
 
 Eine Sache, die ein Leser verdient zu wissen, bevor er dieser Seite folgt.
 
-**Die Signierkette ist durch den Katalog hindurch verankert, aber noch nicht
-durch die Widerrufsliste.** Genau genommen, und jeder Teil ist überprüfbar:
+**Die Signierkette ist durchgehend verankert, durch den Katalog und die
+Widerrufsliste.** Genau genommen, und jeder Teil ist überprüfbar:
 
 - die Root-Schlüssel existieren auf beiden Seiten — `registry/v1/root.json`
   trägt `"status": "provisioned"` mit zwei Ed25519-Schlüsseln, und
@@ -499,18 +499,17 @@ durch die Widerrufsliste.** Genau genommen, und jeder Teil ist überprüfbar:
   deployt es nach Pages. Die auf `main` committeten Kopien,
   `registry/v1/index.json` und `revocations.json`, tragen
   `"signatures": []` mit Absicht, und kein Client liest sie. Die
-  Widerrufsliste, die Pages ausliefert, ist weiterhin die unsignierte
-  committete, die Durchsetzung von Widerrufen ist also noch nicht aktiv.
+  Widerrufsliste, die Pages ausliefert, ist ebenfalls signiert — seit dem
+  astra-registry-Commit `@FLAG7@` (@ARMED_DATE@) —, Widerrufe werden also
+  durchgesetzt.
 
 Siehe [`spec/registry-index.md` §0.1](../spec/registry-index.md) und
 [das Sicherheitsmodell](../1-orientation/security.md).
 
 Was das für dich bedeutet: Der Einreichungspfad auf dieser Seite
 funktioniert heute Ende-zu-Ende — dein Issue wird gelesen, die Prüfungen
-laufen, der Bot antwortet, und ein Listing wird committed. Was noch
-aussteht, ist die signierte Widerrufsliste auf Pages, mit der die Registry
-eine Version aus bereits installierten Kopien zurückziehen kann. Nichts auf
-dieser Seite ändert sich, wenn sie ankommt.
+laufen, der Bot antwortet, ein Listing wird committed, und die Registry kann
+eine Version aus bereits installierten Kopien zurückziehen.
 
 ## Siehe auch
 

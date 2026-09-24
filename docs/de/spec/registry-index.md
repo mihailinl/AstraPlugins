@@ -3,9 +3,9 @@
 # Die signierten Registry-Dokumente — normative Spezifikation
 
 **Status:** normativ für die Dokumentformate und die
-Verifikationsregeln. **Teilweise in Kraft:** die hier beschriebene
-Signaturkette ist spezifiziert, auf beiden Seiten implementiert und durch den
-Katalog verankert, aber noch nicht durch die Widerrufsliste — siehe §0.1, bevor
+Verifikationsregeln. **In Kraft:** die hier beschriebene Signaturkette ist
+spezifiziert, auf beiden Seiten implementiert und durchgehend verankert —
+siehe §0.1, bevor
 du dich auf irgendeinen Satz in
 dieser Datei als Sicherheitsgarantie verlässt.
 
@@ -77,20 +77,20 @@ zuvor" zu sagen und nie „verifizierter Build".
   Absicht: „unsigniert" laut ausgesprochen, wo ein fehlendes Member nicht von
   einem entfernten unterschieden werden könnte. Kein Client liest sie; die
   signierten Kopien liegen auf `signed` und auf Pages.
-* Eine Konsequenz gilt weiterhin und darf nicht wegkaschiert werden. Pages
-  liefert weiterhin die committete, unsignierte Widerrufsliste aus, bis die
-  Registry dort die signierte scharf schaltet, und weil
-  `verify_revocations_document` strikt ist (§6.4), **wird eine unsignierte
-  Widerrufsliste abgelehnt, die Durchsetzung von Widerruf ist also noch nicht
-  aktiv** — `RevocationFreshness::NotEnforced`, bis einmal eine
-  signaturgültige Liste geholt wird.
+* **Die Widerrufsliste, die Pages ausliefert, ist ebenfalls signiert** — seit
+  dem astra-registry-Commit `@FLAG7@` (@ARMED_DATE@), der
+  `policy/pages-withdrawal-list.json` hinzugefügt hat. Weil
+  `verify_revocations_document` strikt ist (§6.4), bleibt ein Daemon nur so
+  lange `RevocationFreshness::NotEnforced`, bis er einmal eine
+  signaturgültige Liste geholt hat. Ab dann setzt er Widerrufe durch, die
+  7-Tage-Sperre aus §5.5 gilt für ihn, und er wird nicht wieder entschärft.
 
 Alles unten beschreibt das Format und den Algorithmus, und nichts davon
 ändert sich, wenn der verbleibende Link ankommt. Die Root-Zeremonie ist
 gelaufen, die Delegation ist signiert, und das `index.json`, das Clients
 bekommen, trägt eine Signatur in seinem `signatures`-Array, sodass die
-Katalog-Hälfte der Kette auf der Maschine eines Nutzers Gewicht trägt. Was
-fehlt, ist die Hälfte der Widerrufsliste: eine signierte Liste auf Pages.
+Katalog-Hälfte der Kette auf der Maschine eines Nutzers Gewicht trägt, und
+ebenso die Hälfte der Widerrufsliste: Pages liefert die signierte Liste aus.
 
 ## 1. Der Umschlag
 

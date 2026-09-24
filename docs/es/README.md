@@ -109,17 +109,16 @@ publicó estos bytes*; los permisos responden *qué hará el daemon cuando el
 plugin lo pida*. Ninguna de las dos responde qué puede hacerle el proceso a tu
 máquina. Consulta [el modelo de seguridad](1-orientation/security.md).
 
-**La cadena de confianza está anclada a través del catálogo, pero todavía no
-a través de la lista de retirada.** Las claves raíz existen y coinciden en
+**La cadena de confianza está anclada de extremo a extremo.** Las claves raíz existen y coinciden en
 ambos lados, y el `trust.json` firmado por la raíz que delega en una clave de
 firma del índice también existe — se verifica bajo `astra-root-2026a` y
 nombra el único commit del workflow reutilizable que el registro aceptará en
 una attestation de compilación. Desde el 2026-09-20 el catálogo que reciben
 los clientes está firmado con esa clave; las copias confirmadas en `main` del
 registro, `registry/v1/index.json` y `revocations.json`, llevan
-`"signatures": []` a propósito, y ningún cliente las lee. Lo que todavía
-falta es una lista de retirada firmada en Pages, así que la revocación
-todavía no se aplica. Esto está escrito en
+`"signatures": []` a propósito, y ningún cliente las lee. La lista de retirada
+que sirve Pages también está firmada, así que la revocación se aplica. Esto
+está escrito en
 [`spec/registry-index.md` §0.1](spec/registry-index.md) y se repite en todos
 los lugares donde importa, en lugar de darlo por implícito en silencio.
 </content>

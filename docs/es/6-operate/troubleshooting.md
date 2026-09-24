@@ -157,12 +157,13 @@ instálalo desde la página de Plugins en su lugar, o lee
 [instalación local](../5-publish/local-install.md) para saber qué cuesta
 importarlo.
 
-Hoy a la cadena de confianza le falta **un eslabón, el de la retirada**: las
-claves raíz existen, el `trust.json` firmado por la raíz delega una clave de
-firma de índice, y el catálogo que reciben los clientes está firmado con ella.
-Las copias confirmadas en `main` del registro llevan `"signatures": []` a
-propósito, y ningún cliente las lee. Lo que Pages todavía no sirve es una
-lista de retirada firmada, así que la revocación no se aplica.
+Hoy la cadena de confianza está anclada **de extremo a extremo**: las claves
+raíz existen, el `trust.json` firmado por la raíz delega una clave de firma
+de índice, y el catálogo y la lista de retirada que reciben los clientes están
+firmados con ella. Las copias confirmadas en `main` del registro llevan
+`"signatures": []` a propósito, y ningún cliente las lee.
+**`REVOCATIONS_STALE`** significa que la lista de retirada de esta máquina es
+de hace más de 7 días: conéctate, y Astra obtiene una nueva.
 Consulta [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## Una llamada a un tool falla de una forma que el modelo no puede arreglar
