@@ -353,17 +353,21 @@ page — so what you write here is what someone reads while deciding whether to
 install it. `icon.svg` next to `plugin.toml` becomes the store card's picture;
 replace it with your own.
 
-Screenshots work, and are the reason to add any:
+Astra's store shows no README image, only its alt text, in the place the
+image would be. So if you add a screenshot, write its alt text as the sentence
+you want read, not as a file name:
 
 ```markdown
 ![The command editor, mid-roll](docs/screenshot.png)
 ```
 
-Commit the images to this repository and link them with a **relative path**.
-The registry rewrites those to point at the exact commit your release was built
-from, so a picture cannot change after somebody approved the listing. Images
-hosted anywhere but GitHub are dropped rather than rendered — a remote image is
-a request from the user's machine, made before they have installed anything.
+Commit the images to this repository and link them with a **relative path**:
+GitHub renders them for people reading the repository, and older Astra releases
+still display them. The registry rewrites those paths to point at the exact
+commit your release was built from, so a picture cannot change after somebody
+approved the listing. Images hosted anywhere but GitHub are dropped and
+replaced by their alt text — a remote image is a request from the user's
+machine, made before they have installed anything.
 
 Raw HTML is stripped, so use markdown for layout.
 "#,

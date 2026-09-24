@@ -98,8 +98,13 @@ sie dich installiert, was es wertvoller macht als die einzeilige
 Zusammenfassung.
 
 Es wird als GitHub-flavored Markdown gerendert, Tabellen eingeschlossen.
-Screenshots funktionieren, und ein Absatz, der nur aus Bildern besteht,
-wird zu einer Galeriezeile:
+
+**Astra zeigt kein README-Bild, nur seinen Alt-Text.** Wo ein Bild stünde,
+gibt der Store den Text zwischen den eckigen Klammern aus. Dieser Text ist
+alles, was ein Leser von deinem Screenshot erfährt, und ein Bild mit leerem
+Alt-Text, `![](docs/editor.png)`, zeigt gar nichts. Schreib den Alt-Text als
+den Satz, der gelesen werden soll, nicht als Dateinamen oder als das Wort
+„Screenshot“:
 
 <!-- doctest: illustrative reason="markdown an author writes in their own README; there is nothing here for a runner to execute" -->
 ```markdown
@@ -107,8 +112,9 @@ wird zu einer Galeriezeile:
 ![The trigger firing on a natural 20](docs/trigger.png)
 ```
 
-Drei Regeln, alle davon wendet die Registry an, wenn sie dein Listing
-ableitet:
+Die Registry wendet drei Regeln an, wenn sie dein Listing ableitet. Die
+ersten beiden entscheiden, was ein Astra-Release von vor dieser Änderung
+anzeigt, denn solche Releases zeigen auf GitHub gehostete Bilder noch an:
 
 - **Verlinke Bilder mit einem relativen Pfad** und committe sie in dein
   Repository. Sie werden so umgeschrieben, dass sie auf genau den Commit
