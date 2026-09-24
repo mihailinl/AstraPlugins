@@ -36,8 +36,12 @@ what is still unproven:
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -191,6 +195,117 @@ and both of the others were watched failing on real submissions:
 A `403` on the first way is not held against you and never becomes a refusal on
 its own. The refusal happens only when all three come back with nothing, which
 is exactly what happens when this file does not exist.
+
+## Bind your repository
+
+**A listing is moving from a GitHub login to a Minice account.** The ownership
+file above names a GitHub login, and that is how a first listing through the
+registry's issue form is proved today. From the registry's cutover, every first
+listing needs a **binding** instead: one more line in the same file, written by
+the CLI from a token you mint in the panel, signed in to the Minice account that
+will publish. Binding now costs one command and is where every listing is
+going; an existing listing has until the binding deadline (below).
+
+**1 · Mint a token.** Sign in at https://astra.minice.ai/plugins with the Minice
+account that will own the listing — it needs `astraUser`, which comes with
+owning Astra — and mint a binding token for this repository.
+
+**2 · Write the line.** Anywhere inside the repository:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+It writes `astra-binding: <token>` as the **first line** of
+`.well-known/astra-plugin-owner` at the repository root, removes any earlier
+binding line in any spelling, keeps your login lines, and uses no network:
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · Commit it on your default branch, then tag.** Before you push the tag,
+read the line back exactly as the registry will — from the tag's commit, not
+from your working tree:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+A malformed line fails here, with `B_BINDING_MALFORMED`, while it is still
+free to fix. A missing one is a warning predicting `B_UNBOUND`. Four answers
+only the registry can give are named as not checked, every time.
+**4 · Submit in the panel.** From a bound repository, `astra-plugin publish`
+opens the panel's submission page with the repository and the tag filled in,
+for example
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 —
+the page submits nothing until you do, signed in.
+
+**What the token is, and is not.** A binding token is **public**: it sits in a
+file in a public repository. It records **one account's consent** to publish
+from this repository, and it **authenticates no release** — a release that
+nothing delays publishes before the account is told. So **never merge a binding
+line you did not mint yourself**: a pull request that adds or changes one is
+asking you to hand your listing to somebody else's account.
+
+**Where the line must be.** At the root of the repository, whatever directory
+your plugin is in; in the commit your release tag points at; and within the
+first 4096 bytes of the file. One line covers every plugin in the repository.
+Deleting it from the default branch later ends nothing that is already bound.
+
+**How long a minted token lasts.** A minted token expires 30 days after its mint
+unless a live submission names it or its line is on the repository's default
+branch when the rule is applied — the rule is re-tested before each expiry
+decision. So an author who tags much later without the line on the default
+branch mints again, and one whose line is still on that branch when the rule is
+applied does not. A line committed and later removed does not keep a token
+alive.
+
+**Signing in.** The registry reads the account's eligibility from its last
+verified sign-in, which counts for 12 hours. A release of a bound repository
+waits while the account has not signed in within that time; the panel says so,
+and a `notice.sign_in` notice asks you to sign in. Nothing publishes until you
+do.
+
+**Where notices go.** To the Minice account's verified e-mail address, and to
+the panel. Telegram is an optional extra channel you may link; nothing requires
+it.
+
+**A rename or a transfer strands installed copies.** Astra identifies an
+installed plugin by its repository, `github:owner/name`. Rename the repository
+or transfer it to another owner and every installed copy stops receiving
+updates until it is reinstalled from the new name. Nothing overrides this.
+
+**For a plugin that is already listed.** An unbound listing is
+`grandfathered`: it keeps publishing as it does today until the later of the
+binding deadline and the registry's cutover. The deadline is fixed before
+third-party bindings open, and published by the registry. After it, an unbound
+listing is `frozen`: installed copies keep working and it stays installable,
+but no new release of it is published until one carrying a binding line is — a
+bound release unfreezes it, with no penalty. The first release carrying a
+binding line is held once for a person's review, `R_FIRST_BINDING`. And from the
+cutover, a delayed or reviewed release of a `grandfathered` listing waits until
+the listing is bound.
+
+**Preflight.** `astra-plugin check` refuses an id the registry refuses — a
+reserved id, or one outside the registry's id pattern — and a malformed binding
+line. `astra-plugin dev` and `astra-plugin build` refuse neither: the registry's
+rules decide what gets listed, never what you may run.
 
 ## 3 · Submit
 

@@ -25,7 +25,14 @@ name = "astra-plugin-cli"
 # 0.2.1 wrote. Per docs/en/versioning.md's 0.x reading, "may break" is the minor
 # slot. The whole `locale` command group and `new` seeding `locales/en.json` are
 # additions and would have been a patch on their own.
-version = "0.3.0"
+#
+# 0.4.0, and the minor slot again for a refusal. `check` and `publish --dry-run`
+# now refuse a plugin whose id the registry refuses (E_ID_RESERVED,
+# E_ID_CHARSET) and a repository whose owner file carries a malformed binding
+# line (B_BINDING_MALFORMED): a script pinned to "astra-plugin check succeeds"
+# on a tree 0.3.0 passed can fail on the upgrade. `init-ci --binding`, `check
+# --tag` and the panel link for a bound repository are additions.
+version = "0.4.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"

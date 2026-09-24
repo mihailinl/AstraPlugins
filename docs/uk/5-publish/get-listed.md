@@ -40,8 +40,12 @@ astra-plugin publish --dry-run
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -199,6 +203,120 @@ gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
 `403` на першому способі не ставиться вам у провину і сам по собі ніколи не
 стає відмовою. Відмова трапляється лише тоді, коли всі три нічого не дали,
 а це рівно те, що відбувається, коли цього файлу не існує.
+
+## Прив'яжіть репозиторій
+
+**Лістинг переходить від логіна GitHub до акаунта Minice.** Файл володіння вище
+називає логін GitHub, і так сьогодні доводиться перший лістинг через форму issue
+реєстру. Від перемикання реєстру кожному першому лістингу натомість потрібна
+**прив'язка**: ще один рядок у тому самому файлі, який CLI пише з токена,
+випущеного вами в панелі, увійшовши в акаунт Minice, що публікуватиме. Прив'язка
+зараз коштує однієї команди, і туди йде кожен лістинг; наявний лістинг має час
+до терміну прив'язки (нижче).
+
+**1 · Випустіть токен.** Увійдіть на https://astra.minice.ai/plugins в акаунт
+Minice, якому належатиме лістинг, — йому потрібен `astraUser`, який дає
+володіння Astra, — і випустіть токен прив'язки для цього репозиторію.
+
+**2 · Запишіть рядок.** З будь-якого місця всередині репозиторію:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+Команда записує `astra-binding: <token>` **першим рядком**
+`.well-known/astra-plugin-owner` у корені репозиторію, видаляє будь-який
+попередній рядок прив'язки в будь-якому написанні, зберігає ваші рядки з
+логінами і не ходить у мережу:
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · Закомітьте в гілку за замовчуванням, потім поставте тег.** Перш ніж
+пушити тег, прочитайте рядок рівно так, як його прочитає реєстр, — з коміту
+тега, а не з робочого дерева:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+Неправильний рядок падає тут, з `B_BINDING_MALFORMED`, поки виправити його ще
+нічого не коштує. Відсутній — попередження, що передбачає `B_UNBOUND`. Чотири
+відповіді, які може дати лише реєстр, щоразу названо неперевіреними.
+
+**4 · Надішліть у панелі.** З прив'язаного репозиторію `astra-plugin publish`
+відкриває сторінку надсилання в панелі з уже заповненими репозиторієм і тегом,
+наприклад
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 —
+сторінка нічого не надсилає, доки цього не зробите ви, увійшовши в акаунт.
+
+**Що таке токен і чим він не є.** Токен прив'язки **публічний**: він лежить у
+файлі в публічному репозиторії. Він фіксує **згоду одного акаунта** публікувати
+з цього репозиторію і **не автентифікує жоден реліз** — реліз, який ніщо не
+затримує, публікується раніше, ніж акаунт про це дізнається. Тому **ніколи не
+мерджте рядок прив'язки, який випустили не ви**: пул-реквест, що додає або
+змінює його, просить вас віддати ваш лістинг чужому акаунту.
+
+**Де має бути рядок.** У корені репозиторію, хоч у якій теці лежить плагін; у
+коміті, на який вказує тег релізу; і в перших 4096 байтах файлу. Один рядок
+покриває всі плагіни репозиторію. Видалення його з гілки за замовчуванням
+пізніше не скасовує нічого вже прив'язаного.
+
+**Скільки живе випущений токен.** Випущений токен спливає через 30 днів після
+випуску, якщо тільки його не називає жива заявка або його рядок не лежить у
+гілці репозиторію за замовчуванням, коли застосовується правило, — правило
+перевіряється наново перед кожним рішенням про спливання. Отже, автор, який
+ставить тег набагато пізніше без рядка в гілці за замовчуванням, випускає токен
+заново, а той, чий рядок усе ще в цій гілці, коли застосовується правило, — ні.
+Рядок, який закомітили і потім видалили, токен не подовжує.
+
+**Вхід в акаунт.** Реєстр читає право акаунта публікувати з його останнього
+перевіреного входу, а він діє 12 годин. Реліз прив'язаного репозиторію чекає,
+поки акаунт не входив протягом цього часу; панель про це каже, а сповіщення
+`notice.sign_in` просить увійти. Нічого не публікується, доки ви не ввійдете.
+
+**Куди приходять сповіщення.** На підтверджену адресу електронної пошти акаунта
+Minice і в панель. Telegram — додатковий канал, який можна підключити за
+бажанням; ніщо його не вимагає.
+
+**Перейменування або передача залишає встановлені копії без оновлень.** Astra
+впізнає встановлений плагін за його репозиторієм, `github:owner/name`.
+Перейменуйте репозиторій або передайте його іншому власникові — і кожна
+встановлена копія перестане отримувати оновлення, доки її не перевстановлять з
+нового імені. Ніщо цього не скасовує.
+
+**Для плагіна, який уже в каталозі.** Неприв'язаний лістинг — `grandfathered`:
+він і далі публікується як сьогодні до пізнішого з двох моментів — терміну
+прив'язки та перемикання реєстру. Термін призначається до відкриття прив'язок
+для третіх осіб, і його публікує реєстр. Після нього неприв'язаний лістинг стає
+`frozen`: встановлені копії працюють і він і далі встановлюється, але жоден
+новий його реліз не публікується, доки не опубліковано реліз із рядком
+прив'язки, — прив'язаний реліз розморожує його, без штрафу. Перший реліз із
+рядком прив'язки один раз затримується на перевірку людиною, `R_FIRST_BINDING`.
+А від перемикання відкладений або перевірюваний реліз лістингу `grandfathered`
+чекає, доки лістинг не буде прив'язано.
+
+**Попередня перевірка.** `astra-plugin check` відхиляє id, який відхиляє
+реєстр, — зарезервований або такий, що не відповідає шаблону id реєстру, — і
+неправильний рядок прив'язки. `astra-plugin dev` і `astra-plugin build` не
+відхиляють ні того, ні іншого: правила реєстру вирішують, що потрапить до
+каталогу, а не що вам можна запускати.
 
 ## 3 · Надішліть заявку
 

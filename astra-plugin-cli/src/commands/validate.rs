@@ -40,6 +40,28 @@
 //! `errors_only` — what `astra-plugin build` calls — is the same decision a
 //! third time: it returns errors, and a registry finding is not one, so a
 //! bundle packs under any id at all.
+//!
+//! # The binding line (CLI 0.4.0)
+//!
+//! The registry reads `astra-binding: <token>` out of the repository root's
+//! `.well-known/astra-plugin-owner` at the tagged commit (contract ID-22 to
+//! ID-24). `check` reads the same file with the same reader
+//! ([`crate::binding::parse`]) — from the working tree, or with `--tag` from
+//! `<tag>^{commit}` through local git — and predicts the two answers this side
+//! can know (FLOW-51):
+//!
+//! * `B_BINDING_MALFORMED` — a registry **refusal**. Two lines, or a near miss
+//!   such as `Astra-Binding:`, and ingest refuses the release.
+//! * a missing line — a registry **warning** predicting `B_UNBOUND` (MIG-15).
+//!   Only a prediction: whether this listing needs a line is the registry's
+//!   question, keyed on the binding deadline and the listing's history.
+//!
+//! And it says, every time, which four it did not check (FLOW-52): whether the
+//! token is bound, whether the account behind it may publish, whether the
+//! repository's ids are the ones the listing's identity record holds, and
+//! whether the release workflow's commit is allowlisted. Those are answers from
+//! the plugins service, GitHub and `trust.json`, and a preflight that stayed
+//! silent about them would read as a preflight that had passed them.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -104,7 +126,7 @@ pub fn run(path: &str, strict: bool, gate: Gate) -> Result<()> {
 /// bought with nothing. In CI the release workflow exports
 /// [`WORKFLOW_SHA_ENV`] instead, which is both authoritative and free.
 pub fn run_with(path: &str, strict: bool, resolve_pin: bool, gate: Gate) -> Result<()> {
-    match run_full(CheckOptions { path, strict, fix: false, resolve_pin, gate })? {
+    match run_full(CheckOptions { path, strict, fix: false, resolve_pin, gate, tag: None })? {
         Verdict::Pass => Ok(()),
         // `dev` and the other internal callers use `?` and want the sentence,
         // not an exit code. `main` gets the code from `run_full` directly.
@@ -122,6 +144,8 @@ pub struct CheckOptions<'a> {
     pub resolve_pin: bool,
     /// Who is asking. Decides what a registry finding costs — nothing else.
     pub gate: Gate,
+    /// Read the binding line at this tag's commit instead of the working tree.
+    pub tag: Option<&'a str>,
 }
 
 /// `check`, with `--fix` and `--json`.
@@ -166,6 +190,7 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
     check_dependencies(&manifest, &mut report);
     check_call_timeout(&manifest, &mut report);
     check_registry_ids(&manifest, &mut report);
+    let binding = check_binding(dir, opts.tag, &mut report)?;
 
     check_versions_agree(dir, &manifest.plugin.version, &mut report.warnings);
     check_release_workflow(dir, opts.resolve_pin, &mut report.warnings, &mut report.notes);
@@ -193,6 +218,13 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
             (Gate::Check, false) => hprintln!("  REGISTRY WARN: {}", f.message),
             (Gate::Dev, _) => hprintln!("  NOTE: {}", f.message),
         }
+    }
+    if opts.gate == Gate::Check {
+        hprintln!(
+            "  NOT CHECKED: {} — only the registry can answer these, from the plugins service, \
+             GitHub and trust.json",
+            NOT_CHECKED_HERE.join(", ")
+        );
     }
     for w in &report.warnings {
         hprintln!("  WARN: {w}");
@@ -271,6 +303,18 @@ pub fn run_full(opts: CheckOptions<'_>) -> Result<Verdict> {
                 "refusal": f.refusal,
                 "message": f.message,
             })).collect::<Vec<_>>(),
+            // What was read, from where. `commit` is the PEELED commit for a
+            // tag, never the tag object — the registry reads the commit.
+            "binding": {
+                "source": binding.source,
+                "commit": binding.commit,
+                "outcome": binding.outcome.word(),
+                "token": match &binding.outcome {
+                    crate::binding::Outcome::One { token, .. } => Some(token.as_str()),
+                    _ => None,
+                },
+            },
+            "not_checked": NOT_CHECKED_HERE,
             "fixed": applied,
         }),
     );
@@ -722,6 +766,137 @@ fn check_call_timeout(m: &PluginManifest, report: &mut Report) {
     report
         .notes
         .push(format!("plugin.call_timeout_secs = {secs}"));
+}
+
+// ── the binding line ─────────────────────────────────────────────────────────
+
+/// FLOW-52: the four registry answers a local check cannot give.
+pub const NOT_CHECKED_HERE: &[&str] = &[
+    "B_BINDING_UNUSABLE",
+    "B_OWNER_CHANGED",
+    "B_REPOSITORY_RECYCLED",
+    "E_WORKFLOW_NOT_ALLOWED",
+];
+
+/// What `check` read, for the report and for `--json`.
+pub struct BindingReading {
+    /// `working tree`, or `tag <name>`.
+    pub source: String,
+    /// The commit read, for `--tag`: `<tag>^{commit}`, never the tag object.
+    pub commit: Option<String>,
+    pub outcome: crate::binding::Outcome,
+}
+
+/// `git -C <root> …`, asked about THIS root and no other: the root came from
+/// walking up to a `.git`, so an inherited `GIT_DIR` or `GIT_WORK_TREE` must not
+/// point the question at some other repository's objects.
+fn git_root(root: &Path, args: &[&str]) -> Result<std::process::Output> {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_COMMON_DIR")
+        .output()
+        .context("could not run git")
+}
+
+/// The owner file's bytes at the repository root — in the working tree, or at
+/// `<tag>^{commit}` — and where they came from. `None` bytes is a file that is
+/// not there, which is a reading and not an error.
+///
+/// `--tag` resolves `refs/tags/<tag>^{commit}`. The `^{commit}` is the part
+/// that matters: for an ANNOTATED tag, `refs/tags/<tag>` alone is the tag
+/// object, not the commit the registry reads, and this project has already
+/// shipped exactly that bug once (`init-ci` pinned tag objects; see
+/// `ls_remote_tag`). `refs/tags/` makes a branch of the same name not count.
+pub fn read_owner_file(dir: &Path, tag: Option<&str>) -> Result<(Option<Vec<u8>>, String, Option<String>)> {
+    use crate::binding::OWNER_FILE;
+    let Some(tag) = tag else {
+        let root = init_ci::repo_root(dir).unwrap_or_else(|| dir.to_path_buf());
+        let file = root.join(OWNER_FILE);
+        return match std::fs::read(&file) {
+            Ok(bytes) => Ok((Some(bytes), "working tree".into(), None)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok((None, "working tree".into(), None)),
+            Err(e) => Err(e).with_context(|| format!("Failed to read {}", file.display())),
+        };
+    };
+    let root = init_ci::repo_root(dir).with_context(|| {
+        format!("--tag reads the tag through git, and {} is not inside a git repository", dir.display())
+    })?;
+    let peeled = format!("refs/tags/{tag}^{{commit}}");
+    let out = git_root(&root, &["rev-parse", "--verify", "--quiet", "--end-of-options", &peeled])?;
+    let commit = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if !out.status.success() || commit.len() != 40 {
+        anyhow::bail!(
+            "this repository has no tag `{tag}` (looked for `{peeled}` in {}). `check --tag` reads \
+             the commit a pushed tag names; create the tag first, or leave the flag off to read \
+             the working tree.",
+            root.display()
+        );
+    }
+    let object = format!("{commit}:{OWNER_FILE}");
+    let exists = git_root(&root, &["cat-file", "-e", &object])?;
+    if !exists.status.success() {
+        return Ok((None, format!("tag {tag}"), Some(commit)));
+    }
+    let blob = git_root(&root, &["cat-file", "blob", &object])?;
+    if !blob.status.success() {
+        anyhow::bail!(
+            "git could not read {object}: {}",
+            String::from_utf8_lossy(&blob.stderr).trim()
+        );
+    }
+    Ok((Some(blob.stdout), format!("tag {tag}"), Some(commit)))
+}
+
+/// FLOW-51 and MIG-15, as registry findings, routed by [`Gate`] like the id
+/// rules.
+fn check_binding(dir: &Path, tag: Option<&str>, report: &mut Report) -> Result<BindingReading> {
+    use crate::binding::{Outcome, OWNER_FILE};
+    let (bytes, source, commit) = read_owner_file(dir, tag)?;
+    let at = match &commit {
+        Some(c) => format!("{source} = {}", &c[..12]),
+        None => source.clone(),
+    };
+    let outcome = match &bytes {
+        Some(b) => crate::binding::parse(b),
+        None => Outcome::None,
+    };
+    match &outcome {
+        Outcome::Malformed { reason } => report.registry.push(RegistryFinding {
+            code: "B_BINDING_MALFORMED",
+            refusal: true,
+            message: format!(
+                "B_BINDING_MALFORMED: {reason} ({OWNER_FILE}, {at}). The registry refuses a \
+                 release whose owner file says this. `astra-plugin init-ci --binding <token>` \
+                 rewrites it with exactly one line."
+            ),
+        }),
+        Outcome::None => report.registry.push(RegistryFinding {
+            code: "B_UNBOUND",
+            refusal: false,
+            message: format!(
+                "B_UNBOUND predicted once this listing needs a binding: {} ({at}). From the \
+                 registry's cutover every first listing needs one, and every listing after the \
+                 binding deadline; a release without it is refused B_UNBOUND. Mint a token in the \
+                 panel and run `astra-plugin init-ci --binding <token>` — {}",
+                if bytes.is_some() {
+                    format!("no `astra-binding:` line in the first {} bytes of {OWNER_FILE}", crate::binding::WINDOW_BYTES)
+                } else {
+                    format!("there is no {OWNER_FILE} at the repository root")
+                },
+                init_ci::BINDING_DOCS_URL
+            ),
+        }),
+        Outcome::One { token, line } => report.notes.push(format!(
+            "binding line {line} of {OWNER_FILE} ({at}): astra-binding: {token}. Whether that \
+             token is bound, and to whom, is the registry's to say"
+        )),
+    }
+    Ok(BindingReading { source, commit, outcome })
 }
 
 // ── the registry's id rules, mirrored ────────────────────────────────────────
@@ -1599,8 +1774,142 @@ label = "Sink"
             fix: false,
             resolve_pin: false,
             gate,
+            tag: None,
         })
         .expect("the check ran")
+    }
+
+    // ── the binding line ───────────────────────────────────────────────────
+
+    const TOKEN_A: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+    /// `git` in a fixture repository, with nothing inherited that could point
+    /// it at another one, and a ceiling so it never walks up out of the
+    /// fixture into whatever encloses the temp dir.
+    fn git(dir: &Path, args: &[&str]) -> String {
+        // Signing and hooks off by flag rather than by pointing the global
+        // config at `/dev/null`, which is not a path on the Windows runner.
+        let out = std::process::Command::new("git")
+            .args(["-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", "-c", "core.hooksPath="])
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
+            .env_remove("GIT_COMMON_DIR")
+            .env("GIT_CEILING_DIRECTORIES", dir.parent().unwrap())
+            .env("GIT_AUTHOR_NAME", "fixture")
+            .env("GIT_AUTHOR_EMAIL", "fixture@example.invalid")
+            .env("GIT_COMMITTER_NAME", "fixture")
+            .env("GIT_COMMITTER_EMAIL", "fixture@example.invalid")
+            .output()
+            .expect("git runs");
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    /// A plugin at the root of a fresh git repository, owner file as given.
+    fn repo_with_owner_file(tag: &str, owner: Option<&[u8]>) -> std::path::PathBuf {
+        let dir = plugin_dir(tag, "dice-roller");
+        git(&dir, &["init", "-q", "-b", "main"]);
+        if let Some(bytes) = owner {
+            std::fs::create_dir_all(dir.join(".well-known")).unwrap();
+            std::fs::write(dir.join(crate::binding::OWNER_FILE), bytes).unwrap();
+        }
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-q", "-m", "fixture"]);
+        dir
+    }
+
+    /// FLOW-51: `--tag` reads `<tag>^{commit}`. The annotated tag is the case,
+    /// because for it `refs/tags/<tag>` is the tag OBJECT — a SHA the registry
+    /// never reads — and the lightweight case cannot tell the two apart.
+    #[test]
+    fn check_tag_reads_an_annotated_tag_at_its_commit_not_at_the_tag_object() {
+        let line = format!("astra-binding: {TOKEN_A}\nsome-login\n");
+        let dir = repo_with_owner_file("binding-annotated", Some(line.as_bytes()));
+        let tagged = git(&dir, &["rev-parse", "HEAD"]);
+        git(&dir, &["tag", "-a", "v0.1.0", "-m", "release 0.1.0"]);
+        let object = git(&dir, &["rev-parse", "refs/tags/v0.1.0"]);
+        assert_ne!(object, tagged, "the control: an annotated tag's own SHA is not its commit's");
+
+        // HEAD moves on, and its owner file is now malformed. `--tag` must not see it.
+        std::fs::write(dir.join(crate::binding::OWNER_FILE), b"Astra-Binding: nope\n").unwrap();
+        git(&dir, &["commit", "-q", "-am", "later"]);
+
+        let (bytes, source, commit) = read_owner_file(&dir, Some("v0.1.0")).unwrap();
+        assert_eq!(source, "tag v0.1.0");
+        assert_eq!(commit.as_deref(), Some(tagged.as_str()), "read at the tag object, not its commit");
+        assert_eq!(
+            crate::binding::parse(&bytes.unwrap()),
+            crate::binding::Outcome::One { token: TOKEN_A.into(), line: 1 }
+        );
+        // The working tree is the malformed file, and a Gate::Check run says so.
+        let (tree, source, _) = read_owner_file(&dir, None).unwrap();
+        assert_eq!(source, "working tree");
+        assert!(matches!(crate::binding::parse(&tree.unwrap()), crate::binding::Outcome::Malformed { .. }));
+        assert_eq!(check_verdict(&dir, false, Gate::Check), Verdict::Fail);
+        assert_eq!(
+            run_full(CheckOptions {
+                path: &dir.to_string_lossy(),
+                strict: true,
+                fix: false,
+                resolve_pin: false,
+                gate: Gate::Check,
+                tag: Some("v0.1.0"),
+            })
+            .unwrap(),
+            Verdict::Pass,
+            "the tagged commit carries one good line, and `--tag` must judge that commit"
+        );
+    }
+
+    #[test]
+    fn check_tag_names_a_tag_that_does_not_exist_rather_than_reading_nothing() {
+        let dir = repo_with_owner_file("binding-notag", None);
+        git(&dir, &["branch", "v9.9.9"]);
+        let e = read_owner_file(&dir, Some("v9.9.9")).unwrap_err().to_string();
+        assert!(e.contains("no tag `v9.9.9`"), "a BRANCH of that name must not count: {e}");
+    }
+
+    /// MIG-15 is a SHOULD warn, and a registry warning is never strict-fatal:
+    /// an author with no line yet is not doing anything wrong.
+    #[test]
+    fn check_strict_with_no_binding_line_exits_0_and_predicts_b_unbound() {
+        let dir = repo_with_owner_file("binding-none", Some(b"some-login\n"));
+        assert_eq!(check_verdict(&dir, true, Gate::Check), Verdict::Pass);
+        let mut report = Report::default();
+        check_binding(&dir, None, &mut report).unwrap();
+        assert_eq!(report.registry.len(), 1);
+        assert_eq!(report.registry[0].code, "B_UNBOUND");
+        assert!(!report.registry[0].refusal);
+    }
+
+    /// `dev` is the inner loop: a line the registry would refuse must not stop
+    /// an author running their own plugin. `check` refuses it.
+    #[test]
+    fn dev_passes_a_malformed_line_and_check_refuses_it() {
+        let two = format!("astra-binding: {TOKEN_A}\nastra-binding: {TOKEN_A}BBB\n");
+        let dir = repo_with_owner_file("binding-malformed", Some(two.as_bytes()));
+        assert_eq!(check_verdict(&dir, true, Gate::Check), Verdict::Fail);
+        assert_eq!(check_verdict(&dir, true, Gate::Dev), Verdict::Pass);
+        let mut report = Report::default();
+        check_binding(&dir, None, &mut report).unwrap();
+        assert_eq!(report.registry[0].code, "B_BINDING_MALFORMED");
+        assert!(report.registry[0].refusal);
+        assert!(
+            !report.registry[0].message.contains("BBB"),
+            "a malformed file's contents are not echoed back"
+        );
+    }
+
+    #[test]
+    fn check_reports_the_four_it_cannot_check() {
+        assert_eq!(
+            NOT_CHECKED_HERE,
+            ["B_BINDING_UNUSABLE", "B_OWNER_CHANGED", "B_REPOSITORY_RECYCLED", "E_WORKFLOW_NOT_ALLOWED"]
+        );
     }
 
     /// `check` is the preflight for the tag, so it fails on what ingest fails

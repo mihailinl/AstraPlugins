@@ -2,7 +2,7 @@
 
 # CLI-Referenz
 
-`astra-plugin 0.3.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
+`astra-plugin 0.4.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
 diese Seite kann also keine Option beschreiben, die nicht existiert. Die
 Quelle ist
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
@@ -41,11 +41,21 @@ Es gibt **kein `login`**. Ein Plugin listen zu lassen läuft über einen
 Browser, in dem der Autor bereits angemeldet ist — die Registry liest
 bezeugte Bundles von einem GitHub-Release und verifiziert jedes von
 Grund auf, eine Einreichung trägt also nur ein Repository und ein Tag
-und sonst nichts. Das bedeutet kein zweites Konto zu erstellen, keinen
+und sonst nichts. Das bedeutet keinen
 Schlüsselbund, mit dem integriert werden müsste, keine Zugangsdaten-Datei,
 die durchsickern könnte, und kein Token in einer Shell-Historie. Ein
 `login` hier wäre ein Zugangsdaten-Speicher, gebaut, um etwas zu halten,
 nach dem nichts fragt.
+
+**Geändert am 2026-09-24, CLI 0.4.0 (Vertrag ROLL-47, Zeile C3).** Dieser
+Absatz sagte früher zusätzlich „kein zweites Konto zu erstellen", und ab
+diesem Release stimmt das nicht mehr. Ein Repository wird jetzt an ein
+Minice-Konto mit `astraUser` gebunden: Der Autor erzeugt im Panel, dort bei
+diesem Konto angemeldet, ein Binding-Token, und `init-ci --binding <token>`
+schreibt es in die Owner-Datei. Der Rest gilt weiter, und C26 hält ihn fest —
+diese CLI hat weiterhin kein `login`, speichert keine Zugangsdaten und ruft
+keinen Dienst auf: Das Token ist öffentlicher Text in einer Datei, und das
+Panel ist eine Seite, die `publish` im eigenen Browser des Autors öffnet.
 
 ## astra-plugin new
 
@@ -262,6 +272,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 | `--strict` | Behandelt Warnungen als Fehler |
 | `--fix` | Wendet die Fixes an, die mechanisch angewendet werden können, prüft dann erneut. Schreibt nur um, was es beweisen kann; alles andere wird weiterhin gemeldet |
 | `--resolve-pin` | Fragt GitHub, ob das Release-Workflow-Pinning aktuell ist. Standardmäßig aus: `astra-plugin dev` führt bei jedem Start `check --strict` aus, und der Release-Workflow teilt der Prüfung über ASTRA_PLUGIN_WORKFLOW_SHA mit, wovon aus er läuft, sodass keines von beiden das Netzwerk braucht |
+| `--tag <TAG>` | Liest die Binding-Zeile aus dem Commit dieses Tags statt aus dem Arbeitsverzeichnis, so wie die Registry es tun wird: `<tag>^{commit}` der Repository-Wurzel, egal was `plugin-dir` sagt. Nur lokales git |
 
 ## astra-plugin init-ci
 
@@ -286,6 +297,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 | `--ref <WORKFLOW_REF>` | Ein 40-Hex-Commit zum Pinnen (wörtlich verwendet, kein Netzwerk), oder ein Ref-Name zum Auflösen. Default: das veröffentlichte Workflow-Tag, sonst der Kopf des Default-Branch |
 | `--linux-packages <LINUX_PACKAGES>` | Setzt den linux-packages-Input, z. B. "libasound2-dev pkg-config". Weggelassen, wird der Wert einer bestehenden Datei behalten |
 | `--offline` | Rührt nie das Netzwerk an: behält das bereits in der Datei vorhandene Pinning |
+| `--binding <TOKEN>` | Schreibt `astra-binding: <TOKEN>` als erste Zeile der `.well-known/astra-plugin-owner` in der Repository-Wurzel, entfernt jede frühere Binding-Zeile in jeder Schreibweise und tut sonst nichts. TOKEN ist das vom Panel erzeugte. Kein Netzwerk |
 
 ## astra-plugin version
 

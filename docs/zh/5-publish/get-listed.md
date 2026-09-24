@@ -37,8 +37,12 @@ astra-plugin publish --dry-run
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -185,6 +189,106 @@ gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
 第一种方式返回的 `403` 不会算在你头上，单凭它自己也永远不会导致拒绝。
 拒绝只会在三种方式全都没有给出回答时发生，而这正是这个文件不存在时
 会发生的情况。
+
+## 绑定你的仓库
+
+**上架正在从 GitHub 登录名转向 Minice 账户。** 上面的所有权文件写的是一个
+GitHub 登录名，今天通过注册表的 issue 表单完成的首次上架就是这样证明的。从
+注册表切换(cutover)起，每一次首次上架都改为需要一个**绑定**：同一个文件里
+再多一行，由 CLI 根据你在面板里铸造的令牌写入，铸造时要以将来负责发布的那个
+Minice 账户登录。现在绑定只需要一条命令，而且所有上架最终都要走到这一步；已经
+上架的插件可以等到绑定截止日期(见下文)。
+
+**1 · 铸造一个令牌。** 用将来拥有这个上架的 Minice 账户登录
+https://astra.minice.ai/plugins —— 它需要 `astraUser`，拥有 Astra 就会有 ——
+然后为这个仓库铸造一个绑定令牌。
+
+**2 · 写入这一行。** 在仓库里的任何位置运行：
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+它会把 `astra-binding: <token>` 写成仓库根目录下
+`.well-known/astra-plugin-owner` 的**第一行**，删除之前任何写法的绑定行，保留
+你的登录名行，并且不联网：
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · 提交到默认分支，然后打标签。** 推送标签之前，按照注册表的方式把这一行
+读回来 —— 从标签的提交读，而不是从你的工作区读：
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+格式错误的行会在这里失败，报 `B_BINDING_MALFORMED`，这时修正它还不需要任何
+代价。缺少这一行则是一条预测 `B_UNBOUND` 的警告。只有注册表才能给出的四个
+回答，每次都会被列为未检查。
+
+**4 · 在面板里提交。** 对于已绑定的仓库，`astra-plugin publish` 会打开面板的
+提交页面，仓库和标签都已填好，例如
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 ——
+在你登录并亲自提交之前，这个页面不会提交任何东西。
+
+**令牌是什么，不是什么。** 绑定令牌是**公开的**：它就放在公开仓库的一个文件
+里。它记录的是**一个账户同意**从这个仓库发布，它**不认证任何发布** —— 一个
+没有被任何东西延迟的发布，会在账户得知之前就发布出去。所以**绝不要合并一行
+不是你自己铸造的绑定行**：添加或修改这一行的拉取请求，是在要你把上架交给别人
+的账户。
+
+**这一行必须在哪里。** 在仓库根目录，无论你的插件在哪个目录；在发布标签指向的
+那个提交里；并且在文件的前 4096 字节之内。一行覆盖仓库里的所有插件。之后把它
+从默认分支删掉，不会结束任何已经绑定的东西。
+
+**铸造的令牌能用多久。** 铸造的令牌在铸造 30 天后过期，除非有一个仍在进行的
+提交指明了它，或者在应用这条规则时它那一行位于仓库的默认分支上 —— 每次作出
+过期决定之前都会重新检验这条规则。所以，很久以后才打标签、而默认分支上没有
+这一行的作者需要重新铸造，而在应用这条规则时那一行仍在该分支上的作者则不需要。
+提交之后又删掉的一行，不会让令牌继续有效。
+
+**登录。** 注册表根据账户最近一次经过验证的登录来判断它是否有资格发布，这次
+登录的有效期是 12 小时。只要账户在这段时间内没有登录，已绑定仓库的发布就会
+等待；面板会说明这一点，一条 `notice.sign_in` 通知会请你登录。在你登录之前，
+什么都不会发布。
+
+**通知发到哪里。** 发到 Minice 账户经过验证的电子邮箱，以及面板。Telegram 是
+可选的额外渠道，你可以关联它；没有任何东西要求它。
+
+**重命名或转移会让已安装的副本搁浅。** Astra 通过插件的仓库
+`github:owner/name` 来识别已安装的插件。重命名仓库或把它转给另一个所有者，
+每一个已安装的副本都会停止接收更新，直到从新名字重新安装为止。没有任何东西
+能改变这一点。
+
+**对于已经上架的插件。** 未绑定的上架处于 `grandfathered` 状态：它会像今天
+一样继续发布，直到绑定截止日期和注册表切换两者中较晚的那个。截止日期在第三方
+绑定开放之前确定，并由注册表公布。在那之后，未绑定的上架变为 `frozen`：已安装
+的副本继续工作，它也仍然可以安装，但在带有绑定行的发布被发布之前，它不会再有
+新的发布被发布 —— 一个已绑定的发布就能让它解冻，没有任何惩罚。第一个带有
+绑定行的发布会被扣留一次，交给人工审核，即 `R_FIRST_BINDING`。并且从切换起，
+`grandfathered` 上架的延迟发布或需审核发布会一直等到该上架完成绑定。
+
+**预检。** `astra-plugin check` 会拒绝注册表拒绝的 id —— 保留的 id，或者不符合
+注册表 id 模式的 id —— 以及格式错误的绑定行。`astra-plugin dev` 和
+`astra-plugin build` 两者都不拒绝：注册表的规则决定的是什么能上架，而不是你
+可以运行什么。
 
 ## 3 · 提交
 

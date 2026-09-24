@@ -42,8 +42,12 @@ puede ejecutar**, para que sepas qué queda por demostrar:
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -210,6 +214,127 @@ estructural, y a las otras dos se les vio fallar en envíos reales:
 Un `403` en la primera forma no se usa en tu contra y por sí solo nunca
 se convierte en un rechazo. El rechazo solo ocurre cuando las tres no
 dan nada, que es exactamente lo que pasa cuando este archivo no existe.
+
+## Vincula tu repositorio
+
+**Un listado pasa de un login de GitHub a una cuenta de Minice.** El archivo de
+propiedad de arriba nombra un login de GitHub, y así se demuestra hoy un primer
+listado mediante el formulario de issues del registro. Desde el cutover del
+registro, todo primer listado necesita en su lugar una **vinculación**: una línea
+más en el mismo archivo, escrita por la CLI a partir de un token que generas en
+el panel, con la sesión iniciada en la cuenta de Minice que va a publicar.
+Vincular ahora cuesta un comando y es adonde va todo listado; un listado
+existente tiene hasta el plazo de vinculación (más abajo).
+
+**1 · Genera un token.** Inicia sesión en https://astra.minice.ai/plugins con la
+cuenta de Minice que será dueña del listado — necesita `astraUser`, que viene con
+ser propietario de Astra — y genera un token de vinculación para este
+repositorio.
+
+**2 · Escribe la línea.** En cualquier lugar dentro del repositorio:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+```
+
+Escribe `astra-binding: <token>` como **primera línea** de
+`.well-known/astra-plugin-owner` en la raíz del repositorio, elimina cualquier
+línea de vinculación anterior en cualquier grafía, conserva tus líneas de login y
+no usa la red:
+
+<!-- doctest: output from="astra-plugin init-ci --binding k3Vq9ZtW2xLr8NfBcY5pHd" unrun="rewrites .well-known/astra-plugin-owner in a git repository; re-run it at the root of your own" -->
+```
+  Rewrote: .well-known/astra-plugin-owner
+    line 1   astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd
+    kept     1 other line(s), byte for byte
+
+  This token is public once you push it. It records one Minice account's consent
+  to publish from this repository, and it authenticates no release: never merge a
+  binding line you did not mint yourself. What that means, and what a rename or a
+  transfer does to it:
+    https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+
+  Next: commit this file on your default branch, then tag. Before you push the tag,
+    astra-plugin check --tag <tag>
+  reads the line back from the tagged commit, as the registry will.
+```
+
+**3 · Haz commit en tu rama por defecto y luego etiqueta.** Antes de subir la
+etiqueta, vuelve a leer la línea exactamente como lo hará el registro — desde el
+commit de la etiqueta, no desde tu árbol de trabajo:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin check --tag v0.1.0
+```
+
+Una línea mal formada falla aquí, con `B_BINDING_MALFORMED`, mientras arreglarla
+todavía no cuesta nada. Una que falta es una advertencia que predice
+`B_UNBOUND`. Cuatro respuestas que solo el registro puede dar se nombran cada
+vez como no comprobadas.
+
+**4 · Envía en el panel.** Desde un repositorio vinculado,
+`astra-plugin publish` abre la página de envío del panel con el repositorio y la
+etiqueta ya rellenados, por ejemplo
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 — la
+página no envía nada hasta que tú lo hagas, con la sesión iniciada.
+
+**Qué es el token, y qué no es.** Un token de vinculación es **público**: está en
+un archivo de un repositorio público. Registra el **consentimiento de una
+cuenta** para publicar desde este repositorio, y **no autentica ningún
+release** — un release que nada retrasa se publica antes de que la cuenta se
+entere. Así que **nunca fusiones una línea de vinculación que no hayas generado
+tú**: un pull request que añade o cambia una te está pidiendo que entregues tu
+listado a la cuenta de otra persona.
+
+**Dónde debe estar la línea.** En la raíz del repositorio, esté tu plugin en el
+directorio que esté; en el commit al que apunta tu etiqueta de release; y dentro
+de los primeros 4096 bytes del archivo. Una línea cubre todos los plugins del
+repositorio. Borrarla después de la rama por defecto no termina nada que ya esté
+vinculado.
+
+**Cuánto dura un token generado.** Un token generado caduca 30 días después de
+generarse, salvo que un envío vivo lo nombre o que su línea esté en la rama por
+defecto del repositorio cuando se aplica la regla — la regla se vuelve a
+comprobar antes de cada decisión de caducidad. Así que un autor que etiqueta
+mucho más tarde sin la línea en la rama por defecto genera otro, y uno cuya línea
+sigue en esa rama cuando se aplica la regla no. Una línea con commit y quitada
+después no mantiene vivo un token.
+
+**Iniciar sesión.** El registro lee la elegibilidad de la cuenta de su último
+inicio de sesión verificado, que cuenta durante 12 horas. Un release de un
+repositorio vinculado espera mientras la cuenta no haya iniciado sesión en ese
+tiempo; el panel lo dice, y un aviso `notice.sign_in` te pide que inicies
+sesión. Nada se publica hasta que lo hagas.
+
+**Adónde van los avisos.** A la dirección de correo verificada de la cuenta de
+Minice, y al panel. Telegram es un canal adicional opcional que puedes vincular;
+nada lo exige.
+
+**Un cambio de nombre o una transferencia deja varadas las copias instaladas.**
+Astra identifica un plugin instalado por su repositorio, `github:owner/name`.
+Cambia el nombre del repositorio o transfiérelo a otro dueño y todas las copias
+instaladas dejan de recibir actualizaciones hasta que se reinstalen desde el
+nombre nuevo. Nada anula esto.
+
+**Para un plugin que ya está listado.** Un listado sin vincular está
+`grandfathered`: sigue publicando como hoy hasta lo que llegue después, el plazo
+de vinculación o el cutover del registro. El plazo se fija antes de que se abran
+las vinculaciones de terceros, y lo publica el registro. Después, un listado sin
+vincular queda `frozen`: las copias instaladas siguen funcionando y sigue siendo
+instalable, pero no se publica ningún release nuevo suyo hasta que se publique
+uno con línea de vinculación — un release vinculado lo descongela, sin
+penalización. El primer release con línea de vinculación se retiene una vez para
+que lo revise una persona, `R_FIRST_BINDING`. Y desde el cutover, un release
+retrasado o revisado de un listado `grandfathered` espera hasta que el listado
+esté vinculado.
+
+**Comprobación previa.** `astra-plugin check` rechaza un id que el registro
+rechaza — un id reservado, o uno fuera del patrón de ids del registro — y una
+línea de vinculación mal formada. `astra-plugin dev` y `astra-plugin build` no
+rechazan ninguno de los dos: las reglas del registro deciden qué se lista, nunca
+qué puedes ejecutar.
 
 ## 3 · Enviar
 

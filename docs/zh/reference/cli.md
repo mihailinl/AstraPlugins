@@ -2,7 +2,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.3.0`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.4.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 
@@ -39,9 +39,16 @@ Astra Plugin Development CLI
 **没有 `login` 命令。** 让一个插件上架，走的是作者已经登录的浏览器 ——
 注册表从一个 GitHub Release 上读取已获证明的包，并对每一个都从头进行
 验证，所以一次提交只携带一个仓库和一个标签，别的什么都不带。这意味着：
-不需要创建第二个账号，没有需要对接的密钥环(keyring)，没有会泄露的
+没有需要对接的密钥环(keyring)，没有会泄露的
 凭证文件，shell 历史里也不会留下 token。在这里做一个 `login`，只会
 构建出一个用来存放没有任何东西需要它的凭证存储。
+
+**2026-09-24 修订，CLI 0.4.0（契约 ROLL-47 第 C3 行）。** 这一段以前还说
+"不需要创建第二个账号"，从这个版本起这不再成立。仓库现在要绑定到一个持有
+`astraUser` 的 Minice 账户：作者在面板里、以该账户登录后铸造一个绑定令牌，
+再由 `init-ci --binding <token>` 把它写进所有者文件。其余说法依然成立，由 C26
+保证：这个 CLI 仍然没有 `login`，不保存任何凭证，也不调用任何服务 —— 令牌是
+文件里的公开文本，面板是 `publish` 在作者自己的浏览器里打开的一个页面。
 
 ## astra-plugin new
 
@@ -251,6 +258,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 | `--strict` | 把警告当作错误处理 |
 | `--fix` | 应用能够机械式修复的内容，然后重新检查。只重写它能证明正确的部分；其余的仍然会被报告出来 |
 | `--resolve-pin` | 向 GitHub 询问发布工作流的固定值是否仍是最新的。默认关闭：`astra-plugin dev` 每次启动都会运行 `check --strict`，而发布工作流会通过 ASTRA_PLUGIN_WORKFLOW_SHA 告诉这次检查自己是从什么运行的，所以两者都不需要联网 |
+| `--tag <TAG>` | 从这个标签的提交读取绑定行，而不是从工作区读取，与注册表的做法一致：读取仓库根目录的 `<tag>^{commit}`，不管 `plugin-dir` 写的是什么。只用本地 git |
 
 ## astra-plugin init-ci
 
@@ -273,6 +281,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 | `--ref <WORKFLOW_REF>` | 要固定的一个 40 位十六进制 commit（原样使用，不联网），或者一个需要解析的 ref 名字。默认：已发布的工作流标签，否则为默认分支的 HEAD |
 | `--linux-packages <LINUX_PACKAGES>` | 设置 linux-packages 输入，例如 "libasound2-dev pkg-config"。省略时，保留已有文件中的值 |
 | `--offline` | 完全不联网：保留文件中已有的固定值 |
+| `--binding <TOKEN>` | 把 `astra-binding: <TOKEN>` 写成仓库根目录 `.well-known/astra-plugin-owner` 的第一行，删除之前所有大小写形式的绑定行，除此之外什么都不做。TOKEN 是面板铸造的那个。不联网 |
 
 ## astra-plugin version
 

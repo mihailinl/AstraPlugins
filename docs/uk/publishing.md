@@ -209,6 +209,8 @@ astra-plugin check --strict
 Checking plugin at ....
   NOTE: Missing plugin.author
   NOTE: Pin freshness not checked (pass --resolve-pin, or set ASTRA_PLUGIN_WORKFLOW_SHA)
+  REGISTRY WARN: B_UNBOUND predicted once this listing needs a binding: there is no .well-known/astra-plugin-owner at the repository root (working tree). From the registry's cutover every first listing needs one, and every listing after the binding deadline; a release without it is refused B_UNBOUND. Mint a token in the panel and run `astra-plugin init-ci --binding <token>` — https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/5-publish/get-listed.md#bind-your-repository
+  NOT CHECKED: B_BINDING_UNUSABLE, B_OWNER_CHANGED, B_REPOSITORY_RECYCLED, E_WORKFLOW_NOT_ALLOWED — only the registry can answer these, from the plugins service, GitHub and trust.json
   sections: [plugin], [entry], [capabilities]
   OK: plugin 'dice-roller' v0.1.0 is valid (0 warning(s), 2 note(s), capabilities: tools)
 ```
@@ -249,6 +251,26 @@ astra-plugin check --strict
 `admin` на репозиторії, до якого в нього немає видимості, а автор релізу —
 `github-actions[bot]`: реліз публікує workflow з кроку 3, а не ви. Повне
 пояснення — [Потрапити до каталогу §2](5-publish/get-listed.md#2--доведіть-що-ви-контролюєте-репозиторій).
+
+### Прив'яжіть його до акаунта Minice
+
+Від перемикання реєстру першому лістингу потрібен ще один рядок у тому самому
+файлі: **прив'язка** цього репозиторію до акаунта Minice, який його
+публікуватиме. Випустіть токен у панелі на https://astra.minice.ai/plugins,
+увійшовши в цей акаунт, і дайте CLI записати рядок:
+
+<!-- doctest: cli -->
+```bash
+astra-plugin init-ci --binding <token>
+git commit -am "Bind this repository to my Minice account" && git push
+astra-plugin check --strict
+```
+
+Коли на наступному кроці ви поставите тег, `astra-plugin check --tag v0.1.0`
+прочитає рядок із коміту тега, як це зробить реєстр. Токен публічний і не
+автентифікує жоден реліз, тому ніколи не мерджте рядок прив'язки, який випустили
+не ви. Що він фіксує, скільки живе і що з ним робить перейменування — у
+[Потрапити до каталогу — Прив'яжіть репозиторій](5-publish/get-listed.md#привяжіть-репозиторій).
 
 ## 5 · Тег — це і є реліз
 
@@ -365,8 +387,12 @@ astra-plugin publish --dry-run
 ```
 ── only the registry can check these ────────────────────────
   · the build attestation, and that it was produced by the pinned Astra release workflow (a hand-built bundle is refused however good it is)
+  · that the attestation's workflow commit is one the registry's trust.json allows (E_WORKFLOW_NOT_ALLOWED)
   · that the release assets are served from your repository's own release namespace
-  · that `.well-known/astra-plugin-owner` on your default branch names the account opening the listing request
+  · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
+  · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
+  · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
+  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one

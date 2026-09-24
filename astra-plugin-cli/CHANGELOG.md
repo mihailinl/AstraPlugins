@@ -26,7 +26,88 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
-## [0.3.0] — unreleased
+## [0.4.0] — unreleased
+
+Binding a repository to a Minice account, predicting what the registry will say
+about it before the tag, and sending a bound repository to the panel instead of
+an issue form. Plus the registry's id rules, which `check` now refuses on.
+
+**0.4.0 and not 0.3.1, because `check` refuses trees 0.3.0 passed.** A plugin
+whose id the registry reserves (`moderation`, `p`, a 65-character id) or whose
+owner file carries a malformed binding line now fails `astra-plugin check` and
+`publish --dry-run` with exit 1. Per
+[`docs/en/versioning.md`](../docs/en/versioning.md)'s 0.x reading — *minor may
+break source compatibility, patch is bug fixes and additions only* — a script
+that can start failing is the minor slot. `dev` and `build` refuse neither:
+the registry's rules decide what gets listed, never what an author may run.
+
+### Added
+
+- **`astra-plugin init-ci --binding <token>`** writes `astra-binding: <token>`
+  as the first line of the repository root's `.well-known/astra-plugin-owner`
+  (contract FLOW-49), whatever directory the plugin is in. It removes every
+  earlier line that begins `astra-binding` and a colon, in any case and
+  anywhere in the file — a leftover `Astra-Binding:` is `B_BINDING_MALFORMED`
+  at ingest — and keeps every other line byte for byte. It refuses anything
+  outside the minted grammar, `[A-Za-z0-9_-]{22,128}` (FLOW-50), without
+  echoing what it refused; uses no network; does not touch the release
+  workflow; and prints the docs section on what a token is and is not
+  (ID-14).
+- **`astra-plugin check` predicts the binding** (FLOW-51, MIG-15), with one
+  reader — `src/binding.rs`, run in this crate's tests against every case of
+  astra-registry's `tests/binding-line/vectors.json`, mirrored here and
+  compared by C31. From the working tree, or with **`--tag <tag>`** from
+  `<tag>^{commit}` through local git: for an annotated tag that is the commit,
+  never the tag object, which is what the registry reads. A malformed line is
+  a registry refusal (`B_BINDING_MALFORMED`); no line is a registry warning
+  predicting `B_UNBOUND`, never strict-fatal; and every `check` names the four
+  answers it cannot give (FLOW-52): `B_BINDING_UNUSABLE`, `B_OWNER_CHANGED`,
+  `B_REPOSITORY_RECYCLED`, `E_WORKFLOW_NOT_ALLOWED`. `--json` carries a
+  `binding` object (source, peeled commit, outcome, token) and `not_checked`.
+- **`astra-plugin publish` opens the panel for a bound repository** (FLOW-45,
+  first half). When the owner file at `HEAD` carries one valid binding line,
+  `publish` — `--notify` included — prints and opens
+  `https://astra.minice.ai/plugins/_/submit?repo=<owner>/<name>&tag=<tag>`,
+  the panel's submission page (contract FLOW-77), instead of an issue form:
+  the registry ignores issue commands for a bound submission. The page fills
+  itself in from the link and submits nothing until the author does, signed
+  in. An unbound repository keeps the issue form until the registry's cutover.
+  The address is read from `src/panel.yaml`, a copy of `spec/panel.yaml`,
+  which C28 holds to astra-registry's token file member by member.
+- **The registry's id rules** (AP-7): `check` and `publish --dry-run` refuse
+  `E_ID_RESERVED` and `E_ID_CHARSET` and warn `E_ID_RESERVED_PREFIX`, from
+  `spec/reserved-ids.yaml`, which C27 holds to astra-registry's policy. A
+  fourth severity, *registry*, so `dev` and `build` make each a note.
+- **`astra-plugin new` scaffolds a step with an icon.** The `actions` and
+  `triggers` templates in all three languages set `icon_svg` (`iconSvg` in
+  TypeScript, `icon` on Rust's `#[action]`), so a plugin drawn from the
+  scaffold arrives in the command editor with a glyph of its own instead of a
+  generic plugin mark. (This line sat under 0.3.0 below, which had already
+  shipped without it.)
+- **The scaffold's action and trigger labels are `$keys`**, seeded in
+  `locales/en.json`, with `min_astra_version = "0.2.1"` written only when a key
+  is emitted — the first Astra release that resolves them.
+
+### Changed
+
+- `publish --dry-run`'s list of what only the registry can check (FLOW-48)
+  names the binding verdict (`B_BINDING_UNUSABLE`), eligibility
+  (`B_ACCOUNT_INELIGIBLE`), the ids against the identity record
+  (`B_OWNER_CHANGED`, `B_REPOSITORY_RECYCLED`) and the workflow allowlist
+  (`E_WORKFLOW_NOT_ALLOWED`). The owner-file login line stays, qualified: it is
+  what the registry checks for a request through the issue form, until the
+  cutover.
+- **"No second account to create" is withdrawn** (contract ROLL-47 row C3). The
+  module doc of `src/main.rs`, and so `docs/*/reference/cli.md`, said it; from
+  this release a repository is bound to a Minice account holding `astraUser`.
+  The rest of that paragraph stands: there is still no `login`, no stored
+  credential, and no call to any service — C26 is what holds it.
+- The TypeScript scaffold pins `"astra-plugin-sdk": "^0.7.0"`: npm has served
+  0.7.0 since 2026-08-25.
+- `astra-plugin test` builds against SDK 0.7.2, which carries the invocation
+  field a conversation's tool call sends; the probe sends none.
+
+## [0.3.0] — 2026-08-23
 
 The whole `astra-plugin locale` command group, two new pack-time refusals, and
 a bundle-size cap that answers before the tag instead of after it.
@@ -56,12 +137,6 @@ scaffold are additions and would have been a patch on their own.
   because every top-level `*.json` in there is loaded as a locale keyed on its
   stem — `locales/locales.lock.json` would become a phantom locale called
   `locales.lock`.
-- **`astra-plugin new` now scaffolds a step with an icon.** The `actions` and
-  `triggers` templates in all three languages set `icon_svg` (`iconSvg` in
-  TypeScript, `icon` on Rust's `#[action]`), so a plugin drawn from the
-  scaffold arrives in the command editor with a glyph of its own instead of a
-  generic plugin mark. The field always existed and nothing ever showed it
-  being used, which is why nearly no published plugin sets one.
 
 ### Changed (breaking)
 

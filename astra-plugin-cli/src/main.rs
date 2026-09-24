@@ -6,10 +6,19 @@
 //! There is **no `login`**. Getting a plugin listed routes through a browser
 //! the author is already signed into — the registry reads attested bundles off
 //! a GitHub Release and verifies each one from scratch, so a submission carries
-//! a repository and a tag and nothing else. That means no second account to
-//! create, no keyring to integrate with, no credentials file to leak, and no
-//! token in a shell history. A `login` here would be a credential store built
-//! to hold something nothing asks for.
+//! a repository and a tag and nothing else. That means no keyring to integrate
+//! with, no credentials file to leak, and no token in a shell history. A
+//! `login` here would be a credential store built to hold something nothing
+//! asks for.
+//!
+//! **Amended 2026-09-24, CLI 0.4.0 (contract ROLL-47 row C3).** This paragraph
+//! used to add "no second account to create", and from this release that is
+//! false. A repository is now bound to a Minice account holding `astraUser`:
+//! the author mints a binding token in the panel, signed in to that account,
+//! and `init-ci --binding <token>` writes it into the owner file. The rest
+//! stands, and C26 is what holds it — this CLI still has no `login`, stores no
+//! credential, and calls no service: the token is public text in a file, and
+//! the panel is a page `publish` opens in the author's own browser.
 //!
 //! # `--json` and exit codes
 //!
@@ -22,11 +31,13 @@
 //! so every `tracing` event this CLI and its dependencies emitted went nowhere.
 //! `main` installs one.
 
+mod binding;
 mod bundle;
 mod commands;
 mod daemon;
 mod locales;
 mod output;
+mod panel;
 mod templates;
 mod toolchain;
 
@@ -264,6 +275,12 @@ enum Commands {
         /// through ASTRA_PLUGIN_WORKFLOW_SHA, so neither needs the network.
         #[arg(long)]
         resolve_pin: bool,
+
+        /// Read the binding line from this tag's commit instead of the working
+        /// tree, as the registry will: `<tag>^{commit}` of the repository root,
+        /// whatever `plugin-dir` says. Local git only.
+        #[arg(long, value_name = "TAG")]
+        tag: Option<String>,
     },
 
     /// Write .github/workflows/release.yml, pinned to a commit of the Astra
@@ -287,6 +304,13 @@ enum Commands {
         /// Never touch the network: keep the pin already in the file.
         #[arg(long)]
         offline: bool,
+
+        /// Write `astra-binding: <TOKEN>` as the first line of the repository
+        /// root's `.well-known/astra-plugin-owner`, removing every earlier
+        /// binding line in any case, and do nothing else. TOKEN is the one the
+        /// panel minted. No network.
+        #[arg(long, value_name = "TOKEN", conflicts_with_all = ["workflow_ref", "linux_packages", "offline"])]
+        binding: Option<String>,
     },
 
     /// Set the version in plugin.toml and every other manifest at once
@@ -604,11 +628,13 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             strict,
             fix,
             resolve_pin,
+            tag,
         } => commands::validate::run_full(commands::validate::CheckOptions {
             path: &path,
             strict,
             fix,
             resolve_pin,
+            tag: tag.as_deref(),
             // The command an author runs before they publish, so it is the one
             // that answers for the registry's rules while a rename is free.
             gate: commands::validate::Gate::Check,
@@ -618,14 +644,20 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             workflow_ref,
             linux_packages,
             offline,
+            binding,
         } => {
             commands::init_ci::run(commands::init_ci::InitCiOptions {
                 path: &path,
                 workflow_ref: workflow_ref.as_deref(),
                 linux_packages: linux_packages.as_deref(),
                 offline,
+                binding: binding.as_deref(),
             })?;
-            output::emit("init-ci", &Verdict::Pass, serde_json::json!({ "path": path }));
+            output::emit(
+                "init-ci",
+                &Verdict::Pass,
+                serde_json::json!({ "path": path, "binding": binding.is_some() }),
+            );
             Ok(Verdict::Pass)
         }
         Commands::Version {
