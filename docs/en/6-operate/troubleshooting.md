@@ -144,12 +144,12 @@ override**, and each names which of two things happened.
 Plugins page instead, or read [local install](../5-publish/local-install.md) for
 what importing it costs.
 
-Today the trust chain is anchored **one link short**: the root keys exist and
-the root-signed `trust.json` delegating an index-signing key now exists too, but
-`registry/v1/index.json` and `revocations.json` still carry `"signatures": []`.
-With no signature on the catalogue there is nothing for the delegated key to
-check, so a catalogue classifies as unsigned and revocation is not enforced. See
-[`spec/registry-index.md` §0.1](../spec/registry-index.md).
+Today the trust chain is anchored **one link short, at withdrawal**. The root
+keys exist, the root-signed `trust.json` delegates an index-signing key, and
+the catalogue clients are served is signed with it. The copies committed on the
+registry's `main` carry `"signatures": []` by design, and no client reads
+them. What Pages does not serve yet is a signed withdrawal list, so revocation
+is not enforced. See [`spec/registry-index.md` §0.1](../spec/registry-index.md).
 
 ## A tool call fails in a way the model cannot fix
 

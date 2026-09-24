@@ -49,11 +49,11 @@ schlimmer als eines, das es offen zugibt.
 
 ## Zwei Dinge, die heute wahr sind und nicht abgeschwächt werden
 
-### Die Vertrauenskette ist spezifiziert, implementiert, und einen Link zu kurz verankert
+### Die Vertrauenskette ist spezifiziert, implementiert, und beim Widerruf einen Link zu kurz
 
-Die Root-Schlüssel existieren, und die Delegation darunter jetzt auch. **Die
-Signatur des Katalogs selbst nicht**, sodass auf der Maschine eines Nutzers
-nichts verifiziert. Konkret
+Die Root-Schlüssel existieren, die Delegation darunter auch, und ebenso **die
+Signatur des Katalogs selbst**. Was die Maschine eines Nutzers noch nicht
+bekommt, ist eine signierte Widerrufsliste. Konkret
 ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 
 - die `root.json` der Registry trägt `"status": "provisioned"` und zwei
@@ -69,21 +69,19 @@ nichts verifiziert. Konkret
   Build-Attestation akzeptiert. `node tools/sign-trust.mjs --verify
   registry/v1/trust.json` der Registry selbst gibt genau das aus. Also feuert
   die Ingest-seitige Sperre `E_TRUST_UNPROVISIONED` nicht mehr;
-- **aber `registry/v1/index.json` trägt weiterhin `"signatures": []`**, und
-  `revocations.json` ebenso. Ohne Signatur auf dem Katalog gibt es nichts,
-  das der delegierte Schlüssel prüfen könnte, und jeder Katalog wird weiterhin
-  als `UNSIGNED` eingestuft — mit Grund **`NoSignatures`**, nicht
-  `NoTrustAnchor`: der Anker ist angekommen, die Signaturen nicht.
-  `NoTrustAnchor` ist der ältere und schlechtere Fall und heißt, dass gar kein
-  verifiziertes `trust.json` den Build erreicht hat;
-- und weil Widerrufslisten strikt verifiziert werden, wird eine unsignierte
-  abgelehnt, also **ist die Durchsetzung von Widerrufen ebenfalls nicht
-  aktiv**.
+- **der Katalog, den Clients bekommen, ist signiert.** Seit 2026-09-20
+  signiert der Signer der Registry `index.json` mit `astra-index-2026a` und
+  deployt es nach Pages, sodass ein Standard-Build eine Katalog-Signatur zu
+  prüfen hat. Die auf `main` der Registry committeten Kopien tragen weiterhin
+  `"signatures": []`, mit Absicht, und kein Client liest sie;
+- **aber Pages liefert weiterhin die unsignierte Widerrufsliste aus**, bis die
+  Registry dort die signierte scharf schaltet, und weil Widerrufslisten strikt
+  verifiziert werden, wird eine unsignierte abgelehnt, also **ist die
+  Durchsetzung von Widerrufen noch nicht aktiv**.
 
-Ein Standard-Build fällt also weiterhin geschlossen aus (fail closed).
-Nichts hier ist ein Versprechen über eine Garantie, die du heute hast; der
-Mechanismus trägt erst dann Gewicht für einen Nutzer, wenn ein signierter
-Index existiert, und nicht früher.
+Nichts hier ist ein Versprechen über eine Garantie, die du heute nicht hast.
+Die Signatur des Katalogs trägt für einen Nutzer schon jetzt Gewicht; der
+Widerruf wird es, sobald die signierte Liste auf Pages liegt.
 
 ### Ein lokaler Signierschlüssel verleiht überhaupt kein Vertrauen
 
@@ -198,8 +196,8 @@ Benannt, statt einer Leserin zum Entdecken überlassen:
 |---|---|
 | Ein Plugin liest deine Dateien, deine Schlüssel, dein Netzwerk | **Nicht verteidigt.** Es existiert keine Isolation — Phase 7 |
 | Ein Plugin liest `daemon.token` und registriert sich als Client | **Nicht verteidigt.** Gleicher Grund |
-| Eine bösartige oder kompromittierte Registry liefert andere Bytes | Verteidigt *per Design* — der Index gegensigniert einen Digest, und der Daemon hasht neu — **aber nicht in Kraft**: die Roots sind bereitgestellt (`registry/v1/root.json`, dieselben zwei in den Daemon kompilierten Schlüssel), und der Katalog-Index, den sie signieren, ist weiterhin unsigniert |
-| Eine bereits installierte, zurückgezogene Version | Spezifiziert; heute nicht durchgesetzt, weil eine unsignierte Widerrufsliste abgelehnt wird |
+| Eine bösartige oder kompromittierte Registry liefert andere Bytes | Verteidigt *per Design* — der Index gegensigniert einen Digest, und der Daemon hasht neu — und die Roots sind bereitgestellt (`registry/v1/root.json`, dieselben zwei in den Daemon kompilierten Schlüssel). Seit 2026-09-20 ist der Katalog, den Clients bekommen, unter ihnen signiert |
+| Eine bereits installierte, zurückgezogene Version | Spezifiziert; heute nicht durchgesetzt, weil Pages weiterhin eine unsignierte Widerrufsliste ausliefert und eine unsignierte Liste abgelehnt wird |
 | Ein anderer lokaler Prozess ruft den Capability-Server deines Plugins auf | **Verteidigt.** Der Daemon legt bei jedem Aufruf das Spawn-Token vor und setzt `ASTRA_PLUGIN_CAPABILITY_AUTH=require`, sodass das SDK einen Aufruf ohne dieses Token ablehnt. Unter einem Daemon, der zu alt ist, um den Header zu senden, bleibt das SDK bei `warn` — ein falsches Token wird abgelehnt, ein fehlendes akzeptiert — weil es sonst nichts tun könnte |
 | Ein Plugin bearbeitet sein eigenes Manifest, um seine Permissions zu erweitern | **Verteidigt auf den Stufen 1 und 2** — Gewährungen stammen aus einem vom Daemon verwalteten Trust-Record, nicht aus dem Manifest. **Nicht verteidigt auf Stufe 3**: bei einem sideload­eten Verzeichnis *ist* das Manifest die Gewährung und hat keine Obergrenze, sodass es jede Permission im Vokabular durch Bearbeiten seiner eigenen Datei erwerben kann |
 | Ein von Hand platzierter Sideload-Marker | Verteidigt. Der Daemon lehnt einen Marker ab, den er nicht selbst geschrieben hat |

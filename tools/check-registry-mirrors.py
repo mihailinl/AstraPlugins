@@ -299,6 +299,21 @@ C21 — `docs/en/spec/registry-index.md` §5.1 names every member of
     reader is a member nobody compares. The six translations of the page are
     not read here; `docs/tools/mirror.py` holds their table rows to the
     English page's, name for name.
+
+C36 — the docs say what the served chain carries (registry plan RC-R1-11).
+
+    Two of astra-registry's commits make sentences here false, and ROLL-47
+    says each is amended in the change that makes it false. From the
+    signer's first commit to `signed` (2026-09-20) the catalogue clients are
+    served is signed, so no page may say a default build has nothing to
+    check. That leg asks this tree only. From the commit that ADDS
+    `policy/pages-withdrawal-list.json`, Pages serves the signed withdrawal
+    list and shipped clients arm, so no page may say withdrawal is not
+    enforced. That leg asks astra-registry's checkout, and until the flag is
+    there it is dormant. While dormant it asserts that every language's
+    phrases still match, so it cannot sit waiting with a phrase list that
+    finds nothing. It is one phrase list per language, because mirror.py
+    compares no prose.
 """
 
 from __future__ import annotations
@@ -2721,6 +2736,194 @@ def rule_C21(fails: Fails) -> None:
     )
 
 
+# ── C36: what the docs say the served chain carries (RC-R1-11; ROLL-47) ──────
+#
+# Contract ROLL-47: a promise is amended in the change that first makes it
+# false, each with a grep canary. Two such changes are astra-registry's:
+#
+#   * the signer's first commit to `signed` (e0b7531, 2026-09-20), from which
+#     the catalogue clients are served is signed. Every sentence saying a
+#     default build "has nothing to check" or "classifies every catalogue as
+#     unsigned" was false from that day. They stood, in seven languages, for
+#     four days;
+#   * the commit that ADDS `policy/pages-withdrawal-list.json`, from which
+#     Pages serves the signed withdrawal list and shipped clients arm
+#     (ROLL-14). Every sentence saying revocation is "not enforced" or "not
+#     live" becomes false on that commit, and RC-R1-11's second half removes
+#     them.
+#
+# So two legs. The catalogue leg asks the tree alone and has no condition:
+# the served catalogue does not go back to unsigned. The withdrawal leg asks
+# astra-registry's checkout whether the flag is there, and while it is not it
+# is DORMANT and asserts the opposite: every phrase list still matches its
+# language, so the day the flag lands it is a check that has been seen to
+# find something, not one that passes because its phrases rotted. One phrase
+# list per language, because `docs/tools/mirror.py` compares samples, tables
+# and headings, never prose.
+C36_FLAG = "policy/pages-withdrawal-list.json"
+#: The registry file that names the flag's path. The rule holds its own copy
+#: to it, so a moved flag is a red here and not a leg that asks the wrong path.
+C36_FLAG_SOURCE = "tools/signer/pages.mjs"
+C36_FLAG_LINE = 'export const FLAG_PATH = "policy/pages-withdrawal-list.json";'
+C36_LOCALES = ("en", "ru", "uk", "de", "es", "ja", "zh")
+#: RC-R1-11's pages. English is scanned across all of `docs/en/` and the root
+#: README, as the plan asks; a translation only in these, because its phrases
+#: are ordinary words that may mean something else on another page.
+C36_PAGES = (
+    "spec/registry-index.md", "1-orientation/security.md", "5-publish/get-listed.md",
+    "6-operate/troubleshooting.md", "README.md", "publishing.md",
+)
+C36_MIN_EN_PAGES = 38
+C36_CATALOGUE_PHRASES = {
+    "en": ("has nothing to check", "classifies every catalogue as unsigned",
+           "catalogue itself is still unsigned", "no catalogue signature verifies",
+           "nothing has signed the catalogue", "the catalogue index they sign is still unsigned",
+           "is signed; the catalogue is not", "Not yet in force:", "and **not anchored**"),
+    "ru": ("нечего проверять", "ничто им не подписало каталог", "сам каталог всё ещё не подписан",
+           "Ещё не в силе:", "**не заякорена**"),
+    "uk": ("нема чого перевіряти", "нічого перевіряти", "ніщо ним не підписало каталог",
+           "сам каталог досі не підписаний", "Ще не в силі:", "**не заякорений**"),
+    "de": ("keine Signatur zu prüfen", "nichts zu prüfen", "nichts hat den Katalog damit signiert",
+           "der Katalog selbst ist weiterhin unsigniert", "Noch nicht in Kraft:", "**nicht verankert**"),
+    "es": ("no tiene firma que comprobar", "no tiene nada que comprobar",
+           "nada ha firmado el catálogo", "el catálogo en sí sigue sin firmar", "Todavía no en vigor:",
+           "**no anclada**"),
+    "ja": ("チェックする署名がなく", "チェックするものが何もなく", "チェックするものがなく",
+           "カタログ自体は今も未署名", "まだ発効していません:", "**固定されていません**"),
+    "zh": ("没有签名可以核对", "没有任何可校验的内容", "没有任何东西可以核对", "目录本身仍然是未签名的",
+           "**尚未生效：**", "**尚未锚定**"),
+}
+C36_WITHDRAWAL_PHRASES = {
+    "en": ("revocation is not enforced", "revocation enforcement is not live",
+           "Pages still serves", "signed withdrawal list on Pages", "not yet through the withdrawal list",
+           "one link short", "Partly in force:"),
+    "ru": ("отзыв пока не применяется", "применение отзыва пока не действует",
+           "по-прежнему отдаёт", "сегодня не применяется", "пока не через список отзыва",
+           "не хватает одного звена", "Частично в силе:"),
+    "uk": ("відкликання поки не застосовується", "застосування відкликання поки не діє",
+           "досі віддає", "сьогодні не застосовується", "поки не через список відкликання",
+           "поки що не через список", "бракує однієї ланки", "Частково в силі:"),
+    "de": ("noch nicht durchgesetzt", "Widerrufen noch nicht", "weiterhin die unsignierte",
+           "weiterhin eine unsignierte", "heute nicht durchgesetzt", "noch nicht durch die Widerrufsliste",
+           "einen Link zu kurz", "Teilweise in Kraft:"),
+    "es": ("todavía no se aplica", "todavía no está activa", "todavía sirve", "no aplicado hoy",
+           "todavía no a través de la lista de retirada", "a un eslabón de distancia",
+           "le falta **un eslabón", "En vigor en parte:"),
+    "ja": ("まだ強制されません", "まだ機能していません", "まだ発効していません",
+           "今日は強制されていません", "今も未署名の撤回リストを配信", "撤回リストまではまだです",
+           "撤回リストまでは", "1 リンク分だけ", "一部発効:"),
+    "zh": ("尚未被强制执行", "机制尚未生效", "尚未强制执行", "仍然提供", "还没有贯穿到撤回列表",
+           "还差一步", "**部分生效：**"),
+}
+
+
+def _c36_files(locale: str) -> list[Path]:
+    if locale == "en":
+        return sorted((ROOT / "docs" / "en").rglob("*.md")) + [ROOT / "README.md"]
+    return [ROOT / "docs" / locale / page for page in C36_PAGES]
+
+
+def _c36_hits(phrases: dict[str, tuple[str, ...]]) -> tuple[dict[str, list[str]], dict[str, int]]:
+    """Every `file:line: phrase` per language, and how many files each language read."""
+    hits: dict[str, list[str]] = {}
+    read: dict[str, int] = {}
+    for locale in C36_LOCALES:
+        hits[locale] = []
+        read[locale] = 0
+        for f in _c36_files(locale):
+            if not f.is_file():
+                continue
+            read[locale] += 1
+            # A phrase may be wrapped across lines, so the page is read as one
+            # string of its stripped lines joined by single spaces, and each
+            # match is reported at the line it starts on.
+            starts: list[int] = []
+            parts: list[str] = []
+            at = 0
+            for line in f.read_text(encoding="utf-8").splitlines():
+                starts.append(at)
+                parts.append(line.strip())
+                at += len(parts[-1]) + 1
+            text = " ".join(parts)
+            for phrase in phrases[locale]:
+                pos = text.find(phrase)
+                while pos >= 0:
+                    line_no = max(i for i, st in enumerate(starts) if st <= pos) + 1
+                    hits[locale].append(f"{f.relative_to(ROOT)}:{line_no}: {phrase}")
+                    pos = text.find(phrase, pos + 1)
+    return hits, read
+
+
+def rule_C36(fails: Fails) -> None:
+    # ── leg 0: the tree reads every page it means to ─────────────────────────
+    cat, read = _c36_hits(C36_CATALOGUE_PHRASES)
+    missing = [f"docs/{l}/{p}" for l in C36_LOCALES if l != "en" for p in C36_PAGES
+               if not (ROOT / "docs" / l / p).is_file()]
+    if not fails.check(
+        not missing and read["en"] >= C36_MIN_EN_PAGES + 1,
+        f"C36 floor: {read['en']} English file(s) read (>= {C36_MIN_EN_PAGES} pages and the root "
+        f"README), and every translation's {len(C36_PAGES)} page(s) present",
+        ("missing: " + ", ".join(missing) + "\n" if missing else "")
+        + "A page RC-R1-11 names moved or was deleted, or docs/en shrank: a phrase scan over the\n"
+        "wrong set of files finds nothing and reads as clean.",
+    ):
+        return
+
+    # ── leg 1: the catalogue half, unconditional ─────────────────────────────
+    found = [h for l in C36_LOCALES for h in cat[l]]
+    fails.check(
+        not found,
+        "C36 no page says the catalogue clients are served is unsigned (false since "
+        "astra-registry's signer first committed to `signed`, e0b7531, 2026-09-20)",
+        "\n".join(found) + "\n"
+        "The copies committed on astra-registry's `main` carry `\"signatures\": []` by design and\n"
+        "no client reads them; the served copies (`signed`, Pages, and the catalogue host from R2)\n"
+        "are signed. Say which copy a sentence is about. Do not bring back that a default build\n"
+        "has nothing to check (ROLL-47; registry plan RC-R1-11).",
+    )
+
+    # ── leg 2: the withdrawal half, keyed on the flag ────────────────────────
+    registry = _registry_dir(C36_FLAG_SOURCE)
+    if registry is None:
+        print(f"C36 NOT VERIFIED: no astra-registry checkout holding {C36_FLAG_SOURCE} at "
+              "--registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry, so whether")
+        print(f"        {C36_FLAG} exists was not asked, and the withdrawal half was not compared.")
+        fails.skip("C36", "no astra-registry checkout")
+        return
+    head = _registry_label(registry)
+    source = (registry / C36_FLAG_SOURCE).read_text(encoding="utf-8")
+    if not fails.check(
+        source.count(C36_FLAG_LINE) == 1,
+        f"C36 astra-registry's {C36_FLAG_SOURCE} names the flag this rule asks for ({head})",
+        f"expected exactly one line `{C36_FLAG_LINE}`. The flag moved, or its declaration\n"
+        "changed shape; move C36_FLAG with it, or this leg asks about a file nothing reads.",
+    ):
+        return
+    wd, _ = _c36_hits(C36_WITHDRAWAL_PHRASES)
+    if (registry / C36_FLAG).is_file():
+        found = [h for l in C36_LOCALES for h in wd[l]]
+        fails.check(
+            not found,
+            f"C36 no page says withdrawal is unenforced, now that astra-registry holds {C36_FLAG} ({head})",
+            "\n".join(found) + "\n"
+            "Pages serves the signed withdrawal list from the commit that ADDED the flag, and every\n"
+            "shipped 0.2.x client arms on its next fetch. This is RC-R1-11's second half: rewrite\n"
+            "each sentence to what is now true, in all seven languages, in one commit whose message\n"
+            "names the flag commit's SHA (registry plan RC-R1-11; ROLL-47).",
+        )
+        return
+    empty = [l for l in C36_LOCALES if not wd[l]]
+    fails.check(
+        not empty,
+        f"C36 dormant: astra-registry holds no {C36_FLAG} ({head}), so the withdrawal sentences "
+        f"are true and stay; every language's phrases still match ("
+        + ", ".join(f"{l} {len(wd[l])}" for l in C36_LOCALES) + ")",
+        "no match in: " + ", ".join(empty) + "\n"
+        "The sentences in that language were reworded, so the day the flag lands this leg would\n"
+        "pass having looked for nothing. Update C36_WITHDRAWAL_PHRASES to the words the pages use.",
+    )
+
+
 RULES = {
     "C21": rule_C21,
     "C24": rule_C24,
@@ -2729,6 +2932,7 @@ RULES = {
     "C27": rule_C27,
     "C31": rule_C31,
     "C35": rule_C35,
+    "C36": rule_C36,
 }
 
 #: The rules with a PINNED leg: what reads the commit, and the file that names
