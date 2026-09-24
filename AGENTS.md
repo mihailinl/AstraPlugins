@@ -188,33 +188,27 @@ Which repository, and which template:
 
 - A plugin, SDK, CLI, scaffold, example or docs bug → **AstraPlugins**, *Bug
   report*; an idea or a question → *Plugin idea or question*.
-- Anything about the catalogue →
-  **[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry)**,
-  where **blank issues are off and every door is a form**. They are four
-  different things and they are not interchangeable:
+- Anything about the catalogue — getting a plugin listed, a report, an appeal —
+  is the **panel's**, at https://astra.minice.ai/plugins, signed in to a Minice
+  account, not an issue in any repository. The registry closed its issue
+  channel at the cutover:
 
-  | What you have | Form |
+  | What you have | Where |
   |---|---|
-  | Get a plugin into the catalogue for the first time | *Plugin listing request* (`plugin-listing.yml`) |
-  | A new release of a plugin **already** in the catalogue | *A release of a plugin that is already listed* (`release-ping.yml`) |
-  | A listed plugin is not what it says it is | *Report a listed plugin* (`report.yml`) |
-  | A yank, delist, deprecation or revocation you think is wrong | *Appeal a decision about a listed plugin* (`appeal.yml`) |
+  | Get a plugin into the catalogue for the first time | Bind the repository (`astra-plugin init-ci --binding <token>`), tag, then `astra-plugin publish` opens the panel's submission page |
+  | A new release of a plugin **already** in the catalogue | Nothing: the registry detects the tag, and the panel shows its state |
+  | A listed plugin is not what it says it is | The panel's report, on the plugin's page |
+  | A yank, delist, deprecation or revocation you think is wrong | The panel's appeal |
 
-  Only *Plugin listing request* applies the `listing` label, and in that
-  repository the label is an authority token — a labelled issue can drive an
-  ingest of a repository the registry has never seen. Never route a ping, a
-  report or an appeal through it to "make the bot notice"; the other three are
-  deliberately unlabelled. `astra-plugin publish` opens the listing form
-  prefilled, and `publish --notify` opens the release-ping form.
-- A defect in the registry's **bot** — a wrong verdict, a check that misfires, a
-  comment that never arrives — has no form of its own, because blank issues are
-  off. Two right answers: comment on the existing listing issue, where the bot
-  already replies and `/recheck` re-runs every check from scratch; or, for a
-  provable code bug, open a **pull request** against `astra-registry`. Do not
-  file it as a listing request.
+- A defect in the registry's **bot** — a wrong verdict, a check that misfires —
+  is a **pull request** against
+  **[`mihailinl/astra-registry`](https://github.com/mihailinl/astra-registry)**
+  when it is a provable code bug; a submission's own state and reasons, and
+  Recheck, are in the panel.
 - A security hole — anything that would let somebody ship code to a user — goes
-  to neither: no public issue in either repository. `CONTRIBUTING.md` §Security
-  is the rule and states what is and is not true about the trust model today.
+  to security@minice.ai, never to a public issue in either repository.
+  `CONTRIBUTING.md` §Security is the rule and states what is and is not true
+  about the trust model.
 
 Either way give the exact command, the complete output including the exit code,
 `astra-plugin --version`, your OS and architecture, and what you expected — the

@@ -9,10 +9,11 @@ body:
         **One issue, one defect.** Five unrelated problems in one issue cannot be
         triaged, fixed or closed.
 
-        **Not for listing requests.** "Please put my plugin in the store" belongs
-        in [astra-registry](https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml),
-        opened through its own template — an issue there without the `listing`
-        label starts no automation and gets no reply.
+        **Not for listing requests.** "Please put my plugin in the store" is
+        made in the panel, at https://astra.minice.ai/plugins/_/submit, signed
+        in — `astra-plugin publish` opens it with your repository and tag
+        filled in. Reports and appeals about a listed plugin are the panel's
+        too.
 
         **Redact before you paste.** No tokens, API keys, `.env` contents,
         private keys or session cookies. Replace the value; do not rely on

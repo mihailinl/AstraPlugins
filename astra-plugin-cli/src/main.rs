@@ -328,11 +328,13 @@ enum Commands {
         allow_downgrade: bool,
     },
 
-    /// Get a release listed: preflight it, or open a prefilled submission.
+    /// Get a release listed: preflight it, or open the panel's submission page.
     ///
     /// Uploads nothing and holds no credential — the registry reads the
     /// attested bundles off your GitHub Release and verifies every one of them
     /// from scratch, so a submission carries only your repository and a tag.
+    /// You submit it in the panel, signed in to the Minice account the
+    /// repository is bound to.
     Publish {
         /// Path to plugin directory (default: current directory)
         #[arg(default_value = ".")]
@@ -342,12 +344,6 @@ enum Commands {
         /// ones only the registry can run, and stop.
         #[arg(long)]
         dry_run: bool,
-
-        /// A release ping for a plugin that is ALREADY listed — task 3.4's
-        /// manual escape hatch, for when the registry has not noticed a
-        /// release by itself. Without it, this opens a first listing request.
-        #[arg(long)]
-        notify: bool,
 
         /// Source repository as `owner/name`. Default: the `origin` remote.
         #[arg(long)]
@@ -680,7 +676,6 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
         Commands::Publish {
             path,
             dry_run,
-            notify,
             repo,
             tag,
             print_url,
@@ -690,7 +685,6 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
                 repo: repo.as_deref(),
                 tag: tag.as_deref(),
                 dry_run,
-                notify,
                 print_url,
             })?;
             output::emit(

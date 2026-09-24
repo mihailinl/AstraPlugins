@@ -1,40 +1,39 @@
 //! `astra-plugin publish` — get a release into the Astra registry.
 //!
-//! Three things, and it is worth being precise about which is which, because
-//! the word "publish" does more work in most tools than it does here:
+//! Two things, and it is worth being precise about which is which, because the
+//! word "publish" does more work in most tools than it does here:
 //!
-//! * `--dry-run` runs **locally** every check the registry bot runs that can be
-//!   run locally, and then names the ones only the registry can run. It uploads
+//! * `--dry-run` runs **locally** every check the registry runs that can be run
+//!   locally, and then names the ones only the registry can run. It uploads
 //!   nothing and needs no network.
-//! * with no flags it prints (and offers to open) a prefilled **listing
-//!   request** — the one-time submission that gets a plugin into the catalogue
-//!   at all.
-//! * `--notify` prints a prefilled **release ping** for a plugin that is already
-//!   listed: PRODUCTION_PLAN task 3.4's manual escape hatch, for when the
-//!   registry has not noticed a release by itself.
+//! * with no flags it prints, and offers to open, the panel's **submission
+//!   page** (contract FLOW-77) with the repository and the tag filled in. The
+//!   page fills in its form from the link and submits nothing: the author
+//!   submits it, signed in to the Minice account their repository is bound to.
 //!
 //! **This command never uploads a bundle and never holds a credential.** The
 //! artifacts are GitHub Release assets your CI attached and attested; the
 //! registry reads them from your repository and verifies every one from
-//! scratch. So all a notification carries is `owner/repo` and a tag, which is
-//! exactly why it can be a URL you open in a browser you are already signed in
+//! scratch. So all a submission carries is `owner/repo` and a tag, which is
+//! exactly why it can be a link you open in a browser you are already signed in
 //! to, rather than a token this program would have to be trusted with.
 //!
-//! What the registry does with it afterwards — published immediately, delayed
-//! 24 hours, or held for a person — is `docs/POLICY.md` in the registry
-//! repository, and the bot says which on the issue.
+//! # CLI 0.5.0: the panel for everybody (FLOW-45)
 //!
-//! # A bound repository gets the panel, not an issue (CLI 0.4.0)
+//! From the registry's cutover there is no issue channel: no listing form, no
+//! release ping, no issue command. A new tag is noticed by the registry's poll, a
+//! first listing is submitted in the panel, and everything that follows — a
+//! hold, a delay, a stop, a Recheck, an appeal — is the panel's. So `publish`
+//! opens the submission page for every repository. A repository with no
+//! binding line at `HEAD` is told so first, because the registry refuses its
+//! first listing `B_UNBOUND`.
 //!
-//! When the owner file at `HEAD` carries one valid binding line, `publish` —
-//! with or without `--notify` — prints and opens the panel's submission page
-//! (contract FLOW-77; `src/panel.yaml`) instead of an issue form. The registry
-//! makes issue commands inert for a bound submission (its BOT-77), so an issue
-//! link for a bound repository is a door that opens onto nothing. An UNBOUND
-//! repository keeps the issue form until the registry's cutover, when the issue
-//! channel closes and `publish` opens the panel for everybody (FLOW-45's second
-//! half). The page, like the form, fills itself in from the link and submits
-//! nothing: the author submits it, signed in, in their own browser.
+//! The one-minor ping stub FLOW-47 kept in 0.5.0 is gone from 0.6.0: the
+//! registry detects a new tag by itself, so there is nothing to ping.
+//!
+//! What happens to a release after it is submitted — published, delayed, or
+//! held for a person — is the registry's `docs/POLICY.md`, and the panel shows
+//! which.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -45,22 +44,6 @@ use astra_plugin_manifest::PluginManifest;
 use crate::commands::init_ci::{repo_root, tag_prefix_for};
 use crate::hprintln;
 
-/// Where listing requests and release pings go.
-pub const REGISTRY_REPO: &str = "mihailinl/astra-registry";
-
-/// The issue template a first listing uses.
-pub const LISTING_TEMPLATE: &str = "plugin-listing.yml";
-
-/// The issue template a release ping uses.
-///
-/// Both links name a template, and neither may stop doing so. The registry sets
-/// `blank_issues_enabled: false` in `.github/ISSUE_TEMPLATE/config.yml`, so a
-/// bare `issues/new?title=…&body=…` no longer opens an editor — GitHub
-/// redirects it to `/issues/new/choose` and drops every prefilled parameter on
-/// the way. The result was an empty template picker and an author left to
-/// retype the `/release` line from memory.
-pub const RELEASE_PING_TEMPLATE: &str = "release-ping.yml";
-
 pub struct PublishOptions<'a> {
     pub path: &'a str,
     /// `owner/name`. Default: parsed from the `origin` remote.
@@ -69,9 +52,6 @@ pub struct PublishOptions<'a> {
     pub tag: Option<&'a str>,
     /// Run the local half of the registry's checks and stop.
     pub dry_run: bool,
-    /// A release ping for a plugin that is already listed, rather than a first
-    /// listing request.
-    pub notify: bool,
     /// Print the URL and do not try to open a browser.
     pub print_url: bool,
 }
@@ -116,60 +96,25 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
         None => detect_repo(&dir)?,
     };
 
+    let url = crate::panel::submission_url(&repo, &tag).map_err(|e| anyhow::anyhow!("{e}"))?;
     let bound = bound_at_head(&dir);
-    let (what, url) = if bound.is_some() {
-        // FLOW-45's first half. The same page for `--notify`: a ping issue for
-        // a bound repository is one the registry's bot no longer acts on.
-        (
-            "submission (the panel)",
-            crate::panel::submission_url(&repo, &tag).map_err(|e| anyhow::anyhow!("{e}"))?,
-        )
-    } else if opts.notify {
-        (
-            "release ping",
-            format!(
-                "https://github.com/{REGISTRY_REPO}/issues/new?template={RELEASE_PING_TEMPLATE}\
-                 &title={}&command={}",
-                encode(&format!("[release] {repo} {tag}")),
-                encode(&release_ping_command(&repo, &tag, &id, &version)),
-            ),
-        )
-    } else {
-        (
-            "listing request",
-            format!(
-                "https://github.com/{REGISTRY_REPO}/issues/new?template={LISTING_TEMPLATE}\
-                 &title={}&repository={}&release_tag={}",
-                encode(&format!("[listing] {repo}")),
-                encode(&repo),
-                encode(&tag),
-            ),
-        )
-    };
 
-    hprintln!("{id} {version} — {what} for {repo}@{tag}\n");
+    hprintln!("{id} {version} — submission for {repo}@{tag}, in the panel\n");
     warn_if_tag_is_missing(&dir, &tag);
-    if let Some(token) = &bound {
-        hprintln!(
-            "  This repository is bound: `astra-binding: {token}` is line 1 of its owner file at\n\
-             \x20 HEAD, so the submission is made in the panel, signed in to the Minice account that\n\
-             \x20 minted that token. The page fills itself in from this link and submits nothing\n\
-             \x20 until you do. The registry reads the tag's commit, not HEAD — run\n\
-             \x20 `astra-plugin check --tag {tag}` if the line may have changed since.\n"
-        );
-    } else if opts.notify {
-        hprintln!(
-            "  The registry usually notices a release by itself, within minutes. Use this when it\n\
-             \x20 has not: it carries your repository and the tag, and nothing else. The bot then\n\
-             \x20 re-verifies the release from scratch, which is why the link needs no token.\n"
-        );
-    } else {
-        hprintln!(
-            "  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI\n\
-             \x20 build and attest, and the registry picks it up. Everything on the store card —\n\
-             \x20 name, summary, licence, capabilities, permissions, digests — is read out of the\n\
-             \x20 attested bundle, so there is nothing else to fill in and nothing to keep in sync.\n"
-        );
+    match &bound {
+        Some(token) => hprintln!(
+            "  Bound: `astra-binding: {token}` is line 1 of the owner file at HEAD. Submit in the\n\
+             \x20 panel signed in to the Minice account that minted that token. The page fills itself\n\
+             \x20 in from this link and submits nothing until you do. The registry reads the tag's\n\
+             \x20 commit, not HEAD — `astra-plugin check --tag {tag}` reads it the same way.\n"
+        ),
+        None => hprintln!(
+            "  Not bound: the owner file at HEAD carries no binding line, and the registry refuses\n\
+             \x20 a first listing without one (B_UNBOUND). Mint a token in the panel, run\n\
+             \x20 `astra-plugin init-ci --binding <token>`, commit it, and tag again:\n\
+             \x20   {docs}\n",
+            docs = crate::commands::init_ci::BINDING_DOCS_URL
+        ),
     }
     hprintln!("{url}\n");
 
@@ -236,10 +181,9 @@ fn dry_run(dir: &Path, manifest: &PluginManifest, tag: &str) -> Result<()> {
 /// The checks that need the network, the catalogue, or a signature — named
 /// rather than implied.
 ///
-/// FLOW-48 adds the four the binding brings, each with the code a failure
+/// FLOW-48: the four the binding brings, each with the code a failure
 /// produces, so an author can search for the same word twice. The owner-file
-/// login line stays, qualified, for as long as the issue form is a way in: it
-/// is what the registry checks for an unbound request until the cutover.
+/// login line left with the issue form it belonged to (CLI 0.5.0).
 pub const REGISTRY_ONLY_CHECKS: &[&str] = &[
     "the build attestation, and that it was produced by the pinned Astra release workflow \
      (a hand-built bundle is refused however good it is)",
@@ -251,8 +195,6 @@ pub const REGISTRY_ONLY_CHECKS: &[&str] = &[
     "eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)",
     "the ids against the identity record: that the repository and its owner are the ones this \
      listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)",
-    "for a request through the issue form, until the registry's cutover: that \
-     `.well-known/astra-plugin-owner` on your default branch names the account opening it",
     "that the id and display name do not collide with a listed plugin",
     "that the licence is on the registry's SPDX allowlist",
     "that the version is strictly newer than the listed one",
@@ -378,31 +320,6 @@ fn warn_if_tag_is_missing(dir: &Path, tag: &str) {
     }
 }
 
-// ── the ping ────────────────────────────────────────────────────────────────
-
-/// What goes in the release-ping form's one field.
-///
-/// It fills the `command` textarea of `release-ping.yml` — GitHub prefills an
-/// issue form from query parameters named after each field's `id` — and not a
-/// `body=` parameter, which that form has no room for.
-///
-/// The first line is the machine-readable part and has to be exactly that: the
-/// registry's `bot/lib/notify.mjs` reads `/release <owner/repo> <tag>` from the
-/// first line a person wrote and nothing else, so a sentence above it turns the
-/// ping into an ordinary issue nobody acts on. GitHub renders a form field as
-/// `### <label>`, a blank line, then the value; `firstWrittenLine` skips
-/// exactly those two things, so the command still lands on line 1 as far as the
-/// parser is concerned. Anything *below* it is free, which is where the
-/// human-readable half goes.
-pub fn release_ping_command(repo: &str, tag: &str, id: &str, version: &str) -> String {
-    format!(
-        "/release {repo} {tag}\n\
-         \n\
-         `{id}` {version} is released and the registry has not picked it up yet. Sent by \
-         `astra-plugin publish --notify`.\n"
-    )
-}
-
 // ── plumbing ────────────────────────────────────────────────────────────────
 
 /// Bundles for this exact id and version, next to the plugin or under `dist/`.
@@ -421,25 +338,6 @@ fn find_bundles(dir: &Path, id: &str, version: &str) -> Vec<PathBuf> {
         }
     }
     out.sort();
-    out
-}
-
-/// Percent-encode for a query-string value.
-///
-/// Written out rather than pulled in: this CLI has no URL dependency, the rule
-/// is four lines, and the alternative — pasting a tag into a URL unencoded — is
-/// how a plugin named with a `#` in its version silently submits half a form.
-pub fn encode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 16);
-    for b in s.as_bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(*b as char);
-            }
-            b' ' => out.push('+'),
-            _ => out.push_str(&format!("%{b:02X}")),
-        }
-    }
     out
 }
 
@@ -516,31 +414,66 @@ mod tests {
         assert_eq!(normalise_repo("you/thing evil").as_deref(), None);
     }
 
+    /// FLOW-45 and AP-15's URL test: what `publish` opens is the page
+    /// `spec/panel.yaml` declares — its address, and every query parameter
+    /// it names, in order, each filled. Read from the spec file at test time,
+    /// not from the vendored copy the binary embeds, so the two cannot agree
+    /// with each other and disagree with the spec.
     #[test]
-    fn the_ping_is_machine_readable_on_its_first_line() {
-        let body = release_ping_command("you/dice-roller", "v0.2.0", "dice-roller", "0.2.0");
+    fn publish_opens_the_page_spec_panel_yaml_declares() {
+        let spec = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/panel.yaml"),
+        )
+        .expect("spec/panel.yaml");
+        let url_line = spec
+            .lines()
+            .find_map(|l| l.strip_prefix("url: "))
+            .expect("spec/panel.yaml has a url");
+        let names: Vec<&str> = spec
+            .lines()
+            .skip_while(|l| !l.starts_with("query:"))
+            .skip(1)
+            .take_while(|l| l.starts_with("  - "))
+            .map(|l| l.trim_start_matches("  - ").trim())
+            .collect();
+        assert_eq!(names, ["repo", "tag"]);
+
+        let got = crate::panel::submission_url("you/dice-roller", "v0.1.0").unwrap();
+        let (address, query) = got.split_once('?').expect("the link carries a query");
+        assert_eq!(address, url_line);
+        let params: Vec<(&str, &str)> = query
+            .split('&')
+            .map(|kv| kv.split_once('=').expect("name=value"))
+            .collect();
         assert_eq!(
-            body.lines().next().unwrap(),
-            "/release you/dice-roller v0.2.0",
-            "the registry reads the first line and nothing else",
+            params.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
+            names,
+            "every parameter the page declares, in its order"
+        );
+        assert_eq!(params, [("repo", "you/dice-roller"), ("tag", "v0.1.0")]);
+        assert!(
+            !got.contains("github.com") && !got.contains("template="),
+            "the submission link still reaches a GitHub issue form: {got}"
         );
     }
 
+    /// FLOW-48, and the login line gone with the issue form (AP-15).
     #[test]
-    fn both_submission_links_name_a_template() {
-        // The registry disables blank issues, so a link with no `template=`
-        // lands on the chooser and GitHub discards every prefilled field. The
-        // ping link lost its title and its `/release` line that way, and the
-        // symptom — an empty template picker — does not look like a bug in this
-        // command, which is why it needs a test rather than a comment.
-        assert_eq!(LISTING_TEMPLATE, "plugin-listing.yml");
-        assert_eq!(RELEASE_PING_TEMPLATE, "release-ping.yml");
+    fn the_dry_run_names_what_only_the_registry_can_check() {
+        let all = REGISTRY_ONLY_CHECKS.join("\n");
+        for code in [
+            "B_BINDING_UNUSABLE",
+            "B_ACCOUNT_INELIGIBLE",
+            "B_OWNER_CHANGED",
+            "B_REPOSITORY_RECYCLED",
+            "E_WORKFLOW_NOT_ALLOWED",
+        ] {
+            assert!(all.contains(code), "{code} is not named");
+        }
+        assert!(
+            !all.contains("names the account opening"),
+            "the owner-file login check belonged to the issue form, which is gone"
+        );
     }
 
-    #[test]
-    fn a_query_value_survives_a_round_trip() {
-        assert_eq!(encode("[listing] you/thing"), "%5Blisting%5D+you%2Fthing");
-        assert_eq!(encode("v1.0.0-rc.1+build"), "v1.0.0-rc.1%2Bbuild");
-        assert_eq!(encode("plain"), "plain");
-    }
 }

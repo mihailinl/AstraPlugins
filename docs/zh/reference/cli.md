@@ -2,7 +2,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.4.0`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.6.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 
@@ -31,7 +31,7 @@ Astra Plugin Development CLI
 | [`check`](#astra-plugin-check) | `validate` | 检查插件清单文件、配置 schema 和发布工作流 |
 | [`init-ci`](#astra-plugin-init-ci) | — | 写出一个固定到 Astra 可复用工作流某个 commit 的 .github/workflows/release.yml。重新运行以升级固定值；它会保留你的输入 |
 | [`version`](#astra-plugin-version) | — | 一次性设置 plugin.toml 和其他所有清单文件中的版本号 |
-| [`publish`](#astra-plugin-publish) | — | 申请让一次发布上架：进行预检，或者打开一份预填好的提交 |
+| [`publish`](#astra-plugin-publish) | — | 申请让一次发布上架：进行预检，或者打开面板的提交页面 |
 | [`keygen`](#astra-plugin-keygen) | — | 生成 `astra-plugin sign` 所使用的、可选的 Ed25519 密钥对 |
 
 ### 没有 `astra-plugin login` 这个命令
@@ -306,11 +306,11 @@ Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
 
 ## astra-plugin publish
 
-申请让一次发布上架：进行预检，或者打开一份预填好的提交。
+申请让一次发布上架：进行预检，或者打开面板的提交页面。
 
 不上传任何东西，也不持有任何凭证 —— 注册表从你的 GitHub Release 上
 读取已获证明的包，并对每一个都从头进行验证，所以一次提交只携带你的
-仓库和一个标签。
+仓库和一个标签。你要在面板里、以该仓库绑定的 Minice 账户登录后提交。
 
 ```
 Usage: astra-plugin publish [OPTIONS] [PATH]
@@ -327,7 +327,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | 选项 | 说明 |
 |---|---|
 | `--dry-run` | 运行所有能在本地执行的注册表检查，指名那些只有注册表才能运行的检查，然后停止 |
-| `--notify` | 给一个**已经**上架的插件用的发布 ping —— 任务 3.4 的手动应急通道，用于注册表没有自行注意到某次发布的情形。不加这个选项，会打开一个首次上架申请 |
 | `--repo <REPO>` | 以 `owner/name` 形式给出的源码仓库。默认：`origin` 远程仓库 |
 | `--tag <TAG>` | 发布标签。默认：插件的标签前缀加上它的版本号 |
 | `--print-url` | 打印出 URL，不打开浏览器 |
