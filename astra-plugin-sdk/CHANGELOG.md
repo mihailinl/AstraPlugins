@@ -16,13 +16,33 @@ are removable in.
 
 ## [0.7.2] — unreleased
 
-Two additions, and they ship together.
+Two additions and a fix, and they ship together.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
 compatibility, patch is bug fixes and additions only*. Code written against
-0.7.1 compiles unchanged, and the scaffold's `astra-plugin-sdk = "0.7"` pin
-goes on accepting this one.
+0.7.1 compiles unchanged, **with one exception that the policy now names**: an
+exhaustive struct literal of a generated `astra_plugin_sdk::proto::*` message.
+The protocol slice this crate re-exports gained 37 fields on messages that
+existed at `sdk-v0.7.1`, and 13 new messages; a literal that lists every field
+of one of those and has no `..Default::default()` fails with `E0063 missing
+fields`. The same literal with `..Default::default()` compiles, and it is the
+form `astra-plugin new` writes. [`docs/en/versioning.md`,
+*Generated protocol types*](../docs/en/versioning.md#generated-protocol-types)
+says why a new proto field is an addition and not a break, and the scaffold's
+`astra-plugin-sdk = "0.7"` pin goes on accepting this release.
+
+### Fixed
+- **The chat firehose retried a refusal that cannot change, every two seconds,
+  for the life of the plugin.** The daemon registers every plugin as a plugin
+  client and refuses that identity on any gRPC path outside
+  `/astra.PluginHostService/`, so `on_conversation_event`'s stream answered
+  `PERMISSION_DENIED` on every reconnect and wrote the same line into the log
+  pane a user opens to find out what is wrong. The runner now says so once,
+  names the path that does work (`Host::send_chat_message`, permission
+  `send_chat_message`), and stops; `UNIMPLEMENTED` stops it too. Every other
+  code is still retried, `UNAUTHENTICATED` included. The predicate reads the
+  gRPC code, never the daemon's wording (`00624d4`).
 
 ### Which conversation called you
 

@@ -18,7 +18,8 @@ are removable in.
 ## [0.6.2] — unreleased
 
 Additive. A tool call and an action can ask which conversation invoked them, and
-answer in it later.
+answer in it later; and the chat firehose stops retrying a refusal that cannot
+change.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md). Code written against 0.6.1
@@ -46,6 +47,18 @@ runs unchanged.
   conversation that is calling you, from inside that call.** That conversation
   is still running the turn waiting for your answer, so the message queues
   behind it and the call times out. Hand it to a task.
+
+### Fixed
+- **The chat firehose retried a refusal that cannot change, every two seconds,
+  for the life of the plugin.** The daemon registers every plugin as a plugin
+  client and refuses that identity on any gRPC path outside
+  `/astra.PluginHostService/`, so `on_conversation_event`'s stream answered
+  `PERMISSION_DENIED` on every reconnect and printed the same line into the log
+  pane a user opens to find out what is wrong. It now logs one warning naming
+  the path that does work (`HostClient.send_chat_message`, permission
+  `send_chat_message`), and stops; `UNIMPLEMENTED` stops it too. Every other
+  code is still retried. The predicate reads the gRPC status code, never the
+  daemon's wording (`00624d4`).
 
 ### Notes
 - **An unset protobuf message field is not `None`.** `request.invocation`

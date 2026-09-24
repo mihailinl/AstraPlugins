@@ -13,15 +13,15 @@ promise somebody has to remember.
 | **Protocol version** | `proto/PROTO_VERSION` (`protocol=1`), mirrored as `PROTOCOL_VERSION` in every SDK | The wire contract between a plugin and the daemon. |
 | **Your plugin's version** | your `plugin.toml` | Yours. The registry orders releases by it. |
 
-The three SDK versions are deliberately not kept equal. The current train is
-`sdk-v0.7.0`, and it publishes:
-
-| Package | Registry | Version |
-| --- | --- | --- |
-| `astra-plugin-sdk` (Rust) | crates.io | 0.7.0 |
-| `astra-plugin-macros` | crates.io | 0.7.0 — published **before** the SDK, which depends on it by version |
-| `astra-plugin-sdk` (Python) | PyPI | 0.6.0 |
-| `astra-plugin-sdk` (TypeScript) | npm | 0.6.0 |
+The three SDK versions are deliberately not kept equal: one `sdk-v<VERSION>` tag
+publishes whatever version each package's own manifest carries, and
+`astra-plugin-macros` goes up **before** the Rust SDK, which depends on it by
+version. Which numbers those are today is not written on this page. It used to
+name the current train, and went on naming `sdk-v0.7.0` for a month after
+`sdk-v0.7.1` had shipped — so the numbers live in one place, the README's
+[Publication state](../../README.md#publication-state) table, where coupling C23
+holds the *In this tree* column to the manifests and C23b holds the *Published*
+column to crates.io, PyPI and npm.
 
 A version number answers "what API am I writing against", so a package that has
 had fewer breaking releases has a smaller number. What the train guarantees is
@@ -45,6 +45,38 @@ SemVer, and the rule for it is not "read the changelog" but a mechanism:
 - `MIN_SUPPORTED_DAEMON_PROTOCOL` in each SDK is the oldest daemon that SDK will
   register with. Below it, the plugin exits with a sentence naming the fix
   rather than failing on the first call.
+
+## Generated protocol types
+
+The protocol messages each SDK exposes — `astra_plugin_sdk::proto::*` in Rust,
+the `_pb2` message classes in Python, the descriptor the TypeScript SDK loads —
+are generated from `proto/plugin.proto`, the daemon's own slice, re-synced
+whenever the daemon's protocol grows. The version rule for them:
+
+| Change to a generated type | Slot |
+| --- | --- |
+| a field or a message added | patch — an addition |
+| a field removed, renamed, renumbered or retyped | minor — a break |
+
+**What the patch promise covers, in Rust:** constructing a message with
+`..Default::default()`, or with `Default::default()` and then assigning its
+fields. It does **not** cover an exhaustive struct literal — one that names
+every field and has no `..` — which a new field breaks with `E0063 missing
+fields`, just as a `match` over a `#[non_exhaustive]` enum is not covered.
+`astra-plugin new` writes the `..Default::default()` form. Python message
+classes take keyword arguments and the TypeScript SDK reads its descriptor at
+run time, so in those two a new field breaks nothing.
+
+Why a new field is not a minor: every sync of the daemon's slice adds fields —
+37 on messages that already existed, between `sdk-v0.7.1` and 0.7.2 — so a
+minor per field would make every sync a minor, and the minor slot would stop
+meaning *your code may stop compiling*. Why not `#[non_exhaustive]` on the
+generated structs, which would make the rule the compiler's: it also forbids
+`..Default::default()` from outside the crate, so it would break every plugin's
+literal today to protect it from a break tomorrow. Wire compatibility is not
+this rule's job at all; that is the protocol integer's, above. Types the SDK
+writes by hand stay under the ordinary rule, which is why `Invocation` is
+`#[non_exhaustive]`.
 
 ## The deprecation policy
 

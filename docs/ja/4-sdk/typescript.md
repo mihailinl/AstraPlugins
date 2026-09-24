@@ -2,7 +2,7 @@
 
 # TypeScript SDK
 
-`astra-plugin-sdk` **0.5.0 — このページが説明しているバージョン**であり、
+`astra-plugin-sdk` **0.7.0 — このページが説明しているバージョン**であり、
 npm が配信しているものです。`npm install astra-plugin-sdk`(または
 `bun add`）でこれが解決されます; `astra-plugin new --lang typescript`
 が固定するのも同じものです。0.5.0 以降を使ってください: 0.4.0 はセッション
@@ -17,7 +17,7 @@ npm が配信しているものです。`npm install astra-plugin-sdk`(または
 ```json
 {
   "dependencies": {
-    "astra-plugin-sdk": "^0.5.0",
+    "astra-plugin-sdk": "^0.7.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.0"
   }

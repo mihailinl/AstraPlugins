@@ -2513,6 +2513,15 @@ jobs:
           (cd "$work/ts" && bun install && "$CLI" test .)
           echo "::endgroup::"
 
+      # C23b, registry legs: README's Published column is each registry's
+      # newest version, and no CHANGELOG heading marked `unreleased` names a
+      # version its registry holds — the shape `release-sdks.yml` gate 1
+      # refuses, found here on an ordinary pull request instead of on release
+      # day. Asked here because this job already depends on the three
+      # registries being up.
+      - name: C23b README's Published column and the unreleased headings are what the registries hold
+        run: python3 tools/check-publication-state.py
+
       # The pins resolved to at least the versions that carry the session token.
       # A range that silently resolved to an older release would build, pass the
       # harness against the mock daemon, and fail against a real one.
@@ -3468,6 +3477,20 @@ jobs:
       # `cargo test --doc -- --list`, line for line.
       - name: C34 no doc comment is accidentally a doctest
         run: python3 tools/check-doc-fences.py
+
+      # C23b — what this tree says is published. C23 below holds README's
+      # *In this tree* column to the manifests and asks no registry; nothing
+      # asked. npm served astra-plugin-sdk 0.7.0 from 2026-08-25 while the table
+      # said "0.6.0 — the 0.7.0 publish failed" and the TypeScript CHANGELOG
+      # said `[0.7.0] — unreleased`, and ten commits landed under a version npm
+      # already had (ops couplings register, entry 151). The registry half runs
+      # in `scaffold-from-registries`, which already depends on them; this is
+      # the tree half (the docs' restated scaffold pins, which had said
+      # `^0.5.0` for two releases), and the fixture suite that rebuilds 151.
+      - name: C23b (tree legs) the docs restate the scaffold's pins and README's Published cells
+        run: python3 tools/check-publication-state.py --tree-only
+      - name: C23b the check is red on entry 151's tree and green on this one
+        run: python3 tools/test_publication_state.py
 
       - name: C2-C11 the couplings nothing else checks
         run: |

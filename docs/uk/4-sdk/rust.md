@@ -2,13 +2,13 @@
 
 > Переклад. Джерело істини — [docs/en](../../en/4-sdk/rust.md); за розбіжності відповідає англійська версія.
 
-`astra-plugin-sdk` 0.6.0. Одна залежність, і все, у що розгортаються макроси,
+`astra-plugin-sdk` 0.7.1. Одна залежність, і все, у що розгортаються макроси,
 приходить через неї.
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->
 ```toml
 [dependencies]
-astra-plugin-sdk = "0.6"
+astra-plugin-sdk = "0.7"
 ```
 
 0.6 — перший реліз, чий `HostClient` прикріплює `x-session-token`. Проти 0.5
