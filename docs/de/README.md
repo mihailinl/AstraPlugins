@@ -110,16 +110,17 @@ beantworten *wer diese Bytes veröffentlicht hat*; Berechtigungen beantworten
 beantwortet, was der Prozess mit deiner Maschine anstellen kann. Siehe
 [das Sicherheitsmodell](1-orientation/security.md).
 
-**Die Vertrauenskette ist bis zur Delegation verankert, aber noch nicht durch
-den Katalog hindurch.** Die Root-Schlüssel existieren und stimmen auf beiden
-Seiten überein, und auch die root-signierte `trust.json`, die an einen
-Index-Signierschlüssel delegiert, existiert jetzt — sie verifiziert unter
+**Die Vertrauenskette ist durch den Katalog hindurch verankert, aber noch
+nicht durch die Widerrufsliste.** Die Root-Schlüssel existieren und stimmen auf
+beiden Seiten überein, und auch die root-signierte `trust.json`, die an einen
+Index-Signierschlüssel delegiert, existiert — sie verifiziert unter
 `astra-root-2026a` und benennt den einen Reusable-Workflow-Commit, den die
-Registry in einer Build-Attestation akzeptiert. Was noch fehlt, ist die
-Signatur des Katalogs selbst: `registry/v1/index.json` und
-`revocations.json` tragen `"signatures": []`, sodass ein Standard-Build nichts
-zu prüfen hat, geschlossen ausfällt (fail closed) und jeden Katalog als
-unsigniert einstuft. Das ist in
+Registry in einer Build-Attestation akzeptiert. Seit 2026-09-20 ist der
+Katalog, den Clients bekommen, mit diesem Schlüssel signiert; die auf `main`
+der Registry committeten Kopien, `registry/v1/index.json` und
+`revocations.json`, tragen `"signatures": []` mit Absicht, und kein Client
+liest sie. Was noch fehlt, ist eine signierte Widerrufsliste auf Pages,
+Widerruf wird also noch nicht durchgesetzt. Das ist in
 [`spec/registry-index.md` §0.1](spec/registry-index.md) niedergeschrieben und
 wird überall wiederholt, wo es wichtig ist, statt stillschweigend wegimpliziert
 zu werden.

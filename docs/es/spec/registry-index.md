@@ -36,7 +36,7 @@ instalación (TOFU) y vinculada a la URL de descarga — consulta el
 §7.3. El texto de la UI está obligado a decir "mismo autor que antes"
 y nunca "compilación verificada".
 
-### 0.1 La cadena todavía no está anclada — lee esto primero
+### 0.1 Dónde está la cadena — lee esto primero
 
 * `astra-registry/registry/v1/root.json` lleva
   `"status": "provisioned"` y dos claves Ed25519. La ceremonia en
@@ -58,34 +58,38 @@ y nunca "compilación verificada".
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` del
   registro imprime los tres hechos. Así que `E_TRUST_UNPROVISIONED`
   ya no se dispara en la ingesta.
-* Por tanto, hoy: `trust.json` se verifica y una clave de índice está
-  delegada, pero **nada ha firmado el catálogo con ella**. Cada
-  catálogo se sigue clasificando como `UNSIGNED`, pero la ceremonia cambió
-  el motivo que lleva — de `NoTrustAnchor` a **`NoSignatures`**. El
-  `classify_signature` del daemon los separa con exactitud:
-  `NoTrustAnchor` significa que ningún `trust.json` verificado llegó a la
-  compilación, así que no hay clave con la que comprobar ninguna firma y el
-  catálogo bien podría estar firmado; `NoSignatures` significa que el ancla
-  está y el catálogo mismo no lleva ninguna. Lo que se movió es qué enlace
-  falta: la brecha ahora está entre la clave delegada y el índice, no entre
-  la raíz y la delegación.
-* `registry/v1/index.json` y `registry/v1/revocations.json` están
-  confirmados con `"signatures": []` — "sin firmar" dicho en voz alta,
-  donde un miembro ausente no podría distinguirse de uno eliminado.
-* Consecuencias que se derivan y que no deben disimularse: un catálogo
-  sin firmar nunca puede ascender un registro a instalable con
-  confianza total, y porque `verify_revocations_document` es estricto
+* **El catálogo que reciben los clientes está firmado con ella.** Desde el
+  2026-09-20 el firmante del registro (`astra-registry/.github/workflows/sign.yml`)
+  es el único publicador de lo que leen los clientes. Firma `index.json` y
+  `revocations.json` con `astra-index-2026a`, los confirma en la rama
+  `signed` y despliega los documentos de esa rama en Pages. Comprobado el
+  2026-09-24: el `index.json` que sirve Pages se verifica bajo
+  `astra-index-2026a` contra el `trust.json` servido a su lado, con número
+  de serie 52. El `classify_signature` del daemon separa las dos formas en
+  que un catálogo aún puede llegar sin firmar: `NoTrustAnchor` significa que
+  ningún `trust.json` verificado llegó a la compilación, así que no hay
+  clave con la que comprobar ninguna firma; `NoSignatures` significa que el
+  ancla está y el catálogo mismo no lleva ninguna.
+* Las copias confirmadas en `main` del registro — `registry/v1/index.json` y
+  `registry/v1/revocations.json` — llevan `"signatures": []` a propósito:
+  "sin firmar" dicho en voz alta, donde un miembro ausente no podría
+  distinguirse de uno eliminado. Ningún cliente las lee; las copias firmadas
+  están en `signed` y en Pages.
+* Una consecuencia sigue vigente y no debe disimularse. Pages todavía sirve
+  la lista de retirada confirmada y sin firmar hasta que el registro active
+  allí la firmada, y porque `verify_revocations_document` es estricto
   (§6.4), **una lista de retirada sin firmar se rechaza, así que la
-  aplicación de revocaciones tampoco está activa** —
+  aplicación de revocaciones todavía no está activa** —
   `RevocationFreshness::NotEnforced` hasta que se obtenga una vez una
   lista con firma válida.
 
 Todo lo de abajo describe el formato y el algoritmo, y nada de eso
 cambia cuando llegue el enlace que falta. La ceremonia de la raíz ya
-se ha ejecutado y la delegación está firmada; lo que falta es que
-aparezca una firma en el array `signatures` de un `index.json`
-publicado, momento en el que la cadena empieza a tener peso en la
-máquina de un usuario.
+se ha ejecutado, la delegación está firmada, y el `index.json` que
+reciben los clientes lleva una firma en su array `signatures`, así que la
+mitad de la cadena que corresponde al catálogo tiene peso en la máquina de
+un usuario. Lo que falta es la mitad de la lista de retirada: una lista
+firmada en Pages.
 
 ## 1. El sobre
 

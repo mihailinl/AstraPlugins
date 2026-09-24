@@ -97,11 +97,12 @@ CI 检查的是一份翻译的「形」：它是否拥有与 `docs/en` 完全相
 这两者都不能回答该进程能对你的机器做什么。参见
 [安全模型](1-orientation/security.md)。
 
-**信任链已经锚定到委托(delegation)这一层，但还没有贯穿到目录(catalogue)本身。**
+**信任链已经贯穿到目录(catalogue)本身，但还没有贯穿到撤回列表。**
 根密钥(root key)已经存在，并且双方一致；委托给索引签名密钥的、经根签名的 `trust.json`
-现在也已经存在 —— 它在 `astra-root-2026a` 下可验证，并且指名了注册表在构建证明中会
-接受的那一个可复用工作流提交(commit)。仍然缺失的是目录本身的签名：`registry/v1/index.json`
-和 `revocations.json` 携带的都是 `"signatures": []`，因此默认构建没有任何可校验的内容，
-会安全失败(fail closed),并把所有目录都归类为未签名。这一点写在
+也已经存在 —— 它在 `astra-root-2026a` 下可验证，并且指名了注册表在构建证明中会
+接受的那一个可复用工作流提交(commit)。从 2026-09-20 起，客户端拿到的目录已用这个密钥
+签名；提交在注册表 `main` 上的副本 `registry/v1/index.json` 和 `revocations.json`
+是有意携带 `"signatures": []` 的，没有任何客户端读取它们。仍然缺失的是 Pages 上一份
+已签名的撤回列表，所以失效机制尚未被强制执行。这一点写在
 [`spec/registry-index.md` §0.1](spec/registry-index.md) 中，并在所有相关之处反复重申，
 而不是被悄悄含糊带过。

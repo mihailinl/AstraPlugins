@@ -31,7 +31,7 @@ What the daemon holds is a registry *assertion* about the author, pinned on
 first install (TOFU) and bound to the download URL — see §7.3. UI copy is
 required to say "same author as before" and never "verified build".
 
-### 0.1 The chain is not anchored yet — read this first
+### 0.1 Where the chain stands — read this first
 
 * `astra-registry/registry/v1/root.json` carries `"status": "provisioned"` and
   two Ed25519 keys. The ceremony in `astra-registry/SECURITY.md` §4
@@ -49,31 +49,35 @@ required to say "same author as before" and never "verified build".
   at before. The registry's own
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` prints all three
   facts. So `E_TRUST_UNPROVISIONED` no longer fires at ingest.
-* Therefore, today: `trust.json` verifies and an index key is delegated, but
-  **nothing has signed the catalogue with it**. Every catalogue is still
-  classified `UNSIGNED`, and the ceremony changed the reason it carries — from
-  `NoTrustAnchor` to **`NoSignatures`**. The daemon's `classify_signature`
-  separates the two exactly: `NoTrustAnchor` means no verified `trust.json`
-  reached the build, so there is no key to check any signature against, and the
-  catalogue may well be signed; `NoSignatures` means the anchor is there and the
-  catalogue itself carries none. What moved is which link is missing: the gap is
-  now between the delegated key and the index, not between the root and the
-  delegation.
-* `registry/v1/index.json` and `registry/v1/revocations.json` are committed with
-  `"signatures": []` — "unsigned" said out loud, where an absent member could not
-  be told from a stripped one.
-* Consequences that follow and must not be papered over: an unsigned catalogue
-  can never upgrade a record to installable-with-full-trust, and because
-  `verify_revocations_document` is strict (§6.4), **an unsigned withdrawal list
-  is refused, so revocation enforcement is not live either** —
-  `RevocationFreshness::NotEnforced` until a signature-valid list is fetched
-  once.
+* **The catalogue clients are served is signed with it.** Since 2026-09-20
+  the registry's signer (`astra-registry/.github/workflows/sign.yml`) is the one
+  publisher of what clients read. It signs `index.json` and `revocations.json`
+  with `astra-index-2026a`, commits them to the branch `signed`, and deploys
+  that branch's documents to Pages. Checked on 2026-09-24: the `index.json`
+  Pages serves verifies under `astra-index-2026a` against the `trust.json`
+  served beside it, at serial 52. The daemon's `classify_signature` separates
+  the two ways a catalogue can still arrive unsigned: `NoTrustAnchor` means no
+  verified `trust.json` reached the build, so there is no key to check any
+  signature against; `NoSignatures` means the anchor is there and the
+  catalogue itself carries none.
+* The copies committed on the registry's `main` — `registry/v1/index.json` and
+  `registry/v1/revocations.json` — carry `"signatures": []` by design:
+  "unsigned" said out loud, where an absent member could not be told from a
+  stripped one. No client reads them; the signed copies are on `signed` and on
+  Pages.
+* One consequence is still live and must not be papered over. Pages still
+  serves the committed, unsigned withdrawal list until the registry arms the
+  signed one there, and because `verify_revocations_document` is strict
+  (§6.4), **an unsigned withdrawal list is refused, so revocation enforcement
+  is not live yet** — `RevocationFreshness::NotEnforced` until a
+  signature-valid list is fetched once.
 
 Everything below describes the format and the algorithm, and none of it changes
-when the remaining link lands. The root ceremony has already run and the
-delegation is signed; what is left is for a signature to appear in the
-`signatures` array of a published `index.json`, at which point the chain starts
-carrying weight on a user's machine.
+when the remaining link lands. The root ceremony has run, the delegation is
+signed, and the `index.json` clients are served carries a signature in its
+`signatures` array, so the catalogue's half of the chain carries weight on a
+user's machine. What is left is the withdrawal list's half: a signed list on
+Pages.
 
 ## 1. The envelope
 

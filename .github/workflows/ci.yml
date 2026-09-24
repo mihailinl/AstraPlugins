@@ -1171,6 +1171,19 @@ jobs:
           ### icons: **full** — `spec/icon-formats.yaml` was compared with `INLINE_IMAGE` in `astra-ui/src/lib/listingMedia.ts`
           MSG
 
+      # C36 — what the docs say the served chain carries (registry plan
+      # RC-R1-11; contract ROLL-47). The catalogue leg reads this tree only:
+      # since astra-registry's signer first committed to `signed` on
+      # 2026-09-20, no page may say the catalogue clients are served is
+      # unsigned. The withdrawal leg reads `_registry` at main's head, and it
+      # is dormant until that head holds `policy/pages-withdrawal-list.json`.
+      # From the commit that adds the flag, Pages serves the signed list, and
+      # this step is red until RC-R1-11's second half rewrites the sentences
+      # saying withdrawal is not enforced. That is the day ROLL-47 names.
+      - name: C36 no page says the served catalogue is unsigned, and none says withdrawal is unenforced once astra-registry arms Pages
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
+        run: python3 tools/check-registry-mirrors.py --rules C36 --registry-dir _registry
+
       # C27, C31 — the reserved-id mirror and the binding-line corpus, compared
       # with astra-registry itself: at the commit each copy says it was taken
       # from, and at the registry's head. Both modes, one step: neither rule

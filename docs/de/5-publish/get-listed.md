@@ -479,8 +479,8 @@ des Plugins mit der Maschine anstellen darf. Es gibt keine Sandbox. Siehe
 
 Eine Sache, die ein Leser verdient zu wissen, bevor er dieser Seite folgt.
 
-**Die Signierkette ist bis zur Delegation verankert, aber noch nicht durch
-den Katalog hindurch.** Genau genommen, und jeder Teil ist überprüfbar:
+**Die Signierkette ist durch den Katalog hindurch verankert, aber noch nicht
+durch die Widerrufsliste.** Genau genommen, und jeder Teil ist überprüfbar:
 
 - die Root-Schlüssel existieren auf beiden Seiten — `registry/v1/root.json`
   trägt `"status": "provisioned"` mit zwei Ed25519-Schlüsseln, und
@@ -494,12 +494,13 @@ den Katalog hindurch.** Genau genommen, und jeder Teil ist überprüfbar:
   den `plugin-release/v1` zeigt, und der, auf den es vorher zeigte. Also
   feuert `E_TRUST_UNPROVISIONED`, das früher jeden Ingest stoppte, nicht
   mehr;
-- **der Katalog selbst ist weiterhin unsigniert.** `registry/v1/index.json`
-  und `revocations.json` tragen `"signatures": []`, sodass ein
-  Standard-Astra-Build keine Signatur zu prüfen hat, jeden Katalog als
-  unsigniert einstuft und geschlossen ausfällt (fail closed). Die
-  Durchsetzung von Widerrufen ist aus demselben Grund ebenfalls nicht
-  aktiv.
+- **der Katalog, den Clients bekommen, ist signiert.** Seit 2026-09-20
+  signiert der Signer der Registry `index.json` mit `astra-index-2026a` und
+  deployt es nach Pages. Die auf `main` committeten Kopien,
+  `registry/v1/index.json` und `revocations.json`, tragen
+  `"signatures": []` mit Absicht, und kein Client liest sie. Die
+  Widerrufsliste, die Pages ausliefert, ist weiterhin die unsignierte
+  committete, die Durchsetzung von Widerrufen ist also noch nicht aktiv.
 
 Siehe [`spec/registry-index.md` §0.1](../spec/registry-index.md) und
 [das Sicherheitsmodell](../1-orientation/security.md).
@@ -507,9 +508,9 @@ Siehe [`spec/registry-index.md` §0.1](../spec/registry-index.md) und
 Was das für dich bedeutet: Der Einreichungspfad auf dieser Seite
 funktioniert heute Ende-zu-Ende — dein Issue wird gelesen, die Prüfungen
 laufen, der Bot antwortet, und ein Listing wird committed. Was noch
-aussteht, ist die Signatur, die Astra erlaubt, aus dem zu *installieren*,
-was die Registry veröffentlicht. Nichts auf dieser Seite ändert sich, wenn
-sie ankommt.
+aussteht, ist die signierte Widerrufsliste auf Pages, mit der die Registry
+eine Version aus bereits installierten Kopien zurückziehen kann. Nichts auf
+dieser Seite ändert sich, wenn sie ankommt.
 
 ## Siehe auch
 
