@@ -1,9 +1,10 @@
 # The signed registry documents — normative specification
 
 **Status:** normative for the document formats and the verification rules.
-**Not yet in force:** the signature chain described here is specified,
-implemented on both ends, and **not anchored** — see §0.1 before you rely on any
-sentence in this file as a security guarantee.
+**Partly in force:** the signature chain described here is specified,
+implemented on both ends, and anchored through the catalogue, not yet through
+the withdrawal list — see §0.1 before you rely on any sentence in this file as
+a security guarantee.
 
 Four documents, three schemas, one signature construction:
 

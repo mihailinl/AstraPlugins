@@ -3,9 +3,10 @@
 # Los documentos firmados del registro — especificación normativa
 
 **Estado:** normativo para los formatos de documento y las reglas de
-verificación. **Todavía no en vigor:** la cadena de firmas descrita
-aquí está especificada, implementada en ambos extremos, y **no
-anclada** — consulta el §0.1 antes de confiar en ninguna frase de este
+verificación. **En vigor en parte:** la cadena de firmas descrita aquí
+está especificada, implementada en ambos extremos, y anclada a través del
+catálogo, pero todavía no a través de la lista de retirada — consulta el §0.1
+antes de confiar en ninguna frase de este
 archivo como garantía de seguridad.
 
 Cuatro documentos, tres schemas, una construcción de firma:

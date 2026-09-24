@@ -3,9 +3,10 @@
 # Die signierten Registry-Dokumente — normative Spezifikation
 
 **Status:** normativ für die Dokumentformate und die
-Verifikationsregeln. **Noch nicht in Kraft:** die hier beschriebene
-Signaturkette ist spezifiziert, auf beiden Seiten implementiert und
-**nicht verankert** — siehe §0.1, bevor du dich auf irgendeinen Satz in
+Verifikationsregeln. **Teilweise in Kraft:** die hier beschriebene
+Signaturkette ist spezifiziert, auf beiden Seiten implementiert und durch den
+Katalog verankert, aber noch nicht durch die Widerrufsliste — siehe §0.1, bevor
+du dich auf irgendeinen Satz in
 dieser Datei als Sicherheitsgarantie verlässt.
 
 Vier Dokumente, drei Schemas, eine Signaturkonstruktion:
