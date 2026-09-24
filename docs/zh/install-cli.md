@@ -284,8 +284,9 @@ astra-plugin <version>
 
 所以 `0.2.1` 是值得拥有的 —— 它是第一个能自己回答这个问题的数字，它存在的意义正在
 于此 —— 但一个显示 `0.2.0` 的 `0.2.0` 并不能证明任何事。`0.2.1` 没有新增参数，也
-没有改动 API；唯一有变化的行为是 `publish --notify` —— 它给出的链接现在会点名
-注册表的 release-ping 表单，而不再依赖注册表此后已经关掉的空白 issue。
+没有改动 API；唯一有变化的行为是 `publish` 为已上架插件给出的链接 —— 从那时起
+它会点名注册表为此准备的表单，而不再依赖注册表已经关掉的空白 issue。自 CLI
+0.5.0 起，那个表单和打开它的那个选项都已不存在：注册表会自行发现新的标签。
 
 如果 `--version` 打印出的是 `0.2.0`，先运行 `which astra-plugin`（Windows 上用
 `where`）：最常见的原因是 `PATH` 中有一个更旧的二进制文件排在前面，而光看
@@ -330,7 +331,7 @@ Commands:
   check    Check a plugin manifest, config schema and release workflow
   init-ci  Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs
   version  Set the version in plugin.toml and every other manifest at once
-  publish  Get a release listed: preflight it, or open a prefilled submission
+  publish  Get a release listed: preflight it, or open the panel's submission page
   keygen   Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses
   locale   Manage `locales/` — the plugin's translations, and its store card's text
   help     Print this message or the help of the given subcommand(s)

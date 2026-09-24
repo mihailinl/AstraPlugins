@@ -14,14 +14,13 @@
 [发布插件](../publishing.md)。
 
 **下面这些都不能替代它**，因为每一种都有人真的试过：一个包含你源码的
-仓库、发给某人的一个 `.zip`、你在自己笔记本上构建出的包，或者一个请
-维护者帮忙构建的 issue。注册表只会上架 CI 出具过证明的发布资产，
+仓库、发给某人的一个 `.zip`、你在自己笔记本上构建出的包，或者一条请
+维护者帮忙构建的消息。注册表只会上架 CI 出具过证明的发布资产，
 其他一概不行。
 
-以下几乎每一条命令都是 `astra-plugin`；唯一的例外是
-[第 2 步](#2--证明你控制着这个仓库)，那只是在你自己仓库里的一个文件加
-一次 `git commit`。如果你还没有这个 CLI，请先
-[安装它](../install-cli.md) —— 现在已经有预编译二进制文件了。
+下面的每一步，要么是 `astra-plugin`，要么是你自己仓库里的一次提交，要么是
+以你的 Minice 账户登录的 https://astra.minice.ai/plugins 面板。如果你还没有
+这个 CLI，请先[安装它](../install-cli.md) —— 已经有预编译二进制文件了。
 
 ## 1 · 预检
 
@@ -42,17 +41,15 @@ astra-plugin publish --dry-run
   · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
   · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
   · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
-  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
   · the declared-vs-called host RPC scan
 ```
 
-**其中有一项你可以提前解决，而且应该这么做。** 所有权那一行已经点名了
-这个文件，而提交它就是
-[第 2 步](#2--证明你控制着这个仓库)。在提交之前先做好这件事，检查就会
-一次通过；跳过它，你得到的第一个答复就会是拒绝。
+**其中有一项你要提前解决，而且必须解决。** 绑定判定读取的是
+[绑定你的仓库](#绑定你的仓库) 写入的那一行。在打标签之前提交它，检查就有
+东西可找；漏掉它，你得到的第一个答复就是 `B_UNBOUND`。
 
 ### 你的上架条目会是什么样子
 
@@ -105,99 +102,13 @@ icon.png    icon.webp    icon.svg    icon.jpg    icon.ico
 过长的 README 会在 16 KB 处、按行边界截断，并附带一个指向 GitHub 上
 完整内容的链接。
 
-## 2 · 证明你控制着这个仓库
-
-**请在开这个 issue 之前先做这件事。** 只需要一个文件、一次提交，而
-跳过它正是一次正确、诚实的首次提交最常被拒绝的原因。
-
-注册表必须回答一个本页其他任何地方都没有回答的问题：**申请这次上架
-的人，是否真的控制着即将被上架的这个仓库？** 证明本身已经证明了这个
-包确实来自那个仓库，而且上架条目也固定在那个仓库上 —— 但这两个事实
-都没有说明*你*是谁。没有这一步，一个陌生人就可能把别人的插件拿去上架，
-从而变成了那个插件更新到达 Astra 用户手中所经过的身份。
-
-把这个文件提交到你仓库的**默认分支**：
-
-<!-- doctest: illustrative reason="the path and content of a file the author writes in their own repository; there is nothing here for a runner to execute" -->
-```
-path      .well-known/astra-plugin-owner
-content   your GitHub login, one per line
-```
-
-创建它只需要一条命令，在你插件仓库的根目录运行：
-
-<!-- doctest: illustrative reason="git commands against the author's own repository — the runner has no such repository, and `cli` blocks must contain an astra-plugin command" -->
-```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
-git add .well-known/astra-plugin-owner
-git commit -m "Declare the Astra registry owner for this repository"
-git push
-```
-
-**这能证明什么：** 一个能写入你默认分支的人，断言这个 GitHub 登录名
-代表这个仓库 —— 这是在 bot 检查的那一刻实时读取的，所以从文件里删掉
-一个登录名，那个人就无法再开新的上架申请、也无法通过 `/recheck`。但它
-**够不到**已经上架的插件：[此后的每一次发布](#5--此后的每一次发布)都是
-针对发布该 release 的账号来证明的，而上架条目无论如何都仍然钉在这个仓库上。
-**这不能证明什么：** 完全不能证明你代码的任何事情，因为根本没有人会
-去读它；这不是一个签名，也不是一次安全审查。
-
-### 格式，精确地说
-
-一行一个登录名。`#` 之后的一切都是注释，开头可以有 `@`，前后的空白
-会被去掉，比较时不区分大小写。只会读取前 4 KB。所以下面这个文件是有效
-的，列出了一位所有者：
-
-<!-- doctest: illustrative reason="the contents of a file in the author's repository, not a command" -->
-```
-# owners of this repository
-@Rel0d1x   # primary
-```
-
-请列出所有可以代表这个仓库提交或重新提交申请的人。对于一个属于某个
-组织的仓库，通常不止一个名字。
-
-### 确认注册表能读到它
-
-bot 会通过 GitHub 的 contents API、以未认证方式，从默认分支读取这个
-文件。你可以发出和它完全一样的请求：
-
-<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
-```bash
-gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
-  --header 'Accept: application/vnd.github.raw+json'
-```
-
-它应该会把你的登录名原样打印出来。如果它打印出 `Not Found (HTTP
-404)`，说明这个文件不在 bot 查找的位置 —— 常见的原因是它在默认分支
-以外的分支上、还没有提交或推送，或者目录名写成了没有开头那个点的
-`well-known`。
-
-### 为什么这是一个步骤，而不是一个后备方案
-
-注册表会尝试三种方式来确立控制权，而这个文件正是对普通作者行得通的
-那一种。这不是偏好，而是结构性的，另外两种方式都曾在真实提交中被
-观察到失败：
-
-| 方式 | 为什么它不能替你回答 |
-|---|---|
-| **协作者权限** —— 询问 GitHub 谁拥有 `admin` 或 `maintain` | GitHub 只会对已经拥有该仓库 admin 可见性的调用者回答这个端点。注册表的 token 属于注册表本身，所以对*你的*仓库，它得到的是 `403` —— 这意味着"我不会告诉你"，而不是"不是"，因而会被当作完全没有回答处理 |
-| **发布的作者** —— 发布这次 release 的账号 | [用 CI 发布](release-with-ci.md) 中的发布工作流创建了这个 GitHub Release，所以它的作者是 `github-actions[bot]`，而不是一个人。恰恰是遵循了这份文档化流程，才让这种方式失效 |
-| **`.well-known/astra-plugin-owner`** | 不需要对注册表可见任何东西，也不需要安装任何东西。它能给出回答 |
-
-第一种方式返回的 `403` 不会算在你头上，单凭它自己也永远不会导致拒绝。
-拒绝只会在三种方式全都没有给出回答时发生，而这正是这个文件不存在时
-会发生的情况。
-
 ## 绑定你的仓库
 
-**上架正在从 GitHub 登录名转向 Minice 账户。** 上面的所有权文件写的是一个
-GitHub 登录名，今天通过注册表的 issue 表单完成的首次上架就是这样证明的。从
-注册表切换(cutover)起，每一次首次上架都改为需要一个**绑定**：同一个文件里
-再多一行，由 CLI 根据你在面板里铸造的令牌写入，铸造时要以将来负责发布的那个
-Minice 账户登录。现在绑定只需要一条命令，而且所有上架最终都要走到这一步；已经
-上架的插件可以等到绑定截止日期(见下文)。
+**上架属于一个 Minice 账户。** 每一次首次上架，以及已有绑定的上架的每一次
+发布，都会对照一个**绑定**来读取：你仓库根目录下
+`.well-known/astra-plugin-owner` 里的一行，由 CLI 根据你在面板里铸造的令牌
+写入，铸造时要以将来负责发布的那个 Minice 账户登录。这是本页唯一不是命令的
+一步，而跳过它，是一次正确、诚实的首次提交被拒绝的最常见原因。
 
 **1 · 铸造一个令牌。** 用将来拥有这个上架的 Minice 账户登录
 https://astra.minice.ai/plugins —— 它需要 `astraUser`，拥有 Astra 就会有 ——
@@ -243,7 +154,7 @@ astra-plugin check --tag v0.1.0
 代价。缺少这一行则是一条预测 `B_UNBOUND` 的警告。只有注册表才能给出的四个
 回答，每次都会被列为未检查。
 
-**4 · 在面板里提交。** 对于已绑定的仓库，`astra-plugin publish` 会打开面板的
+**4 · 在面板里提交。** `astra-plugin publish` 会打开面板的
 提交页面，仓库和标签都已填好，例如
 https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 ——
 在你登录并亲自提交之前，这个页面不会提交任何东西。
@@ -290,7 +201,7 @@ https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 ——
 `astra-plugin build` 两者都不拒绝：注册表的规则决定的是什么能上架，而不是你
 可以运行什么。
 
-## 3 · 提交
+## 2 · 在面板里提交
 
 <!-- doctest: cli -->
 ```bash
@@ -298,210 +209,171 @@ astra-plugin publish
 astra-plugin publish --print-url
 ```
 
-它会在你的浏览器中打开一个在注册表上预填好内容的 issue。**它不上传
-任何东西，也不持有任何凭证** —— 没有 `astra-plugin login`，你的 shell
-历史里不会留下 token，也没有需要对接的密钥环(keyring)。`--print-url`
-会改为打印出链接：
+它会在浏览器里打开面板的**提交页面**，仓库和标签都已填好。**它不上传任何
+东西，也不持有任何凭证** —— 没有 `astra-plugin login`，shell 历史里没有
+token，也没有需要对接的密钥环。这个页面根据链接自行填写，但不会提交任何
+东西：提交的是你，要以该仓库绑定的 Minice 账户登录后提交。`--print-url` 则
+改为打印链接：
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project in a bound git repository; the flags themselves are checked by the cli block above" -->
 ```
-dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
+dice-roller 0.1.0 — submission for you/dice-roller@v0.1.0, in the panel
 
-  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI
-  build and attest, and the registry picks it up. Everything on the store card —
-  name, summary, licence, capabilities, permissions, digests — is read out of the
-  attested bundle, so there is nothing else to fill in and nothing to keep in sync.
+  Bound: `astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd` is line 1 of the owner file at HEAD. Submit in the
+  panel signed in to the Minice account that minted that token. The page fills itself
+  in from this link and submits nothing until you do. The registry reads the tag's
+  commit, not HEAD — `astra-plugin check --tag v0.1.0` reads it the same way.
 
-https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0
 ```
 
-这段输出是在一个没有自己 git 标签的目录里录下来的。如果你在自己的检出里、
-在还没拉到该标签之前运行它，段落上方会多出一行 ——
-`Note: this checkout has no tag v0.1.0.` 这是提醒，不是错误：注册表是从
-GitHub 读取这次发布的，所以真正重要的是标签已经推送、并且 CI 已经把
-产物附加上去了。
+没有绑定行的仓库会在链接上方得到提示，并告诉你去哪里阅读如何绑定；没有这个
+标签的检出会得到一行提示，说明标签必须已经推送。两者都是提醒，不是错误：
+注册表从 GitHub 读取标签的提交和发布，所以重要的是你推送了什么。
 
-> **那个 URL 里的 `template=plugin-listing.yml` 是至关重要的。**
-> 这个模板声明了 `labels: ["listing", "needs-triage"]`，而注册表的 bot
-> 只会对带有 `listing` 标签的 issue 进入提交处理路径。别的东西都不会打上
-> 这个标签 —— bot 自己也不会，而且这是刻意的：在那里它是一枚权限令牌，
-> 而不是一个分类；一个见到像表单的东西就盖章的 bot，等于把这项豁免交给了
-> 任何会复制表单的人。
->
-> 已经有两次真实的上架申请正是以这种方式石沉大海：它们到达时不带标签，分诊
-> 返回 `mode: "none"`，检查、发布、评论几个步骤全部被跳过，作者**什么都没
-> 得到，连一个拒绝的回应都没有**。现在两边都已经修好了。注册表关掉了空白
-> issue，所以 *New issue* 页面只提供表单；而万一还是有没带标签的申请进来，
-> 它会收到一条评论，准确说明缺了什么，外加那一次点击 —— 由维护者加上
-> `listing` —— 就能在同一个 issue 上启动验证，什么都不用重打。而从这条链接
-> 打开，可以把这一切都跳过。
+提交只携带**两项事实**：
 
-这次提交携带**两个事实**：
-
-| 字段 | 为什么是输入的而不是读取的 |
+| 字段 | 为什么是输入而不是读取 |
 |---|---|
-| 源码仓库（`you/dice-roller`） | 包本身无法证明自己是从哪里提供的 |
-| 发布标签（`v0.1.0`） | 同上 |
+| 源仓库(`you/dice-roller`) | 包本身无法担保自己是从哪里分发的 |
+| 发布标签(`v0.1.0`) | 同上 |
 
-外加三项确认，全部必填：你已经把 `.well-known/astra-plugin-owner` 提交到
-默认分支并且里面写着你的登录名、你拥有或维护着该仓库，以及你已经读过政策。
+**其余一切都从已证明的包中读取** —— id、版本、显示名称、摘要、许可证、能力、
+权限、平台、摘要值、大小。这不是为了方便：包里的一切都被证明所覆盖，因此比
+任何填进表单的东西都严格地更可信。它还消除了一整类拒绝，因为不存在可以和
+`plugin.toml` 不一致的表单。
 
-**其余的一切都从已获证明的包中读取** —— id、版本、显示名称、摘要、
-许可证、能力(capability)、权限、平台、摘要值(digest)、文件大小。这
-不只是图个方便：包里的每一样东西都在证明的覆盖范围内，这使它比任何
-填进表单里的内容都要严格地更可信。这也消除了整整一类拒绝的可能性，
-因为根本不存在一个能和 `plugin.toml` 产生分歧的表单。
+## 3 · 提交之后会发生什么
 
-## 4 · 提交之后会发生什么
+面板会显示你的提交所处的状态以及附带的每一条原因，同样的节点也会以通知的
+形式送达你：发到 Minice 账户经过验证的电子邮箱和面板，只有在你关联了
+Telegram 时才会发到 Telegram —— 没有任何东西要求 Telegram。下面的规则是
+注册表的，发布在它的 `docs/POLICY.md` 中；代码是面板显示的代码，上线时使用
+英文标题。
 
-这一节正是两位真实的作者需要、却没能得到的内容。它描述的是
-`astra-registry/docs/POLICY.md` 和 `docs/BOT-CHECKS.md` 所定义的注册表
-流程；这两份文档要么是从 bot 自己的代码（`bot/lib/policy.mjs`、
-`bot/lib/codes.mjs`）生成的，要么是针对它做过校验的，所以这里的数字
-不可能悄悄偏离那些维护着它们的代码。
+### 一次提交会经历的状态
 
-### 整个流程
+| 状态 | 含义 |
+|---|---|
+| `received` | 面板接受了你的提交，还没有任何东西读取它 |
+| `checking` | 注册表的 bot 正在读取发布，并从头验证每一个资产 |
+| `held` | 机器能决定的都已通过，有一个决定属于人 —— 见下文 |
+| `approved` | 一位审核员批准了这次保留；在没有其他等待项时发布 |
+| `delayed` | 全部通过；它会在面板显示的时间自行发布 |
+| `published` | 已提交到注册表 |
+| `served` | 已进入 Astra 安装所用的签名目录 |
+| `refused` | 某项检查失败。面板会给出代码，并说明重新检查(Recheck)能否解决，还是需要新的标签 |
+| `stopped` | 你在它发布之前停止了它，它不会发布 |
 
-1. **你的 issue 会被打上 `listing` 和 `needs-triage` 标签** —— 由
-   issue 模板自动完成。这一步决定了接下来是否会发生任何事；参见 §3
-   中的警告。
-2. **bot 会对它进行分诊**，读取你提供的两个事实，以未认证方式从
-   GitHub 获取这次发布，并针对这些字节运行 `docs/BOT-CHECKS.md` 中的
-   每一项检查：证明本身以及是哪个工作流产出了它、资产的 URL 是否位于
-   你自己仓库的发布命名空间下、你是否控制着这个仓库
-   （[第 2 步](#2--证明你控制着这个仓库)）、归档的结构、清单文件、
-   许可证、版本排序，以及声明与实际调用之间的 host RPC 扫描。
-3. **bot 会在你的 issue 上评论**结果、原因，以及 —— 如果有的话 ——
-   确切的发布时间。无论结果如何，你都会被告知。
+当以下条件全部成立时，一次发布会在没有任何人参与的情况下自行发布：它来自该
+插件已上架的那个仓库，并绑定到同一个账户；bot 的每项检查都是绿色；版本严格
+更新；它没有请求之前没有的高风险权限；并且它完全没有请求任何新的权限或能力。
+只去掉最后一个条件，它仍会自行发布，只是要经过一段延迟。
 
-如果一小时内都没有任何评论，检查一下这个 issue 的标签。没有
-`listing` 标签，就意味着第 1 步没有发生，后续的一切都没有运行。
+**首次上架从来不属于这种情况。** 它会为人工审核保留一次，永远只有这一次，
+所以“我的第一个插件多久能上架”的答案是 *在审核员读过它之后*，面板会显示它
+正在等待。
 
-### 四种结果
+### 当答案是一个代码时
 
-| 结果 | 含义 | 涉及谁 |
+拒绝不是对你插件的判决；它是一个有名字、可修复的状况，面板会告诉你它通过
+两种方式中的哪一种解决。**重新检查(Recheck)** 是面板里的一个按钮，它会针对
+同一个标签从头重新运行每项检查 —— 用于已打标签的字节之外的修正，比如你忘了
+附上的发布资产。**新的标签** 是改变这些字节之内任何东西的唯一办法，因为证明
+覆盖的正是这些字节。绑定相关的代码：
+
+| 代码 | 含义 | 修复 |
 |---|---|---|
-| **已发布（Published）** | 已提交，会出现在下一次索引构建中的目录里 | 不涉及任何人 |
-| **延迟（Delayed）** | 一切都通过了；会在指定时间自动发布 | 不涉及任何人 |
-| **保留（Held）** | 这是注册表无权自动做出的决定 | 由一位维护者在 48 小时内处理 |
-| **拒绝（Refused）** | 某项检查失败了。政策根本没机会表态 | 由你：修复它，并评论 `/recheck` |
+| `B_UNBOUND` | 打标签的提交里没有绑定行，而这个上架需要一行 | 绑定仓库并重新打标签：[绑定你的仓库](#绑定你的仓库) |
+| `B_BINDING_MALFORMED` | 有两行绑定行，或者某一行本意是绑定行却不合格(`Astra-Binding:`、过短的令牌) | `astra-plugin init-ci --binding <token>` 会用恰好一行重写该文件；重新打标签。`astra-plugin check --tag` 会在你推送之前显示这一点 |
+| `B_BINDING_UNUSABLE` | 这一行上的令牌没有绑定任何这次发布能用的东西：已撤销、已过期、为另一个仓库铸造，或其账户不能发布 | 在面板里为这个仓库铸造一个新令牌并重新打标签；面板会说明下面两种情况中哪一种适用于你 |
+| `B_BINDING_INVALID` | 只对你和审核员显示：问题在令牌本身 —— 未知、已撤销、已过期，或为另一个仓库铸造 | 为这个仓库铸造一个新的 |
+| `B_ACCOUNT_INELIGIBLE` | 只对你和审核员显示：令牌背后的账户不能发布，例如因为它不再持有 `astraUser` | 修好账户，然后重新检查 |
+| `B_OWNER_CHANGED` | 仓库现在属于另一个所有者，而不是这个上架登记时的所有者 | 转移就是作者变更。它要等审核员处理；已安装的副本会一直保留旧名字，直到重新安装 |
+| `B_REPOSITORY_RECYCLED` | 这个仓库名现在属于另一个仓库，而不是已上架的那个 | 永久性的：重新检查、新标签或批准都无法解除。只有审核员能重置该上架的身份 |
 
-当以下条件全部成立时，一次发布会在没有任何人介入的情况下自动发布：它
-来自这个插件已经上架所对应的那个仓库、bot 的每一项检查都通过、版本号
-严格更新、没有申请任何它之前没有的高风险权限，而且完全没有申请任何新
-的权限或能力。只有最后一条不满足，它依然会在延迟之后自动发布。
+以及作者最常遇到的发布代码：
 
-**首次上架永远不属于上述情况之一。** 按定义它一定会被保留给人来判断 ——
-见下文 —— 所以"我的第一个插件要多久才能上架"这个问题的答案是*bot 评论
-之后最多 48 小时*，而不是*几分钟*。
-
-### 保留状态如何被解除
-
-不需要你做任何事。一位维护者会在你的 issue 上评论 **`/approve`**，
-随后整个摄入(ingest)过程会针对当时那一刻的字节内容，从头重新运行
-一遍 —— 一次批准只是一个"某人在这个时间点说了 yes"的标记，不携带任何
-缓存下来的判定结果，所以批准某样东西并不会跳过任何一项检查。
-**`/reject <reason>`** 是另一半，它必须带上理由，而这个理由会被发布
-给你。这两条命令都会针对注册表仓库进行权限检查：发出评论的人需要在
-那个仓库拥有 `admin` 或 `maintain` 权限，这一点会在命令被读取的那一刻
-通过 GitHub 的 API 重新证明，而不是信任事件负载(payload)里自带的信息；
-其他任何人发出的命令都会得到回应，而不是被忽略。
-
-你不需要输入这两条命令中的任何一条，等待期间也不需要做任何事。它们
-之所以被记录在这里，只是为了让"保留给维护者处理"指名的是一套机制，
-而不是一片沉默。
-
-*一条附加说明，之所以要说出来，是因为本页的原则就是把这些都说清楚：*
-这条维护者命令的路径，和本页是同时落地到注册表中的。如果你的保留发生
-在它之前，结果是一样的，SLA 也是一样的 —— 依然由维护者来决定 —— 只是
-这个决定可能是手动记录的，而不是通过命令记录的。
-
-### 拒绝是什么样子
-
-bot 会附带一个固定的代码，以及该怎么处理它。一次拒绝不是对你插件的
-最终判决；它是一个有名字的、可以修复的状态。作者们最常遇到的几种：
-
-| 代码 | 含义 | 修复方法 |
+| 代码 | 含义 | 修复 |
 |---|---|---|
-| `E_ATTESTATION_MISSING` | 这个包没有构建证明 | 你上传的是自己构建的包。让 CI 来构建它：[用 CI 发布](release-with-ci.md) |
-| `E_NO_BUNDLE_ASSETS` | 这次发布没有携带任何 `.astraplugin` 资产 | 工作流没有运行，或者运行了但失败了。检查你仓库的 Actions 标签页 |
-| `E_RELEASE_NOT_FOUND` | 那个仓库没有带着那个标签的发布 | 一个草稿发布(draft release)除了你自己之外任何人都看不到，一个私有仓库看起来和一个不存在的仓库完全一样 |
-| `E_WORKFLOW_NOT_ALLOWED` | 构建运行的工作流不是这个注册表所允许的 | 用 commit SHA 把 Astra 的可复用工作流固定住。`astra-plugin init-ci` 会替你完成这件事 |
-| `E_ASSET_URL_FOREIGN` | 某个资产的 URL 不在你自己仓库的 releases 之下 | 每一个下载 URL 都必须位于 `https://github.com/<owner>/<repo>/releases/download/<tag>/` 之下 |
-| `E_OWNERSHIP_UNPROVEN` | 没有任何东西证明你控制着这个仓库 | 你几乎肯定是跳过了[第 2 步](#2--证明你控制着这个仓库)。在默认分支上提交一个包含你 GitHub 登录名的 `.well-known/astra-plugin-owner` 文件，然后评论 `/recheck` —— 不需要新的发布，也不需要新的标签 |
-| `E_INPUT_REPO` / `E_INPUT_TAG` | 仓库或标签的格式不符合预期 | 应该是 `you/dice-roller`，不是一个 URL；应该是 `v0.2.0`，不是一个 commit SHA 或分支名 |
+| `E_ATTESTATION_MISSING` | 包没有构建证明 | 你上传了一个自己构建的包。让 CI 来构建它：[用 CI 发布](release-with-ci.md) |
+| `E_NO_BUNDLE_ASSETS` | 发布里没有 `.astraplugin` 资产 | 工作流没有运行，或者运行了但失败了。查看 Actions 标签页，附上资产，然后重新检查 |
+| `E_RELEASE_NOT_FOUND` | 那个仓库没有带这个标签的发布 | 草稿发布除了你之外对所有人都不可见，而私有仓库看起来和不存在的仓库一模一样。发布它，然后重新检查 |
+| `E_WORKFLOW_NOT_ALLOWED` | 构建运行了一个本注册表不允许的工作流 | 按提交 SHA 固定 Astra 的可复用工作流 —— `astra-plugin init-ci` 会这样做 —— 然后重新打标签 |
+| `E_ASSET_URL_FOREIGN` | 某个资产 URL 不在你自己仓库的发布之下 | 每个下载 URL 都必须位于 `https://github.com/<owner>/<repo>/releases/download/<tag>/` 之下 |
+| `E_INPUT_REPO` / `E_INPUT_TAG` | 仓库或标签的形式不符合预期 | 写 `you/dice-roller`，不是 URL；写 `v0.2.0`，不是提交 SHA，也不是分支 |
 
-修复之后，在同一个 issue 上评论 **`/recheck`**。所有检查会针对当时
-那一刻的字节内容，从头重新运行一遍；不会恢复任何进度，也不会信任任何
-排队中的结果。每种失败的确切措辞的完整清单，在注册表的
-`docs/BOT-CHECKS.md` 中。
+完整的列表，连同每个代码的标题和修复方法，是注册表中的 `docs/BOT-CHECKS.md`。
 
-bot 自身的退出码是：`0` 已上架 · `1` 拒绝 · `3` 保留给维护者 · `2`
-bot 自身出了故障。最后一种被刻意区分开来："你的插件有问题"和"我们的
-工具有问题"绝不能对一个陌生人呈现为同一条评论。
+有两种等待看起来像卡住的提交，其实不是：
+
+| 代码 | 含义 |
+|---|---|
+| `W_ELIGIBILITY_UNREADABLE` | 注册表根据你账户最近一次经过验证的登录来判断它是否有资格发布，这次登录的有效期是 12 小时。登录面板，发布就会继续；一条 `notice.sign_in` 通知也会这样告诉你 |
+| `W_REGISTRY_UNACKNOWLEDGED` | 注册表的 bot 发生了变化，正在等待运维人员的确认。你的发布没有任何问题，也不需要你做任何事 |
 
 ### 需要人来处理的三件事
 
-恰好三件，而且这份清单不会在注册表已发布的政策没有变化的情况下增长：
+恰好三件，而且除非修改注册表已公布的策略，这个列表不会增加：
 
-| 事件 | 原因 |
-|---|---|
-| **一个插件的首次上架** | 一次性的，永远只有这一次。此时还没有任何东西被固定下来，所以之后没有什么可以拿来对照检查 |
-| **新申请的一项高风险权限** | 用户将被要求对此表示同意；应该先有人读过它是用来做什么的 |
-| **仓库或身份发生了变化** | 每一份已安装的副本都携带着对旧仓库的锁定。除非有人明确说明否则一次仓库变更就等同于一次作者变更 |
+| 事件 | 代码 | 原因 |
+|---|---|---|
+| **一个插件的首次上架**，或者已上架插件第一次带绑定行的发布 | `R_FIRST_LISTING`、`R_FIRST_BINDING` | 一次，永远只有这一次。此时还没有任何东西被固定，所以之后没有任何东西可以拿来对照 |
+| **新请求的高风险权限** | `R_NEW_HIGH_RISK` | 用户会被要求同意它；在那之前，应该有人读过它是用来做什么的 |
+| **仓库、其身份或其绑定发生了变化** | `R_IDENTITY_CHANGED`、`R_BINDING_CHANGED` | 每一份已安装的副本都固定指向旧仓库。在有人另有说明之前，变化就是作者变更 |
 
-这里的"高风险"指的是四个具体的名字：`client`、`dom_access`、
-`send_chat_message`、`set_theme_contribution` —— 无论它们是在
-`[capabilities]` 还是 `[permissions]` 中声明的，都同样适用，因为你在
-哪个段声明它们并不是重点。`push_to_ui` 会有一个同意勾选框，但不会触发
-审查：它只是在你插件已经拥有的一个面板内部绘制内容。
+这里的高风险是四个名字：`client`、`dom_access`、`send_chat_message`、
+`set_theme_contribution` —— 在 `[capabilities]` 和 `[permissions]` 中同样
+匹配，因为你在哪个部分声明它们并不重要。`push_to_ui` 会有一个同意勾选框，但
+不需要审核：它只在你的插件已经拥有的面板内部绘制。
 
-某项检查也可能单独把一个判断交给人来处理 —— 比如一个名字和某个已上架
-插件只差一次编辑、一个和现有条目冲突的显示名称。这种情况会以
-`R_CHECK_HELD` 的形式出现，不属于上述三件事之一，但适用同样的 SLA。
+某项检查也可能单独把一个决定交给人 —— 一个和已上架插件只差一处编辑的名字，
+或者一个和它冲突的显示名称。那会以 `R_CHECK_HELD` 的形式到来，不属于这三件。
 
-对上述情况，**SLA 是 48 小时**，从 bot 发表评论的那一刻算起。只有一位
-维护者，这正是这份清单只有三项的原因。注册表公开的是一旦超时会发生
-什么，而不只是一个承诺：超过 96 小时，维护者必须要么把积压的队列公开
-处理掉，要么在一次经过审查的提交中，把触发这件事的事件类型从阻塞集合
-中移出去，而那次提交也会同时修改做出这个承诺的那段文字。
+审核员在面板里批准或拒绝，拒绝会附带原因，并送达你。等待期间你什么都不用做；
+面板会显示这次保留。
 
 ### 什么时候一次发布会转而等待
 
-有些发布通过了一切检查，却依然不会立即发布：
+有些发布通过了所有检查，仍然不会立即发布：
 
-| 情况 | 代码 | 延迟 |
-|---|---|---|
-| 该插件持有**任意**一种高风险权限，无论这次发布是否改变了它 | `P_DELAY_HIGH_RISK` | 24 小时 |
-| 这次发布在非高风险的集合中，申请了上一版没有的权限或能力 | `P_DELAY_WIDENED` | 24 小时 |
-| 上述任意一种情况，但作者在这个注册表中已有 **5 次干净的**发布记录 | `P_TRUSTED_AUTHOR` | 6 小时 |
+| 情形 | 代码 |
+|---|---|
+| 插件持有**任何**高风险权限，无论这次发布是否改变了它 | `P_DELAY_HIGH_RISK` |
+| 发布请求了上一次没有的权限或能力，且在非高风险集合之内 | `P_DELAY_WIDENED` |
+| 以上任一情形，且来自一位在本注册表中有干净发布记录的作者 | `P_TRUSTED_AUTHOR` |
 
-bot 会给出确切的发布时间，一旦倒计时结束，整个摄入过程会针对届时的
-字节内容从头重新运行一遍。这个延迟只买来一件事，注册表也不会声称
-更多：一个作者的 GitHub 账号如果被人接管，在这个窗口期内，本人能够
-看到一次自己并未发起的发布，并有机会站出来说明情况。
+面板会给出确切的发布时间，时间一到，整个检查会针对那时的字节从头重新运行。
+**任何批准都不会缩短延迟。** 延迟只换来一件事，注册表也不声称更多：一个时间
+窗口，让一个账户被盗用的作者能够看到一个不是自己做的发布，并停止它。延迟的
+长度见注册表的 `docs/POLICY.md`。
 
-## 5 · 此后的每一次发布
+仍处于 `grandfathered` 状态的上架 —— 在绑定出现之前上架、至今尚未绑定 ——
+还有一种等待：从切换起，它的延迟发布或需审核发布会一直等到该上架完成绑定。
 
-什么都不用做。打标签，剩下的交给 CI；注册表会注意到这次发布并重新
-生成索引。
+### 停止、撤回、申诉、举报
 
-如果它还没有注意到：
+- **停止。** 在一次发布发布之前，你可以在面板里停止它，它就不会发布。
+- **撤回(yank)。** 发布之后，你可以在面板里撤回某个版本。撤回永远不能恢复
+  —— 请改为发布一个新版本 —— 并且它会像关于上架的其他所有决定一样，附带一条
+  决定记录保存下来。在你的上架尚未绑定期间，请在面板里请审核员替你撤回。
+- **申诉。** 你认为有误的、关于你上架的决定，在面板里申诉，答复也记录在那里。
+- **评分** 只有星级：没有文字，没有回复，没有名字。
+- **举报** 别人的插件请通过 https://astra.minice.ai/plugins 进行，而不是通过
+  GitHub。Astra、守护进程、注册表或签名链中的安全问题请发到
+  security@minice.ai —— 见
+  [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#security)。
 
-<!-- doctest: cli -->
-```bash
-astra-plugin publish --notify
-```
+## 4 · 此后的每一次发布
 
-这是给**已经上架**的插件用的手动 ping。不这样做的话，`publish` 会
-打开一个首次上架申请。
+什么都不用做。打一个标签，其余交给 CI：注册表会自行发现已上架插件的新标签，
+验证它，面板会显示它的状态。没有需要提交的东西，也没有需要通知的东西。一次
+没有出现的发布，会在面板中你插件的页面上显示出来，带有它的状态和原因。
 
-**在这条路径上，所有权是另一个问题。** 一次 ping —— 以及它背后的 cron
-兜底 —— 是针对*发布*该 release 的账号来证明的，既不是针对敲下 ping 的
-人，也不是针对 `.well-known/astra-plugin-owner`。因此编辑那个文件并不会
-改变谁能为一个已经上架的插件发布新版本。真正约束它的是：一次 ping 只能
-指向注册表**已经钉住**的那个仓库；换仓库就不再是例行公事，会重新回到
-人来处理。
+**每一次发布都会检查绑定，而不只是第一次。** 每一次都会对照它所打标签的提交
+里的绑定行以及该上架的身份记录来读取，所以一个绑定行发生了变化、或者转给了
+另一个所有者的仓库，会等待人工处理而不是直接发布 —— 正是这一点，让被盗的
+令牌或被转移的仓库成为一件有人能看到的事。
 
 ## 上架并不意味着什么
 
@@ -536,7 +408,7 @@ astra-plugin publish --notify
 [安全模型](../1-orientation/security.md)。
 
 这对你意味着什么：本页描述的提交路径今天已经端到端可用 —— 你的
-issue 会被读取，各项检查会运行，bot 会给出回应，一次上架会被提交。
+提交会被读取，各项检查会运行，面板会显示答复，一次上架会被提交。
 仍然悬而未决的，是 Pages 上那份已签名的撤回列表，有了它，注册表才能从
 已经装上的副本中撤回某个版本。等它落地之后，本页的内容不会有任何变化。
 
