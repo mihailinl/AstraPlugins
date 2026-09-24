@@ -349,17 +349,19 @@ why the scaffold's pins have lower bounds and why they are not worth relaxing.
 Two other things, stated exactly, so that no document here implies more than is
 true:
 
-- **`trust.json` is signed; the catalogue is not.** The root ceremony ran on
+- **`trust.json` and the served catalogue are signed; the withdrawal list on
+  Pages is not yet.** The root ceremony ran on
   2026-08-11: `astra-registry/registry/v1/root.json` publishes two Ed25519 keys
   and `astra-daemon/src/plugins/trust.rs` (`PRODUCTION_ROOT_KEYS`) compiles in
   the same two. `registry/v1/trust.json` is now signed by `astra-root-2026a`,
   delegates to the index key `astra-index-2026a`, and names the
   reusable-workflow commits the registry accepts in an attestation (two of them
   since the tag moved on 2026-08-19: what `plugin-release/v1` points at, and
-  what it pointed at before). **But
-  `registry/v1/index.json` and `revocations.json` still carry
-  `"signatures": []`** — so no catalogue signature verifies, a default build
-  still fails closed, and revocation is not enforced.
+  what it pointed at before). Since 2026-09-20 the registry's signer signs the
+  catalogue clients are served with `astra-index-2026a`. The copies committed
+  on `main`, `registry/v1/index.json` and `revocations.json`, carry
+  `"signatures": []` by design, and no client reads them. **But Pages still
+  serves the unsigned withdrawal list**, so revocation is not enforced yet.
 - **Prebuilt CLI binaries do not exist.** Installing the CLI requires Rust and
   `protoc`. See §1.
 

@@ -47,11 +47,11 @@ que uno que admita que no la tiene.
 
 ## Dos cosas que son ciertas hoy y no se van a suavizar
 
-### La cadena de confianza está especificada, implementada, y anclada a un eslabón de distancia
+### La cadena de confianza está especificada, implementada, y a un eslabón de distancia en la retirada
 
-Las claves raíz existen, y la delegación por debajo de ellas ahora también.
-**La firma del propio catálogo, no**, así que nada se verifica en la máquina
-de un usuario. En concreto
+Las claves raíz existen, la delegación por debajo de ellas también, y
+también **la firma del propio catálogo**. Lo que la máquina de un usuario
+todavía no recibe es una lista de retirada firmada. En concreto
 ([`spec/registry-index.md` §0.1](../spec/registry-index.md)):
 
 - el `root.json` del registro lleva `"status": "provisioned"` y dos claves
@@ -67,21 +67,19 @@ de un usuario. En concreto
   `node tools/sign-trust.mjs --verify registry/v1/trust.json` del propio
   registro imprime todo eso. Así que el bloqueo del lado de ingesta
   `E_TRUST_UNPROVISIONED` ya no se dispara;
-- **pero `registry/v1/index.json` todavía lleva `"signatures": []`**, y
-  también `revocations.json`. Sin firma en el catálogo, no hay nada que la
-  clave delegada pueda comprobar, y todo catálogo se sigue clasificando como
-  `UNSIGNED` — con motivo **`NoSignatures`**, no `NoTrustAnchor`: el ancla
-  llegó, las firmas no. `NoTrustAnchor` es el caso más antiguo y peor, y
-  significa que ningún `trust.json` verificado llegó siquiera a la
-  compilación;
-- y porque las listas de retirada se verifican de forma estricta, una sin
-  firmar se rechaza, así que **la aplicación de revocaciones tampoco está
-  activa**.
+- **el catálogo que reciben los clientes está firmado.** Desde el 2026-09-20
+  el firmante del registro firma `index.json` con `astra-index-2026a` y lo
+  despliega en Pages, así que una compilación por defecto tiene una firma de
+  catálogo que comprobar. Las copias confirmadas en `main` del registro
+  siguen llevando `"signatures": []`, a propósito, y ningún cliente las lee;
+- **pero Pages todavía sirve la lista de retirada sin firmar** hasta que el
+  registro active allí la firmada, y porque las listas de retirada se
+  verifican de forma estricta, una sin firmar se rechaza, así que **la
+  aplicación de revocaciones todavía no está activa**.
 
-Una compilación por defecto, por tanto, sigue fallando cerrada (fail
-closed). Nada aquí es una promesa sobre una garantía que tengas hoy; el
-mecanismo empieza a tener peso para un usuario cuando exista un índice
-firmado, y no antes.
+Nada aquí es una promesa sobre una garantía que no tengas hoy. La firma del
+catálogo ya tiene peso para un usuario; la retirada lo tendrá cuando la
+lista firmada esté en Pages.
 
 ### Una clave de firma local no otorga ninguna confianza
 
@@ -193,8 +191,8 @@ Nombrado, en lugar de dejarlo para que el lector lo descubra:
 |---|---|
 | Un plugin lee tus archivos, tus claves, tu red | **Sin defensa.** No existe aislamiento — Fase 7 |
 | Un plugin lee `daemon.token` y se registra como cliente | **Sin defensa.** Mismo motivo |
-| Un registro malicioso o comprometido sirve bytes distintos | Defendido *por diseño* — el índice contrafirma un digest y el daemon vuelve a calcular el hash — **pero no en vigor**: las raíces están aprovisionadas (`registry/v1/root.json`, las mismas dos claves compiladas en el daemon), y el índice del catálogo que firman sigue sin firmar |
-| Una versión retirada ya instalada | Especificado; no aplicado hoy, porque una lista de retirada sin firmar se rechaza |
+| Un registro malicioso o comprometido sirve bytes distintos | Defendido *por diseño* — el índice contrafirma un digest y el daemon vuelve a calcular el hash — y las raíces están aprovisionadas (`registry/v1/root.json`, las mismas dos claves compiladas en el daemon). Desde el 2026-09-20 el catálogo que reciben los clientes está firmado bajo ellas |
+| Una versión retirada ya instalada | Especificado; no aplicado hoy, porque Pages todavía sirve una lista de retirada sin firmar y una lista sin firmar se rechaza |
 | Otro proceso local que llama al servidor de capabilities de tu plugin | **Defendido.** El daemon presenta el token de arranque en cada llamada y fija `ASTRA_PLUGIN_CAPABILITY_AUTH=require`, de modo que el SDK rechaza una llamada sin él. Bajo un daemon demasiado antiguo para enviar la cabecera, el SDK se queda en `warn` — un token incorrecto se rechaza, uno ausente se acepta — porque no hay otra cosa que pueda hacer |
 | Un plugin edita su propio manifiesto para ampliar sus permisos | **Defendido en los niveles 1 y 2** — las concesiones vienen de un registro de confianza que posee el daemon, no del manifiesto. **Sin defensa en el nivel 3**: para un directorio en sideload el manifiesto *es* la concesión y no tiene techo, así que puede adquirir cada permiso del vocabulario editando su propio archivo |
 | Un marcador de sideload plantado a mano | Defendido. El daemon rechaza un marcador que no escribió él mismo |

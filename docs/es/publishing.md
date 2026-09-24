@@ -579,11 +579,12 @@ verificado con el propio
 registro, que también imprime los SHA de workflow reutilizable
 que el bot aceptará en una attestation — dos de ellos desde que la etiqueta
 se movió el 2026-08-19: el commit al que apunta `plugin-release/v1`, y
-aquel al que apuntaba antes. **El enlace que todavía falta es la firma del
-propio catálogo:** `registry/v1/index.json` y `revocations.json`
-llevan `"signatures": []`, así que una compilación por defecto de
-Astra no tiene nada que comprobar y clasifica cualquier catálogo como
-sin firmar. Nada aquí promete una garantía que todavía no esté en su
+aquel al que apuntaba antes. Desde el 2026-09-20 el catálogo que reciben
+los clientes está firmado con esa clave; las copias confirmadas en `main` del
+registro, `registry/v1/index.json` y `revocations.json`, llevan
+`"signatures": []` a propósito, y ningún cliente las lee. **El enlace que
+todavía falta es una lista de retirada firmada en Pages**, así que la
+revocación todavía no se aplica. Nada aquí promete una garantía que todavía no esté en su
 sitio; consulta [el modelo de seguridad](1-orientation/security.md) y
 [`spec/registry-index.md` §0.1](spec/registry-index.md).
 

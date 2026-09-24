@@ -543,8 +543,8 @@ is no sandbox. See [the security model](../1-orientation/security.md).
 
 One thing a reader deserves to know before following this page.
 
-**The signing chain is anchored down to the delegation, and not yet through the
-catalogue.** Precisely, and each part is checkable:
+**The signing chain is anchored through the catalogue, and not yet through the
+withdrawal list.** Precisely, and each part is checkable:
 
 - the root keys exist on both sides — `registry/v1/root.json` carries
   `"status": "provisioned"` with two Ed25519 keys, and the daemon's
@@ -556,18 +556,21 @@ catalogue.** Precisely, and each part is checkable:
   of them since the tag moved on 2026-08-19: the commit `plugin-release/v1`
   points at, and the one it pointed at before. So `E_TRUST_UNPROVISIONED`, which
   used to stop every ingest, no longer fires;
-- **the catalogue itself is still unsigned.** `registry/v1/index.json` and
-  `revocations.json` carry `"signatures": []`, so a default Astra build has no
-  signature to check, classifies every catalogue as unsigned, and fails closed.
-  Revocation enforcement is not live either, for the same reason.
+- **the catalogue clients are served is signed.** Since 2026-09-20 the
+  registry's signer signs `index.json` with `astra-index-2026a` and deploys it
+  to Pages. The copies committed on `main`, `registry/v1/index.json` and
+  `revocations.json`, carry `"signatures": []` by design, and no client reads
+  them. The withdrawal list Pages serves is still the unsigned committed one,
+  so revocation enforcement is not live yet.
 
 See [`spec/registry-index.md` §0.1](../spec/registry-index.md) and
 [the security model](../1-orientation/security.md).
 
 What that means for you: the submission path on this page works end to end
 today — your issue is read, the checks run, the bot answers, and a listing is
-committed. What is still pending is the signature that lets Astra *install* from
-what the registry publishes. Nothing on this page changes when it lands.
+committed. What is still pending is the signed withdrawal list on Pages, which
+lets the registry withdraw a version from copies already installed. Nothing on
+this page changes when it lands.
 
 ## See also
 

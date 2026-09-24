@@ -508,9 +508,10 @@ astra-plugin publish --notify
 `node tools/sign-trust.mjs --verify registry/v1/trust.json` 验证过，该命令
 同时也会打印出 bot 在证明中会接受的可复用工作流 SHA —— 自 2026-08-19 标签移动
 以来共有两个：`plugin-release/v1` 现在指向的那个 commit，以及它之前指向的那个。
-**仍然缺失的一环是目录本身的签名：**`registry/v1/index.json`
-和 `revocations.json` 携带的都是 `"signatures": []`，因此默认的 Astra 构建
-没有任何东西可以核对，会把所有目录都归类为未签名。这里没有对任何尚未落地的
+从 2026-09-20 起，客户端拿到的目录已用这个密钥签名；提交在注册表 `main`
+上的副本 `registry/v1/index.json` 和 `revocations.json` 是有意携带
+`"signatures": []` 的，没有任何客户端读取它们。**仍然缺失的一环是 Pages 上
+一份已签名的撤回列表**，所以失效机制尚未被强制执行。这里没有对任何尚未落地的
 保证做出承诺；参见 [安全模型](1-orientation/security.md) 与
 [`spec/registry-index.md` §0.1](spec/registry-index.md)。
 

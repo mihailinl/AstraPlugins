@@ -100,13 +100,15 @@ permissions answer *what the daemon will do when the plugin asks*. Neither
 answers what the process can do to your machine. See
 [the security model](1-orientation/security.md).
 
-**The trust chain is anchored down to the delegation, and not yet through the
-catalogue.** The root keys exist and match on both sides, and the root-signed
-`trust.json` that delegates to an index-signing key now exists too — it verifies
-under `astra-root-2026a` and names the one reusable-workflow commit the registry
-will accept in a build attestation. What is still missing is the catalogue's own
-signature: `registry/v1/index.json` and `revocations.json` carry
-`"signatures": []`, so a default build has nothing to check, fails closed, and
-classifies every catalogue as unsigned. This is written down in
+**The trust chain is anchored through the catalogue, and not yet through the
+withdrawal list.** The root keys exist and match on both sides, and the
+root-signed `trust.json` that delegates to an index-signing key exists too — it
+verifies under `astra-root-2026a` and names the one reusable-workflow commit the
+registry will accept in a build attestation. Since 2026-09-20 the catalogue
+clients are served is signed with that key; the copies committed on the
+registry's `main`, `registry/v1/index.json` and `revocations.json`, carry
+`"signatures": []` by design, and no client reads them. What is still missing
+is a signed withdrawal list on Pages, so revocation is not enforced yet. This is
+written down in
 [`spec/registry-index.md` §0.1](spec/registry-index.md) and repeated wherever it
 matters, rather than being quietly implied away.
