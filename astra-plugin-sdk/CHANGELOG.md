@@ -14,7 +14,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.2] — unreleased
+## [0.7.2] — 2026-09-24
 
 Two additions and a fix, and they ship together.
 

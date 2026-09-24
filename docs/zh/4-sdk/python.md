@@ -2,7 +2,7 @@
 
 # Python SDK
 
-PyPI 上的 `astra-plugin-sdk` 0.6.1。继承 `Plugin`，用装饰器标注方法，
+PyPI 上的 `astra-plugin-sdk` 0.6.2。继承 `Plugin`，用装饰器标注方法，
 运行它。
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->

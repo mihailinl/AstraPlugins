@@ -145,9 +145,9 @@ sobrescribe lo que implique la plantilla.
 
 | Lenguaje | El scaffold fija | Publicado |
 |---|---|---|
-| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.1 |
-| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.1 |
-| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.0 |
+| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.2 |
+| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.2 |
+| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.1 |
 
 Eso se resuelve desde los registros, así que `cargo build`, `pip install -r
 requirements.txt` y `bun install` funcionan en un proyecto nuevo sin nada

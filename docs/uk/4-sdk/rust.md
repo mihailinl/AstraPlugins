@@ -2,7 +2,7 @@
 
 > Переклад. Джерело істини — [docs/en](../../en/4-sdk/rust.md); за розбіжності відповідає англійська версія.
 
-`astra-plugin-sdk` 0.7.1. Одна залежність, і все, у що розгортаються макроси,
+`astra-plugin-sdk` 0.7.2. Одна залежність, і все, у що розгортаються макроси,
 приходить через неї.
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->

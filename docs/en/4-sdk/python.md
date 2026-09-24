@@ -1,6 +1,6 @@
 # The Python SDK
 
-`astra-plugin-sdk` 0.6.1 on PyPI. Subclass `Plugin`, decorate methods, run it.
+`astra-plugin-sdk` 0.6.2 on PyPI. Subclass `Plugin`, decorate methods, run it.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
 ```

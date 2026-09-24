@@ -2,7 +2,7 @@
 
 # Das Rust-SDK
 
-`astra-plugin-sdk` 0.7.1. Eine Abhängigkeit, und alles, wozu die Makros
+`astra-plugin-sdk` 0.7.2. Eine Abhängigkeit, und alles, wozu die Makros
 expandieren, läuft darüber.
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->

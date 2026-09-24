@@ -2,7 +2,7 @@
 
 # Rust SDK
 
-`astra-plugin-sdk` 0.7.1。依存は 1 つだけで、マクロが展開するものは
+`astra-plugin-sdk` 0.7.2。依存は 1 つだけで、マクロが展開するものは
 すべてこれを経由してきます。
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->

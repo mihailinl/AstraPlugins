@@ -2,7 +2,7 @@
 
 > Перевод. Источник истины — [docs/en](../../en/4-sdk/python.md); при расхождении верна английская версия.
 
-`astra-plugin-sdk` 0.6.1 на PyPI. Наследуйтесь от `Plugin`, декорируйте
+`astra-plugin-sdk` 0.6.2 на PyPI. Наследуйтесь от `Plugin`, декорируйте
 методы, запускайте.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->

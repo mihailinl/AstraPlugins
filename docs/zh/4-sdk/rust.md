@@ -2,7 +2,7 @@
 
 # Rust SDK
 
-`astra-plugin-sdk` 0.7.1。只有一个依赖，宏展开出来的一切都经由它而来。
+`astra-plugin-sdk` 0.7.2。只有一个依赖，宏展开出来的一切都经由它而来。
 
 <!-- doctest: illustrative reason="a Cargo.toml fragment; the scaffold this line comes from is built by every rust-plugin block on this page" -->
 ```toml

@@ -2,7 +2,7 @@
 
 # Python SDK
 
-PyPI 上の `astra-plugin-sdk` 0.6.1。`Plugin` をサブクラス化し、メソッドを
+PyPI 上の `astra-plugin-sdk` 0.6.2。`Plugin` をサブクラス化し、メソッドを
 デコレートし、実行します。
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->

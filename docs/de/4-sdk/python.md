@@ -2,7 +2,7 @@
 
 # Das Python-SDK
 
-`astra-plugin-sdk` 0.6.1 auf PyPI. `Plugin` ableiten, Methoden dekorieren,
+`astra-plugin-sdk` 0.6.2 auf PyPI. `Plugin` ableiten, Methoden dekorieren,
 starten.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->

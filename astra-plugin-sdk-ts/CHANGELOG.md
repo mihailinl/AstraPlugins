@@ -15,7 +15,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.1] — unreleased
+## [0.7.1] — 2026-09-24
 
 Additive. A tool call and an action can ask which conversation invoked them, and
 answer in it later; and the chat firehose stops retrying a refusal that cannot
