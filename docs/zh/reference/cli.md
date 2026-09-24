@@ -2,7 +2,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.5.0`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.6.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 
@@ -327,7 +327,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | 选项 | 说明 |
 |---|---|
 | `--dry-run` | 运行所有能在本地执行的注册表检查，指名那些只有注册表才能运行的检查，然后停止 |
-| `--notify` | 不再需要，并将在下一个 minor 版本中移除：注册表会自行发现新的标签。它会说明这一点，然后打开同一个提交页面 |
 | `--repo <REPO>` | 以 `owner/name` 形式给出的源码仓库。默认：`origin` 远程仓库 |
 | `--tag <TAG>` | 发布标签。默认：插件的标签前缀加上它的版本号 |
 | `--print-url` | 打印出 URL，不打开浏览器 |

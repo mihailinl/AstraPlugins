@@ -2,7 +2,7 @@
 
 # Referencia de la CLI
 
-`astra-plugin 0.5.0`. Cada flag de abajo se leyó del binario, así que
+`astra-plugin 0.6.0`. Cada flag de abajo se leyó del binario, así que
 esta página no puede describir una opción que no exista. La fuente es
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
@@ -345,7 +345,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Opción | Descripción |
 |---|---|
 | `--dry-run` | Ejecuta cada comprobación del registro que puede correr en local, nombra las que solo el registro puede ejecutar, y se detiene |
-| `--notify` | Ya no hace falta, y se elimina en la próxima versión menor: el registro detecta una etiqueta nueva por sí mismo. Lo dice y luego abre la misma página de envío |
 | `--repo <REPO>` | Repositorio fuente como `owner/name`. Por defecto: el remoto `origin` |
 | `--tag <TAG>` | Etiqueta de release. Por defecto: el prefijo de etiqueta del plugin más su versión |
 | `--print-url` | Imprime la URL y no abre un navegador |

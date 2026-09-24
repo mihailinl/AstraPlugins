@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.5.0
+     Read from: astra-plugin 0.6.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -12,7 +12,7 @@
 
 # CLI reference
 
-`astra-plugin 0.5.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
+`astra-plugin 0.6.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
 Astra Plugin Development CLI
 
@@ -312,7 +312,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Option | Description |
 |---|---|
 | `--dry-run` | Run every check the registry runs that can be run locally, name the ones only the registry can run, and stop |
-| `--notify` | No longer needed, and removed in the next minor release: the registry detects a new tag by itself. Prints that, then opens the same submission page |
 | `--repo <REPO>` | Source repository as `owner/name`. Default: the `origin` remote |
 | `--tag <TAG>` | Release tag. Default: the plugin's tag prefix plus its version |
 | `--print-url` | Print the URL and do not open a browser |

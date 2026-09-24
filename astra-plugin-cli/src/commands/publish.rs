@@ -28,8 +28,8 @@
 //! binding line at `HEAD` is told so first, because the registry refuses its
 //! first listing `B_UNBOUND`.
 //!
-//! `--notify` is kept for this one minor release (FLOW-47): it says detection
-//! is automatic and opens the same page. The next minor removes it.
+//! The one-minor ping stub FLOW-47 kept in 0.5.0 is gone from 0.6.0: the
+//! registry detects a new tag by itself, so there is nothing to ping.
 //!
 //! What happens to a release after it is submitted — published, delayed, or
 //! held for a person — is the registry's `docs/POLICY.md`, and the panel shows
@@ -52,9 +52,6 @@ pub struct PublishOptions<'a> {
     pub tag: Option<&'a str>,
     /// Run the local half of the registry's checks and stop.
     pub dry_run: bool,
-    /// FLOW-47's one-minor stub: says detection is automatic, then opens the
-    /// same page.
-    pub notify: bool,
     /// Print the URL and do not try to open a browser.
     pub print_url: bool,
 }
@@ -104,16 +101,6 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
 
     hprintln!("{id} {version} — submission for {repo}@{tag}, in the panel\n");
     warn_if_tag_is_missing(&dir, &tag);
-    if opts.notify {
-        // FLOW-47: kept one minor so a script that runs it does not break, and
-        // told the truth rather than silently doing something else.
-        hprintln!(
-            "  `--notify` is no longer needed and goes in the next minor release. The registry\n\
-             \x20 detects a new tag of a listed plugin by itself; there is nothing to ping. If a\n\
-             \x20 release has not appeared, its state and the reason are on the panel's page for\n\
-             \x20 it, which is the link below.\n"
-        );
-    }
     match &bound {
         Some(token) => hprintln!(
             "  Bound: `astra-binding: {token}` is line 1 of the owner file at HEAD. Submit in the\n\

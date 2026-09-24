@@ -38,7 +38,10 @@ name = "astra-plugin-cli"
 # is the panel's page, and `--notify` is a stub for this one minor (FLOW-47). A
 # script that parsed the issue URL `publish --print-url` printed breaks, and a
 # removed behaviour is the minor slot.
-version = "0.5.0"
+#
+# 0.6.0, release C: the `--notify` stub FLOW-47 kept for one minor is removed,
+# and a script that passes the flag now gets clap's "unexpected argument".
+version = "0.6.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"

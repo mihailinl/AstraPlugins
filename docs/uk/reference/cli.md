@@ -2,7 +2,7 @@
 
 # Довідник CLI
 
-`astra-plugin 0.5.0`. Кожен прапорець нижче прочитаний з бінарника, тож ця
+`astra-plugin 0.6.0`. Кожен прапорець нижче прочитаний з бінарника, тож ця
 сторінка не може описувати опцію, якої не існує. Джерело —
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
@@ -321,7 +321,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Опція | Опис |
 |---|---|
 | `--dry-run` | Run every check the registry runs that can be run locally, name the ones only the registry can run, and stop |
-| `--notify` | No longer needed, and removed in the next minor release: the registry detects a new tag by itself. Prints that, then opens the same submission page |
 | `--repo <REPO>` | Source repository as `owner/name`. Default: the `origin` remote |
 | `--tag <TAG>` | Release tag. Default: the plugin's tag prefix plus its version |
 | `--print-url` | Print the URL and do not open a browser |

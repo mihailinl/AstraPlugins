@@ -302,7 +302,7 @@ directory to a listed plugin, with every command and its output.
 | `astra-plugin-sdk` (PyPI) | 0.6.2 | 0.6.1 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
 | `astra-plugin-sdk` (npm) | 0.7.1 | 0.7.0 | `npm install astra-plugin-sdk` |
 | `astra-plugin-macros` (crates.io) | 0.7.2 | 0.7.1 | arrives with the SDK |
-| `astra-plugin-cli` (crates.io) | 0.5.0 | **not on crates.io**; binaries released as [`cli-v0.3.0`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
+| `astra-plugin-cli` (crates.io) | 0.6.0 | **not on crates.io**; binaries released as [`cli-v0.3.0`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
 
 **This column said npm was one publish behind for a month after it was not.**
 `sdk-v0.7.1` published `astra-plugin-macros` and `astra-plugin-sdk` to crates.io

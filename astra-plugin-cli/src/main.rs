@@ -345,12 +345,6 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
 
-        /// No longer needed, and removed in the next minor release: the
-        /// registry detects a new tag by itself. Prints that, then opens the
-        /// same submission page.
-        #[arg(long)]
-        notify: bool,
-
         /// Source repository as `owner/name`. Default: the `origin` remote.
         #[arg(long)]
         repo: Option<String>,
@@ -682,7 +676,6 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
         Commands::Publish {
             path,
             dry_run,
-            notify,
             repo,
             tag,
             print_url,
@@ -692,7 +685,6 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
                 repo: repo.as_deref(),
                 tag: tag.as_deref(),
                 dry_run,
-                notify,
                 print_url,
             })?;
             output::emit(

@@ -2,7 +2,7 @@
 
 # CLI-Referenz
 
-`astra-plugin 0.5.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
+`astra-plugin 0.6.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
 diese Seite kann also keine Option beschreiben, die nicht existiert. Die
 Quelle ist
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
@@ -346,7 +346,6 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Option | Beschreibung |
 |---|---|
 | `--dry-run` | Führt jede Prüfung aus, die die Registry ausführt und die lokal laufen kann, benennt die, die nur die Registry ausführen kann, und stoppt |
-| `--notify` | Nicht mehr nötig und in der nächsten Minor-Version entfernt: Die Registry bemerkt einen neuen Tag von selbst. Sagt das und öffnet dann dieselbe Einreichungsseite |
 | `--repo <REPO>` | Quell-Repository als `owner/name`. Default: das `origin`-Remote |
 | `--tag <TAG>` | Release-Tag. Default: das Tag-Prefix des Plugins plus seine Version |
 | `--print-url` | Gibt die URL aus und öffnet keinen Browser |

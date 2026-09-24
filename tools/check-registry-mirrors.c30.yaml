@@ -77,8 +77,8 @@ id: notify-flag
 literal: --notify
 from: R6
 armed: yes
-why: The manual ping. FLOW-47 keeps it one minor release as a stub that opens
-  the panel; the exemption below is that stub, and it expires by version.
+why: The manual ping. FLOW-47 kept it one minor release (0.5.0) as a stub that
+  opened the panel; release C (0.6.0) removed it, and with it the exemption.
 
 kind: scope
 id: proto-copies
@@ -114,25 +114,6 @@ armed: yes
 why: Renumbered to #3--what-happens-after-you-submit when the login step went.
 
 # ── exemptions ───────────────────────────────────────────────────────────────
-
-kind: exempt
-id: flow-47-stub-source
-path: astra-plugin-cli/src/*
-literal: --notify
-min: 2
-expires: cli-minor>5
-why: FLOW-47 — `publish --notify` stays for one minor release after release B
-  (0.5.0), printing that detection is automatic and opening the panel. Release C
-  removes it (AP-19); a Cargo.toml minor above 5 with the stub still here is red.
-
-kind: exempt
-id: flow-47-stub-reference
-path: docs/*/reference/cli.md
-literal: --notify
-min: 7
-expires: cli-minor>5
-why: The CLI reference lists every flag the binary has, and for one minor that
-  includes the stub. Seven locales, one row each at least.
 
 # ── promises (ROLL-47) ───────────────────────────────────────────────────────
 #

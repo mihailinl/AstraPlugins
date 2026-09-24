@@ -26,6 +26,19 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [0.6.0] — unreleased
+
+Release C: the ping stub goes.
+
+### Removed (breaking)
+
+- **`astra-plugin publish --notify`** (FLOW-47). 0.5.0 kept it one minor
+  release as a stub that said detection is automatic and opened the same page
+  as `publish`. The registry detects a new tag of a listed plugin by itself,
+  so there is nothing to ping; `publish` alone opens the panel's submission
+  page. A script that still passes the flag now fails with clap's "unexpected
+  argument" rather than being told something untrue.
+
 ## [0.5.0] — unreleased
 
 Release B of the registry's cutover: `publish` opens the panel for everybody.
