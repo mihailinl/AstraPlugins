@@ -1,0 +1,61 @@
+# The generated-workflow template list: every version of the caller
+# `astra-plugin init-ci` writes, what each compiles, and when each stops
+# (registry plan AP-24; contract SCOPE-7, ID-73, OPEN-OWNER-27).
+#
+# Why it exists. A generated workflow lives in an author's repository, and
+# nobody reruns `init-ci` there. Whatever that file calls is compiled into it.
+# So the contract gives each template version a support period of its own: the
+# author audience and author-notify path a version compiles may not be retired
+# until 12 months after the first CLI release whose `init-ci` no longer writes
+# that version (ID-73; 0.13.0's n14). "The last time init-ci emits it" is never
+# observable, because an installed old CLI keeps emitting. A `cli-v` tag that
+# stops is dated and public.
+#
+# mirrors: astra-registry/schema/contract-tokens-v1.json templates
+# PINNED AT astra-registry@9e7a733a9669f920670cb25fa6a6d4efe6875383 (contract 2.14.0)
+#
+# One document per template version, oldest first. The members the token file
+# carries are compared with it, member by member (C33, pinned and head legs):
+#
+#   version          the number in `# astra-plugin init-ci template <n>`, the
+#                    first line of every generated caller, and
+#                    `CALLER_TEMPLATE_VERSION` in
+#                    astra-plugin-cli/src/commands/init_ci.rs
+#   author_audience  the OIDC audience the caller requests, or null (token
+#                    file: `audience`)
+#   notify_path      the author-notify path it calls, or null (token file:
+#                    `notify_path`)
+#   stopped_by       the first `cli-v` tag whose `init-ci` no longer writes this
+#                    version, or null while every release still does
+#   state            `live`, or `retired` no sooner than 12 months after
+#                    `stopped_on`
+#
+# Two members are this repository's own records, which the token file does not
+# carry:
+#
+#   emitted_by       every `cli-v` tag whose `init-ci` writes this version, plus
+#                    `cli-v<the tree's CLI version>` before that tag exists. C33
+#                    reads each tag's init_ci.rs, and every `cli-v` tag in the
+#                    repository must be listed exactly once. A release PR adds
+#                    its own tag here.
+#   stopped_on       the day `stopped_by`'s GitHub Release was published (UTC,
+#                    YYYY-MM-DD), from which the 12 months run. It is null until
+#                    that tag exists and must never be earlier than the tagged
+#                    commit.
+#
+# Template 1 is the caller `render()` has written since the first release. It
+# calls the reusable workflow and nothing else, so it compiles neither an
+# audience nor a path. `render()` is byte-identical at `cli-v0.2.1`,
+# `cli-v0.3.0` and `cli-v0.4.0`, measured 2026-09-25. Releases before AP-24
+# carry no `CALLER_TEMPLATE_VERSION`; C33 reads their `render()` as template 1.
+---
+version: 1
+emitted_by:
+  - cli-v0.2.1
+  - cli-v0.3.0
+  - cli-v0.4.0
+author_audience: null
+notify_path: null
+stopped_by: null
+stopped_on: null
+state: live

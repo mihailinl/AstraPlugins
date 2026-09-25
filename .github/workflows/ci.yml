@@ -1231,7 +1231,7 @@ jobs:
       # `--registry-dir` is explicit, as it is for C35. A `_registry` that is
       # missing, or that holds the files but is not a git checkout of its own,
       # is exit 2 and never NOT VERIFIED.
-      - name: C27, C28, C31 the reserved-id mirror, the panel page and the binding-line corpus are astra-registry's, at their pins and at head
+      - name: C27, C28, C31, C33 the reserved-id mirror, the panel page, the binding-line corpus and the template list are astra-registry's, at their pins and at head
         if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
         run: |
           set -euo pipefail
@@ -1239,7 +1239,7 @@ jobs:
           # `|| status=1`, never `$(…)` or a bare command: under `set -e` either
           # ends the step at the first red and swallows the rule's own account
           # of it, which is the part a reader needs.
-          python3 tools/check-registry-mirrors.py --rules C27,C28,C31 --pins \
+          python3 tools/check-registry-mirrors.py --rules C27,C28,C31,C33 --pins \
             > "$RUNNER_TEMP/pins.txt" || status=1
           while read -r rule sha file; do
             fetched=no
@@ -1257,13 +1257,13 @@ jobs:
               status=1
             fi
           done < "$RUNNER_TEMP/pins.txt"
-          python3 tools/check-registry-mirrors.py --rules C27,C28,C31 --registry-dir _registry \
+          python3 tools/check-registry-mirrors.py --rules C27,C28,C31,C33 --registry-dir _registry \
             | tee "$RUNNER_TEMP/c27-c31.txt" || status=1
           {
             if [ "$status" = 0 ]; then
-              echo "### registry mirrors: **C27, C28, C31 compared**, pinned and head, against astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
+              echo "### registry mirrors: **C27, C28, C31, C33 compared**, pinned and head, against astra-registry@$(git -C _registry rev-parse --short=12 HEAD)"
             else
-              echo "### registry mirrors: **C27, C28, C31 RED**. The step log names the leg"
+              echo "### registry mirrors: **C27, C28, C31, C33 RED**. The step log names the leg"
             fi
             echo
             echo '```'
@@ -3418,6 +3418,20 @@ jobs:
       # checkout. `proto-upstream` compares the entry at the pin and at head.
       - name: C28 (in-repo and docs legs) the panel page parses, names its source, and every docs literal carries its parameters; proto-upstream compares it
         run: python3 tools/check-registry-mirrors.py --rules C28
+
+      # C33 — the generated-workflow template list (registry plan AP-24;
+      # contract ID-73). `init-ci` writes a caller into the author's repository
+      # and whatever it calls stays compiled there, so every template version
+      # is listed, with the releases that write it and the one that stopped;
+      # nothing it compiles may be retired until 12 months after that stop.
+      # Here: the in-repo legs, which read every `cli-v` tag's init_ci.rs — this
+      # job's `fetch-depth: 0` is what brings the tags — and the fixture suite
+      # that builds each break the list has never held. proto-upstream compares
+      # the list with the token file at the pin and at head, and runs ID-73.
+      - name: C33 (in-repo legs) the template init-ci writes is listed, and every cli-v release writes the template the list says
+        run: python3 tools/check-registry-mirrors.py --rules C33
+      - name: C33 is red on a bumped constant, a missing release, a stop before its tag, an early retirement and a retired value still compiled
+        run: python3 tools/test_init_ci_templates.py
 
       # C31 — the binding-line corpus is still astra-registry's corpus.
       #
