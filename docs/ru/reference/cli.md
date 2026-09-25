@@ -2,7 +2,7 @@
 
 # Справочник CLI
 
-`astra-plugin 0.4.0`. Каждый флаг ниже прочитан из бинарника, так что эта
+`astra-plugin 0.5.0`. Каждый флаг ниже прочитан из бинарника, так что эта
 страница не может описывать опцию, которой не существует. Источник —
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
@@ -31,7 +31,7 @@ Astra Plugin Development CLI
 | [`check`](#astra-plugin-check) | `validate` | Check a plugin manifest, config schema and release workflow |
 | [`init-ci`](#astra-plugin-init-ci) | — | Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs |
 | [`version`](#astra-plugin-version) | — | Set the version in plugin.toml and every other manifest at once |
-| [`publish`](#astra-plugin-publish) | — | Get a release listed: preflight it, or open a prefilled submission |
+| [`publish`](#astra-plugin-publish) | — | Get a release listed: preflight it, or open the panel's submission page |
 | [`keygen`](#astra-plugin-keygen) | — | Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses |
 
 ### Команды `astra-plugin login` не существует
@@ -301,9 +301,9 @@ Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
 
 ## astra-plugin publish
 
-Get a release listed: preflight it, or open a prefilled submission.
+Get a release listed: preflight it, or open the panel's submission page.
 
-Uploads nothing and holds no credential — the registry reads the attested bundles off your GitHub Release and verifies every one of them from scratch, so a submission carries only your repository and a tag.
+Uploads nothing and holds no credential — the registry reads the attested bundles off your GitHub Release and verifies every one of them from scratch, so a submission carries only your repository and a tag. You submit it in the panel, signed in to the Minice account the repository is bound to.
 
 ```
 Usage: astra-plugin publish [OPTIONS] [PATH]
@@ -320,7 +320,7 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | Опция | Описание |
 |---|---|
 | `--dry-run` | Run every check the registry runs that can be run locally, name the ones only the registry can run, and stop |
-| `--notify` | A release ping for a plugin that is ALREADY listed — task 3.4's manual escape hatch, for when the registry has not noticed a release by itself. Without it, this opens a first listing request |
+| `--notify` | No longer needed, and removed in the next minor release: the registry detects a new tag by itself. Prints that, then opens the same submission page |
 | `--repo <REPO>` | Source repository as `owner/name`. Default: the `origin` remote |
 | `--tag <TAG>` | Release tag. Default: the plugin's tag prefix plus its version |
 | `--print-url` | Print the URL and do not open a browser |
