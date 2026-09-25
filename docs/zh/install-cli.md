@@ -16,14 +16,15 @@
 你所在的平台还没有归档文件 —— 目前来说是 macOS 和 ARM Linux —— 或者你
 想读一读甚至改一改 CLI，而不只是运行它，就选这条路。
 
-**`cargo install astra-plugin-cli` 不是这两种方式之一，而且不会成功。**
-这个 crate 以路径方式依赖一个 vendor 进来的 `astra-plugin-manifest`
-(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`)，
-cargo 从不会打包一个路径依赖的源码，所以发布会因为 *all dependencies
-must have a version requirement specified* 而失败 —— 所以这个 crate
-根本就不在 crates.io 上（`https://index.crates.io/as/tr/astra-plugin-cli`
-今天返回 `404`，而同一索引上的 `astra-plugin-sdk` 返回 `200`）。要解决
-这个问题，得先从 Astra 发布这个清单 crate，而本页不会对此承诺任何日期。
+**在 CLI 上架 crates.io 之前，`cargo install astra-plugin-cli` 不是这两种
+方式之一；直到 0.4.0 为止，它从未上架过。** 这个 crate 过去只以路径方式依赖
+vendor 进来的 `astra-plugin-manifest`，而 `cargo publish` 会以 *all
+dependencies must have a version requirement specified* 拒绝这种依赖 —— 所以
+`cli-v0.2.1`、`cli-v0.3.0` 和 `cli-v0.4.0` 这三次发布都只发布了二进制文件，
+没有向 crates.io 上传任何东西。现在这个依赖带上了版本号，CLI 的发布流程会先
+上传 `astra-plugin-manifest`，再上传 CLI 本身。在
+`https://index.crates.io/as/tr/astra-plugin-cli` 返回 `200` 而不是 `404`
+之前，请下载二进制文件或从源码构建。
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 

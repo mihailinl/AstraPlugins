@@ -15,15 +15,15 @@ people want, and it is the one below.
 one if you are on a platform with no archive — macOS and ARM Linux, today — or
 if you want to read or change the CLI as well as run it.
 
-**`cargo install astra-plugin-cli` is not one of the ways, and will not work.**
-The crate depends on a vendored `astra-plugin-manifest` by path
-(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`), cargo
-never packages a path dependency's source, and publishing therefore fails with
-*all dependencies must have a version requirement specified* — so the crate is
-not on crates.io at all (`https://index.crates.io/as/tr/astra-plugin-cli`
-answers `404` today, while `astra-plugin-sdk` at the same index answers `200`).
-Unblocking it means releasing the manifest crate from Astra first, and this page
-promises no date for that.
+**`cargo install astra-plugin-cli` is not one of them until the CLI is on
+crates.io, and through 0.4.0 it never was.** The crate depended on its vendored
+`astra-plugin-manifest` by path alone, and `cargo publish` refuses that with
+*all dependencies must have a version requirement specified* — so the releases
+`cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0` each shipped binaries and uploaded
+nothing to crates.io. The dependency now carries a version, and the CLI's
+release uploads `astra-plugin-manifest` first and the CLI after it. Until
+`https://index.crates.io/as/tr/astra-plugin-cli` answers `200` rather than
+`404`, take a binary or build from source.
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 

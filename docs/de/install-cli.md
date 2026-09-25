@@ -20,17 +20,16 @@ braucht. Nimm diesen Weg, wenn du auf einer Plattform ohne Archiv bist —
 heute macOS und ARM Linux — oder wenn du die CLI auch lesen oder ändern
 willst, nicht nur ausführen.
 
-**`cargo install astra-plugin-cli` ist keiner der Wege und wird nicht
-funktionieren.** Die Crate hängt von einer gevendorten
-`astra-plugin-manifest` über einen Pfad ab
-(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`),
-cargo paketiert nie den Quellcode einer Pfad-Abhängigkeit, und das
-Veröffentlichen schlägt daher fehl mit *all dependencies must have a
-version requirement specified* — die Crate ist also überhaupt nicht auf
-crates.io (`https://index.crates.io/as/tr/astra-plugin-cli` antwortet
-heute mit `404`, während `astra-plugin-sdk` im selben Index mit `200`
-antwortet). Das freizuschalten bedeutet, zuerst die Manifest-Crate von
-Astra zu veröffentlichen, und diese Seite verspricht dafür kein Datum.
+**`cargo install astra-plugin-cli` ist erst dann einer der Wege, wenn die CLI
+auf crates.io liegt, und bis einschließlich 0.4.0 lag sie dort nie.** Die
+Crate hing von ihrer gevendorten `astra-plugin-manifest` nur über einen Pfad
+ab, und `cargo publish` lehnt das mit *all dependencies must have a version
+requirement specified* ab — deshalb haben die Releases `cli-v0.2.1`,
+`cli-v0.3.0` und `cli-v0.4.0` jeweils Binärdateien veröffentlicht und nichts
+auf crates.io hochgeladen. Die Abhängigkeit trägt jetzt eine Version, und das
+Release der CLI lädt zuerst `astra-plugin-manifest` hoch und danach die CLI.
+Solange `https://index.crates.io/as/tr/astra-plugin-cli` mit `404` statt `200`
+antwortet, nimm eine Binärdatei oder baue aus dem Quellcode.
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 

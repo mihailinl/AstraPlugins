@@ -9,10 +9,13 @@
 # examples declared `ui_panels`, the daemon read no capabilities from them, and
 # the only symptom was `astra-plugin check` printing "No capabilities enabled".
 #
-# The fix is one crate, `astra-plugin-manifest`, VENDORED rather than published —
-# the reasoning is in the crate's README and is a decision, not an accident. This
-# script is the half that makes vendoring safe: it fails when the copy in this
-# repo has drifted from the source of truth in Astra.
+# The fix is one crate, `astra-plugin-manifest`, VENDORED rather than taken from
+# crates.io — the reasoning is in the crate's README and is a decision, not an
+# accident. This script is the half that makes vendoring safe: it fails when the
+# copy in this repo has drifted from the source of truth in Astra. (The CLI's
+# release does upload the vendored copy to crates.io, first, because a published
+# CLI can only depend on a published crate; the builds here never read that
+# upload. C37, tools/check-crates-publish.py, holds the upload to these bytes.)
 #
 # WHAT IS COMPARED, and why exactly this:
 #

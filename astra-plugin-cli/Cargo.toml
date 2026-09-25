@@ -80,11 +80,23 @@ path = "src/main.rs"
 [dependencies]
 # `plugin.toml`, parsed by the daemon's own code. VENDORED from
 # Astra/astra-rs/astra-plugin-manifest — see that crate's README for why it is
-# copied rather than published, and tools/check-manifest-crate.sh for the check
-# that fails when the copy drifts. This CLI used to keep its own struct; it grew
-# a `ui_panels` capability the daemon has never had, serde dropped the unknown
-# key, and three shipped examples declared no capabilities at all.
-astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }
+# copied, and tools/check-manifest-crate.sh for the check that fails when the
+# copy drifts. This CLI used to keep its own struct; it grew a `ui_panels`
+# capability the daemon has never had, serde dropped the unknown key, and three
+# shipped examples declared no capabilities at all.
+#
+# The `version` is what lets this crate reach crates.io at all. With `path`
+# alone, `cargo publish` refuses before uploading anything ("all dependencies
+# must have a version requirement specified"), and that is how `cli-v0.4.0`
+# released its binaries and failed its crates.io job (2026-09-24, run
+# 35969044932). Cargo strips the `path` from the published manifest, so the
+# copy a `cargo install` builds against is the one on crates.io:
+# `release-cli.yml` publishes the vendored crate first, from this tree, and the
+# CLI after it. C37 (`tools/check-crates-publish.py`) holds this requirement to
+# the vendored crate's own `version`, the publish order, and the crates.io copy
+# of that version to the vendored bytes. A sync that changes the vendored
+# `src/` bumps the vendored `version`, and this requirement with it.
+astra-plugin-manifest = { version = "0.1.0", path = "vendor/astra-plugin-manifest" }
 # `astra-plugin test` is the SDK's own level-2 harness pointed at a process
 # instead of at a type. It reuses `astra_plugin_sdk::testing::MockDaemon` — the
 # same PluginHostService, the same session-token gate, the same permission gate

@@ -20,16 +20,16 @@ nuevo y `protoc`. Toma esta vía si estás en una plataforma sin archivo —
 macOS y ARM Linux, hoy — o si quieres leer o modificar la CLI además de
 ejecutarla.
 
-**`cargo install astra-plugin-cli` no es una de las vías, y no
-funcionará.** El crate depende de un `astra-plugin-manifest` vendorizado
-por ruta (`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`),
-cargo nunca empaqueta el código fuente de una dependencia por ruta, y la
-publicación por tanto falla con *all dependencies must have a version
-requirement specified* — así que el crate no está en crates.io en
-absoluto (`https://index.crates.io/as/tr/astra-plugin-cli` responde `404`
-hoy, mientras que `astra-plugin-sdk` en el mismo índice responde `200`).
-Desbloquearlo significa publicar antes el crate del manifiesto desde
-Astra, y esta página no promete una fecha para eso.
+**`cargo install astra-plugin-cli` no es una de las vías hasta que la CLI
+esté en crates.io, y hasta la 0.4.0 inclusive nunca lo estuvo.** El crate
+dependía de su `astra-plugin-manifest` vendorizado solo por ruta, y
+`cargo publish` lo rechaza con *all dependencies must have a version
+requirement specified*, así que las versiones `cli-v0.2.1`, `cli-v0.3.0` y
+`cli-v0.4.0` publicaron binarios y no subieron nada a crates.io. La dependencia
+lleva ahora una versión, y la publicación de la CLI sube primero
+`astra-plugin-manifest` y después la CLI. Mientras
+`https://index.crates.io/as/tr/astra-plugin-cli` responda `404` y no `200`,
+descarga un binario o compila desde el código fuente.
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 

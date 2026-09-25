@@ -18,16 +18,16 @@ Sigstore バンドルが含まれています。コンパイルは不要で、�
 Linux — にいる場合や、CLI を実行するだけでなく読んだり変更したりしたい
 場合はこちらを選んでください。
 
-**`cargo install astra-plugin-cli` はどちらの方法でもなく、機能しません。**
-このクレートは vendor された `astra-plugin-manifest` にパスで依存しており
-(`astra-plugin-manifest = { path = "vendor/astra-plugin-manifest" }`)、
-cargo はパス依存関係のソースを決してパッケージ化しないため、公開は
-*all dependencies must have a version requirement specified* で失敗します
-— つまりこのクレートはそもそも crates.io に存在しません
-(`https://index.crates.io/as/tr/astra-plugin-cli` は今日 `404` を返し、
-同じインデックスの `astra-plugin-sdk` は `200` を返します)。これを解消
-するには先に Astra からマニフェストクレートをリリースする必要があり、
-このページはそれについて日付を約束しません。
+**`cargo install astra-plugin-cli` は、CLI が crates.io に載るまではどちらの
+方法にも入りません。0.4.0 までは一度も載っていませんでした。** このクレートは
+vendor された `astra-plugin-manifest` にパスだけで依存しており、`cargo publish`
+はそれを *all dependencies must have a version requirement specified* で拒否
+します。そのため `cli-v0.2.1`、`cli-v0.3.0`、`cli-v0.4.0` のリリースはどれも
+バイナリを公開しただけで、crates.io には何もアップロードしませんでした。現在
+この依存関係にはバージョンが付いており、CLI のリリースはまず
+`astra-plugin-manifest` を、その後に CLI をアップロードします。
+`https://index.crates.io/as/tr/astra-plugin-cli` が `404` ではなく `200` を
+返すようになるまでは、バイナリを使うかソースからビルドしてください。
 
 [rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.2.1
 

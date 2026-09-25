@@ -15,9 +15,8 @@ archives with a Sigstore attestation — **[Prebuilt
 binaries](#prebuilt-binaries--from-the-first-cli-v-tag-onward)** below is how to
 take one, and needs no Rust toolchain. Building from source gets you `master`
 instead of the last tag. The crate is still not on crates.io
-(`https://index.crates.io/as/tr/astra-plugin-cli` answers `404`, verified
-2026-08-23) and cannot be until the vendored manifest crate is published; see
-below.
+(`https://index.crates.io/as/tr/astra-plugin-cli` answered `404` on
+2026-09-24); see below for why, and what changed.
 
 Until 2026-08-23 this paragraph said there were no releases and no `cli-v*` tag,
 "verified" with a `gh release list` that had printed nothing when it was run.
@@ -60,13 +59,16 @@ peeled `^{}` line. The bug that broke first releases is dated:
 older than `5b8ab22` pinned its tag object
 `dc1a044876926e9cf1170f034e2eab533ec07641`; the tag is lightweight now.
 
-**`cargo install astra-plugin-cli` does not work**, and will not until the
-manifest crate this one parses `plugin.toml` with is published. `plugin.toml` is
-parsed by the daemon's own `astra-plugin-manifest`, vendored into
-`vendor/astra-plugin-manifest/` (see [below](#where-the-manifest-types-come-from)
-for why), and cargo does not package a path dependency's source — verified with
-`cargo package --list`, in which `vendor/` does not appear. So the published
-tarball would name a crate that is not on crates.io.
+**`cargo install astra-plugin-cli` works only once the CLI is on crates.io,
+and through 0.4.0 it never was.** `plugin.toml` is parsed by the daemon's own
+`astra-plugin-manifest`, vendored into `vendor/astra-plugin-manifest/` (see
+[below](#where-the-manifest-types-come-from) for why), and this crate named it
+by `path` alone. `cargo publish` refuses that — *all dependencies must have a
+version requirement specified* — so `cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0`
+each released binaries and uploaded nothing to crates.io. The dependency now
+carries a version, `release-cli.yml` uploads the vendored crate first and this
+one after it, and C37 (`tools/check-crates-publish.py`) runs both dry runs on
+every pull request.
 
 ### Prebuilt binaries — from the first `cli-v` tag onward
 
@@ -244,12 +246,15 @@ local key confers trust.
 ## Where the manifest types come from
 
 `plugin.toml` is parsed by `astra-plugin-manifest` — the daemon's own crate,
-**vendored** into `vendor/astra-plugin-manifest/` rather than published, with
-`tools/check-manifest-crate.sh` failing when the copy drifts. This CLI used to
-keep its own struct; it grew a `ui_panels` capability the daemon never had,
-serde dropped the unknown key, and three shipped examples ended up declaring no
-capabilities at all. `[capabilities]` is now `deny_unknown_fields`, so a typo is
-an error that names the correct key.
+**vendored** into `vendor/astra-plugin-manifest/`, with
+`tools/check-manifest-crate.sh` failing when the copy drifts. The CLI's release
+uploads that copy to crates.io before the CLI, because a published crate can
+depend only on published crates.
+
+This CLI used to keep its own struct; it grew a `ui_panels` capability the
+daemon never had, serde dropped the unknown key, and three shipped examples
+ended up declaring no capabilities at all. `[capabilities]` is now
+`deny_unknown_fields`, so a typo is an error that names the correct key.
 
 `astra-plugin test` reuses `astra_plugin_sdk::testing::MockDaemon` — the same
 service, the same session-token gate, the same permission gate the SDK's own
@@ -276,8 +281,10 @@ broken `init-ci`, the fix shipped, and `astra-plugin --version` said `0.2.0` on
 both sides of it; that is the failure those three checks exist to end.
 
 Read the header comment in that file before the first run — it lists the one
-secret a maintainer has to create (`CARGO_REGISTRY_TOKEN`, for crates.io only)
-and why the crates.io step is inert until the manifest crate is published.
+secret a maintainer has to create (`CARGO_REGISTRY_TOKEN`, for crates.io only,
+with `publish-new` and `publish-update` on this crate and on
+`astra-plugin-manifest`) and the order its crates.io job uploads in:
+`astra-plugin-sdk` already there, then the manifest crate, then this one.
 
 ## License
 
