@@ -29,8 +29,14 @@ name: astra-plugin CLI release
 #
 #     Settings → Secrets and variables → Actions → New repository secret
 #     Name:  CARGO_REGISTRY_TOKEN
-#     Value: a crates.io API token with `publish-update` scoped to
-#            `astra-plugin-cli` (crates.io → Account Settings → API Tokens)
+#     Value: a crates.io API token scoped to the crates `astra-plugin-cli` and
+#            `astra-plugin-manifest`, with `publish-new` AND `publish-update`
+#            (crates.io → Account Settings → API Tokens)
+#
+# `publish-new` because this job uploads two crates, and a crate's first upload
+# is a `publish-new` act: neither crate existed on crates.io on 2026-09-24.
+# `publish-update` alone, which this comment used to ask for, would refuse the
+# first run of each.
 #
 # While that secret does not exist the `crates-io` job runs, says so, and stops.
 # It is deliberately NOT gated with `if: ${{ secrets.X != '' }}` — the secrets
@@ -39,30 +45,33 @@ name: astra-plugin CLI release
 # hoist plus a step that tests the environment variable, which is the supported
 # shape.
 #
-# ── KNOWN BLOCKER ON THE CRATES.IO LEG (the binaries are unaffected) ────────
+# ── THE CRATES.IO LEG, AND THE ORDER IT UPLOADS IN ─────────────────────────
 #
-# `cargo publish` cannot succeed for this crate today, with or without the
-# token. Verified on 2026-08-15 with `cargo publish --dry-run` at 0.2.1:
+# The CLI depends on two crates of this tree by `version` + `path`, and cargo
+# strips the path from what it uploads, so both must be on crates.io first:
 #
-#     error: failed to verify manifest at `astra-plugin-cli/Cargo.toml`
-#     Caused by:
-#       all dependencies must have a version requirement specified when
-#       publishing. dependency `astra-plugin-manifest` does not specify a
-#       version
+#   astra-plugin-sdk        another train's upload: `sdk-v<version>`, through
+#                           release-sdks.yml. This job never uploads it. If
+#                           crates.io cannot satisfy the CLI's requirement yet,
+#                           the preflight stops the job before anything goes up
+#                           and names the tag to push first.
+#   astra-plugin-manifest   the vendored copy under astra-plugin-cli/vendor/,
+#                           uploaded HERE, before the CLI, unless crates.io
+#                           already has its version — and then only if crates.io's
+#                           copy is the vendored bytes (C37).
 #
-# `astra-plugin-manifest` is a deliberately VENDORED copy of the daemon's crate
-# (see `astra-plugin-cli/vendor/astra-plugin-manifest/Cargo.toml`), and it is not
-# on crates.io. Adding a version requirement here would not fix it: `cargo
-# package --list` shows `vendor/` is not in the published tarball at all — cargo
-# never packages a path dependency's source — so the failure would only move to
-# the upload, where the crate it names does not exist to depend on.
-#
-# The fix is upstream's call, and it is one of two: publish
-# `astra-plugin-manifest` from `Astra/astra-rs` (it is MPL-2.0 and already
-# self-contained), or fold its source into this crate as a module and drop the
-# dependency. Until one of those happens, leave `CARGO_REGISTRY_TOKEN` unset.
-# The binary archives below are the supported install path and none of this
-# touches them.
+# Until 2026-09-24 the CLI named the manifest crate by `path` alone, and
+# `cargo publish` refused it before uploading anything ("all dependencies must
+# have a version requirement specified"). This comment recorded that on
+# 2026-08-15 and blamed the upload rather than the manifest. Every `cli-v` tag
+# since then reached this job with a token set and died at the same dry run,
+# after its GitHub Release was already public: `cli-v0.2.1` (run 31876142869),
+# `cli-v0.3.0` (32689129887) and `cli-v0.4.0` (35969044932). Three red release
+# runs, and the CLI was never on crates.io. The fix is the
+# `version` beside the path and the upload order above. The check that keeps it
+# fixed is C37, `tools/check-crates-publish.py`: `ci.yml`'s `crates-publish` job
+# runs `cargo publish --dry-run` for every crate this tree uploads, in this
+# order, on every pull request, and this job's preflight is the same script.
 #
 # ── WHY FOUR JOBS, AND WHY THE SPLIT IS EXACTLY HERE ───────────────────────
 #
@@ -798,9 +807,11 @@ jobs:
     # the two third-party setup actions below — and `cargo publish` compiles the
     # whole dependency graph, running every crate's `build.rs`, which is the same
     # reason `build` above holds no secrets at all. The token is attached to
-    # exactly the three steps that need it: the gate, the dry run and the
-    # publish. Anything added between them gets it only if it is added on
-    # purpose.
+    # exactly the three steps that need it: the gate and the two uploads. The
+    # dry runs get none: `cargo publish --dry-run` authenticates nothing
+    # (measured with cargo 1.97 on 2026-09-24, with no credential anywhere on
+    # the machine), and they are the steps that run every `build.rs`. Anything
+    # added between them gets the token only if it is added on purpose.
     steps:
       - name: Is there a token?
         id: gate
@@ -828,9 +839,9 @@ jobs:
               echo
               echo "To enable it: Settings → Secrets and variables → Actions →"
               echo "New repository secret, named \`CARGO_REGISTRY_TOKEN\`, holding a"
-              echo "crates.io API token scoped to \`publish-update\` on"
-              echo "\`astra-plugin-cli\`. Read the KNOWN BLOCKER note at the top of"
-              echo "this file first — as of 0.2.1 the publish cannot succeed."
+              echo "crates.io API token scoped to \`astra-plugin-cli\` and"
+              echo "\`astra-plugin-manifest\`, with \`publish-new\` and"
+              echo "\`publish-update\`. The note at the top of this file says why both."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -857,18 +868,69 @@ jobs:
           version: "27.x"
           repo-token: ${{ github.token }}
 
-      # Dry run first. It packages and compiles the crate exactly as the real
-      # publish does, and it is where the `astra-plugin-manifest` path-dependency
-      # blocker surfaces — with a legible error, before anything irreversible.
-      #
-      # It gets the token because `--dry-run` still authenticates against the
-      # registry; it is also the step that runs every dependency's `build.rs`,
-      # which is why the token stops here rather than covering the job.
-      - name: cargo publish --dry-run
+      # THE PREFLIGHT, before anything irreversible, and with no token. C37's
+      # script (tools/check-crates-publish.py; ci.yml's `crates-publish` job
+      # runs the same file on every pull request):
+      #   * the manifests: every path dependency has a version its crate meets,
+      #     and the licences are the ones CLAUDE.md gives;
+      #   * crates.io can already satisfy the CLI's `astra-plugin-sdk`
+      #     requirement. If not, it stops here and names the `sdk-v` tag to push
+      #     first, because the manifest crate would otherwise go up and the CLI
+      #     fail after it;
+      #   * crates.io's `astra-plugin-manifest` at the vendored version, if there
+      #     is one, is the vendored crate, byte for byte where behaviour lives;
+      #   * `cargo publish --dry-run` of the manifest crate, and of the CLI with
+      #     only that crate pointed at the tree (it is not on crates.io yet).
+      # Its outputs say whether the manifest crate is to be uploaded.
+      - name: C37 preflight (the SDK is on crates.io, the manifest crate is ours, both dry runs pass)
+        id: preflight
+        if: steps.gate.outputs.publish == 'true'
+        run: python3 tools/check-crates-publish.py --release cli
+
+      # FIRST UPLOAD: the vendored manifest crate. `cargo publish` of the CLI
+      # strips the `path` and resolves this crate from crates.io, so it has to be
+      # there first. The preflight skips it when crates.io already has this
+      # version and it is these bytes; a re-run after a failed CLI upload lands
+      # there.
+      - name: cargo publish (astra-plugin-manifest, which the CLI depends on)
+        if: steps.gate.outputs.publish == 'true' && steps.preflight.outputs.publish_manifest == 'true'
+        working-directory: astra-plugin-cli/vendor/astra-plugin-manifest
+        env:
+          VERSION: ${{ steps.preflight.outputs.manifest_version }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          cargo publish --locked
+          echo "published astra-plugin-manifest $VERSION"
+
+      # `cargo publish` returns once the upload is accepted; the index the CLI's
+      # resolve reads is updated asynchronously. release-sdks.yml waits the same
+      # way between its two crates, for the same reason. Asked from outside the
+      # repository, so `cargo info` cannot answer from the local package.
+      - name: wait for the index to carry astra-plugin-manifest
+        if: steps.gate.outputs.publish == 'true' && steps.preflight.outputs.publish_manifest == 'true'
+        env:
+          VERSION: ${{ steps.preflight.outputs.manifest_version }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          for i in $(seq 1 60); do
+            if cargo info "astra-plugin-manifest@${VERSION}" >/dev/null 2>&1; then
+              echo "ok   crates.io index has astra-plugin-manifest ${VERSION} (after ${i} tries)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "FAIL astra-plugin-manifest ${VERSION} did not appear in the index" >&2
+          echo "     It IS published. Re-run only this job once the index catches up;" >&2
+          echo "     the preflight will find it and skip the upload. Do not bump the version." >&2
+          exit 1
+
+      # The CLI's dry run again, now against crates.io alone: nothing patched,
+      # so this is the resolve a `cargo install` will do.
+      - name: cargo publish --dry-run (astra-plugin-cli, against crates.io alone)
         if: steps.gate.outputs.publish == 'true'
         working-directory: astra-plugin-cli
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --dry-run --locked
 
       - name: cargo publish

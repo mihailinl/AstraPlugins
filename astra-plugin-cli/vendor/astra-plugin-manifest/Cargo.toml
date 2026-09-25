@@ -8,6 +8,22 @@
 # `astra-host` is declared-but-empty (see [features]). The check script compares
 # the two files on their dependency NAMES, so a dependency added upstream and
 # forgotten here is still a CI failure.
+#
+# PUBLISHED FROM HERE, to crates.io, because the CLI is. `cargo publish` of
+# `astra-plugin-cli` strips the `path` from its dependency on this crate and
+# resolves the `version` from crates.io, so this crate goes up first, from this
+# copy, in `release-cli.yml`'s crates.io job. Astra's copy is not the one
+# published: it inherits its versions from Astra's workspace, and its
+# `astra-host` feature pulls `astra-core`, which is not on crates.io. The daemon
+# keeps building from its own path; nothing in Astra depends on this upload.
+#
+# So `version` below is bumped HERE, by hand, whenever a sync changes `src/`,
+# and the CLI's requirement on it moves with it. C37
+# (`tools/check-crates-publish.py`) compares crates.io's copy of this version
+# with these bytes and is red on a sync that forgot the bump. Without that, the
+# next CLI release would find the version already published, skip it, and ship
+# a crates.io CLI that parses `plugin.toml` with the older code while the
+# release binaries use the newer.
 [package]
 name = "astra-plugin-manifest"
 version = "0.1.0"
@@ -15,6 +31,17 @@ edition = "2024"
 authors = ["Astra Team"]
 license = "MPL-2.0"
 description = "The `plugin.toml` manifest: one definition, shared by the daemon, the CLI and the registry bot"
+# What crates.io shows, and what cargo warns about without. None of it changes
+# the build. The three URLs are the CLI's, the one canonical set this
+# repository uses (astra-plugin-cli/Cargo.toml says why there is one).
+repository = "https://github.com/mihailinl/AstraPlugins"
+homepage = "https://github.com/mihailinl/AstraPlugins"
+documentation = "https://github.com/mihailinl/AstraPlugins/tree/master/docs/en"
+readme = "README.md"
+# `edition = "2024"` sets the floor at Rust 1.85, as it does for the CLI.
+rust-version = "1.85"
+keywords = ["astra", "plugin", "manifest", "toml"]
+categories = ["config", "parser-implementations"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

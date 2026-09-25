@@ -2554,6 +2554,60 @@ jobs:
               raise SystemExit("\n".join(bad))
           PY
 
+  # C37 — every crate this tree uploads to crates.io publishes, in the order the
+  # releases upload them: astra-plugin-macros, astra-plugin-sdk (release-sdks.yml),
+  # astra-plugin-manifest, astra-plugin-cli (release-cli.yml).
+  #
+  # Nothing on a pull request ever ran `cargo publish`, so the CLI named its
+  # vendored manifest crate by `path` alone from the day it was vendored
+  # (ee0390a, 2026-08-10) through three release tags. `cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0` each released binaries and
+  # then died in release-cli.yml's crates.io job on "all dependencies must have a
+  # version requirement specified" — after the GitHub Release was public, which
+  # is the worst place to learn it. `sdk-rust`'s `cargo package --list` step
+  # could not have seen it: `--list` exits 0 on that manifest.
+  #
+  # So this runs `cargo publish --dry-run` for each crate, as its release does,
+  # with any in-tree dependency the same release uploads first pointed at the
+  # tree's copy (`--config patch.crates-io`); a requirement the tree's version
+  # does not meet still fails, because the patch then goes unused. It asks
+  # crates.io what it already holds, prints the order the missing versions must
+  # go up in, and is red if crates.io's `astra-plugin-manifest` at the vendored
+  # version is not the vendored crate — the release skips a version crates.io
+  # has, so a sync without a bump would ship the older parser. It needs the
+  # network, as `scaffold-from-registries` does.
+  crates-publish:
+    name: crates.io dry run (C37)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            astra-plugin-cli
+            astra-plugin-sdk
+            astra-plugin-macros
+            astra-plugin-cli/vendor/astra-plugin-manifest
+          key: crates-publish
+
+      # First the breaks, rebuilt from this tree: 0.4.0's dependency line, a
+      # requirement the vendored version does not meet, the licences swapped, the
+      # CLI ordered before its dependency, a crates.io copy that is not the
+      # vendored bytes — and cargo's own refusal of 0.4.0's line, which needs
+      # the toolchain this job has and `couplings` does not.
+      - name: C37 is red on the cli-v0.4.0 line and on each other break
+        run: python3 tools/test_crates_publish.py
+
+      - name: C37 every crate publishes, in order (cargo publish --dry-run x4)
+        run: python3 tools/check-crates-publish.py
+
   # ══ THE SPECS ══════════════════════════════════════════════════════════════
 
   parity:
@@ -4026,6 +4080,7 @@ jobs:
       - examples-node-python
       - scaffold-roundtrip
       - scaffold-from-registries
+      - crates-publish
       - parity
       - docgen
       - docs
