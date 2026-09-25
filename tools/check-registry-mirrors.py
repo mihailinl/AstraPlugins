@@ -371,6 +371,38 @@ C36 — the docs say what the served chain carries (registry plan RC-R1-11).
     phrases still match, so it cannot sit waiting with a phrase list that
     finds nothing. It is one phrase list per language, because mirror.py
     compares no prose.
+
+C33 — `spec/init-ci-templates.yaml` is the token file's template list, and
+    nothing a listed template or an allowlisted commit compiles is retired
+    (registry plan AP-24; contract SCOPE-7, ID-73, OPEN-OWNER-27).
+
+    The caller `init-ci` writes lives in the author's repository, and nobody
+    reruns `init-ci` there, so whatever it calls stays compiled. Each template
+    version therefore has a support period: its author audience and notify
+    path may not be retired until 12 months after the first `cli-v` release
+    that stops writing it. The contract used to count from "the last time
+    `init-ci` emits" a version, which nobody can observe. A tag can be
+    observed (n14).
+
+      * IN-REPO. The mirror parses. `CALLER_TEMPLATE_VERSION` is listed,
+        still written, and `live`. The generated caller's first line names
+        it, and it calls the service only if the list says so. Every `cli-v`
+        tag is listed under exactly one template, and each tag's own
+        init_ci.rs writes that template (before the constant existed,
+        `render()` is template 1). This tree's version is listed before its
+        tag exists. A stopping release is a real tag that really stopped
+        writing the template, and its stop day is no earlier than that tag's
+        commit. Nothing is `retired` before 12 months from its stop day.
+        This leg needs the tags; where the checkout has none it fetches them
+        one commit deep and says so, and its floor is red on none.
+
+      * PINNED and HEAD. The mirror equals the token file's `templates`,
+        member by member. Then ID-73: every audience or path that a listed
+        template, or `plugin-release.yml` at an allowlisted commit in
+        trust.json, compiles is recorded in the token file and is not
+        `retired`. Today there are one template and two commits, and they
+        compile nothing; the floors say that at least one of each was read.
+        The test file that builds each break is tools/test_init_ci_templates.py.
 """
 
 from __future__ import annotations
@@ -2974,6 +3006,410 @@ def rule_C28(fails: Fails) -> None:
     _panel_compare(fails, registry, values, None)
 
 
+# ── C33: the generated-workflow template list, and ID-73 (registry plan AP-24) ─
+#
+# `init-ci` writes a caller into the author's repository, and whatever that file
+# calls is compiled there for good. The contract therefore gives each template
+# version a support period (SCOPE-7; OPEN-OWNER-27; n14): an author audience or
+# author-notify path a listed template compiles may not be `retired` until 12
+# months after the first `cli-v` release that stops writing that version, and
+# not while an allowlisted reusable-workflow commit compiles it (ID-73). The
+# registry's token file carries the list; `spec/init-ci-templates.yaml` mirrors
+# it and adds the two records only this repository can make: which releases
+# write each version, and the day the stopping release was published.
+#
+# The legs are pure functions over what `rule_C33` gathers, so
+# `tools/test_init_ci_templates.py` can hand them trees built to be wrong.
+TEMPLATES_SPEC = ROOT / "spec" / "init-ci-templates.yaml"
+TEMPLATES_SOURCE = "schema/contract-tokens-v1.json templates"
+TEMPLATE_CONST = re.compile(r"pub const CALLER_TEMPLATE_VERSION: u32 = (\d+);")
+TEMPLATE_HEADER = "# astra-plugin init-ci template {template}"
+TEMPLATE_ARG = "template = CALLER_TEMPLATE_VERSION"
+CLI_TAG = re.compile(r"^cli-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+ISO_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+TEMPLATE_KEYS = ("version", "emitted_by", "author_audience", "notify_path",
+                 "stopped_by", "stopped_on", "state")
+#: mirror member -> token-file member.
+TEMPLATE_MEMBERS = (("version", "version"), ("author_audience", "audience"),
+                    ("notify_path", "notify_path"), ("stopped_by", "stopped_by"),
+                    ("state", "state"))
+TEMPLATE_STATES = ("live", "retired")
+TRUST_JSON = "registry/v1/trust.json"
+INIT_CI_REL = "astra-plugin-cli/src/commands/init_ci.rs"
+#: `cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0` exist and a tag is never taken
+#: back, so fewer than three read means the tags were not fetched.
+FLOOR_CLI_TAGS = 3
+#: At least one allowlisted commit: a trust.json that allows none compares
+#: nothing. Not today's two, which is a count the next trust ceremony may lower.
+FLOOR_REUSABLE_SHAS = 1
+SUPPORT_MONTHS = 12
+
+
+def read_templates_spec(text: str | None = None) -> tuple[list[dict], dict[str, str], str | None]:
+    """(one dict per `---` document, header `mirrors:` sources, pin).
+
+    Hand-parsed, as `read_panel_spec` is: `key: value`, `key:` then `  - item`,
+    and `null`. Anything else raises, naming the line, rather than being read
+    as something it is not.
+    """
+    if text is None:
+        text = TEMPLATES_SPEC.read_text(encoding="utf-8")
+    docs: list[dict] = []
+    sources: dict[str, str] = {}
+    pin: str | None = None
+    doc: dict | None = None
+    listing: str | None = None
+    for n, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if line == "---":
+            doc, listing = {}, None
+            docs.append(doc)
+            continue
+        if line.startswith("#") or not line:
+            if doc is None and line.startswith("#"):
+                m = MIRRORS.match(line)
+                if m:
+                    sources[m.group(2).strip()] = f"{m.group(1)} {m.group(2).strip()}"
+                elif pin is None and (p := PINNED_AT.search(line)):
+                    pin = p.group(1)
+            continue
+        if doc is None:
+            raise ValueError(f"line {n}: {line!r} before the first `---`")
+        if line.startswith("- "):
+            if listing is None:
+                raise ValueError(f"line {n}: a list item under no `key:`")
+            doc[listing].append(line[2:].strip())
+            continue
+        key, sep, value = line.partition(":")
+        key, value = key.strip(), value.strip()
+        if not sep or not key:
+            raise ValueError(f"line {n}: {line!r} is not `key: value`")
+        if key in doc:
+            raise ValueError(f"line {n}: `{key}` twice in one template")
+        if value:
+            doc[key], listing = (None if value == "null" else value), None
+        else:
+            doc[key], listing = [], key
+    return docs, sources, pin
+
+
+def _day(text: str | None) -> "datetime.date | None":
+    import datetime
+    if not isinstance(text, str) or not ISO_DAY.match(text):
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _support_ends(start: "datetime.date") -> "datetime.date":
+    """`start` plus SUPPORT_MONTHS calendar months; a 29 February lands on the 28th."""
+    import calendar
+    import datetime
+    months = start.month - 1 + SUPPORT_MONTHS
+    year, month = start.year + months // 12, months % 12 + 1
+    return datetime.date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
+
+
+def c33_in_repo(fails: Fails, docs: list[dict], sources: dict[str, str], pin: str | None,
+                const: int | None, generated: str, render_src: str, tags: dict[str, dict],
+                tree_version: str, today: "datetime.date") -> None:
+    """The mirror against this tree and its tags.
+
+    `tags` maps each `cli-v` tag in the repository to what its commit held:
+    `{"const": int | None, "render": bool, "date": "YYYY-MM-DD"}`.
+    """
+    shape_ok = fails.check(
+        bool(docs) and all(set(d) == set(TEMPLATE_KEYS) for d in docs),
+        f"C33 spec/init-ci-templates.yaml lists {len(docs)} template(s), each with exactly "
+        f"{', '.join(TEMPLATE_KEYS)}",
+        "\n".join(f"template {d.get('version')!r}: missing {sorted(set(TEMPLATE_KEYS) - set(d))}, "
+                  f"extra {sorted(set(d) - set(TEMPLATE_KEYS))}" for d in docs
+                  if set(d) != set(TEMPLATE_KEYS)) or "no `---` document at all",
+    )
+    if not shape_ok:
+        return
+    versions = [d["version"] for d in docs]
+    fails.check(
+        all(isinstance(v, str) and v.isdigit() for v in versions)
+        and [int(v) for v in versions] == sorted({int(v) for v in versions}),
+        f"C33 the template versions are distinct numbers, oldest first ({versions})",
+    )
+    fails.check(sources.get("templates") == TEMPLATES_SOURCE and pin is not None,
+                "C33 the mirror names the token file's `templates` and the registry commit it was taken from",
+                f"`# mirrors:` lines read {sources}; pin {pin}")
+    by_version = {d["version"]: d for d in docs}
+
+    # ── the tree's own template ─────────────────────────────────────────────
+    current = by_version.get(str(const)) if const is not None else None
+    fails.check(
+        current is not None and current["stopped_by"] is None and current["state"] == "live",
+        f"C33 CALLER_TEMPLATE_VERSION ({const}) is a listed template, still written, `live`",
+        "a template version bumped in init_ci.rs and not added to spec/init-ci-templates.yaml "
+        "(or the contract's list) is a caller shape the registry has never heard of; ID-73 "
+        "protects nothing it compiles" if current is None else
+        f"the list says template {const} stopped at {current['stopped_by']} / is {current['state']}",
+    )
+    fails.check(
+        generated.startswith(TEMPLATE_HEADER + "\n") and TEMPLATE_ARG in render_src,
+        f"C33 the generated caller's first line is `{TEMPLATE_HEADER}`, filled from the constant",
+        "render() in init_ci.rs must open its literal with that line and pass "
+        f"`{TEMPLATE_ARG}`; `cargo test` (the_first_line_names_the_template_version) checks the output",
+    )
+    if current is not None:
+        found = [lit for lit, _ in SERVICE_LITERALS if lit in generated]
+        compiles = current["author_audience"] is not None or current["notify_path"] is not None
+        fails.check(
+            compiles or not found,
+            f"C33 template {const} compiles no audience or path, and the generated text calls nothing",
+            f"the list says it compiles none, and render() carries {found}",
+        )
+        for member in ("author_audience", "notify_path"):
+            value = current[member]
+            if value is not None:
+                fails.check(value in generated, f"C33 template {const}'s {member} {value!r} is in the generated text")
+
+    # ── the releases ────────────────────────────────────────────────────────
+    pending = f"cli-v{tree_version}"
+    fails.check(len(tags) >= FLOOR_CLI_TAGS,
+                f"C33 floor: {len(tags)} `cli-v` tag(s) read (at least {FLOOR_CLI_TAGS})",
+                "the repository's tags were not fetched, so no release was compared: this leg "
+                "needs `fetch-depth: 0` or `git fetch origin 'refs/tags/cli-v*:refs/tags/cli-v*'`")
+    listed: dict[str, list[str]] = {}
+    for d in docs:
+        for tag in d["emitted_by"] if isinstance(d["emitted_by"], list) else []:
+            listed.setdefault(tag, []).append(d["version"])
+    for tag in sorted(set(tags) | set(listed)):
+        where = listed.get(tag, [])
+        if tag not in tags and tag != pending:
+            fails.check(False, f"C33 {tag}, listed under template {where}, is a release",
+                        f"no such tag, and it is not this tree's own version ({pending})")
+            continue
+        if not fails.check(len(where) == 1, f"C33 {tag} is listed under exactly one template ({where})",
+                           "every `cli-v` release writes one template; list it under the one its "
+                           "init_ci.rs names"):
+            continue
+        version = where[0]
+        if tag in tags:
+            info = tags[tag]
+            wrote = str(info["const"]) if info["const"] is not None else ("1" if info["render"] else None)
+            fails.check(wrote == version, f"C33 {tag}'s init-ci writes template {version}",
+                        f"its init_ci.rs says {wrote}")
+        else:
+            fails.check(str(const) == version,
+                        f"C33 {tag} (this tree, not tagged yet) writes template {version}",
+                        f"CALLER_TEMPLATE_VERSION is {const}")
+    fails.check(pending in listed, f"C33 this tree's release, {pending}, is listed",
+                "a release PR adds its own tag to the template it writes, so the tag never "
+                "exists unlisted")
+
+    # ── stopping, and the 12 months (n14) ───────────────────────────────────
+    for d in docs:
+        v, stop, on, state = d["version"], d["stopped_by"], d["stopped_on"], d["state"]
+        fails.check(state in TEMPLATE_STATES, f"C33 template {v}'s state {state!r} is one of {TEMPLATE_STATES}")
+        if stop is None:
+            fails.check(on is None and state == "live",
+                        f"C33 template {v} is still written, so it has no stop day and is `live`",
+                        f"stopped_on {on!r}, state {state!r}")
+            continue
+        if not fails.check(bool(CLI_TAG.match(stop)) and stop not in (d["emitted_by"] or []),
+                           f"C33 template {v} stopped at {stop}, a `cli-v` release that does not write it"):
+            continue
+        if stop not in tags:
+            fails.check(stop == pending and on is None and const is not None and str(const) != v,
+                        f"C33 template {v}'s stopping release {stop} is this tree's, untagged, with no day yet",
+                        f"{stop} is no tag; only this tree's own version ({pending}) may be named "
+                        "before it is tagged")
+            if state == "retired":
+                fails.check(False, f"C33 template {v} is not `retired` before its stopping release exists")
+            continue
+        info = tags[stop]
+        fails.check(info["const"] is not None and str(info["const"]) != v,
+                    f"C33 {stop} really stopped writing template {v}",
+                    f"its init_ci.rs writes {info['const'] if info['const'] is not None else '1 (no constant)'}")
+        start, tagged = _day(on), _day(info["date"])
+        if not fails.check(start is not None and tagged is not None and start >= tagged,
+                           f"C33 template {v}'s stop day {on!r} is a date no earlier than {stop}'s commit ({info['date']})",
+                           "the 12 months run from the day the release was published, which is never "
+                           "before its commit: a back-dated stop retires a template early"):
+            continue
+        ends = _support_ends(start)
+        fails.check(state != "retired" or today >= ends,
+                    f"C33 template {v} is not `retired` before {ends} ({SUPPORT_MONTHS} months after {on})",
+                    f"it is `retired` on {today}")
+
+
+def _mentions(text: str, value: str) -> bool:
+    """`value` in `text` where it ends, not as the head of a longer URL: the
+    wake path begins with the audience, and a workflow that calls only the path
+    must not read as compiling the audience too."""
+    return re.search(re.escape(value) + r"(?![A-Za-z0-9_/.~%-])", text) is not None
+
+
+def c33_against_token(fails: Fails, docs: list[dict], token: dict, trust: dict,
+                      workflow_at, leg: str, today: "datetime.date") -> None:
+    """One leg: the mirror against the token file, and ID-73, at one registry commit.
+
+    `workflow_at(sha)` returns `plugin-release.yml` as that commit of this
+    repository holds it.
+    """
+    rows = token.get("templates")
+    if not fails.check(isinstance(rows, list) and all(isinstance(r, dict) for r in rows),
+                       f"C33 the token file has a `templates` list ({leg})", f"it holds {rows!r}"):
+        return
+    mine = {d["version"]: d for d in docs}
+    theirs = {str(r.get("version")): r for r in rows}
+    problems = []
+    if set(mine) != set(theirs):
+        problems.append(f"versions: we list {sorted(mine)}, the token file {sorted(theirs)}")
+    for v in sorted(set(mine) & set(theirs)):
+        for ours, key in TEMPLATE_MEMBERS:
+            a, b = mine[v][ours], theirs[v].get(key)
+            if (str(a) if a is not None else None) != (str(b) if b is not None else None):
+                problems.append(f"template {v} {ours}: we say {a!r}, the token file's `{key}` says {b!r}")
+    fails.check(
+        not problems,
+        f"C33 spec/init-ci-templates.yaml is the token file's template list, member by member ({leg})",
+        "\n".join(problems) + "\nThe list is astra-registry's, generated from the contract (RC-R2-1). A new "
+        "template waits\nfor the contract MINOR that lists it; then copy it here and move the PINNED AT commit.",
+    )
+    for v, row in sorted(theirs.items()):
+        if row.get("state") != "retired":
+            continue
+        start = _day((mine.get(v) or {}).get("stopped_on"))
+        fails.check(start is not None and today >= _support_ends(start),
+                    f"C33 the token file does not retire template {v} before its 12 months are up ({leg})",
+                    f"retired, with our stop day {(mine.get(v) or {}).get('stopped_on')!r} and today {today}")
+
+    # ── ID-73 ───────────────────────────────────────────────────────────────
+    entries = [e for e in token.get("entries") or [] if isinstance(e, dict)
+               and "author-ci" in (e.get("emitter") or [])]
+    values = {e["value"]: e for e in entries if e.get("kind") == "audience" and e.get("value")}
+    values.update({e["path"]: e for e in entries if e.get("kind") == "operation" and e.get("path")})
+    fails.check(
+        any(e.get("kind") == "audience" for e in values.values())
+        and any(e.get("kind") == "operation" for e in values.values()),
+        f"C33 floor: the token file records the author audience and the author-notify path ({leg}, {len(values)} value(s))",
+        "ID-32 records both; without them there is nothing for ID-73 to protect, and this leg "
+        "would compare nothing",
+    )
+    shas = ((trust.get("signed") or {}).get("reusable_workflow_shas")) if isinstance(trust, dict) else None
+    if not fails.check(isinstance(shas, list) and len(shas) >= FLOOR_REUSABLE_SHAS
+                       and all(isinstance(s, str) and re.fullmatch(r"[0-9a-f]{40}", s) for s in shas),
+                       f"C33 floor: trust.json allows {len(shas) if isinstance(shas, list) else 0} "
+                       f"reusable-workflow commit(s) ({leg})", f"`signed.reusable_workflow_shas` is {shas!r}"):
+        return
+    compiled: list[tuple[str, str]] = []
+    for r in rows:
+        for key in ("audience", "notify_path"):
+            if r.get(key):
+                compiled.append((r[key], f"template {r.get('version')}"))
+    for sha in shas:
+        text = workflow_at(sha)
+        compiled += [(value, f"reusable workflow {sha[:12]}") for value in values if _mentions(text, value)]
+    bad = []
+    for value, who in compiled:
+        entry = values.get(value)
+        if entry is None:
+            bad.append(f"{who} compiles {value!r}, which the token file records as no author-ci audience or path")
+        elif entry.get("state") == "retired":
+            bad.append(f"{who} compiles {value!r}, and the token file marks {entry.get('id')} `retired`")
+    fails.check(
+        not bad,
+        f"C33 ID-73: nothing a listed template or an allowlisted commit compiles is retired "
+        f"({leg}; {len(rows)} template(s), {len(shas)} commit(s), {len(compiled)} compiled value(s))",
+        "\n".join(bad) + "\nID-73: the registry MUST NOT mark either `retired` while a listed template "
+        "or an allowlisted\nreusable-workflow commit compiles it. Take it out of `retired`, or wait out the period.",
+    )
+
+
+def _git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+
+
+def _cli_tags() -> dict[str, dict]:
+    """Every `cli-v` tag here, and what its commit's init_ci.rs writes.
+
+    A checkout with no tags (proto-upstream's is one commit deep) gets them,
+    one commit each, and says so; a leg that read no release is red on its
+    floor, never quietly empty.
+    """
+    listed = _git("tag", "--list", "cli-v*").stdout.split()
+    if not listed:
+        p = _git("fetch", "--quiet", "--no-tags", "--depth=1", "origin", "refs/tags/cli-v*:refs/tags/cli-v*")
+        print(f"note  C33 no `cli-v` tags in this checkout; fetched them one commit deep "
+              f"(exit {p.returncode}{': ' + p.stderr.strip() if p.returncode else ''})")
+        listed = _git("tag", "--list", "cli-v*").stdout.split()
+    out: dict[str, dict] = {}
+    for tag in listed:
+        if not CLI_TAG.match(tag):
+            continue
+        src = _git("show", f"{tag}^{{commit}}:{INIT_CI_REL}")
+        m = TEMPLATE_CONST.search(src.stdout) if src.returncode == 0 else None
+        out[tag] = {
+            "const": int(m.group(1)) if m else None,
+            "render": src.returncode == 0 and "pub fn render(" in src.stdout,
+            "date": _git("log", "-1", "--format=%cs", f"{tag}^{{commit}}").stdout.strip(),
+        }
+    return out
+
+
+def _workflow_at(sha: str) -> str:
+    """plugin-release.yml at an allowlisted commit of THIS repository, fetched if absent."""
+    if _git("cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
+        p = _git("fetch", "--quiet", "--no-tags", "--depth=1", "origin", sha)
+        print(f"note  C33 fetched {sha[:12]}, an allowlisted reusable-workflow commit (exit {p.returncode})")
+    p = _git("show", f"{sha}:.github/workflows/plugin-release.yml")
+    if p.returncode != 0:
+        raise LookupError(f"`git show {sha[:12]}:.github/workflows/plugin-release.yml` failed: "
+                          f"{p.stderr.strip()}. trust.json allows a commit this repository cannot show.")
+    return p.stdout
+
+
+def _c33_leg(fails: Fails, registry: Path, docs: list[dict], sha: str | None, today) -> None:
+    leg = f"pinned {sha[:12]}" if sha else f"head {_git_head(registry)}"
+    if sha and not _has_commit(registry, sha):
+        fails.check(False, f"C33 spec/init-ci-templates.yaml is the token file's template list ({leg})",
+                    _pin_absent(registry, sha, "spec/init-ci-templates.yaml"))
+        return
+    try:
+        token = json.loads(_registry_text(registry, TOKEN_FILE, sha))
+        trust = json.loads(_registry_text(registry, TRUST_JSON, sha))
+        c33_against_token(fails, docs, token, trust, _workflow_at, leg, today)
+    except (LookupError, json.JSONDecodeError) as e:
+        fails.check(False, f"C33 the token file and trust.json read ({leg})", str(e))
+
+
+def rule_C33(fails: Fails) -> None:
+    import datetime
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    if not fails.check(TEMPLATES_SPEC.is_file(), "C33 spec/init-ci-templates.yaml exists",
+                       "AP-24's mirror of the token file's template list"):
+        return
+    try:
+        docs, sources, pin = read_templates_spec()
+    except ValueError as e:
+        fails.check(False, "C33 spec/init-ci-templates.yaml parses", str(e))
+        return
+    src = INIT_CI.read_text(encoding="utf-8")
+    m = TEMPLATE_CONST.search(src)
+    cli = CLI / "Cargo.toml"
+    ver = re.search(r'^version = "([^"]+)"', cli.read_text(encoding="utf-8"), re.M)
+    c33_in_repo(fails, docs, sources, pin, int(m.group(1)) if m else None, generated_caller(),
+                src[src.find("pub fn render("):], _cli_tags(), ver.group(1) if ver else "?", today)
+
+    registry = _registry_dir(anchor=TOKEN_FILE, need_git=True)
+    if registry is None:
+        print("C33 NOT VERIFIED: no astra-registry checkout at $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        the template list and ID-73 taken on trust against {TOKEN_FILE} and {TRUST_JSON}.")
+        fails.skip("C33", "no astra-registry checkout")
+        return
+    if pin is not None and _pinned_leg_may_read(fails, "C33", registry, pin, "spec/init-ci-templates.yaml"):
+        _c33_leg(fails, registry, docs, pin, today)
+    _c33_leg(fails, registry, docs, None, today)
+
+
 # ── C36: what the docs say the served chain carries (RC-R1-11; ROLL-47) ──────
 #
 # Contract ROLL-47: a promise is amended in the change that first makes it
@@ -3470,6 +3906,7 @@ RULES = {
     "C29": rule_C29,
     "C30": rule_C30,
     "C31": rule_C31,
+    "C33": rule_C33,
     "C35": rule_C35,
     "C36": rule_C36,
 }
@@ -3481,6 +3918,7 @@ PINS = {
     "C28": (lambda: read_panel_spec()[2], PANEL_SPEC),
     "C29": (lambda: read_submission_spec()[2], SUBMISSION_SPEC),
     "C31": (lambda: (m.group(1) if (m := read_binding_pin()) else None), BINDING_README),
+    "C33": (lambda: read_templates_spec()[2], TEMPLATES_SPEC),
 }
 
 

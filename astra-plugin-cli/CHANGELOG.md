@@ -54,6 +54,27 @@ minor slot.
 - The ping text's "within minutes" is gone with the ping (ROLL-47 C4): nothing
   promises how soon the registry's poll notices a tag.
 
+- **`init-ci` writes its template version on the caller's first line**,
+  `# astra-plugin init-ci template 1`, from the new
+  `CALLER_TEMPLATE_VERSION` (registry plan AP-24). A generated workflow stays
+  in the author's repository for as long as nobody reruns `init-ci`. The
+  contract therefore supports what each template version compiles for 12
+  months after the first release that stops writing it (ID-73), and that
+  period needs a name for each shape of the file. The template is the same
+  one every release since `cli-v0.2.1` has written: it calls the reusable
+  workflow and nothing else, so it is still template **1**. The only change
+  is the comment. `check` reads callers by key, so an existing file without
+  the line is still recognised. The versions and the releases that write them
+  are listed in `spec/init-ci-templates.yaml`, which mirrors astra-registry's
+  token file, and C33 holds the list to both.
+- **The first CLI release that can reach crates.io.** It depends on the
+  vendored `astra-plugin-manifest` with a `version` beside its `path`, and
+  `release-cli.yml` uploads that crate first, then this one, once crates.io
+  holds the `astra-plugin-sdk` it requires (`sdk-v0.7.2`). `cli-v0.2.1` to
+  `cli-v0.4.0` shipped binaries only: their crates.io job refused the
+  path-only dependency every time. C37 (`tools/check-crates-publish.py`) now
+  dry-runs the whole chain on every pull request.
+
 ### Removed
 
 - `REGISTRY_REPO`, `LISTING_TEMPLATE`, `RELEASE_PING_TEMPLATE` and
