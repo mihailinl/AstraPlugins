@@ -26,6 +26,23 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [Unreleased]
+
+### Changed
+- **`init-ci` writes its template version on the caller's first line**,
+  `# astra-plugin init-ci template 1`, from the new
+  `CALLER_TEMPLATE_VERSION` (registry plan AP-24). A generated workflow stays
+  in the author's repository for as long as nobody reruns `init-ci`. The
+  contract therefore supports what each template version compiles for 12
+  months after the first release that stops writing it (ID-73), and that
+  period needs a name for each shape of the file. The template is the same
+  one every release since `cli-v0.2.1` has written: it calls the reusable
+  workflow and nothing else, so it is still template **1**. The only change
+  is the comment. `check` reads callers by key, so an existing file without
+  the line is still recognised. The versions and the releases that write them
+  are listed in `spec/init-ci-templates.yaml`, which mirrors astra-registry's
+  token file, and C33 holds the list to both.
+
 ## [0.4.0] — unreleased
 
 Binding a repository to a Minice account, predicting what the registry will say
