@@ -327,10 +327,13 @@ class CargoAgrees(unittest.TestCase):
             line = dep_line()
             self.assertEqual(text.count(line), 1)
             toml.write_text(text.replace(line, V040_LINE), encoding="utf-8")
-            # `--no-verify --offline`: the refusal is in manifest preparation,
-            # before resolution and before any compile, so this costs a second.
-            # (`cargo package --list` exits 0 on this very manifest.)
-            proc = subprocess.run(["cargo", "package", "--no-verify", "--offline", "--allow-dirty"],
+            # `--no-verify`: the refusal comes before any compile. NOT
+            # `--offline`: cargo resolves the lockfile's packages against the
+            # index first, and on a runner with a cold cache `--offline` fails
+            # there ("no matching package named `anyhow`") and never reaches
+            # the manifest. It passed on a warm machine and went red on the
+            # first CI run. (`cargo package --list` exits 0 on this manifest.)
+            proc = subprocess.run(["cargo", "package", "--no-verify", "--allow-dirty"],
                                   cwd=work / "astra-plugin-cli", text=True,
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             self.assertNotEqual(proc.returncode, 0, proc.stdout)
