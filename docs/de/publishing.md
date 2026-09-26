@@ -502,7 +502,8 @@ daher strikt mehr wert ist als alles in ein Formular Eingetippte.
 
 Detail, einschließlich jedes Grund-Codes:
 [Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#4--was-nach-der-einreichung-passiert).
-Die Kurzfassung:
+Die Kurzfassung, für das Issue-Formular, über das ein erstes Listing heute
+entsteht:
 
 | Ergebnis | Bedeutet | Wer ist beteiligt |
 |---|---|---|
@@ -511,11 +512,20 @@ Die Kurzfassung:
 | **Held** | Eine Entscheidung, die die Registry nicht automatisch treffen darf | ein Maintainer, innerhalb von **48 h** |
 | **Refused** | Eine Prüfung ist gescheitert | du: beheben und `/recheck` auf dem Issue kommentieren |
 
-**Ein erstes Listing wird immer für eine Person zurückgehalten** — das
-ist eines von genau drei Ereignissen, die das brauchen, zusammen mit
-einer neu angefragten hochriskanten Permission und einem
-Repository-Wechsel. 48 Stunden ist der veröffentlichte SLA für alle
+**Im Issue-Formular wird ein erstes Listing immer für eine Person
+zurückgehalten** — das ist dort eines von genau drei Ereignissen, die das
+brauchen, zusammen mit einer neu angefragten hochriskanten Permission und
+einem Repository-Wechsel. 48 Stunden ist der veröffentlichte SLA für alle
 davon.
+
+**Im Astra-Plugins-Panel wird es ab dem Cutover der Registry nicht
+zurückgehalten.** Ein Release, das jede automatische Prüfung besteht, wird
+sofort veröffentlicht, markiert als nicht von Astra-Moderatoren geprüft. Ab
+dem Astra-Release, das die Markierung einführt, sehen Nutzer eine Warnung, bis
+ein Moderator diese Version prüft; ältere Astra-Releases zeigen nichts. Dort
+wartet nur ein Besitzerwechsel bei einem schon bestehenden Listing auf einen
+Moderator. Siehe [Gelistet werden §Auf dem
+Panel-Weg](5-publish/get-listed.md#auf-dem-panel-weg-ab-dem-cutover).
 
 Ein Hold wird aufgelöst, indem ein Maintainer `/approve` auf deinem
 Issue kommentiert, was jede Prüfung von Grund auf erneut ausführt, statt
@@ -601,8 +611,10 @@ siehe [das Sicherheitsmodell](1-orientation/security.md) und
 
 **Nichts davon sagt, dass der Code sicher ist.** Ein Plugin ist ein
 nativer Prozess mit deinen vollen Benutzerrechten; es gibt keine
-Sandbox. Ein Listing ist keine Sicherheitsprüfung — niemand liest deinen
-Code, und die Registry sagt das in ihrer eigenen Policy.
+Sandbox. Ein Listing ist keine Sicherheitsprüfung, und eine Version, die ein
+Moderator als geprüft markiert hat, auch nicht: Das sagt nur, dass ein
+Moderator diese Version gelesen hat. Die Registry sagt das in ihrer eigenen
+Policy.
 
 ---
 

@@ -462,7 +462,7 @@ attestation and is therefore worth strictly more than anything typed into a form
 
 Detail, including every reason code: [Get listed §what happens after you
 submit](5-publish/get-listed.md#4--what-happens-after-you-submit). The short
-version:
+version, on the issue form, which is how a first listing is made today:
 
 | Outcome | Means | Who is involved |
 |---|---|---|
@@ -471,9 +471,18 @@ version:
 | **Held** | A decision the registry is not entitled to make automatically | a maintainer, within **48 h** |
 | **Refused** | A check failed | you: fix it and comment `/recheck` on the issue |
 
-**A first listing is always held for a person** — that is one of exactly three
-events that need one, along with a newly requested high-risk permission and a
-change of repository. 48 hours is the published SLA for all of them.
+**On the issue form, a first listing is always held for a person** — that is
+one of exactly three events that need one there, along with a newly requested
+high-risk permission and a change of repository. 48 hours is the published SLA
+for all of them.
+
+**On the Astra plugins panel, from the registry's cutover, it is not held.** A
+release that passes every automatic check is published at once, marked as not
+reviewed by Astra moderators. From the Astra release that adds the mark, users
+see a warning until a moderator reviews that version; older Astra releases show
+nothing. Only a change of hands on a listing that already exists waits for a
+moderator there. See [Get listed §on the panel
+path](5-publish/get-listed.md#on-the-panel-path-from-the-cutover).
 
 A hold is cleared by a maintainer commenting `/approve` on your issue, which
 re-runs every check from scratch rather than trusting anything cached. You do
@@ -548,8 +557,9 @@ promises a guarantee that is not yet in place; see
 [`spec/registry-index.md` §0.1](spec/registry-index.md).
 
 **None of it says the code is safe.** A plugin is a native process with your full
-user privileges; there is no sandbox. A listing is not a safety review — nobody
-reads your code, and the registry says so in its own policy.
+user privileges; there is no sandbox. A listing is not a safety review, and
+neither is a version a moderator marked reviewed: that says a moderator read
+that version, and nothing more. The registry says so in its own policy.
 
 ---
 

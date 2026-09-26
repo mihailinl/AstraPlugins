@@ -291,7 +291,7 @@ Seite reicht nichts ein, bis du es tust, angemeldet.
 **Was das Token ist, und was nicht.** Ein Binding-Token ist **öffentlich**: Es
 steht in einer Datei in einem öffentlichen Repository. Es hält die **Zustimmung
 eines Kontos** fest, aus diesem Repository zu veröffentlichen, und es
-**authentifiziert kein Release** — ein Release, das nichts verzögert, wird
+**authentifiziert kein Release** — ein Release, das nichts zurückhält, wird
 veröffentlicht, bevor das Konto davon erfährt. Merge deshalb **nie eine
 Binding-Zeile, die du nicht selbst erzeugt hast**: Ein Pull-Request, der eine
 hinzufügt oder ändert, bittet dich, dein Listing dem Konto eines anderen zu
@@ -335,10 +335,10 @@ Bindungen durch Dritte öffnen, und von der Registry veröffentlicht. Danach ist
 ein ungebundenes Listing `frozen`: Installierte Kopien funktionieren weiter und
 es bleibt installierbar, aber kein neues Release davon wird veröffentlicht, bis
 eines mit Binding-Zeile veröffentlicht ist — ein gebundenes Release taut es auf,
-ohne Strafe. Das erste Release mit Binding-Zeile wird einmal für die Prüfung
-durch einen Menschen angehalten, `R_FIRST_BINDING`. Und ab dem Cutover wartet
-ein verzögertes oder geprüftes Release eines `grandfathered`-Listings, bis das
-Listing gebunden ist.
+ohne Strafe. Das erste Release mit Binding-Zeile wird einmal angehalten, bis ein
+Moderator es genehmigt, `R_FIRST_BINDING`. Und ab dem Cutover wartet ein
+Release eines `grandfathered`-Listings, das angehalten und genehmigt wurde, bis
+das Listing gebunden ist.
 
 **Vorabprüfung.** `astra-plugin check` lehnt eine ID ab, die die Registry
 ablehnt — eine reservierte ID oder eine außerhalb des ID-Musters der Registry —,
@@ -426,6 +426,15 @@ beide sind aus dem eigenen Code des Bots generiert oder dagegen geprüft
 (`bot/lib/policy.mjs`, `bot/lib/codes.mjs`), sodass die Zahlen hier nicht
 still vom Code abweichen können, der sie pflegt.
 
+**Zwei Wege, und sie warten auf Verschiedenes.** Alles unten, bis
+[Auf dem Panel-Weg, ab dem Cutover](#auf-dem-panel-weg-ab-dem-cutover), beschreibt eine Anfrage über das
+Issue-Formular der Registry, und so entsteht ein erstes Listing heute. Ab dem
+Cutover der Registry erreicht ein Release die Registry stattdessen über das
+Astra-Plugins-Panel, und **ein Release, das jede automatische Prüfung besteht,
+wird sofort veröffentlicht**, markiert als nicht von Astra-Moderatoren geprüft.
+Dort wartet nur ein Besitzerwechsel bei einem schon bestehenden Listing auf
+einen Moderator.
+
 ### Die Abfolge
 
 1. **Dein Issue bekommt die Labels `listing` und `needs-triage`** — aus
@@ -449,6 +458,8 @@ nichts Nachgelagertes lief.
 
 ### Die vier Ergebnisse
 
+Im Issue-Formular:
+
 | Ergebnis | Bedeutet | Wer ist beteiligt |
 |---|---|---|
 | **Published** | Committed, und im Katalog beim nächsten Index-Build | niemand |
@@ -464,16 +475,17 @@ keiner hochriskanten Permission, die es nicht schon hatte, und es fragt
 Letzte weg, veröffentlicht es sich immer noch selbst, nach einer
 Verzögerung.
 
-**Ein erstes Listing ist nie eines davon.** Es wird per Definition für
-eine Person zurückgehalten — siehe unten — die Antwort auf „wie lange bis
-mein erstes Plugin gelistet ist" lautet also *bis zu 48 Stunden, nachdem
-der Bot kommentiert*, nicht *Minuten*.
+**Im Issue-Formular ist ein erstes Listing nie eines davon.** Es wird per
+Definition für eine Person zurückgehalten — siehe unten — die Antwort auf
+„wie lange bis mein erstes Plugin gelistet ist" lautet dort also *bis zu 48
+Stunden, nachdem der Bot kommentiert*, nicht *Minuten*. Auf dem Panel-Weg, ab
+dem Cutover, sind es Minuten: siehe [unten](#auf-dem-panel-weg-ab-dem-cutover).
 
 ### Wie ein Hold aufgelöst wird
 
-Von dir wird nichts verlangt. Ein Maintainer kommentiert **`/approve`**
-auf deinem Issue, und der gesamte Ingest läuft dann von Grund auf erneut
-gegen die Bytes, so wie sie in diesem Moment sind — eine Genehmigung ist
+Von dir wird nichts verlangt. Im Issue-Formular kommentiert ein Maintainer
+**`/approve`** auf deinem Issue, und der gesamte Ingest läuft dann von Grund
+auf erneut gegen die Bytes, so wie sie in diesem Moment sind — eine Genehmigung ist
 ein Markierung „eine Person hat zu diesem Zeitpunkt Ja gesagt" und trägt
 kein gecachtes Urteil, das Genehmigen überspringt also keine einzige
 Prüfung. **`/reject <reason>`** ist die andere Hälfte, und sie muss einen
@@ -521,9 +533,9 @@ for a maintainer · `2` bot itself failed. Der letzte ist absichtlich
 verschieden: „dein Plugin ist schlecht" und „unser Tooling ist schlecht"
 dürfen einem Fremden nie als derselbe Kommentar erscheinen.
 
-### Die drei Dinge, die eine Person brauchen
+### Was im Issue-Formular eine Person braucht
 
-Genau drei, und die Liste wächst nicht ohne eine Änderung an der
+Drei Ereignisse, und die Liste wächst nicht ohne eine Änderung an der
 veröffentlichten Policy der Registry:
 
 | Ereignis | Warum |
@@ -554,8 +566,8 @@ der auch den Absatz bearbeitet, der das Versprechen macht.
 
 ### Wenn ein Release stattdessen wartet
 
-Manche Releases bestehen alles und veröffentlichen sich trotzdem nicht
-sofort:
+Im Issue-Formular bestehen manche Releases alles und veröffentlichen sich
+trotzdem nicht sofort:
 
 | Situation | Code | Verzögerung |
 |---|---|---|
@@ -569,6 +581,52 @@ wie sie dann sind. Die Verzögerung kauft eine Sache, und die Registry
 behauptet nicht mehr: ein Fenster, in dem ein Autor, dessen
 GitHub-Konto übernommen wurde, ein Release sehen kann, das er nicht selbst
 gemacht hat, und das sagen kann.
+
+### Auf dem Panel-Weg, ab dem Cutover
+
+*Geändert am 2026-09-26 (Registry-Vertrag 3.0.0).* Vor diesem Datum stand auf
+dieser Seite, dass ein erstes Listing immer für eine Person zurückgehalten
+wird. Im Issue-Formular gilt das weiter, bis der Cutover das Formular
+abschafft. Die Regel der Registry selbst steht in
+`astra-registry/docs/POLICY.md` §2.1 und §3.
+
+**Ein Release, das jede automatische Prüfung besteht, wird sofort
+veröffentlicht**, ein erstes Listing eingeschlossen. Niemand genehmigt es, und
+es gibt keine Veröffentlichungsverzögerung. Die Prüfungen der Registry sind die
+ganze Hürde, und eine gescheiterte lehnt das Release weiterhin ab.
+
+**Es wird als nicht von Astra-Moderatoren geprüft markiert.** Jede Version
+beginnt so. Ein Moderator kann eine Version später lesen und als geprüft
+markieren. Die Markierung gehört zu dieser einen Version, also beginnt dein
+nächstes Release wieder als nicht geprüft.
+
+**Nutzer sehen eine Warnung.** Ab dem Astra-Release, das die Markierung
+einführt, warnt Astra, bevor es eine nicht geprüfte Version installiert, auch
+wenn Astras AI-Werkzeuge die Installation anfordern. Es warnt außerdem überall,
+wo ein Nutzer ein Update auf eine solche Version startet, und wendet das Update
+erst an, wenn der Nutzer die Warnung bestätigt hat. Das Plugins-Panel zeigt die
+Markierung auf der Seite deines Plugins. Astra 0.2.x und jedes Astra-Release
+vor dem, das die Markierung einführt, zeigen weder Markierung noch Warnung.
+
+**`reviewed` heißt, dass ein Moderator diese Version gelesen hat, und nichts
+weiter.** Es ist keine Sicherheitsprüfung, kein Code-Audit, keine Empfehlung
+und keine Sandbox. Ein späteres Advisory, ein Yank oder ein Delist geht immer
+vor.
+
+**Nur ein Besitzerwechsel bei einem schon bestehenden Listing wartet auf einen
+Moderator:**
+
+| Ereignis | Code |
+|---|---|
+| Das Repository oder die Identität hat sich geändert | `R_IDENTITY_CHANGED` |
+| Das erste Release eines bestehenden Listings mit Binding-Zeile | `R_FIRST_BINDING` |
+| Die Binding-Zeile trägt ein anderes Token als das, mit dem das Listing gebunden ist | `R_BINDING_CHANGED` |
+
+Jedes davon liefert den Code einer anderen Partei aus, oder übergibt das
+Listing einem anderen Konto, als Update an Menschen, die es schon nutzen. Ein
+Moderator genehmigt es im Panel, und danach wartet es die Fenster ab, die die
+Registry veröffentlicht. Ein genehmigtes Release wird trotzdem als nicht
+geprüft veröffentlicht, denn eine Genehmigung ist keine Prüfung.
 
 ## 5 · Jedes Release danach
 
@@ -596,8 +654,9 @@ Routine und geht zurück an einen Menschen.
 
 ## Was ein Listing nicht bedeutet
 
-Ein Listing ist keine Sicherheitsprüfung. Niemand liest deinen Code, und
-die Registry sagt das in ihrer eigenen Policy: eine Permission entscheidet,
+Ein Listing ist keine Sicherheitsprüfung, und eine als geprüft markierte
+Version auch nicht: Das sagt nur, dass ein Moderator diese Version gelesen hat.
+Die Registry sagt das in ihrer eigenen Policy: eine Permission entscheidet,
 was der Daemon *für* ein Plugin tut, und nichts darüber, was der Prozess
 des Plugins mit der Maschine anstellen darf. Es gibt keine Sandbox. Siehe
 [das Sicherheitsmodell](../1-orientation/security.md).

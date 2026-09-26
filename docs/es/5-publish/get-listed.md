@@ -283,7 +283,7 @@ página no envía nada hasta que tú lo hagas, con la sesión iniciada.
 **Qué es el token, y qué no es.** Un token de vinculación es **público**: está en
 un archivo de un repositorio público. Registra el **consentimiento de una
 cuenta** para publicar desde este repositorio, y **no autentica ningún
-release** — un release que nada retrasa se publica antes de que la cuenta se
+release** — un release que nada retiene se publica antes de que la cuenta se
 entere. Así que **nunca fusiones una línea de vinculación que no hayas generado
 tú**: un pull request que añade o cambia una te está pidiendo que entregues tu
 listado a la cuenta de otra persona.
@@ -325,10 +325,10 @@ las vinculaciones de terceros, y lo publica el registro. Después, un listado si
 vincular queda `frozen`: las copias instaladas siguen funcionando y sigue siendo
 instalable, pero no se publica ningún release nuevo suyo hasta que se publique
 uno con línea de vinculación — un release vinculado lo descongela, sin
-penalización. El primer release con línea de vinculación se retiene una vez para
-que lo revise una persona, `R_FIRST_BINDING`. Y desde el cutover, un release
-retrasado o revisado de un listado `grandfathered` espera hasta que el listado
-esté vinculado.
+penalización. El primer release con línea de vinculación se retiene una vez,
+hasta que un moderador lo aprueba, `R_FIRST_BINDING`. Y desde el cutover, un
+release de un listado `grandfathered` que fue retenido y aprobado espera hasta
+que el listado esté vinculado.
 
 **Comprobación previa.** `astra-plugin check` rechaza un id que el registro
 rechaza — un id reservado, o uno fuera del patrón de ids del registro — y una
@@ -415,6 +415,15 @@ a partir del propio código del bot o se verifican contra él
 (`bot/lib/policy.mjs`, `bot/lib/codes.mjs`), así que los números aquí no
 pueden desviarse en silencio del código que los mantiene.
 
+**Dos vías, y no esperan por las mismas cosas.** Todo lo que sigue, hasta
+[En la vía del panel, desde el cutover](#en-la-vía-del-panel-desde-el-cutover), describe una solicitud
+mediante el formulario de issues del registro, que es como se hace hoy un
+primer listado. Desde el cutover del registro, un release llega al registro por
+el panel de plugins de Astra, y **un release que pasa todas las comprobaciones
+automáticas se publica de inmediato**, marcado como no revisado por los
+moderadores de Astra. Allí, solo un cambio de manos en un listado que ya existe
+espera a un moderador.
+
 ### La secuencia
 
 1. **Tu issue recibe las etiquetas `listing` y `needs-triage`** — de la
@@ -438,6 +447,8 @@ posterior se ejecutó.
 
 ### Los cuatro resultados
 
+En el formulario de issues:
+
 | Resultado | Significa | Quién está involucrado |
 |---|---|---|
 | **Published** | Confirmado, y en el catálogo en la próxima compilación del índice | nadie |
@@ -452,18 +463,19 @@ nueva, no pide ningún permiso de alto riesgo que no tuviera ya, y no pide
 ningún permiso o capability nuevo en absoluto. Si solo falla lo último,
 igual se autopublica, tras un retraso.
 
-**Un primer listado nunca es uno de esos.** Se retiene para una persona
-por definición — ver abajo — así que la respuesta a "cuánto tarda mi
-primer plugin en listarse" es *hasta 48 horas después de que el bot
-comente*, no *minutos*.
+**En el formulario de issues, un primer listado nunca es uno de esos.** Se
+retiene para una persona por definición — ver abajo — así que allí la
+respuesta a "cuánto tarda mi primer plugin en listarse" es *hasta 48 horas
+después de que el bot comente*, no *minutos*. En la vía del panel, desde el
+cutover, son minutos: ver [más abajo](#en-la-vía-del-panel-desde-el-cutover).
 
 ### Cómo se libera un hold
 
-No se requiere nada de ti. Un mantenedor comenta **`/approve`** en tu
-issue, y toda la ingesta se vuelve a ejecutar entonces desde cero contra
-los bytes tal como están en ese momento — una aprobación es una marca de
-"una persona dijo sí, en este momento" y no lleva ningún veredicto en
-caché, así que aprobar algo no se salta ni una sola comprobación.
+No se requiere nada de ti. En el formulario de issues, un mantenedor comenta
+**`/approve`** en tu issue, y toda la ingesta se vuelve a ejecutar entonces
+desde cero contra los bytes tal como están en ese momento — una aprobación es
+una marca de "una persona dijo sí, en este momento" y no lleva ningún veredicto
+en caché, así que aprobar algo no se salta ni una sola comprobación.
 **`/reject <reason>`** es la otra mitad, y debe llevar un motivo, que se
 te publica. Ambos comandos se comprueban contra el permiso en el
 repositorio del registro: quien comenta necesita `admin` o `maintain`
@@ -508,9 +520,9 @@ Los propios códigos de salida del bot son `0` listed · `1` refused ·
 deliberadamente distinto: "tu plugin está mal" y "nuestro tooling está
 mal" nunca deben aparecer como el mismo comentario a un desconocido.
 
-### Las tres cosas que necesitan a una persona
+### Lo que necesita a una persona en el formulario de issues
 
-Exactamente tres, y la lista no crece sin un cambio en la política
+Tres eventos, y la lista no crece sin un cambio en la política
 publicada del registro:
 
 | Evento | Por qué |
@@ -540,7 +552,8 @@ revisado que también edita el párrafo que hace la promesa.
 
 ### Cuando un release espera en su lugar
 
-Algunos releases pasan todo y aun así no se publican de inmediato:
+En el formulario de issues, algunos releases pasan todo y aun así no se
+publican de inmediato:
 
 | Situación | Código | Retraso |
 |---|---|---|
@@ -553,6 +566,51 @@ reloj, toda la ingesta se vuelve a ejecutar desde cero contra los bytes
 tal como están entonces. El retraso compra una sola cosa, y el registro
 no afirma más: una ventana en la que un autor cuya cuenta de GitHub fue
 tomada pueda ver un release que no hizo y decirlo.
+
+### En la vía del panel, desde el cutover
+
+*Modificado el 2026-09-26 (contrato 3.0.0 del registro).* Antes de esa fecha,
+esta página decía que un primer listado siempre se retiene para una persona. En
+el formulario de issues sigue siendo así, hasta que el cutover elimine el
+formulario. La regla del propio registro está en
+`astra-registry/docs/POLICY.md` §2.1 y §3.
+
+**Un release que pasa todas las comprobaciones automáticas se publica de
+inmediato**, también un primer listado. Nadie lo aprueba y no hay retraso de
+publicación. Las comprobaciones del registro son todo el filtro, y una que falle
+sigue rechazando el release.
+
+**Queda marcado como no revisado por los moderadores de Astra.** Toda versión
+empieza así. Un moderador puede leer una versión más tarde y marcarla como
+revisada. La marca pertenece a esa única versión, así que tu siguiente release
+vuelve a empezar como no revisado.
+
+**Los usuarios ven una advertencia.** A partir de la versión de Astra que añade
+la marca, Astra avisa antes de instalar una versión no revisada, también cuando
+la instalación la piden las herramientas de IA de Astra. Además avisa allí
+donde un usuario inicia una actualización a una versión así, y solo la aplica
+cuando el usuario ha confirmado la advertencia. El panel de plugins muestra la
+marca en la página de tu plugin. Astra 0.2.x, y cualquier versión de Astra
+anterior a la que añade la marca, no muestra ni marca ni advertencia.
+
+**`reviewed` significa que un moderador leyó esa versión, y nada más.** No es
+una revisión de seguridad, ni una auditoría de código, ni un respaldo, ni un
+sandbox. Un aviso de seguridad, un yank o una retirada del listado posteriores
+siempre pesan más que ella.
+
+**Solo un cambio de manos en un listado que ya existe espera a un moderador:**
+
+| Evento | Código |
+|---|---|
+| El repositorio o la identidad cambiaron | `R_IDENTITY_CHANGED` |
+| El primer release de un listado existente que lleva una línea de vinculación | `R_FIRST_BINDING` |
+| La línea de vinculación lleva un token distinto del que tiene vinculado el listado | `R_BINDING_CHANGED` |
+
+Cada uno de estos entrega el código de otra parte, o pasa el listado a otra
+cuenta, como una actualización a gente que ya lo usa. Un moderador lo aprueba en
+el panel, y después espera las ventanas que publica el registro. Un release
+aprobado se publica igualmente como no revisado, porque una aprobación no es una
+revisión.
 
 ## 5 · Cada release a partir de ahí
 
@@ -579,8 +637,9 @@ de ser rutina y vuelve a una persona.
 
 ## Lo que un listado no significa
 
-Un listado no es una revisión de seguridad. Nadie lee tu código, y el
-registro lo dice en su propia política: un permiso decide qué hará el
+Un listado no es una revisión de seguridad, y tampoco lo es una versión
+marcada como revisada: eso dice que un moderador leyó esa versión, y nada más.
+El registro lo dice en su propia política: un permiso decide qué hará el
 daemon *por* un plugin, y nada sobre lo que el proceso del plugin pueda
 hacerle a la máquina. No hay sandbox. Consulta
 [el modelo de seguridad](../1-orientation/security.md).
