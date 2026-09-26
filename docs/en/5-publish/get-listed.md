@@ -541,10 +541,12 @@ way. A moderator may read a version later and mark it reviewed. The mark
 belongs to that one version, so your next release starts as not reviewed again.
 
 **Users see a warning.** From the Astra release that adds the mark, Astra warns
-before it installs a version that is not reviewed, and asks before it applies
-such an update. The plugins panel shows the mark on your plugin's page. Astra
-0.2.x, and every Astra release before the one that adds the mark, shows no mark
-and no warning.
+before it installs a version that is not reviewed, including an install that
+Astra's AI tools ask for. It also warns wherever a user starts an update to
+such a version, and applies the update only once the user has acknowledged the
+warning. The plugins panel shows the mark on your plugin's page. Astra 0.2.x,
+and every Astra release before the one that adds the mark, shows no mark and no
+warning.
 
 **`reviewed` means that a moderator read that version, and nothing more.** It is
 not a security review, a code audit, an endorsement or a sandbox. A later

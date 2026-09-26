@@ -586,10 +586,12 @@ revisada. La marca pertenece a esa única versión, así que tu siguiente releas
 vuelve a empezar como no revisado.
 
 **Los usuarios ven una advertencia.** A partir de la versión de Astra que añade
-la marca, Astra avisa antes de instalar una versión no revisada, y pregunta
-antes de aplicar una actualización así. El panel de plugins muestra la marca en
-la página de tu plugin. Astra 0.2.x, y cualquier versión de Astra anterior a la
-que añade la marca, no muestra ni marca ni advertencia.
+la marca, Astra avisa antes de instalar una versión no revisada, también cuando
+la instalación la piden las herramientas de IA de Astra. Además avisa allí
+donde un usuario inicia una actualización a una versión así, y solo la aplica
+cuando el usuario ha confirmado la advertencia. El panel de plugins muestra la
+marca en la página de tu plugin. Astra 0.2.x, y cualquier versión de Astra
+anterior a la que añade la marca, no muestra ni marca ni advertencia.
 
 **`reviewed` significa que un moderador leyó esa versión, y nada más.** No es
 una revisión de seguridad, ni una auditoría de código, ni un respaldo, ni un

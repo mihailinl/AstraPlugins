@@ -601,8 +601,10 @@ markieren. Die Markierung gehört zu dieser einen Version, also beginnt dein
 nächstes Release wieder als nicht geprüft.
 
 **Nutzer sehen eine Warnung.** Ab dem Astra-Release, das die Markierung
-einführt, warnt Astra, bevor es eine nicht geprüfte Version installiert, und
-fragt nach, bevor es ein solches Update anwendet. Das Plugins-Panel zeigt die
+einführt, warnt Astra, bevor es eine nicht geprüfte Version installiert, auch
+wenn Astras AI-Werkzeuge die Installation anfordern. Es warnt außerdem überall,
+wo ein Nutzer ein Update auf eine solche Version startet, und wendet das Update
+erst an, wenn der Nutzer die Warnung bestätigt hat. Das Plugins-Panel zeigt die
 Markierung auf der Seite deines Plugins. Astra 0.2.x und jedes Astra-Release
 vor dem, das die Markierung einführt, zeigen weder Markierung noch Warnung.
 
