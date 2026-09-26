@@ -495,7 +495,8 @@ estrictamente más que cualquier cosa escrita en un formulario.
 
 Detalle, incluyendo cada código de motivo:
 [Conseguir el listado §qué pasa después de enviar](5-publish/get-listed.md#4--qué-pasa-después-de-enviar).
-La versión corta:
+La versión corta, en el formulario de issues, que es como se hace hoy un primer
+listado:
 
 | Resultado | Significa | Quién está involucrado |
 |---|---|---|
@@ -504,10 +505,19 @@ La versión corta:
 | **Held** | Una decisión que el registro no está autorizado a tomar automáticamente | un mantenedor, en **48 h** |
 | **Refused** | Una comprobación falló | tú: arréglalo y comenta `/recheck` en el issue |
 
-**Un primer listado siempre se retiene para una persona** — ese es uno
-de exactamente tres eventos que necesitan una, junto con un permiso de
-alto riesgo recién solicitado y un cambio de repositorio. 48 horas es
-el SLA publicado para todos ellos.
+**En el formulario de issues, un primer listado siempre se retiene para una
+persona** — ese es uno de exactamente tres eventos que allí necesitan una,
+junto con un permiso de alto riesgo recién solicitado y un cambio de
+repositorio. 48 horas es el SLA publicado para todos ellos.
+
+**En el panel de plugins de Astra, desde el cutover del registro, no se
+retiene.** Un release que pasa todas las comprobaciones automáticas se publica
+de inmediato, marcado como no revisado por los moderadores de Astra. A partir
+de la versión de Astra que añade la marca, los usuarios ven una advertencia
+hasta que un moderador revisa esa versión; las versiones anteriores de Astra no
+muestran nada. Allí, solo un cambio de manos en un listado que ya existe espera
+a un moderador. Ver [Conseguir el listado §en la vía del
+panel](5-publish/get-listed.md#en-la-vía-del-panel-desde-el-cutover).
 
 Un hold se libera cuando un mantenedor comenta `/approve` en tu issue,
 lo que vuelve a ejecutar cada comprobación desde cero en lugar de
@@ -590,8 +600,9 @@ sitio; consulta [el modelo de seguridad](1-orientation/security.md) y
 
 **Nada de esto dice que el código sea seguro.** Un plugin es un proceso
 nativo con todos tus privilegios de usuario; no hay sandbox. Un listado
-no es una revisión de seguridad — nadie lee tu código, y el registro lo
-dice en su propia política.
+no es una revisión de seguridad, y tampoco lo es una versión que un moderador
+marcó como revisada: eso dice que un moderador leyó esa versión, y nada más. El
+registro lo dice en su propia política.
 
 ---
 
