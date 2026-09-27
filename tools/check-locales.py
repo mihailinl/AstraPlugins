@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The locale vocabulary, held against the two things that can contradict it.
 
-    python3 tools/check-locales.py                       # all four
+    python3 tools/check-locales.py                       # all five
     python3 tools/check-locales.py --rules C14,C20       # what the couplings job runs
     python3 tools/check-locales.py --rules C12,C22 --require C22 \\
         --astra-dir _astra/astra-rs --astra-ref origin/main   # proto-upstream, full mode
@@ -130,6 +130,35 @@ C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs
     compares the tuple with the filesystem in both directions and floors the
     scan, so a walk that stops finding anything fails as a broken walk instead
     of as a clean bill of health.
+
+C38 — the locale codes the RELEASE CLI packs vs the ones the catalogue accepts.
+    Every plugin release builds `astra-plugin` at `ASTRA_TOOLING_REF` in
+    `.github/workflows/plugin-release.yml`, not at this commit, so the CLI an
+    author's tag is sealed with can be months behind the one C13 checks. This
+    rule reads `LOCALE_CODES` out of `astra-plugin-cli/src/locales.rs` AT that
+    pin, and astra-registry's `LOCALE_CODES` out of `bot/lib/locales.mjs`, and
+    holds the two to one set, both ways — because each direction is a failure
+    an author meets after pushing a tag:
+
+      * the catalogue accepts a code the release CLI refuses: the author's
+        `locales/<code>.json` fails `astra-plugin build` in CI for a language
+        Astra offers and the registry would list. That was `kk` from the
+        registry's merge of it until `ASTRA_TOOLING_REF` moved.
+      * the release CLI packs a code the catalogue refuses: the build is green,
+        the tag is pushed, and ingest answers E_LOCALE_UNKNOWN_CODE. R12's
+        order — registry first, then this pin — exists to prevent exactly this,
+        and until this rule nothing enforced the order.
+
+    It needs the pinned commit's objects and an astra-registry checkout. In CI
+    it runs in `proto-upstream`, both modes, against `_registry` at `main`, after
+    a one-commit fetch of the pin. Without either input it says NOT VERIFIED;
+    `--require C38` makes that a red build.
+
+    It does NOT read the `plugin-release/v1` tag. Authors' callers pin the
+    workflow commit that tag names, and THAT commit's own `ASTRA_TOOLING_REF` is
+    the CLI their releases really build with; this rule checks the pin the NEXT
+    tag move will carry. Moving the tag is an owner's act, and a workflow commit
+    is trusted only once `trust.json`'s `reusable_workflow_shas` names it.
 
 Exit 0 when every rule that could run passed, 1 when any failed. A rule that
 could not run is named on stdout and does not affect the exit code.
@@ -1159,10 +1188,119 @@ def resolve_astra(arg: str | None) -> Path | None:
     return _as_checkout("../Astra/astra-rs")
 
 
+# ── C38 ──────────────────────────────────────────────────────────────────────
+
+#: The reusable release workflow, which pins the CLI every plugin release packs with.
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "plugin-release.yml"
+#: The CLI's vocabulary, read AT that pin rather than off this checkout's disk.
+CLI_LOCALES = "astra-plugin-cli/src/locales.rs"
+#: The catalogue's vocabulary, relative to an astra-registry checkout.
+REGISTRY_LOCALES = "bot/lib/locales.mjs"
+
+
+def _tooling_ref() -> str | None:
+    """`ASTRA_TOOLING_REF` in plugin-release.yml, as C0 reads it, or None."""
+    m = re.search(r'^\s*ASTRA_TOOLING_REF:\s*"([0-9a-f]{40})"',
+                  RELEASE_WORKFLOW.read_text(encoding="utf-8"), re.M)
+    return m.group(1) if m else None
+
+
+def _cli_codes_at(ref: str) -> tuple[list[str] | None, str]:
+    """(LOCALE_CODES as the CLI at `ref` declares them, or None; why not)."""
+    have = subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{ref}^{{commit}}"],
+                          capture_output=True, text=True)
+    if have.returncode != 0:
+        return None, f"commit {ref[:12]} is not in this checkout (a shallow clone? fetch it)"
+    shown = subprocess.run(["git", "-C", str(ROOT), "show", f"{ref}:{CLI_LOCALES}"],
+                           capture_output=True, text=True)
+    if shown.returncode != 0:
+        return None, f"{ref[:12]} has no {CLI_LOCALES}"
+    m = re.search(r"const\s+LOCALE_CODES\s*:\s*&\[&str\]\s*=\s*&\[(.*?)\]\s*;",
+                  shown.stdout, re.S)
+    if not m:
+        return None, f"{CLI_LOCALES} at {ref[:12]} declares no `LOCALE_CODES` this reader can find"
+    return re.findall(r'"([^"]*)"', m.group(1)), ""
+
+
+def _registry_codes(registry: Path) -> list[str] | None:
+    """`export const LOCALE_CODES = [...]` in the registry's bot, or None."""
+    path = registry / REGISTRY_LOCALES
+    if not path.is_file():
+        return None
+    m = re.search(r"export\s+const\s+LOCALE_CODES\s*=\s*\[(.*?)\]\s*;",
+                  path.read_text(encoding="utf-8"), re.S)
+    return re.findall(r'"([^"]*)"', m.group(1)) if m else None
+
+
+def rule_C38(fails: Fails, registry: Path | None) -> None:
+    ref = _tooling_ref()
+    if not fails.check(
+        ref is not None,
+        "C38 plugin-release.yml pins ASTRA_TOOLING_REF to a 40-hex commit",
+        "C0 in the `couplings` job says why that literal matters; this rule has\n"
+        "nothing to read the release CLI at without it.",
+    ):
+        return
+    cli, why = _cli_codes_at(ref)
+    if cli is None and "not in this checkout" in why:
+        print(f"C38 NOT VERIFIED: {why}. The locale codes the release CLI packs were not read.")
+        fails.skip("C38", why)
+        return
+    if not fails.check(
+        cli is not None and len(cli) >= MIN_SPEC_ROWS,
+        f"C38 the release CLI at {ref[:12]} declares its locale codes "
+        f"({len(cli or [])} found, floor {MIN_SPEC_ROWS})",
+        (why or "the parse found fewer codes than any CLI has ever carried") + "\n"
+        "TWO CAUSES. A pin from before `astra-plugin-cli/src/locales.rs` existed packs\n"
+        "every `locales/*.json` unchecked — move ASTRA_TOOLING_REF forward. Otherwise\n"
+        "the declaration's shape changed and THIS READER is what broke.",
+    ):
+        return
+
+    if registry is None:
+        print("C38 NOT VERIFIED: no astra-registry checkout at "
+              "--registry-dir, $ASTRA_REGISTRY_DIR or ../astra-registry.")
+        print(f"        the release CLI at {ref[:12]} packs: " + " ".join(cli))
+        print("        Whether the catalogue accepts the same codes was not asked.")
+        fails.skip("C38", "no astra-registry checkout")
+        return
+
+    theirs = _registry_codes(registry)
+    head = _registry_label(registry, [REGISTRY_LOCALES])
+    if not fails.check(
+        theirs is not None and len(theirs) >= MIN_SPEC_ROWS,
+        f"C38 astra-registry declares its locale codes ({len(theirs or [])} found, {head})",
+        f"{REGISTRY_LOCALES} has no `export const LOCALE_CODES = [...]` this reader can\n"
+        "find. The registry moved the list, or this reader broke; either way nothing\n"
+        "was compared.",
+    ):
+        return
+
+    refused = [c for c in theirs if c not in cli]
+    unlisted = [c for c in cli if c not in theirs]
+    fails.check(
+        not refused,
+        f"C38 every locale the catalogue accepts, the release CLI at {ref[:12]} packs ({head})",
+        f"the catalogue accepts {', '.join(refused)} and the CLI every plugin release builds\n"
+        "with refuses to pack it, so an author's translation dies in `astra-plugin build`\n"
+        "in their own CI for a language Astra offers. Move ASTRA_TOOLING_REF in\n"
+        ".github/workflows/plugin-release.yml to a master commit whose CLI knows it (R12\n"
+        "step 8), and note that authors see it only once the plugin-release/v1 tag moves.",
+    )
+    fails.check(
+        not unlisted,
+        f"C38 every locale the release CLI at {ref[:12]} packs, the catalogue accepts ({head})",
+        f"the release CLI packs {', '.join(unlisted)} and astra-registry refuses it as\n"
+        "E_LOCALE_UNKNOWN_CODE: the build is green, the tag is pushed, and ingest refuses\n"
+        "the listing. The registry half of R12 goes FIRST; move this pin back, or land\n"
+        "the code in astra-registry's LOCALE_CODES and both schema enums before it.",
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--rules", default="C12,C14,C20,C22",
-                    help="comma-separated subset of C12,C14,C20,C22 (default: all)")
+    ap.add_argument("--rules", default="C12,C14,C20,C22,C38",
+                    help="comma-separated subset of C12,C14,C20,C22,C38 (default: all)")
     ap.add_argument("--astra-dir", default=None,
                     help="an Astra/astra-rs checkout; else $ASTRA_RS_DIR, else "
                          "../Astra/astra-rs. C12 says so out loud when there is none. C22 "
@@ -1170,7 +1308,7 @@ def main() -> int:
                          "checkout: passed explicitly, one that is not is exit 2, never NOT "
                          "VERIFIED.")
     ap.add_argument("--registry-dir", default=None,
-                    help="an astra-registry checkout for C20; else $ASTRA_REGISTRY_DIR, else "
+                    help="an astra-registry checkout for C20 and C38; else $ASTRA_REGISTRY_DIR, else "
                          "../astra-registry. Passed explicitly, a directory that holds no "
                          "policy/limits.json, or that is not a git checkout of its own, is exit "
                          "2, never NOT VERIFIED.")
@@ -1187,7 +1325,7 @@ def main() -> int:
 
     wanted = [r.strip().upper() for r in args.rules.split(",") if r.strip()]
     required = [r.strip().upper() for r in args.require.split(",") if r.strip()]
-    unknown = [r for r in wanted + required if r not in ("C12", "C14", "C20", "C22")]
+    unknown = [r for r in wanted + required if r not in ("C12", "C14", "C20", "C22", "C38")]
     if unknown:
         print(f"unknown rule(s): {unknown}", file=sys.stderr)
         return 2
@@ -1204,6 +1342,8 @@ def main() -> int:
         rule_C14(fails)
     if "C20" in wanted:
         rule_C20(fails, resolve_registry(args.registry_dir))
+    if "C38" in wanted:
+        rule_C38(fails, resolve_registry(args.registry_dir))
     if "C12" in wanted:
         rule_C12(fails, resolve_astra(args.astra_dir))
     if "C22" in wanted:
