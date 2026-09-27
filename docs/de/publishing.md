@@ -14,8 +14,8 @@ sie wichtig sind, und keine davon ist nötig, um fertig zu werden.
 
 Ein Plugin für Astra zu veröffentlichen bedeutet **eine ganz bestimmte
 Sache**: Du taggst ein Release in deinem eigenen GitHub-Repository,
-GitHubs CI baut das Bundle und bezeugt es, und du schickst der Registry
-eine Listing-Anfrage — ein einziges Mal, für immer.
+GitHubs CI baut das Bundle und bezeugt es, und du reichst es einmal im
+Panel ein — ein einziges Mal, für immer.
 
 Diese sind **kein** Veröffentlichen, und jedes davon wurde schon
 versucht:
@@ -24,8 +24,8 @@ versucht:
 |---|---|
 | Deinen Quellcode auf GitHub pushen | Die Registry liest nie deinen Quellbaum. Sie liest eine `.astraplugin`-Datei, die an einem Release hängt, und es gibt keine |
 | Jemandem ein `.zip` schicken, oder ein auf deinem Laptop gebautes Bundle | Die Bytes tragen keine Build-Attestation, die Registry lehnt sie ab, egal wie gut das Plugin ist |
-| Ein Issue öffnen, das einen Maintainer bittet, es für dich zu bauen | Niemand baut dein Plugin außer der eigenen CI deines Repositorys. Es gibt keinen anderen Builder |
-| Ein Issue in der Registry öffnen, das dein Plugin beschreibt, aber am Listing-Formular vorbei | Nur das Formular vergibt das `listing`-Label, und nur dieses Label startet einen Ingest. Leere Issues sind dort inzwischen abgeschaltet, und eine unbeschriftete Anfrage bekommt statt Schweigen eine Antwort, die das Label benennt — eine Antwort ist aber kein Listing. Siehe [Einreichen](#8--einreichen-ein-einziges-mal-für-immer) |
+| Einen Maintainer bitten, es für dich zu bauen | Niemand baut dein Plugin außer der eigenen CI deines Repositorys. Es gibt keinen anderen Builder |
+| Dein Plugin der Registry irgendwo anders beschreiben als auf der Einreichungsseite des Panels | Die Registry handelt auf eine Einreichung, die im Panel gemacht wird, angemeldet, für ein an dein Konto gebundenes Repository. Eine andere Tür gibt es nicht. Siehe [Einreichen](#8--einreichen-ein-einziges-mal-für-immer) |
 
 **Warum das so sein muss, in zwei Sätzen.** Die Registry pinnt dein
 Plugin über den SHA-256 genau der Datei, die ein Nutzer herunterladen
@@ -237,51 +237,31 @@ auszuführen.
 
 <!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
-astra-plugin check --strict
-```
-
-An diesem Schritt ist nichts Besonderes — es ist ein gewöhnliches
-Repository. Aber beachte, was er *nicht* ist: das zu pushen
-veröffentlicht das Plugin nicht, und hier aufzuhören ist, wo die zwei
-echten Einreichungen, die diese Seite ausgelöst haben, schiefliefen. Was
-es zu einem veröffentlichten Plugin macht, ist das Tag im nächsten
-Schritt.
-
-**Die zwei zusätzlichen Zeilen oben sind der Ownership-Nachweis, und sie
-sind nicht optional.** `.well-known/astra-plugin-owner`, auf deinem
-Default-Branch, hält deinen GitHub-Login — einen pro Zeile. So stellt die
-Registry fest, dass die Person, die das Listing anfragt, das Repository
-kontrolliert, das gelistet wird — das eine, das die Build-Attestation
-nicht sagen kann. Erstelle sie jetzt, während du ohnehin committest, und
-Schritt 8 besteht beim ersten Versuch.
-
-Lässt du sie aus, wird deine erste Einreichung mit `E_OWNERSHIP_UNPROVEN`
-abgelehnt, weil die zwei stärkeren Prüfungen für ein gewöhnliches
-Repository nicht antworten können: GitHub sagt der Registry `403`, wenn
-sie fragt, wer `admin` auf einem Repository hat, in das sie keine
-Sichtbarkeit hat, und der Release-Autor ist `github-actions[bot]` — der
-Workflow aus Schritt 3 veröffentlicht das Release, nicht du. Die
-vollständige Erklärung ist
-[Gelistet werden §2](5-publish/get-listed.md#2--beweisen-dass-du-das-repository-kontrollierst).
-
-### An dein Minice-Konto binden
-
-Ab dem Cutover der Registry braucht ein erstes Listing eine weitere Zeile in
-derselben Datei: eine **Bindung** dieses Repositorys an das Minice-Konto, das
-veröffentlichen wird. Erzeuge im Panel unter https://astra.minice.ai/plugins ein
-Token, angemeldet bei diesem Konto, und lass die CLI die Zeile schreiben:
-
-<!-- doctest: cli -->
-```bash
 astra-plugin init-ci --binding <token>
-git commit -am "Bind this repository to my Minice account" && git push
+git add .well-known && git commit -m "Bind this repository to my Minice account" && git push
 astra-plugin check --strict
 ```
+
+An den ersten drei Zeilen ist nichts Besonderes — es ist ein gewöhnliches
+Repository. Aber beachte, was es *nicht* ist: Das zu pushen veröffentlicht das
+Plugin nicht, und genau hier aufzuhören ist, wo die zwei echten Einreichungen,
+die diese Seite ausgelöst haben, schiefgingen. Was es zu einem veröffentlichten
+Plugin macht, ist der Tag im nächsten Schritt.
+
+**Die Binding-Zeile ist der Besitznachweis, und sie ist nicht optional.**
+Zwischen dem Push und `init-ci` meldest du dich unter
+https://astra.minice.ai/plugins mit dem Minice-Konto an, das veröffentlichen
+wird, und erzeugst ein Binding-Token für `you/dice-roller` — das Panel schlägt
+das Repository auf GitHub nach, deshalb muss es vorher gepusht sein.
+`init-ci --binding` schreibt das Token als erste Zeile von
+`.well-known/astra-plugin-owner` in die Wurzel deines Repositorys; auf deinem
+Default-Branch committet, ist es das, woran die Registry erkennt, welches Konto
+für dieses Repository spricht — die eine Sache, die die Build-Bezeugung nicht
+sagen kann. Lässt du sie weg, wird deine erste Einreichung mit `B_UNBOUND`
+abgelehnt.
 
 Sobald du im nächsten Schritt getaggt hast, liest `astra-plugin check --tag
 v0.1.0` die Zeile aus dem Commit des Tags zurück, so wie die Registry es tun
@@ -414,7 +394,6 @@ kann, sodass du weißt, was noch unbewiesen ist:
   · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
   · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
   · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
-  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -425,116 +404,76 @@ kann, sodass du weißt, was noch unbewiesen ist:
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
-Von dieser Liste ist die Ownership-Zeile die eine, die deine eigene Arbeit
-entscheidet, und du hast sie in
+Von dieser Liste ist das Binding-Urteil das eine, das deine eigene Arbeit
+entscheidet, und du hast es in
 [Schritt 4](#4--öffentlich-pushen--mit-der-owner-datei) erledigt. Der Rest
 folgt daraus, dass du ein Release getaggt hast, das der Workflow gebaut
 hat.
 
 ## 8 · Einreichen, ein einziges Mal, für immer
 
-**Bevor du das ausführst**, bestätige, dass die Owner-Datei aus
-[Schritt 4](#4--öffentlich-pushen--mit-der-owner-datei) auf deinem
-Default-Branch liegt. Das ist die eine Prüfung auf dieser Seite, an der du
-scheitern kannst, obwohl du alles andere richtig gemacht hast:
-
-<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
-```bash
-gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
-  --header 'Accept: application/vnd.github.raw+json'
-```
-
-Das sollte deinen Login ausgeben. `Not Found (HTTP 404)` bedeutet, die
-Registry wird sie auch nicht finden.
+**Bevor du das ausführst**, lies die Binding-Zeile aus deinem Tag zurück, genau
+so, wie die Registry es tun wird. Sie ist die eine Prüfung auf dieser Seite, an
+der du scheitern kannst, obwohl du alles andere richtig gemacht hast:
 
 <!-- doctest: cli -->
 ```bash
+astra-plugin check --tag v0.1.0
 astra-plugin publish
 ```
 
-Es öffnet ein **vorausgefülltes Issue in der Registry** in deinem
-Browser. Es lädt nichts hoch und hält keine Zugangsdaten — es gibt kein
-`astra-plugin login`, kein Token in deiner Shell-Historie, keinen
-Schlüsselbund, mit dem integriert werden müsste. `--print-url` gibt
-stattdessen den Link aus, statt einen Browser zu öffnen:
+`publish` öffnet die **Einreichungsseite** des Panels in deinem Browser, mit
+Repository und Tag schon ausgefüllt. Es lädt nichts hoch und hält keine
+Zugangsdaten — es gibt kein `astra-plugin login`, kein Token in deiner
+Shell-Historie, keinen Schlüsselbund, mit dem integriert werden müsste. Die
+Seite reicht nichts ein, bis du es tust, angemeldet bei dem Minice-Konto, an das
+dein Repository gebunden ist. `--print-url` gibt den Link aus, statt einen
+Browser zu öffnen:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project in a bound git repository; the flags themselves are checked by the cli block above" -->
 ```
-dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
+dice-roller 0.1.0 — submission for you/dice-roller@v0.1.0, in the panel
 
-  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI
-  build and attest, and the registry picks it up. Everything on the store card —
-  name, summary, licence, capabilities, permissions, digests — is read out of the
-  attested bundle, so there is nothing else to fill in and nothing to keep in sync.
+  Bound: `astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd` is line 1 of the owner file at HEAD. Submit in the
+  panel signed in to the Minice account that minted that token. The page fills itself
+  in from this link and submits nothing until you do. The registry reads the tag's
+  commit, not HEAD — `astra-plugin check --tag v0.1.0` reads it the same way.
 
-https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0
 ```
-
-> **Benutze diesen Link.** Das `template=plugin-listing.yml` darin ist
-> tragend: die Issue-Vorlage deklariert `labels: ["listing",
-> "needs-triage"]`, und der Bot der Registry betritt den
-> Einreichungspfad nur für ein Issue, das das `listing`-Label trägt.
-> Sonst vergibt es niemand — auch der Bot nicht, und zwar absichtlich:
-> in jenem Repository ist das Label ein Autoritätstoken und keine
-> Kategorie.
->
-> Früher schlug das lautlos fehl. Zwei Anfragen eines echten Autors kamen
-> ohne Labels an, die Triage gab `mode: "none"` zurück, die Check-,
-> Publish- und Kommentar-Schritte wurden alle übersprungen, und **er bekam
-> gar keine Antwort, nicht einmal eine Ablehnung** — deshalb existiert
-> diese Seite. Beide Hälften sind inzwischen geschlossen: die Registry
-> schaltet leere Issues ab, das Formular ist also die einzige Tür, und eine
-> Anfrage, die trotzdem ohne Label ankommt, bekommt einen Kommentar, der
-> das Label benennt und den einen Klick, der die Verifikation auf genau
-> diesem Issue startet. Benutze den Link trotzdem: er ist der Weg, auf dem
-> ein Ingest ohne Eingreifen von irgendwem startet.
 
 Die Einreichung trägt **zwei Fakten**: dein Quell-Repository
-(`you/dice-roller`) und das Release-Tag (`v0.1.0`), plus drei
-verpflichtende Bestätigungen — dass du `.well-known/astra-plugin-owner` mit
-deinem Login auf den Default-Branch committet hast, dass du das Repository
-besitzt oder pflegst, und dass du die Policy gelesen hast. Alles andere wird
-aus dem bezeugten Bundle
-gelesen, weil alles im Bundle von der Attestation abgedeckt ist und
-daher strikt mehr wert ist als alles in ein Formular Eingetippte.
+(`you/dice-roller`) und den Release-Tag (`v0.1.0`). Alles andere wird aus dem
+bezeugten Bundle gelesen, weil alles im Bundle von der Bezeugung gedeckt ist
+und damit strikt mehr wert ist als alles, was in ein Formular getippt wird.
 
 ## 9 · Was als Nächstes passiert
 
-Detail, einschließlich jedes Grund-Codes:
-[Gelistet werden §Was nach der Einreichung passiert](5-publish/get-listed.md#4--was-nach-der-einreichung-passiert).
-Die Kurzfassung:
+Details, einschließlich jedes Codes: [Gelistet werden §Was nach der
+Einreichung passiert](5-publish/get-listed.md#3--was-nach-der-einreichung-passiert).
+Die Kurzfassung: Das Panel zeigt den Zustand der Einreichung, und dieselben
+Momente erreichen dich als Benachrichtigungen — an der verifizierten
+E-Mail-Adresse deines Minice-Kontos und im Panel, und über Telegram nur, wenn du
+es verknüpft hast.
 
-| Ergebnis | Bedeutet | Wer ist beteiligt |
+| Ergebnis | Bedeutet | Wer beteiligt ist |
 |---|---|---|
-| **Published** | Committed, und im Katalog beim nächsten Index-Build | niemand |
-| **Delayed** | Alles bestanden; veröffentlicht sich selbst zu einem genannten Zeitpunkt | niemand |
-| **Held** | Eine Entscheidung, die die Registry nicht automatisch treffen darf | ein Maintainer, innerhalb von **48 h** |
-| **Refused** | Eine Prüfung ist gescheitert | du: beheben und `/recheck` auf dem Issue kommentieren |
+| **Veröffentlicht** | Committet, dann im signierten Katalog | niemand |
+| **Verzögert** | Alles hat bestanden; es veröffentlicht sich selbst zu der Zeit, die das Panel zeigt | niemand |
+| **Angehalten** | Eine Entscheidung, die die Registry nicht automatisch treffen darf | ein Moderator, im Panel |
+| **Abgelehnt** | Eine Prüfung ist gescheitert | du: beheb es, dann Recheck im Panel oder erneut taggen, wie der Code sagt |
 
-**Ein erstes Listing wird immer für eine Person zurückgehalten** — das
-ist eines von genau drei Ereignissen, die das brauchen, zusammen mit
-einer neu angefragten hochriskanten Permission und einem
-Repository-Wechsel. 48 Stunden ist der veröffentlichte SLA für alle
-davon.
-
-Ein Hold wird aufgelöst, indem ein Maintainer `/approve` auf deinem
-Issue kommentiert, was jede Prüfung von Grund auf erneut ausführt, statt
-irgendetwas Gecachtes zu vertrauen. Du tippst diesen Befehl nicht und
-musst während des Wartens nichts tun. Siehe
-[wie ein Hold aufgelöst wird](5-publish/get-listed.md#wie-ein-hold-aufgelöst-wird).
-
-Der Bot kommentiert dein Issue so oder so mit dem Ergebnis und dem
-Grund — und er kommentiert inzwischen auch dann, wenn er *nicht*
-loslegt, also genau im Fehlschlag aus Schritt 8. Wenn nach einer Stunde
-nichts kommentiert hat, prüfe das `listing`-Label. Fehlt es, bitte einen
-Maintainer, es zu setzen: das Labeln löst dasselbe Ereignis aus wie eine
-neue Einreichung, die Verifikation startet also auf genau diesem Issue,
-ohne dass irgendetwas neu getippt werden muss.
+**Ein erstes Listing wird immer für eine Person angehalten** — eines von genau
+drei Ereignissen, die eine brauchen, neben einer neu angeforderten
+High-Risk-Berechtigung und einem Wechsel des Repositorys oder der Bindung. Ein
+Moderator gibt es im Panel frei oder lehnt es ab; du tust nichts, während du
+wartest. Keine Freigabe verkürzt eine Verzögerung, und die `docs/POLICY.md` der
+Registry veröffentlicht die Regeln.
 
 ## 10 · Jedes Release danach
 
-Nichts. Taggen, und CI erledigt den Rest; die Registry bemerkt das
-Release und generiert den Index neu.
+Nichts. Tagge, und CI erledigt den Rest; die Registry erkennt den neuen Tag
+eines gelisteten Plugins von selbst, und das Panel zeigt seinen Zustand.
 
 <!-- doctest: cli -->
 ```bash
@@ -543,19 +482,9 @@ git commit -am "release 0.2.0"
 git tag v0.2.0 && git push --tags
 ```
 
-Falls die Registry es innerhalb weniger Minuten nicht bemerkt hat:
-
-<!-- doctest: cli -->
-```bash
-astra-plugin publish --notify
-```
-
-Das ist der manuelle Ping für ein Plugin, das **bereits gelistet** ist.
-Ohne `--notify` öffnet `publish` stattdessen eine
-Erst-Listing-Anfrage, was nicht das ist, was du bei deinem zweiten
-Release willst.
-
----
+Es gibt nichts einzureichen und nichts anzupingen. Ein Release, das nicht
+erschienen ist, steht auf der Seite deines Plugins im Panel, mit seinem Zustand
+und dem Grund.
 
 ## Was Vertrauen begründet
 

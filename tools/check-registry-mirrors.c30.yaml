@@ -1,0 +1,431 @@
+# C30 — what `tools/check-registry-mirrors.py --rules C30` searches for, what it
+# lets through, and which promises it holds to their amendments.
+#
+# FOUR KINDS OF RECORD
+#
+#   kind: channel   a literal of the registry's issue channel. From the
+#                   registry's cutover (R6) there is no such channel: listing,
+#                   release pings, `/recheck`, reports and appeals are all the
+#                   panel's. A channel literal found in a subject file, and not
+#                   let through by an `exempt` record, is red. `from` is the step
+#                   the literal starts binding; `armed: yes` is what makes it
+#                   bind — flipped in the commit that makes the step's promise
+#                   true, never by a date.
+#   kind: scope     a set of files that joins the channel search at a later step
+#                   than the rest (`armed: yes` until then).
+#   kind: exempt    a reasoned exemption. `path` is an fnmatch glob, `literal`
+#                   the channel literal (or `*`). `min` is how many hits it must
+#                   let through: an exemption that matches fewer fails, as C24's
+#                   do — a hole left open after the thing it excused has gone is
+#                   the shape this rule exists to find. `expires: cli-minor>N`
+#                   makes the exemption itself red once astra-plugin-cli's minor
+#                   exceeds N.
+#   kind: promise   a sentence ROLL-47 says must be amended in the change that
+#                   first makes it false. `literal` is the sentence as it stood,
+#                   in one file, in one language — matched with all whitespace
+#                   removed, so a reflowed line is the same sentence. Unarmed,
+#                   it must occur EXACTLY ONCE in the tree (the anchor is real
+#                   and unique). Armed, it must occur exactly once at `prefix`,
+#                   a commit from before the amendment (the literal was real),
+#                   and nowhere in the tree now (the amendment happened).
+#                   A `path` may be a glob; then every file it matches is held
+#                   to the rule on its own, and it must match at least one.
+#
+# FORMAT — the same as check-registry-mirrors.exempt.yaml: records separated by
+# blank lines, one `key: value` per line, an INDENTED line continuing the key
+# above it, `#` whole-line comments.
+
+# ── the issue channel ────────────────────────────────────────────────────────
+
+kind: channel
+id: registry-issues
+literal: astra-registry/issues
+from: R6
+armed: yes
+why: Every door into the registry's issue tracker.
+
+kind: channel
+id: issues-new
+literal: issues/new
+from: R6
+armed: yes
+why: A prefilled issue form, in any repository — the shape `publish` used to open.
+
+kind: channel
+id: recheck
+literal: /recheck
+from: R6
+armed: yes
+why: The issue command that re-ran a submission. The panel's Recheck replaces it.
+
+kind: channel
+id: release-ping
+literal: release-ping
+from: R6
+armed: yes
+why: The release-ping form `publish --notify` opened. Detection is automatic.
+
+kind: channel
+id: listing-template
+literal: plugin-listing.yml
+from: R6
+armed: yes
+why: The listing form `publish` opened. The panel's submission page replaces it.
+
+kind: channel
+id: notify-flag
+literal: --notify
+from: R6
+armed: yes
+why: The manual ping. FLOW-47 keeps it one minor release as a stub that opens
+  the panel; the exemption below is that stub, and it expires by version.
+
+kind: scope
+id: proto-copies
+path: *plugin.proto
+from: R5
+armed: no
+why: The three exported proto copies describe the daemon's report link, which IS
+  the issue channel for every client before the R5 release. They join the
+  channel scope at R5, when AP-13 re-exports Astra's rewritten report copy. The
+  plan put them in scope at R6 with no exemption because R5 came first; contract
+  2.2.0 lets R6 come first, and a check that is red on a sentence still true of
+  every shipped client is a check somebody exempts by hand.
+
+kind: channel
+id: retired-anchor-ownership
+literal: #2--prove-you-control-the-repository
+armed: yes
+why: The heading "Prove you control the repository" in docs/en/5-publish/get-listed.md
+  is gone with the login proof; its binding replacement is #bind-your-repository.
+  linkcheck catches a relative link to it; this catches an absolute one.
+
+kind: channel
+id: retired-anchor-hold
+literal: #how-a-hold-is-cleared
+armed: yes
+why: Holds are cleared by a moderator in the panel; the section that described
+  `/approve` on an issue is gone.
+
+kind: channel
+id: retired-anchor-after-submit
+literal: #4--what-happens-after-you-submit
+armed: yes
+why: Renumbered to #3--what-happens-after-you-submit when the login step went.
+
+# ── exemptions ───────────────────────────────────────────────────────────────
+
+kind: exempt
+id: flow-47-stub-source
+path: astra-plugin-cli/src/*
+literal: --notify
+min: 2
+expires: cli-minor>5
+why: FLOW-47 — `publish --notify` stays for one minor release after release B
+  (0.5.0), printing that detection is automatic and opening the panel. Release C
+  removes it (AP-19); a Cargo.toml minor above 5 with the stub still here is red.
+
+kind: exempt
+id: flow-47-stub-reference
+path: docs/*/reference/cli.md
+literal: --notify
+min: 7
+expires: cli-minor>5
+why: The CLI reference lists every flag the binary has, and for one minor that
+  includes the stub. Seven locales, one row each at least.
+
+# ── promises (ROLL-47) ───────────────────────────────────────────────────────
+#
+# C3 — "no login … no second account to create" (P:astra-plugin-cli/src/main.rs),
+# false from CLI 0.4.0, which binds a repository to a Minice account. Amended
+# in that release; the rendered sentence lives in docs/*/reference/cli.md.
+# `prefix` is master before that release.
+
+kind: promise
+id: c3-en
+promise: ROLL-47 C3
+path: docs/en/reference/cli.md
+literal: That means no second account to create, no keyring
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: CLI 0.4.0 binds a repository to a Minice account holding astraUser.
+
+kind: promise
+id: c3-de
+promise: ROLL-47 C3
+path: docs/de/reference/cli.md
+literal: Das bedeutet kein zweites Konto zu erstellen, keinen Schlüsselbund
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+kind: promise
+id: c3-es
+promise: ROLL-47 C3
+path: docs/es/reference/cli.md
+literal: Eso significa ninguna segunda cuenta que crear, ningún llavero
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+kind: promise
+id: c3-ja
+promise: ROLL-47 C3
+path: docs/ja/reference/cli.md
+literal: つまり、作成すべき第 2 のアカウントもなく、連携すべきキーリングも
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+kind: promise
+id: c3-ru
+promise: ROLL-47 C3
+path: docs/ru/reference/cli.md
+literal: Это значит: не нужно создавать второй аккаунт, нечего интегрировать
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+kind: promise
+id: c3-uk
+promise: ROLL-47 C3
+path: docs/uk/reference/cli.md
+literal: Це означає: не треба створювати другий обліковий запис, нічого
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+kind: promise
+id: c3-zh
+promise: ROLL-47 C3
+path: docs/zh/reference/cli.md
+literal: 不需要创建第二个账号，没有需要对接的密钥环
+armed: yes
+prefix: f931033ebf596ba89e46b2f7cffb98bcf153c15c
+why: As c3-en.
+
+# C4 — "within minutes" (the CLI's ping text) and "within an hour" (the docs'
+# advice about a bot comment), and "the registry notices it" (README): latency
+# promises about the issue channel, false at R6, amended by the cutover set.
+
+kind: promise
+id: c4-cli-minutes
+promise: ROLL-47 C4
+path: astra-plugin-cli/src/commands/publish.rs
+literal: The registry usually notices a release by itself, within minutes.
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: The ping text. Detection is the registry's poll after R6, with no stated bound.
+
+kind: promise
+id: c4-readme-notices
+promise: ROLL-47 C4
+path: README.md
+literal: the registry notices it (`astra-plugin publish --notify` is the manual nudge
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: The README's release paragraph, which names the ping as the fallback.
+
+kind: promise
+id: c4-hour-en-listed
+promise: ROLL-47 C4
+path: docs/en/5-publish/get-listed.md
+literal: If nothing has commented within an hour
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: No bot comments on anything after R6; the panel shows the state.
+
+kind: promise
+id: c4-hour-en-publishing
+promise: ROLL-47 C4
+path: docs/en/publishing.md
+literal: If nothing has commented within an hour
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-de-listed
+promise: ROLL-47 C4
+path: docs/de/5-publish/get-listed.md
+literal: Wenn nach einer Stunde nichts kommentiert hat
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-de-publishing
+promise: ROLL-47 C4
+path: docs/de/publishing.md
+literal: Wenn nach einer Stunde nichts kommentiert hat
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-es-listed
+promise: ROLL-47 C4
+path: docs/es/5-publish/get-listed.md
+literal: Si no ha comentado nada en una hora
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-es-publishing
+promise: ROLL-47 C4
+path: docs/es/publishing.md
+literal: Si nada ha comentado dentro de una hora
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-ja-listed
+promise: ROLL-47 C4
+path: docs/ja/5-publish/get-listed.md
+literal: 1 時間以内に何もコメントが付かない
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-ja-publishing
+promise: ROLL-47 C4
+path: docs/ja/publishing.md
+literal: 1 時間経ってもコメントが付かない
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-ru-listed
+promise: ROLL-47 C4
+path: docs/ru/5-publish/get-listed.md
+literal: Если за час никто не прокомментировал
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-ru-publishing
+promise: ROLL-47 C4
+path: docs/ru/publishing.md
+literal: Если за час никто не прокомментировал
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-uk-listed
+promise: ROLL-47 C4
+path: docs/uk/5-publish/get-listed.md
+literal: Якщо за годину ніхто не прокоментував
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-uk-publishing
+promise: ROLL-47 C4
+path: docs/uk/publishing.md
+literal: Якщо за годину ніхто не прокоментував
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-zh-listed
+promise: ROLL-47 C4
+path: docs/zh/5-publish/get-listed.md
+literal: 如果一小时内都没有任何评论
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+kind: promise
+id: c4-hour-zh-publishing
+promise: ROLL-47 C4
+path: docs/zh/publishing.md
+literal: 如果一小时后仍然没有任何评论
+armed: yes
+prefix: 81a5553d0c460ae8507ed725eab3410ccfb83f3e
+why: As c4-hour-en-listed.
+
+# B1 — "This registry counts nothing" (docs/*/spec/registry-index.md), false the
+# day the plugins service first accepts `install` (AP-14; ROLL-47 B1).
+
+kind: promise
+id: b1-en
+promise: ROLL-47 B1
+path: docs/en/spec/registry-index.md
+literal: This registry counts nothing.
+armed: no
+why: The service counts installs as aggregates from its install deploy.
+
+kind: promise
+id: b1-de
+promise: ROLL-47 B1
+path: docs/de/spec/registry-index.md
+literal: Diese Registry zählt nichts.
+armed: no
+why: As b1-en.
+
+kind: promise
+id: b1-es
+promise: ROLL-47 B1
+path: docs/es/spec/registry-index.md
+literal: Este registro no cuenta nada.
+armed: no
+why: As b1-en.
+
+kind: promise
+id: b1-ja
+promise: ROLL-47 B1
+path: docs/ja/spec/registry-index.md
+literal: このレジストリは何もカウント
+armed: no
+why: As b1-en.
+
+kind: promise
+id: b1-zh
+promise: ROLL-47 B1
+path: docs/zh/spec/registry-index.md
+literal: 这个注册表什么都不计数。
+armed: no
+why: As b1-en.
+
+kind: promise
+id: b1-ru
+promise: ROLL-47 B1
+path: docs/ru/spec/registry-index.md
+literal: Этот реестр ничего не считает.
+armed: no
+why: As b1-en.
+
+kind: promise
+id: b1-uk
+promise: ROLL-47 B1
+path: docs/uk/spec/registry-index.md
+literal: Цей реєстр нічого не рахує.
+armed: no
+why: As b1-en.
+
+# B6 — the report copy in the exported proto (ROLL-47 B6; CLIENT-68): false at
+# R5, amended by the Astra commit AP-13 re-exports. No exemption exists for it.
+
+kind: promise
+id: b6-proto-files-nothing
+promise: ROLL-47 B6
+path: *plugin.proto
+literal: Astra files nothing on the user's behalf.
+armed: no
+why: The R5 client files reports itself, through the plugins service.
+
+kind: promise
+id: b6-proto-accusation
+promise: ROLL-47 B6
+path: *plugin.proto
+literal: a report is a public accusation against
+armed: no
+why: As b6-proto-files-nothing.

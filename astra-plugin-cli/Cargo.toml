@@ -32,7 +32,13 @@ name = "astra-plugin-cli"
 # line (B_BINDING_MALFORMED): a script pinned to "astra-plugin check succeeds"
 # on a tree 0.3.0 passed can fail on the upgrade. `init-ci --binding`, `check
 # --tag` and the panel link for a bound repository are additions.
-version = "0.4.0"
+#
+# 0.5.0, release B of the registry's cutover. `publish` no longer opens a GitHub
+# issue for anybody: the registry closed its issue channel, so every submission
+# is the panel's page, and `--notify` is a stub for this one minor (FLOW-47). A
+# script that parsed the issue URL `publish --print-url` printed breaks, and a
+# removed behaviour is the minor slot.
+version = "0.5.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"

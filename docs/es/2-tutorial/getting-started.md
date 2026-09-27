@@ -459,22 +459,19 @@ Luego una sola solicitud, una vez para siempre, y cada release posterior no
 requiere intervención.
 
 **Una cosa que hacer antes de esa solicitud**, porque es el único paso
-cuya ausencia hace que un plugin correcto sea rechazado: sube
-`.well-known/astra-plugin-owner` a la rama por defecto de tu repositorio,
-con tu login de GitHub dentro. Así es como el registro establece que
-controlas el repositorio que estás listando — la attestation de
-compilación demuestra de dónde vino el paquete, no quién eres tú. Dos
-líneas, junto con tu primer push:
+cuya ausencia hace que un plugin correcto sea rechazado: vincula el repositorio
+a tu cuenta de Minice. Genera un token en el panel en
+https://astra.minice.ai/plugins, y un comando lo escribe en
+`.well-known/astra-plugin-owner`, para hacer commit en tu rama por defecto:
 
-<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+<!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
+astra-plugin init-ci --binding <token>
 ```
 
-Detalles, y por qué las comprobaciones automáticas no pueden responder
-esto por ti:
-[Conseguir el listado §2](../5-publish/get-listed.md#2--demuestra-que-controlas-el-repositorio).
+Así es como el registro sabe qué cuenta habla por el repositorio que estás
+listando — la attestation de compilación demuestra de dónde vino el paquete,
+no quién eres tú. Detalles: [Conseguir el listado — Vincula tu repositorio](../5-publish/get-listed.md#vincula-tu-repositorio).
 
 Nota lo que publicar **no es**: subir este repositorio a GitHub no publica
 tu plugin, ni tampoco enviarle a alguien el `.astraplugin` que acabas de

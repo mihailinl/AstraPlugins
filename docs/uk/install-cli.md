@@ -299,8 +299,10 @@ astra-plugin <version>
 Тож `0.2.1` варто мати — це перше число, яке відповідає на питання само по
 собі, саме для цього воно й існує, — але `0.2.0`, що каже `0.2.0`, не
 доводить нічого. `0.2.1` не додає прапорців і не змінює API; єдина зміна
-поведінки — `publish --notify`, чиє посилання тепер називає форму
-release-ping реєстру замість порожнього issue, який реєстр відтоді вимкнув.
+поведінки — посилання, яке `publish` друкував для вже внесеного до каталогу
+плагіна: відтоді воно називало форму реєстру для цього замість порожнього
+issue, який реєстр вимкнув. Цієї форми і прапорця, який її відкривав, немає
+починаючи з CLI 0.5.0: реєстр сам помічає новий тег.
 
 Якщо `--version` друкує `0.2.0`, спершу запустіть `which astra-plugin`
 (`where` на Windows): найчастіша причина — старіший бінарник стоїть раніше
@@ -350,7 +352,7 @@ Commands:
   check    Check a plugin manifest, config schema and release workflow
   init-ci  Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs
   version  Set the version in plugin.toml and every other manifest at once
-  publish  Get a release listed: preflight it, or open a prefilled submission
+  publish  Get a release listed: preflight it, or open the panel's submission page
   keygen   Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses
   locale   Manage `locales/` — the plugin's translations, and its store card's text
   help     Print this message or the help of the given subcommand(s)

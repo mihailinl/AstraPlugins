@@ -2,7 +2,7 @@
 
 # CLI リファレンス
 
-`astra-plugin 0.4.0`。以下のすべてのフラグはバイナリから読み取られた
+`astra-plugin 0.5.0`。以下のすべてのフラグはバイナリから読み取られた
 ものであるため、このページが存在しないオプションを説明することは
 あり得ません。出典は
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)
@@ -33,7 +33,7 @@ Astra Plugin Development CLI
 | [`check`](#astra-plugin-check) | `validate` | プラグインのマニフェスト、設定スキーマ、リリースワークフローをチェックします |
 | [`init-ci`](#astra-plugin-init-ci) | — | Astra の再利用可能ワークフローのコミットにピン留めされた .github/workflows/release.yml を書き出します。ピンを更新するには再実行してください; 入力値は保持されます |
 | [`version`](#astra-plugin-version) | — | plugin.toml と他のすべてのマニフェストのバージョンを一度に設定します |
-| [`publish`](#astra-plugin-publish) | — | リリースを掲載してもらいます: 事前確認するか、あらかじめ入力済みの提出を開きます |
+| [`publish`](#astra-plugin-publish) | — | リリースを掲載してもらいます: 事前確認するか、パネルの提出ページを開きます |
 | [`keygen`](#astra-plugin-keygen) | — | `astra-plugin sign` が使う任意の Ed25519 鍵ペアを生成します |
 
 ### `astra-plugin login` は存在しません
@@ -317,11 +317,13 @@ Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
 
 ## astra-plugin publish
 
-リリースを掲載してもらいます: 事前確認するか、あらかじめ入力済みの提出を開きます。
+リリースを掲載してもらいます: 事前確認するか、パネルの提出ページを開きます。
 
 何もアップロードせず、資格情報も一切保持しません — レジストリはあなたの
 GitHub Release から証明済みのバンドルを読み取り、それぞれをゼロから
-検証するため、提出はあなたのリポジトリとタグだけを運びます。
+検証するため、提出はあなたのリポジトリとタグだけを運びます。提出は、
+リポジトリがバインドされている Minice アカウントでサインインして、
+パネルで行います。
 
 ```
 Usage: astra-plugin publish [OPTIONS] [PATH]
@@ -338,7 +340,7 @@ Usage: astra-plugin publish [OPTIONS] [PATH]
 | オプション | 説明 |
 |---|---|
 | `--dry-run` | ローカルで実行できるレジストリのチェックをすべて実行し、レジストリでしかできないものを名指しし、そこで止まります |
-| `--notify` | **すでに**掲載されているプラグインのためのリリース ping です — タスク 3.4 の手動エスケープハッチで、レジストリが自力でリリースに気づかなかったときのためのものです。これがないと、最初のリスティング申請が開かれます |
+| `--notify` | もう必要なく、次のマイナーリリースで削除されます: レジストリは新しいタグを自分で検出します。そう表示してから、同じ提出ページを開きます |
 | `--repo <REPO>` | `owner/name` としてのソースリポジトリ。デフォルト: `origin` リモート |
 | `--tag <TAG>` | リリースタグ。デフォルト: プラグインのタグプレフィックスにそのバージョンを加えたもの |
 | `--print-url` | URL を出力し、ブラウザを開きません |

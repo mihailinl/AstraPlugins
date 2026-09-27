@@ -13,7 +13,7 @@
 
 Astra にプラグインを公開するとは、**1 つの具体的なこと**を意味します。自分の
 GitHub リポジトリでリリースにタグを打つと、GitHub の CI がバンドルをビルドして
-証明し、あなたはレジストリに 1 回だけ、それきりリスティング申請を送ります。
+証明し、あなたはパネルで 1 回だけ、それきり提出します。
 
 以下は公開**ではありません**。それぞれ実際に試みられたことがあります。
 
@@ -21,8 +21,8 @@ GitHub リポジトリでリリースにタグを打つと、GitHub の CI が�
 |---|---|
 | ソースを GitHub に push する | レジストリはあなたのソースツリーを一切読みません。リリースに添付された `.astraplugin` ファイルを読みますが、それが存在しません |
 | `.zip` を誰かに送る、あるいは自分のラップトップでビルドしたバンドルを送る | そのバイト列にはビルド証明が付いておらず、プラグインの出来がどれだけよくてもレジストリは拒否します |
-| メンテナーに「代わりにビルドしてほしい」という issue を開く | あなたのリポジトリ自身の CI 以外、誰もあなたのプラグインをビルドしません。他にビルドする者はいません |
-| リスティングフォームを通さずに、プラグインの説明を書いた issue をレジストリに開く | `listing` ラベルを付けるのはフォームだけで、取り込みを始めるのはそのラベルだけです。ブランク issue は現在は無効化されており、ラベルなしの申請には沈黙ではなくラベル名を挙げた返信が付きます — ただし返信は掲載ではありません。[提出する](#8--1-回だけ提出する) を参照 |
+| メンテナーに「代わりにビルドしてほしい」と頼む | あなたのリポジトリ自身の CI 以外、誰もあなたのプラグインをビルドしません。他にビルドする者はいません |
+| パネルの提出ページ以外のどこかで、レジストリにプラグインを説明する | レジストリが動くのは、あなたのアカウントにバインドされたリポジトリについて、サインインしてパネルで行われた提出だけです。他の入口はありません。[提出する](#8--1-回だけ提出する) を参照 |
 
 **なぜそうでなければならないか、2 文で。** レジストリは、ユーザーがダウンロード
 することになる正確なファイルの SHA-256 でプラグインを固定し、GitHub のビルド
@@ -221,50 +221,30 @@ Checking plugin at ....
 
 <!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
 git init && git add -A && git commit -m "dice-roller 0.1.0"
 git remote add origin https://github.com/you/dice-roller
 git push -u origin main
-astra-plugin check --strict
-```
-
-このステップに特別なことは何もありません — ごく普通のリポジトリです。ただし、
-これが*何ではないか*に注意してください。これを push することはプラグインを
-公開することではなく、このページのきっかけとなった 2 件の実際の申請はここで
-止まってしまったことが誤りでした。公開済みプラグインにするのは次のステップの
-タグです。
-
-**冒頭に追加された 2 行が所有権の証明であり、これは省略できません。**
-`.well-known/astra-plugin-owner` は、あなたのデフォルトブランチ上に、あなたの
-GitHub ログインを 1 行につき 1 つ保持します。これは、リスト掲載を申請している
-人物が掲載対象のリポジトリを制御していることをレジストリが確立する方法であり、
-ビルド証明では言えない唯一のことです。どうせコミットするついでに今のうちに
-作成しておけば、ステップ 8 は 1 回目で通ります。
-
-これを省くと、最初の提出は `E_OWNERSHIP_UNPROVEN` で拒否されます。なぜなら、
-より強い 2 つのチェックは普通のリポジトリでは答えられないからです: GitHub は、
-可視性を持たないリポジトリの `admin` を誰が持っているかレジストリが尋ねると
-`403` を返しますし、リリースの作者は `github-actions[bot]` です — ステップ 3
-のワークフローがリリースを公開するのであって、あなたではありません。詳しい
-説明は
-[リストに掲載してもらう §2](5-publish/get-listed.md#2--リポジトリを制御していることを証明する)
-にあります。
-
-### Minice アカウントにバインドする
-
-レジストリのカットオーバー以降、最初の掲載には同じファイルにもう 1 行が必要
-です。このリポジトリを、それを公開する Minice アカウントに結び付ける
-**バインディング**です。そのアカウントでサインインして
-https://astra.minice.ai/plugins のパネルでトークンを発行し、CLI に行を
-書かせてください:
-
-<!-- doctest: cli -->
-```bash
 astra-plugin init-ci --binding <token>
-git commit -am "Bind this repository to my Minice account" && git push
+git add .well-known && git commit -m "Bind this repository to my Minice account" && git push
 astra-plugin check --strict
 ```
+
+最初の 3 行には特別なことは何もありません — 普通のリポジトリです。ただし、
+それが何*ではない*かに注意してください: これを push することはプラグインの
+公開ではなく、ここで止まってしまったことこそ、このページのきっかけになった
+2 件の実際の提出がつまずいたところです。公開されたプラグインにするのは、
+次のステップのタグです。
+
+**バインディング行が所有権の証明であり、省略はできません。** push と
+`init-ci` の間に、公開を行う Minice アカウントで
+https://astra.minice.ai/plugins にサインインし、`you/dice-roller` 用の
+バインディングトークンを発行してください — パネルは GitHub でリポジトリを
+調べるので、先に push しておく必要があります。`init-ci --binding` は
+トークンを、リポジトリのルートにある `.well-known/astra-plugin-owner` の
+1 行目として書き込みます。デフォルトブランチにコミットされたそれが、この
+リポジトリを代表するのがどのアカウントかをレジストリが知る手段であり、
+ビルド証明には言えない唯一のことです。これを省くと、最初の提出は
+`B_UNBOUND` で拒否されます。
 
 次のステップでタグを打ったら、`astra-plugin check --tag v0.1.0` がレジストリと
 同じようにタグのコミットから行を読み戻します。トークンは公開されていて、どの
@@ -397,7 +377,6 @@ astra-plugin publish --dry-run
   · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
   · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
   · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
-  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
@@ -408,105 +387,70 @@ astra-plugin publish --dry-run
   delayed 24 hours, or held for a person — is docs/POLICY.md.
 ```
 
-このリストの中で、あなた自身の作業が決めるものは所有権の行であり、それは
-[ステップ 4](#4--push-する公開で--所有権ファイルとともに)で行いました。
+このリストの中で、あなた自身の作業が決めるものはバインディングの判定であり、
+それは [ステップ 4](#4--push-する公開で--所有権ファイルとともに)で行いました。
 残りは、ワークフローがビルドしたリリースにタグを打ったことから導かれます。
 
 ## 8 · 1 回だけ提出する
 
-**これを実行する前に**、[ステップ 4](#4--push-する公開で--所有権ファイルとともに)
-の所有権ファイルがデフォルトブランチにあることを確認してください。これは、
-他のすべてを正しく行っていても失敗しうる、このページで唯一のチェックです:
-
-<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
-```bash
-gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
-  --header 'Accept: application/vnd.github.raw+json'
-```
-
-これはあなたのログインを表示するはずです。`Not Found (HTTP 404)` は、
-レジストリもそれを見つけられないことを意味します。
+**これを実行する前に**、レジストリとまったく同じやり方で、タグから
+バインディング行を読み戻してください。このページで、他のすべてを正しく
+やっていても失敗しうる唯一のチェックです:
 
 <!-- doctest: cli -->
 ```bash
+astra-plugin check --tag v0.1.0
 astra-plugin publish
 ```
 
-これはブラウザで**あらかじめ内容が入力された issue** をレジストリ上に開きます。
-何もアップロードせず、資格情報も一切保持しません — `astra-plugin login` は
-存在せず、シェル履歴にトークンが残ることもなく、連携すべきキーリングもありません。
-`--print-url` はブラウザを開く代わりにリンクを表示します。
+`publish` はパネルの**提出ページ**を、リポジトリとタグを記入済みの状態で
+ブラウザに開きます。何もアップロードせず、資格情報も一切保持しません —
+`astra-plugin login` はなく、シェル履歴に残るトークンもなく、連携すべき
+キーリングもありません。あなたが、リポジトリのバインドされた Minice
+アカウントでサインインして提出するまで、ページは何も提出しません。
+`--print-url` はブラウザを開く代わりにリンクを表示します:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project in a bound git repository; the flags themselves are checked by the cli block above" -->
 ```
-dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
+dice-roller 0.1.0 — submission for you/dice-roller@v0.1.0, in the panel
 
-  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI
-  build and attest, and the registry picks it up. Everything on the store card —
-  name, summary, licence, capabilities, permissions, digests — is read out of the
-  attested bundle, so there is nothing else to fill in and nothing to keep in sync.
+  Bound: `astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd` is line 1 of the owner file at HEAD. Submit in the
+  panel signed in to the Minice account that minted that token. The page fills itself
+  in from this link and submits nothing until you do. The registry reads the tag's
+  commit, not HEAD — `astra-plugin check --tag v0.1.0` reads it the same way.
 
-https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0
 ```
 
-> **そのリンクを使ってください。** その中の `template=plugin-listing.yml` は
-> 意味を持っています。issue テンプレートは `labels: ["listing", "needs-triage"]`
-> を宣言しており、レジストリの bot は `listing` ラベルが付いた issue に対して
-> しかサブミッションパスに入りません。それを付けるものは他にありません — bot
-> 自身も、意図的に付けません。あのリポジトリではこのラベルは分類ではなく権限の
-> トークンだからです。
->
-> 以前はこれが黙って失敗していました。実在する著者からの 2 件の申請がラベルなし
-> で届き、トリアージは `mode: "none"` を返し、チェック・公開・コメントのどの
-> ステップもスキップされ、**拒否ですらなく、まったく何の応答もありませんでした** —
-> それがこのページの存在理由です。今はその両方が塞がれています。レジストリは
-> ブランク issue を無効化したのでフォームが唯一の入り口であり、それでもラベル
-> なしで届いた申請には、ラベル名と、同じ issue 上で検証を開始させるワンクリック
-> を挙げたコメントが付きます。それでもこのリンクを使ってください。誰も介入せずに
-> 取り込みが始まる経路はこれです。
-
-この提出には **2 つの事実** — あなたのソースリポジトリ(`you/dice-roller`)と
-リリースタグ(`v0.1.0`) — と、3 つの必須確認事項 — `.well-known/astra-plugin-owner`
-をデフォルトブランチにコミットし、そこに自分のログイン名があること、あなたが
-そのリポジトリの所有者またはメンテナーであること、ポリシーを読んだこと — が
-含まれます。それ以外は
-すべて証明済みバンドルから読み取られます。バンドル内のすべてが証明の対象と
-なっているため、フォームに入力された何よりも厳密に価値が高いからです。
+提出が運ぶのは **2 つの事実** です: ソースリポジトリ(`you/dice-roller`)と
+リリースタグ(`v0.1.0`)。それ以外はすべて証明済みのバンドルから読み取られ
+ます。バンドル内のすべては証明によってカバーされており、フォームに入力された
+どんなものよりも厳密に価値があるからです。
 
 ## 9 · そのあと何が起きるか
 
-詳細と理由コードの全一覧は [リストに掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#4--提出後に何が起きるか)
-にあります。要約すると次のとおりです。
+各コードを含む詳細: [掲載してもらう §提出後に何が起きるか](5-publish/get-listed.md#3--提出後に何が起きるか)。
+短く言えば: パネルが提出の状態を表示し、同じ節目が通知としても届きます —
+Minice アカウントの検証済みメールアドレスとパネルに、そして Telegram には
+それを連携している場合にのみ届きます。
 
 | 結果 | 意味 | 誰が関わるか |
 |---|---|---|
-| **公開済み(Published)** | コミット済みで、次のインデックスビルドでカタログに載る | 誰も関わらない |
-| **遅延(Delayed)** | すべて通過。指定された時刻に自動的に公開される | 誰も関わらない |
-| **保留(Held)** | レジストリが自動で下してよい判断ではない | メンテナーが **48 時間以内**に対応 |
-| **拒否(Refused)** | いずれかのチェックが失敗した | あなた: 直して issue に `/recheck` とコメントする |
+| **公開** | コミットされ、その後、署名済みカタログに入る | 誰も関わらない |
+| **遅延** | すべて通った。パネルが示す時刻に自動で公開される | 誰も関わらない |
+| **保留** | レジストリが自動で下す資格のない判断 | モデレーター、パネルで |
+| **拒否** | チェックが失敗した | あなた: 直してから、コードの指示どおりパネルで Recheck するか、タグを打ち直す |
 
-**最初のリスト掲載は必ず人による保留になります** — これは、新たに要求された
-高リスクパーミッションおよびリポジトリの変更と並んで、人の判断が必要な
-ちょうど 3 つのイベントのうちの 1 つです。48 時間はそのすべてに対して公表
-されている SLA です。
-
-保留は、メンテナーがあなたの issue に `/approve` とコメントすることで解除
-されます。これはキャッシュされた何かを信用するのではなく、すべてのチェックを
-ゼロからやり直します。あなたがそのコマンドを打つことはなく、待っている間に
-すべきこともありません。[保留がどう解除されるか](5-publish/get-listed.md#保留はどう解除されるか)
-を参照してください。
-
-bot はいずれの場合も結果と理由をあなたの issue にコメントします。そして今では、
-処理を*開始しない*とき — つまりステップ 8 で説明した失敗のとき — にもコメント
-します。1 時間経ってもコメントが付かない場合は `listing` ラベルを確認して
-ください。付いていなければ、メンテナーに付けてもらってください。ラベル付けは
-新規申請と同じイベントを発生させるので、その issue 上で検証が始まり、打ち直す
-ものは何もありません。
+**最初の掲載は必ず人のために保留されます** — 人を必要とするちょうど 3 つの
+出来事の 1 つで、残りは新たに要求された高リスクのパーミッションと、
+リポジトリまたはバインディングの変更です。モデレーターがパネルで承認または
+却下し、待っている間あなたは何もしません。承認が遅延を縮めることはなく、
+ルールはレジストリの `docs/POLICY.md` が公開しています。
 
 ## 10 · それ以降のすべてのリリース
 
-何もありません。タグを打てば、あとは CI がやってくれます。レジストリがリリース
-に気づき、インデックスを再生成します。
+何もありません。タグを打てば、あとは CI がやります。レジストリは掲載済みの
+プラグインの新しいタグを自分で検出し、パネルがその状態を表示します。
 
 <!-- doctest: cli -->
 ```bash
@@ -515,18 +459,8 @@ git commit -am "release 0.2.0"
 git tag v0.2.0 && git push --tags
 ```
 
-数分経ってもレジストリが気づいていない場合。
-
-<!-- doctest: cli -->
-```bash
-astra-plugin publish --notify
-```
-
-これは**すでにリストに掲載されている**プラグイン向けの手動 ping です。
-`--notify` を付けないと、`publish` は代わりに最初のリスティング申請を開いて
-しまいます。2 回目以降のリリースではそれは望むものではありません。
-
----
+提出するものも、ping するものもありません。現れないリリースは、パネルの
+あなたのプラグインのページに、その状態と理由とともに載っています。
 
 ## 何が信頼を確立するか
 

@@ -306,9 +306,11 @@ astra-plugin <version>
 
 ですから `0.2.1` には価値があります — この問いに自力で答えられる最初の番号であり、
 まさにそのために存在します — が、`0.2.0` と表示される `0.2.0` は何の証拠にも
-なりません。`0.2.1` はフラグを増やさず API も変えません。唯一変わった振る舞いは
-`publish --notify` で、そのリンクはレジストリがすでに無効化したブランク issue に
-頼るのをやめ、release-ping フォームを名指しするようになりました。
+なりません。`0.2.1` はフラグを増やさず API も変えません。唯一変わった振る舞いは、
+すでに掲載されているプラグインのために `publish` が表示したリンクで、それ以降は
+レジストリが無効化したブランク issue に頼るのをやめ、そのためのレジストリの
+フォームを名指しするようになりました。そのフォームと、それを開いたフラグは、
+CLI 0.5.0 以降ありません: レジストリは新しいタグを自分で検出します。
 
 `--version` が `0.2.0` と表示する場合、まず `which astra-plugin`(Windows では
 `where`)を実行してください。最もよくある原因は古いバイナリが `PATH` 上で前に来て
@@ -356,7 +358,7 @@ Commands:
   check    Check a plugin manifest, config schema and release workflow
   init-ci  Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs
   version  Set the version in plugin.toml and every other manifest at once
-  publish  Get a release listed: preflight it, or open a prefilled submission
+  publish  Get a release listed: preflight it, or open the panel's submission page
   keygen   Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses
   locale   Manage `locales/` — the plugin's translations, and its store card's text
   help     Print this message or the help of the given subcommand(s)

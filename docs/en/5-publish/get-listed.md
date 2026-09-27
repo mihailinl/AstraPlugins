@@ -13,13 +13,13 @@ that; if you have not, do [Release with CI](release-with-ci.md) first, or read
 
 **What does not substitute for it**, because each of these has been tried: a
 repository containing your source, a `.zip` sent to somebody, a bundle you built
-on your laptop, or an issue asking a maintainer to build it. The registry lists
+on your laptop, or a message asking a maintainer to build it. The registry lists
 release assets that CI attested, and nothing else.
 
-Nearly every command below is `astra-plugin`; the exception is
-[step 2](#2--prove-you-control-the-repository), which is one file and a `git
-commit` in your own repository. If you do not have the CLI,
-[install the CLI](../install-cli.md) first — there are prebuilt binaries now.
+Every step below is `astra-plugin`, a commit in your own repository, or the
+panel at https://astra.minice.ai/plugins, signed in to your Minice account. If
+you do not have the CLI, [install the CLI](../install-cli.md) first — there are
+prebuilt binaries.
 
 ## 1 · Preflight
 
@@ -41,17 +41,16 @@ what is still unproven:
   · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
   · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
   · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
-  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
   · the declared-vs-called host RPC scan
 ```
 
-**One of those you can settle in advance, and should.** The ownership line
-names the file, and committing it is [step 2](#2--prove-you-control-the-repository).
-Do it before you submit and the check passes on the first run; leave it and the
-first answer you get is a refusal.
+**One of those you settle in advance, and must.** The binding verdict reads the
+line [Bind your repository](#bind-your-repository) writes. Commit it before you
+tag and the check has something to find; leave it out and the first answer is
+`B_UNBOUND`.
 
 ### What your listing will look like
 
@@ -107,104 +106,15 @@ Three rules, all of which the registry applies when it derives your listing:
 Long READMEs are truncated at 16 KB on a line boundary, with a link to the rest
 on GitHub.
 
-## 2 · Prove you control the repository
-
-**Do this before you open the issue.** It is one file and one commit, and
-skipping it is the single most common way a correct, honest first submission
-gets refused.
-
-The registry has to answer one question that nothing else on this page answers:
-**does the person asking for this listing control the repository being listed?**
-The attestation already proves the bundle came out of that repository, and the
-listing is pinned to it — but neither fact says who *you* are. Without this
-step, a stranger could list somebody else's plugin and become the identity
-through which its updates reach Astra users.
-
-Commit this file to your repository's **default branch**:
-
-<!-- doctest: illustrative reason="the path and content of a file the author writes in their own repository; there is nothing here for a runner to execute" -->
-```
-path      .well-known/astra-plugin-owner
-content   your GitHub login, one per line
-```
-
-The one command that creates it, run at the root of your plugin's repository:
-
-<!-- doctest: illustrative reason="git commands against the author's own repository — the runner has no such repository, and `cli` blocks must contain an astra-plugin command" -->
-```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
-git add .well-known/astra-plugin-owner
-git commit -m "Declare the Astra registry owner for this repository"
-git push
-```
-
-**What it proves:** somebody who can write to your default branch asserts that
-this GitHub login speaks for this repository — read live at the moment the bot
-checks, so removing a login stops that person opening a new listing request or
-passing a `/recheck`. It does **not** reach a plugin that is already listed:
-[every release after that](#5--every-release-after-that) is proved against the
-account that published the release, and the listing stays pinned to this
-repository either way.
-**What it does not prove:** anything whatsoever about your code, which nobody
-reads; it is not a signature, and it is not a safety review.
-
-### The format, exactly
-
-One login per line. Everything after a `#` is a comment, a leading `@` is fine,
-surrounding whitespace is trimmed, and the match is case-insensitive. Only the
-first 4 KB is read. So this file is valid and lists one owner:
-
-<!-- doctest: illustrative reason="the contents of a file in the author's repository, not a command" -->
-```
-# owners of this repository
-@Rel0d1x   # primary
-```
-
-List every person who may submit or re-submit on this repository's behalf. For
-an organisation-owned repository that is usually more than one name.
-
-### Check that the registry can read it
-
-The bot reads the file through GitHub's contents API, unauthenticated, on the
-default branch. You can make exactly the request it makes:
-
-<!-- doctest: illustrative reason="gh against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
-```bash
-gh api repos/you/dice-roller/contents/.well-known/astra-plugin-owner \
-  --header 'Accept: application/vnd.github.raw+json'
-```
-
-It should print your login back. If it prints `Not Found (HTTP 404)`, the file
-is not where the bot looks — the usual causes are that it is on a branch other
-than the default one, that it is still uncommitted or unpushed, or that the
-directory is spelled `well-known` without the leading dot.
-
-### Why this is a step and not a fallback
-
-The registry tries three ways to establish control, and this file is the one
-that works for an ordinary author. That is not a preference; it is structural,
-and both of the others were watched failing on real submissions:
-
-| Way | Why it does not answer for you |
-|---|---|
-| **Collaborator permission** — asking GitHub who has `admin` or `maintain` | GitHub answers that endpoint only for a caller that already has admin visibility on the repository. The registry's token belongs to the registry, so for *your* repository it gets `403` — which means "I will not tell you", not "no", and is treated as no answer at all |
-| **Release author** — the account that published the release | The release workflow on [Release with CI](release-with-ci.md) creates the GitHub Release, so its author is `github-actions[bot]` rather than a person. Following the documented path is what defeats this one |
-| **`.well-known/astra-plugin-owner`** | Nothing has to be visible to the registry, and nothing has to be installed. It answers |
-
-A `403` on the first way is not held against you and never becomes a refusal on
-its own. The refusal happens only when all three come back with nothing, which
-is exactly what happens when this file does not exist.
-
 ## Bind your repository
 
-**A listing is moving from a GitHub login to a Minice account.** The ownership
-file above names a GitHub login, and that is how a first listing through the
-registry's issue form is proved today. From the registry's cutover, every first
-listing needs a **binding** instead: one more line in the same file, written by
-the CLI from a token you mint in the panel, signed in to the Minice account that
-will publish. Binding now costs one command and is where every listing is
-going; an existing listing has until the binding deadline (below).
+**A listing belongs to a Minice account.** Every first listing, and every
+release of a listing that has one, is read against a **binding**: one line in
+`.well-known/astra-plugin-owner` at the root of your repository, written by the
+CLI from a token you mint in the panel, signed in to the Minice account that
+will publish. It is the one step on this page that is not a command, and
+skipping it is the most common way a correct, honest first submission is
+refused.
 
 **1 · Mint a token.** Sign in at https://astra.minice.ai/plugins with the Minice
 account that will own the listing — it needs `astraUser`, which comes with
@@ -250,7 +160,7 @@ astra-plugin check --tag v0.1.0
 A malformed line fails here, with `B_BINDING_MALFORMED`, while it is still
 free to fix. A missing one is a warning predicting `B_UNBOUND`. Four answers
 only the registry can give are named as not checked, every time.
-**4 · Submit in the panel.** From a bound repository, `astra-plugin publish`
+**4 · Submit in the panel.** `astra-plugin publish`
 opens the panel's submission page with the repository and the tag filled in,
 for example
 https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0 —
@@ -307,7 +217,7 @@ reserved id, or one outside the registry's id pattern — and a malformed bindin
 line. `astra-plugin dev` and `astra-plugin build` refuse neither: the registry's
 rules decide what gets listed, never what you may run.
 
-## 3 · Submit
+## 2 · Submit in the panel
 
 <!-- doctest: cli -->
 ```bash
@@ -315,44 +225,29 @@ astra-plugin publish
 astra-plugin publish --print-url
 ```
 
-It opens a prefilled issue on the registry in your browser. **It uploads
-nothing and holds no credential** — there is no `astra-plugin login`, no token
-in your shell history, no keyring to integrate with. `--print-url` prints the
-link instead:
+It opens the panel's **submission page** in your browser, with your repository
+and tag filled in. **It uploads nothing and holds no credential** — there is no
+`astra-plugin login`, no token in your shell history, no keyring to integrate
+with. The page fills itself in from the link and submits nothing: you submit it,
+signed in to the Minice account your repository is bound to. `--print-url`
+prints the link instead:
 
-<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project and a real GitHub release; the flags themselves are checked by the cli block above" -->
+<!-- doctest: output from="astra-plugin publish . --print-url --repo you/dice-roller --tag v0.1.0" unrun="needs a plugin project in a bound git repository; the flags themselves are checked by the cli block above" -->
 ```
-dice-roller 0.1.0 — listing request for you/dice-roller@v0.1.0
+dice-roller 0.1.0 — submission for you/dice-roller@v0.1.0, in the panel
 
-  A plugin is listed once, ever. After this, releases are zero-touch: tag, let CI
-  build and attest, and the registry picks it up. Everything on the store card —
-  name, summary, licence, capabilities, permissions, digests — is read out of the
-  attested bundle, so there is nothing else to fill in and nothing to keep in sync.
+  Bound: `astra-binding: k3Vq9ZtW2xLr8NfBcY5pHd` is line 1 of the owner file at HEAD. Submit in the
+  panel signed in to the Minice account that minted that token. The page fills itself
+  in from this link and submits nothing until you do. The registry reads the tag's
+  commit, not HEAD — `astra-plugin check --tag v0.1.0` reads it the same way.
 
-https://github.com/mihailinl/astra-registry/issues/new?template=plugin-listing.yml&title=%5Blisting%5D+you%2Fdice-roller&repository=you%2Fdice-roller&release_tag=v0.1.0
+https://astra.minice.ai/plugins/_/submit?repo=you/dice-roller&tag=v0.1.0
 ```
 
-That capture is from a directory with no git tag of its own. Run it inside your
-checkout before you have fetched the tag and one extra line appears above the
-paragraph — `Note: this checkout has no tag v0.1.0.` It is a reminder, not an
-error: the registry reads the release from GitHub, so what matters is that the
-tag is pushed and CI has attached the assets.
-
-> **`template=plugin-listing.yml` in that URL is load-bearing.** The template
-> declares `labels: ["listing", "needs-triage"]`, and the registry's bot enters
-> the submission path only for an issue carrying `listing`. Nothing else applies
-> that label — not even the bot, on purpose: there it is an authority token, not
-> a category, so a bot that stamped it on anything form-shaped would hand the
-> exemption to anyone who can copy a form.
->
-> Two real listing requests were lost exactly this way: they arrived unlabelled,
-> triage returned `mode: "none"`, the check, publish and comment steps were all
-> skipped, and the authors got **no answer at all, not even a refusal**. That is
-> fixed on both sides now. Blank issues are disabled on the registry, so the
-> *New issue* page offers only forms; and an unlabelled request that does arrive
-> gets a comment saying exactly what is missing, plus the one click — a
-> maintainer adding `listing` — that starts verification on that same issue with
-> nothing retyped. Opening it from this link still skips all of that.
+A repository with no binding line is told so above the link, and where to read
+how to bind; a checkout without the tag gets one line saying the tag has to be
+pushed. Both are reminders, not errors: the registry reads the tag's commit and
+the release from GitHub, so what matters is what you pushed.
 
 The submission carries **two facts**:
 
@@ -361,10 +256,6 @@ The submission carries **two facts**:
 | Source repository (`you/dice-roller`) | The bundle cannot vouch for where it is served from |
 | Release tag (`v0.1.0`) | Same |
 
-Plus three confirmations, all required: that you have committed
-`.well-known/astra-plugin-owner` to the default branch with your login in it,
-that you own or maintain the repository, and that you have read the policy.
-
 **Everything else is read out of the attested bundle** — the id, the version,
 the display name, the summary, the licence, the capabilities, the permissions,
 the platforms, the digests, the sizes. That is not a convenience: everything in
@@ -372,109 +263,90 @@ the bundle is covered by the attestation, which makes it strictly more
 trustworthy than anything typed into a form. It also deletes a whole class of
 rejection, because there is no form for `plugin.toml` to disagree with.
 
-## 4 · What happens after you submit
+## 3 · What happens after you submit
 
-This section is the one two real authors needed and did not have. It describes
-the registry's flow as `astra-registry/docs/POLICY.md` and `docs/BOT-CHECKS.md`
-define it; both are generated from or asserted against the bot's own code
-(`bot/lib/policy.mjs`, `bot/lib/codes.mjs`), so the numbers here cannot quietly
-drift from the code that keeps them.
+The panel shows your submission's state and every reason attached to it, and
+the same moments reach you as notices: at the Minice account's verified e-mail
+address and in the panel, and by Telegram only if you have linked it — nothing
+requires Telegram. The rules below are the registry's, published in its
+`docs/POLICY.md`; the codes are the ones the panel shows, with English titles at
+launch.
 
-### The sequence
+### The states a submission moves through
 
-1. **Your issue gets the `listing` and `needs-triage` labels** — from the issue
-   template, automatically. This is the step that decides whether anything
-   happens at all; see the warning in §3.
-2. **The bot triages it**, reads your two facts, fetches the release from GitHub
-   unauthenticated, and runs every check in `docs/BOT-CHECKS.md` against the
-   bytes: the attestation and which workflow produced it, that the asset URLs sit
-   under your own repository's release namespace, that you control the
-   repository ([step 2](#2--prove-you-control-the-repository)), the archive's
-   structure, the manifest, the licence, the version ordering, and the
-   declared-versus-called host RPC scan.
-3. **The bot comments on your issue** with the outcome, the reason, and — when
-   there is one — the exact time it will publish. You are told either way.
-
-If nothing has commented within an hour, check the issue's labels. No `listing`
-label means step 1 did not happen and nothing downstream ran.
-
-### The four outcomes
-
-| Outcome | Means | Who is involved |
-|---|---|---|
-| **Published** | Committed, and in the catalogue on the next index build | nobody |
-| **Delayed** | Everything passed; it publishes itself at a stated time | nobody |
-| **Held** | A decision the registry is not entitled to make automatically | a maintainer, within 48 h |
-| **Refused** | A check failed. The policy never got a say | you: fix it and comment `/recheck` |
+| State | Means |
+|---|---|
+| `received` | The panel accepted your submission and nothing has read it yet |
+| `checking` | The registry's bot is reading the release and verifying every asset from scratch |
+| `held` | Everything a machine can decide passed, and one decision is a person's — see below |
+| `approved` | A moderator approved the hold; it publishes when nothing else is waiting |
+| `delayed` | Everything passed; it publishes itself at the time the panel shows |
+| `published` | Committed to the registry |
+| `served` | In the signed catalogue that Astra installs from |
+| `refused` | A check failed. The panel names the code, and whether a Recheck can clear it or it needs a new tag |
+| `stopped` | You stopped it before it published, and it will not |
 
 A release publishes itself with no human when all of these hold: it comes from
-the repository already listed for that plugin, every bot check is green, the
-version is strictly newer, it asks for no high-risk permission it did not
-already have, and it asks for no new permission or capability at all. Drop only
-the last and it still self-publishes, after a delay.
+the repository already listed for that plugin, bound to the same account; every
+bot check is green; the version is strictly newer; it asks for no high-risk
+permission it did not already have; and it asks for no new permission or
+capability at all. Drop only the last and it still self-publishes, after a
+delay.
 
-**A first listing is never one of those.** It is held for a person by
-definition — see below — so the answer to "how long until my first plugin is
-listed" is *up to 48 hours after the bot comments*, not *minutes*.
+**A first listing is never one of those.** It is held for a person once, ever,
+so the answer to "how long until my first plugin is listed" is *when a moderator
+has read it*, and the panel shows that it is waiting.
 
-### How a hold is cleared
+### When the answer is a code
 
-Nothing is required of you. A maintainer comments **`/approve`** on your issue,
-and the entire ingest then runs again from scratch against the bytes as they are
-at that moment — an approval is a "a person said yes, at this time" marker and
-carries no cached verdict, so approving something does not skip a single check.
-**`/reject <reason>`** is the other half, and it must carry a reason, which is
-posted to you. Both commands are permission-checked against the registry
-repository: the commenter needs `admin` or `maintain` there, re-proved through
-GitHub's API at the moment the command is read rather than trusted from the
-event payload, and a command from anyone else is answered rather than ignored.
+A refusal is not a verdict on your plugin; it is a named, fixable condition, and
+the panel says which of two ways it clears. **Recheck**, a button in the panel,
+re-runs every check from scratch against the same tag — for a fix outside the
+tagged bytes, such as a release asset you forgot to attach. **A new tag** is the
+only way to change anything inside them, because the attestation covers those
+exact bytes. The binding codes:
 
-You do not type either command, and you do not need to do anything while you
-wait. They are documented here only so that "held for a maintainer" names a
-mechanism rather than a silence.
+| Code | What it means | Fix |
+|---|---|---|
+| `B_UNBOUND` | No binding line at the tagged commit, and this listing needs one | Bind the repository and tag again: [Bind your repository](#bind-your-repository) |
+| `B_BINDING_MALFORMED` | Two binding lines, or a line meant as one that is not (`Astra-Binding:`, a short token) | `astra-plugin init-ci --binding <token>` rewrites the file with exactly one line; tag again. `astra-plugin check --tag` shows this before you push |
+| `B_BINDING_UNUSABLE` | The token on the line binds nothing this release can use: revoked, expired, minted for another repository, or its account may not publish | Mint a new token for this repository in the panel and tag again; the panel says which of the two below applies to you |
+| `B_BINDING_INVALID` | Shown only to you and to moderators: the token itself is the problem — unknown, revoked, expired, or minted for another repository | Mint a new one for this repository |
+| `B_ACCOUNT_INELIGIBLE` | Shown only to you and to moderators: the account behind the token may not publish, for example because it no longer holds `astraUser` | Fix the account, then Recheck |
+| `B_OWNER_CHANGED` | The repository now belongs to a different owner than the one this listing is recorded under | A transfer is an author change. It waits for a moderator; installed copies keep the old name until reinstalled |
+| `B_REPOSITORY_RECYCLED` | The repository name now belongs to a different repository than the one listed | Permanent: no Recheck, tag or approval clears it. Only a moderator can reset the listing's identity |
 
-*One caveat, stated because this page's rule is to state them:* this
-maintainer-command path is landing in the registry at the same time as this
-page. If your hold predates it, the outcome is the same and the SLA is the same
-— a maintainer still decides — but the decision may be recorded by hand rather
-than by the command.
-
-### What a refusal looks like
-
-The bot comments with a fixed code and what to do about it. A refusal is not a
-verdict on your plugin; it is a named, fixable condition. The ones authors hit
-most:
+And the release codes authors hit most:
 
 | Code | What it means | Fix |
 |---|---|---|
 | `E_ATTESTATION_MISSING` | The bundle has no build attestation | You uploaded a bundle you built yourself. Let CI build it: [release with CI](release-with-ci.md) |
-| `E_NO_BUNDLE_ASSETS` | The release carries no `.astraplugin` asset | The workflow did not run, or ran and failed. Check the Actions tab on your repository |
-| `E_RELEASE_NOT_FOUND` | That repository has no release with that tag | A draft release is invisible to everyone but you, and a private repository looks identical to a missing one |
-| `E_WORKFLOW_NOT_ALLOWED` | The build ran a workflow this registry does not allow | Pin the Astra reusable workflow by commit SHA. `astra-plugin init-ci` does it for you |
+| `E_NO_BUNDLE_ASSETS` | The release carries no `.astraplugin` asset | The workflow did not run, or ran and failed. Check the Actions tab, attach the assets, then Recheck |
+| `E_RELEASE_NOT_FOUND` | That repository has no release with that tag | A draft release is invisible to everyone but you, and a private repository looks identical to a missing one. Publish it, then Recheck |
+| `E_WORKFLOW_NOT_ALLOWED` | The build ran a workflow this registry does not allow | Pin the Astra reusable workflow by commit SHA — `astra-plugin init-ci` does it — and tag again |
 | `E_ASSET_URL_FOREIGN` | An asset URL is not under your repository's own releases | Every download URL must sit under `https://github.com/<owner>/<repo>/releases/download/<tag>/` |
-| `E_OWNERSHIP_UNPROVEN` | Nothing proved that you control that repository | You almost certainly skipped [step 2](#2--prove-you-control-the-repository). Commit `.well-known/astra-plugin-owner` on the default branch with your GitHub login in it, then comment `/recheck` — no new release and no new tag is needed |
 | `E_INPUT_REPO` / `E_INPUT_TAG` | The repository or tag is not in the form expected | `you/dice-roller`, not a URL; `v0.2.0`, not a commit SHA or a branch |
 
-After you fix it, comment **`/recheck`** on the same issue. Every check runs
-again from scratch against the bytes as they are at that moment; nothing is
-resumed and nothing queued is trusted. The full list, with the exact wording of
-each failure, is `docs/BOT-CHECKS.md` in the registry.
+The full list, with each code's title and fix, is `docs/BOT-CHECKS.md` in the
+registry.
 
-The bot's own exit codes are `0` listed · `1` refused · `3` held for a
-maintainer · `2` the bot itself failed. The last is deliberately distinct: "your
-plugin is bad" and "our tooling is bad" must never render as the same comment to
-a stranger.
+Two waits look like a stuck submission and are not:
+
+| Code | What it means |
+|---|---|
+| `W_ELIGIBILITY_UNREADABLE` | The registry reads your account's eligibility from its last verified sign-in, which counts for 12 hours. Sign in to the panel and the release goes on; a `notice.sign_in` notice says the same |
+| `W_REGISTRY_UNACKNOWLEDGED` | The registry's bot changed and awaits an operator's acknowledgement. Nothing is wrong with your release, and nothing is asked of you |
 
 ### The three things that need a person
 
 Exactly three, and the list does not grow without a change to the registry's
 published policy:
 
-| Event | Why |
-|---|---|
-| **The first listing of a plugin** | Once, ever. Nothing is pinned yet, so nothing later can be checked against it |
-| **A newly requested high-risk permission** | The user will be asked to consent to it; somebody should have read what it is for first |
-| **The repository or identity changed** | Every installed copy carries a pin to the old repository. A repository change is an author change until somebody says otherwise |
+| Event | Code | Why |
+|---|---|---|
+| **The first listing of a plugin**, or the first release that carries a binding line for one already listed | `R_FIRST_LISTING`, `R_FIRST_BINDING` | Once, ever. Nothing is pinned yet, so nothing later can be checked against it |
+| **A newly requested high-risk permission** | `R_NEW_HIGH_RISK` | The user will be asked to consent to it; somebody should have read what it is for first |
+| **The repository, its identity or its binding changed** | `R_IDENTITY_CHANGED`, `R_BINDING_CHANGED` | Every installed copy carries a pin to the old repository. A change is an author change until somebody says otherwise |
 
 High-risk here is four names: `client`, `dom_access`, `send_chat_message`,
 `set_theme_contribution` — matched in `[capabilities]` and `[permissions]`
@@ -484,53 +356,60 @@ already owns.
 
 A check may separately hand a decision to a person — a name one edit away from a
 listed plugin, a display name that collides with one. That arrives as
-`R_CHECK_HELD`, is not one of the three, and carries the same SLA.
+`R_CHECK_HELD` and is not one of the three.
 
-**The SLA is 48 hours** for those, from the moment the bot comments. There is
-one maintainer, which is precisely why the list is three items long. The
-registry publishes what happens when that slips, rather than only the promise:
-past 96 hours the maintainer must either publish the queue or move the
-triggering event out of the blocking set, in a reviewed commit that also edits
-the paragraph making the promise.
+A moderator approves or rejects in the panel, and a rejection carries a reason,
+which reaches you. You do nothing while you wait; the panel shows the hold.
 
 ### When a release waits instead
 
 Some releases pass everything and still do not publish immediately:
 
-| Situation | Code | Delay |
-|---|---|---|
-| The plugin holds **any** high-risk permission, whether or not this release changed it | `P_DELAY_HIGH_RISK` | 24 h |
-| The release asks for a permission or capability the previous one did not, inside the non-high-risk set | `P_DELAY_WIDENED` | 24 h |
-| Either of the above, from an author with **5 clean** releases in this registry | `P_TRUSTED_AUTHOR` | 6 h |
+| Situation | Code |
+|---|---|
+| The plugin holds **any** high-risk permission, whether or not this release changed it | `P_DELAY_HIGH_RISK` |
+| The release asks for a permission or capability the previous one did not, inside the non-high-risk set | `P_DELAY_WIDENED` |
+| Either of the above, from an author with a clean release history in this registry | `P_TRUSTED_AUTHOR` |
 
-The bot states the exact publication time, and when the clock runs out the
-entire ingest runs again from scratch against the bytes as they are then. The
-delay buys one thing and the registry does not claim more: a window in which an
-author whose GitHub account was taken over can see a release they did not make
-and say so.
+The panel states the exact publication time, and when the clock runs out the
+entire check runs again from scratch against the bytes as they are then. **No
+approval shortens a delay.** The delay buys one thing and the registry does not
+claim more: a window in which an author whose account was taken over can see a
+release they did not make, and stop it. The lengths are the registry's
+`docs/POLICY.md`.
 
-## 5 · Every release after that
+A listing that is still `grandfathered` — listed before bindings, and not bound
+yet — has one more wait: from the cutover, a delayed or reviewed release of it
+waits until the listing is bound.
 
-Nothing. Tag, and CI does the rest; the registry notices the release and
-regenerates the index.
+### Stop, yank, appeal, report
 
-If it has not noticed:
+- **Stop.** Until a release publishes, you can stop it in the panel, and it
+  will not publish.
+- **Yank.** After it publishes, you can yank a version in the panel. A yank is
+  never undone — publish a new version instead — and it is recorded with a
+  decision record, like every other decision about a listing. While your listing
+  is not yet bound, ask a moderator in the panel to yank for you.
+- **Appeal.** A decision about your listing that you think is wrong is appealed
+  in the panel, and the answer is recorded there.
+- **Ratings** are stars only: no text, no replies, no names.
+- **Reports** about somebody else's plugin go through
+  https://astra.minice.ai/plugins, not through GitHub. A security problem in
+  Astra, the daemon, the registry or the signing chain goes to
+  security@minice.ai — see [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#security).
 
-<!-- doctest: cli -->
-```bash
-astra-plugin publish --notify
-```
+## 4 · Every release after that
 
-That is the manual ping for a plugin that is **already listed**. Without it,
-`publish` opens a first-listing request.
+Nothing. Tag, and CI does the rest: the registry detects a new tag of a listed
+plugin by itself, verifies it, and the panel shows its state. There is nothing
+to submit and nothing to ping. A release that has not appeared is on the
+panel's page for your plugin, with its state and the reason.
 
-**Ownership is a different question on this path.** A ping, and the cron
-backstop behind it, proves the release against the account that *published*
-it — not against whoever typed the ping, and not against
-`.well-known/astra-plugin-owner`. Editing that file therefore does not change
-who can ship a release of a plugin that is already listed. What bounds this is
-that a ping may only name a repository the registry has **already pinned**: a
-change of repository stops being routine and goes back to a person.
+**Binding is checked on every release, not only the first.** Each one is read
+against the binding line at its tagged commit and the listing's identity
+record, so a repository whose line changed, or that moved to another owner,
+waits for a person rather than publishing — which is what makes a stolen token
+or a transferred repository an event somebody sees.
 
 ## What a listing does not mean
 
@@ -567,8 +446,8 @@ See [`spec/registry-index.md` §0.1](../spec/registry-index.md) and
 [the security model](../1-orientation/security.md).
 
 What that means for you: the submission path on this page works end to end
-today — your issue is read, the checks run, the bot answers, and a listing is
-committed. What is still pending is the signed withdrawal list on Pages, which
+today — your submission is read, the checks run, the panel shows the answer,
+and a listing is committed. What is still pending is the signed withdrawal list on Pages, which
 lets the registry withdraw a version from copies already installed. Nothing on
 this page changes when it lands.
 
