@@ -5,10 +5,10 @@
 Protokoll-Generation **1**. 10 Dienste, 163 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: d173c81fd30bb6fd…`, der Digest des Plugin-zugewandten
+(`surface-sha256: 1ea69b0fc5e498df…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:f0c280d792105b09…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:91600e174d21ce2c…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
@@ -124,7 +124,7 @@ Nutzer tatsächlich läuft.
 | `UpdatePluginConfig` | `UpdatePluginConfigRequest` | `Empty` | unary | Aktualisiert Plugin-Config |
 | `BrowsePluginRegistry` | `PluginBrowseRequest` | `PluginBrowseResponse` | unary | Durchsucht die Plugin-Registry |
 | `CheckPluginUpdates` | `Empty` | `PluginUpdatesResponse` | unary | Prüft installierte Plugins auf Updates |
-| `UpdatePlugin` | `PluginIdRequest` | `PluginStatusMsg` | unary | Aktualisiert ein Plugin auf die neueste Version |
+| `UpdatePlugin` | `UpdatePluginRequest` | `UpdatePluginResponse` | unary | Aktualisiert ein Plugin auf die neueste Version |
 | `SideloadPlugin` | `SideloadPluginRequest` | `PluginStatusMsg` | unary | Sideloaded ein Plugin von einem lokalen Pfad (Dev-Modus) |
 | `ImportPluginFile` | `ImportPluginFileRequest` | `PluginStatusMsg` | unary | Importiert ein Plugin aus einer lokalen .astraplugin-ZIP-Datei |
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | Liest eine `.astraplugin`-Datei, OHNE sie zu installieren, sodass das Einwilligungsblatt aus §4.3 auch auf dem Importpfad gezeigt werden kann. |
