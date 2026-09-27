@@ -20,9 +20,12 @@
 //! exactly why it can be a URL you open in a browser you are already signed in
 //! to, rather than a token this program would have to be trusted with.
 //!
-//! What the registry does with it afterwards — published immediately, delayed
-//! 24 hours, or held for a person — is `docs/POLICY.md` in the registry
-//! repository, and the bot says which on the issue.
+//! What the registry does with it afterwards is `docs/POLICY.md` in the
+//! registry repository (contract 3.0.0, DEC-19). Through the panel, a release
+//! that passes every automatic check publishes at once, marked as not reviewed
+//! by Astra moderators, and only a change of hands on a listing that already
+//! exists waits for a moderator. The issue form keeps its holds and delays until
+//! the registry's cutover removes it, and the bot says which on the issue.
 //!
 //! # A bound repository gets the panel, not an issue (CLI 0.4.0)
 //!
@@ -221,17 +224,36 @@ fn dry_run(dir: &Path, manifest: &PluginManifest, tag: &str) -> Result<()> {
         }
     }
 
-    hprintln!("\n── only the registry can check these ────────────────────────");
-    for line in REGISTRY_ONLY_CHECKS {
-        hprintln!("  · {line}");
-    }
-    hprintln!(
-        "\n  All of them are described in the registry's docs/BOT-CHECKS.md, with the exact code\n\
-         \x20 each failure produces. What happens to a release that passes — published now,\n\
-         \x20 delayed 24 hours, or held for a person — is docs/POLICY.md."
-    );
+    hprintln!("\n{}", registry_only_section());
     Ok(())
 }
+
+/// What a dry run says about what it could not check, and about what happens
+/// next — exactly as printed, from the rule line down.
+///
+/// One function so that the test below can hold the documentation to it.
+/// `docs/*/publishing.md` quotes this text as a transcript, and that block is
+/// `unrun`: it needs a real GitHub release, so the docs job never executes it
+/// and nothing compared the two. The last sentence then described an outcome
+/// the registry had stopped producing, in the CLI and in seven languages, with
+/// every check green.
+fn registry_only_section() -> String {
+    let mut out = String::from("── only the registry can check these ────────────────────────\n");
+    for line in REGISTRY_ONLY_CHECKS {
+        out.push_str(&format!("  · {line}\n"));
+    }
+    out.push('\n');
+    out.push_str(DRY_RUN_WHAT_NEXT);
+    out
+}
+
+/// The dry run's last paragraph: where the checks are described, and what the
+/// registry does with a release that passes them.
+const DRY_RUN_WHAT_NEXT: &str =
+    "  All of them are described in the registry's docs/BOT-CHECKS.md, with the exact code\n\
+     \x20 each failure produces. Through the panel, a release that passes them publishes at\n\
+     \x20 once, marked as not reviewed by Astra moderators; only a change of hands on a listing\n\
+     \x20 that already exists waits for a moderator. The rules are docs/POLICY.md.";
 
 /// The checks that need the network, the catalogue, or a signature — named
 /// rather than implied.
@@ -477,6 +499,30 @@ fn open_in_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The transcript in `docs/en/publishing.md` is what `publish --dry-run`
+    /// prints. The six translations are held to English by
+    /// `docs/tools/mirror.py`, which refuses a translated `output` block, so
+    /// English is the one copy this has to read.
+    #[test]
+    fn the_documented_dry_run_is_what_this_prints() {
+        let page = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/en/publishing.md");
+        let text = std::fs::read_to_string(&page)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", page.display()));
+        let section = registry_only_section();
+        assert!(
+            section.lines().count() >= REGISTRY_ONLY_CHECKS.len() + 3,
+            "the section is the rule line, one line per check, a blank and the closing paragraph"
+        );
+        assert!(
+            text.contains(&section),
+            "{} quotes `astra-plugin publish --dry-run`, and its transcript is not what this CLI \
+             prints. The block is `unrun`, so nothing else compares them: re-take it from the \
+             built binary, and carry it into the six translations unchanged (mirror.py).\n\
+             This CLI prints:\n{section}",
+            page.display()
+        );
+    }
 
     #[test]
     fn every_github_remote_shape_is_one_repository() {

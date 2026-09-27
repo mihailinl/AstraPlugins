@@ -1278,6 +1278,32 @@ fn an_empty_english_label_is_refused_rather_than_shipped_blank() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+/// The nine card locales the two byte-calibrated E19 fixtures below were
+/// measured with — not [`LOCALE_CODES`], on purpose.
+///
+/// Each of those fixtures is one exact tree and one number: 9,775 bytes is what
+/// astra-registry's `deriveLocaleText` returned for nine astral-plane blocks,
+/// and the drop case sits just under the 8,192-byte budget with seven big blocks
+/// and two dropped ones. Both used to iterate the vocabulary, so both depended on
+/// how many languages Astra has rather than on the rule. When Astra's `main`
+/// gained `kk`, a tenth block pushed each tree over its line with no change to
+/// E19 at all, and the failure blamed the budget. The trees are fixed; the
+/// vocabulary is not. Every code here must still be one Astra can be set to,
+/// which `e19_fixture_codes` asserts, so a code leaving the vocabulary is still
+/// red.
+const E19_MEASURED_CARD_CODES: [&str; 9] = ["ru", "uk", "de", "fr", "es", "pt", "ja", "zh", "ko"];
+
+fn e19_fixture_codes() -> [&'static str; 9] {
+    for code in E19_MEASURED_CARD_CODES {
+        assert!(
+            LOCALE_CODES.contains(&code),
+            "{code} is no longer a language Astra can be set to; re-measure the E19 fixtures \
+             against the registry's bot with a code that is"
+        );
+    }
+    E19_MEASURED_CARD_CODES
+}
+
 /// E19 computes the registry's own number, and says so when it cannot.
 ///
 /// The byte count this produces was compared against the bot's own
@@ -1315,7 +1341,7 @@ fn the_listing_i18n_budget_is_the_registrys_own_number() {
     // first, this budget counts the second.
     let name = "\u{1F600}".repeat(cap("max_name_length"));
     let description = "\u{1F600}".repeat(summary_cap);
-    for code in LOCALE_CODES.iter().filter(|c| **c != "en") {
+    for code in e19_fixture_codes() {
         let block = json!({ "listing.name": name, "listing.description": description });
         fs::write(
             dir.join(format!("locales/{code}.json")),
@@ -1477,8 +1503,7 @@ fn a_block_identical_to_the_english_card_costs_nothing() {
     let translated = "\u{1F600}".repeat(cap("max_summary_length"));
     let english_card = json!({ "listing.name": name, "listing.description": description });
     let big = json!({ "listing.name": name, "listing.description": translated });
-    let codes: Vec<&&str> = LOCALE_CODES.iter().filter(|c| **c != "en").collect();
-    assert!(codes.len() >= 9, "{} card locales", codes.len());
+    let codes = e19_fixture_codes();
 
     for (i, code) in codes.iter().enumerate() {
         let block = if i < 2 { &english_card } else { &big };

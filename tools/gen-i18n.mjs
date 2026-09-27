@@ -242,7 +242,7 @@ const spec = parseSpec();
 const codes = localeCodes();
 
 // The vocabulary and the plural table are two files that have to name the same
-// ten strings. A code in one and not the other is silent in both directions: a
+// strings. A code in one and not the other is silent in both directions: a
 // language the daemon can be set to and `tn` has no rules for, or rules for a
 // language a plugin may not ship a file named after.
 {

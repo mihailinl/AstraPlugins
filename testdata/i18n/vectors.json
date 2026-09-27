@@ -574,6 +574,31 @@
       "expect": "other"
     },
     {
+      "language": "kk",
+      "n": 0,
+      "expect": "other"
+    },
+    {
+      "language": "kk",
+      "n": 1,
+      "expect": "one"
+    },
+    {
+      "language": "kk",
+      "n": 2,
+      "expect": "other"
+    },
+    {
+      "language": "kk",
+      "n": 11,
+      "expect": "other"
+    },
+    {
+      "language": "kk",
+      "n": 21,
+      "expect": "other"
+    },
+    {
       "language": "fr",
       "n": 0,
       "expect": "one"

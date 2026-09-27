@@ -29,31 +29,31 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 
 | RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | Daemon call site |
 |---|---|---|---|---|---|---|---|---|
-| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | stable | stable | **none** |
-| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
-| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
 | `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs` |
-| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/health.rs` |
 
 ## PluginHostService — plugin → daemon
 
@@ -120,17 +120,17 @@ The 23 inbound hooks a conformance run must exercise — every `daemon → plugi
 ## Notes
 
 - **`TtsSynthesizeStream`** — Synthesize one utterance as a chunk stream, for first-audio latency. FINDING: no daemon call site exists in astra-rs. All three SDKs now serve it and nothing calls it — the drift this file exists to catch is gone, the unrouted rpc is not.
-- **`TtsGetConfigFields`** — Extra TTS settings fields, rendered by DynamicField on the Voice page. Routed through the daemon's `optional_hook` helper (manager.rs:2878), so UNIMPLEMENTED means absent and a real fault is still a fault.
-- **`TtsActivate`** — Deliver a licensed-voice content key for one-time machine-bound sealing. The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager.rs:2664 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong.
-- **`SttProcess`** — Audio chunks in, transcript events out; carries both one-shot and streaming STT. Also driven live at manager.rs:2808. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity.
-- **`SttLoad`** — Load the recognizer model, with the daemon-resolved path and GPU toggle. manager.rs:2918 routes it through `optional_hook`, which is why this is optional.
-- **`SttGetLoadState`** — Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. manager.rs:2960 maps an absent hook to NotNeeded, which is the pre-hook behaviour.
+- **`TtsGetConfigFields`** — Extra TTS settings fields, rendered by DynamicField on the Voice page. Routed through the daemon's `optional_hook` helper (manager/voice.rs:450), so UNIMPLEMENTED means absent and a real fault is still a fault.
+- **`TtsActivate`** — Deliver a licensed-voice content key for one-time machine-bound sealing. The proto says UNIMPLEMENTED is treated as 'no activation needed'; the daemon does NOT route it through `optional_hook` — manager/voice.rs:131 propagates the error and vox_activation.rs:319 fails the activation. The proto comment is the one that is wrong.
+- **`SttProcess`** — Audio chunks in, transcript events out; carries both one-shot and streaming STT. Also driven live at manager/voice.rs:342. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity.
+- **`SttLoad`** — Load the recognizer model, with the daemon-resolved path and GPU toggle. manager/voice.rs:488 routes it through `optional_hook`, which is why this is optional.
+- **`SttGetLoadState`** — Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. manager/voice.rs:530 maps an absent hook to NotNeeded, which is the pre-hook behaviour.
 - **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language.
 - **`AiGetModels`** — List the models this provider can run. FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more. Deprecated in 0.6, removed in 0.8, and there is no replacement: nothing in the daemon asks a plugin what models it has, and AiComplete carries the chosen model on the request.
-- **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager.rs:2523 routes it through `optional_hook`.
-- **`OnLanguageChanged`** — The Astra UI language changed; re-render anything user-visible. manager.rs:1133 routes it through `optional_hook`.
+- **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager/capabilities.rs:438 routes it through `optional_hook`.
+- **`OnLanguageChanged`** — The Astra UI language changed; re-render anything user-visible. manager/ui_surface.rs:352 routes it through `optional_hook`.
 - **`Shutdown`** — Stop cleanly; the process group is killed after the grace period. Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit.
-- **`HealthCheck`** — Liveness probe, every 15 s. Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager.rs:1464).
+- **`HealthCheck`** — Liveness probe, every 15 s. Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager/health.rs:337).
 - **`Register`** — The handshake: prove the spawn token, receive the per-plugin session token. The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token.
 - **`SendChatMessage`** — Send a chat message as this plugin and stream the assistant's reply back. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4.
 - **`PushToUi`** — Push an event into this plugin's own iframes — the return path for CallFromUi. Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously.

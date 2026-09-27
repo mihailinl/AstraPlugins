@@ -405,8 +405,9 @@ astra-plugin publish --dry-run
   · the declared-vs-called host RPC scan
 
   All of them are described in the registry's docs/BOT-CHECKS.md, with the exact code
-  each failure produces. What happens to a release that passes — published now,
-  delayed 24 hours, or held for a person — is docs/POLICY.md.
+  each failure produces. Through the panel, a release that passes them publishes at
+  once, marked as not reviewed by Astra moderators; only a change of hands on a listing
+  that already exists waits for a moderator. The rules are docs/POLICY.md.
 ```
 
 Из этого списка строка про владение — та проверка, которую решает ваша

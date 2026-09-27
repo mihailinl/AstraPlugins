@@ -39,7 +39,7 @@
 // was already done. What the list is WORTH is a separate question from who
 // reads it, and the answer to that is the test below.
 pub const LOCALE_CODES: &[&str] = &[
-    "en", "ru", "uk", "de", "fr", "es", "pt", "ja", "zh", "ko",
+    "en", "ru", "uk", "de", "fr", "es", "pt", "ja", "zh", "ko", "kk",
 ];
 
 /// The subset whose Astra UI translation is held complete; the rest fall back
