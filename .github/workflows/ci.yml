@@ -1367,6 +1367,46 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
+      # C38 — the locale codes the RELEASE CLI packs are the ones the catalogue
+      # accepts, both ways. `ASTRA_TOOLING_REF` in plugin-release.yml is the
+      # commit a plugin release builds `astra-plugin` at, and nothing held its
+      # `LOCALE_CODES` to astra-registry's: from the registry's merge of `kk`
+      # (astra-registry 2612ccb) until that pin moved, the release CLI refused
+      # an author's `locales/kk.json` for a language the catalogue took. The
+      # other direction is R12's order — registry first, then this pin — which
+      # nothing enforced either: a pin moved first packs a file that ingest
+      # refuses after the tag.
+      #
+      # The pinned commit is fetched here, one commit deep, because this job's
+      # own checkout is one commit deep and `git show <pin>:…` would otherwise
+      # have nothing to read. `--require C38` turns a missing pin commit or a
+      # missing `_registry` into a red rather than a NOT VERIFIED. The tag
+      # `plugin-release/v1` is NOT read: this is the pin the next tag move
+      # carries, and the one a reviewer of this file can change.
+      - name: C38 the release CLI and astra-registry take the same locale codes, both ways
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          ref=$(grep -oP '^\s*ASTRA_TOOLING_REF:\s*"\K[0-9a-f]{40}' .github/workflows/plugin-release.yml || true)
+          if [ -n "$ref" ] && ! git cat-file -e "$ref^{commit}" 2>/dev/null; then
+            git fetch --quiet --no-tags --depth=1 origin "$ref" || true
+          fi
+          status=0
+          python3 tools/check-locales.py --rules C38 --require C38 --registry-dir _registry \
+            | tee "$RUNNER_TEMP/c38.txt" || status=1
+          {
+            if [ "$status" = 0 ]; then
+              echo "### release CLI locales: **C38 compared** — astra-plugin at ${ref:0:12} against astra-registry@$(git -C _registry rev-parse --short=12 HEAD), both ways"
+            else
+              echo "### release CLI locales: **C38 RED**. The step log names each code and which side to move"
+            fi
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/c38.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
   sdk-rust:
