@@ -6886,6 +6886,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "consentRecorded": {
               "type": "bool",
               "id": 4
+            },
+            "expectedVersion": {
+              "type": "string",
+              "id": 5
             }
           }
         },

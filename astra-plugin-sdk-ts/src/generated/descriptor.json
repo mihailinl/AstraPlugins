@@ -6878,6 +6878,10 @@
             "consentRecorded": {
               "type": "bool",
               "id": 4
+            },
+            "expectedVersion": {
+              "type": "string",
+              "id": 5
             }
           }
         },

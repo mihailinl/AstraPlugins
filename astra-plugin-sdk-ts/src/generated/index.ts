@@ -38,7 +38,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "91600e174d21ce2c2aab4618b3eb15989712d1b0f3a0b3c3637734f321ef9329";
+export const PROTO_SHA256 = "760debb2dcb172ccea250505a94cb7ef0fd2b4d37e5fb447a6ecbd46153d95a2";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";

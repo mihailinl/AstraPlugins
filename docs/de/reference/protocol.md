@@ -5,10 +5,10 @@
 Protokoll-Generation **1**. 10 Dienste, 163 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: 1ea69b0fc5e498df…`, der Digest des Plugin-zugewandten
+(`surface-sha256: ff39f5ed7898fbb0…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:91600e174d21ce2c…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:760debb2dcb172cc…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
