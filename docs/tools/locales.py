@@ -26,7 +26,7 @@ whole point of a literal tuple: adding one is a decision to keep it mirroring
 would be comparing the directory listing with itself.
 
 This is a PROPER SUBSET of `spec/locales.yaml` and it is allowed to stay one.
-Three different subsets of those ten codes exist in this system: the ten Astra
+Three different subsets of those codes exist in this system: every code Astra
 accepts, the three whose Astra UI translation is held complete (`maintained` in
 that file), and these seven. None of them implies another.
 """
