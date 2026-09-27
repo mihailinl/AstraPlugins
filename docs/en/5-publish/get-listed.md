@@ -259,7 +259,7 @@ the page submits nothing until you do, signed in.
 **What the token is, and is not.** A binding token is **public**: it sits in a
 file in a public repository. It records **one account's consent** to publish
 from this repository, and it **authenticates no release** — a release that
-nothing delays publishes before the account is told. So **never merge a binding
+nothing holds publishes before the account is told. So **never merge a binding
 line you did not mint yourself**: a pull request that adds or changes one is
 asking you to hand your listing to somebody else's account.
 
@@ -298,9 +298,9 @@ third-party bindings open, and published by the registry. After it, an unbound
 listing is `frozen`: installed copies keep working and it stays installable,
 but no new release of it is published until one carrying a binding line is — a
 bound release unfreezes it, with no penalty. The first release carrying a
-binding line is held once for a person's review, `R_FIRST_BINDING`. And from the
-cutover, a delayed or reviewed release of a `grandfathered` listing waits until
-the listing is bound.
+binding line is held once, until a moderator approves it, `R_FIRST_BINDING`. And
+from the cutover, a release of a `grandfathered` listing that was held and
+approved waits until the listing is bound.
 
 **Preflight.** `astra-plugin check` refuses an id the registry refuses — a
 reserved id, or one outside the registry's id pattern — and a malformed binding
@@ -380,6 +380,15 @@ define it; both are generated from or asserted against the bot's own code
 (`bot/lib/policy.mjs`, `bot/lib/codes.mjs`), so the numbers here cannot quietly
 drift from the code that keeps them.
 
+**Two paths, and they wait for different things.** Everything below, up to
+[On the panel path, from the cutover](#on-the-panel-path-from-the-cutover),
+describes a request through the registry's issue form, which is how a first
+listing is made today. From the registry's cutover, a release reaches the
+registry through the Astra plugins panel instead, and **a release that passes
+every automatic check is published at once**, marked as not reviewed by Astra
+moderators. There, only a change of hands on a listing that already exists
+waits for a moderator.
+
 ### The sequence
 
 1. **Your issue gets the `listing` and `needs-triage` labels** — from the issue
@@ -400,6 +409,8 @@ label means step 1 did not happen and nothing downstream ran.
 
 ### The four outcomes
 
+On the issue form:
+
 | Outcome | Means | Who is involved |
 |---|---|---|
 | **Published** | Committed, and in the catalogue on the next index build | nobody |
@@ -413,16 +424,19 @@ version is strictly newer, it asks for no high-risk permission it did not
 already have, and it asks for no new permission or capability at all. Drop only
 the last and it still self-publishes, after a delay.
 
-**A first listing is never one of those.** It is held for a person by
-definition — see below — so the answer to "how long until my first plugin is
-listed" is *up to 48 hours after the bot comments*, not *minutes*.
+**On the issue form, a first listing is never one of those.** It is held for a
+person by definition — see below — so there the answer to "how long until my
+first plugin is listed" is *up to 48 hours after the bot comments*, not
+*minutes*. On the panel path, from the cutover, it is minutes: see
+[below](#on-the-panel-path-from-the-cutover).
 
 ### How a hold is cleared
 
-Nothing is required of you. A maintainer comments **`/approve`** on your issue,
-and the entire ingest then runs again from scratch against the bytes as they are
-at that moment — an approval is a "a person said yes, at this time" marker and
-carries no cached verdict, so approving something does not skip a single check.
+Nothing is required of you. On the issue form, a maintainer comments
+**`/approve`** on your issue, and the entire ingest then runs again from scratch
+against the bytes as they are at that moment — an approval is a "a person said
+yes, at this time" marker and carries no cached verdict, so approving something
+does not skip a single check.
 **`/reject <reason>`** is the other half, and it must carry a reason, which is
 posted to you. Both commands are permission-checked against the registry
 repository: the commenter needs `admin` or `maintain` there, re-proved through
@@ -465,9 +479,9 @@ maintainer · `2` the bot itself failed. The last is deliberately distinct: "you
 plugin is bad" and "our tooling is bad" must never render as the same comment to
 a stranger.
 
-### The three things that need a person
+### What needs a person on the issue form
 
-Exactly three, and the list does not grow without a change to the registry's
+Three events, and the list does not grow without a change to the registry's
 published policy:
 
 | Event | Why |
@@ -495,7 +509,8 @@ the paragraph making the promise.
 
 ### When a release waits instead
 
-Some releases pass everything and still do not publish immediately:
+On the issue form, some releases pass everything and still do not publish
+immediately:
 
 | Situation | Code | Delay |
 |---|---|---|
@@ -508,6 +523,49 @@ entire ingest runs again from scratch against the bytes as they are then. The
 delay buys one thing and the registry does not claim more: a window in which an
 author whose GitHub account was taken over can see a release they did not make
 and say so.
+
+### On the panel path, from the cutover
+
+*Amended 2026-09-26 (registry contract 3.0.0).* Before this date, this page
+said that a first listing is always held for a person. On the issue form it
+still is, until the cutover removes the form. The registry's own rule is
+`astra-registry/docs/POLICY.md` §2.1 and §3.
+
+**A release that passes every automatic check is published at once**, a first
+listing included. Nobody approves it, and there is no publication delay. The
+registry's checks are the whole gate, and a failed one still refuses the
+release.
+
+**It is marked as not reviewed by Astra moderators.** Every version starts that
+way. A moderator may read a version later and mark it reviewed. The mark
+belongs to that one version, so your next release starts as not reviewed again.
+
+**Users see a warning.** From the Astra release that adds the mark, Astra warns
+before it installs a version that is not reviewed, including an install that
+Astra's AI tools ask for. It also warns wherever a user starts an update to
+such a version, and applies the update only once the user has acknowledged the
+warning. The plugins panel shows the mark on your plugin's page. Astra 0.2.x,
+and every Astra release before the one that adds the mark, shows no mark and no
+warning.
+
+**`reviewed` means that a moderator read that version, and nothing more.** It is
+not a security review, a code audit, an endorsement or a sandbox. A later
+advisory, yank or delist always wins over it.
+
+**Only a change of hands on a listing that already exists waits for a
+moderator:**
+
+| Event | Code |
+|---|---|
+| The repository or identity changed | `R_IDENTITY_CHANGED` |
+| The first release of an existing listing to carry a binding line | `R_FIRST_BINDING` |
+| The binding line carries a different token from the one the listing is bound with | `R_BINDING_CHANGED` |
+
+Each of these ships another party's code, or hands the listing to another
+account, as an update to people who already run it. A moderator approves it in
+the panel, and it then waits the windows the registry publishes. An approved
+release is still published as not reviewed, because an approval is not a
+review.
 
 ## 5 · Every release after that
 
@@ -534,7 +592,8 @@ change of repository stops being routine and goes back to a person.
 
 ## What a listing does not mean
 
-A listing is not a safety review. Nobody reads your code, and the registry says
+A listing is not a safety review, and neither is a version marked reviewed:
+that says a moderator read that version, and nothing more. The registry says
 so in its own policy: a permission decides what the daemon will do *for* a
 plugin and nothing about what the plugin's process may do to the machine. There
 is no sandbox. See [the security model](../1-orientation/security.md).
