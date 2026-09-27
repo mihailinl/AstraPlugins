@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: d173c81fd30bb6fd1d979e3208dbf3d0facf2ded334c5bb889b45c602d1cea2d
+// surface-sha256: 1ea69b0fc5e498df7e0891a4c0481500449a3ccb4162b9e2ef305a3b650e0745
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3723,8 +3723,10 @@ service PluginService {
     // Check for updates on installed plugins
     rpc CheckPluginUpdates(Empty) returns (PluginUpdatesResponse);
 
-    // Update a plugin to latest version
-    rpc UpdatePlugin(PluginIdRequest) returns (PluginStatusMsg);
+    // Update a plugin to latest version. A release Astra moderators have not
+    // reviewed is applied only when the request acknowledges its version
+    // (CLIENT-97); otherwise the response says so and nothing is touched.
+    rpc UpdatePlugin(UpdatePluginRequest) returns (UpdatePluginResponse);
 
     // Sideload a plugin from local path (dev mode)
     rpc SideloadPlugin(SideloadPluginRequest) returns (PluginStatusMsg);
@@ -4124,6 +4126,13 @@ message PluginStatusMsg {
     // renders the bad state first and the reason a round-trip later, which is
     // exactly the window in which a user gives up and files "it doesn't work".
     PluginFailure failure = 21;
+
+    // **CLIENT-97.** The mark of the INSTALLED version's catalogue release, so
+    // the installed card shows the state its listing card shows; and the mark
+    // of `latest_version`'s, for the card's Update button. Both spelled as
+    // `PluginRegistryEntry.review`; "" off the catalogue or before 3.0.0.
+    string review = 22;
+    string update_review = 23;
 }
 
 message PluginListResponse {
@@ -4585,6 +4594,14 @@ message PluginRegistryEntry {
     // It does not soften the refusal. Astra still will not install a plugin
     // whose permissions it could not read; only the diagnosis is two.
     string permissions_absence = 22;
+
+    // **CLIENT-97.** Whether Astra moderators have reviewed the release an
+    // install would install: "reviewed", "not_reviewed", or "" when the
+    // catalogue carries no mark (published before registry contract 3.0.0),
+    // which shows nothing. Read any other value as not reviewed. A mark never
+    // hides an advisory, a yank or a delist, and no copy calls a reviewed
+    // release safe.
+    string review = 23;
 }
 
 // Which plugin's provenance to report.
@@ -4831,6 +4848,35 @@ message ResolvePendingUpdateRequest {
     // `approve` is false. A staged update naming an id that is not in here is
     // refused and re-staged rather than silently installed.
     repeated string approved_permissions = 3;
+
+    // **CLIENT-97.** As on `UpdatePluginRequest`: the version of a release
+    // Astra moderators have not reviewed that the user saw the warning for.
+    // Approving a staged update to such a release is refused without it.
+    string acknowledged_unreviewed_version = 4;
+}
+
+// `UpdatePlugin`'s request. Field 1 is `PluginIdRequest`'s, so a caller that
+// still sends that message is read as acknowledging nothing.
+message UpdatePluginRequest {
+    string plugin_id = 1;
+
+    // **CLIENT-97.** The version of a release Astra moderators have not reviewed
+    // that the user saw the warning for and chose to update to anyway. Empty when
+    // the user was shown no such warning. A version, not a yes: if the catalogue
+    // moved on to another unreviewed release, the answer was not about that one.
+    string acknowledged_unreviewed_version = 2;
+}
+
+message UpdatePluginResponse {
+    // The plugin after the update. Unset when `not_reviewed_version` is set.
+    PluginStatusMsg plugin = 1;
+
+    // **CLIENT-97.** Set, and nothing installed, stopped or downloaded to the
+    // plugin's directory, when the release this update would install is not
+    // reviewed and the request did not acknowledge that version. The client
+    // shows the warning for it and asks again. A refusal the UI READS, not a
+    // sentence it parses.
+    string not_reviewed_version = 2;
 }
 
 message PluginLogsRequest {
@@ -4852,6 +4898,10 @@ message PluginUpdateInfo {
     string installed_version = 3;
     string latest_version = 4;
     string changelog = 5;
+
+    // **CLIENT-97.** The mark of `latest_version`'s release, spelled as
+    // `PluginRegistryEntry.review`.
+    string review = 6;
 }
 
 // ============ Plugin Messages — Host (PluginHostService) ============

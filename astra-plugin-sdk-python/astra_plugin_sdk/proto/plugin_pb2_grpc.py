@@ -5068,8 +5068,8 @@ class PluginServiceStub(object):
                 _registered_method=True)
         self.UpdatePlugin = channel.unary_unary(
                 '/astra.PluginService/UpdatePlugin',
-                request_serializer=plugin__pb2.PluginIdRequest.SerializeToString,
-                response_deserializer=plugin__pb2.PluginStatusMsg.FromString,
+                request_serializer=plugin__pb2.UpdatePluginRequest.SerializeToString,
+                response_deserializer=plugin__pb2.UpdatePluginResponse.FromString,
                 _registered_method=True)
         self.SideloadPlugin = channel.unary_unary(
                 '/astra.PluginService/SideloadPlugin',
@@ -5251,7 +5251,9 @@ class PluginServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UpdatePlugin(self, request, context):
-        """Update a plugin to latest version
+        """Update a plugin to latest version. A release Astra moderators have not
+        reviewed is applied only when the request acknowledges its version
+        (CLIENT-97); otherwise the response says so and nothing is touched.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -5432,8 +5434,8 @@ def add_PluginServiceServicer_to_server(servicer, server):
             ),
             'UpdatePlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdatePlugin,
-                    request_deserializer=plugin__pb2.PluginIdRequest.FromString,
-                    response_serializer=plugin__pb2.PluginStatusMsg.SerializeToString,
+                    request_deserializer=plugin__pb2.UpdatePluginRequest.FromString,
+                    response_serializer=plugin__pb2.UpdatePluginResponse.SerializeToString,
             ),
             'SideloadPlugin': grpc.unary_unary_rpc_method_handler(
                     servicer.SideloadPlugin,
@@ -5859,8 +5861,8 @@ class PluginService(object):
             request,
             target,
             '/astra.PluginService/UpdatePlugin',
-            plugin__pb2.PluginIdRequest.SerializeToString,
-            plugin__pb2.PluginStatusMsg.FromString,
+            plugin__pb2.UpdatePluginRequest.SerializeToString,
+            plugin__pb2.UpdatePluginResponse.FromString,
             options,
             channel_credentials,
             insecure,

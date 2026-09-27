@@ -4,10 +4,10 @@
 
 プロトコル世代 **1**。10 個のサービス、163 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: d173c81fd30bb6fd…`
+`astra.proto` から生成された一部(`surface-sha256: 1ea69b0fc5e498df…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:f0c280d792105b09…` に固定されています。3 つの SDK
+によって `sha256:91600e174d21ce2c…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -124,7 +124,7 @@ UI に提供します: インストール、インポート、アンインスト
 | `UpdatePluginConfig` | `UpdatePluginConfigRequest` | `Empty` | unary | プラグインの設定を更新します |
 | `BrowsePluginRegistry` | `PluginBrowseRequest` | `PluginBrowseResponse` | unary | プラグインレジストリを閲覧します |
 | `CheckPluginUpdates` | `Empty` | `PluginUpdatesResponse` | unary | インストール済みプラグインの更新を確認します |
-| `UpdatePlugin` | `PluginIdRequest` | `PluginStatusMsg` | unary | プラグインを最新バージョンに更新します |
+| `UpdatePlugin` | `UpdatePluginRequest` | `UpdatePluginResponse` | unary | プラグインを最新バージョンに更新します |
 | `SideloadPlugin` | `SideloadPluginRequest` | `PluginStatusMsg` | unary | ローカルパスからプラグインをサイドロードします(開発者モード) |
 | `ImportPluginFile` | `ImportPluginFileRequest` | `PluginStatusMsg` | unary | ローカルの .astraplugin ZIP ファイルからプラグインをインポートします |
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | インストールせずに `.astraplugin` ファイルを読み、§4.3 の同意シートをインポート経路でも表示できるようにします。 |

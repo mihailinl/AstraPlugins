@@ -4,10 +4,10 @@
 
 协议世代 **1**。10 个服务，163 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: d173c81fd30bb6fd…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 1ea69b0fc5e498df…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:f0c280d792105b09…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:91600e174d21ce2c…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
@@ -115,7 +115,7 @@ trailer 来结束这个流。因此，一次被撤销的权限，是可以和一
 | `UpdatePluginConfig` | `UpdatePluginConfigRequest` | `Empty` | unary | 更新插件配置 |
 | `BrowsePluginRegistry` | `PluginBrowseRequest` | `PluginBrowseResponse` | unary | 浏览插件注册表 |
 | `CheckPluginUpdates` | `Empty` | `PluginUpdatesResponse` | unary | 检查已安装插件的更新 |
-| `UpdatePlugin` | `PluginIdRequest` | `PluginStatusMsg` | unary | 把一个插件更新到最新版本 |
+| `UpdatePlugin` | `UpdatePluginRequest` | `UpdatePluginResponse` | unary | 把一个插件更新到最新版本 |
 | `SideloadPlugin` | `SideloadPluginRequest` | `PluginStatusMsg` | unary | 从本地路径侧载(sideload)一个插件（开发模式） |
 | `ImportPluginFile` | `ImportPluginFileRequest` | `PluginStatusMsg` | unary | 从一个本地的 .astraplugin ZIP 文件导入一个插件 |
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | 在**不**安装的情况下读取一个 `.astraplugin` 文件，好让 §4.3 的同意页面在导入路径上也能展示出来。 |
