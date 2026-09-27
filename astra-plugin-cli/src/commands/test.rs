@@ -2030,7 +2030,12 @@ mod tests {
             "one misspelt key must produce ONE finding, not one per language:\n{}",
             problems.join("\n")
         );
-        assert!(problems[0].contains("10 of the 10 languages"), "{}", problems[0]);
+        let all = crate::locales::LOCALE_CODES.len();
+        assert!(
+            problems[0].contains(&format!("{all} of the {all} languages")),
+            "{}",
+            problems[0]
+        );
         assert!(problems[0].contains("ui.cat.labl"), "{}", problems[0]);
         assert!(!problems[0].contains("$5 and up"), "the `$$` escape is not a key");
 

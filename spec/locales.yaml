@@ -2,7 +2,7 @@
 # `locales/<code>.json` may take.
 #
 # Mirrored from Astra/astra-rs/astra-core/src/config.rs `SUPPORTED_LANGUAGES`,
-# which `Settings::validate` refuses anything outside of. Those ten strings are
+# which `Settings::validate` refuses anything outside of. Those eleven strings are
 # the only values that can ever arrive in `PluginRegisterRequest.language`,
 # `PluginDaemonInfoResponse.language` or `LanguageChangedMsg.language`.
 #
@@ -21,9 +21,9 @@
 #
 # `maintained` marks the subset whose Astra UI translation is held complete
 # (Astra/astra-rs/astra-core/src/i18n.rs, `MAINTAINED_LANGUAGES`); the other
-# seven fall back to English per key inside Astra's own shell. It is NOT
+# eight fall back to English per key inside Astra's own shell. It is NOT
 # permission for a plugin to leave a locale incomplete, and it is NOT the set
-# `docs/` is translated into. Three different subsets of the same ten codes
+# `docs/` is translated into. Three different subsets of the same eleven codes
 # exist in this system and conflating any two of them is how an unselectable
 # locale file gets shipped.
 #
@@ -90,3 +90,4 @@ pt   Português
 ja   日本語
 zh   中文
 ko   한국어
+kk   Қазақша

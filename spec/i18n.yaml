@@ -150,6 +150,11 @@ de   other  always
 es   one    n == 1
 es   other  always
 
+# Kazakh is CLDR's `one: n = 1` group, the same shape as German: singular for
+# exactly one, `other` for everything else, zero included.
+kk   one    n == 1
+kk   other  always
+
 # French and Portuguese put zero with the singular.
 fr   one    n in 0..1
 fr   other  always

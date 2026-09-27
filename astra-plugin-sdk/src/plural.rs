@@ -32,7 +32,7 @@
 //! declared_plane_marker: key(k) returns "$" + k
 
 /// SHA-256 of the `spec/i18n.yaml` these rules were generated from.
-pub const SPEC_SHA256: &str = "15978cdce90926b3fa09a4701980d684c372f4b27692c5345c18e4d434469d32";
+pub const SPEC_SHA256: &str = "1324a07592442e7b0ec7240a0206f471f81776f9f30651b310ca4d15210b4336";
 
 /// Every language's categories, in the order `spec/i18n.yaml` declares them.
 ///
@@ -50,6 +50,7 @@ pub const CATEGORIES: &[(&str, &[&str])] = &[
     ("ja", &["other"]),
     ("zh", &["other"]),
     ("ko", &["other"]),
+    ("kk", &["one", "other"]),
 ];
 
 /// The categories `lang` uses, or `["other"]` for a language not declared.
@@ -149,6 +150,12 @@ pub fn category(lang: &str, n: i64) -> &'static str {
             "other"
         }
         "ko" => {
+            "other"
+        }
+        "kk" => {
+            if n == 1 {
+                return "one";
+            }
             "other"
         }
         _ => "other",
