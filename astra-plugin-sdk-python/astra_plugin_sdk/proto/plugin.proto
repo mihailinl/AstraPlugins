@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 1ea69b0fc5e498df7e0891a4c0481500449a3ccb4162b9e2ef305a3b650e0745
+// surface-sha256: ff39f5ed7898fbb07eb1927b49634bcad2c6665f243c91f09e8437ffa5438813
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4285,6 +4285,14 @@ message InstallPluginRequest {
     // no sheet — the CLI, a test — and those keep granting the bundle's declared
     // set capped by tier.
     bool consent_recorded = 4;
+
+    // **CLIENT-97.** The version the consent sheet showed. When set, the install
+    // is refused if the catalogue now offers another release: the sheet's review
+    // mark, like its permission list, was about THAT release, and a catalogue
+    // that moved between the sheet and the click (a cached Browse, then a fresh
+    // fetch) must not install a release whose warning nobody saw. Empty for a
+    // caller with no sheet.
+    string expected_version = 5;
 }
 
 // The named phases of an install, in the order they happen.
