@@ -1371,8 +1371,8 @@ jobs:
       # accepts, both ways. `ASTRA_TOOLING_REF` in plugin-release.yml is the
       # commit a plugin release builds `astra-plugin` at, and nothing held its
       # `LOCALE_CODES` to astra-registry's: from the registry's merge of `kk`
-      # (astra-registry 2612ccb) until that pin moved, the release CLI refused
-      # an author's `locales/kk.json` for a language the catalogue took. The
+      # until that pin moved, the release CLI refused an author's
+      # `locales/kk.json` for a language the catalogue took. The
       # other direction is R12's order — registry first, then this pin — which
       # nothing enforced either: a pin moved first packs a file that ingest
       # refuses after the tag.
