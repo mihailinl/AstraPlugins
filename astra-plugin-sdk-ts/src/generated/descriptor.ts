@@ -6392,8 +6392,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "responseType": "PluginUpdatesResponse"
             },
             "UpdatePlugin": {
-              "requestType": "PluginIdRequest",
-              "responseType": "PluginStatusMsg"
+              "requestType": "UpdatePluginRequest",
+              "responseType": "UpdatePluginResponse"
             },
             "SideloadPlugin": {
               "requestType": "SideloadPluginRequest",
@@ -6750,6 +6750,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "failure": {
               "type": "PluginFailure",
               "id": 21
+            },
+            "review": {
+              "type": "string",
+              "id": 22
+            },
+            "updateReview": {
+              "type": "string",
+              "id": 23
             }
           }
         },
@@ -7129,6 +7137,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "permissionsAbsence": {
               "type": "string",
               "id": 22
+            },
+            "review": {
+              "type": "string",
+              "id": 23
             }
           }
         },
@@ -7399,6 +7411,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "string",
               "id": 3
+            },
+            "acknowledgedUnreviewedVersion": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "UpdatePluginRequest": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "acknowledgedUnreviewedVersion": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "UpdatePluginResponse": {
+          "fields": {
+            "plugin": {
+              "type": "PluginStatusMsg",
+              "id": 1
+            },
+            "notReviewedVersion": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -7453,6 +7493,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "changelog": {
               "type": "string",
               "id": 5
+            },
+            "review": {
+              "type": "string",
+              "id": 6
             }
           }
         },

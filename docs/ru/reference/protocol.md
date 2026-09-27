@@ -4,10 +4,10 @@
 
 Поколение протокола **1**. 10 сервисов, 163 RPC. Источник:
 [`proto/plugin.proto`](../../../proto/plugin.proto), сгенерированный срез
-`astra.proto` Astra (`surface-sha256: d173c81fd30bb6fd…` — дайджест
+`astra.proto` Astra (`surface-sha256: 1ea69b0fc5e498df…` — дайджест
 обращённого к плагинам тела, о котором и идёт речь), закреплённый
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:f0c280d792105b09…`. У каждой завендоренной копии в трёх SDK тот же
+`sha256:91600e174d21ce2c…`. У каждой завендоренной копии в трёх SDK тот же
 самый хеш; `tools/check-proto.sh` — то, что это подтверждает.
 
 ## Три сервиса плагина
@@ -120,7 +120,7 @@ RPC здесь — хук, который вы реализуете, и `UNIMPLE
 | `UpdatePluginConfig` | `UpdatePluginConfigRequest` | `Empty` | unary | Update plugin config |
 | `BrowsePluginRegistry` | `PluginBrowseRequest` | `PluginBrowseResponse` | unary | Browse plugin registry |
 | `CheckPluginUpdates` | `Empty` | `PluginUpdatesResponse` | unary | Check for updates on installed plugins |
-| `UpdatePlugin` | `PluginIdRequest` | `PluginStatusMsg` | unary | Update a plugin to latest version |
+| `UpdatePlugin` | `UpdatePluginRequest` | `UpdatePluginResponse` | unary | Update a plugin to latest version. |
 | `SideloadPlugin` | `SideloadPluginRequest` | `PluginStatusMsg` | unary | Sideload a plugin from local path (dev mode) |
 | `ImportPluginFile` | `ImportPluginFileRequest` | `PluginStatusMsg` | unary | Import a plugin from a local .astraplugin ZIP file |
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | Read a `.astraplugin` file WITHOUT installing it, so §4.3's consent sheet can be shown on the import path too. |
