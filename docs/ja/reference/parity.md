@@ -42,31 +42,31 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 
 | RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | デーモン側の呼び出し箇所 |
 |---|---|---|---|---|---|---|---|---|
-| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | stable | stable | **none** |
-| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
-| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
 | `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs` |
-| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/health.rs` |
 
 ## PluginHostService — プラグイン → デーモン
 
@@ -147,24 +147,24 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
   いますが、unrouted な rpc であること自体は消えていません。
 - **`TtsGetConfigFields`** — Voice ページで DynamicField によって描画
   される、追加の TTS 設定フィールドです。デーモンの `optional_hook`
-  ヘルパー(manager.rs:2878)を経由してルーティングされているため、
+  ヘルパー(manager/voice.rs:450)を経由してルーティングされているため、
   UNIMPLEMENTED は「存在しない」ことを意味し、本物の障害は今も障害の
   ままです。
 - **`TtsActivate`** — ライセンス済みボイスのコンテンツキーを、1 回限りの
   マシン固定シーリングのために渡します。proto の説明では UNIMPLEMENTED
   は「有効化不要」として扱われるとされていますが、デーモンはこれを
-  `optional_hook` 経由でルーティングしていません — manager.rs:2664 は
+  `optional_hook` 経由でルーティングしていません — manager/voice.rs:131 は
   エラーを伝播させ、vox_activation.rs:319 は有効化を失敗させます。proto
   のコメントのほうが間違っています。
 - **`SttProcess`** — 音声チャンクが入り、書き起こしイベントが出ます。
-  単発と ストリーミング両方の STT を担います。manager.rs:2808 でも
+  単発と ストリーミング両方の STT を担います。manager/voice.rs:342 でも
   実際に駆動されています。両端のチャンネル容量は
   spec/limits.yaml:stt_audio_channel_capacity です。
 - **`SttLoad`** — デーモンが解決したパスと GPU 切り替えとともに、
-  認識器モデルをロードします。manager.rs:2918 が `optional_hook` 経由で
+  認識器モデルをロードします。manager/voice.rs:488 が `optional_hook` 経由で
   ルーティングしているため、これは optional です。
 - **`SttGetLoadState`** — デーモンがアイドル時アンロードを駆動できる
-  よう、Loaded / NotLoaded / NotNeeded を報告します。manager.rs:2960 は
+  よう、Loaded / NotLoaded / NotNeeded を報告します。manager/voice.rs:530 は
   フックが存在しない場合を NotNeeded に写像します。これはフック導入前の
   挙動です。
 - **`AiComplete`** — モデルの補完をストリームします。プラグインが AI
@@ -183,10 +183,10 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
   デーモンはプラグインにどんなモデルを持っているか尋ねませんし、
   AiComplete はリクエストに選択済みのモデルを載せます。
 - **`OnActiveTriggers`** — このプラグインのトリガー種別のうち、あるコマンド
-  が現在listenしているものはどれか。manager.rs:2523 が `optional_hook`
+  が現在listenしているものはどれか。manager/capabilities.rs:438 が `optional_hook`
   経由でルーティングしています。
 - **`OnLanguageChanged`** — Astra UI の言語が変わりました。ユーザーに
-  見えるものを再描画してください。manager.rs:1133 が `optional_hook`
+  見えるものを再描画してください。manager/ui_surface.rs:352 が `optional_hook`
   経由でルーティングしています。
 - **`Shutdown`** — きれいに停止します。猶予期間の後、プロセスグループは
   kill されます。猶予期間は spec/limits.yaml:plugin_stop_grace_secs
@@ -194,7 +194,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 - **`HealthCheck`** — 15 秒ごとの生存確認です。最も強い意味で required
   です。このフックは `optional_hook` を経由して**いません**。そのため
   UNIMPLEMENTED を含むいかなるエラーもプラグインを死んでいるとマーク
-  します(manager.rs:1464)。
+  します(manager/health.rs:337)。
 - **`Register`** — ハンドシェイクです。spawn トークンを証明し、プラグイン
   ごとのセッショントークンを受け取ります。認証インターセプターの対象外と
   なる唯一の経路です。それ以降のすべてのホスト rpc は、返されたトークンを

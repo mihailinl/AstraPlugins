@@ -87,7 +87,7 @@ pub const LOCK_SCHEMA: &str = "astra.plugin.locales/1";
 ///
 /// A **named exception inside this CLI** and deliberately *not* a row in
 /// `spec/locales.yaml`: that file exists to be compared against the daemon's
-/// ten codes, and an eleventh row means the comparison needs a special case.
+/// own codes, and a row the daemon lacks means the comparison needs a special case.
 /// `check` permits it with a NOTE; `build` refuses it.
 pub const PSEUDO_CODE: &str = "qps";
 

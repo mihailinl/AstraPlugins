@@ -4,7 +4,7 @@
 
 # Localisation
 
-Astra can be set to ten languages. A plugin ships **one flat JSON file per
+Astra can be set to eleven languages. A plugin ships **one flat JSON file per
 language**, beside `plugin.toml`:
 
 <!-- doctest: illustrative reason="a directory listing, not a program; `astra-plugin new` produces this layout and `astra-plugin locale add` extends it" -->
@@ -269,7 +269,7 @@ emits with the `min_astra_version` that makes it resolve.
 ## 3 · English is mandatory
 
 Every other language falls back to English, so English is not one translation
-among ten — it is the base the other nine are defined against. Concretely:
+among eleven — it is the base the other ten are defined against. Concretely:
 
 - `locales/` may not exist **without** `locales/en.json`;
 - every key family in another locale must be in `en.json`, and the reverse;
@@ -376,7 +376,7 @@ only after reading the names it printed.
 `add` refuses a code Astra cannot be set to. `zh-CN` is the one people reach for
 and it is not a thing here: Chinese is `zh`, there are no region tags anywhere,
 and a `locales/zh-CN.json` would be packed, digested, signed, installed, and
-read by nothing. The ten codes are in
+read by nothing. The eleven codes are in
 [`spec/locales.yaml`](../../../spec/locales.yaml).
 
 **3. Translate, then `sync`.**
@@ -390,10 +390,10 @@ locales.lock.json: 8 fresh, 0 newly translated, 0 untranslated, 0 stale.
 
 <!-- doctest: output from="astra-plugin locale ls" unrun="reads a plugin project's locales/; re-run it in your own plugin" -->
 ```
-spec/locales.yaml declares 10 codes; this plugin ships 2.
+spec/locales.yaml declares 11 codes; this plugin ships 2.
   en        6 key(s),   5 families   missing 0, extra 0, stale 0
   ru        8 key(s),   5 families   missing 0, extra 0, stale 0
-  not translated: uk de fr es pt ja zh ko
+  not translated: uk de fr es pt ja zh ko kk
 ```
 
 The first line is printed before anything else and unconditionally, so a plugin
@@ -572,7 +572,7 @@ which unit it counts in, and
 do it after your tag. The permission **label** beside it is Astra's string, not
 yours: Astra shows it in the languages whose own UI translation it holds
 complete — `maintained` in [`spec/locales.yaml`](../../../spec/locales.yaml),
-which is a smaller set than the ten you may ship a locale file for — and falls
+which is a smaller set than the eleven you may ship a locale file for — and falls
 back to English, per key, in the others.
 
 **A TypeScript plugin must not `import` its locale files.** Only the `locales/`
@@ -596,7 +596,7 @@ never be asked for a `qps` config schema. That half is `locale render`'s job.
 
 - [Config and settings fields](config-fields.md) — where the declared plane
   actually renders
-- [`spec/locales.yaml`](../../../spec/locales.yaml) — the ten codes, and how the
+- [`spec/locales.yaml`](../../../spec/locales.yaml) — the eleven codes, and how the
   list is changed
 - [`spec/i18n.yaml`](../../../spec/i18n.yaml) — the fallback chain, the
   placeholder grammar, the plural table

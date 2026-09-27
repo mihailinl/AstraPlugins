@@ -37,7 +37,7 @@ declared_plane_marker: key(k) returns "$" + k
 from __future__ import annotations
 
 #: SHA-256 of the ``spec/i18n.yaml`` these rules were generated from.
-SPEC_SHA256 = "15978cdce90926b3fa09a4701980d684c372f4b27692c5345c18e4d434469d32"
+SPEC_SHA256 = "1324a07592442e7b0ec7240a0206f471f81776f9f30651b310ca4d15210b4336"
 
 #: Every language's categories, in the order spec/i18n.yaml declares them.
 CATEGORIES: dict[str, tuple[str, ...]] = {
@@ -51,6 +51,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
     "ja": ("other",),
     "zh": ("other",),
     "ko": ("other",),
+    "kk": ("one", "other"),
 }
 
 
@@ -118,6 +119,10 @@ def category(lang: str, n: int) -> str:
     if lang == "zh":
         return "other"
     if lang == "ko":
+        return "other"
+    if lang == "kk":
+        if n == 1:
+            return "one"
         return "other"
     return "other"
 

@@ -533,7 +533,7 @@ jobs:
       # degraded equivalent of the comparison — no lock file records the daemon's
       # language list — so this prints what was not verified and exits 0. A skip
       # that looks like a pass is the failure mode this whole job is arranged
-      # around; the script names the ten codes it took on trust, and names the
+      # around; the script names every code it took on trust, and names the
       # two checks that DID run without a checkout, so the line is usable rather
       # than merely present.
       - name: C12 the locale vocabulary was NOT compared (degraded mode)
@@ -647,7 +647,7 @@ jobs:
           done
           echo "ok   Astra@$ref carries the slicer and its surface file"
 
-      # C12 — spec/locales.yaml is the ten codes `Settings::validate` accepts.
+      # C12 — spec/locales.yaml is the codes `Settings::validate` accepts.
       #
       # FIRST of the full-mode comparisons, and deliberately ahead of every
       # toolchain and build step: it needs the checkout and a python3, nothing
@@ -656,7 +656,7 @@ jobs:
       # them out at once — which is exactly what happened on the pull request
       # that added this step, and is why it is not sitting there too.
       #
-      # Those ten strings are the complete set of values that can reach a plugin
+      # Those strings are the complete set of values that can reach a plugin
       # in `PluginRegisterRequest.language` or `LanguageChangedMsg.language`, and
       # therefore the only names a bundle's `locales/<code>.json` may take: the
       # daemon selects with `instance.locales.get(language)` on a HashMap and all

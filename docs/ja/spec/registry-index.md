@@ -413,6 +413,7 @@ One release, `signed.plugins[].releases[]`, is:
 | `changelog_url` | string, `^https://` | optional: copied through from the version file |
 | `staging` | boolean | optional: `true` on a release that exists on paper and has no artifact digest yet; never written as `false` |
 | `staging_reason` | string | optional: written only beside `staging: true`, copied through from the version file |
+| `review` | `unreviewed` or `reviewed` | optional: the review mark, copied byte for byte from the version file. Present on every release published since the registry adopted contract 3.0.0, absent from older ones. `reviewed` means an Astra moderator read that version, and nothing more. A reader treats any other value, or a non-string, as not reviewed and never refuses the document for it |
 | `release` | object, `signed.plugins[].releases[].release` | required: where the artifacts are served from, which is what their URLs must sit under (§5.2) |
 | `artifacts` | object, platform key → `signed.plugins[].releases[].artifacts.<platform>`, at least one | required |
 

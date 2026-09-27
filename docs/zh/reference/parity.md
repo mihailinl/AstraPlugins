@@ -38,31 +38,31 @@
 
 | RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | 守护进程侧调用点 |
 |---|---|---|---|---|---|---|---|---|
-| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | stable | stable | **none** |
-| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
-| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
-| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
 | `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs` |
-| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager.rs` |
+| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/health.rs` |
 
 ## PluginHostService —— 插件 → 守护进程
 
@@ -140,21 +140,21 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
   已经不存在了，但它是 unrouted 的这个事实本身还在。
 - **`TtsGetConfigFields`** —— 在 Voice 页面上由 DynamicField 渲染的
   额外 TTS 设置字段。通过守护进程的 `optional_hook` 辅助函数
-  （manager.rs:2878）路由，所以 UNIMPLEMENTED 意味着不存在，而真正的
+  （manager/voice.rs:450）路由，所以 UNIMPLEMENTED 意味着不存在，而真正的
   故障依然是故障。
 - **`TtsActivate`** —— 为一次性的、绑定到机器的封装，交付已授权语音的
   内容密钥。proto 中的说明是 UNIMPLEMENTED 会被视为"不需要激活"，但
-  守护进程**没有**通过 `optional_hook` 路由它 —— manager.rs:2664 会把
+  守护进程**没有**通过 `optional_hook` 路由它 —— manager/voice.rs:131 会把
   错误继续传播，vox_activation.rs:319 会让激活失败。proto 里的注释才是
   错的那一方。
 - **`SttProcess`** —— 音频块进，转写事件出；同时承载单次和流式两种
-  STT。也在 manager.rs:2808 处被实时驱动。两端的通道容量都是
+  STT。也在 manager/voice.rs:342 处被实时驱动。两端的通道容量都是
   spec/limits.yaml:stt_audio_channel_capacity。
 - **`SttLoad`** —— 加载识别器模型，附带守护进程解析好的路径和 GPU
-  开关。manager.rs:2918 通过 `optional_hook` 路由它，这就是它为
+  开关。manager/voice.rs:488 通过 `optional_hook` 路由它，这就是它为
   optional 的原因。
 - **`SttGetLoadState`** —— 报告 Loaded / NotLoaded / NotNeeded，以便
-  守护进程驱动空闲卸载。manager.rs:2960 把不存在的钩子映射为
+  守护进程驱动空闲卸载。manager/voice.rs:530 把不存在的钩子映射为
   NotNeeded，这是钩子引入之前的行为。
 - **`AiComplete`** —— 流式返回一次模型补全；这是插件能成为 AI 提供者的
   唯一方式。Python 和 TypeScript 把它绑定为一个异步生成器；Rust 把它
@@ -168,14 +168,14 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
   移除，且没有替代方案：守护进程不会问插件它有哪些模型，AiComplete 的
   请求里会直接携带已选定的模型。
 - **`OnActiveTriggers`** —— 某条命令当前正在监听这个插件的哪些触发器
-  类型。manager.rs:2523 通过 `optional_hook` 路由它。
+  类型。manager/capabilities.rs:438 通过 `optional_hook` 路由它。
 - **`OnLanguageChanged`** —— Astra UI 的语言变了；重新渲染任何用户可见
-  的内容。manager.rs:1133 通过 `optional_hook` 路由它。
+  的内容。manager/ui_surface.rs:352 通过 `optional_hook` 路由它。
 - **`Shutdown`** —— 干净地停止；宽限期过后进程组会被 kill。宽限期是
   spec/limits.yaml:plugin_stop_grace_secs。先响应，再退出。
 - **`HealthCheck`** —— 每 15 秒一次的存活探测。在最严格的意义上是
   required：这个钩子**没有**通过 `optional_hook` 路由，所以任何错误 ——
-  包括 UNIMPLEMENTED —— 都会把插件标记为已死亡（manager.rs:1464）。
+  包括 UNIMPLEMENTED —— 都会把插件标记为已死亡（manager/health.rs:337）。
 - **`Register`** —— 握手：证明 spawn token，换取插件专属的会话令牌。
   这是唯一豁免于认证拦截器的路径。此后的每一个 host rpc 都必须携带
   返回的令牌，作为 x-session-token。
