@@ -323,7 +323,7 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         vec![UiContribution::page("main", "My Plugin", "web/index.html")]
     }
 
-    /// Called from that iframe by `astra.call("ping", {})`. Push data back
+    /// Called from that iframe by `astra.callBackend("ping", {})`. Push data back
     /// with `ctx.host().push_to_ui(..)`.
     #[ui_call]
     async fn ping(&self) -> Result<String, ToolError> {

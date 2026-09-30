@@ -176,7 +176,7 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
             r#"
     @ui_call
     async def ping(self):
-        # Reachable from the iframe as `astra.call("ping", {})`. Push data the
+        # Reachable from the iframe as `astra.callBackend("ping", {})`. Push data the
         # other way with `await self.host.push_to_ui(...)`, which needs the
         # `push_to_ui` permission in plugin.toml.
         return {"ok": True}

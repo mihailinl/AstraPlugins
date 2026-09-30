@@ -189,7 +189,7 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     // `ui.*` key off. Astra resolves this one too — make it
     // `key("ui.main.label")` and add the key when you translate it.
     contributions: [UiContrib.page("main", "My Plugin", "web/index.html")],
-    // Reachable from that iframe as `astra.call("ping", {})`. Push data the
+    // Reachable from that iframe as `astra.callBackend("ping", {})`. Push data the
     // other way with `ctx.pushToUi(...)`.
     onCall: {
       ping: () => ({ ok: true }),

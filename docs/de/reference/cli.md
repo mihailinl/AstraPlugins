@@ -79,7 +79,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | Programmiersprache (Default `rust`) |
 | `-t, --template <TEMPLATE>` | Was für ein Plugin das ist. Wählt die Capabilities und den Beispielcode; `--capabilities` überschreibt die implizierte Capability-Menge (Default `tool`; eines von `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
-| `-c, --capabilities <CAPABILITIES>` | Capabilities (kommagetrennt: tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Überschreibt, was auch immer --template impliziert |
+| `-c, --capabilities <CAPABILITIES>` | Capabilities (kommagetrennt: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Überschreibt, was auch immer --template impliziert |
 | `-o, --output <OUTPUT>` | Ausgabeverzeichnis (Default: ./<name>) |
 
 ## astra-plugin dev

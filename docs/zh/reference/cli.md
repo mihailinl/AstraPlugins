@@ -72,7 +72,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | 编程语言（默认 `rust`） |
 | `-t, --template <TEMPLATE>` | 这是什么类型的插件。决定能力和示例代码；`--capabilities` 会覆盖它隐含的能力集合（默认 `tool`；可选 `tool`、`tts`、`stt`、`stt-streaming`、`ai-provider`、`ui`、`action-trigger`、`client`、`blank` 之一） |
-| `-c, --capabilities <CAPABILITIES>` | 能力（逗号分隔：tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access）。会覆盖 --template 所隐含的内容 |
+| `-c, --capabilities <CAPABILITIES>` | 能力（逗号分隔：tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access）。会覆盖 --template 所隐含的内容 |
 | `-o, --output <OUTPUT>` | 输出目录（默认：./<name>） |
 
 ## astra-plugin dev

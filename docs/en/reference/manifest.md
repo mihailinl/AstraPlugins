@@ -87,6 +87,7 @@ Every key is a boolean and defaults to `false`. The right-hand column is the joi
 | `tools` | `ListTools`, `CallTool` |
 | `tts` | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | none |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

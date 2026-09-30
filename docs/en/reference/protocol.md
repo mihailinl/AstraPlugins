@@ -48,7 +48,7 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `GetPluginActionTypes` | `actions` | `Empty` | `PluginActionTypesResponse` | unary | live | The action types this plugin adds to the command editor, read at startup. |
 | `GetPluginTriggerTypes` | `triggers` | `Empty` | `PluginTriggerTypesResponse` | unary | live | The trigger types this plugin adds to the command editor, read at startup. |
 | `GetUiContributions` | `ui_contributions` | `Empty` | `PluginUiContributionsResponse` | unary | live | The pages, slots, overlays and effects this plugin renders in the Astra window. |
-| `CallFromUi` | `ui_contributions` | `PluginUiCallRequest` | `PluginUiCallResponse` | unary | live | A method call from this plugin's own iframe into its backend. |
+| `CallFromUi` | `ui_contributions` | `PluginUiCallRequest` | `PluginUiCallResponse` | unary | live | A named request from the plugin's UI or Astra's wake-word bridge into its backend. |
 | `OnConfigChanged` | `core` | `PluginConfigChangedMsg` | `Empty` | unary | live | The user saved new settings; here is the whole config as JSON. |
 | `OnActiveTriggers` | `triggers` | `PluginActiveTriggersMsg` | `Empty` | unary | live | Which of this plugin's trigger types a command is currently listening for. |
 | `OnLanguageChanged` | `core` | `LanguageChangedMsg` | `Empty` | unary | live | The Astra UI language changed; re-render anything user-visible. |

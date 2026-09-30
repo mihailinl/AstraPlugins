@@ -107,9 +107,11 @@
 protocol: 1
 proto: "proto/plugin.proto"
 astra_daemon_root: "astra-rs/astra-daemon"
-capabilities: "tools tts stt ai_provider client actions triggers ui_contributions event_handlers dom_access core"
+capabilities: "tools tts stt wakeword ai_provider client actions triggers ui_contributions event_handlers dom_access core"
 
-# `dom_access` owns no rpc — it is a flag the daemon copies onto a plugin's UI
+# `wakeword` uses CallFromUi's documented status/process-audio/reset-audio
+# methods while a dedicated audio RPC is not part of protocol 1. `dom_access`
+# owns no rpc — it is a flag the daemon copies onto a plugin's UI
 # contributions (`manager/ui_surface.rs:77`), not a hook. It is in the vocabulary above so
 # the checker can tell an unknown capability from a hookless one.
 
@@ -433,7 +435,7 @@ hooks:
     since: 1
     streaming: unary
     daemon_calls: "src/plugins/manager/ui_surface.rs:211"
-    summary: "A method call from this plugin's own iframe into its backend."
+    summary: "A named request from the plugin's UI or Astra's wake-word bridge into its backend."
     rust: stable
     python: stable
     typescript: stable

@@ -31,7 +31,7 @@ You implement these; the daemon calls them.
 | `GetPluginTriggerTypes` | `triggers` | required | unary | stable | The trigger types this plugin adds to the command editor, read at startup. |
 | `OnActiveTriggers` | `triggers` | optional | unary | stable | Which of this plugin's trigger types a command is currently listening for. |
 | `GetUiContributions` | `ui_contributions` | required | unary | stable | The pages, slots, overlays and effects this plugin renders in the Astra window. |
-| `CallFromUi` | `ui_contributions` | optional | unary | stable | A method call from this plugin's own iframe into its backend. |
+| `CallFromUi` | `ui_contributions` | optional | unary | stable | A named request from the plugin's UI or Astra's wake-word bridge into its backend. |
 | `OnConfigChanged` | `core` | optional | unary | stable | The user saved new settings; here is the whole config as JSON. |
 | `OnLanguageChanged` | `core` | optional | unary | stable | The Astra UI language changed; re-render anything user-visible. |
 | `Shutdown` | `core` | required | unary | stable | Stop cleanly; the process group is killed after the grace period. |

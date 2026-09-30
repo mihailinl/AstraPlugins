@@ -16,20 +16,20 @@ Full docs: [`docs/en/README.md`](docs/en/README.md).
 
 ## 1 · Install the CLI
 
-`astra-plugin-cli` is **not on crates.io and has no prebuilt binaries.** Building
-from source with Rust is the only way to get it — binaries are a known task, not
-something you can use today. If you cannot install Rust, say so and stop; do not
-invent another way to obtain the tool. You need **Rust 1.85+** (every crate is
-`edition = "2024"`) and **`protoc` on `PATH`** — `pacman -S protobuf`,
-`apt install protobuf-compiler`, `brew install protobuf`.
+Install the `astra-plugin` binary as described in
+[docs/en/install-cli.md](docs/en/install-cli.md). Prebuilt archives are available
+for Windows x64 and Linux x64. A source build is useful when working against an
+unreleased checkout or a platform without an archive; it needs **Rust 1.85+**
+and **`protoc` on `PATH`**. `cargo install astra-plugin-cli` may not be
+available from crates.io; follow the install guide instead.
 
 ```bash
 cargo install --path astra-plugin-cli                                   # from a clone
 cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked
 ```
 
-Either takes about a minute and ends with `Installed package … (executable
-astra-plugin)`. The binary is **`astra-plugin`**, not `astra-plugin-cli`.
+Both source-build commands install the executable **`astra-plugin`**, not
+`astra-plugin-cli`. The prebuilt archive contains the same executable.
 
 **Do not gate on `astra-plugin --version`.** Both lines above build `master`,
 and `master`'s `Cargo.toml` says `0.2.0` — so a build that carries every fix
@@ -67,7 +67,7 @@ the capabilities and the example code; `--capabilities` overrides that set.
 
 **Do not hand-write `plugin.toml`, and do not copy one out of `examples/`.** The
 scaffold writes a correct manifest with commented, ready-to-uncomment permission
-lines. `[capabilities]` is what Astra may call **into** your plugin (ten keys);
+lines. `[capabilities]` is what Astra may call **into** your plugin (eleven keys);
 `[permissions]` is what your plugin may call **out** to Astra (eight ids,
 default-deny, each needing a `reason` the user reads before consenting). They are
 independent — declaring `tools` does not grant `fire_trigger` — and both are

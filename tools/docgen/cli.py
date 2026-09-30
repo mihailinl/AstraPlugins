@@ -217,7 +217,9 @@ def parse_help(text: str) -> Help:
             seen_section = True
             continue
         if line.startswith("Usage:"):
-            usage.append(line[len("Usage:") :].strip())
+            # Clap prints argv[0]; Windows adds .exe, but the documented
+            # command name must be stable across the machines running docgen.
+            usage.append(line[len("Usage:") :].strip().replace("astra-plugin.exe", "astra-plugin", 1))
             current = "Usage"
             seen_section = True
             continue

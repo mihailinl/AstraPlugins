@@ -70,6 +70,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use base64::Engine as _;
 use astra_plugin_sdk::limits::{PLUGIN_START_TIMEOUT_SECS, PLUGIN_STOP_GRACE_SECS};
 use astra_plugin_sdk::proto;
 use astra_plugin_sdk::proto::plugin_capability_service_client::PluginCapabilityServiceClient;
@@ -592,6 +593,10 @@ async fn drive(
         });
     }
 
+    if declared.contains("wakeword") {
+        findings.checks.extend(wakeword_checks(&mut client).await);
+    }
+
     // ── locale-round-trip ──
     findings
         .checks
@@ -686,6 +691,53 @@ async fn drive(
     findings.checks.extend(host_side_checks(daemon));
 
     Ok(findings)
+}
+
+/// Protocol 1 carries wake-word audio through named CallFromUi methods. Probe
+/// their shapes even when the author's AccessKey or model is not configured.
+async fn wakeword_checks(
+    client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+) -> Vec<(String, bool, String)> {
+    async fn call(
+        client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+        method: &str,
+        params: Value,
+    ) -> std::result::Result<Value, String> {
+        let response = probe_call!(client, method, call_from_ui(proto::PluginUiCallRequest {
+            method: method.to_string(),
+            params_json: params.to_string(),
+        }))
+        .map_err(|error| error.to_string())?;
+        if !response.error.is_empty() {
+            return Err(response.error);
+        }
+        serde_json::from_str(&response.result_json).map_err(|error| error.to_string())
+    }
+
+    let status = call(client, "status", json!({})).await;
+    let reset = call(client, "reset-audio", json!({})).await;
+    let pcm_base64 = base64::engine::general_purpose::STANDARD.encode([0u8; 3200]);
+    let audio = call(client, "process-audio", json!({ "pcm_base64": pcm_base64 })).await;
+    vec![
+        match status {
+            Ok(value) if value.get("ready").and_then(Value::as_bool).is_some() =>
+                ("wakeword status".into(), true, "returned ready: bool".into()),
+            Ok(_) => ("wakeword status".into(), false, "status must return ready: bool".into()),
+            Err(error) => ("wakeword status".into(), false, error),
+        },
+        match reset {
+            Ok(value) if value.is_object() =>
+                ("wakeword reset-audio".into(), true, "accepted a reset".into()),
+            Ok(_) => ("wakeword reset-audio".into(), false, "reset-audio must return an object".into()),
+            Err(error) => ("wakeword reset-audio".into(), false, error),
+        },
+        match audio {
+            Ok(value) if value.get("detected").and_then(Value::as_bool).is_some() =>
+                ("wakeword process-audio".into(), true, "returned detected: bool".into()),
+            Ok(_) => ("wakeword process-audio".into(), false, "process-audio must return detected: bool".into()),
+            Err(error) => ("wakeword process-audio".into(), false, error),
+        },
+    ]
 }
 
 /// Did the plugin produce a line of output inside the daemon's start window?

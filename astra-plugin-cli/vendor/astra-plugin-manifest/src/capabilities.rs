@@ -31,6 +31,8 @@ pub struct Capabilities {
     #[serde(default)]
     pub stt: bool,
     #[serde(default)]
+    pub wakeword: bool,
+    #[serde(default)]
     pub ai_provider: bool,
     #[serde(default)]
     pub client: bool,
@@ -56,6 +58,7 @@ pub const CAPABILITY_NAMES: &[&str] = &[
     "tools",
     "tts",
     "stt",
+    "wakeword",
     "ai_provider",
     "client",
     "actions",
@@ -107,6 +110,9 @@ impl Capabilities {
         }
         if self.stt {
             list.push("stt".into());
+        }
+        if self.wakeword {
+            list.push("wakeword".into());
         }
         if self.ai_provider {
             list.push("ai_provider".into());

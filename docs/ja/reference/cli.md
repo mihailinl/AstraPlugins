@@ -79,7 +79,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | プログラミング言語(デフォルト `rust`) |
 | `-t, --template <TEMPLATE>` | これがどんな種類のプラグインか。ケーパビリティとサンプルコードを選びます; `--capabilities` はそれが含意するケーパビリティ集合を上書きします(デフォルト `tool`; `tool`、`tts`、`stt`、`stt-streaming`、`ai-provider`、`ui`、`action-trigger`、`client`、`blank` のいずれか) |
-| `-c, --capabilities <CAPABILITIES>` | ケーパビリティ(カンマ区切り: tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access)。--template が含意するものを上書きします |
+| `-c, --capabilities <CAPABILITIES>` | ケーパビリティ(カンマ区切り: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access)。--template が含意するものを上書きします |
 | `-o, --output <OUTPUT>` | 出力ディレクトリ(デフォルト: ./<name>) |
 
 ## astra-plugin dev

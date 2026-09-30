@@ -41,7 +41,7 @@ true` не даёт права подписываться на события; �
 `GetPluginSelfConfig` и `GetDaemonInfo` и ничего больше
 ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## Десять возможностей
+## Одиннадцать возможностей
 
 Каждый ключ — булев, по умолчанию `false`, и обязывает вас обслуживать
 некоторые хуки. В правой колонке — *обязательные*; необязательные — в
@@ -52,6 +52,7 @@ true` не даёт права подписываться на события; �
 | `tools` | набор функций, которые может вызывать модель | `ListTools`, `CallTool` |
 | `tts` | провайдер синтеза речи в настройках голоса | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | провайдер распознавания речи | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | детектор ключевой фразы в настройках голоса | методы `CallFromUi` для аудио ([контракт](../../en/wakeword-plugins.md)) |
 | `ai_provider` | бэкенд модели | `AiComplete` |
 | `actions` | шаги в редакторе команд | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | типы триггеров, на которые могут подписываться команды | `GetPluginTriggerTypes`, `FireTrigger` |

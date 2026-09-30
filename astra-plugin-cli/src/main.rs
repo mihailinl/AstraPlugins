@@ -106,7 +106,7 @@ enum Commands {
         #[arg(short, long, default_value = "tool", value_parser = commands::create::TEMPLATE_NAMES)]
         template: String,
 
-        /// Capabilities (comma-separated: tools, tts, stt, ai_provider, client,
+        /// Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client,
         /// actions, triggers, ui_contributions, event_handlers, dom_access).
         /// Overrides whatever --template implies.
         #[arg(short, long, alias = "caps")]

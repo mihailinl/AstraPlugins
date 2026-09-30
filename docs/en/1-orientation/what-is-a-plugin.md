@@ -37,7 +37,7 @@ declaring it. They are two words now. Declaring
 `Register`, `PluginLog`, `GetPluginSelfConfig` and `GetDaemonInfo` and nothing
 else ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## The ten capabilities
+## The eleven capabilities
 
 Every key is a boolean, defaults to `false`, and obliges you to serve some
 hooks. The right-hand column is the *required* ones; the optional ones are in
@@ -48,6 +48,7 @@ hooks. The right-hand column is the *required* ones; the optional ones are in
 | `tools` | a set of functions the model can call | `ListTools`, `CallTool` |
 | `tts` | a text-to-speech provider in the Voice settings | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | a speech-to-text provider | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | a wake-word detector in Voice settings | `CallFromUi` audio methods ([contract](../wakeword-plugins.md)) |
 | `ai_provider` | a model backend | `AiComplete` |
 | `actions` | steps in the command editor | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | trigger types commands can listen for | `GetPluginTriggerTypes`, `FireTrigger` |
