@@ -402,7 +402,7 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      ASTRA_TOOLING_REF: "8beebf4a78475e728df3bb53aefc0d538e2eb0fe"
+      ASTRA_TOOLING_REF: "9bb6a86cb4a2bdf8fa99c58a792c311eb4ee11fe"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
@@ -500,7 +500,8 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - uses: oven-sh/setup-bun@v2
-        if: matrix.language == 'typescript'
+        with:
+          bun-version: "1.3.4"
 
       - uses: actions/setup-python@v5
         if: matrix.language == 'python'
@@ -617,6 +618,15 @@ jobs:
         run: |
           set -euo pipefail
           bun install --frozen-lockfile
+
+      # Frontend dependencies are independent of the plugin backend.
+      - name: Install frontend dependencies with a frozen lockfile
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          set -euo pipefail
+          if [ -f frontend/package.json ]; then
+            (cd frontend && bun install --frozen-lockfile)
+          fi
 
       # --no-sign: this job holds no key, by design. Provenance is the
       #   attestation `publish` makes over sha256(whole file), not an Ed25519
