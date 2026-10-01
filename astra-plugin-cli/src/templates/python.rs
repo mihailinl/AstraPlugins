@@ -175,8 +175,8 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         methods.push_str(
             r#"
     @ui_call
-    async def ping(self):
-        # Reachable from the iframe as `astra.call("ping", {})`. Push data the
+    async def ping(self, **params):
+        # Reachable from the iframe as `astra.callBackend("ping", {})`. Push data the
         # other way with `await self.host.push_to_ui(...)`, which needs the
         # `push_to_ui` permission in plugin.toml.
         return {"ok": True}
@@ -221,7 +221,7 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     // `@ui_page` registers, it does not return something to be plumbed. That is
     // the whole point of §5.8's change, so the scaffold has to show it.
     let class_decorator = if ui {
-        "@ui_page(\"main\", \"My Plugin\", \"web/index.html\")\n"
+        "@ui_page(\"main\", \"My Plugin\", \"index.html\")\n"
     } else {
         ""
     };

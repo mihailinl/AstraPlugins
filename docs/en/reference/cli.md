@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.4.0
+     Read from: astra-plugin 0.5.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -12,7 +12,7 @@
 
 # CLI reference
 
-`astra-plugin 0.4.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
+`astra-plugin 0.5.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
 Astra Plugin Development CLI
 
@@ -56,7 +56,7 @@ Also spelled `astra-plugin create`.
 Create a new plugin project from a template
 
 ```
-Usage: astra-plugin new [OPTIONS] <NAME>
+Usage: astra-plugin.exe new [OPTIONS] <NAME>
 ```
 
 **Arguments**
@@ -71,6 +71,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | Programming language (default `rust`) |
 | `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
+| `--ui <UI>` | Frontend independent of the backend language (for UI contributions) (default `vanilla`; one of `vanilla`, `react`) |
 | `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
 | `-o, --output <OUTPUT>` | Output directory (default: ./<name>) |
 
@@ -79,7 +80,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 Start a plugin in dev mode (sideload into the running Astra + hot-reload)
 
 ```
-Usage: astra-plugin dev [OPTIONS] [PATH]
+Usage: astra-plugin.exe dev [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -100,7 +101,7 @@ Usage: astra-plugin dev [OPTIONS] [PATH]
 Build a plugin into a distributable .astraplugin bundle
 
 ```
-Usage: astra-plugin build [OPTIONS] [PATH]
+Usage: astra-plugin.exe build [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -127,7 +128,7 @@ Append the retiring in-ZIP SIGNATURE/PUBKEY pair to a built bundle.
 An optional second factor, not a trust signal: Astra checks the in-ZIP pair against a pinned Astra publisher key, so a bundle signed with your own key is untrusted exactly as an unsigned one is. What makes Astra install a plugin is the registry record countersigning sha256(whole file). Both this command and the format entries it writes are removed in a future release.
 
 ```
-Usage: astra-plugin sign [OPTIONS] <FILE>
+Usage: astra-plugin.exe sign [OPTIONS] <FILE>
 ```
 
 **Arguments**
@@ -147,7 +148,7 @@ Usage: astra-plugin sign [OPTIONS] <FILE>
 Verify a built .astraplugin bundle and print its digests
 
 ```
-Usage: astra-plugin verify [OPTIONS] <FILE>
+Usage: astra-plugin.exe verify [OPTIONS] <FILE>
 ```
 
 **Arguments**
@@ -163,7 +164,7 @@ Run the conformance suite against a real plugin process.
 Starts the plugin the way the daemon starts it, against a mock daemon serving PluginHostService, and calls every inbound hook that the manifest's capabilities imply. A hook `spec/hooks.yaml` marks `required` may not answer UNIMPLEMENTED; an `optional` one may, because UNIMPLEMENTED is the protocol's way of saying "this hook is absent".
 
 ```
-Usage: astra-plugin test [OPTIONS] [PATH]
+Usage: astra-plugin.exe test [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -184,7 +185,7 @@ Usage: astra-plugin test [OPTIONS] [PATH]
 Answer, in one command, every question asked when a plugin will not start: toolchains, the daemon, the manifest, the entry point, permissions, the platform block, the release workflow
 
 ```
-Usage: astra-plugin doctor [OPTIONS] [PATH]
+Usage: astra-plugin.exe doctor [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -204,7 +205,7 @@ Usage: astra-plugin doctor [OPTIONS] [PATH]
 Read a plugin's output from the daemon that spawned it
 
 ```
-Usage: astra-plugin logs [OPTIONS] [PLUGIN_ID]
+Usage: astra-plugin.exe logs [OPTIONS] [PLUGIN_ID]
 ```
 
 **Arguments**
@@ -229,7 +230,7 @@ Also spelled `astra-plugin validate`.
 Check a plugin manifest, config schema and release workflow
 
 ```
-Usage: astra-plugin check [OPTIONS] [PATH]
+Usage: astra-plugin.exe check [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -252,7 +253,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs
 
 ```
-Usage: astra-plugin init-ci [OPTIONS] [PATH]
+Usage: astra-plugin.exe init-ci [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -275,7 +276,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 Set the version in plugin.toml and every other manifest at once
 
 ```
-Usage: astra-plugin version [OPTIONS] <VERSION> [PATH]
+Usage: astra-plugin.exe version [OPTIONS] <VERSION> [PATH]
 ```
 
 **Arguments**
@@ -298,7 +299,7 @@ Get a release listed: preflight it, or open a prefilled submission.
 Uploads nothing and holds no credential — the registry reads the attested bundles off your GitHub Release and verifies every one of them from scratch, so a submission carries only your repository and a tag.
 
 ```
-Usage: astra-plugin publish [OPTIONS] [PATH]
+Usage: astra-plugin.exe publish [OPTIONS] [PATH]
 ```
 
 **Arguments**
@@ -324,7 +325,7 @@ Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses.
 You do not need one to publish: `build` does not read it, and Astra's trust comes from the registry record over sha256(whole file), not from any key you hold.
 
 ```
-Usage: astra-plugin keygen [OPTIONS]
+Usage: astra-plugin.exe keygen [OPTIONS]
 ```
 
 **Options**
@@ -340,7 +341,7 @@ Manage `locales/` — the plugin's translations, and its store card's text.
 A plugin ships one flat `locales/<code>.json` per language beside `plugin.toml`. `astra-plugin check` and `astra-plugin build` enforce the rules over that directory; these commands are how you satisfy them without reading them.
 
 ```
-Usage: astra-plugin locale [OPTIONS] <COMMAND>
+Usage: astra-plugin.exe locale [OPTIONS] <COMMAND>
 ```
 
 **Options**

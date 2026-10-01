@@ -2,7 +2,7 @@
 
 # CLI 参考手册
 
-`astra-plugin 0.4.0`。下面的每一个标志都是从这个二进制文件本身读取
+`astra-plugin 0.5.0`。下面的每一个标志都是从这个二进制文件本身读取
 出来的，所以本页不可能描述一个不存在的选项。来源是
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)。
 
@@ -72,6 +72,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | 编程语言（默认 `rust`） |
 | `-t, --template <TEMPLATE>` | 这是什么类型的插件。决定能力和示例代码；`--capabilities` 会覆盖它隐含的能力集合（默认 `tool`；可选 `tool`、`tts`、`stt`、`stt-streaming`、`ai-provider`、`ui`、`action-trigger`、`client`、`blank` 之一） |
+| `--ui <UI>` | 独立于后端语言的前端（默认 `vanilla`；`vanilla`、`react`） |
 | `-c, --capabilities <CAPABILITIES>` | 能力（逗号分隔：tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access）。会覆盖 --template 所隐含的内容 |
 | `-o, --output <OUTPUT>` | 输出目录（默认：./<name>） |
 

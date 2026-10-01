@@ -1,0 +1,14 @@
+{
+  "name": "plugin-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.mjs"
+  },
+  "dependencies": {
+    "@astra/plugin-ui": "file:./vendor/astra-plugin-ui"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.10"
+  }
+}

@@ -205,6 +205,7 @@ mod roundtrip {
             name,
             lang: "python",
             template: "tool",
+            ui: "vanilla",
             capabilities: Some("tools"),
             out_dir: &project.to_string_lossy(),
         })

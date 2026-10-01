@@ -12,6 +12,8 @@ Aquí hay dos recorridos, y todo en esta página pertenece a uno de los dos.
 
 ## Escribir un plugin
 
+[Plugin UI Kit](4-sdk/ui-kit.md)
+
 | | |
 |---|---|
 | [Qué es un plugin](1-orientation/what-is-a-plugin.md) | Las diez capacidades (capabilities), y cuál quieres |

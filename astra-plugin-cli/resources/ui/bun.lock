@@ -1,0 +1,22 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "plugin-frontend",
+      "dependencies": {
+        "@astra/plugin-ui": "file:./vendor/astra-plugin-ui",
+      },
+      "devDependencies": {
+        "@types/react": "19.2.10",
+      },
+    },
+  },
+  "packages": {
+    "@astra/plugin-ui": ["@astra/plugin-ui@file:vendor/astra-plugin-ui", { "peerDependencies": { "@types/react": "^19.2.10" } }],
+
+    "@types/react": ["@types/react@19.2.10", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-WPigyYuGhgZ/cTPRXB2EwUw+XvsRA3GqHlsP4qteqrnnjDrApbS7MxcGr/hke5iUoeB7E/gQtrs9I37zAJ0Vjw=="],
+
+    "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
+  }
+}

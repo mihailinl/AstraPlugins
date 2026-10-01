@@ -2,7 +2,7 @@
 
 # CLI-Referenz
 
-`astra-plugin 0.4.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
+`astra-plugin 0.5.0`. Jedes Flag unten wurde aus der Binärdatei gelesen,
 diese Seite kann also keine Option beschreiben, die nicht existiert. Die
 Quelle ist
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
@@ -79,6 +79,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | Programmiersprache (Default `rust`) |
 | `-t, --template <TEMPLATE>` | Was für ein Plugin das ist. Wählt die Capabilities und den Beispielcode; `--capabilities` überschreibt die implizierte Capability-Menge (Default `tool`; eines von `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
+| `--ui <UI>` | Frontend unabhängig von der Backend-Sprache (Standard `vanilla`; `vanilla`, `react`) |
 | `-c, --capabilities <CAPABILITIES>` | Capabilities (kommagetrennt: tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Überschreibt, was auch immer --template impliziert |
 | `-o, --output <OUTPUT>` | Ausgabeverzeichnis (Default: ./<name>) |
 

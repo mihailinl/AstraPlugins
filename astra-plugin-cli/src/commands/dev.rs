@@ -203,6 +203,8 @@ pub fn fresh_lines<'a>(previous: &[String], current: &'a [String]) -> &'a [Strin
 fn watch_directory(dir: &Path) -> Result<(notify::RecommendedWatcher, mpsc::Receiver<()>)> {
     let (fs_tx, fs_rx) = mpsc::channel::<()>(1);
 
+    let generated_ui = dir.join("ui");
+    let has_frontend = dir.join("frontend/package.json").exists();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         if let Ok(event) = res {
             // Only trigger on file modifications (not metadata changes)
@@ -215,7 +217,8 @@ fn watch_directory(dir: &Path) -> Result<(notify::RecommendedWatcher, mpsc::Rece
                 // Ignore build artifacts — our own rebuild writes into them.
                 let dominated_by_build = event.paths.iter().all(|p| {
                     let s = p.to_string_lossy();
-                    s.contains("target")
+                    (has_frontend && p.starts_with(&generated_ui))
+                        || s.contains("target")
                         || s.contains("node_modules")
                         || s.contains("__pycache__")
                         || s.contains(".venv")

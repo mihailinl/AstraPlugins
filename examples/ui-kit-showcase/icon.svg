@@ -1,0 +1,46 @@
+<!-- Replace me. This is a placeholder so your plugin has *a* picture
+     from the first minute; it is not a house style and nothing expects your
+     icon to look anything like it.
+
+     `astra-plugin build` packs whichever of these it finds next to plugin.toml,
+     and Astra's store draws it on your card:
+
+         icon.png   icon.webp   icon.svg   icon.jpg   icon.ico
+
+     PNG with a transparent background is the usual answer. Draw it square; it
+     is displayed at about 64px, so it wants a bold silhouette rather than fine
+     detail, and it should read on both a light and a dark background because
+     the store follows the user's theme.
+
+     If you do ship an SVG, keep it static: no <script>, no on* handlers, no
+     <foreignObject>, and no reference to anything off this machine. The
+     registry drops an icon carrying any of those, and your plugin would list
+     with no picture at all. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="64" height="64"
+     shape-rendering="crispEdges" role="img" aria-label="Ui Kit Showcase">
+  <title>Ui Kit Showcase</title>
+  <rect width="16" height="16" fill="#ea580c"/>
+  <rect x="4" y="2" width="2" height="1" fill="#f8fafc"/>
+  <rect x="10" y="2" width="2" height="1" fill="#f8fafc"/>
+  <rect x="4" y="3" width="2" height="1" fill="#f8fafc"/>
+  <rect x="10" y="3" width="2" height="1" fill="#f8fafc"/>
+  <rect x="2" y="4" width="12" height="1" fill="#f8fafc"/>
+  <rect x="2" y="5" width="11" height="1" fill="#f8fafc"/>
+  <rect x="13" y="5" width="1" height="1" fill="#94a3b8"/>
+  <rect x="2" y="6" width="11" height="1" fill="#f8fafc"/>
+  <rect x="13" y="6" width="1" height="1" fill="#94a3b8"/>
+  <rect x="2" y="7" width="11" height="1" fill="#f8fafc"/>
+  <rect x="13" y="7" width="1" height="1" fill="#94a3b8"/>
+  <rect x="2" y="8" width="11" height="1" fill="#f8fafc"/>
+  <rect x="13" y="8" width="1" height="1" fill="#94a3b8"/>
+  <rect x="2" y="9" width="1" height="1" fill="#f8fafc"/>
+  <rect x="3" y="9" width="11" height="1" fill="#94a3b8"/>
+  <rect x="4" y="10" width="8" height="1" fill="#f8fafc"/>
+  <rect x="4" y="11" width="7" height="1" fill="#f8fafc"/>
+  <rect x="11" y="11" width="1" height="1" fill="#94a3b8"/>
+  <rect x="6" y="12" width="4" height="1" fill="#f8fafc"/>
+  <rect x="6" y="13" width="3" height="1" fill="#f8fafc"/>
+  <rect x="9" y="13" width="1" height="1" fill="#94a3b8"/>
+  <rect x="6" y="14" width="3" height="1" fill="#f8fafc"/>
+  <rect x="9" y="14" width="1" height="1" fill="#94a3b8"/>
+</svg>

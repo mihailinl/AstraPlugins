@@ -65,6 +65,12 @@ astra-plugin new my-plugin --lang rust --template tool
 `tool tts stt stt-streaming ai-provider ui action-trigger client blank` — picks
 the capabilities and the example code; `--capabilities` overrides that set.
 
+For the UI template, choose `--ui vanilla` (default) or `--ui react`
+independently of the backend language. Both use the installed application's
+actual UI Kit primitives; React frontend dependencies live in `frontend/` and
+are installed with `bun install --frozen-lockfile`. Start with
+[the UI Kit guide](docs/en/4-sdk/ui-kit.md), rather than recreating controls.
+
 **Do not hand-write `plugin.toml`, and do not copy one out of `examples/`.** The
 scaffold writes a correct manifest with commented, ready-to-uncomment permission
 lines. `[capabilities]` is what Astra may call **into** your plugin (ten keys);
@@ -126,6 +132,8 @@ fails on the drift. Change the source, re-run the generator, commit both.
 
 | Generated | Generator |
 |---|---|
+| `astra-plugin-ui/**`, CLI vendor and `ui_assets.rs` | `tools/sync-ui-kit.mjs`; correspondence with Astra requires both checkouts and explicit refs |
+| `docs/*/4-sdk/ui-kit.md` | `bun tools/gen-ui-docs.mjs` (public contract and locale templates) |
 | `docs/en/reference/*.md` | `python3 tools/docgen/gen.py` (reads the built CLI binary) |
 | `docs/en/parity.md`, `docs/en/hooks/*.md`, `spec/generated/conformance.json` | `python3 tools/parity/gen.py` |
 | `astra-plugin-sdk*/…/limits.{rs,py,ts}` | `node tools/gen-limits.mjs` |

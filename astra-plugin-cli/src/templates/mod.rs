@@ -3,6 +3,7 @@
 pub mod python;
 pub mod rust;
 pub mod typescript;
+pub mod ui;
 
 /// The first Astra **release** that resolves `$keys` on action labels, trigger
 /// labels and UI contributions — the declared plane outside `[config]`.
@@ -526,6 +527,7 @@ pub fn generate_gitignore(lang: &str) -> String {
         _ => {}
     }
 
+    lines.extend_from_slice(&["frontend/node_modules/", "ui/app.js", "ui/App.js"]);
     lines.join("\n")
 }
 

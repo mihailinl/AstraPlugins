@@ -280,7 +280,7 @@ def discover(paths: list[str]) -> list[Path]:
             continue
         found = 0
         for p in sorted(root.rglob("*.md")):
-            rel = str(p.relative_to(ROOT))
+            rel = p.relative_to(ROOT).as_posix()
             if any(rel == e or rel.startswith(e + "/") for e in EXCLUDE):
                 continue
             out.append(p)
@@ -421,7 +421,7 @@ class Env:
         if self._ts_project is not None:
             return self._ts_project
         sdk = ROOT / "astra-plugin-sdk-ts"
-        tsc = sdk / "node_modules/.bin/tsc"
+        tsc = sdk / "node_modules/typescript/lib/tsc.js"
         if not tsc.is_file():
             raise Skip(
                 "astra-plugin-sdk-ts/node_modules/.bin/tsc is missing — "
@@ -714,8 +714,8 @@ def run_ts_plugin(b: Block, env: Env) -> None:
     for old in src.glob("*.ts"):
         old.unlink()
     (src / f"sample_{b.digest}.ts").write_text(b.body, encoding="utf-8")
-    tsc = ROOT / "astra-plugin-sdk-ts/node_modules/.bin/tsc"
-    run([str(tsc), "--noEmit", "-p", "tsconfig.json"], cwd=proj)
+    tsc = ROOT / "astra-plugin-sdk-ts/node_modules/typescript/lib/tsc.js"
+    run(["node", str(tsc), "--noEmit", "-p", "tsconfig.json"], cwd=proj)
 
 
 def run_json(b: Block, env: Env) -> None:
@@ -778,7 +778,7 @@ def transcript_matches(expected: str, actual: str) -> bool:
     """The body, with `<placeholders>` standing in for whatever varies."""
     # Normalise BEFORE escaping: rstrip()ing a line of the finished pattern can
     # cut the trailing half of an escape sequence and make it uncompilable.
-    norm = lambda s: "\n".join(ln.rstrip() for ln in s.strip().splitlines())
+    norm = lambda s: "\n".join(ln.rstrip() for ln in s.replace("astra-plugin.exe", "astra-plugin").strip().splitlines())
     parts = PLACEHOLDER_RE.split(norm(expected))
     pattern = ".+?".join(re.escape(p) for p in parts)
     return re.fullmatch(pattern, norm(actual), flags=re.DOTALL) is not None

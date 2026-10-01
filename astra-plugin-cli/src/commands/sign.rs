@@ -182,6 +182,7 @@ mod tests {
             name: "sign-roundtrip",
             lang: "python",
             template: "tool",
+            ui: "vanilla",
             capabilities: None,
             out_dir: &project.to_string_lossy(),
         })

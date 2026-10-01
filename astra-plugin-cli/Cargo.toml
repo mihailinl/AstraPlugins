@@ -32,7 +32,7 @@ name = "astra-plugin-cli"
 # line (B_BINDING_MALFORMED): a script pinned to "astra-plugin check succeeds"
 # on a tree 0.3.0 passed can fail on the upgrade. `init-ci --binding`, `check
 # --tag` and the panel link for a bound repository are additions.
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "CLI tool for developing Astra plugins"
 license = "GPL-3.0-or-later"
