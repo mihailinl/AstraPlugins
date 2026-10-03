@@ -106,6 +106,7 @@
 | `tools` | `ListTools`、`CallTool` |
 | `tts` | `TtsSynthesize`、`TtsListVoices` |
 | `stt` | `SttProcess`、`SttGetLanguages` |
+| `wakeword` | 无 |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`、`GetPluginActionTypes` |

@@ -111,6 +111,7 @@ check` друкував «No capabilities enabled».
 | `tools` | `ListTools`, `CallTool` |
 | `tts` | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | немає |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

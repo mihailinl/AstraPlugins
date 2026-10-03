@@ -42,7 +42,7 @@ sección, un plugin puede llamar a `Register`, `PluginLog`,
 `GetPluginSelfConfig` y `GetDaemonInfo`, y nada más
 ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## Las diez capabilities
+## Las once capabilities
 
 Cada clave es un booleano, `false` por defecto, y te obliga a servir ciertos
 hooks. La columna de la derecha muestra los *obligatorios*; los opcionales
@@ -53,6 +53,7 @@ están en [la tabla de paridad](../reference/parity.md).
 | `tools` | un conjunto de funciones que el modelo puede llamar | `ListTools`, `CallTool` |
 | `tts` | un proveedor de texto a voz en los ajustes de Voice | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | un proveedor de voz a texto | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | un detector de palabra de activación en los ajustes de voz | métodos de audio de `CallFromUi` ([contrato](../wakeword-plugins.md)) |
 | `ai_provider` | un backend de modelo | `AiComplete` |
 | `actions` | pasos en el editor de comandos | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | tipos de disparador que los comandos pueden escuchar | `GetPluginTriggerTypes`, `FireTrigger` |

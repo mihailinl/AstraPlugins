@@ -12,7 +12,7 @@ UI，或者作为一个独立的聊天客户端运行。
 
 | | |
 |---|---|
-| [什么是插件](1-orientation/what-is-a-plugin.md) | 十种能力(capability),以及你需要哪一种 |
+| [什么是插件](1-orientation/what-is-a-plugin.md) | 十一种能力(capability),以及你需要哪一种 |
 | [架构](1-orientation/architecture.md) | 进程模型、两个服务、认证握手 |
 | [安全模型](1-orientation/security.md) | 签名能证明什么、不能证明什么，以及插件运行所拥有的权限 |
 | [平台](1-orientation/platforms.md) | linux-x64 和 windows-x64，各操作系统的路径，构建前置条件 |
@@ -71,6 +71,7 @@ UI，或者作为一个独立的聊天客户端运行。
 | [钩子对照表](reference/parity.md) | `spec/hooks.yaml` —— 三个 SDK 中全部 35 个钩子 |
 | [权限](3-reference/permissions.md) | 手写: 每个权限授予什么、如何写理由说明 |
 | [配置字段](3-reference/config-fields.md) | 手写: 设置界面、`[config]`，以及 TTS/STT 字段钩子 |
+| [唤醒词插件](wakeword-plugins.md) | 手写: 语音页面集成、插件设置以及音频调用约定 |
 | [本地化](3-reference/localisation.md) | 手写: `locales/<code>.json`、`$key` 标记，以及英文校验在哪里生效 — **仅有英文版** |
 
 面向要实现校验器(verifier)或注册表(registry)的人，而非插件作者的规范性规格说明：

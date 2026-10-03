@@ -116,6 +116,7 @@ Astra、semver バージョンとして(`"0.9.0"`)。空 = 要件なし。
 | `tools` | `ListTools`、`CallTool` |
 | `tts` | `TtsSynthesize`、`TtsListVoices` |
 | `stt` | `SttProcess`、`SttGetLanguages` |
+| `wakeword` | なし |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`、`GetPluginActionTypes` |

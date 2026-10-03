@@ -116,7 +116,7 @@ and none of these examples should be read as a demonstration that it is.
 
 ## See also
 
-- [The root README](../README.md) — what a plugin is, and the ten capabilities
+- [The root README](../README.md) — what a plugin is, and the eleven capabilities
 - [`docs/en/`](../docs/en/README.md) — the documentation
 - [`spec/hooks.yaml`](../spec/hooks.yaml) — the 35 hooks, and which SDK
   implements each

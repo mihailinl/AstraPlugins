@@ -1198,6 +1198,41 @@ class VoiceServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.SttProvidersResponse.FromString,
                 _registered_method=True)
+        self.GetVoiceModels = channel.unary_unary(
+                '/astra.VoiceService/GetVoiceModels',
+                request_serializer=plugin__pb2.VoiceModelsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.VoiceModelsResponse.FromString,
+                _registered_method=True)
+        self.DownloadVoiceModel = channel.unary_unary(
+                '/astra.VoiceService/DownloadVoiceModel',
+                request_serializer=plugin__pb2.VoiceModelRequest.SerializeToString,
+                response_deserializer=plugin__pb2.StatusResponse.FromString,
+                _registered_method=True)
+        self.DeleteVoiceModel = channel.unary_unary(
+                '/astra.VoiceService/DeleteVoiceModel',
+                request_serializer=plugin__pb2.VoiceModelRequest.SerializeToString,
+                response_deserializer=plugin__pb2.StatusResponse.FromString,
+                _registered_method=True)
+        self.GetVoiceModelDownloadProgress = channel.unary_unary(
+                '/astra.VoiceService/GetVoiceModelDownloadProgress',
+                request_serializer=plugin__pb2.VoiceModelManagerRequest.SerializeToString,
+                response_deserializer=plugin__pb2.DownloadProgressResponse.FromString,
+                _registered_method=True)
+        self.CancelVoiceModelDownload = channel.unary_unary(
+                '/astra.VoiceService/CancelVoiceModelDownload',
+                request_serializer=plugin__pb2.VoiceModelManagerRequest.SerializeToString,
+                response_deserializer=plugin__pb2.StatusResponse.FromString,
+                _registered_method=True)
+        self.SetVoiceModel = channel.unary_unary(
+                '/astra.VoiceService/SetVoiceModel',
+                request_serializer=plugin__pb2.VoiceModelSelectionRequest.SerializeToString,
+                response_deserializer=plugin__pb2.StatusResponse.FromString,
+                _registered_method=True)
+        self.GetWakewordProviders = channel.unary_unary(
+                '/astra.VoiceService/GetWakewordProviders',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.WakewordProvidersResponse.FromString,
+                _registered_method=True)
         self.GetSupertonicStatus = channel.unary_unary(
                 '/astra.VoiceService/GetSupertonicStatus',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -1415,6 +1450,50 @@ class VoiceServiceServicer(object):
         """Get available STT providers and their capabilities (built-in Whisper +
         any STT-capable plugin currently registered in the voice registry).
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetVoiceModels(self, request, context):
+        """Generic downloadable voice bundles; manager identifies the catalog,
+        kind is "stt" or "wakeword". No RPC implicitly downloads a model.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DownloadVoiceModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteVoiceModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetVoiceModelDownloadProgress(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelVoiceModelDownload(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetVoiceModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWakewordProviders(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1661,6 +1740,41 @@ def add_VoiceServiceServicer_to_server(servicer, server):
                     servicer.GetSttProviders,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.SttProvidersResponse.SerializeToString,
+            ),
+            'GetVoiceModels': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetVoiceModels,
+                    request_deserializer=plugin__pb2.VoiceModelsRequest.FromString,
+                    response_serializer=plugin__pb2.VoiceModelsResponse.SerializeToString,
+            ),
+            'DownloadVoiceModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.DownloadVoiceModel,
+                    request_deserializer=plugin__pb2.VoiceModelRequest.FromString,
+                    response_serializer=plugin__pb2.StatusResponse.SerializeToString,
+            ),
+            'DeleteVoiceModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteVoiceModel,
+                    request_deserializer=plugin__pb2.VoiceModelRequest.FromString,
+                    response_serializer=plugin__pb2.StatusResponse.SerializeToString,
+            ),
+            'GetVoiceModelDownloadProgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetVoiceModelDownloadProgress,
+                    request_deserializer=plugin__pb2.VoiceModelManagerRequest.FromString,
+                    response_serializer=plugin__pb2.DownloadProgressResponse.SerializeToString,
+            ),
+            'CancelVoiceModelDownload': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelVoiceModelDownload,
+                    request_deserializer=plugin__pb2.VoiceModelManagerRequest.FromString,
+                    response_serializer=plugin__pb2.StatusResponse.SerializeToString,
+            ),
+            'SetVoiceModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetVoiceModel,
+                    request_deserializer=plugin__pb2.VoiceModelSelectionRequest.FromString,
+                    response_serializer=plugin__pb2.StatusResponse.SerializeToString,
+            ),
+            'GetWakewordProviders': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWakewordProviders,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.WakewordProvidersResponse.SerializeToString,
             ),
             'GetSupertonicStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSupertonicStatus,
@@ -2236,6 +2350,195 @@ class VoiceService(object):
             '/astra.VoiceService/GetSttProviders',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.SttProvidersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetVoiceModels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetVoiceModels',
+            plugin__pb2.VoiceModelsRequest.SerializeToString,
+            plugin__pb2.VoiceModelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DownloadVoiceModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/DownloadVoiceModel',
+            plugin__pb2.VoiceModelRequest.SerializeToString,
+            plugin__pb2.StatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteVoiceModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/DeleteVoiceModel',
+            plugin__pb2.VoiceModelRequest.SerializeToString,
+            plugin__pb2.StatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetVoiceModelDownloadProgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetVoiceModelDownloadProgress',
+            plugin__pb2.VoiceModelManagerRequest.SerializeToString,
+            plugin__pb2.DownloadProgressResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CancelVoiceModelDownload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/CancelVoiceModelDownload',
+            plugin__pb2.VoiceModelManagerRequest.SerializeToString,
+            plugin__pb2.StatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetVoiceModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/SetVoiceModel',
+            plugin__pb2.VoiceModelSelectionRequest.SerializeToString,
+            plugin__pb2.StatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWakewordProviders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetWakewordProviders',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.WakewordProvidersResponse.FromString,
             options,
             channel_credentials,
             insecure,

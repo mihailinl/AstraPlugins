@@ -44,7 +44,7 @@ subscribe_events` であり、しかもユーザーの同意があって初め�
 `GetDaemonInfo` だけを呼び出せ、それ以外は一切呼び出せません
 ([`spec/permissions.md` §2](../spec/permissions.md))。
 
-## 10 個のケーパビリティ
+## 11 個のケーパビリティ
 
 すべてのキーは真偽値であり、デフォルトは `false` で、あるものを宣言すると
 特定のフックを提供する義務が生じます。右の列は*必須*のもので、任意の
@@ -55,6 +55,7 @@ subscribe_events` であり、しかもユーザーの同意があって初め�
 | `tools` | モデルが呼び出せる関数の集合 | `ListTools`、`CallTool` |
 | `tts` | Voice 設定内のテキスト読み上げプロバイダ | `TtsSynthesize`、`TtsListVoices` |
 | `stt` | 音声認識プロバイダ | `SttProcess`、`SttGetLanguages` |
+| `wakeword` | 音声設定のウェイクワード検出器 | `CallFromUi` の音声メソッド([契約](../wakeword-plugins.md)) |
 | `ai_provider` | モデルバックエンド | `AiComplete` |
 | `actions` | コマンドエディタ内のステップ | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | コマンドがlistenできるトリガー種別 | `GetPluginTriggerTypes`、`FireTrigger` |

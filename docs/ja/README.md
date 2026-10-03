@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 10 個のケーパビリティと、あなたが欲しいのはどれか |
+| [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 11 個のケーパビリティと、あなたが欲しいのはどれか |
 | [アーキテクチャ](1-orientation/architecture.md) | プロセスモデル、2 つのサービス、認証ハンドシェイク |
 | [セキュリティモデル](1-orientation/security.md) | 署名が証明すること・証明しないこと、プラグインが実行される権限 |
 | [プラットフォーム](1-orientation/platforms.md) | linux-x64 と windows-x64、OS ごとのパス、ビルド前提条件 |
@@ -73,6 +73,7 @@ zip を誰かに送ることも公開ではありません。メンテナーに�
 | [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 35 個のフック |
 | [パーミッション](3-reference/permissions.md) | 手書き: 各パーミッションが何を許可するか、理由の書き方 |
 | [設定フィールド](3-reference/config-fields.md) | 手書き: 設定 UI、`[config]`、TTS/STT のフィールドフック |
+| [ウェイクワードプラグイン](wakeword-plugins.md) | 手書き: 音声ページへの組み込み、プラグイン設定、音声呼び出しの契約 |
 | [ローカライズ](3-reference/localisation.md) | 手書き: `locales/<code>.json`、`$key` マーカー、英語ゲートが働く場所 — **英語のみ** |
 
 検証ツールやレジストリを実装する人向けの規範仕様(プラグインを書く人向けではありません):

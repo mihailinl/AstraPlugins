@@ -14,7 +14,7 @@ Aquí hay dos recorridos, y todo en esta página pertenece a uno de los dos.
 
 | | |
 |---|---|
-| [Qué es un plugin](1-orientation/what-is-a-plugin.md) | Las diez capacidades (capabilities), y cuál quieres |
+| [Qué es un plugin](1-orientation/what-is-a-plugin.md) | Las once capacidades (capabilities), y cuál quieres |
 | [Arquitectura](1-orientation/architecture.md) | Modelo de procesos, los dos servicios, el handshake de autenticación |
 | [Modelo de seguridad](1-orientation/security.md) | Qué demuestran las firmas, qué no, y con qué privilegio se ejecuta un plugin |
 | [Plataformas](1-orientation/platforms.md) | linux-x64 y windows-x64, rutas por sistema operativo, requisitos de compilación |
@@ -78,6 +78,7 @@ está equivocada.
 | [Paridad de hooks](reference/parity.md) | `spec/hooks.yaml` — los 35 hooks en los tres SDK |
 | [Permisos](3-reference/permissions.md) | escrito a mano: cada permiso, qué otorga, cómo escribir un motivo |
 | [Campos de configuración](3-reference/config-fields.md) | escrito a mano: interfaz de ajustes, `[config]`, y los hooks de campo TTS/STT |
+| [Plugins de palabra de activación](wakeword-plugins.md) | escrito a mano: integración en Voz, ajustes del plugin y el contrato de las llamadas de audio |
 | [Localización](3-reference/localisation.md) | escrito a mano: `locales/<code>.json`, el marcador `$key`, y dónde actúa la verificación de inglés — **solo en inglés** |
 
 Especificaciones normativas, para quien implemente un verificador o un
