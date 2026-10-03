@@ -80,6 +80,14 @@ carrying any of those is dropped and your plugin lists without a picture. It
 does not fail your release — a decorative file is not a gate on shipping
 software — but you get a warning saying so, and nobody sees your icon.
 
+**Keep it under 8 KiB** (8,192 bytes). Every listing's icon is inlined into one
+signed catalogue that every Astra install downloads whole, so a big icon is
+paid for by every user of every plugin. A larger one is dropped the same way —
+your release is listed, with a letter on its card instead of your picture — and
+`astra-plugin build` warns you before you tag. Export it at 128×128: as WebP at
+quality 80 that is a few kilobytes even for detailed art, and a flat design is
+usually smaller still as an SVG.
+
 **`README.md`** — your plugin's page, shown when somebody clicks the card. It is
 what a person reads while deciding whether to install you, which makes it worth
 more than the one-line summary.
