@@ -507,7 +507,17 @@ LISTING_LIMITS = ROOT / "spec" / "listing-limits.yaml"
 #: deleting it would still be caught — but over in astra-registry, against a
 #: pinned checkout of this repository, rather than by the reader that runs on
 #: every push here.
-MIN_LIMIT_ROWS = 8
+#:
+#: 8 -> 9 on 2026-10-03 with `max_icon_bytes` (#79), for the same reason and
+#: with the same hole measured rather than argued. The row landed with the
+#: floor still at 8, and with astra-registry's `max_icon_bytes` deleted from
+#: policy/limits.json this rule printed `at least 8 cap(s) were actually
+#: compared (8, …)` and `C20 pass`: the unresolvable row went into
+#: `unreadable` and the floor let the comparison go on without it. The
+#: reverse direction could not save it either, because astra-registry
+#: declares that cap `_mirrored_by` only from the commit that moves its pin
+#: past #79.
+MIN_LIMIT_ROWS = 9
 
 #: The sibling key in `astra-registry/policy/limits.json` by which a cap over
 #: there declares that a copy of it lives HERE.
