@@ -1957,6 +1957,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "Empty",
               "responseType": "SttProvidersResponse"
             },
+            "GetVoiceModels": {
+              "requestType": "VoiceModelsRequest",
+              "responseType": "VoiceModelsResponse"
+            },
+            "DownloadVoiceModel": {
+              "requestType": "VoiceModelRequest",
+              "responseType": "StatusResponse"
+            },
+            "DeleteVoiceModel": {
+              "requestType": "VoiceModelRequest",
+              "responseType": "StatusResponse"
+            },
+            "GetVoiceModelDownloadProgress": {
+              "requestType": "VoiceModelManagerRequest",
+              "responseType": "DownloadProgressResponse"
+            },
+            "CancelVoiceModelDownload": {
+              "requestType": "VoiceModelManagerRequest",
+              "responseType": "StatusResponse"
+            },
+            "SetVoiceModel": {
+              "requestType": "VoiceModelSelectionRequest",
+              "responseType": "StatusResponse"
+            },
+            "GetWakewordProviders": {
+              "requestType": "Empty",
+              "responseType": "WakewordProvidersResponse"
+            },
             "GetSupertonicStatus": {
               "requestType": "Empty",
               "responseType": "SupertonicStatusResponse"
@@ -4495,6 +4523,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "bool",
               "id": 29
             },
+            "wakeWordListenSecs": {
+              "type": "uint32",
+              "id": 30
+            },
+            "triggeredSilenceUntilFirstWord": {
+              "type": "bool",
+              "id": 31
+            },
             "audioDuckingEnabled": {
               "type": "bool",
               "id": 27
@@ -5995,6 +6031,162 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "modelManager": {
               "type": "string",
               "id": 6
+            },
+            "configSource": {
+              "type": "string",
+              "id": 7
+            }
+          }
+        },
+        "StatusResponse": {
+          "fields": {
+            "success": {
+              "type": "bool",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "VoiceModelsRequest": {
+          "fields": {
+            "manager": {
+              "type": "string",
+              "id": 1
+            },
+            "kind": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "VoiceModelRequest": {
+          "fields": {
+            "manager": {
+              "type": "string",
+              "id": 1
+            },
+            "modelId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "VoiceModelManagerRequest": {
+          "fields": {
+            "manager": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "VoiceModelSelectionRequest": {
+          "fields": {
+            "manager": {
+              "type": "string",
+              "id": 1
+            },
+            "kind": {
+              "type": "string",
+              "id": 2
+            },
+            "modelId": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "VoiceModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "kind": {
+              "type": "string",
+              "id": 3
+            },
+            "languages": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 5
+            },
+            "sizeDisplay": {
+              "type": "string",
+              "id": 6
+            },
+            "isDownloaded": {
+              "type": "bool",
+              "id": 7
+            },
+            "isActive": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "VoiceModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "VoiceModelInfo",
+              "id": 1
+            },
+            "activeModelId": {
+              "type": "string",
+              "id": 2
+            },
+            "language": {
+              "type": "string",
+              "id": 3
+            },
+            "unavailableReasonKey": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "WakewordProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 3
+            },
+            "modelManager": {
+              "type": "string",
+              "id": 4
+            },
+            "configSource": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "WakewordProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "WakewordProviderInfo",
+              "id": 1
             }
           }
         },
@@ -6865,6 +7057,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "reportBody": {
               "type": "string",
               "id": 4
+            },
+            "reportPageUrl": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -8026,6 +8222,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "useGpu": {
               "type": "bool",
               "id": 2
+            },
+            "modelId": {
+              "type": "string",
+              "id": 3
+            },
+            "language": {
+              "type": "string",
+              "id": 4
             }
           }
         },

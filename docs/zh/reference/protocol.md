@@ -2,12 +2,12 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，163 个 RPC。来源：
+协议世代 **1**。10 个服务，170 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: ff39f5ed7898fbb0…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 189c9aa31239ce90…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:760debb2dcb172cc…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:14030a06fabee846…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
