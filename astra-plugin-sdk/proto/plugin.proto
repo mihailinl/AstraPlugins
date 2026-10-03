@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: ff39f5ed7898fbb07eb1927b49634bcad2c6665f243c91f09e8437ffa5438813
+// surface-sha256: 189c9aa31239ce9057560bf33fc95689e7706d20ceb5a8ff82074e1eeba8eabf
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1436,6 +1436,22 @@ service VoiceService {
     // any STT-capable plugin currently registered in the voice registry).
     rpc GetSttProviders(Empty) returns (SttProvidersResponse);
 
+    // Generic downloadable voice bundles; manager identifies the catalog,
+    // kind is "stt" or "wakeword". No RPC implicitly downloads a model.
+    rpc GetVoiceModels(VoiceModelsRequest) returns (VoiceModelsResponse);
+
+    rpc DownloadVoiceModel(VoiceModelRequest) returns (StatusResponse);
+
+    rpc DeleteVoiceModel(VoiceModelRequest) returns (StatusResponse);
+
+    rpc GetVoiceModelDownloadProgress(VoiceModelManagerRequest) returns (DownloadProgressResponse);
+
+    rpc CancelVoiceModelDownload(VoiceModelManagerRequest) returns (StatusResponse);
+
+    rpc SetVoiceModel(VoiceModelSelectionRequest) returns (StatusResponse);
+
+    rpc GetWakewordProviders(Empty) returns (WakewordProvidersResponse);
+
     // ===== Supertonic (local TTS) Model Management =====
 
     // Check whether Supertonic model files are downloaded and ready.
@@ -2664,6 +2680,15 @@ message VoiceSettings {
     // nobody spoke to is worse than the silence it replaces.
     bool wake_chime_enabled = 29;
 
+    // Seconds to accept subsequent requests without another wake word.
+    // Starts after each request's command/AI turn finishes, suspended while
+    // work is in flight. Zero disables the window.
+    uint32 wake_word_listen_secs = 30;
+
+    // Apply extended silence only before the first post-trigger speech.
+    // Afterwards close after the base 500 ms. False preserves every-pause patience.
+    bool triggered_silence_until_first_word = 31;
+
     // Audio ducking: dim the system volume while listening / speaking. Off by default.
     bool audio_ducking_enabled = 27;
 
@@ -3473,7 +3498,63 @@ message SttProviderInfo {
     // provider (download / activate / delete). Data-driven so the sidecar
     // (`plugin__astra_stt`) and any future model-backed provider get the
     // picker with zero frontend id checks.
-    string model_manager = 6;  // No `status` field — see `TtsProviderInfo` rationale.
+    string model_manager = 6;
+    string config_source = 7;  // "settings" or "plugin"
+}
+
+message StatusResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message VoiceModelsRequest {
+    string manager = 1;
+    string kind = 2;
+}
+
+message VoiceModelRequest {
+    string manager = 1;
+    string model_id = 2;
+}
+
+message VoiceModelManagerRequest {
+    string manager = 1;
+}
+
+message VoiceModelSelectionRequest {
+    string manager = 1;
+    string kind = 2;
+    string model_id = 3;
+}
+
+message VoiceModelInfo {
+    string id = 1;
+    string name = 2;
+    string kind = 3;
+    repeated string languages = 4;
+    uint64 size_bytes = 5;
+    string size_display = 6;
+    bool is_downloaded = 7;
+    bool is_active = 8;
+}
+
+message VoiceModelsResponse {
+    repeated VoiceModelInfo models = 1;
+    string active_model_id = 2;
+    string language = 3;
+    string unavailable_reason_key = 4;
+}
+
+message WakewordProviderInfo {
+    string id = 1;
+    string name = 2;
+    repeated FieldDefinitionMsg config_fields = 3;
+    string model_manager = 4;
+    string config_source = 5;
+}
+
+message WakewordProvidersResponse {
+    repeated WakewordProviderInfo providers = 1;
 }
 
 message SttProvidersResponse {
@@ -4236,14 +4317,19 @@ message ReportPluginResponse {
     // True when the plugin is now stopped and disabled because of this call.
     bool quarantined = 1;
 
-    // A `https://github.com/<owner>/<repo>/issues/new?…` URL against whichever
-    // registry this daemon is configured to use, prefilled with the facts
-    // below. Empty when the configured registry is not a GitHub repository —
-    // see `issue_url_error`. Never opened by the daemon; the UI hands it to the
+    // A `https://github.com/<owner>/<repo>/issues/new?…` URL against a CUSTOM
+    // registry this daemon is configured to use, when it is a GitHub
+    // repository and the plugin was installed from a catalogue, prefilled with
+    // the facts below. Empty for Astra's own catalogue, which reports on
+    // `report_page_url` instead, and empty when there is no route — see
+    // `issue_url_error`. Never opened by the daemon; the UI hands it to the
     // user's browser only when the user asks.
     string issue_url = 2;
 
-    // Why `issue_url` is empty, in one line, when it is. Empty otherwise.
+    // Why there is no route, in one line, when there is none: a custom
+    // registry that is not on GitHub, or a plugin that was not installed from
+    // a catalogue at all (sideloaded, or added from a local file). Empty
+    // whenever `issue_url` or `report_page_url` is set.
     //
     // Astra does NOT fall back to the public registry's issue tracker for a
     // custom or local registry: routing a private deployment's report to
@@ -4251,10 +4337,20 @@ message ReportPluginResponse {
     // public repository, which is worse than having no link.
     string issue_url_error = 3;
 
-    // The same facts as the URL carries, as plain markdown, so a user whose
-    // browser did not open — or whose registry is not on GitHub — can paste it
-    // wherever the report actually belongs.
+    // What the user reads and may paste. With `issue_url`, or with no route,
+    // the whole report as markdown, the same facts the URL carries. With
+    // `report_page_url`, the text for the panel form's Details: the user's own
+    // words, then one line of facts, within the form's 2,000 characters.
     string report_body = 4;
+
+    // **MOD-54's report page on the Astra plugins panel**, for this plugin
+    // (`https://astra.minice.ai/plugins/_/report?plugin=<id>`), when the
+    // configured registry is Astra's own catalogue and the plugin was installed
+    // from a catalogue. Empty for any other registry, whose reports never go to
+    // Astra's panel, and for a sideloaded or local plugin. Never opened by the
+    // daemon; the UI opens it only when the user asks. The page is filled from
+    // the plugin id alone, so `report_body` is what the user may paste there.
+    string report_page_url = 5;
 }
 
 message InstallPluginRequest {
@@ -5350,6 +5446,8 @@ message SttTranscribeOptions {
 message SttLoadRequest {
     string model_path = 1;  // daemon-resolved absolute path ("" = provider default)
     bool use_gpu = 2;  // false = CPU-only (GPU→CPU degraded retry)
+    string model_id = 3;  // catalog identity for a bundle
+    string language = 4;  // daemon-resolved recognition language
 }
 
 // Response for `SttGetLoadState` — mirrors `astra_core::voice::LoadState`.

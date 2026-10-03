@@ -1338,6 +1338,13 @@ async fn probe_one(
         "SttLoad" => probe_call!(client, rpc, stt_load(proto::SttLoadRequest {
                 model_path: String::new(),
                 use_gpu: false,
+                // An older daemon's request: no catalogue bundle and no
+                // resolved language. Empty proto3 strings are not encoded, so
+                // these two lines change no byte this probe sends; they are
+                // spelled out so the next field Astra adds fails to compile
+                // here and somebody decides what a mock daemon should send.
+                model_id: String::new(),
+                language: String::new(),
             }))
         .map(|_| "loaded".into()),
         "SttUnload" => probe_call!(client, rpc, stt_unload(proto::Empty {}))

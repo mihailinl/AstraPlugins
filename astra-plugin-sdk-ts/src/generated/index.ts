@@ -38,7 +38,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "760debb2dcb172ccea250505a94cb7ef0fd2b4d37e5fb447a6ecbd46153d95a2";
+export const PROTO_SHA256 = "14030a06fabee846fe60dc70613b557c9f336bac08fb2e842db682eefdffb8c9";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -51,7 +51,7 @@ export const PROTO_PACKAGE = "astra";
 export const SERVICE_METHODS = {
   CoreService: ["GetState", "Start", "Stop", "Shutdown", "Restart", "SubscribeEvents", "ShowMainWindow", "ToggleOverlay", "GetLogLocation", "CollectLogs"],
   ChatService: ["SubmitUserMessage", "StopGeneration", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning"],
-  VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "GetOutputDevices", "SetOutputDevice", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetSttProviders", "GetSupertonicStatus", "DownloadSupertonicModels", "GetSupertonicDownloadProgress", "CancelSupertonicDownload", "DeleteSupertonicModels", "ListSupertonicVoices", "ImportSupertonicVoice", "DeleteSupertonicVoice", "ActivateVoxVoice", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "SetVoiceConversation", "SetVoicePendingImages", "SetPushToTalk"],
+  VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "GetOutputDevices", "SetOutputDevice", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetSttProviders", "GetVoiceModels", "DownloadVoiceModel", "DeleteVoiceModel", "GetVoiceModelDownloadProgress", "CancelVoiceModelDownload", "SetVoiceModel", "GetWakewordProviders", "GetSupertonicStatus", "DownloadSupertonicModels", "GetSupertonicDownloadProgress", "CancelSupertonicDownload", "DeleteSupertonicModels", "ListSupertonicVoices", "ImportSupertonicVoice", "DeleteSupertonicVoice", "ActivateVoxVoice", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "SetVoiceConversation", "SetVoicePendingImages", "SetPushToTalk"],
   CommandService: ["List", "Get", "Create", "Update", "Delete", "Execute", "SetEnabled", "GetCursorPosition", "ListGroups", "CreateGroup", "UpdateGroup", "DeleteGroup", "MoveCommandToGroup"],
   ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers", "StartIndexer", "RescanIndex"],
   MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions", "CaptureScreen"],

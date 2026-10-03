@@ -119,6 +119,7 @@ sie alle.
 | `tools` | `ListTools`, `CallTool` |
 | `tts` | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | keine |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |
