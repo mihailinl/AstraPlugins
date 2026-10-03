@@ -339,6 +339,12 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
             builder.add_path(name, &p)?;
         }
     }
+    // The registry's cap on the icon it inlines (`max_icon_bytes`). A word, not
+    // a refusal: over it the registry drops the icon and lists the release
+    // anyway, and a plugin that is not going to that registry owes it nothing.
+    if let Some(warning) = icon_size_warning(&dir) {
+        hprintln!("{warning}");
+    }
 
     let meta = ManifestMeta {
         plugin_id: plugin_id.to_string(),
@@ -542,6 +548,47 @@ fn check_artifact_size(output_path: &Path, verified: &Bundle) -> Result<()> {
         largest_entries(verified),
     );
     Ok(())
+}
+
+// ── the registry's cap on the icon ───────────────────────────────────────────
+
+/// What `build` has to say about the icon's size, or `None`.
+///
+/// **The icon measured is the one the registry picks**: the first of
+/// `ICON_FILENAMES` present next to `plugin.toml`, which is
+/// `astra-registry/bot/lib/assets.mjs`'s `pickIcon` over the same list in the
+/// same order. Every icon file present is packed, but only that one reaches the
+/// store card, so a small `icon.png` beside a large `icon.svg` is fine.
+///
+/// **Why a warning and never a refusal.** Over `max_icon_bytes` the registry
+/// does not refuse the release: it drops the icon (`W_ICON_DROPPED`) and lists
+/// the plugin with a letter where the picture would be. A `build` that refused
+/// would be stricter than the registry it mirrors, and would stop a plugin that
+/// is not going to that registry at all over a number that is only its.
+///
+/// **Why the cap is so much smaller than the file a designer exports.** The
+/// registry inlines the icon into one signed catalogue that every install
+/// downloads whole, so each byte of it is paid by every user of every plugin.
+/// On 2026-09-27 inlined icons were 470,508 of that catalogue's 649,005 bytes,
+/// against a 1 MiB ceiling. `spec/listing-limits.yaml`'s row has the rest.
+fn icon_size_warning(dir: &Path) -> Option<String> {
+    let cap = crate::commands::locale::cap("max_icon_bytes") as u64;
+    let (name, size) = ICON_FILENAMES
+        .iter()
+        .find_map(|name| fs::metadata(dir.join(name)).ok().map(|m| (*name, m.len())))?;
+    if size <= cap {
+        return None;
+    }
+    Some(format!(
+        "  Warning: {name} is {size} bytes ({}). The registry inlines at most {cap} bytes of icon\n\
+         \x20          (spec/listing-limits.yaml max_icon_bytes, mirrored from\n\
+         \x20          astra-registry/policy/limits.json) and drops a larger one: the release is\n\
+         \x20          listed, with a letter on its card instead of this picture. The store draws\n\
+         \x20          the icon at about 64 pixels, so export it at 128x128 — as WebP at quality\n\
+         \x20          80, every raster icon in the catalogue came to 1-7 KB — or ship a flat\n\
+         \x20          design as an SVG.",
+        human_bytes(size),
+    ))
 }
 
 /// The five biggest listed files, uncompressed, largest first.
@@ -1633,5 +1680,99 @@ actions = true
             resolve_target(Some(Target::WindowsX64), "rust").unwrap(),
             Target::WindowsX64
         );
+    }
+
+    /// `max_icon_bytes`, the registry's cap on the icon a release carries into
+    /// its catalogue. Over it the registry DROPS the icon and publishes the
+    /// release anyway (`W_ICON_DROPPED`), so `build` warns and never refuses —
+    /// and the icon it measures is the one the registry picks: the first of
+    /// `ICON_FILENAMES` present, so a small `icon.png` beside a huge `icon.svg`
+    /// is fine and the reverse is not. Watched failing by measuring the LAST
+    /// icon present, by `>=`, and by returning a refusal instead of a warning.
+    #[test]
+    fn an_icon_over_the_registry_cap_is_warned_about_and_never_refused() {
+        let cap = crate::commands::locale::cap("max_icon_bytes") as u64;
+        assert_eq!(
+            cap, 8192,
+            "the cap moved. astra-registry owns this number — if it really changed there, this \
+             literal and the row in spec/listing-limits.yaml both follow it, and \
+             `tools/check-locales.py --rules C20` is what compares the two repositories."
+        );
+
+        let dir = std::env::temp_dir().join(format!("astra-build-icon-cap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let png = |size: u64| {
+            let mut bytes = vec![0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+            bytes.resize(size as usize, 0x42);
+            bytes
+        };
+
+        assert_eq!(icon_size_warning(&dir), None, "no icon at all is not this rule's business");
+
+        fs::write(dir.join("icon.png"), png(cap)).unwrap();
+        assert_eq!(icon_size_warning(&dir), None, "an icon exactly at the cap is one the registry keeps");
+
+        fs::write(dir.join("icon.png"), png(cap + 1)).unwrap();
+        let warned = icon_size_warning(&dir).expect("one byte over the cap must be warned about");
+        for want in ["icon.png", &(cap + 1).to_string(), &cap.to_string(), "max_icon_bytes", "drops", "128x128"] {
+            assert!(warned.contains(want), "the warning does not say {want:?}:\n{warned}");
+        }
+
+        // The registry picks the first name in spec/icon-formats.yaml's order,
+        // so a small PNG beside an oversized SVG is the icon that ships.
+        fs::write(dir.join("icon.png"), png(100)).unwrap();
+        fs::write(dir.join("icon.svg"), vec![b' '; (cap + 1) as usize]).unwrap();
+        assert_eq!(
+            icon_size_warning(&dir),
+            None,
+            "an oversized icon.svg beside a small icon.png was warned about, but the registry \
+             picks the PNG"
+        );
+        fs::remove_file(dir.join("icon.png")).unwrap();
+        assert!(
+            icon_size_warning(&dir).is_some_and(|w| w.contains("icon.svg")),
+            "with the PNG gone the oversized SVG is the icon, and it was not warned about"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The same rule through `run`: an icon over `max_icon_bytes` builds, and is
+    /// PACKED. The warning is the whole of what `build` does about it, because
+    /// the registry lists the release and only the picture is lost. Watched
+    /// failing by turning the warning in `run` into a `bail!`.
+    #[test]
+    fn a_build_with_an_icon_over_the_registry_cap_still_packs_it() {
+        let cap = crate::commands::locale::cap("max_icon_bytes");
+        let dir = std::env::temp_dir().join(format!("astra-build-icon-run-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("plugin.toml"),
+            "[plugin]\nid = \"chess\"\nname = \"Chess\"\nversion = \"0.1.0\"\n\
+             description = \"Plays chess against a local bot\"\n\n\
+             [entry]\ncommand = \"./chess\"\n\n[capabilities]\ntools = true\n",
+        )
+        .unwrap();
+        fs::write(dir.join("chess"), b"#!/bin/sh\nexit 0\n").unwrap();
+        let mut icon = vec![0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+        icon.resize(cap * 4, 0x42);
+        fs::write(dir.join("icon.png"), &icon).unwrap();
+
+        let out = dir.join("out.astraplugin");
+        run(BuildOptions {
+            path: dir.to_str().unwrap(),
+            output: Some(out.to_str().unwrap()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        })
+        .expect("an icon over the registry's cap is a warning, never a refusal");
+        let packed = crate::bundle::Bundle::open(&out).expect("the bundle verifies");
+        assert!(
+            packed.manifest.files.iter().any(|f| f.path == "icon.png"),
+            "the oversized icon was left out of the bundle; the registry decides what to drop"
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -377,14 +377,16 @@ fn the_listing_limits_are_the_ones_the_spec_declares() {
     // ONE of the two files; a row deleted from BOTH is byte-equal and clears a
     // floor of four, and the first anyone would hear of it is `cap()` panicking
     // inside somebody's `astra-plugin build`. Every row something in this crate
-    // executes on belongs in this list — `max_artifact_bytes` since 2026-08-23,
-    // read by `commands::build` rather than by the locale rules.
+    // executes on belongs in this list — `max_artifact_bytes` since 2026-08-23
+    // and `max_icon_bytes` since 2026-10-03, both read by `commands::build`
+    // rather than by the locale rules.
     for required in [
         "max_name_length",
         "max_summary_length",
         "max_description_length",
         "max_permission_reason_chars",
         "max_artifact_bytes",
+        "max_icon_bytes",
     ] {
         assert!(parsed.contains_key(required), "no `{required}` row");
         assert!(cap(required) > 0, "`{required}` is zero, which would refuse everything");

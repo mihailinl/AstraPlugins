@@ -92,6 +92,15 @@ scheitern — eine dekorative Datei ist kein Gate fürs Ausliefern von
 Software — aber du bekommst eine entsprechende Warnung, und niemand sieht
 dein Icon.
 
+**Halte es unter 8 KiB** (8.192 Bytes). Das Icon jedes Eintrags wird in einen
+einzigen signierten Katalog eingebettet, den jede Astra-Installation vollständig
+herunterlädt, also bezahlt jeder Nutzer jedes Plugins für ein großes Icon. Ein
+größeres wird genauso verworfen — dein Release wird gelistet, mit einem
+Buchstaben auf der Karte statt deines Bildes —, und `astra-plugin build` warnt
+dich, bevor du taggst. Exportiere es in 128×128: als WebP mit Qualität 80 sind
+das selbst bei detaillierter Grafik wenige Kilobyte, und ein flaches Design ist
+als SVG meist noch kleiner.
+
 **`README.md`** — die Seite deines Plugins, gezeigt, wenn jemand auf die
 Karte klickt. Das ist, was eine Person liest, während sie entscheidet, ob
 sie dich installiert, was es wertvoller macht als die einzeilige

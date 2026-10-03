@@ -192,10 +192,31 @@ max_locale_keys: 5000
 max_listing_i18n_bytes: 8192
 
 # ── the bundle, rather than the text inside it ───────────────────────────────
-# Every row above bounds a string an author types. The one below bounds the
-# FILE `astra-plugin build` writes, and that difference is why it is the only
-# row here that `astra-plugin check` cannot execute on: at check time the file
-# does not exist yet. Its rule lives in `build`. Do not go looking for an E-code.
+# Every row above bounds a string an author types. The two below bound FILES
+# `astra-plugin build` packs or writes, and their rules live in `build`, not in
+# `check`. Do not go looking for an E-code.
+
+# mirrors: astra-registry/policy/limits.json max_icon_bytes
+# UNIT: BYTES of the icon file as it sits next to plugin.toml — the one the
+# registry picks, which is the first of spec/icon-formats.yaml's names present
+# (a raster icon beside an SVG is the one measured). 8 KiB.
+# The largest icon a release may carry into the signed catalogue, where it is
+# inlined as a data: URI and every install downloads it with every other
+# listing's on every catalogue fetch. On 2026-09-27 icons were 470,508 of the
+# catalogue's 649,005 bytes against a 1 MiB cap, one of them 109,757 bytes.
+# Over this cap the registry DROPS the icon and publishes the release without
+# it (W_ICON_DROPPED), so the card shows a letter instead of your picture; it
+# does not refuse the release. The store draws the icon at about 64 pixels:
+# at 128x128 as WebP quality 80, every raster icon in the catalogue came to
+# 1-7 KB when this row was written. The arithmetic behind the number is in the
+# registry's `max_icon_bytes_note`.
+# ENFORCED HERE: `astra-plugin build`, as a printed warning and never a
+# refusal, because the registry's own answer is a dropped icon and not a
+# refused release, and because a plugin that is not going to that registry at
+# all owes its number nothing. Not a `check` finding: `check --strict` is fatal
+# on the release path, and a strict-fatal warning would stop a release the
+# registry accepts.
+max_icon_bytes: 8192
 
 # mirrors: astra-registry/policy/limits.json max_artifact_bytes
 # UNIT: BYTES of the finished `.astraplugin` on disk — COMPRESSED, the size a

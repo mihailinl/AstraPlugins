@@ -89,6 +89,14 @@ lista sin imagen. No hace fallar tu release — un archivo decorativo no es
 una barrera para distribuir software — pero recibes un aviso que lo dice,
 y nadie ve tu icono.
 
+**Mantenlo por debajo de 8 KiB** (8.192 bytes). El icono de cada entrada se
+incrusta en un único catálogo firmado que cada instalación de Astra descarga
+entero, así que un icono grande lo paga cada usuario de cada plugin. Uno más
+grande se descarta igual — tu release se lista, con una letra en la tarjeta en
+lugar de tu imagen — y `astra-plugin build` te avisa antes de etiquetar.
+Expórtalo a 128×128: como WebP con calidad 80 son unos pocos kilobytes incluso
+para arte detallado, y un diseño plano suele ser aún más pequeño como SVG.
+
 **`README.md`** — la página de tu plugin, mostrada cuando alguien hace
 clic en la tarjeta. Es lo que lee una persona mientras decide si
 instalarte, lo que lo hace más valioso que el resumen de una línea.
