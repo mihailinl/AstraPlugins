@@ -9,7 +9,8 @@ uninstalled. The plugin does not need a separate page or a UI contribution.
 
 Use the current CLI and a fresh output directory:
 
-```sh
+<!-- doctest: cli -->
+```bash
 astra-plugin new my-wakeword --lang rust --template blank --capabilities wakeword --output ./my-wakeword
 ```
 
@@ -27,12 +28,14 @@ wakeword-only plugin. This is a transport reuse; it does not require
 For Rust, implement the SDK's `handle_ui_call(&self, ctx: &PluginContext,
 method: &str, params_json: &str) -> Result<String, ToolError>` hook, or use
 `#[ui_call]` methods (with `#[ui_call(name = "process-audio")]` and
-`#[ui_call(name = "reset-audio")]` for the hyphenated names). Set
-`#[astra::plugin(capabilities = "wakeword")]` on the impl block: automatic
-`#[ui_call]` inference otherwise declares `ui_contributions`, which
-disagrees with the manifest. Route `status`, `reset-audio`, and
-`process-audio` to one detector instance whose frame buffer is retained
-between calls. Return JSON strings with the response shapes below.
+`#[ui_call(name = "reset-audio")]` for the hyphenated names); each
+`#[ui_call]` method needs a `///` doc comment, or the macro refuses to
+compile it. Set `#[astra::plugin(capabilities = "wakeword")]` on the impl
+block (the scaffold above already does): automatic `#[ui_call]` inference
+otherwise declares `ui_contributions`, which disagrees with the manifest.
+Route `status`, `reset-audio`, and `process-audio` to one detector instance
+whose frame buffer is retained between calls. Return JSON strings with the
+response shapes below.
 In Python, use the SDK's `@ui_call` handlers; in TypeScript, use
 `ui: { contributions: [], onCall: { ... } }` with the three method names.
 These handlers do not create a visible UI page.

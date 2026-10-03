@@ -42,7 +42,7 @@ Abschnitt darf ein Plugin `Register`, `PluginLog`, `GetPluginSelfConfig` und
 `GetDaemonInfo` aufrufen und sonst nichts
 ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## Die zehn Capabilities
+## Die elf Capabilities
 
 Jeder Schlüssel ist ein Boolean, standardmäßig `false`, und verpflichtet dich,
 bestimmte Hooks zu bedienen. Die rechte Spalte nennt die *erforderlichen*;
@@ -53,6 +53,7 @@ die optionalen stehen in [der Paritätstabelle](../reference/parity.md).
 | `tools` | einer Menge von Funktionen, die das Modell aufrufen kann | `ListTools`, `CallTool` |
 | `tts` | einem Text-zu-Sprache-Anbieter in den Voice-Einstellungen | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | einem Sprache-zu-Text-Anbieter | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | einem Wake-Word-Detektor in den Spracheinstellungen | `CallFromUi`-Audiomethoden ([Vertrag](../wakeword-plugins.md)) |
 | `ai_provider` | einem Modell-Backend | `AiComplete` |
 | `actions` | Schritten im Befehlseditor | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | Trigger-Typen, auf die Befehle hören können | `GetPluginTriggerTypes`, `FireTrigger` |

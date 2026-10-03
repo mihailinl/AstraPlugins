@@ -118,6 +118,7 @@ debe servir para que la capability funcione en absoluto. Los hooks
 | `tools` | `ListTools`, `CallTool` |
 | `tts` | `TtsSynthesize`, `TtsListVoices` |
 | `stt` | `SttProcess`, `SttGetLanguages` |
+| `wakeword` | ninguno |
 | `ai_provider` | `AiComplete` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

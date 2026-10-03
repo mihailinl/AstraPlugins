@@ -38,7 +38,7 @@
 `Register`、`PluginLog`、`GetPluginSelfConfig` 和 `GetDaemonInfo`，其他
 一律不行（[`spec/permissions.md` §2](../spec/permissions.md)）。
 
-## 十种能力(capability)
+## 十一种能力(capability)
 
 每个键都是布尔值，默认 `false`，一旦声明就有义务提供某些钩子。右边一列
 是*必须*提供的钩子；可选的钩子在[对照表](../reference/parity.md)中。
@@ -48,6 +48,7 @@
 | `tools` | 一组模型可以调用的函数 | `ListTools`、`CallTool` |
 | `tts` | Voice 设置中的文本转语音提供者 | `TtsSynthesize`、`TtsListVoices` |
 | `stt` | 语音转文本提供者 | `SttProcess`、`SttGetLanguages` |
+| `wakeword` | 语音设置中的唤醒词检测器 | `CallFromUi` 的音频方法([约定](../wakeword-plugins.md)) |
 | `ai_provider` | 一个模型后端 | `AiComplete` |
 | `actions` | 命令编辑器中的步骤 | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | 命令可以监听的触发器类型 | `GetPluginTriggerTypes`、`FireTrigger` |
