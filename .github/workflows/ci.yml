@@ -3715,7 +3715,29 @@ jobs:
                 "defined in Astra's astra-plugin-manifest crate and vendored here; if it moved, "
                 "re-point this check and tools/check-manifest-crate.sh's IDENTICAL list together.")
           vocab = set(re.findall(r'"([a-z_]+)"', m.group(1))) if m else set()
-          check(len(vocab) == 10, f"C5 the CLI knows {len(vocab)} capabilities", repr(sorted(vocab)))
+          # NAMED, not counted. Growth must be deliberate, and so must a rename:
+          # this check used to be `len(vocab) == 10`, which is green over `stt`
+          # respelt `sst` in the vendored file — and on a fork PR, which has no
+          # Astra checkout and so no check-manifest-crate.sh, this line is the
+          # only thing in CI looking at the vocabulary at all. It went red the
+          # day `wakeword` arrived (Astra 5cd994cc, AstraPlugins 05b4c28,
+          # 2026-09-30) and printed `the CLI knows 11 capabilities` as the name
+          # of a FAILURE, which read as a pass and said nothing about which key
+          # was new. The difference is now the message.
+          #
+          # Adding a key is recipe R4 (astra-plugins-ops dev/change-recipes.md):
+          # Astra's crate first, re-vendor, then this set — and astra-registry's
+          # `schema/version-v1.json` capability enum and `KNOWN_AUTHORITY`, or
+          # the catalogue refuses every listing that declares it.
+          CAPABILITIES = {
+              "tools", "tts", "stt", "wakeword", "ai_provider", "client",
+              "actions", "triggers", "ui_contributions", "event_handlers",
+              "dom_access",
+          }
+          check(vocab == CAPABILITIES,
+                f"C5 the CLI knows exactly the {len(CAPABILITIES)} capabilities this check names",
+                f"vendored but not named here: {sorted(vocab - CAPABILITIES)}; "
+                f"named here but not vendored: {sorted(CAPABILITIES - vocab)}")
 
           # The glob is seeded by the examples directory, so the directory IS
           # the enumeration — use it, instead of trusting the glob to have
