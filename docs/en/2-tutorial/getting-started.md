@@ -139,9 +139,9 @@ whatever the template implies.
 
 | Language | The scaffold pins | Published |
 |---|---|---|
-| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.1 |
-| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.1 |
-| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.0 |
+| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.2 |
+| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.2 |
+| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.1 |
 
 Those resolve from the registries, so `cargo build`, `pip install -r
 requirements.txt` and `bun install` work in a fresh project with nothing to
