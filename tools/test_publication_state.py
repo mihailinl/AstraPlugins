@@ -64,7 +64,9 @@ def files() -> list[str]:
     for loc in cps.LOCALES:
         out.append(f"docs/{loc}/2-tutorial/getting-started.md")
         out += [f"docs/{loc}/{p}" for p in cps.SDK_PAGES.values()]
-    return out
+    out += [r[0] for r in cps.PACKAGE_READMES.values()]
+    out += list(cps.CLAIM_FILES)
+    return list(dict.fromkeys(out))
 
 
 class Tree:
@@ -103,6 +105,17 @@ class Tree:
         with redirect_stdout(out), redirect_stderr(err):
             code = cps.main(argv)
         return code, out.getvalue() + err.getvalue()
+
+
+PINS = cps.template_pins(ROOT)
+# Lines that exist in this tree and are not claims, to insert a claim after.
+AGENTS_ANCHOR = "## 6 · If you find a bug, say so"
+MACROS_ANCHOR = "Repository: <https://github.com/mihailinl/AstraPlugins>"
+
+
+def agents_sentence(crates: str, pypi: str, npm: str) -> str:
+    return (f"Never invent a version — `astra-plugin-sdk` is {crates} on crates.io, {pypi} on PyPI,\n"
+            f"{npm} on npm, and the CLI is published nowhere.\n")
 
 
 def ts_row() -> str:
@@ -200,6 +213,8 @@ class C23b(unittest.TestCase):
         for loc in cps.LOCALES:
             self.assertIn(f"FAIL C23b docs/{loc}/2-tutorial/getting-started.md's TypeScript pin", out)
             self.assertIn(f"FAIL C23b docs/{loc}/4-sdk/typescript.md shows the scaffold's pin", out)
+        # npm's page for the package, too: it restates the pin in prose.
+        self.assertIn(f"FAIL C23b astra-plugin-sdk-ts/README.md's pin `{PINS['ts']}` is the scaffold's", out)
 
     def test_the_floor_counts_what_was_compared(self):
         with Tree() as t:
@@ -207,8 +222,123 @@ class C23b(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn(f"compared {len(cps.LOCALES) * 6} docs pin restatements", out)
 
+    # ── the package READMEs: the pages crates.io, PyPI and npm show ──────────
+
+    def test_package_readmes_on_last_trains_pins_are_red_naming_each(self):
+        """The 2026-10-04 shape: 0.7.2 / 0.6.2 / 0.7.1 published, and the three
+        registry pages still said `"0.6"`, `>=0.5,<0.6` and `^0.5.0`."""
+        with Tree() as t:
+            t.edit("astra-plugin-sdk/README.md", PINS["rust"], 'astra-plugin-sdk = "0.6"')
+            t.edit("astra-plugin-sdk-python/README.md", f'pip install "{PINS["python"]}"',
+                   'pip install "astra-plugin-sdk>=0.5,<0.6"')
+            t.edit("astra-plugin-sdk-ts/README.md", f"pins `{PINS['ts']}`", "pins `^0.5.0`")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL C23b astra-plugin-sdk/README.md's pin `astra-plugin-sdk = \"0.6\"` is the scaffold's", out)
+        self.assertIn("FAIL C23b astra-plugin-sdk-python/README.md's pin `astra-plugin-sdk>=0.5,<0.6` is the scaffold's", out)
+        self.assertIn("FAIL C23b astra-plugin-sdk-ts/README.md's pin `^0.5.0` is the scaffold's", out)
+        self.assertIn("the page PyPI shows for the package", out)
+        self.assertEqual(out.count("\nFAIL "), 3, out)
+
+    def test_a_stale_pin_beside_the_right_one_is_still_red(self):
+        """`contains the pin` is not the question: a page showing two pins tells
+        half its readers the wrong one."""
+        with Tree() as t:
+            t.edit("astra-plugin-sdk/README.md", f"{PINS['rust']}\n", f"{PINS['rust']}\n# or\nastra-plugin-sdk = \"0.5\"\n")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL C23b astra-plugin-sdk/README.md's pin `astra-plugin-sdk = \"0.5\"` is the scaffold's", out)
+        self.assertNotIn(f"FAIL C23b astra-plugin-sdk/README.md's pin `{PINS['rust']}`", out)
+
+    def test_a_package_readme_that_lost_its_pin_is_red(self):
+        with Tree() as t:
+            t.edit("astra-plugin-sdk-python/README.md", f'pip install "{PINS["python"]}"\n', "")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b astra-plugin-sdk-python/README.md shows the python scaffold's pin `{PINS['python']}`", out)
+
+    # ── sentences that say what is published ─────────────────────────────────
+
+    def test_agents_md_repeating_the_published_versions_is_green_while_they_agree(self):
+        """Repeating README's table is allowed; it is checked, not forbidden."""
+        with Tree() as t:
+            t.edit("AGENTS.md", AGENTS_ANCHOR, AGENTS_ANCHOR + "\n" + agents_sentence(
+                published("crates.io/astra-plugin-sdk"), published("pypi/astra-plugin-sdk"),
+                published("npm/astra-plugin-sdk")))
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 0, out)
+        self.assertIn("note C23b read 3 published-version claim(s)", out)
+
+    def test_agents_md_with_the_old_sentence_is_red_naming_all_three(self):
+        """What AGENTS.md said under "Never invent a version" until 2026-10-04."""
+        with Tree() as t:
+            t.edit("AGENTS.md", AGENTS_ANCHOR, AGENTS_ANCHOR + "\n" + agents_sentence("0.6.0", "0.5.0", "0.5.0"))
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL C23b AGENTS.md says 0.6.0 is on crates.io, as README's Published column does", out)
+        self.assertIn("FAIL C23b AGENTS.md says 0.5.0 is on PyPI, as README's Published column does", out)
+        self.assertIn("FAIL C23b AGENTS.md says 0.5.0 is on npm, as README's Published column does", out)
+        self.assertIn("point at that table rather than repeat it", out)
+        self.assertEqual(out.count("\nFAIL "), 3, out)
+
+    def test_the_next_train_turns_a_true_restatement_red(self):
+        """The failure this exists for is time, not a typo: the sentence was true
+        when written. Move README's PyPI cell on and AGENTS.md's copy goes red."""
+        n = published("pypi/astra-plugin-sdk")
+        with Tree() as t:
+            t.edit("AGENTS.md", AGENTS_ANCHOR, AGENTS_ANCHOR + f"\nPyPI has {n} on PyPI today.")
+            row = next(l for l in (t.dir / "README.md").read_text(encoding="utf-8").splitlines()
+                       if l.startswith("| `astra-plugin-sdk` (PyPI) |"))
+            cells = row.split("|")
+            cells[3] = " 9.9.9 "
+            t.edit("README.md", row, "|".join(cells))
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b AGENTS.md says {n} is on PyPI, as README's Published column does", out)
+
+    def test_a_version_on_the_wrong_registry_is_red(self):
+        """npm's version said of PyPI: a real version, and not PyPI's."""
+        ts = published("npm/astra-plugin-sdk")
+        py = published("pypi/astra-plugin-sdk")
+        self.assertNotEqual(ts, py, "the case needs the two registries at different versions")
+        with Tree() as t:
+            t.edit("AGENTS.md", AGENTS_ANCHOR, AGENTS_ANCHOR + f"\nThe SDK is {ts} on PyPI.")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b AGENTS.md says {ts} is on PyPI, as README's Published column does", out)
+
+    def test_the_macros_page_calling_itself_unpublished_is_red(self):
+        """crates.io showed "Not published to crates.io yet" on the page of every
+        astra-plugin-macros release from 0.6.0 to 0.7.2."""
+        with Tree() as t:
+            t.edit("astra-plugin-macros/README.md", MACROS_ANCHOR,
+                   MACROS_ANCHOR + "\nNot published to crates.io yet — `index.crates.io` has no entry for it.")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL C23b astra-plugin-macros/README.md calls its package unpublished, as README's Published column does", out)
+
+    def test_the_python_page_saying_published_at_an_old_version_is_red(self):
+        with Tree() as t:
+            t.edit("docs/en/4-sdk/python.md", "\n## See also\n",
+                   "\n- **The Python SDK is published at 0.5.0**, so a fresh scaffold resolves.\n\n## See also\n")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL C23b docs/en/4-sdk/python.md says the SDK is published at 0.5.0", out)
+
+    def test_published_at_is_read_against_the_pages_own_registry(self):
+        """npm's version on the PyPI page is still wrong, though README has it."""
+        ts = published("npm/astra-plugin-sdk")
+        py = published("pypi/astra-plugin-sdk")
+        self.assertNotEqual(ts, py, "the case needs the two registries at different versions")
+        with Tree() as t:
+            t.edit("docs/en/4-sdk/python.md", "\n## See also\n",
+                   f"\nThe SDK is published at {ts}.\n\n## See also\n")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b docs/en/4-sdk/python.md says the SDK is published at {ts}", out)
+
 
 if __name__ == "__main__":
     result = unittest.main(exit=False, verbosity=2).result
     # No test ran is not a pass.
-    sys.exit(0 if result.wasSuccessful() and result.testsRun >= 9 else 1)
+    sys.exit(0 if result.wasSuccessful() and result.testsRun >= 19 else 1)

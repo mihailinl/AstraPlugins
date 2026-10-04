@@ -2,7 +2,7 @@
 
 # Das Python-SDK
 
-`astra-plugin-sdk` 0.6.1 auf PyPI. `Plugin` ableiten, Methoden dekorieren,
+`astra-plugin-sdk` auf PyPI. `Plugin` ableiten, Methoden dekorieren,
 starten.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
@@ -253,12 +253,15 @@ dem der Daemon handelt.
   auf.
 - **`tts_synthesize_stream` ist gebunden und ungeroutet** — keine
   Aufrufstelle im Daemon.
-- **Das Python-SDK ist bei 0.5.0 veröffentlicht**, sodass ein frisches
-  Scaffold von PyPI auflöst (verifiziert gegen
-  `https://pypi.org/pypi/astra-plugin-sdk/json`). Nimm 0.5.0 oder neuer: es
-  ist das erste Release, das den `x-session-token` anhängt, den der Daemon
-  bei jedem Host-RPC außer `Register` verlangt, und alles Ältere antwortet
-  bei jeder Log-Zeile und jedem Host-Aufruf mit `unauthenticated`.
+- **Das Python-SDK ist auf PyPI**, und das Pinning des Scaffolds oben auf
+  dieser Seite löst sich in einem frischen Projekt von dort auf. Welche Version
+  PyPI ausliefert, steht im
+  [Publication state](../../../README.md#publication-state) des README, den CI
+  gegen `https://pypi.org/pypi/astra-plugin-sdk/json` prüft. Lockere das
+  Pinning nie unter 0.5.0: das ist das erste Release, das den
+  `x-session-token` anhängt, den der Daemon bei jedem Host-RPC außer
+  `Register` verlangt, und alles Ältere antwortet bei jeder Log-Zeile und
+  jedem Host-Aufruf mit `unauthenticated`.
 
 ## Siehe auch
 

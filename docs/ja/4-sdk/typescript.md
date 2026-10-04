@@ -2,10 +2,9 @@
 
 # TypeScript SDK
 
-`astra-plugin-sdk` **0.7.0 — このページが説明しているバージョン**であり、
-npm が配信しているものです。`npm install astra-plugin-sdk`(または
-`bun add`）でこれが解決されます; `astra-plugin new --lang typescript`
-が固定するのも同じものです。0.5.0 以降を使ってください: 0.4.0 はセッション
+npm の `astra-plugin-sdk` です。`npm install astra-plugin-sdk`（または
+`bun add`）でインストールでき、`astra-plugin new --lang typescript` は下の
+範囲に固定します。0.5.0 以降を使ってください: 0.4.0 はセッション
 トークンを一切送らず、デーモンはそれが行うすべてのホスト呼び出しを拒否
 します。
 

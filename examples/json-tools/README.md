@@ -54,11 +54,13 @@ is not written to disk and not sent anywhere.
 
 ```bash
 cd examples/json-tools
-# This example needs astra-plugin-sdk 0.5.0, which is not on npm yet, so point
-# resolution at the SDK in this checkout — exactly what CI does:
+# `bun install` takes astra-plugin-sdk from npm, at the version bun.lock
+# records. To build against the SDK in this checkout instead — what CI does, so
+# that an SDK change which breaks this example fails there:
 #   (cd ../../astra-plugin-sdk-ts && bun install && bun run build && bun pm pack --destination /tmp/tgz)
+#   SDK_TGZ=$(ls /tmp/tgz/astra-plugin-sdk-*.tgz) \
 #   node -e 'const f=require("fs"),p=JSON.parse(f.readFileSync("package.json","utf8"));
-#            p.overrides={"astra-plugin-sdk":"file:/tmp/tgz/astra-plugin-sdk-0.5.0.tgz"};
+#            p.overrides={"astra-plugin-sdk":"file:"+process.env.SDK_TGZ};
 #            f.writeFileSync("package.json",JSON.stringify(p,null,2))'
 bun install                   # or npm install
 bun run test                  # the reference suite, both levels

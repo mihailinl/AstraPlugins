@@ -2,9 +2,8 @@
 
 # TypeScript SDK
 
-`astra-plugin-sdk` **0.7.0 —— 本页描述的版本**，也是 npm 上提供的版本。
-`npm install astra-plugin-sdk`（或 `bun add`）会解析到这个版本；
-`astra-plugin new --lang typescript` 固定的也是同一个版本。请使用
+npm 上的 `astra-plugin-sdk`。`npm install astra-plugin-sdk`（或 `bun add`）
+即可安装；`astra-plugin new --lang typescript` 固定的是下面的版本范围。请使用
 0.5.0 或更新版本：0.4.0 不发送会话令牌，守护进程会拒绝它发起的每一次
 host 调用。
 

@@ -194,11 +194,11 @@ optional:
 
 1. **Bump `version` in `astra-plugin-cli/Cargo.toml` and add a
    [`CHANGELOG.md`](astra-plugin-cli/CHANGELOG.md) entry**, even for a one-line
-   fix. The CLI is not published anywhere and has no release tag, so the version
-   string is the *only* way anyone can tell a fixed build from a broken one. The
-   `init-ci` bug in `5b8ab22` shipped without a bump: `astra-plugin --version`
-   said `0.2.0` on both sides of it, and the reporter could not tell whether
-   their rebuild had taken.
+   fix. The CLI is on no package registry, and a source build carries no tag,
+   so the version string is the *only* way anyone can tell a fixed build from a
+   broken one. The `init-ci` bug in `5b8ab22` shipped without a bump:
+   `astra-plugin --version` said `0.2.0` on both sides of it, and the reporter
+   could not tell whether their rebuild had taken.
 2. **Regenerate the CLI reference.** `docs/en/reference/cli.md` is generated from
    the binary and embeds its version, so any bump or flag change makes it stale:
 

@@ -29,6 +29,21 @@ TREE (no network; the couplings job, on every pull request):
     pin `astra-plugin new` writes, and the table's Published cell must equal
     README's. Those pages said `^0.5.0` / `>=0.5,<0.6` / `"0.6"` for two
     releases after the scaffold stopped writing any of them.
+  - Each SDK's package README — the page crates.io, PyPI and npm show for it —
+    shows the scaffold's pin, and no other pin in the same shape. On
+    2026-10-04, the day 0.7.2 / 0.6.2 / 0.7.1 published, those three pages
+    still said `"0.6"`, `>=0.5,<0.6` and `^0.5.0`, and the PyPI one installs
+    0.5.0 for anyone who copies its first command.
+  - A claim that a version is on a registry — "0.6.0 on crates.io", "published
+    at 0.5.0" — in AGENTS.md, CONTRIBUTING.md, the package READMEs and the
+    English SDK and troubleshooting pages is README's Published cell for that
+    registry, and a package README that calls its package unpublished belongs
+    to a row whose Published cell says so. AGENTS.md said "0.6.0 on
+    crates.io, 0.5.0 on PyPI, 0.5.0 on npm" under "Never invent a version" two
+    trains after it stopped being true, and `astra-plugin-macros`' crates.io
+    page said "Not published to crates.io yet" from 0.6.0 to 0.7.2. Pointing
+    at the Publication state table is always green; repeating it is green
+    exactly while it agrees.
 
 REGISTRIES (asks crates.io, PyPI and npm; `scaffold-from-registries`, the job
 that already depends on them):
@@ -83,6 +98,42 @@ TABLE_ROWS = {"rust": ("Rust", "`astra-plugin-sdk` (crates.io)"),
               "python": ("Python", "`astra-plugin-sdk` (PyPI)"),
               "ts": ("TypeScript", "`astra-plugin-sdk` (npm)")}
 SDK_PAGES = {"rust": "4-sdk/rust.md", "python": "4-sdk/python.md", "ts": "4-sdk/typescript.md"}
+
+# language -> (the package README, which is the registry's page for it; every
+# pin-shaped string in it). The TypeScript README states its pin in prose, so a
+# bare range after "pins" counts too: that is the shape that said `^0.5.0`.
+PACKAGE_READMES = {
+    "rust": ("astra-plugin-sdk/README.md", r'astra-plugin-sdk = "[^"\n]*"'),
+    "python": ("astra-plugin-sdk-python/README.md", r'astra-plugin-sdk[<>=!~][^"\s`]*'),
+    "ts": ("astra-plugin-sdk-ts/README.md", r'"astra-plugin-sdk": "[^"\n]*"|(?<=pins `)[\^~][^`]+(?=`)'),
+}
+# package README -> its row in README's Publication state table
+README_ROWS = {
+    "astra-plugin-sdk/README.md": "`astra-plugin-sdk` (crates.io)",
+    "astra-plugin-sdk-python/README.md": "`astra-plugin-sdk` (PyPI)",
+    "astra-plugin-sdk-ts/README.md": "`astra-plugin-sdk` (npm)",
+    "astra-plugin-macros/README.md": "`astra-plugin-macros` (crates.io)",
+}
+# Where a sentence about what is published lives, and the registry a bare
+# "published at X" in it means (None: the file is about all of them).
+CLAIM_FILES = {
+    "AGENTS.md": None,
+    "CONTRIBUTING.md": None,
+    "astra-plugin-sdk/README.md": "crates.io",
+    "astra-plugin-sdk-python/README.md": "pypi",
+    "astra-plugin-sdk-ts/README.md": "npm",
+    "astra-plugin-macros/README.md": "crates.io",
+    "docs/en/4-sdk/rust.md": "crates.io",
+    "docs/en/4-sdk/python.md": "pypi",
+    "docs/en/4-sdk/typescript.md": "npm",
+    "docs/en/6-operate/troubleshooting.md": None,
+}
+# "0.6.0 on crates.io", "**0.5.0** on PyPI"
+ON_REGISTRY = re.compile(r"\b(\d+\.\d+\.\d+)\W{0,3}\s+on\s+(crates\.io|PyPI|npm)\b", re.I)
+# "published at 0.5.0", "is published as **0.6.1**"
+PUBLISHED_AT = re.compile(r"\bpublished\W{0,3}\s+(?:at|as)\s+\W{0,3}(\d+\.\d+\.\d+)\b", re.I)
+DISPLAY = {"crates.io": "crates.io", "pypi": "PyPI", "npm": "npm"}
+UNPUBLISHED = re.compile(r"\bnot (?:yet )?published\b|\bunpublished\b|\bnot on (?:crates\.io|PyPI|npm)\b", re.I)
 
 
 class Fails:
@@ -170,7 +221,72 @@ def tree_checks(root: Path, f: Fails) -> dict[str, str]:
     f.check(seen >= DOCS_FLOOR and seen == len(LOCALES) * 6,
             f"compared {seen} docs pin restatements (floor {DOCS_FLOOR})",
             f"expected {len(LOCALES) * 6} for {len(LOCALES)} locales, and never fewer than {DOCS_FLOOR}")
+    package_readme_checks(root, pins, f)
+    claim_checks(root, rows, f)
     return rows
+
+
+def package_readme_checks(root: Path, pins: dict[str, str | None], f: Fails) -> None:
+    """Each SDK's registry page shows the pin `astra-plugin new` writes, and only that one."""
+    for lang, (rel, shape) in PACKAGE_READMES.items():
+        pin = pins[lang]
+        if pin is None:
+            continue  # already a failure above: the template declares no single pin
+        rng = re.search(r'": "([^"]+)"$', pin)
+        accepted = {pin} | ({rng.group(1)} if rng else set())
+        found = list(dict.fromkeys(re.findall(shape, read(root, rel))))
+        f.check(bool(found), f"{rel} shows the {lang} scaffold's pin `{pin}`",
+                f"it shows no SDK pin at all; {TEMPLATES[lang][0]} writes `{pin}`")
+        for got in found:
+            f.check(got in accepted, f"{rel}'s pin `{got}` is the scaffold's",
+                    f"{TEMPLATES[lang][0]} writes `{pin}`, and this README is the page "
+                    f"{DISPLAY[ROWS[README_ROWS[rel]][0]]} shows for the package")
+
+
+def published_by_registry(rows: dict[str, str]) -> dict[str, set[str]]:
+    """registry key -> the versions README's Published cells give for it."""
+    out: dict[str, set[str]] = {}
+    for label, (key, _, _) in ROWS.items():
+        cell = rows.get(label, "")
+        m = SEMVER.search(cell)
+        if m and NOT_PUBLISHED not in cell:
+            out.setdefault(key, set()).add(m.group(1))
+    return out
+
+
+def claim_checks(root: Path, rows: dict[str, str], f: Fails) -> None:
+    """A sentence saying what is published says what README's table says."""
+    pub = published_by_registry(rows)
+    every = set().union(*pub.values()) if pub else set()
+    seen = 0
+    for rel, default in CLAIM_FILES.items():
+        text = read(root, rel)
+        line = lambda m: text.count("\n", 0, m.start()) + 1  # noqa: E731
+        for m in ON_REGISTRY.finditer(text):
+            seen += 1
+            ver, reg = m.group(1), m.group(2)
+            have = pub.get(reg.lower(), set())
+            f.check(ver in have, f"{rel} says {ver} is on {reg}, as README's Published column does",
+                    f"line {line(m)}; README's Publication state gives {reg} "
+                    f"{', '.join(sorted(have)) or 'nothing'}: point at that table rather than repeat it")
+        for m in PUBLISHED_AT.finditer(text):
+            seen += 1
+            ver = m.group(1)
+            have = pub.get(default, set()) if default else every
+            f.check(ver in have, f"{rel} says the SDK is published at {ver}, as README's Published column does",
+                    f"line {line(m)}; README's Publication state gives "
+                    f"{', '.join(sorted(have)) or 'nothing'}: point at that table rather than repeat it")
+        if rel in README_ROWS:
+            cell = rows.get(README_ROWS[rel], "")
+            for m in UNPUBLISHED.finditer(text):
+                seen += 1
+                f.check(NOT_PUBLISHED in cell or not SEMVER.search(cell),
+                        f"{rel} calls its package unpublished, as README's Published column does",
+                        f"line {line(m)} says '{m.group(0)}'; README's {README_ROWS[rel]} row reads '{cell}'")
+    # No floor: zero is the state wanted, every one of these files pointing at
+    # README's table instead of repeating it. The count is printed so that a
+    # run is read, not just its exit code.
+    print(f"note C23b read {seen} published-version claim(s) across {len(CLAIM_FILES)} files")
 
 
 def fetch(url: str) -> tuple[int, dict | None]:

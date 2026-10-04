@@ -11,7 +11,10 @@ emit is an `::astra_plugin_sdk::…` path.
 
 Repository: <https://github.com/mihailinl/AstraPlugins>
 
-Not published to crates.io yet — `index.crates.io` has no entry for it.
+Published to crates.io with every release of `astra-plugin-sdk`, just before
+it and at its version. Which version that is today is the Publication state
+table in the [repository README](../README.md#publication-state), which CI
+holds to crates.io.
 
 ## What it emits
 

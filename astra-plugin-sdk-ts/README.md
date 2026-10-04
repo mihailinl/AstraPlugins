@@ -13,7 +13,8 @@ scaffolds; that scope was never registered, so it 404s.)
 npm install astra-plugin-sdk     # or: bun add astra-plugin-sdk
 ```
 
-`astra-plugin new --lang typescript` pins `^0.5.0`, which is what you want.
+`astra-plugin new --lang typescript` pins `"astra-plugin-sdk": "^0.7.0"`, which is
+what you want.
 
 **Take 0.5.0 or newer.** The daemon rejects every host RPC but `Register`
 without an `x-session-token`, and 0.5.0 is the first release that sends one: a

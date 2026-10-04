@@ -2,7 +2,7 @@
 
 # El SDK de Python
 
-`astra-plugin-sdk` 0.6.1 en PyPI. Hereda de `Plugin`, decora métodos,
+`astra-plugin-sdk` en PyPI. Hereda de `Plugin`, decora métodos,
 ejecútalo.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
@@ -248,13 +248,15 @@ sobre el que actúa el daemon.
   forma dict; el hook en sí se retira en 0.8) y nada lo llama.
 - **`tts_synthesize_stream` está vinculado pero no enrutado** — sin punto
   de llamada en el daemon.
-- **El SDK de Python está publicado en la 0.5.0**, así que un scaffold
-  nuevo resuelve desde PyPI (verificado contra
-  `https://pypi.org/pypi/astra-plugin-sdk/json`). Toma 0.5.0 o más nuevo:
-  es el primer release que adjunta el `x-session-token` que el daemon
-  exige en cada RPC del host salvo `Register`, y cualquier versión más
-  antigua responde `unauthenticated` en cada línea de log y cada llamada
-  al host.
+- **El SDK de Python está en PyPI**, y el fijado del scaffold al principio de
+  esta página se resuelve desde allí en un proyecto nuevo. Qué versión sirve
+  PyPI lo dice el [estado de publicación](../../../README.md#publication-state)
+  del README, que CI contrasta con
+  `https://pypi.org/pypi/astra-plugin-sdk/json`. Nunca relajes el fijado por
+  debajo de 0.5.0: es el primer release que adjunta el `x-session-token` que el
+  daemon exige en cada RPC del host salvo `Register`, y cualquier versión más
+  antigua responde `unauthenticated` en cada línea de log y cada llamada al
+  host.
 
 ## Ver también
 

@@ -2,7 +2,7 @@
 
 > Переклад. Джерело істини — [docs/en](../../en/4-sdk/python.md); за розбіжності відповідає англійська версія.
 
-`astra-plugin-sdk` 0.6.1 на PyPI. Успадковуйтесь від `Plugin`, декоруйте
+`astra-plugin-sdk` на PyPI. Успадковуйтесь від `Plugin`, декоруйте
 методи, запускайте.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
@@ -239,12 +239,14 @@ Harness викликає справжній сервісер, тож покри�
   хук виводиться з обігу в 0.8), і його ніхто не викликає.
 - **`tts_synthesize_stream` прив'язаний, але не маршрутизований** — точки
   виклику в демона немає.
-- **Python SDK опублікований у версії 0.5.0**, тож свіжа заготовка
-  розв'язується з PyPI (перевірено проти
-  `https://pypi.org/pypi/astra-plugin-sdk/json`). Беріть 0.5.0 або новіший:
-  це перший реліз, що прикріплює `x-session-token`, який демон вимагає на
-  кожному RPC хоста, крім `Register`, а на все старіше демон відповідає
-  `unauthenticated` на кожному рядку логу і кожному виклику хоста.
+- **Python SDK є на PyPI**, і закріплення заготовки на початку цієї сторінки
+  розв'язується звідти у свіжому проєкті. Яку версію віддає PyPI, каже таблиця
+  [Publication state](../../../README.md#publication-state) у README, яку CI
+  звіряє з `https://pypi.org/pypi/astra-plugin-sdk/json`. Ніколи не
+  послаблюйте закріплення нижче 0.5.0: це перший реліз, що прикріплює
+  `x-session-token`, який демон вимагає на кожному RPC хоста, крім
+  `Register`, а на все старіше демон відповідає `unauthenticated` на кожному
+  рядку логу і кожному виклику хоста.
 
 ## Див. також
 

@@ -31,12 +31,13 @@ noch niemand die Binärdatei erzeugt.
 **`error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)`**
 
 Drei Sprachen, eine Fehlerform — und das Fehlen des SDK ist nicht mehr ihre
-Ursache. `astra-plugin new` pinnt `astra-plugin-sdk` `0.6` für Rust,
-`>=0.5,<0.6` für Python und `^0.5.0` für TypeScript, und die öffentlichen
-Registries tragen crates.io **0.6.0**, PyPI **0.5.0** und npm **0.5.0**. Jedes
-dieser Pinnings löst sich in einem frischen Projekt ohne jede Konfiguration
-auf; wenn es bei dir nicht so ist, liegt die Ursache zwischen deiner Maschine
-und der Registry:
+Ursache. `astra-plugin new` pinnt jedes SDK auf einen Bereich, den seine
+Registry führt — welche Versionen das sind, steht im
+[Publication state](../../../README.md#publication-state) des README, und CI
+baut bei jedem Lauf ein frisches Scaffold aus den öffentlichen Registries —,
+also löst sich jedes dieser Pinnings in einem frischen Projekt ohne jede
+Konfiguration auf. Wenn es bei dir nicht so ist, liegt die Ursache zwischen
+deiner Maschine und der Registry:
 
 - **Ein veralteter Index, eine Lockfile oder ein Mirror, der nicht
   synchronisiert hat.** Der Resolver antwortet aus einer zwischengespeicherten
@@ -45,13 +46,14 @@ und der Registry:
   `pip install --upgrade --no-cache-dir -r requirements.txt`; für npm
   `node_modules` und die Lockfile löschen und neu installieren.
   `cargo --offline` und `npm --offline` erzeugen diesen Fehler per Definition.
-- **Jemand hat eine Untergrenze gelockert.** Ein auf `0.5` (Rust) oder `0.4`
-  (Python, TypeScript) heruntergesetztes Pinning verlangt etwas, das unter
-  dieser Bedingung keine Registry anbietet. Setze das Pinning des Scaffolds
-  zurück, statt es weiter aufzuweichen: 0.6 ist das erste Rust-Release, dessen
-  `HostClient` `x-session-token` anhängt, ein älteres SDK tauscht diesen Fehler
-  also gegen `unauthenticated` bei jedem Host-Aufruf ein — siehe Abschnitt
-  unten.
+- **Jemand hat eine Untergrenze gesenkt.** Ein unter das des Scaffolds
+  gesetztes Pinning nennt entweder eine Reihe, die die Registry nie hatte —
+  crates.io hat kein Rust 0.3 oder 0.4, PyPI und npm haben kein 0.3 — und
+  scheitert mit diesem Fehler, oder es löst auf ein Release von vor dem
+  Session-Token auf (Rust vor 0.6, Python und TypeScript vor 0.5) und tauscht
+  diesen Fehler gegen `unauthenticated` bei jedem Host-Aufruf ein — siehe
+  Abschnitt unten. Setze das Pinning des Scaffolds zurück, statt es weiter
+  aufzuweichen.
 
 Weder `doctor` noch `check` erwähnt irgendetwas davon, weil beide
 `plugin.toml` lesen und das Pinning in der Build-Datei der jeweiligen Sprache
