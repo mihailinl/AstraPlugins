@@ -339,9 +339,10 @@ from the released one; the scaffolds go on pinning the released version until
 the publish happens, or `astra-plugin new` would produce a project that cannot
 resolve its own SDK. Coupling **C11** in CI is what holds that window open only
 while each CHANGELOG's newest entry is still marked `unreleased`, and closes it
-the moment that heading gets a date. No SDK row is in that window today: the
-`sdk-v0.7.2` train (Release SDKs run 37236965595, at `daded81`) published every
-version the tree carries, and each of those CHANGELOG headings is dated. The
+the moment that heading gets a date. On 2026-10-04 no SDK row was in that
+window: the `sdk-v0.7.2` train (Release SDKs run 37236965595, at `daded81`)
+had published every version the tree carried, and each of those CHANGELOG
+headings was dated. The
 "Published" column was verified against crates.io, PyPI and the npm registry on
 2026-10-04, after that train, and C23b re-asks them on every CI run.
 
