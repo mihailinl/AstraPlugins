@@ -3610,6 +3610,20 @@ jobs:
       - name: C23b the check is red on entry 151's tree and green on this one
         run: python3 tools/test_publication_state.py
 
+      # C39 — what a release says the protocol gained is what it gained. Rust
+      # 0.7.2's CHANGELOG said "37 fields … and 13 new messages", counted on
+      # 2026-09-23 (431b969). Four slices later the numbers were 49 and 25,
+      # and the same 37 sat in docs/*/versioning.md in seven languages as the
+      # worked example of why a new field ships in a patch. Nothing compared
+      # either sentence with the proto. This parses proto/plugin.proto at the
+      # tag a sentence names (this job's `fetch-depth: 0` brings the tags) and
+      # in this tree. The suite holds the parser to protoc's numbers at every
+      # slice since sdk-v0.7.1, and builds the stale 37 to watch it fail.
+      - name: C39 the CHANGELOGs and versioning.md count what the protocol gained
+        run: python3 tools/check-protocol-counts.py
+      - name: C39 is red on the stale 37, a missing sentence, an unmentioned retype and a count nobody can measure
+        run: python3 tools/test_protocol_counts.py
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

@@ -18,12 +18,15 @@ are removable in.
 ## [0.6.2] — unreleased
 
 Additive. A tool call and an action can ask which conversation invoked them, and
-answer in it later; and the chat firehose stops retrying a refusal that cannot
-change.
+answer in it later. The chat firehose stops retrying a refusal that cannot
+change. Kazakh gets its plural rule, and the protocol is re-synced with the
+daemon, which retypes one stub method that no plugin can call.
 
-Nothing was removed, narrowed or renamed, so this is the patch slot per
-[`docs/en/versioning.md`](../docs/en/versioning.md). Code written against 0.6.1
-runs unchanged.
+Nothing in the authoring API was removed, narrowed or renamed, so this is the
+patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md). Code written
+against 0.6.1 runs unchanged unless it calls `PluginServiceStub.UpdatePlugin`
+from the generated `plugin_pb2_grpc`. See *Changed (generated stubs only)*
+below.
 
 ### Added
 - **`astra_plugin_sdk.current_invocation()`** and **`Invocation`**. Inside a
@@ -78,6 +81,69 @@ runs unchanged.
   sign-in and button presses. Withheld deliberately. Nothing in this SDK can
   warn you; `types` is free-form strings here and the vocabulary lives in the
   daemon.
+
+### Changed (Kazakh plurals)
+- **`astra_plugin_sdk.plural` knows `kk`** (`bc0e075`). Astra main accepts
+  Kazakh as a UI language, so a daemon built from it may set `self.language` to
+  `"kk"`, and `locales/kk.json` is a locale like any other.
+  `plural.category("kk", n)` is `"one"` for exactly 1 and `"other"` for
+  everything else, zero included: CLDR's rule, the same shape as German.
+  `plural.categories("kk")` is `("one", "other")`, `plural.is_declared("kk")` is
+  `True`, and `CATEGORIES` has the row. In 0.6.1 `kk` was undeclared, so
+  `I18n.tn()` resolved every Kazakh count, 1 included, to `<key>.other`, and
+  `I18n.load_errors` reported a `locales/kk.json` as a file nothing would ever
+  select. Give a Kazakh plural key a `.one` and an `.other`.
+  `plural.SPEC_SHA256` changes with the table.
+
+### Changed (generated stubs only)
+- **`PluginServiceStub.UpdatePlugin` sends an `UpdatePluginRequest` and decodes
+  an `UpdatePluginResponse`** (Astra CLIENT-97, taken in `40c32ee`). It sent a
+  `PluginIdRequest` and decoded a `PluginStatusMsg`. The answer now carries
+  `plugin` (the `PluginStatusMsg`) and `not_reviewed_version`, so code that read
+  the old answer's fields fails at run time. A `PluginServiceServicer` that
+  overrides `UpdatePlugin` must return the new message. The daemon applies an
+  update to a release Astra moderators have not reviewed only when
+  `acknowledged_unreviewed_version` names that version; otherwise it sets
+  `not_reviewed_version` and touches nothing. This ships in a patch because no
+  plugin can call `PluginService`: the daemon refuses a plugin's identity on
+  every path outside `/astra.PluginHostService/`, which is the refusal the
+  firehose fix above stops retrying. Nothing in this repository calls
+  `UpdatePlugin`.
+
+### The protocol, re-synced with the daemon
+
+`plugin_pb2` and `plugin_pb2_grpc` are generated from the daemon's
+plugin-facing slice, which nine commits re-synced after `sdk-v0.7.1`, from
+`0d3174b` to `d72aa0a`. Between `sdk-v0.7.1` and this release the protocol
+gained 49 fields on 26 messages that already existed, 25 new messages and 11
+new rpcs; it retyped 1 rpc and removed or renumbered nothing. Message classes
+take keyword arguments, so a new field breaks nothing here. The generated
+`*Servicer` base classes answer the 11 new rpcs with `UNIMPLEMENTED` until a
+subclass overrides them. `protocol` stays **1**, and the 35 hooks in
+`spec/hooks.yaml` did not move. The Rust CHANGELOG's 0.7.2 entry lists every
+change and how it was counted. Three of them reach a plugin:
+
+- `PluginInvocation`, as field 3 of `PluginCallToolRequest` and
+  `PluginExecuteActionRequest`. `current_invocation()`, above, is built on it.
+- `FieldDefinitionMsg.advanced = 18` marks a config or action field as a tuning
+  knob, which the client folds behind its *Advanced settings* disclosure while
+  the user's `general.hide_advanced_settings` is on. **The SDK's `FieldDef`
+  dataclass does not carry it yet**, and neither does the `Field` builder. Only
+  a hand-built `plugin_pb2.FieldDefinitionMsg` can set it.
+- `SttLoadRequest.model_id = 3` and `language = 4`: the catalogue id of a
+  downloadable voice bundle, and the recognition language the daemon resolved.
+  **This SDK does not pass them on yet.** `Plugin.stt_load(model_path,
+  use_gpu)` keeps its signature, as in every release so far.
+
+Everything else is on the daemon's own services (core, chat, voice, commands,
+config, and the plugin manager), which a plugin's token cannot call. That
+includes CLIENT-97's `review` mark, `InstallPluginRequest.expected_version`
+(`8b02ce4`), and the seven voice-model and wake-word `VoiceService` rpcs
+(`d72aa0a`). **A wake-word plugin uses none of those.** It declares `wakeword =
+true` in `[capabilities]` and answers `status`, `process-audio` and
+`reset-audio` through `CallFromUi`, which in this SDK is `@ui_call` handlers. No
+hook was added for it.
+[`docs/en/wakeword-plugins.md`](../docs/en/wakeword-plugins.md) has the shapes.
 
 ## [0.6.1] — 2026-08-24
 

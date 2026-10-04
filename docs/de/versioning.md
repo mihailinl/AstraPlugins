@@ -80,7 +80,7 @@ TypeScript-SDK liest seinen Deskriptor zur Laufzeit, in diesen beiden bricht
 ein neues Feld also nichts.
 
 Warum ein neues Feld kein Minor ist: Jede Synchronisierung des
-Daemon-Ausschnitts fügt Felder hinzu — 37 an schon vorhandenen Nachrichten,
+Daemon-Ausschnitts fügt Felder hinzu — 49 an schon vorhandenen Nachrichten,
 zwischen `sdk-v0.7.1` und 0.7.2 —, ein Minor pro Feld würde also jede
 Synchronisierung zum Minor machen, und der Minor-Slot hörte auf, *dein Code
 kompiliert vielleicht nicht mehr* zu bedeuten. Warum nicht `#[non_exhaustive]`
