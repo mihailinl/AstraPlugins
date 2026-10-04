@@ -68,7 +68,7 @@ classes take keyword arguments and the TypeScript SDK reads its descriptor at
 run time, so in those two a new field breaks nothing.
 
 Why a new field is not a minor: every sync of the daemon's slice adds fields —
-37 on messages that already existed, between `sdk-v0.7.1` and 0.7.2 — so a
+49 on messages that already existed, between `sdk-v0.7.1` and 0.7.2 — so a
 minor per field would make every sync a minor, and the minor slot would stop
 meaning *your code may stop compiling*. Why not `#[non_exhaustive]` on the
 generated structs, which would make the rule the compiler's: it also forbids

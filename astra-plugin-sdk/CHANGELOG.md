@@ -16,21 +16,59 @@ are removable in.
 
 ## [0.7.2] — unreleased
 
-Two additions and a fix, and they ship together.
+Two additions, a fix, Kazakh plurals, and the protocol re-synced with the
+daemon. The re-sync retypes one method on a generated client that no plugin can
+call; it is under *Changed (breaking, generated code only)* below.
 
-Nothing was removed, narrowed or renamed, so this is the patch slot per
-[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
-compatibility, patch is bug fixes and additions only*. Code written against
-0.7.1 compiles unchanged, **with one exception that the policy now names**: an
-exhaustive struct literal of a generated `astra_plugin_sdk::proto::*` message.
-The protocol slice this crate re-exports gained 37 fields on messages that
-existed at `sdk-v0.7.1`, and 13 new messages; a literal that lists every field
-of one of those and has no `..Default::default()` fails with `E0063 missing
-fields`. The same literal with `..Default::default()` compiles, and it is the
-form `astra-plugin new` writes. [`docs/en/versioning.md`,
-*Generated protocol types*](../docs/en/versioning.md#generated-protocol-types)
-says why a new proto field is an addition and not a break, and the scaffold's
-`astra-plugin-sdk = "0.7"` pin goes on accepting this release.
+Nothing in the authoring API was removed, narrowed or renamed, so this is the
+patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may
+break source compatibility, patch is bug fixes and additions only*. Code written
+against 0.7.1 compiles unchanged unless it does one of three things, all in the
+generated `astra_plugin_sdk::proto` module, and none of them in anything
+`astra-plugin new` writes:
+
+- **An exhaustive struct literal of a generated message.** Between `sdk-v0.7.1`
+  and this release the protocol gained 49 fields on 26 messages that already
+  existed, 25 new messages and 11 new rpcs; it retyped 1 rpc and removed or
+  renumbered nothing. A literal that lists every field of one of those 26
+  messages and has no `..Default::default()` fails with `E0063 missing fields`.
+  `FieldDef` is one of them: it is the generated `FieldDefinitionMsg`, and it
+  gained `advanced`. The same literal with `..Default::default()` compiles, and
+  it is the form `astra-plugin new` writes. [`docs/en/versioning.md`,
+  *Generated protocol types*](../docs/en/versioning.md#generated-protocol-types)
+  says why a new proto field is an addition and not a break, and the scaffold's
+  `astra-plugin-sdk = "0.7"` pin goes on accepting this release.
+- **A hand-written implementation of a generated server trait for
+  `CoreService`, `ConfigService` or `VoiceService`.** Those three gained the 11
+  rpcs, and an implementation without them fails with `E0046`. They are the
+  daemon's own services and a plugin is never their server, so only a mock
+  daemon in somebody's tests would have one.
+- **A call to `PluginServiceClient::update_plugin`**, which is retyped. See
+  below.
+
+### Changed (breaking, generated code only)
+- **`PluginService.UpdatePlugin` takes an `UpdatePluginRequest` and answers an
+  `UpdatePluginResponse`** (Astra CLIENT-97, taken in `40c32ee`). It was
+  `UpdatePlugin(PluginIdRequest) returns (PluginStatusMsg)`. So
+  `proto::plugin_service_client::PluginServiceClient::update_plugin` now takes
+  `UpdatePluginRequest { plugin_id, acknowledged_unreviewed_version }` and
+  returns `UpdatePluginResponse { plugin, not_reviewed_version }`. Code that
+  passed a `PluginIdRequest` or read a `PluginStatusMsg` back no longer
+  compiles, and neither does an implementation of the generated
+  `PluginService` server trait. The request is wire-compatible, because its
+  field 1 is still `plugin_id`. The response is not: its field 1 was
+  `PluginStatusMsg.id`, a string, and is now the embedded `PluginStatusMsg
+  plugin`. The daemon applies an update to a release Astra moderators have not
+  reviewed only when `acknowledged_unreviewed_version` names that version.
+  Otherwise it sets `not_reviewed_version` and touches nothing.
+
+  `docs/en/versioning.md` files a retyped generated type under *minor*. This one
+  ships in a patch anyway, for two reasons. No plugin can call `PluginService`:
+  the daemon refuses a plugin's identity on every path outside
+  `/astra.PluginHostService/` (the firehose fix below is that same refusal), and
+  nothing in this repository calls `UpdatePlugin`. And the old signature
+  describes a wire that the daemon on Astra main no longer speaks, so a 0.7.1
+  client calling that daemon would misread the answer anyway.
 
 ### Fixed
 - **The chat firehose retried a refusal that cannot change, every two seconds,
@@ -89,7 +127,7 @@ compiles unchanged.
 - `protocol` stays **1**. The field is additive and the number is a handshake,
   not a behaviour switch.
 
-#### Notes
+#### Notes (event vocabulary)
 - **`update_state_changed` is accepted in a `subscribe_events` allowlist and
   never delivered.** It is a real member of the event enum, so naming it passes
   every gate on this side, and then nothing arrives — the plugin waits for ever
@@ -134,6 +172,102 @@ refused: keep it a plain line drawing.
 
 The struct literal still works and is not deprecated. `#[action(icon = "…")]`
 is unchanged and has carried an icon since 0.7.0.
+
+### Kazakh plurals
+
+- **`plural` knows `kk`** (`bc0e075`). Astra main accepts Kazakh as a UI
+  language, so a daemon built from it may tell a plugin `"kk"` through
+  `PluginContext::language()` and `on_language_changed`, and `locales/kk.json`
+  is a locale like any other. `plural::category("kk", n)` is `"one"` for exactly
+  1 and `"other"` for everything else, zero included: CLDR's rule, the same
+  shape as German. `plural::categories("kk")` is `["one", "other"]` and
+  `plural::is_declared("kk")` is `true`. In 0.7.1 `kk` was undeclared, so
+  `I18n::tn` resolved every Kazakh count, 1 included, to `<key>.other`, and
+  `I18n::load_errors()` reported a `locales/kk.json` as a file nothing would
+  ever select. Give a Kazakh plural key a `.one` and an `.other`.
+  `plural::SPEC_SHA256` changes with the table.
+
+### The protocol, re-synced with the daemon
+
+`proto/plugin.proto` is the daemon's plugin-facing slice, and this crate
+compiles all of it into `astra_plugin_sdk::proto`. Nine commits re-synced it
+after `sdk-v0.7.1`, from `0d3174b` to `d72aa0a`; two of them changed only
+comments. `protocol` stays **1**, and the 35 hooks in `spec/hooks.yaml` did not
+move.
+
+The counts above come from parsing `proto/plugin.proto` at the tag and in this
+tree. A field is keyed by its number within its message and a message by
+its name, and map-entry types are left out. protoc's own descriptors give the
+same numbers at every one of those commits. `python3
+tools/check-protocol-counts.py --count sdk-v0.7.1` prints them, and coupling
+C39 fails when the sentence above stops matching the proto.
+
+**What reaches a plugin.** These are the changes to messages that
+`PluginHostService` and `PluginCapabilityService` carry:
+- `PluginInvocation`, as field 3 of `PluginCallToolRequest` and
+  `PluginExecuteActionRequest`. *Which conversation called you*, above, is built
+  on it.
+- `FieldDefinitionMsg.advanced = 18`, which this crate re-exports as
+  `FieldDef`. A config or action field can set `advanced: true` to say it is a
+  tuning knob, and the client then folds it behind its *Advanced settings*
+  disclosure while the user's `general.hide_advanced_settings` is on.
+- `SttLoadRequest.model_id = 3` and `language = 4`: the catalogue id of a
+  downloadable voice bundle, and the recognition language the daemon resolved.
+  **This SDK does not pass them on yet.** `PluginCapability::stt_load` receives
+  the crate's own `SttLoadRequest`, which still carries only `model_path` and
+  `use_gpu`, as in every release so far.
+
+**Everything else is on the daemon's own services:** `CoreService`,
+`ChatService`, `VoiceService`, `CommandService`, `ConfigService` and
+`PluginService`. A plugin's token cannot call them. They are listed here so
+that a reader of `astra_plugin_sdk::proto` knows what the new types are.
+- **The review mark** (Astra CLIENT-97, `40c32ee`). `review` on
+  `PluginRegistryEntry` (23), `PluginUpdateInfo` (6) and `PluginStatusMsg` (22,
+  with `update_review` 23) is `"reviewed"`, `"not_reviewed"`, or `""` when the
+  catalogue carries no mark. Also
+  `ResolvePendingUpdateRequest.acknowledged_unreviewed_version = 4`, and
+  `UpdatePlugin`'s new request and response (above).
+- **An install is pinned to the release its consent sheet showed**
+  (`8b02ce4`). When `InstallPluginRequest.expected_version = 5` is set, the
+  daemon refuses the install if the catalogue now offers another release.
+- **Downloadable voice models and wake-word providers** (`d72aa0a`). Seven
+  `VoiceService` rpcs: `GetVoiceModels`, `DownloadVoiceModel`,
+  `DeleteVoiceModel`, `GetVoiceModelDownloadProgress`,
+  `CancelVoiceModelDownload`, `SetVoiceModel` and `GetWakewordProviders`. Their
+  nine messages are `VoiceModelsRequest`, `VoiceModelRequest`,
+  `VoiceModelManagerRequest`, `VoiceModelSelectionRequest`, `VoiceModelInfo`,
+  `VoiceModelsResponse`, `WakewordProviderInfo`, `WakewordProvidersResponse` and
+  `StatusResponse`. Also `VoiceSettings.wake_word_listen_secs = 30` and
+  `triggered_silence_until_first_word = 31`, `SttProviderInfo.config_source =
+  7`, and `ReportPluginResponse.report_page_url = 5`. **A wake-word plugin uses
+  none of these.** It declares `wakeword = true` in `[capabilities]` and
+  answers `status`, `process-audio` and `reset-audio` through `CallFromUi`,
+  which in this crate is `handle_ui_call` or `#[ui_call]` methods. No hook was
+  added for it. [`docs/en/wakeword-plugins.md`](../docs/en/wakeword-plugins.md)
+  has the three request and response shapes.
+- **Companion settings** (`c496fa5`, `fa4dcdb`). `SettingsResponse` gained
+  `companion_animation`, `companion_music` and `companion_app_icon` (19 to 21),
+  with `CompanionAnimationSettings`, `AnimationRuleMsg`,
+  `CompanionMusicSettings` and `CompanionAppIconSettings`.
+- **The 0.2.6 update arc** (`121081d`). Fifteen `update_*` fields on
+  `CoreStateResponse` (9 to 23), and `AstraEvent.update_state_changed` with its
+  empty `UpdateStateChangedEvent`. That event is accepted in a
+  `subscribe_events` allowlist and never delivered; see *Notes (event
+  vocabulary)* above.
+- **The rest** (`0d3174b`, `c496fa5`). `CoreService.CollectLogs` and
+  `GetLogLocation` (`LogBundleResponse`, `LogLocationResponse`);
+  `ConfigService.StartIndexer` and `RescanIndex` (`StartIndexerResponse`);
+  `AiSettings.custom_models` (`CustomAiModelMsg`);
+  `GeneralSettings.hide_advanced_settings`; `AstraEvent.companion_status_changed`
+  and `conversation_deleted` (`CompanionStatusChangedEvent`,
+  `ConversationDeletedEvent`); `ConversationEventMsg.context_load` and
+  `history_compacted` (`ContextLoadEvt`, `HistoryCompactedEvt`);
+  `FirehoseEventMsg.backlog`; `code` on `ErrorEvt` and `NotificationEvent`;
+  `Conversation.is_generating`;
+  `SubmitUserMessageResponse.replaced_conversation_id`; `priority` on
+  `CommandDefinition`, `CreateCommandRequest` and `UpdateCommandRequest`; and
+  `VoiceSettings.wake_chime_enabled`.
+
 ## [0.7.1] — 2026-08-24
 
 Additive. A plugin can now translate its own runtime strings, and mark the ones

@@ -80,7 +80,7 @@ descriptor en tiempo de ejecución, así que en esos dos un campo nuevo no rompe
 nada.
 
 Por qué un campo nuevo no es un minor: cada sincronización del recorte del
-daemon añade campos — 37 en mensajes que ya existían, entre `sdk-v0.7.1` y
+daemon añade campos — 49 en mensajes que ya existían, entre `sdk-v0.7.1` y
 0.7.2 —, así que un minor por campo convertiría cada sincronización en un minor,
 y el hueco de minor dejaría de significar *tu código puede dejar de compilar*.
 Por qué no `#[non_exhaustive]` en los structs generados, que haría de la regla
