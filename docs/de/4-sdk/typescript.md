@@ -2,10 +2,9 @@
 
 # Das TypeScript-SDK
 
-`astra-plugin-sdk` **0.7.0 — die Version, die diese Seite beschreibt**, und
-die, die npm ausliefert. `npm install astra-plugin-sdk` (oder `bun add`)
-löst sie auf; das ist auch, was `astra-plugin new --lang typescript` pinnt.
-Nimm 0.5.0 oder neuer: 0.4.0 sendet kein Session-Token, und der Daemon
+`astra-plugin-sdk`, von npm: `npm install astra-plugin-sdk` (oder `bun add`)
+installiert es, und `astra-plugin new --lang typescript` pinnt den Bereich
+unten. Nimm 0.5.0 oder neuer: 0.4.0 sendet kein Session-Token, und der Daemon
 lehnt jeden Host-Aufruf ab, den es tätigt.
 
 Der Paketname hat keinen Scope — ein früherer gescopter Name taucht in

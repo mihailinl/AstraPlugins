@@ -27,21 +27,22 @@ not exist" —— 这是对的：因为还没有任何东西产出过这个二�
 **`error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)`**
 
 三种语言，同一种形态的错误 —— 但原因已经不再是 SDK 不存在。
-`astra-plugin new` 为 Rust 固定 `astra-plugin-sdk` `0.6`，为 Python 固定
-`>=0.5,<0.6`，为 TypeScript 固定 `^0.5.0`，而公共注册表上分别是 crates.io
-**0.6.0**、PyPI **0.5.0**、npm **0.5.0**。这些固定值在一个全新的、什么都没配置
-的项目里都能解析出来。所以如果你这边解析不出来，原因就在你的机器和注册表之间：
+`astra-plugin new` 把每个 SDK 固定在其注册表上已有的版本范围内 —— 具体是哪些
+版本，见 README 的 [Publication state](../../../README.md#publication-state)，
+CI 每次运行都会从公共注册表构建一个全新的脚手架 —— 所以这些固定值在一个全新的、
+什么都没配置的项目里都能解析出来。如果你这边解析不出来，原因就在你的机器和
+注册表之间：
 
 - **过期的索引、锁文件，或没有同步的镜像。** 解析器读到的是发布之前的注册表
   缓存视图，或者是同样过期的公司代理。`cargo update -p astra-plugin-sdk`；
   `pip install --upgrade --no-cache-dir -r requirements.txt`；npm 则删掉
   `node_modules` 和锁文件后重新安装。`cargo --offline` 和 `npm --offline`
   本来就会产生这个错误。
-- **有人放宽了下限。** 被改成 `0.5`(Rust)或 `0.4`(Python、TypeScript)的
-  固定值，要的是任何注册表在那个约束下都不提供的东西。请把脚手架原本的固定值
-  改回去，而不是继续放宽：0.6 是第一个 `HostClient` 会附带 `x-session-token`
-  的 Rust 发行版，所以对更旧的 SDK，这个错误会被换成每一次 host 调用上的
-  `unauthenticated` —— 见下面一节。
+- **有人降低了下限。** 被改到低于脚手架固定值的版本约束，要么指向注册表从未有过的
+  系列 —— crates.io 上没有 Rust 0.3 或 0.4，PyPI 和 npm 上没有 0.3 —— 于是报这个
+  错误；要么解析到会话令牌出现之前的发行版（Rust 早于 0.6，Python 和 TypeScript
+  早于 0.5），这个错误就会被换成每一次 host 调用上的 `unauthenticated` —— 见下面
+  一节。请把脚手架原本的固定值改回去，而不是继续放宽。
 
 `doctor` 和 `check` 都不会提到这些，因为它们读取的都是 `plugin.toml`，而版本
 固定值存在于该语言自己的构建文件中。

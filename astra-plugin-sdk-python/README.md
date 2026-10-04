@@ -7,7 +7,7 @@ Repository: <https://github.com/mihailinl/AstraPlugins>
 ## Installing
 
 ```bash
-pip install "astra-plugin-sdk>=0.5,<0.6"
+pip install "astra-plugin-sdk>=0.6,<0.7"
 pip install "astra-plugin-sdk[test]"   # adds pytest, for the harness
 ```
 

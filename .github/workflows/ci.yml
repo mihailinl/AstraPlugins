@@ -1851,12 +1851,12 @@ jobs:
         with:
           python-version: "3.10"
 
-      # Both examples depend on an SDK version that is not published yet
-      # (json-tools asks for ^0.1.1, text-utils for any). Building them against
-      # the registry would test a stale SDK or fail outright, so they are built
-      # against the SDKs in THIS tree — which is also the only way this job can
-      # catch an SDK change that breaks an example. See the same note in
-      # scaffold-roundtrip for the general problem.
+      # Both examples are built against the SDKs in THIS tree, not the
+      # registries. The registries hold the last release (json-tools' bun.lock
+      # takes its SDK from npm), so building against them would test that
+      # release instead of the SDK this change touches; this is the only way
+      # this job can catch an SDK change that breaks an example. See the same
+      # note in scaffold-roundtrip for the general problem.
       - name: pack the in-repo SDKs
         run: |
           set -euo pipefail
@@ -2879,12 +2879,12 @@ jobs:
   # out loud, because a coverage gap nobody names becomes a coverage gap
   # everybody assumes is filled.
   #
-  # Python and TypeScript are not here either. Their examples need an SDK that
-  # is not published (see scaffold-roundtrip's UNPUBLISHED-SDK note), and a
-  # conformance job that half-installs an SDK reports on the installation
-  # rather than on the plugin. When the SDKs publish, add them: `astra-plugin
-  # test` drives a process and does not care what language wrote it, which is
-  # the whole reason it spawns instead of linking.
+  # Python and TypeScript are not here either. The reason this note gave was
+  # that their SDKs were not published; all three are now (README's
+  # Publication state, which C23b holds to the registries), and nobody has
+  # added them since. `astra-plugin test` drives a process and does not care
+  # what language wrote it, which is the whole reason it spawns instead of
+  # linking.
   conformance:
     name: conformance (R7)
     runs-on: ubuntu-24.04
@@ -3605,6 +3605,12 @@ jobs:
       # in `scaffold-from-registries`, which already depends on them; this is
       # the tree half (the docs' restated scaffold pins, which had said
       # `^0.5.0` for two releases), and the fixture suite that rebuilds 151.
+      # Since 2026-10-04 the tree half also holds the three package READMEs —
+      # the pages crates.io, PyPI and npm show — to the scaffold's pins, and
+      # every "X on <registry>" / "published at X" / "not published" sentence
+      # in AGENTS.md, CONTRIBUTING.md, the package READMEs and the English SDK
+      # and troubleshooting pages to README's Published cells: on the day
+      # 0.7.2 / 0.6.2 / 0.7.1 shipped, all of those still described 0.5 and 0.6.
       - name: C23b (tree legs) the docs restate the scaffold's pins and README's Published cells
         run: python3 tools/check-publication-state.py --tree-only
       - name: C23b the check is red on entry 151's tree and green on this one

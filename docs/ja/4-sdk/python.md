@@ -2,7 +2,7 @@
 
 # Python SDK
 
-PyPI 上の `astra-plugin-sdk` 0.6.1。`Plugin` をサブクラス化し、メソッドを
+PyPI 上の `astra-plugin-sdk`。`Plugin` をサブクラス化し、メソッドを
 デコレートし、実行します。
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
@@ -252,9 +252,11 @@ CI では `python -W error::DeprecationWarning` でこれをゲートしてく�
   可能; フック自体は 0.8 で廃止)、誰もこれを呼び出しません。
 - **`tts_synthesize_stream` は結びつけられていますが unrouted です**
   — デーモン側の呼び出し箇所はありません。
-- **Python SDK は 0.5.0 で公開されています**。そのため新規の雛形は
-  PyPI から解決されます(`https://pypi.org/pypi/astra-plugin-sdk/json`
-  に対して検証済み)。0.5.0 以降を使ってください: これは、`Register`
+- **Python SDK は PyPI にあります**。このページ冒頭にある雛形のピンは、
+  新規プロジェクトでそこから解決されます。PyPI が配信しているバージョンは
+  README の [Publication state](../../../README.md#publication-state) に
+  あり、CI が `https://pypi.org/pypi/astra-plugin-sdk/json` と照合して
+  います。ピンを 0.5.0 より下に緩めないでください: これは、`Register`
   以外のすべてのホスト RPC でデーモンが要求する `x-session-token` を
   付加する最初のリリースであり、それより古いものはすべてのログ行と
   すべてのホスト呼び出しに `unauthenticated` を返します。

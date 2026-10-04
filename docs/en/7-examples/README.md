@@ -100,11 +100,12 @@ tools/actions/triggers, the STT bidi stream, TTS, and UI contributions.
 saying out loud: a coverage gap nobody names becomes one everybody assumes is
 filled.
 
-Python and TypeScript examples are not in the conformance job yet, because their
-SDKs are not published and a conformance run that half-installs an SDK reports
-on the installation rather than on the plugin. `astra-plugin test` drives a
-process and does not care what language wrote it, so they join the job the day
-the SDKs publish.
+Python and TypeScript examples are not in the conformance job yet. The reason
+this page used to give — that their SDKs were not published — stopped being
+true when they were (README's
+[Publication state](../../../README.md#publication-state)), and the job has not
+been extended since. `astra-plugin test` drives a process and does not care
+what language wrote it.
 
 ## Running one
 

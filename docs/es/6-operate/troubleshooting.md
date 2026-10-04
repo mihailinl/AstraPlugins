@@ -29,11 +29,12 @@ exist" — lo cual es correcto: todavía nadie ha producido el binario.
 **`error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)`**
 
 Tres lenguajes, una misma forma de error — y la ausencia del SDK ya no es su
-causa. `astra-plugin new` fija `astra-plugin-sdk` `0.6` para Rust,
-`>=0.5,<0.6` para Python y `^0.5.0` para TypeScript, y los registros públicos
-llevan crates.io **0.6.0**, PyPI **0.5.0** y npm **0.5.0**. Cada uno de esos
-fijados resuelve en un proyecto nuevo sin configurar nada, así que si el tuyo
-no resuelve, la causa está entre tu máquina y el registro:
+causa. `astra-plugin new` fija cada SDK a un rango que su registro lleva — el
+[estado de publicación](../../../README.md#publication-state) del README dice
+qué versiones son, y CI construye un scaffold nuevo desde los registros
+públicos en cada ejecución —, así que cada uno de esos fijados resuelve en un
+proyecto nuevo sin configurar nada. Si el tuyo no resuelve, la causa está
+entre tu máquina y el registro:
 
 - **Un índice obsoleto, un lockfile, o un mirror que no se ha sincronizado.**
   El resolutor está respondiendo desde una vista cacheada del registro anterior
@@ -42,12 +43,13 @@ no resuelve, la causa está entre tu máquina y el registro:
   `pip install --upgrade --no-cache-dir -r requirements.txt`; para npm, borra
   `node_modules` y el lockfile e instala de nuevo. `cargo --offline` y
   `npm --offline` producen este error por diseño.
-- **Alguien relajó un límite.** Un fijado editado a `0.5` (Rust) o `0.4`
-  (Python, TypeScript) pide algo que ningún registro ofrece bajo esa
-  restricción. Devuelve el fijado del scaffold en lugar de ensancharlo más:
-  0.6 es el primer release de Rust cuyo `HostClient` adjunta
-  `x-session-token`, así que un SDK más antiguo cambia este error por
-  `unauthenticated` en cada llamada al host — la sección de abajo.
+- **Alguien bajó un límite.** Un fijado editado por debajo del del scaffold o
+  bien nombra una serie que el registro nunca tuvo — crates.io no tiene Rust
+  0.3 ni 0.4, PyPI y npm no tienen 0.3 — y falla con este error, o bien
+  resuelve a un release anterior al token de sesión (Rust antes de 0.6, Python
+  y TypeScript antes de 0.5) y cambia este error por `unauthenticated` en cada
+  llamada al host — la sección de abajo. Devuelve el fijado del scaffold en
+  lugar de ensancharlo más.
 
 Ni `doctor` ni `check` mencionan nada de esto, porque ambos leen
 `plugin.toml` y el fijado vive en el archivo de compilación del propio

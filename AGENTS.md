@@ -166,8 +166,10 @@ manifest crate, the proto or an SDK error type? Then also `cargo build --release
 
 `npm` is not on `PATH`; use `bun`. Licences are not uniform: SDKs, macros and
 examples are **MPL-2.0**, the CLI, tooling, specs and docs **GPL-3.0-or-later**.
-Never invent a version — `astra-plugin-sdk` is 0.6.0 on crates.io, 0.5.0 on PyPI,
-0.5.0 on npm, and the CLI is published nowhere.
+Never invent a version, and do not copy one here: README's
+[Publication state](README.md#publication-state) table is what crates.io, PyPI
+and npm hold, the CLI's row included, and C23b asks the registries whether it
+still is.
 
 ## 6 · If you find a bug, say so
 

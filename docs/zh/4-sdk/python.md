@@ -2,7 +2,7 @@
 
 # Python SDK
 
-PyPI 上的 `astra-plugin-sdk` 0.6.1。继承 `Plugin`，用装饰器标注方法，
+PyPI 上的 `astra-plugin-sdk`。继承 `Plugin`，用装饰器标注方法，
 运行它。
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
@@ -236,11 +236,13 @@ schema 能否解析、参数能否在 `json.dumps` → `json.loads` 之间存活
   移除；钩子本身在 0.8 中被淘汰），没有任何东西调用它。
 - **`tts_synthesize_stream` 已经绑定，但是 unrouted 的** —— 没有守护
   进程侧的调用点。
-- **Python SDK 发布在 0.5.0**，所以一个全新的脚手架会从 PyPI 解析
-  （已对照 `https://pypi.org/pypi/astra-plugin-sdk/json` 验证）。请
-  使用 0.5.0 或更新版本：这是第一个会在除 `Register` 之外的每个 host
-  RPC 上附带守护进程所要求的 `x-session-token` 的版本，比它更旧的版本
-  会对每一行日志和每一次 host 调用都返回 `unauthenticated`。
+- **Python SDK 在 PyPI 上**，本页开头脚手架的固定值在全新项目中会从那里解析。
+  PyPI 提供的是哪个版本，见 README 的
+  [Publication state](../../../README.md#publication-state)，CI 会对照
+  `https://pypi.org/pypi/astra-plugin-sdk/json` 检查它。绝不要把固定值放宽到
+  0.5.0 以下：这是第一个会在除 `Register` 之外的每个 host RPC 上附带守护
+  进程所要求的 `x-session-token` 的版本，比它更旧的版本会对每一行日志和
+  每一次 host 调用都返回 `unauthenticated`。
 
 ## 另请参阅
 

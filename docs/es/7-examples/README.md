@@ -106,11 +106,11 @@ de cobertura que nadie nombra se convierte en una que todos asumen que
 está cerrada.
 
 Los ejemplos de Python y TypeScript todavía no están en el job de
-conformidad, porque sus SDK no están publicados y una corrida de
-conformidad que instala a medias un SDK termina informando sobre la
-instalación en lugar de sobre el plugin. `astra-plugin test` ejercita un
-proceso y no le importa en qué lenguaje se escribió, así que se unirán
-al job el día en que se publiquen los SDK.
+conformidad. La razón que daba esta página — que sus SDK no estaban
+publicados — dejó de ser cierta cuando se publicaron (el
+[estado de publicación](../../../README.md#publication-state) del README), y el
+job no se ha ampliado desde entonces. `astra-plugin test` ejercita un
+proceso y no le importa en qué lenguaje se escribió.
 
 ## Ejecutar uno
 

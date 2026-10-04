@@ -8,7 +8,7 @@ Repository: <https://github.com/mihailinl/AstraPlugins>
 
 ```toml
 [dependencies]
-astra-plugin-sdk = "0.6"
+astra-plugin-sdk = "0.7"
 ```
 
 or `cargo add astra-plugin-sdk`. That is also what `astra-plugin new` writes.

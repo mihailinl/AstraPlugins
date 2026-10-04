@@ -106,12 +106,13 @@ daher nicht abgedeckt**, was laut auszusprechen sich lohnt: eine
 Abdeckungslücke, die niemand benennt, wird zu einer, von der jeder
 annimmt, sie sei geschlossen.
 
-Python- und TypeScript-Beispiele sind noch nicht im Conformance-Job,
-weil ihre SDKs nicht veröffentlicht sind und ein Conformance-Lauf, der
-ein SDK halb installiert, über die Installation berichtet statt über das
-Plugin. `astra-plugin test` treibt einen Prozess und kümmert sich nicht
-darum, in welcher Sprache er geschrieben wurde, sie treten dem Job also
-an dem Tag bei, an dem die SDKs veröffentlicht werden.
+Python- und TypeScript-Beispiele sind noch nicht im Conformance-Job. Der
+Grund, den diese Seite früher nannte — dass ihre SDKs nicht veröffentlicht
+seien —, ist nicht mehr wahr, seit sie es sind (der
+[Publication state](../../../README.md#publication-state) des README), und
+der Job wurde seitdem nicht erweitert. `astra-plugin test` treibt einen
+Prozess und kümmert sich nicht darum, in welcher Sprache er geschrieben
+wurde.
 
 ## Eines ausführen
 

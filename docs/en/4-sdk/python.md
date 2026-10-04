@@ -1,6 +1,6 @@
 # The Python SDK
 
-`astra-plugin-sdk` 0.6.1 on PyPI. Subclass `Plugin`, decorate methods, run it.
+`astra-plugin-sdk` on PyPI. Subclass `Plugin`, decorate methods, run it.
 
 <!-- doctest: illustrative reason="a requirements.txt fragment; the scaffold that contains it is what the python-plugin blocks below are executed against" -->
 ```
@@ -231,11 +231,13 @@ the code the daemon acts on.
 - **`ai_get_models` is deprecated** (0.5.0, removable 0.7.0 for the dict form;
   the hook itself is retired in 0.8) and nothing calls it.
 - **`tts_synthesize_stream` is bound and unrouted** — no daemon call site.
-- **The Python SDK is published at 0.5.0**, so a fresh scaffold resolves from
-  PyPI (verified against `https://pypi.org/pypi/astra-plugin-sdk/json`). Take
-  0.5.0 or newer: it is the first release that attaches the `x-session-token`
-  the daemon requires on every host RPC but `Register`, and anything older
-  answers `unauthenticated` on every log line and every host call.
+- **The Python SDK is on PyPI**, and the scaffold's pin at the top of this page
+  resolves from it in a fresh project. Which version PyPI serves is README's
+  [Publication state](../../../README.md#publication-state), which CI holds to
+  `https://pypi.org/pypi/astra-plugin-sdk/json`. Never relax the pin below
+  0.5.0: that is the first release that attaches the `x-session-token` the
+  daemon requires on every host RPC but `Register`, and anything older answers
+  `unauthenticated` on every log line and every host call.
 
 ## See also
 

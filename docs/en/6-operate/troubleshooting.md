@@ -26,11 +26,12 @@ does not exist` — which is correct: nothing has produced the binary yet.
 **`error: No version matching "^0.5.0" found for specifier "astra-plugin-sdk" (but package exists)`**
 
 Three languages, one shape of error — and the SDK's absence is no longer the
-cause of it. `astra-plugin new` pins `astra-plugin-sdk` `0.6` for Rust,
-`>=0.5,<0.6` for Python and `^0.5.0` for TypeScript, and the public registries
-carry crates.io **0.6.0**, PyPI **0.5.0** and npm **0.5.0**. Every one of those
-pins resolves in a fresh project with nothing configured, so if yours does not,
-the cause is between your machine and the registry:
+cause of it. `astra-plugin new` pins each SDK to a range its registry carries
+— README's [Publication state](../../../README.md#publication-state) says which
+versions those are, and CI builds a fresh scaffold from the public registries
+on every run — so each of those pins resolves in a fresh project with nothing
+configured. If yours does not, the cause is between your machine and the
+registry:
 
 - **A stale index, a lockfile, or a mirror that has not synced.** The resolver
   is answering from a cached view of the registry that predates the release, or
@@ -38,12 +39,12 @@ the cause is between your machine and the registry:
   `pip install --upgrade --no-cache-dir -r requirements.txt`; for npm, delete
   `node_modules` and the lockfile and install again. `cargo --offline` and
   `npm --offline` produce this error by design.
-- **A bound somebody relaxed.** A pin edited down to `0.5` (Rust) or `0.4`
-  (Python, TypeScript) asks for something no registry offers under that
-  constraint. Put the scaffold's pin back rather than widening it further: 0.6
-  is the first Rust release whose `HostClient` attaches `x-session-token`, so an
-  older SDK trades this error for `unauthenticated` on every host call — the
-  section below.
+- **A bound somebody lowered.** A pin edited below the scaffold's either names
+  a series the registry never had — crates.io has no Rust 0.3 or 0.4, PyPI and
+  npm have no 0.3 — and fails with this error, or resolves to a release from
+  before the session token (Rust before 0.6, Python and TypeScript before 0.5)
+  and trades this error for `unauthenticated` on every host call — the section
+  below. Put the scaffold's pin back rather than widening it further.
 
 Neither `doctor` nor `check` mentions any of this, because both read
 `plugin.toml` and the pin lives in the language's own build file.
