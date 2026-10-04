@@ -14,7 +14,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.2] — unreleased
+## [0.7.2] — 2026-10-04
 
 Two additions, a fix, Kazakh plurals, and the protocol re-synced with the
 daemon. The re-sync retypes one method on a generated client that no plugin can

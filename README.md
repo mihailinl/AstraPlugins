@@ -203,10 +203,11 @@ passes on a fresh scaffold.
 
 **Before you `cargo add` / `pip install` / `npm install` anything by hand, read
 [Publication state](#publication-state) below.** The scaffolds' pins resolve to
-versions that are on the public registries — Rust 0.7.1, Python 0.6.1,
-TypeScript 0.7.0, verified against `index.crates.io`, PyPI and the npm registry
-on 2026-09-24 — but every *older* version there fails every host call, which is
-why those pins have lower bounds and are not worth relaxing.
+the versions in its "Published" column, which CI holds to crates.io, PyPI and
+the npm registry on every run. Those registries also still serve versions older
+than Rust 0.6.0, Python 0.5.0 and TypeScript 0.5.0, and every one of those fails
+every host call, which is why the pins have lower bounds and are not worth
+relaxing.
 
 ### 3. Iterate
 
@@ -309,10 +310,10 @@ directory to a listed plugin, with every command and its output.
 
 | Package | In this tree | Published | Install |
 |---|---|---|---|
-| `astra-plugin-sdk` (crates.io) | 0.7.2 | 0.7.1 | `astra-plugin-sdk = "0.7"` |
-| `astra-plugin-sdk` (PyPI) | 0.6.2 | 0.6.1 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
-| `astra-plugin-sdk` (npm) | 0.7.1 | 0.7.0 | `npm install astra-plugin-sdk` |
-| `astra-plugin-macros` (crates.io) | 0.7.2 | 0.7.1 | arrives with the SDK |
+| `astra-plugin-sdk` (crates.io) | 0.7.2 | 0.7.2 | `astra-plugin-sdk = "0.7"` |
+| `astra-plugin-sdk` (PyPI) | 0.6.2 | 0.6.2 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
+| `astra-plugin-sdk` (npm) | 0.7.1 | 0.7.1 | `npm install astra-plugin-sdk` |
+| `astra-plugin-macros` (crates.io) | 0.7.2 | 0.7.2 | arrives with the SDK |
 | `astra-plugin-cli` (crates.io) | 0.4.0 | **not on crates.io**; binaries released as [`cli-v0.3.0`][rel] (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
 
 **This column said npm was one publish behind for a month after it was not.**
@@ -326,19 +327,23 @@ the 0.7.0 publish failed", the TypeScript CHANGELOG went on saying
 `[0.7.0] — unreleased`, and the scaffold stayed pinned to `^0.6.0`. Ten
 TypeScript commits then landed under a version npm already had, and
 `release-sdks.yml` gate 1 would have refused the next train. The tree's
-TypeScript package is 0.7.1 now, and coupling **C23b**, in the job that already
+TypeScript package moved on to 0.7.1, which the `sdk-v0.7.2` train put on npm on
+2026-10-04, and coupling **C23b**, in the job that already
 asks the registries, fails when this column or a CHANGELOG heading marked
 `unreleased` disagrees with what the registries hold.
 
-**"In this tree" is ahead of "Published" on purpose.** A version bump lands
+**"In this tree" runs ahead of "Published" on purpose, between a version bump
+and its publish.** A version bump lands
 before its publish, so that a git-built SDK reports a number distinguishable
 from the released one; the scaffolds go on pinning the released version until
 the publish happens, or `astra-plugin new` would produce a project that cannot
 resolve its own SDK. Coupling **C11** in CI is what holds that window open only
 while each CHANGELOG's newest entry is still marked `unreleased`, and closes it
-the moment that heading gets a date. The "Published" column was verified against
-`index.crates.io`, PyPI and the npm registry on 2026-09-24, and C23b re-asks them
-on every CI run.
+the moment that heading gets a date. No SDK row is in that window today: the
+`sdk-v0.7.2` train (Release SDKs run 37236965595, at `daded81`) published every
+version the tree carries, and each of those CHANGELOG headings is dated. The
+"Published" column was verified against crates.io, PyPI and the npm registry on
+2026-10-04, after that train, and C23b re-asks them on every CI run.
 
 **Take those versions or newer.** The daemon requires an `x-session-token` on
 every host RPC but `Register`, and the first SDK release that attaches one is
