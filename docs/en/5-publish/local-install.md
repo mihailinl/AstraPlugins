@@ -79,7 +79,7 @@ before you commit to anything.
 |---|---|---|
 | Bytes countersigned by the registry | yes | no |
 | Author pinned, so an update from a different repo is refused | yes | no |
-| Withdrawal (revocation) reaches you | yes (once the chain is anchored) | no |
+| Withdrawal (revocation) reaches you | yes | no |
 | Updates | automatic, with a permission-change review | you find the next file yourself |
 | High-risk permissions | available, with consent | **four are refused** |
 | Verification failure | hard block, no override | the archive checks still apply |

@@ -3,9 +3,9 @@
 # Die signierten Registry-Dokumente — normative Spezifikation
 
 **Status:** normativ für die Dokumentformate und die
-Verifikationsregeln. **Teilweise in Kraft:** die hier beschriebene
-Signaturkette ist spezifiziert, auf beiden Seiten implementiert und durch den
-Katalog verankert, aber noch nicht durch die Widerrufsliste — siehe §0.1, bevor
+Verifikationsregeln. **In Kraft:** die hier beschriebene Signaturkette ist
+spezifiziert, auf beiden Seiten implementiert und durchgehend verankert —
+siehe §0.1, bevor
 du dich auf irgendeinen Satz in
 dieser Datei als Sicherheitsgarantie verlässt.
 
@@ -77,20 +77,20 @@ zuvor" zu sagen und nie „verifizierter Build".
   Absicht: „unsigniert" laut ausgesprochen, wo ein fehlendes Member nicht von
   einem entfernten unterschieden werden könnte. Kein Client liest sie; die
   signierten Kopien liegen auf `signed` und auf Pages.
-* Eine Konsequenz gilt weiterhin und darf nicht wegkaschiert werden. Pages
-  liefert weiterhin die committete, unsignierte Widerrufsliste aus, bis die
-  Registry dort die signierte scharf schaltet, und weil
-  `verify_revocations_document` strikt ist (§6.4), **wird eine unsignierte
-  Widerrufsliste abgelehnt, die Durchsetzung von Widerruf ist also noch nicht
-  aktiv** — `RevocationFreshness::NotEnforced`, bis einmal eine
-  signaturgültige Liste geholt wird.
+* **Die Widerrufsliste, die Pages ausliefert, ist ebenfalls signiert** — seit
+  dem astra-registry-Commit `654b942` (2026-10-05), der
+  `policy/pages-withdrawal-list.json` hinzugefügt hat. Weil
+  `verify_revocations_document` strikt ist (§6.4), bleibt ein Daemon nur so
+  lange `RevocationFreshness::NotEnforced`, bis er einmal eine
+  signaturgültige Liste geholt hat. Ab dann setzt er Widerrufe durch, die
+  7-Tage-Sperre aus §5.5 gilt für ihn, und er wird nicht wieder entschärft.
 
 Alles unten beschreibt das Format und den Algorithmus, und nichts davon
-ändert sich, wenn der verbleibende Link ankommt. Die Root-Zeremonie ist
+hat sich geändert, als der letzte Link ankam. Die Root-Zeremonie ist
 gelaufen, die Delegation ist signiert, und das `index.json`, das Clients
 bekommen, trägt eine Signatur in seinem `signatures`-Array, sodass die
-Katalog-Hälfte der Kette auf der Maschine eines Nutzers Gewicht trägt. Was
-fehlt, ist die Hälfte der Widerrufsliste: eine signierte Liste auf Pages.
+Katalog-Hälfte der Kette auf der Maschine eines Nutzers Gewicht trägt, und
+ebenso die Hälfte der Widerrufsliste: Pages liefert die signierte Liste aus.
 
 ## 1. Der Umschlag
 
@@ -872,9 +872,9 @@ die heruntergeladene Datei aus, und bestätige, dass ihre
 | Dokumentformate, Umschlag, Signierkonstruktion, JCS-Profil | auf beiden Seiten implementiert, per Fixture cross-getestet |
 | Root-Schlüssel | **bereitgestellt** am 2026-08-11 — dieselben zwei auf beiden Seiten |
 | `trust.json` | **signiert** unter `astra-root-2026a`, delegiert an `astra-index-2026a` und listet einen Workflow-Commit als erlaubt |
-| `index.json`/`revocations.json`-Signaturen | leere Arrays im committeden Baum — **das ist jetzt der fehlende Link** |
+| `index.json`/`revocations.json`-Signaturen | leere Arrays im committeden Baum, mit Absicht, und kein Client liest sie; die Kopien, die Clients bekommen (`signed`, Pages), sind mit `astra-index-2026a` **signiert**: der Katalog seit 2026-09-20, die Widerrufsliste auf Pages seit dem astra-registry-Commit `654b942` (2026-10-05) |
 | Katalog-Urteile, Serial-Untergrenzen, Aktualität, Uhr-Handhabung | im Daemon implementiert und getestet |
-| Widerrufs-Vokabular, Matching, fünf Durchsetzungspunkte | implementiert; **wirkungslos, bis einmal eine signaturgültige Liste geholt wird** |
+| Widerrufs-Vokabular, Matching, fünf Durchsetzungspunkte | implementiert und **in Kraft**: ein Standard-Build setzt Widerrufe ab dem ersten Abruf einer signaturgültigen Liste durch, und Pages liefert eine solche seit `654b942` aus |
 | Build-Attestation-Prüfung beim Ingest | implementiert und aktiv; die Workflow-Allowlist kommt aus der signierten `trust.json` |
 | Pro-Release-Gegensignatur | nur im Plan spezifiziert; **keine Implementierung** |
 | `audit-index.sh` | existiert nicht; §8 ist das manuelle Verfahren |

@@ -1,10 +1,9 @@
 # The signed registry documents — normative specification
 
 **Status:** normative for the document formats and the verification rules.
-**Partly in force:** the signature chain described here is specified,
-implemented on both ends, and anchored through the catalogue, not yet through
-the withdrawal list — see §0.1 before you rely on any sentence in this file as
-a security guarantee.
+**In force:** the signature chain described here is specified, implemented on
+both ends, and anchored end to end — §0.1 says where it stands and what was
+checked.
 
 Four documents, three schemas, one signature construction:
 
@@ -66,19 +65,19 @@ required to say "same author as before" and never "verified build".
   "unsigned" said out loud, where an absent member could not be told from a
   stripped one. No client reads them; the signed copies are on `signed` and on
   Pages.
-* One consequence is still live and must not be papered over. Pages still
-  serves the committed, unsigned withdrawal list until the registry arms the
-  signed one there, and because `verify_revocations_document` is strict
-  (§6.4), **an unsigned withdrawal list is refused, so revocation enforcement
-  is not live yet** — `RevocationFreshness::NotEnforced` until a
-  signature-valid list is fetched once.
+* **The withdrawal list Pages serves is signed too**, from astra-registry
+  commit `654b942` (2026-10-05), which added
+  `policy/pages-withdrawal-list.json`. Because `verify_revocations_document`
+  is strict (§6.4), a daemon stays `RevocationFreshness::NotEnforced` only
+  until it fetches a signature-valid list once. From then on it enforces
+  withdrawal, the 7-day block of §5.5 applies to it, and it does not disarm.
 
-Everything below describes the format and the algorithm, and none of it changes
-when the remaining link lands. The root ceremony has run, the delegation is
+Everything below describes the format and the algorithm, and none of it changed
+when the last link landed. The root ceremony has run, the delegation is
 signed, and the `index.json` clients are served carries a signature in its
 `signatures` array, so the catalogue's half of the chain carries weight on a
-user's machine. What is left is the withdrawal list's half: a signed list on
-Pages.
+user's machine, and so does the withdrawal list's half: Pages serves the
+signed list.
 
 ## 1. The envelope
 
@@ -759,9 +758,9 @@ downloaded file, and confirm its `MANIFEST.json` `plugin_id`, `version`,
 | document formats, envelope, signing construction, JCS profile | implemented on both ends, cross-tested by fixture |
 | root keys | **provisioned** 2026-08-11 — the same two on both sides |
 | `trust.json` | **signed** under `astra-root-2026a`, delegating to `astra-index-2026a` and allowlisting one workflow commit |
-| `index.json` / `revocations.json` signatures | empty arrays in the committed tree — **this is now the missing link** |
+| `index.json` / `revocations.json` signatures | empty arrays in the committed tree, by design, and no client reads them; the copies clients are served (`signed`, Pages) are **signed** with `astra-index-2026a`: the catalogue since 2026-09-20, the withdrawal list on Pages since astra-registry `654b942` (2026-10-05) |
 | catalogue verdicts, serial floors, freshness, clock handling | implemented in the daemon and under test |
-| revocation vocabulary, matching, five enforcement points | implemented; **inert until a signature-valid list is fetched once** |
+| revocation vocabulary, matching, five enforcement points | implemented and **in force**: a default build enforces withdrawal from its first fetch of a signature-valid list, and Pages serves one since `654b942` |
 | build attestation check at ingest | implemented and live; the workflow allowlist comes from the signed `trust.json` |
 | per-release countersignature | specified in the plan only; **no implementation** |
 | `audit-index.sh` | does not exist; §8 is the manual procedure |

@@ -69,3 +69,15 @@ why: The `#[cfg(test)]` fixture `commit_shas_are_recognised_and_tags_are_not`
   asserts on, at full and at abbreviated length. A test about the SHAPE of a
   commit SHA that used the real pin would go red every time the tag moved,
   which is the opposite of what it is for.
+
+id: registry-withdrawal-latch
+path: *
+token: 654b942d4e47ef28ac3cd1f110a1a70ea3633eaa
+min: 15
+why: An astra-registry commit, not a pin of this repository's workflow: the one
+  that added `policy/pages-withdrawal-list.json` on 2026-10-05, from which
+  Pages serves the signed withdrawal list (contract ROLL-14; RC-R1-11). The
+  pages that say so name it in the same paragraph as `plugin-release/v1`,
+  because both are links of the one chain those paragraphs walk through.
+  Nobody compares a build against it, and it never moves: the flag cannot
+  be edited or removed once committed.
