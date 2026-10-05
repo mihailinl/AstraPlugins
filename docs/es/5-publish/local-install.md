@@ -91,7 +91,7 @@ que muestra la vía de la tienda antes de que te comprometas a nada.
 |---|---|---|
 | Bytes contrafirmados por el registro | sí | no |
 | Autor fijado, así que una actualización desde otro repositorio se rechaza | sí | no |
-| La retirada (revocación) te alcanza | sí (una vez anclada la cadena) | no |
+| La retirada (revocación) te alcanza | sí | no |
 | Actualizaciones | automáticas, con revisión de cambio de permisos | encuentras tú mismo el siguiente archivo |
 | Permisos de alto riesgo | disponibles, con consentimiento | **cuatro se rechazan** |
 | Fallo de verificación | bloqueo duro, sin anulación | las comprobaciones del archivo se siguen aplicando |

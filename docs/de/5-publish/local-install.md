@@ -92,7 +92,7 @@ der Store-Weg, bevor du dich auf irgendetwas festlegst.
 |---|---|---|
 | Bytes von der Registry gegensigniert | ja | nein |
 | Autor gepinnt, sodass ein Update aus einem anderen Repository verweigert wird | ja | nein |
-| Widerruf (Revocation) erreicht dich | ja (sobald die Kette verankert ist) | nein |
+| Widerruf (Revocation) erreicht dich | ja | nein |
 | Updates | automatisch, mit Prüfung von Permission-Änderungen | du findest die nächste Datei selbst |
 | Hochriskante Permissions | verfügbar, mit Zustimmung | **vier werden verweigert** |
 | Verifikationsfehler | harte Blockade, kein Override | die Archivprüfungen gelten weiterhin |

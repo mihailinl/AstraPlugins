@@ -85,7 +85,7 @@ y nunca "compilación verificada".
   vuelve a desarmarse.
 
 Todo lo de abajo describe el formato y el algoritmo, y nada de eso
-cambia cuando llegue el enlace que falta. La ceremonia de la raíz ya
+cambió cuando llegó el último enlace. La ceremonia de la raíz ya
 se ha ejecutado, la delegación está firmada, y el `index.json` que
 reciben los clientes lleva una firma en su array `signatures`, así que la
 mitad de la cadena que corresponde al catálogo tiene peso en la máquina de
@@ -862,9 +862,9 @@ el registro del índice.
 | formatos de documento, sobre, construcción de firma, perfil JCS | implementado en ambos extremos, probado de forma cruzada por fixture |
 | claves raíz | **aprovisionadas** el 2026-08-11 — las mismas dos en ambos lados |
 | `trust.json` | **firmado** bajo `astra-root-2026a`, delegando en `astra-index-2026a` y con un commit de workflow en lista blanca |
-| firmas de `index.json` / `revocations.json` | arrays vacíos en el árbol confirmado — **este es ahora el enlace que falta** |
+| firmas de `index.json` / `revocations.json` | arrays vacíos en el árbol confirmado, a propósito, y ningún cliente los lee; las copias que reciben los clientes (`signed`, Pages) están **firmadas** con `astra-index-2026a`: el catálogo desde el 2026-09-20, la lista de retirada en Pages desde el commit de astra-registry `654b942` (2026-10-05) |
 | veredictos de catálogo, pisos de serial, actualidad, manejo de reloj | implementado en el daemon y bajo prueba |
-| vocabulario de revocación, coincidencia, cinco puntos de aplicación | implementado; **inerte hasta que se obtenga una vez una lista con firma válida** |
+| vocabulario de revocación, coincidencia, cinco puntos de aplicación | implementado y **en vigor**: una compilación por defecto aplica las retiradas desde su primera obtención de una lista con firma válida, y Pages sirve una desde `654b942` |
 | comprobación de attestation de compilación en la ingesta | implementado y activo; la lista blanca de workflow viene del `trust.json` firmado |
 | contrafirma por release | especificada solo en el plan; **sin implementación** |
 | `audit-index.sh` | no existe; el §8 es el procedimiento manual |

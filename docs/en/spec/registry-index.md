@@ -72,8 +72,8 @@ required to say "same author as before" and never "verified build".
   until it fetches a signature-valid list once. From then on it enforces
   withdrawal, the 7-day block of §5.5 applies to it, and it does not disarm.
 
-Everything below describes the format and the algorithm, and none of it changes
-when the remaining link lands. The root ceremony has run, the delegation is
+Everything below describes the format and the algorithm, and none of it changed
+when the last link landed. The root ceremony has run, the delegation is
 signed, and the `index.json` clients are served carries a signature in its
 `signatures` array, so the catalogue's half of the chain carries weight on a
 user's machine, and so does the withdrawal list's half: Pages serves the
@@ -758,9 +758,9 @@ downloaded file, and confirm its `MANIFEST.json` `plugin_id`, `version`,
 | document formats, envelope, signing construction, JCS profile | implemented on both ends, cross-tested by fixture |
 | root keys | **provisioned** 2026-08-11 — the same two on both sides |
 | `trust.json` | **signed** under `astra-root-2026a`, delegating to `astra-index-2026a` and allowlisting one workflow commit |
-| `index.json` / `revocations.json` signatures | empty arrays in the committed tree — **this is now the missing link** |
+| `index.json` / `revocations.json` signatures | empty arrays in the committed tree, by design, and no client reads them; the copies clients are served (`signed`, Pages) are **signed** with `astra-index-2026a`: the catalogue since 2026-09-20, the withdrawal list on Pages since astra-registry `654b942` (2026-10-05) |
 | catalogue verdicts, serial floors, freshness, clock handling | implemented in the daemon and under test |
-| revocation vocabulary, matching, five enforcement points | implemented; **inert until a signature-valid list is fetched once** |
+| revocation vocabulary, matching, five enforcement points | implemented and **in force**: a default build enforces withdrawal from its first fetch of a signature-valid list, and Pages serves one since `654b942` |
 | build attestation check at ingest | implemented and live; the workflow allowlist comes from the signed `trust.json` |
 | per-release countersignature | specified in the plan only; **no implementation** |
 | `audit-index.sh` | does not exist; §8 is the manual procedure |

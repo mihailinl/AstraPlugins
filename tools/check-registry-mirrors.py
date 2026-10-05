@@ -3419,6 +3419,11 @@ C36_LOCALES = ("en", "ru", "uk", "de", "es", "ja", "zh")
 C36_PAGES = (
     "spec/registry-index.md", "1-orientation/security.md", "5-publish/get-listed.md",
     "6-operate/troubleshooting.md", "README.md", "publishing.md",
+    # Not in RC-R1-11's list. Its store-vs-import table said withdrawal reaches
+    # a store install "once the chain is anchored" in all seven languages, and
+    # the prepared second half (d331e0a) never looked here; found on the day
+    # the flag landed, by reading, not by this rule.
+    "5-publish/local-install.md",
 )
 C36_MIN_EN_PAGES = 38
 C36_CATALOGUE_PHRASES = {
@@ -3443,24 +3448,40 @@ C36_CATALOGUE_PHRASES = {
 C36_WITHDRAWAL_PHRASES = {
     "en": ("revocation is not enforced", "revocation enforcement is not live",
            "Pages still serves", "signed withdrawal list on Pages", "not yet through the withdrawal list",
-           "one link short", "Partly in force:"),
+           "one link short", "Partly in force:",
+           # Missed by d331e0a, found 2026-10-05 (local-install.md's table; the
+           # spec's §0.1 close and its §9 summary).
+           "once the chain is anchored", "when the remaining link lands",
+           "this is now the missing link", "inert until a signature-valid list is fetched once"),
     "ru": ("отзыв пока не применяется", "применение отзыва пока не действует",
            "по-прежнему отдаёт", "сегодня не применяется", "пока не через список отзыва",
-           "не хватает одного звена", "Частично в силе:"),
+           "не хватает одного звена", "Частично в силе:",
+           "как только цепочка заякорена", "приземлится оставшееся звено",
+           "это теперь недостающее звено", "бездействует, пока список"),
     "uk": ("відкликання поки не застосовується", "застосування відкликання поки не діє",
            "досі віддає", "сьогодні не застосовується", "поки не через список відкликання",
-           "поки що не через список", "бракує однієї ланки", "Частково в силі:"),
+           "поки що не через список", "бракує однієї ланки", "Частково в силі:",
+           "щойно ланцюг заякорений", "приземлиться ланка, що залишилася",
+           "це тепер відсутня ланка", "бездіє, поки список"),
     "de": ("noch nicht durchgesetzt", "Widerrufen noch nicht", "weiterhin die unsignierte",
            "weiterhin eine unsignierte", "heute nicht durchgesetzt", "noch nicht durch die Widerrufsliste",
-           "einen Link zu kurz", "Teilweise in Kraft:"),
+           "einen Link zu kurz", "Teilweise in Kraft:",
+           "sobald die Kette verankert ist", "wenn der verbleibende Link ankommt",
+           "das ist jetzt der fehlende Link", "wirkungslos, bis einmal"),
     "es": ("todavía no se aplica", "todavía no está activa", "todavía sirve", "no aplicado hoy",
            "todavía no a través de la lista de retirada", "a un eslabón de distancia",
-           "le falta **un eslabón", "En vigor en parte:"),
+           "le falta **un eslabón", "En vigor en parte:",
+           "una vez anclada la cadena", "cuando llegue el enlace que falta",
+           "este es ahora el enlace que falta", "inerte hasta que se obtenga"),
     "ja": ("まだ強制されません", "まだ機能していません", "まだ発効していません",
            "今日は強制されていません", "今も未署名の撤回リストを配信", "撤回リストまではまだです",
-           "撤回リストまでは", "1 リンク分だけ", "一部発効:"),
+           "撤回リストまでは", "1 リンク分だけ", "一部発効:",
+           "チェーンが固定されれば", "残りのリンク", "これが今、欠けているリンクです",
+           "一度取得されるまでは無効"),
     "zh": ("尚未被强制执行", "机制尚未生效", "尚未强制执行", "仍然提供", "还没有贯穿到撤回列表",
-           "还差一步", "**部分生效：**"),
+           "还差一步", "**部分生效：**",
+           "一旦信任链锚定完成", "等剩下的那一环落地时", "这正是目前缺失的那一环",
+           "签名有效的列表之前不起作用"),
 }
 
 
