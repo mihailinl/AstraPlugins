@@ -68,8 +68,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use astra_plugin_manifest::{
-    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PluginManifest, explain_unknown_capability,
-    is_known_capability, platform_key_for,
+    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PluginManifest, check_reserved_keys,
+    explain_unknown_capability, is_known_capability, platform_key_for,
 };
 
 use crate::commands::init_ci::{self, REQUIRED_PERMISSIONS, WORKFLOW_FILE, WORKFLOW_REPO};
@@ -404,12 +404,6 @@ struct RegistryFinding {
     message: String,
 }
 
-/// A manifest every rule of `PluginManifest::validate` accepts except, possibly,
-/// the reserved keys — which [`reserved_key_refusal`] copies onto it.
-/// `the_reserved_key_probe_passes_every_other_rule` holds it to that.
-const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = \"probe\"\n\
-                                  version = \"0.0.0\"\n\n[entry]\ncommand = \"probe\"\n";
-
 /// The manifest crate's verdict on the two reserved top-level keys, `kind` and
 /// `requires`, in this tool's voice; `None` when they pass.
 ///
@@ -427,13 +421,12 @@ const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = 
 ///
 /// # The decision is the crate's
 ///
-/// `check_reserved_keys` is `pub` in a private module, and the crate's `lib.rs`
-/// does not re-export it, so it cannot be named from here. What can be named is
-/// `PluginManifest::validate`, whose first statement it is. So the author's two
-/// values are copied onto [`RESERVED_KEY_PROBE`] — a manifest every other rule
-/// accepts — and any error `validate` returns is the reserved-key rule's. There
-/// is no second copy of the rule to drift: which values are refused, and the
-/// sentence, both come from the crate.
+/// `astra_plugin_manifest::check_reserved_keys` is called directly, with the
+/// raw document's two values: the function the daemon's `from_str` and
+/// `validate()` both run. There is no second copy of the rule to drift — which
+/// values are refused, and the sentence, both come from the crate. (Until Astra
+/// `1841aa27` re-exported it, the CLI could not name it, and reached it through
+/// `validate()` on a probe manifest instead.)
 ///
 /// # The voice
 ///
@@ -447,14 +440,7 @@ const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = 
 /// caller reports it in its own words a line later.
 pub(crate) fn reserved_key_refusal(content: &str) -> Option<String> {
     let raw: toml::Table = content.parse().ok()?;
-    if !raw.contains_key("kind") && !raw.contains_key("requires") {
-        return None;
-    }
-    let mut probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE)
-        .expect("RESERVED_KEY_PROBE is a manifest: the_reserved_key_probe_passes_every_other_rule");
-    probe.kind = raw.get("kind").cloned();
-    probe.requires = raw.get("requires").cloned();
-    let refusal = probe.validate().err()?;
+    let refusal = check_reserved_keys(raw.get("kind"), raw.get("requires")).err()?;
     Some(
         format!("{refusal:#}")
             .replace("this version of Astra", "this version of the CLI")
@@ -2132,14 +2118,66 @@ label = "Sink"
         assert_eq!(why, REQUIRES_REFUSAL);
     }
 
-    /// The probe is a probe only while every OTHER rule accepts it: then any
-    /// error `validate` returns for it is the reserved-key rule's, and nothing
-    /// else can be mistaken for one.
+    /// **The verdict is the crate's `check_reserved_keys`, value by value.**
+    /// Every spelling of each key that the crate's match arms tell apart, alone
+    /// and together, in a plugin and in a document with no `[plugin]`: this
+    /// CLI refuses exactly what the function refuses, with its sentence in this
+    /// tool's voice, and passes exactly what it passes.
     #[test]
-    fn the_reserved_key_probe_passes_every_other_rule() {
-        let probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE).unwrap();
-        probe.validate().expect("the probe must pass every rule validate() has");
-        assert_eq!(reserved_key_refusal(RESERVED_KEY_PROBE), None);
+    fn the_verdict_is_check_reserved_keys_for_every_spelling() {
+        let kinds = [
+            None,
+            Some("\"plugin\""),
+            Some("\"game-integration\""),
+            Some("\"\""),
+            Some("5"),
+            Some("[]"),
+            Some("{}"),
+        ];
+        let requires = [
+            None,
+            Some("[]"),
+            Some("{}"),
+            Some("\"\""),
+            Some("\"  \""),
+            Some("\"astra.lib\""),
+            Some("[{ id = \"x\", range = \"^1\" }]"),
+            Some("{ x = \"^1\" }"),
+            Some("0"),
+            Some("false"),
+        ];
+        let mut refused = 0;
+        for kind in kinds {
+            for req in requires {
+                let mut top = String::new();
+                if let Some(k) = kind {
+                    top += &format!("kind = {k}\n");
+                }
+                if let Some(r) = req {
+                    top += &format!("requires = {r}\n");
+                }
+                let raw: toml::Table = top.parse().unwrap();
+                let crate_says = check_reserved_keys(raw.get("kind"), raw.get("requires"))
+                    .err()
+                    .map(|e| format!("{e:#}"));
+                for doc in [plugin_with(&top), format!("{top}[target]\nruntime = \"x\"\n")] {
+                    let ours = reserved_key_refusal(&doc);
+                    assert_eq!(
+                        ours.is_some(),
+                        crate_says.is_some(),
+                        "{top:?}: the CLI says {ours:?}, the crate says {crate_says:?}"
+                    );
+                    if let (Some(ours), Some(theirs)) = (&ours, &crate_says) {
+                        assert_eq!(&ours.replace("the CLI", "Astra"), theirs, "{top:?}");
+                    }
+                }
+                refused += usize::from(crate_says.is_some());
+            }
+        }
+        // 7 x 10 cases; accepted are `kind` absent or "plugin" times `requires`
+        // absent, [], {}, "" or "  ". Exact, so that a corpus the crate passes
+        // wholesale cannot read as agreement.
+        assert_eq!(refused, 70 - 2 * 5, "the corpus no longer exercises both verdicts");
     }
 
     /// **The sentence is the crate's, with the subject changed and nothing
