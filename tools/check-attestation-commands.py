@@ -16,8 +16,8 @@ On a real release — `mihailinl/astra-registry-canary`'s
 `release-canary-c3f3424` 0.20261005.1, run 37327594012 — that fails on a good
 file, exit 1, with `Error: verifying with issuer "sigstore.dev"` and not one
 word about why. The author's `release.yml` only CALLS the shared workflow, so
-the certificate's signer is `mihailinl/AstraPlugins/.github/workflows/
-plugin-release.yml@<sha>`, not the author's repository; with `--repo` alone,
+the certificate's signer is AstraPlugins' `plugin-release.yml`, at the commit
+the caller pinned, and not the author's repository; with `--repo` alone,
 `gh` derives its signer matcher from `--repo` and refuses. The registry bot
 knew (it passes `--signer-workflow`, docs/en/spec/registry-index.md §7.1), an
 ops survey had measured it on 12 of 18 listings (2026-09-20), and still every
