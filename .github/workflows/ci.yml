@@ -3622,6 +3622,9 @@ jobs:
       # in AGENTS.md, CONTRIBUTING.md, the package READMEs and the English SDK
       # and troubleshooting pages to README's Published cells: on the day
       # 0.7.2 / 0.6.2 / 0.7.1 shipped, all of those still described 0.5 and 0.6.
+      # Since 2026-10-05 it also holds every link labelled with a release tag to
+      # open that release: README's "Release [`cli-v0.2.1`][rel]" opened
+      # cli-v0.3.0, and nothing read the label and its `[rel]:` line together.
       - name: C23b (tree legs) the docs restate the scaffold's pins and README's Published cells
         run: python3 tools/check-publication-state.py --tree-only
       - name: C23b the check is red on entry 151's tree and green on this one

@@ -44,6 +44,12 @@ TREE (no network; the couplings job, on every pull request):
     page said "Not published to crates.io yet" from 0.6.0 to 0.7.2. Pointing
     at the Publication state table is always green; repeating it is green
     exactly while it agrees.
+  - A link whose text is a release tag opens that release. README's "Release
+    [`cli-v0.2.1`][rel] carries ..." opened `cli-v0.3.0`: the label and the
+    `[rel]:` line thirty lines below it were edited on different days, and
+    nothing read them together. Every such link in README, AGENTS.md,
+    CONTRIBUTING.md, the CLI's README and the docs, inline or by reference, is
+    compared, with a floor (README's two, and each locale's install-cli.md).
 
 REGISTRIES (asks crates.io, PyPI and npm; `scaffold-from-registries`, the job
 that already depends on them):
@@ -134,6 +140,14 @@ ON_REGISTRY = re.compile(r"\b(\d+\.\d+\.\d+)\W{0,3}\s+on\s+(crates\.io|PyPI|npm)
 PUBLISHED_AT = re.compile(r"\bpublished\W{0,3}\s+(?:at|as)\s+\W{0,3}(\d+\.\d+\.\d+)\b", re.I)
 DISPLAY = {"crates.io": "crates.io", "pypi": "PyPI", "npm": "npm"}
 UNPUBLISHED = re.compile(r"\bnot (?:yet )?published\b|\bunpublished\b|\bnot on (?:crates\.io|PyPI|npm)\b", re.I)
+# [`cli-v0.4.0`](https://…/releases/tag/cli-v0.4.0) and [`cli-v0.4.0`][rel]
+RELEASE_LABEL = re.compile(r"\[`?([a-z][a-z0-9-]*-v\d+\.\d+\.\d+)`?\](?:\(([^)\s]+)\)|\[([^\]]+)\])")
+RELEASE_URL = re.compile(r"/releases/(?:tag|download)/([^/\s)#?]+)")
+REF_DEF = re.compile(r"^\[([^\]]+)\]:\s*(\S+)", re.M)
+RELEASE_LINK_FILES = ("README.md", "AGENTS.md", "CONTRIBUTING.md", "astra-plugin-cli/README.md")
+# README's two (the download paragraph, the Publication state row) and one per
+# locale's install-cli.md. Absolute, for the same reason DOCS_FLOOR is.
+RELEASE_LINK_FLOOR = 9
 
 
 class Fails:
@@ -223,6 +237,7 @@ def tree_checks(root: Path, f: Fails) -> dict[str, str]:
             f"expected {len(LOCALES) * 6} for {len(LOCALES)} locales, and never fewer than {DOCS_FLOOR}")
     package_readme_checks(root, pins, f)
     claim_checks(root, rows, f)
+    release_link_checks(root, f)
     return rows
 
 
@@ -287,6 +302,34 @@ def claim_checks(root: Path, rows: dict[str, str], f: Fails) -> None:
     # README's table instead of repeating it. The count is printed so that a
     # run is read, not just its exit code.
     print(f"note C23b read {seen} published-version claim(s) across {len(CLAIM_FILES)} files")
+
+
+def release_link_checks(root: Path, f: Fails) -> None:
+    """A link whose text names a release tag opens that release, not another one."""
+    rels = [r for r in RELEASE_LINK_FILES if (root / r).is_file()]
+    rels += sorted(p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md"))
+    seen = 0
+    for rel in rels:
+        text = read(root, rel)
+        refs = {m.group(1).lower(): m.group(2) for m in REF_DEF.finditer(text)}
+        for m in RELEASE_LABEL.finditer(text):
+            tag, ref = m.group(1), m.group(3)
+            n = text.count("\n", 0, m.start()) + 1
+            url = m.group(2) or refs.get((ref or "").lower())
+            if url is None:
+                f.check(False, f"{rel}'s link [`{tag}`][{ref}] is defined",
+                        f"line {n}: no `[{ref}]: <url>` line in the file")
+                continue
+            target = RELEASE_URL.search(url)
+            if not target:
+                continue  # labelled with a tag, but not a release page: not this check's
+            seen += 1
+            f.check(target.group(1) == tag, f"{rel}'s link labelled `{tag}` opens {tag}",
+                    f"line {n}: it opens {target.group(1)} ({url}); a reader who clicks the "
+                    "release the sentence names lands on a different one")
+    f.check(seen >= RELEASE_LINK_FLOOR, f"compared {seen} release links (floor {RELEASE_LINK_FLOOR})",
+            "README's download paragraph and Publication state row, and each locale's "
+            "install-cli.md, each name a release by its tag")
 
 
 def fetch(url: str) -> tuple[int, dict | None]:

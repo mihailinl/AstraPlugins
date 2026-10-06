@@ -79,17 +79,17 @@ someone you are willing to run code from.
 
 ### 1. Get the CLI
 
-**Download a binary.** Release [`cli-v0.2.1`][rel] carries
-`astra-plugin-0.2.1-linux-x64-musl.tar.gz`,
-`astra-plugin-0.2.1-linux-x64-gnu.tar.gz`,
-`astra-plugin-0.2.1-windows-x64.zip`, `SHA256SUMS.txt` and
-`astra-plugin-0.2.1.sigstore.jsonl`. No toolchain:
+**Download a binary.** Release [`cli-v0.4.0`][rel] carries
+`astra-plugin-0.4.0-linux-x64-musl.tar.gz`,
+`astra-plugin-0.4.0-linux-x64-gnu.tar.gz`,
+`astra-plugin-0.4.0-windows-x64.zip`, `SHA256SUMS.txt` and
+`astra-plugin-0.4.0.sigstore.jsonl`. No toolchain:
 
 ```bash
-curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1-linux-x64-musl.tar.gz
-curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/SHA256SUMS.txt
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.4.0/astra-plugin-0.4.0-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.4.0/SHA256SUMS.txt
 sha256sum -c --ignore-missing SHA256SUMS.txt    # …-musl.tar.gz: OK
-tar xzf astra-plugin-0.2.1-linux-x64-musl.tar.gz
+tar xzf astra-plugin-0.4.0-linux-x64-musl.tar.gz
 ```
 
 Take **musl** on any Linux: the gnu build needs glibc 2.39 or newer, which
@@ -98,7 +98,7 @@ Ubuntu 22.04, Debian 12 and RHEL 9 do not have, while the musl build is
 `SHA256SUMS.txt` lists all three archives, so without it `sha256sum` exits 1
 over the two you did not download. To check who built it rather than only that
 the bytes match, `gh attestation verify <archive> --bundle
-astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow
+astra-plugin-0.4.0.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow
 mihailinl/AstraPlugins/.github/workflows/release-cli.yml`; it is silent and
 exits `0` on success.
 
@@ -110,7 +110,7 @@ path, cargo never packages a path dependency's source, so the crate cannot be
 published (`https://index.crates.io/as/tr/astra-plugin-cli` answers `404` where
 `astra-plugin-sdk` answers `200`). No date is promised.
 
-[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.3.0
+[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.4.0
 
 **Or build from source** — one line, no clone:
 
@@ -125,7 +125,7 @@ astra-plugin --version          # astra-plugin <version>
 chose.
 
 **On a source build, do not read the build's health off that number.** A
-downloaded `0.2.1` binary is built from the `cli-v0.2.1` tag and has the fix
+downloaded `0.4.0` binary is built from the `cli-v0.4.0` tag and has the fix
 below. `init-ci` used to pin an
 annotated tag's object SHA instead of the commit it names, so every first
 release died with `invalid value workflow reference` before a job started
