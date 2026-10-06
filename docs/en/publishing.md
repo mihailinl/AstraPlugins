@@ -327,9 +327,14 @@ Anyone can, without trusting Astra or the registry:
 <!-- doctest: cli -->
 ```bash
 gh release download v0.1.0 --repo you/dice-roller --pattern "*.astraplugin"
-gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` is required. Your `release.yml` only calls Astra's shared
+release workflow, and that workflow is what signs, so without the flag `gh`
+expects your repository to be the signer and fails a good file with
+`Error: verifying with issuer "sigstore.dev"`.
 
 <!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```

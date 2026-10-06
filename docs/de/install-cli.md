@@ -134,7 +134,7 @@ ein Sigstore-Bundle, und `gh` prüft es gegen GitHubs Build-Attestation:
 <!-- doctest: cli -->
 ```bash
 curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
-gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 astra-plugin --version
 ```
 
@@ -143,13 +143,14 @@ beendet sich mit `0`.** Das ist beim ersten Mal verwirrend; prüfe `echo
 $?`, statt nach einem Häkchen zu suchen. Ein Fehlschlag ist laut und
 beendet sich mit `1`:
 
-<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
 ```
 Error: verifying with issuer "sigstore.dev"
 ```
 
 Das entstand durch Anhängen eines Bytes an das Archiv; `--repo` auf ein
-Repository zu zeigen, das es nicht gebaut hat, scheitert identisch. Ein
+Repository zu zeigen, das es nicht gebaut hat, oder `--signer-workflow` auf
+einen Workflow, der es nicht signiert hat, scheitert identisch. Ein
 Bundle deckt alle drei Archive ab, und was es bezeugt, ist mit
 `--format json` lesbar: der signierende Workflow ist
 `https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`,
@@ -404,7 +405,7 @@ Version existiert.
 | Symptom | Ursache |
 |---|---|
 | `FAILED open or read` von `sha256sum -c` | Du hast ein Archiv heruntergeladen, und die Datei listet drei auf. Füge `--ignore-missing` hinzu |
-| `Error: verifying with issuer "sigstore.dev"` | Das Archiv passt nicht zum Bundle, oder `--repo` nennt ein Repository, das es nicht gebaut hat. Lade neu herunter, statt darüber nachzudenken |
+| `Error: verifying with issuer "sigstore.dev"` | Das Archiv passt nicht zum Bundle, oder `--repo` nennt ein Repository, das es nicht gebaut hat, oder `--signer-workflow` einen Workflow, der es nicht signiert hat (Groß- und Kleinschreibung zählt). Lade neu herunter, statt darüber nachzudenken |
 | `gh attestation verify` hat überhaupt nichts ausgegeben | Das ist ein Erfolg. Es ist still, wenn die Ausgabe kein Terminal ist; `echo $?` zeigt `0` |
 | Die Binärdatei startet nicht, und der Loader beschwert sich, eine `GLIBC_2.39`-Version wurde nicht gefunden | Du hast das gnu-Archiv auf einem System mit älterem glibc genommen. Nimm das musl-Archiv, es braucht kein libc |
 | `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` kann nicht funktionieren, und das ist, was es dazu sagt. Siehe den Anfang dieser Seite |

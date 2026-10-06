@@ -98,8 +98,9 @@ Ubuntu 22.04, Debian 12 and RHEL 9 do not have, while the musl build is
 `SHA256SUMS.txt` lists all three archives, so without it `sha256sum` exits 1
 over the two you did not download. To check who built it rather than only that
 the bytes match, `gh attestation verify <archive> --bundle
-astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins`; it is silent
-and exits `0` on success.
+astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow
+mihailinl/AstraPlugins/.github/workflows/release-cli.yml`; it is silent and
+exits `0` on success.
 
 There is no macOS or ARM archive yet — build from source there.
 
@@ -249,10 +250,13 @@ creates the GitHub Release and has GitHub **attest** each asset, so anyone can
 run
 
 ```bash
-gh attestation verify <file>.astraplugin --repo <owner>/<repo>
+gh attestation verify <file>.astraplugin --repo <owner>/<repo> --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 ```
 
-and learn which repository, workflow and commit produced that exact file. It
+and learn which repository and commit produced that exact file, and that this
+repository's `plugin-release.yml` built it. `--signer-workflow` is not
+optional: the signer is the shared workflow, not your repository, so without
+it a good file fails with `Error: verifying with issuer "sigstore.dev"`. It
 does not prove the code is safe.
 
 ### 5. Get listed — once, ever

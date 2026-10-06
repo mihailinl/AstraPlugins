@@ -199,9 +199,14 @@ Release it:
 
 <!-- doctest: cli -->
 ```bash
-gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.2.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` обов'язковий. Ваш `release.yml` лише викликає спільний
+релізний workflow Astra, і підписує саме він, тож без цього прапорця `gh`
+очікує підпису від вашого репозиторію й відхиляє справний файл з
+`Error: verifying with issuer "sigstore.dev"`.
 
 `astra-plugin verify` сама читає бандл і друкує, що знайшла:
 

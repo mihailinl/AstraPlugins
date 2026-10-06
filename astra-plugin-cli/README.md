@@ -126,7 +126,7 @@ Checking what you downloaded:
 
 ```bash
 sha256sum -c SHA256SUMS.txt --ignore-missing
-gh attestation verify astra-plugin-<version>-linux-x64-musl.tar.gz --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-<version>-linux-x64-musl.tar.gz --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 ```
 
 The attestation names the repository, workflow and commit the archive was built

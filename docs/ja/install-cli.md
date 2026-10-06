@@ -133,7 +133,7 @@ Sigstore バンドルがあり、`gh` がそれを GitHub のビルド証明と�
 <!-- doctest: cli -->
 ```bash
 curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
-gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 astra-plugin --version
 ```
 
@@ -142,13 +142,14 @@ astra-plugin --version
 なく `echo $?` を確認してください。失敗は騒がしく、終了コード `1` に
 なります:
 
-<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
 ```
 Error: verifying with issuer "sigstore.dev"
 ```
 
 これはアーカイブに 1 バイト追加することで発生させたものです。それを
-ビルドしていないリポジトリを `--repo` に指定した場合も同じように失敗
+ビルドしていないリポジトリを `--repo` に指定した場合も、署名していない
+ワークフローを `--signer-workflow` に指定した場合も、同じように失敗
 します。1 つのバンドルが 3 つのアーカイブすべてをカバーしており、
 それが証明する内容は `--format json` で読み取れます: 署名する
 ワークフローは
@@ -389,7 +390,7 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 | 症状 | 原因 |
 |---|---|
 | `sha256sum -c` からの `FAILED open or read` | 1 つのアーカイブしかダウンロードしていないのに、ファイルは 3 つを列挙しています。`--ignore-missing` を追加してください |
-| `Error: verifying with issuer "sigstore.dev"` | アーカイブがバンドルと一致しないか、`--repo` がそれをビルドしていないリポジトリを指しています。理由を考える前に、まずダウンロードし直してください |
+| `Error: verifying with issuer "sigstore.dev"` | アーカイブがバンドルと一致しないか、`--repo` がそれをビルドしていないリポジトリを、または `--signer-workflow` がそれに署名していないワークフローを指しています（大文字と小文字は区別されます）。理由を考える前に、まずダウンロードし直してください |
 | `gh attestation verify` が何も表示しなかった | それは成功です。出力がターミナルでないときは無言になります; `echo $?` で `0` を確認してください |
 | バイナリが起動せず、ローダーが `GLIBC_2.39` のバージョンが見つからないと文句を言う | 古い glibc のシステムで gnu アーカイブを選んでしまいました。libc を必要としない musl のほうを使ってください |
 | `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` は機能できず、これがそのエラーメッセージです。このページの冒頭を参照してください |
