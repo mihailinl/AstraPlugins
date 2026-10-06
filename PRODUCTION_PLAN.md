@@ -481,7 +481,7 @@ record (installed); nothing is fetched live, so it works offline.
 | Source | tag `v0.2.0` · commit `a1b2c3d4` (copy) |
 | Build | workflow `.github/workflows/release.yml` · run `#1234567890` · GitHub-hosted `ubuntu-24.04` · `2026-08-09 10:14 UTC` |
 | Artifact | `dice-roller-0.2.0-linux-x64.astraplugin` · linux·x86_64 · 2.4 MB · **SHA-256 in full, monospace, wrapped, copy button** |
-| Attestation | cert identity `you/dice-roller/.github/workflows/release.yml@refs/tags/v0.2.0` · Rekor index `98765432` (link) · **"Verify this yourself:"** `gh attestation verify <file> --repo you/dice-roller` |
+| Attestation | cert identity `mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@<sha>` (the shared workflow signs; the caller is the source) · Rekor index `98765432` (link) · **"Verify this yourself:"** `gh attestation verify <file> --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml` |
 | Countersignature | registry key `astra-reg-2026a` · index serial `412` · index expires `2026-09-08` |
 | Local integrity | "All 4 files matched at 2026-08-09 12:31" · `[Re-verify now]` |
 

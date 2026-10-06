@@ -128,7 +128,7 @@ SHA256` — вбудований інструмент контрольних с�
 <!-- doctest: cli -->
 ```bash
 curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
-gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 astra-plugin --version
 ```
 
@@ -136,13 +136,14 @@ astra-plugin --version
 Це збиває з пантелику вперше; перевіряйте `echo $?`, а не шукайте
 галочку. Провал — гучний і виходить з `1`:
 
-<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
 ```
 Error: verifying with issuer "sigstore.dev"
 ```
 
 Це було вироблено додаванням одного байта до архіву; вказання `--repo` на
-репозиторій, що його не збирав, падає точнісінько так само. Один пакет
+репозиторій, що його не збирав, або `--signer-workflow` на workflow, що його
+не підписував, падає точнісінько так само. Один пакет
 покриває всі три архіви, і що він засвідчує, можна прочитати через
 `--format json`: workflow підпису —
 `https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`,
@@ -382,7 +383,7 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 | Симптом | Причина |
 |---|---|
 | `FAILED open or read` від `sha256sum -c` | Ви завантажили один архів, а файл перелічує три. Додайте `--ignore-missing` |
-| `Error: verifying with issuer "sigstore.dev"` | Архів не збігається з пакетом, або `--repo` називає репозиторій, що його не збирав. Завантажте заново, а не міркуйте про це |
+| `Error: verifying with issuer "sigstore.dev"` | Архів не збігається з пакетом, або `--repo` називає репозиторій, що його не збирав, або `--signer-workflow` — workflow, що його не підписував (регістр літер важливий). Завантажте заново, а не міркуйте про це |
 | `gh attestation verify` взагалі нічого не надрукував | Це успіх. Вона тиха, коли вивід не в термінал; `echo $?` покаже `0` |
 | Бінарник не запускається, і завантажувач скаржиться, що не знайдено версію `GLIBC_2.39` | Ви взяли архів gnu на системі зі старим glibc. Візьміть musl — йому не потрібен libc |
 | `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` не може спрацювати, і ось що вона про це каже. Див. початок цієї сторінки |

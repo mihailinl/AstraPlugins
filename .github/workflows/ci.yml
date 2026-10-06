@@ -3630,6 +3630,41 @@ jobs:
       - name: C39 is red on the stale 37, a missing sentence, an unmentioned retype and a count nobody can measure
         run: python3 tools/test_protocol_counts.py
 
+      # C40 — every `gh attestation verify` this tree teaches names the
+      # workflow that signed the file.
+      #
+      # plugin-release.yml writes release notes into every author's GitHub
+      # Release, and they printed a verify command with `--repo` and nothing
+      # else. An author's release.yml only CALLS that shared workflow, so the
+      # certificate's signer is mihailinl/AstraPlugins' plugin-release.yml, and
+      # `gh`, matching the signer against `--repo`, fails a good file: exit 1,
+      # `Error: verifying with issuer "sigstore.dev"`, no reason given. Found on
+      # 2026-10-05 by running the printed command against a real canary release
+      # (astra-registry-canary, run 37327594012). The same command sat in the
+      # README and in two pages in seven languages. The registry bot always
+      # passed the flag, and an ops survey had measured the failure two weeks
+      # earlier; nothing held the pages to it.
+      #
+      # The first step reads every text file in the tree, and needs nothing. The
+      # second rebuilds the bug: the notes text at the commit that shipped it,
+      # and each near miss that fails a good file just as silently (the wrong
+      # case, a ref, `--signer-repo`, `${GITHUB_REPOSITORY}`). The third RUNS
+      # each release workflow's own taught command against that workflow's
+      # newest real release, because a check that the flag is present cannot
+      # tell whether its value is right. It reaches the network on purpose, as
+      # C24 does, and fails rather than skips when it cannot. It verifies with
+      # the release's own `--bundle`: the API lookup needs `attestations: read`,
+      # and this job cannot ask for it, since release-sdks.yml calls ci.yml with
+      # `contents: read` and a called job asking for more fails that release.
+      - name: C40 every `gh attestation verify` this tree teaches names its signer workflow
+        run: python3 tools/check-attestation-commands.py
+      - name: C40 is red on the notes every author got, and on each near miss
+        run: python3 tools/test_attestation_commands.py
+      - name: C40 (live) each release workflow's taught command passes on its newest real release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/check-attestation-commands.py --live
+
       - name: C2-C11 the couplings nothing else checks
         run: |
           set -euo pipefail

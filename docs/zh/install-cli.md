@@ -125,7 +125,7 @@ SHA256` 是内置的校验和工具，把它的输出和 `SHA256SUMS.txt` 用肉
 <!-- doctest: cli -->
 ```bash
 curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
-gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 astra-plugin --version
 ```
 
@@ -133,13 +133,14 @@ astra-plugin --version
 遇到这个会让人费解；请检查 `echo $?`，而不是去找一个对勾。失败时会
 很吵闹，并以 `1` 退出：
 
-<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
 ```
 Error: verifying with issuer "sigstore.dev"
 ```
 
 这是通过在归档文件末尾附加一个字节产生的；把 `--repo` 指向一个没有
-构建过它的仓库也会以同样的方式失败。一个包会覆盖全部三个归档文件，
+构建过它的仓库，或把 `--signer-workflow` 指向一个没有签名过它的工作流，
+也会以同样的方式失败。一个包会覆盖全部三个归档文件，
 它证明的内容可以用 `--format json` 读取：签名用的工作流是
 `https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`，
 issuer 是 `https://token.actions.githubusercontent.com`，三个 subject
@@ -362,7 +363,7 @@ RUST_LOG controls trace output, e.g. RUST_LOG=astra_plugin=debug.
 | 症状 | 原因 |
 |---|---|
 | `sha256sum -c` 报出 `FAILED open or read` | 你只下载了一个归档，而文件里列出了三个。加上 `--ignore-missing` |
-| `Error: verifying with issuer "sigstore.dev"` | 归档和包不匹配，或者 `--repo` 指向的仓库并没有构建过它。重新下载一次，而不是去推理原因 |
+| `Error: verifying with issuer "sigstore.dev"` | 归档和包不匹配，或者 `--repo` 指向的仓库并没有构建过它，或者 `--signer-workflow` 指向的工作流并没有签名过它（区分大小写）。重新下载一次，而不是去推理原因 |
 | `gh attestation verify` 完全没有输出 | 那就是成功。它在输出不是终端时保持沉默；用 `echo $?` 确认是 `0` |
 | 二进制文件启动不了，加载器抱怨找不到 `GLIBC_2.39` 版本 | 你在一个 glibc 较旧的系统上选用了 gnu 归档。换成 musl 的，它不需要 libc |
 | `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` 无法成功，这就是它给出的报错。参见本页开头 |

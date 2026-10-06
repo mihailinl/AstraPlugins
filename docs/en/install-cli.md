@@ -125,7 +125,7 @@ against GitHub's build attestation:
 <!-- doctest: cli -->
 ```bash
 curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.2.1/astra-plugin-0.2.1.sigstore.jsonl
-gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins
+gh attestation verify astra-plugin-0.2.1-linux-x64-musl.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
 astra-plugin --version
 ```
 
@@ -133,13 +133,14 @@ astra-plugin --version
 disconcerting the first time; check `echo $?` rather than looking for a tick.
 A failure is loud and exits `1`:
 
-<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
+<!-- doctest: output from="gh attestation verify tampered.tar.gz --bundle astra-plugin-0.2.1.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml" unrun="needs the bundle and a deliberately corrupted copy of the archive; append a byte to the archive and re-run to reproduce it" -->
 ```
 Error: verifying with issuer "sigstore.dev"
 ```
 
 That was produced by appending one byte to the archive; pointing `--repo` at a
-repository that did not build it fails identically. One bundle covers all three
+repository that did not build it, or `--signer-workflow` at a workflow that did
+not sign it, fails identically. One bundle covers all three
 archives, and what it attests to is readable with `--format json`: the signing
 workflow is
 `https://github.com/mihailinl/AstraPlugins/.github/workflows/release-cli.yml@refs/tags/cli-v0.2.1`,
@@ -374,7 +375,7 @@ phones home to discover that a new version exists.
 | Symptom | Cause |
 |---|---|
 | `FAILED open or read` from `sha256sum -c` | You downloaded one archive and the file lists three. Add `--ignore-missing` |
-| `Error: verifying with issuer "sigstore.dev"` | The archive does not match the bundle, or `--repo` names a repository that did not build it. Re-download rather than reasoning about it |
+| `Error: verifying with issuer "sigstore.dev"` | The archive does not match the bundle, or `--repo` names a repository that did not build it, or `--signer-workflow` a workflow that did not sign it (matched case-sensitively). Re-download rather than reasoning about it |
 | `gh attestation verify` printed nothing at all | That is a pass. It is quiet when output is not a terminal; `echo $?` shows `0` |
 | The binary will not start, and the loader complains that a `GLIBC_2.39` version was not found | You took the gnu archive on a system with older glibc. Take the musl one; it needs no libc |
 | `error: could not find `astra-plugin-cli` in registry `crates-io` with version `*`` | `cargo install astra-plugin-cli` cannot work, and this is what it says. See the top of this page |

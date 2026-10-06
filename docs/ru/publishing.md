@@ -344,9 +344,14 @@ push: tags:` и `tag-prefix:` — глоб, более узкий, чем пре
 <!-- doctest: cli -->
 ```bash
 gh release download v0.1.0 --repo you/dice-roller --pattern "*.astraplugin"
-gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` обязателен. Ваш `release.yml` лишь вызывает общий
+релизный workflow Astra, и подписывает именно он, поэтому без этого флага
+`gh` ждёт подписи от вашего репозитория и отвергает исправный файл с
+`Error: verifying with issuer "sigstore.dev"`.
 
 <!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```

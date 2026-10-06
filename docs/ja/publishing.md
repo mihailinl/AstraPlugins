@@ -343,9 +343,14 @@ Astra やレジストリを信用せずとも、誰でもできます。
 <!-- doctest: cli -->
 ```bash
 gh release download v0.1.0 --repo you/dice-roller --pattern "*.astraplugin"
-gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` は省略できません。あなたの `release.yml` は Astra の
+共有リリースワークフローを呼び出すだけで、署名するのはそのワークフロー
+です。このフラグがないと `gh` はあなたのリポジトリを署名者とみなし、
+正しいファイルでも `Error: verifying with issuer "sigstore.dev"` で失敗します。
 
 <!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```

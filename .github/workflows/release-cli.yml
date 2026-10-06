@@ -367,7 +367,7 @@ jobs:
           this workflow and this commit, over the sha256 of the whole file:
 
           \`\`\`bash
-          gh attestation verify astra-plugin-$VERSION-linux-x64-musl.tar.gz --repo ${GITHUB_REPOSITORY}
+          gh attestation verify astra-plugin-$VERSION-linux-x64-musl.tar.gz --repo ${GITHUB_REPOSITORY} --signer-workflow mihailinl/AstraPlugins/.github/workflows/release-cli.yml
           \`\`\`
 
           An attestation proves where a file came from. It does not prove the code

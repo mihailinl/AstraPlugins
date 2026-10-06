@@ -353,9 +353,14 @@ Cualquiera puede hacerlo, sin confiar en Astra ni en el registro:
 <!-- doctest: cli -->
 ```bash
 gh release download v0.1.0 --repo you/dice-roller --pattern "*.astraplugin"
-gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` es obligatorio. Tu `release.yml` solo llama al workflow
+de release compartido de Astra, y es ese workflow el que firma; sin la opción,
+`gh` espera que el firmante sea tu repositorio y rechaza un archivo correcto
+con `Error: verifying with issuer "sigstore.dev"`.
 
 <!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```

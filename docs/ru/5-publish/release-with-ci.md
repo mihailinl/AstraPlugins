@@ -200,9 +200,14 @@ Rust, единственная ветка `noarch` для TypeScript и Python.
 
 <!-- doctest: cli -->
 ```bash
-gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.2.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` обязателен. Ваш `release.yml` лишь вызывает общий
+релизный workflow Astra, и подписывает именно он, поэтому без этого флага
+`gh` ждёт подписи от вашего репозитория и отвергает исправный файл с
+`Error: verifying with issuer "sigstore.dev"`.
 
 `astra-plugin verify` сама читает бандл и печатает, что нашла:
 

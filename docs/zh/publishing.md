@@ -310,9 +310,13 @@ SHA256SUMS.txt
 <!-- doctest: cli -->
 ```bash
 gh release download v0.1.0 --repo you/dice-roller --pattern "*.astraplugin"
-gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.1.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` 不可省略。你的 `release.yml` 只是调用 Astra 的共享
+发布工作流，签名的是那个工作流；没有这个参数，`gh` 会把你的仓库当作
+签名者，即使文件完好也会以 `Error: verifying with issuer "sigstore.dev"` 失败。
 
 <!-- doctest: output from="astra-plugin verify dice-roller-0.1.0-linux-x64.astraplugin" unrun="needs that exact bundle, which is a build artefact and is not committed anywhere" -->
 ```

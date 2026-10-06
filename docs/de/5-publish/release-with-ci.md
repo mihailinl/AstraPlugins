@@ -208,9 +208,14 @@ vertrauen:
 
 <!-- doctest: cli -->
 ```bash
-gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller
+gh attestation verify dice-roller-0.2.0-linux-x64.astraplugin --repo you/dice-roller --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
 astra-plugin verify dice-roller-0.2.0-linux-x64.astraplugin
 ```
+
+`--signer-workflow` ist Pflicht. Dein `release.yml` ruft nur Astras
+gemeinsamen Release-Workflow auf, und signiert wird von diesem Workflow. Ohne
+das Flag erwartet `gh` dein Repository als Signierer und weist eine
+einwandfreie Datei mit `Error: verifying with issuer "sigstore.dev"` ab.
 
 `astra-plugin verify` liest das Bundle selbst und gibt aus, was es
 gefunden hat:

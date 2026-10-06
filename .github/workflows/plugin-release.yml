@@ -338,13 +338,18 @@ jobs:
           notes=$(cat <<EOF
           \`$PLUGIN_ID\` $VERSION — built by GitHub Actions from \`${GITHUB_SHA}\`.
 
-          Each \`.astraplugin\` below is attested: the attestation names this
-          repository, this workflow and this commit, over the sha256 of the whole
-          file. Verify it yourself before installing:
+          Each \`.astraplugin\` below is attested, over the sha256 of the whole
+          file: the attestation names this repository and this commit as the
+          source, and Astra's shared release workflow — which this repository's
+          workflow calls — as the signer. Verify it yourself before installing:
 
           \`\`\`
-          gh attestation verify <file>.astraplugin --repo ${GITHUB_REPOSITORY}
+          gh attestation verify <file>.astraplugin --repo ${GITHUB_REPOSITORY} --signer-workflow mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
           \`\`\`
+
+          \`--signer-workflow\` is required: without it \`gh\` expects the signer
+          to be this repository, and a good file fails with
+          \`Error: verifying with issuer "sigstore.dev"\`.
 
           \`SHA256SUMS.txt\` lists the same digests the Astra registry records.
 
