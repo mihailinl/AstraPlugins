@@ -29,6 +29,22 @@ reads to find out how to get the tool.
 ## [Unreleased]
 
 ### Changed
+- **The manifest's top-level `kind` and `requires` are reserved, and every
+  command that reads a manifest as a plugin refuses another value** (contract
+  3.14.0; the vendored `astra-plugin-manifest` is synced to Astra `0ba3949d`).
+  `kind` must be absent or `"plugin"`; `requires` absent, `[]`, `{}` or `""`.
+  The marketplace will carry items that are not plugins, and the manifest
+  keeps top-level keys it does not know, so without this `check` passed a
+  `kind = "game-integration"` item, `build` packed it as a plugin and `publish`
+  sent it on. `check` (and its alias `validate`), `build`, `publish`, `dev` and
+  `test` now stop with exit 1 and the daemon's own sentence, with its subject
+  changed: *this item is a game-integration; this version of the CLI installs
+  plugins only. Update the CLI to install it.* `doctor` reports the same
+  sentence. The rule runs on the raw document first, so an item with no
+  `[plugin]` table gets the sentence and not a parse error. No scaffold writes
+  either key and no `plugin.toml` in this repository has one; a manifest that
+  used either name for something else is refused now, which is why this waits
+  for a minor release.
 - **`init-ci` writes its template version on the caller's first line**,
   `# astra-plugin init-ci template 1`, from the new
   `CALLER_TEMPLATE_VERSION` (registry plan AP-24). A generated workflow stays

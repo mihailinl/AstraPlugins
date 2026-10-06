@@ -33,7 +33,32 @@ Deliberately **not** `deny_unknown_fields`: sections are added over releases —
 | [`[build]`](#build) | no | Build metadata added by `astra-plugin build`. |
 | [`[ui]`](#ui) | no | UI contribution definitions declared in plugin.toml. |
 
-A section this Astra does not know is **kept, not refused** — sections are added over releases and an older daemon has to be able to skip one. `[capabilities]` is the single exception and the reason is below.
+A section this Astra does not know is **kept, not refused** — sections are added over releases and an older daemon has to be able to skip one. `[capabilities]` is the single exception and the reason is below. An unknown top-level key is kept too, except the two [reserved](#reserved-top-level-keys) ones.
+
+## Reserved top-level keys
+
+Two keys sit above every table, and both are **reserved**. A plugin today leaves them out, or says what it already is; any other value is refused.
+
+| Key | Accepted today | Anything else is refused with |
+|---|---|---|
+| `kind` | absent, or `"plugin"` | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `requires` | absent, `[]`, `{}`, or a blank string such as `""` | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+
+A `kind` that is not a string is refused as well: `kind` must be a string such as "plugin", not &lt;type&gt;.
+
+**`kind`.** **Reserved, fail-closed: what KIND of marketplace item this is.** Absent or `"plugin"`.
+
+The marketplace will carry other kinds (game integrations, libraries, characters, animation packs — `MARKETPLACE_PLAN.md`), each with its own installer. The rest of this struct is deliberately lenient about unknown keys, so without this a build that predates kinds would read a game integration's `kind = "game-integration"` as noise and install it as a plugin. [`check_reserved_keys`] refuses it instead, with a sentence a person can act on.
+
+**`requires`.** **Reserved, fail-closed: other items this one needs** (`[{ id, range }]`). Absent or empty.
+
+No resolver exists in this build, so an item that needs one cannot be installed correctly: installing it without its dependencies is a broken install that LOOKS successful.
+
+**Future item kinds will be announced.** Until a release of Astra and of `astra-plugin` accepts one, a tool that meets any other value refuses it rather than reading it as noise. Everywhere else this manifest keeps the keys it does not know, so a reader without this rule would install a future game integration as a plugin, and an item without the items it needs. The daemon refuses at install. `astra-plugin check`, `build`, `publish`, `dev` and `test` refuse with the same sentence, spoken as "this version of the CLI", and `doctor` reports it. `astra-plugin new` never writes either key.
+
+**`check_reserved_keys`.** The two reserved top-level keys, judged the same way wherever a manifest is read: from the raw document in [`PluginManifest::from_str`] (so the refusal wins even when the rest of a future manifest would not parse as a plugin's), and from the parsed struct in [`PluginManifest::validate`] (so a caller that deserializes directly is held too).
+
+Absent `kind` or `"plugin"` passes; any other kind is refused. Absent `requires`, an empty list, an empty table or an empty string passes; anything else is refused.
 
 ## `[plugin]`
 
@@ -241,10 +266,13 @@ A static UI contribution definition from the manifest.
 
 ## What is refused
 
-Every refusal `PluginManifest::validate` can produce, with the condition that triggers it. Conditions are the Rust expressions themselves: `plugin.id` becomes a path component — `<plugins_dir>/<id>/`, created and later `remove_dir_all`'d — so paraphrasing the charset rule is not a thing this page is willing to do.
+Every refusal `PluginManifest::validate` can produce, with the condition that triggers it. Conditions are the Rust expressions themselves: `plugin.id` becomes a path component — `<plugins_dir>/<id>/`, created and later `remove_dir_all`'d — so paraphrasing the charset rule is not a thing this page is willing to do. The first three are the reserved keys, whose rule is a `match` and is stated in words; they are checked before every other row.
 
 | The manifest is refused when | The message |
 |---|---|
+| `kind` is a string other than `"plugin"` ([reserved](#reserved-top-level-keys)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `kind` is not a string ([reserved](#reserved-top-level-keys)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
+| `requires` is not empty ([reserved](#reserved-top-level-keys)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

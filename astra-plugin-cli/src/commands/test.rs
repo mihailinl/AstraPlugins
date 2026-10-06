@@ -283,6 +283,9 @@ pub async fn run(opts: TestOptions<'_>) -> Result<Verdict> {
         anyhow::bail!("No plugin.toml found at {}", manifest_path.display());
     }
     let manifest_str = std::fs::read_to_string(&manifest_path)?;
+    // This parse never calls `validate()`, so without this a game integration
+    // that also had `[plugin]` and `[entry]` was started as a plugin.
+    crate::commands::validate::refuse_reserved_keys(&manifest_str)?;
     let manifest: astra_plugin_manifest::PluginManifest =
         toml::from_str(&manifest_str).context("Failed to parse plugin.toml")?;
 
@@ -2327,5 +2330,37 @@ mod tests {
         let failures = findings.failures();
         assert_eq!(failures.len(), 1, "only the required hook fails: {failures:?}");
         assert!(failures[0].starts_with("TtsSynthesize:"));
+    }
+
+    // ── the reserved top-level keys, `kind` and `requires` ─────────────────
+
+    /// **`test` refuses another kind before it runs anything.** It parsed the
+    /// struct and never called `validate()`, so a game integration whose
+    /// manifest also had a `[plugin]` and an `[entry]` was started against the
+    /// mock daemon as a plugin.
+    #[tokio::test]
+    async fn test_refuses_another_kind_before_running_anything() {
+        use crate::commands::validate::reserved_key_fixtures::{
+            FUTURE_ITEM, KIND_REFUSAL, dir_with, plugin_with,
+        };
+        for (tag, manifest) in [
+            ("test-kind", plugin_with("kind = \"game-integration\"")),
+            ("test-item", FUTURE_ITEM.to_string()),
+        ] {
+            let dir = dir_with(tag, &manifest);
+            let got = run(TestOptions {
+                path: dir.to_str().unwrap(),
+                no_build: true,
+                report: None,
+            })
+            .await;
+            let _ = std::fs::remove_dir_all(&dir);
+            let err = match got {
+                Ok(verdict) => panic!("{tag}: `test` answered {verdict:?}; it must refuse"),
+                Err(e) => e,
+            };
+            assert_eq!(format!("{err:#}"), KIND_REFUSAL, "{tag}");
+            assert_eq!(crate::output::code_for(&err), 1, "{tag}: {err:#}");
+        }
     }
 }

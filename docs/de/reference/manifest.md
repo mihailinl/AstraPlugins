@@ -36,6 +36,66 @@ Ein Abschnitt, den dieses Astra nicht kennt, wird **behalten, nicht
 abgelehnt** — Abschnitte kommen über Releases hinweg hinzu, und ein
 älterer Daemon muss einen überspringen können. `[capabilities]` ist die
 einzige Ausnahme, und der Grund steht unten.
+Ein unbekannter Schlüssel auf oberster Ebene wird ebenfalls behalten,
+außer den zwei
+[reservierten](#reservierte-schlüssel-auf-oberster-ebene).
+
+## Reservierte Schlüssel auf oberster Ebene
+
+Zwei Schlüssel stehen über jeder Tabelle, und beide sind **reserviert**.
+Ein Plugin lässt sie heute weg oder sagt, was es ohnehin ist; jeder
+andere Wert wird abgelehnt.
+
+| Schlüssel | Heute akzeptiert | Alles andere wird abgelehnt mit |
+|---|---|---|
+| `kind` | fehlt, oder `"plugin"` | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `requires` | fehlt, `[]`, `{}` oder ein leerer String wie `""` | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+
+Ein `kind`, das kein String ist, wird ebenfalls abgelehnt: `kind` must
+be a string such as "plugin", not &lt;type&gt;.
+
+**`kind`.** **Reserviert, fail-closed: welche ART von
+Marketplace-Element dies ist.** Fehlt oder `"plugin"`.
+
+Der Marketplace wird andere Arten führen (Spielintegrationen,
+Bibliotheken, Charaktere, Animationspakete — `MARKETPLACE_PLAN.md`),
+jede mit eigenem Installer. Der Rest dieser Struct ist gegenüber
+unbekannten Schlüsseln absichtlich nachsichtig, also würde ein Build,
+der älter ist als die Arten, ohne dies das `kind = "game-integration"`
+einer Spielintegration als Rauschen lesen und sie als Plugin
+installieren. [`check_reserved_keys`] lehnt es stattdessen ab, mit einem
+Satz, nach dem ein Mensch handeln kann.
+
+**`requires`.** **Reserviert, fail-closed: andere Elemente, die dieses
+braucht** (`[{ id, range }]`). Fehlt oder leer.
+
+In diesem Build gibt es keinen Resolver, also kann ein Element, das
+einen braucht, nicht korrekt installiert werden: es ohne seine
+Abhängigkeiten zu installieren ist eine kaputte Installation, die
+erfolgreich AUSSIEHT.
+
+**Künftige Elementarten werden angekündigt.** Bis ein Release von Astra
+und von `astra-plugin` eine akzeptiert, lehnt ein Werkzeug, das auf
+einen anderen Wert trifft, ihn ab, statt ihn als Rauschen zu lesen.
+Überall sonst behält dieses Manifest die Schlüssel, die es nicht kennt,
+also würde ein Leser ohne diese Regel eine künftige Spielintegration als
+Plugin installieren, und ein Element ohne die Elemente, die es braucht.
+Der Daemon lehnt bei der Installation ab. `astra-plugin check`, `build`,
+`publish`, `dev` und `test` lehnen mit demselben Satz ab, gesprochen als
+"this version of the CLI", und `doctor` meldet ihn. `astra-plugin new`
+schreibt keinen der beiden Schlüssel.
+
+**`check_reserved_keys`.** Die zwei reservierten Schlüssel auf oberster
+Ebene, überall gleich beurteilt, wo ein Manifest gelesen wird: aus dem
+rohen Dokument in [`PluginManifest::from_str`] (damit die Ablehnung auch
+dann gewinnt, wenn der Rest eines künftigen Manifests nicht als das
+eines Plugins parsen würde) und aus der geparsten Struct in
+[`PluginManifest::validate`] (damit auch ein Aufrufer gehalten wird, der
+direkt deserialisiert).
+
+Fehlendes `kind` oder `"plugin"` besteht; jede andere Art wird
+abgelehnt. Fehlendes `requires`, eine leere Liste, eine leere Tabelle
+oder ein leerer String besteht; alles andere wird abgelehnt.
 
 ## `[plugin]`
 
@@ -355,9 +415,15 @@ selbst: `plugin.id` wird zu einer Pfadkomponente —
 `<plugins_dir>/<id>/`, erstellt und später per `remove_dir_all`
 gelöscht — die Charset-Regel zu paraphrasieren ist also nichts, was
 diese Seite tun will.
+Die ersten drei sind die reservierten Schlüssel, deren Regel ein `match`
+ist und in Worten angegeben wird; sie werden vor jeder anderen Zeile
+geprüft.
 
 | Das Manifest wird abgelehnt, wenn | Die Nachricht |
 |---|---|
+| `kind` ist ein String außer `"plugin"` ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `kind` ist kein String ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
+| `requires` ist nicht leer ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

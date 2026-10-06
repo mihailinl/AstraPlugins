@@ -45,6 +45,60 @@ pub struct PluginManifest {
     pub build: Option<BuildSection>,
     #[serde(default)]
     pub ui: Option<UiSection>,
+    /// **Reserved, fail-closed: what KIND of marketplace item this is.** Absent or `"plugin"`.
+    ///
+    /// The marketplace will carry other kinds (game integrations, libraries, characters, animation
+    /// packs — `MARKETPLACE_PLAN.md`), each with its own installer. The rest of this struct is
+    /// deliberately lenient about unknown keys, so without this a build that predates kinds would
+    /// read a game integration's `kind = "game-integration"` as noise and install it as a plugin.
+    /// [`check_reserved_keys`] refuses it instead, with a sentence a person can act on.
+    #[serde(default)]
+    pub kind: Option<toml::Value>,
+    /// **Reserved, fail-closed: other items this one needs** (`[{ id, range }]`). Absent or empty.
+    ///
+    /// No resolver exists in this build, so an item that needs one cannot be installed correctly:
+    /// installing it without its dependencies is a broken install that LOOKS successful.
+    #[serde(default)]
+    pub requires: Option<toml::Value>,
+}
+
+/// The two reserved top-level keys, judged the same way wherever a manifest is read: from the raw
+/// document in [`PluginManifest::from_str`] (so the refusal wins even when the rest of a future
+/// manifest would not parse as a plugin's), and from the parsed struct in
+/// [`PluginManifest::validate`] (so a caller that deserializes directly is held too).
+///
+/// Absent `kind` or `"plugin"` passes; any other kind is refused. Absent `requires`, an empty
+/// list, an empty table or an empty string passes; anything else is refused.
+pub fn check_reserved_keys(
+    kind: Option<&toml::Value>,
+    requires: Option<&toml::Value>,
+) -> Result<()> {
+    match kind {
+        None => {}
+        Some(toml::Value::String(k)) if k == "plugin" => {}
+        Some(toml::Value::String(k)) => anyhow::bail!(
+            "this item is a {k}; this version of Astra installs plugins only. Update Astra to \
+             install it."
+        ),
+        Some(other) => anyhow::bail!(
+            "`kind` must be a string such as \"plugin\", not {}",
+            other.type_str()
+        ),
+    }
+    let empty = match requires {
+        None => true,
+        Some(toml::Value::Array(a)) => a.is_empty(),
+        Some(toml::Value::Table(t)) => t.is_empty(),
+        Some(toml::Value::String(s)) => s.trim().is_empty(),
+        Some(_) => false,
+    };
+    if !empty {
+        anyhow::bail!(
+            "this item requires other items, and this version of Astra cannot install \
+             dependencies. Update Astra to install it."
+        );
+    }
+    Ok(())
 }
 
 /// Plugin identity and metadata.
@@ -196,6 +250,12 @@ impl PluginManifest {
 
     /// Parse a `plugin.toml` from a string.
     pub fn from_str(content: &str) -> Result<Self> {
+        // The reserved keys first, off the raw document: a future item's manifest (a game
+        // integration has no `[entry]`) would otherwise fail below as "Failed to parse
+        // plugin.toml", which tells nobody that the answer is "update Astra".
+        if let Ok(raw) = content.parse::<toml::Table>() {
+            check_reserved_keys(raw.get("kind"), raw.get("requires"))?;
+        }
         let manifest: PluginManifest =
             toml::from_str(content).context("Failed to parse plugin.toml")?;
         manifest.validate()?;
@@ -215,6 +275,7 @@ impl PluginManifest {
     /// [`Self::from_str`] / [`Self::from_file`] — a bare `toml::from_str` on the
     /// install path skipped it for a whole release.
     pub fn validate(&self) -> Result<()> {
+        check_reserved_keys(self.kind.as_ref(), self.requires.as_ref())?;
         if self.plugin.id.is_empty() {
             anyhow::bail!("plugin.id is required");
         }
@@ -798,5 +859,79 @@ requirements_lock = "requirements.lock"
     fn an_unparseable_host_version_skips_the_check_rather_than_refusing_everything() {
         let manifest: PluginManifest = toml::from_str(&manifest_needing("99.0.0")).unwrap();
         assert!(manifest.check_min_astra_version("not-a-version").is_ok());
+    }
+
+    // ── The reserved keys `kind` / `requires` (marketplace kinds, MARKETPLACE_PLAN.md) ──
+
+    /// A minimal valid plugin with extra top-level lines prepended (top-level keys must come
+    /// before the first table).
+    fn plugin_with(top: &str) -> String {
+        format!(
+            "{top}\n[plugin]\nid = \"kinded\"\nname = \"Kinded\"\nversion = \"1.0.0\"\n\n\
+             [entry]\ncommand = \"./bin/x\"\n"
+        )
+    }
+
+    fn refusal(content: &str) -> String {
+        format!(
+            "{:#}",
+            PluginManifest::from_str(content).expect_err("must be refused")
+        )
+    }
+
+    /// Every plugin that exists today names no kind, and a plugin may say so out loud.
+    #[test]
+    fn a_plugin_with_no_kind_or_kind_plugin_is_accepted() {
+        assert!(PluginManifest::from_str(&plugin_with("")).is_ok());
+        assert!(PluginManifest::from_str(&plugin_with("kind = \"plugin\"")).is_ok());
+        assert!(PluginManifest::from_str(&plugin_with("requires = []")).is_ok());
+    }
+
+    /// **Another kind is refused by name**, even when the rest is a perfectly good plugin — the
+    /// case this exists for: without it the field is an unknown key and the item installs AS a
+    /// plugin.
+    #[test]
+    fn another_kind_is_refused_by_name() {
+        let why = refusal(&plugin_with("kind = \"game-integration\""));
+        assert!(
+            why.contains("this item is a game-integration")
+                && why.contains("installs plugins only"),
+            "{why}"
+        );
+        assert!(refusal(&plugin_with("kind = 5")).contains("must be a string"));
+    }
+
+    /// **A real future item manifest gets the sentence, not a parse error.** This is the
+    /// proposal's own `astra-item.toml` (astra-bepinex `docs/GAME-INTEGRATIONS.md` §4): no
+    /// `[plugin]`, no `[entry]`, so the struct cannot deserialize — and the person must still be
+    /// told to update Astra rather than that the file is broken.
+    #[test]
+    fn a_future_item_manifest_is_refused_for_its_kind_not_its_shape() {
+        let item = "id = \"astra.peak\"\nkind = \"game-integration\"\nversion = \"1.0.0\"\n\
+                    requires = [{ id = \"astra.unity-foundation\", range = \">=1.2, <2\" }]\n\
+                    [target]\nruntime = \"unity-mono\"\nloader = \"bepinex5\"\n";
+        let why = refusal(item);
+        assert!(why.contains("this item is a game-integration"), "{why}");
+        assert!(!why.contains("Failed to parse"), "{why}");
+    }
+
+    /// **A dependency this build cannot resolve is refused**: installing the item without it would
+    /// look like success and work like nothing.
+    #[test]
+    fn a_non_empty_requires_is_refused() {
+        let why = refusal(&plugin_with(
+            "requires = [{ id = \"astra.unity-foundation\", range = \">=1.2\" }]",
+        ));
+        assert!(why.contains("cannot install dependencies"), "{why}");
+        assert!(PluginManifest::from_str(&plugin_with("requires = \"astra.lib\"")).is_err());
+    }
+
+    /// **The struct path holds too**: a caller that deserializes directly and then validates is
+    /// refused the same way (the `from_str` pre-check is not the only gate).
+    #[test]
+    fn validate_refuses_a_kind_on_a_directly_parsed_manifest() {
+        let manifest: PluginManifest = toml::from_str(&plugin_with("kind = \"animset\"")).unwrap();
+        let why = format!("{:#}", manifest.validate().expect_err("must be refused"));
+        assert!(why.contains("this item is a animset"), "{why}");
     }
 }
