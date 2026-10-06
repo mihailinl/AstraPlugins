@@ -35,6 +35,64 @@ Una sección que este Astra no conoce se **conserva, no se rechaza** —
 las secciones se añaden a lo largo de los releases y un daemon más
 antiguo tiene que poder saltarse una. `[capabilities]` es la única
 excepción, y la razón está abajo.
+Una clave de nivel superior desconocida también se conserva, salvo las
+dos [reservadas](#claves-de-nivel-superior-reservadas).
+
+## Claves de nivel superior reservadas
+
+Dos claves van encima de toda tabla, y ambas están **reservadas**. Hoy
+un plugin las omite, o dice lo que ya es; cualquier otro valor se
+rechaza.
+
+| Clave | Aceptado hoy | Cualquier otra cosa se rechaza con |
+|---|---|---|
+| `kind` | ausente, o `"plugin"` | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `requires` | ausente, `[]`, `{}` o una cadena en blanco como `""` | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+
+Un `kind` que no es una cadena también se rechaza: `kind` must be a
+string such as "plugin", not &lt;type&gt;.
+
+**`kind`.** **Reservada, fail-closed: qué TIPO de elemento del
+marketplace es este.** Ausente o `"plugin"`.
+
+El marketplace llevará otros tipos (integraciones de juegos,
+bibliotecas, personajes, paquetes de animación — `MARKETPLACE_PLAN.md`),
+cada uno con su propio instalador. El resto de este struct es
+deliberadamente tolerante con las claves desconocidas, así que sin esto
+un build anterior a los tipos leería el `kind = "game-integration"` de
+una integración de juego como ruido y la instalaría como plugin.
+[`check_reserved_keys`] la rechaza en su lugar, con una frase sobre la
+que una persona puede actuar.
+
+**`requires`.** **Reservada, fail-closed: otros elementos que este
+necesita** (`[{ id, range }]`). Ausente o vacía.
+
+En este build no existe ningún resolvedor, así que un elemento que lo
+necesita no puede instalarse correctamente: instalarlo sin sus
+dependencias es una instalación rota que PARECE correcta.
+
+**Los futuros tipos de elemento se anunciarán.** Hasta que una versión
+de Astra y de `astra-plugin` acepte uno, una herramienta que encuentre
+cualquier otro valor lo rechaza en lugar de leerlo como ruido. En todo
+lo demás este manifiesto conserva las claves que no conoce, así que un
+lector sin esta regla instalaría una futura integración de juego como
+plugin, y un elemento sin los elementos que necesita. El daemon lo
+rechaza al instalar. `astra-plugin check`, `build`, `publish`, `dev` y
+`test` lo rechazan con la misma frase, dicha como "this version of the
+CLI", y `doctor` lo informa. `astra-plugin new` nunca escribe ninguna de
+las dos claves.
+
+**`check_reserved_keys`.** Las dos claves de nivel superior reservadas,
+juzgadas igual dondequiera que se lea un manifiesto: desde el documento
+en bruto en [`PluginManifest::from_str`] (para que el rechazo gane
+incluso cuando el resto de un manifiesto futuro no se analizaría como el
+de un plugin), y desde el struct ya analizado en
+[`PluginManifest::validate`] (para que también quede sujeto quien
+deserializa directamente).
+
+`kind` ausente o `"plugin"` pasa; cualquier otro tipo se rechaza.
+`requires` ausente, una lista vacía, una tabla vacía o una cadena vacía
+pasa; cualquier otra cosa se rechaza.
 
 ## `[plugin]`
 
@@ -350,9 +408,14 @@ de Rust: `plugin.id` se convierte en un componente de ruta —
 `<plugins_dir>/<id>/`, creado y luego eliminado con `remove_dir_all` —
 así que parafrasear la regla del conjunto de caracteres no es algo que
 esta página esté dispuesta a hacer.
+Las tres primeras son las claves reservadas, cuya regla es un `match` y
+se enuncia con palabras; se comprueban antes que cualquier otra fila.
 
 | El manifiesto se rechaza cuando | El mensaje |
 |---|---|
+| `kind` es una cadena distinta de `"plugin"` ([reservada](#claves-de-nivel-superior-reservadas)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `kind` no es una cadena ([reservada](#claves-de-nivel-superior-reservadas)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
+| `requires` no está vacía ([reservada](#claves-de-nivel-superior-reservadas)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

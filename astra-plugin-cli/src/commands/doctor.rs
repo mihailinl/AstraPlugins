@@ -417,6 +417,17 @@ fn project(dir: &Path, manifest_path: &Path) -> Vec<Finding> {
             )];
         }
     };
+    // Asked first, as the daemon asks it: the struct parse below never calls
+    // `validate()`, and answered "yes" for an item the daemon refuses.
+    if let Some(why) = crate::commands::validate::reserved_key_refusal(&text) {
+        return vec![Finding::fail(
+            "project.manifest",
+            "Does my plugin.toml parse?",
+            format!("no: {why}"),
+            "`kind` and `requires` are reserved top-level keys, and a plugin leaves both out. \
+             An item that is not a plugin needs an Astra and an astra-plugin that know its kind.",
+        )];
+    }
     let manifest: astra_plugin_manifest::PluginManifest = match toml::from_str(&text) {
         Ok(m) => m,
         Err(e) => {
@@ -763,5 +774,36 @@ fire_trigger = { reason = "so commands can react" }
         )
         .unwrap();
         assert_eq!(permissions(&granted).level, Level::Ok);
+    }
+
+    /// **`doctor` says the daemon will refuse it, and why.** It parsed the
+    /// struct and never called `validate()`, so it answered "yes" to "Does my
+    /// plugin.toml parse?" for a game integration the daemon will not install.
+    #[test]
+    fn doctor_names_the_reserved_key_refusal() {
+        use crate::commands::validate::reserved_key_fixtures::{
+            FUTURE_ITEM, KIND_REFUSAL, REQUIRES_REFUSAL, dir_with, plugin_with,
+        };
+        for (tag, manifest, want) in [
+            ("doctor-kind", plugin_with("kind = \"game-integration\""), KIND_REFUSAL),
+            ("doctor-item", FUTURE_ITEM.to_string(), KIND_REFUSAL),
+            (
+                "doctor-requires",
+                plugin_with("requires = [{ id = \"x\", range = \"^1\" }]"),
+                REQUIRES_REFUSAL,
+            ),
+        ] {
+            let dir = dir_with(tag, &manifest);
+            let findings = project(&dir, &dir.join("plugin.toml"));
+            let _ = std::fs::remove_dir_all(&dir);
+            let first = &findings[0];
+            assert_eq!(first.id, "project.manifest", "{tag}");
+            assert_eq!(first.level, Level::Fail, "{tag}: {}", first.answer);
+            assert!(first.answer.contains(want), "{tag}: {}", first.answer);
+        }
+        let dir = dir_with("doctor-pass", &plugin_with("kind = \"plugin\""));
+        let findings = project(&dir, &dir.join("plugin.toml"));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(findings[0].level, Level::Ok, "{}", findings[0].answer);
     }
 }

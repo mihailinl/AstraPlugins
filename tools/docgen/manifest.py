@@ -18,6 +18,9 @@ false of `[capabilities]`, where an unknown key fails the whole parse.
 So the page is derived from the crate:
 
   * **sections** — the fields of `PluginManifest`, in declaration order;
+  * **reserved top-level keys** — the fields of `PluginManifest` that are not
+    sections (`RESERVED_KEYS`), with the sentences `check_reserved_keys`
+    refuses them with;
   * **fields** — each section struct's fields, their Rust types, whether serde
     fills them in when absent, and the literal a `#[serde(default = "fn")]`
     returns;
@@ -57,6 +60,15 @@ SRC = {
     "permissions": f"{CRATE}/src/permissions.rs",
     "platform": f"{CRATE}/src/platform.rs",
 }
+
+#: The fields of `PluginManifest` that are top-level KEYS, not sections.
+#:
+#: Both are reserved, fail-closed (contract 3.14.0, Astra 0ba3949d): `kind` must
+#: be absent or `"plugin"`, `requires` absent or empty, and `check_reserved_keys`
+#: refuses anything else. They are `Option<toml::Value>` so that the crate can
+#: name what it refuses, and a `toml::Value` field is not a section this page
+#: could draw a table for — so a NEW one is an error below, never a guess.
+RESERVED_KEYS = ("kind", "requires")
 
 #: Rust type -> what an author writes in TOML.
 TOML_TYPES = {
@@ -183,6 +195,11 @@ def _rejections(text: str) -> list[tuple[str, str]]:
     # Tests carry deliberately-invalid manifests; only the crate's own code is
     # a statement about what a manifest may be.
     body = text.partition("#[cfg(test)]")[0]
+    # The reserved-key rule is read by `_reserved_rule`, whole. Its `kind`
+    # refusals are `match` arms, which the `if` scan below cannot see, and its
+    # `requires` refusal sits under `if !empty`, which the scan would print as
+    # the condition — true, and meaningless to an author.
+    body = _without_fn(body, "check_reserved_keys")
     lines = body.split("\n")
     starts = []
     offset = 0
@@ -340,7 +357,17 @@ def render() -> str:
     ]
 
     sections: list[Section] = []
+    reserved: list[rustsrc.Field] = []
     for f in root.fields:
+        if f.name in RESERVED_KEYS:
+            reserved.append(f)
+            continue
+        if "toml::Value" in f.ty:
+            raise DocgenError(
+                f"{SRC['manifest']}: `PluginManifest.{f.name}` is `{f.ty}`, a free value and not "
+                f"a section. If it is another reserved top-level key, add it to RESERVED_KEYS in "
+                f"tools/docgen/manifest.py and teach `_render_reserved` what it accepts."
+            )
         sections.append(
             Section(
                 key=f.name,
@@ -363,9 +390,11 @@ def render() -> str:
         "",
         "A section this Astra does not know is **kept, not refused** — sections are added "
         "over releases and an older daemon has to be able to skip one. `[capabilities]` is "
-        "the single exception and the reason is below.",
+        "the single exception and the reason is below. An unknown top-level key is kept "
+        "too, except the two [reserved](#reserved-top-level-keys) ones.",
         "",
     ]
+    out += _render_reserved(reserved, manifest_src)
 
     refused = refused_keys(manifest_src)
     for section in sections:
@@ -598,10 +627,21 @@ def _render_rejections(text: str) -> list[str]:
         "Every refusal `PluginManifest::validate` can produce, with the condition that "
         "triggers it. Conditions are the Rust expressions themselves: `plugin.id` becomes "
         "a path component — `<plugins_dir>/<id>/`, created and later `remove_dir_all`'d — "
-        "so paraphrasing the charset rule is not a thing this page is willing to do.",
+        "so paraphrasing the charset rule is not a thing this page is willing to do. The "
+        "first three are the reserved keys, whose rule is a `match` and is stated in words; "
+        "they are checked before every other row.",
         "",
         "| The manifest is refused when | The message |",
         "|---|---|",
+    ]
+    rule = _reserved_rule(text)
+    out += [
+        f"| `kind` is a string other than `\"plugin\"` ([reserved](#reserved-top-level-keys)) "
+        f"| {cell(rule.kind_message)} |",
+        f"| `kind` is not a string ([reserved](#reserved-top-level-keys)) "
+        f"| {cell(rule.type_message)} |",
+        f"| `requires` is not empty ([reserved](#reserved-top-level-keys)) "
+        f"| {cell(rule.requires_message)} |",
     ]
     for condition, message in _rejections(text):
         out.append(f"| `{cell(condition)}` | {cell(message)} |")
@@ -612,6 +652,141 @@ def _render_rejections(text: str) -> list[str]:
         "version is a declared constraint that constrains nothing. Its **value** is "
         "compared only in a build that is itself an Astra — a tool refusing to look at a "
         "plugin because it targets a newer daemon than the tool would be nonsense.",
+        "",
+    ]
+    return out
+
+
+def _without_fn(text: str, name: str) -> str:
+    """`text` minus one `fn`, signature to closing brace."""
+    match = re.search(rf"^(pub )?fn\s+{name}\b", text, re.MULTILINE)
+    if match is None:
+        raise DocgenError(f"{SRC['manifest']}: `fn {name}` not found.")
+    body = rustsrc._block(text, match.end())
+    end = text.index(body, match.end()) + len(body) + 1
+    return text[: match.start()] + text[end:]
+
+
+@dataclass
+class ReservedRule:
+    doc: str
+    kind_message: str
+    type_message: str
+    requires_message: str
+
+
+def _reserved_rule(text: str) -> ReservedRule:
+    """`check_reserved_keys`: its doc, and its three sentences as an author reads them.
+
+    The sentences come out of the source, so the page quotes what the daemon
+    says. What each key ACCEPTS is written in `_render_reserved`, in words, and
+    is held to the source here instead: each arm that sentence describes must
+    still be in the function, or this raises rather than describe a rule the
+    crate no longer has.
+    """
+    fn = rustsrc.item(text, "fn", "check_reserved_keys")
+    match = re.search(r"^(pub )?fn\s+check_reserved_keys\b", text, re.MULTILINE)
+    if fn is None or match is None:
+        raise DocgenError(
+            f"{SRC['manifest']}: `fn check_reserved_keys` not found. `kind` and `requires` are "
+            f"reserved by it; the page cannot say what they refuse without it."
+        )
+    body = rustsrc._block(text, match.end())
+    for arm in (
+        'Some(toml::Value::String(k)) if k == "plugin" => {}',
+        "None => true,",
+        "Some(toml::Value::Array(a)) => a.is_empty(),",
+        "Some(toml::Value::Table(t)) => t.is_empty(),",
+        "Some(toml::Value::String(s)) => s.trim().is_empty(),",
+        "Some(_) => false,",
+    ):
+        if arm not in body:
+            raise DocgenError(
+                f"{SRC['manifest']}: `check_reserved_keys` no longer has the arm `{arm}`. "
+                f"`_render_reserved` states in words what each reserved key accepts; re-read the "
+                f"function and rewrite that sentence and this list together."
+            )
+    messages = [
+        _string_at(body, body.index('"', bail.end()))
+        for bail in re.finditer(r"anyhow::bail!\(", body)
+    ]
+    # Escaped, because a bare `<kind>` in a Markdown table is an HTML tag to
+    # GitHub's renderer and the reader would see "this item is a ;".
+    placeholders = {"{k}": "&lt;kind&gt;", "{}": "&lt;type&gt;"}
+
+    def one(marker: str) -> str:
+        found = [m for m in messages if marker in m]
+        if len(found) != 1:
+            raise DocgenError(
+                f"{SRC['manifest']}: expected one refusal in `check_reserved_keys` containing "
+                f"{marker!r}, found {len(found)} among {messages}."
+            )
+        out = found[0]
+        for raw, shown in placeholders.items():
+            out = out.replace(raw, shown)
+        return out
+
+    if len(messages) != 3:
+        raise DocgenError(
+            f"{SRC['manifest']}: `check_reserved_keys` has {len(messages)} refusal(s); the page "
+            f"documents three (another kind, a non-string kind, a non-empty requires)."
+        )
+    return ReservedRule(
+        doc=fn.doc,
+        kind_message=one("{k}"),
+        type_message=one("must be a string"),
+        requires_message=one("requires other items"),
+    )
+
+
+def _render_reserved(fields: list[rustsrc.Field], text: str) -> list[str]:
+    names = [f.name for f in fields]
+    if names != list(RESERVED_KEYS):
+        raise DocgenError(
+            f"{SRC['manifest']}: `PluginManifest` carries the top-level keys {names}, and "
+            f"RESERVED_KEYS says {list(RESERVED_KEYS)}. One of the two moved."
+        )
+    for f in fields:
+        if f.ty != "Option<toml::Value>":
+            raise DocgenError(
+                f"{SRC['manifest']}: the reserved `{f.name}` is `{f.ty}`, not "
+                f"`Option<toml::Value>`; the rule this page describes has changed shape."
+            )
+    rule = _reserved_rule(text)
+    accepted = {
+        "kind": 'absent, or `"plugin"`',
+        "requires": 'absent, `[]`, `{}`, or a blank string such as `""`',
+    }
+    refused = {"kind": rule.kind_message, "requires": rule.requires_message}
+    out = [
+        "## Reserved top-level keys",
+        "",
+        "Two keys sit above every table, and both are **reserved**. A plugin today leaves "
+        "them out, or says what it already is; any other value is refused.",
+        "",
+        "| Key | Accepted today | Anything else is refused with |",
+        "|---|---|---|",
+    ]
+    for f in fields:
+        out.append(f"| `{f.name}` | {accepted[f.name]} | {cell(refused[f.name])} |")
+    out += [
+        "",
+        f"A `kind` that is not a string is refused as well: {rule.type_message}.",
+        "",
+    ]
+    for f in fields:
+        out += [f"**`{f.name}`.** {paragraphs(f.doc)}", ""]
+    out += [
+        "**Future item kinds will be announced.** Until a release of Astra and of "
+        "`astra-plugin` accepts one, a tool that meets any other value refuses it rather than "
+        "reading it as noise. Everywhere else this manifest keeps the keys it does not know, so "
+        "a reader without this rule would install a future game integration as a plugin, and "
+        "an item without the items it needs. The daemon refuses at install. `astra-plugin "
+        "check`, `build`, `publish`, `dev` and `test` refuse with the same sentence, spoken as "
+        "\"this version of the CLI\", and `doctor` reports it. `astra-plugin new` never writes "
+        "either key.",
+        "",
+        f"**`check_reserved_keys`.** {paragraphs(rule.doc)}",
         "",
     ]
     return out

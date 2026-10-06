@@ -404,6 +404,73 @@ struct RegistryFinding {
     message: String,
 }
 
+/// A manifest every rule of `PluginManifest::validate` accepts except, possibly,
+/// the reserved keys — which [`reserved_key_refusal`] copies onto it.
+/// `the_reserved_key_probe_passes_every_other_rule` holds it to that.
+const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = \"probe\"\n\
+                                  version = \"0.0.0\"\n\n[entry]\ncommand = \"probe\"\n";
+
+/// The manifest crate's verdict on the two reserved top-level keys, `kind` and
+/// `requires`, in this tool's voice; `None` when they pass.
+///
+/// # Why every command asks this first
+///
+/// The marketplace will carry items that are not plugins, and the manifest
+/// keeps top-level keys it does not know. So to any reader without this rule a
+/// `kind = "game-integration"` is noise, and the item is checked, packed,
+/// published and run AS a plugin. The crate refuses it (`check_reserved_keys`,
+/// Astra `0ba3949d`, contract 3.14.0), off the raw document and before the
+/// struct is read, so that an item with no `[plugin]` gets the refusal and not
+/// "Failed to parse plugin.toml". Every command here that reads a manifest as a
+/// plugin keeps that order: `check`, `build`, `publish`, `dev`, `test` and
+/// `doctor`.
+///
+/// # The decision is the crate's
+///
+/// `check_reserved_keys` is `pub` in a private module, and the crate's `lib.rs`
+/// does not re-export it, so it cannot be named from here. What can be named is
+/// `PluginManifest::validate`, whose first statement it is. So the author's two
+/// values are copied onto [`RESERVED_KEY_PROBE`] — a manifest every other rule
+/// accepts — and any error `validate` returns is the reserved-key rule's. There
+/// is no second copy of the rule to drift: which values are refused, and the
+/// sentence, both come from the crate.
+///
+/// # The voice
+///
+/// The crate speaks as the daemon: "this version of Astra … Update Astra to
+/// install it". Here the program refusing is this CLI, and an author told to
+/// update Astra would update the wrong thing. So the subject changes and
+/// nothing else does. The tests compare whole sentences, so a reworded crate
+/// sentence fails them rather than reaching an author in Astra's voice.
+///
+/// TOML that does not parse returns `None`: that is a different error, and each
+/// caller reports it in its own words a line later.
+pub(crate) fn reserved_key_refusal(content: &str) -> Option<String> {
+    let raw: toml::Table = content.parse().ok()?;
+    if !raw.contains_key("kind") && !raw.contains_key("requires") {
+        return None;
+    }
+    let mut probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE)
+        .expect("RESERVED_KEY_PROBE is a manifest: the_reserved_key_probe_passes_every_other_rule");
+    probe.kind = raw.get("kind").cloned();
+    probe.requires = raw.get("requires").cloned();
+    let refusal = probe.validate().err()?;
+    Some(
+        format!("{refusal:#}")
+            .replace("this version of Astra", "this version of the CLI")
+            .replace("Update Astra to", "Update the CLI to"),
+    )
+}
+
+/// [`reserved_key_refusal`] as the error a command returns. Exit 1, not 2: the
+/// answer is "this manifest is refused", and this tool did answer.
+pub(crate) fn refuse_reserved_keys(content: &str) -> Result<()> {
+    match reserved_key_refusal(content) {
+        Some(why) => Err(Rejected::err(why)),
+        None => Ok(()),
+    }
+}
+
 /// Parse `plugin.toml` with **the daemon's own parser**, and run the daemon's
 /// own `validate()` over the result.
 ///
@@ -417,6 +484,9 @@ struct RegistryFinding {
 /// read from the raw TOML first, so the message names the replacement.
 fn parse_manifest(content: &str, report: &mut Report) -> Result<PluginManifest> {
     let raw: toml::Value = toml::from_str(content).context("Failed to parse plugin.toml")?;
+    // The reserved top-level keys before anything else, in the daemon's order:
+    // an item with no `[plugin]` must hear "update", not "Failed to parse".
+    refuse_reserved_keys(content)?;
     if let Some(table) = raw.get("capabilities").and_then(|v| v.as_table()) {
         let unknown: Vec<&String> = table
             .keys()
@@ -1995,5 +2065,189 @@ label = "Sink"
              A bundle is sideloaded, handed to a colleague and installed inside companies that \
              have never heard of the catalogue."
         );
+    }
+
+    // ── the reserved top-level keys, `kind` and `requires` ─────────────────
+
+    use super::reserved_key_fixtures::{
+        FUTURE_ITEM, KIND_REFUSAL, REQUIRES_REFUSAL, dir_with, plugin_with,
+    };
+
+    /// `check`'s answer for a manifest the reserved keys refuse: an error, the
+    /// sentence, exit 1. Anything else — a `Verdict`, exit 2 — is a test failure
+    /// that says what came back instead.
+    fn check_refusal(tag: &str, manifest: &str) -> String {
+        let dir = dir_with(tag, manifest);
+        let got = run_full(CheckOptions {
+            path: &dir.to_string_lossy(),
+            strict: false,
+            fix: false,
+            resolve_pin: false,
+            gate: Gate::Check,
+            tag: None,
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+        match got {
+            Ok(verdict) => panic!(
+                "`check` answered {verdict:?} for a manifest the reserved keys refuse; it must \
+                 stop with the sentence:\n{manifest}"
+            ),
+            Err(e) => {
+                assert_eq!(
+                    crate::output::code_for(&e),
+                    1,
+                    "exit 2 says this tool could not answer; it did answer: {e:#}"
+                );
+                format!("{e:#}")
+            }
+        }
+    }
+
+    /// **Another kind is refused, in this tool's voice.** Before 3.14.0 the key
+    /// was an unknown top-level key, kept and ignored, and `check` passed a game
+    /// integration as a plugin. `validate` is `check`'s clap alias, so this is
+    /// both.
+    #[test]
+    fn check_refuses_another_kind_with_the_crates_sentence() {
+        let why = check_refusal("check-kind", &plugin_with("kind = \"game-integration\""));
+        assert_eq!(why, KIND_REFUSAL);
+    }
+
+    /// **A future item gets the sentence, not a parse error.** It has no
+    /// `[plugin]`, so the struct cannot deserialize; "Failed to parse
+    /// plugin.toml" would send its author looking for a typo that is not there.
+    #[test]
+    fn check_refuses_a_future_item_for_its_kind_not_its_shape() {
+        let why = check_refusal("check-item", FUTURE_ITEM);
+        assert_eq!(why, KIND_REFUSAL);
+    }
+
+    /// **A dependency list is refused**: no build of this CLI resolves one.
+    #[test]
+    fn check_refuses_a_non_empty_requires() {
+        let why = check_refusal(
+            "check-requires",
+            &plugin_with("requires = [{ id = \"x\", range = \"^1\" }]"),
+        );
+        assert_eq!(why, REQUIRES_REFUSAL);
+    }
+
+    /// The probe is a probe only while every OTHER rule accepts it: then any
+    /// error `validate` returns for it is the reserved-key rule's, and nothing
+    /// else can be mistaken for one.
+    #[test]
+    fn the_reserved_key_probe_passes_every_other_rule() {
+        let probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE).unwrap();
+        probe.validate().expect("the probe must pass every rule validate() has");
+        assert_eq!(reserved_key_refusal(RESERVED_KEY_PROBE), None);
+    }
+
+    /// **The sentence is the crate's, with the subject changed and nothing
+    /// else.** Read off the crate's own `from_str` — the daemon's path — so a
+    /// rewording upstream that this replacement no longer matches fails here,
+    /// instead of reaching an author as "Update Astra".
+    #[test]
+    fn the_refusal_is_the_crates_sentence_with_this_tools_subject() {
+        for (top, ours) in [
+            ("kind = \"game-integration\"", KIND_REFUSAL),
+            ("requires = [{ id = \"x\", range = \"^1\" }]", REQUIRES_REFUSAL),
+        ] {
+            let daemon = format!(
+                "{:#}",
+                PluginManifest::from_str(&plugin_with(top)).expect_err("the crate refuses it")
+            );
+            assert!(daemon.contains("this version of Astra"), "{daemon}");
+            assert_eq!(reserved_key_refusal(&plugin_with(top)).as_deref(), Some(ours));
+            assert_eq!(ours.replace("the CLI", "Astra"), daemon, "only the subject may differ");
+        }
+        // The crate's third sentence names no program, so it passes through as is.
+        assert_eq!(
+            reserved_key_refusal(&plugin_with("kind = 5")).as_deref(),
+            Some("`kind` must be a string such as \"plugin\", not integer")
+        );
+        // The crate's own edges: a blank `requires` string is empty, and a
+        // `kind` inside `[plugin]` is not a top-level key at all.
+        assert_eq!(reserved_key_refusal(&plugin_with("requires = \"  \"")), None);
+        assert_eq!(
+            reserved_key_refusal(&plugin_with("").replace("[plugin]\n", "[plugin]\nkind = \"x\"\n")),
+            None
+        );
+    }
+
+    /// **What every plugin today is still passes**: no `kind`, `kind =
+    /// "plugin"`, and each empty spelling of `requires`. Through `errors_only`
+    /// (what `build` calls) and `check` both.
+    #[test]
+    fn check_passes_kind_plugin_absent_kind_and_an_empty_requires() {
+        for top in [
+            "",
+            "kind = \"plugin\"",
+            "requires = []",
+            "requires = {}",
+            "requires = \"\"",
+            "kind = \"plugin\"\nrequires = []",
+        ] {
+            let dir = dir_with("check-pass", &plugin_with(top));
+            assert_eq!(
+                errors_only(&dir).expect("errors_only ran"),
+                Vec::<String>::new(),
+                "{top:?} is a plugin as every plugin today is one"
+            );
+            assert_eq!(check_verdict(&dir, false, Gate::Check), Verdict::Pass, "{top:?}");
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+}
+
+/// What the reserved-key tests across the CLI share: the two sentences in this
+/// tool's voice, and the manifests that must and must not produce them.
+#[cfg(test)]
+pub(crate) mod reserved_key_fixtures {
+    use std::path::PathBuf;
+
+    /// The crate's `kind` sentence with the subject changed and nothing else.
+    /// Exact on purpose: a `contains("game-integration")` would stay green if
+    /// the crate reworded its sentence and this CLI went back to telling an
+    /// author to update Astra, which is not the program refusing them.
+    pub const KIND_REFUSAL: &str = "this item is a game-integration; this version of the CLI \
+                                    installs plugins only. Update the CLI to install it.";
+
+    /// The crate's `requires` sentence, likewise.
+    pub const REQUIRES_REFUSAL: &str = "this item requires other items, and this version of the \
+                                        CLI cannot install dependencies. Update the CLI to \
+                                        install it.";
+
+    /// A plugin `build` packs cleanly (no language, so no build step; its entry
+    /// file exists), with `top` written before the first table — where a
+    /// top-level key has to go.
+    pub fn plugin_with(top: &str) -> String {
+        format!(
+            "{top}\n[plugin]\nid = \"chess\"\nname = \"Chess\"\nversion = \"0.1.0\"\n\
+             description = \"Plays chess against a local bot\"\n\n\
+             [entry]\ncommand = \"./chess\"\n\n[capabilities]\ntools = true\n"
+        )
+    }
+
+    /// A future item that is not a plugin at all: the game integration's own
+    /// `astra-item.toml` (astra-bepinex `docs/GAME-INTEGRATIONS.md` §4, the
+    /// manifest crate's test of the same name). No `[plugin]`, no `[entry]`, so
+    /// nothing that reads it as a plugin gets as far as a plugin's rules.
+    pub const FUTURE_ITEM: &str = "id = \"astra.peak\"\nkind = \"game-integration\"\n\
+                                   version = \"1.0.0\"\n\
+                                   requires = [{ id = \"astra.unity-foundation\", range = \">=1.2, <2\" }]\n\
+                                   [target]\nruntime = \"unity-mono\"\nloader = \"bepinex5\"\n";
+
+    /// A fresh directory holding `manifest` as `plugin.toml`, plus the entry
+    /// file `plugin_with` names.
+    pub fn dir_with(tag: &str, manifest: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "astra-reserved-key-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("plugin.toml"), manifest).unwrap();
+        std::fs::write(dir.join("chess"), b"#!/bin/sh\nexit 0\n").unwrap();
+        dir
     }
 }

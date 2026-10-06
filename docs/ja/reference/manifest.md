@@ -35,6 +35,32 @@ Astra のコピーとバイト同一に保たれています — から生成さ
 セクションはリリースを重ねるごとに追加されており、古いデーモンはそれを
 スキップできなければなりません。`[capabilities]` だけが唯一の例外であり、
 その理由は下記のとおりです。
+未知のトップレベルキーも保持されます。ただし、2 つの[予約済み](#予約済みのトップレベルキー)キーは例外です。
+
+## 予約済みのトップレベルキー
+
+すべてのテーブルより上に置かれるキーが 2 つあり、どちらも**予約済み**です。現在のプラグインはこれらを書かないか、すでにそうであるものを書きます。それ以外の値はすべて拒否されます。
+
+| キー | 現在受け付けられるもの | それ以外を拒否するときのメッセージ |
+|---|---|---|
+| `kind` | 書かない、または `"plugin"` | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `requires` | 書かない、`[]`、`{}`、または `""` のような空白の文字列 | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+
+文字列でない `kind` も拒否されます: `kind` must be a string such as "plugin", not &lt;type&gt;.
+
+**`kind`.** **予約済み、フェイルクローズ: これがどの種類のマーケットプレイス項目か。** 書かないか `"plugin"`。
+
+マーケットプレイスは他の種類（ゲーム連携、ライブラリ、キャラクター、アニメーションパック — `MARKETPLACE_PLAN.md`）も扱うようになり、それぞれが独自のインストーラーを持ちます。この構造体の残りの部分は未知のキーに対して意図的に寛容なので、これがなければ、種類の概念より前のビルドはゲーム連携の `kind = "game-integration"` をノイズとして読み、プラグインとしてインストールしてしまいます。[`check_reserved_keys`] は代わりにそれを拒否し、人が行動できる文を示します。
+
+**`requires`.** **予約済み、フェイルクローズ: この項目が必要とする他の項目** (`[{ id, range }]`)。書かないか空。
+
+このビルドにはリゾルバーが存在しないため、それを必要とする項目は正しくインストールできません: 依存関係なしにインストールすると、成功したように「見える」壊れたインストールになります。
+
+**将来の項目の種類は告知されます。** Astra と `astra-plugin` のリリースがそれを受け付けるまで、他の値に出会ったツールはそれをノイズとして読むのではなく拒否します。このマニフェストはそれ以外の場所では知らないキーを保持するので、このルールのない読み手は将来のゲーム連携をプラグインとしてインストールし、必要な項目のない項目をインストールしてしまいます。デーモンはインストール時に拒否します。`astra-plugin check`、`build`、`publish`、`dev`、`test` は同じ文を "this version of the CLI" として述べて拒否し、`doctor` はそれを報告します。`astra-plugin new` はどちらのキーも書きません。
+
+**`check_reserved_keys`.** 2 つの予約済みトップレベルキーを、マニフェストが読まれるあらゆる場所で同じように判定します: [`PluginManifest::from_str`] では生のドキュメントから（将来のマニフェストの残りがプラグインのものとしてパースできない場合でも拒否が優先されるように）、[`PluginManifest::validate`] ではパース済みの構造体から（直接デシリアライズする呼び出し元も対象になるように）。
+
+`kind` がないか `"plugin"` なら通過し、他の種類は拒否されます。`requires` がない、空のリスト、空のテーブル、空の文字列なら通過し、それ以外は拒否されます。
 
 ## `[plugin]`
 
@@ -345,9 +371,13 @@ plugin.toml で宣言される UI コントリビューションの定義。
 になります — `<plugins_dir>/<id>/`、これは作成され、後で
 `remove_dir_all` されます — そのため、文字集合ルールを言い換えることは
 このページが進んでやることではありません。
+最初の 3 つは予約済みキーで、そのルールは `match` であるため言葉で記述しています。これらは他のどの行よりも先に検査されます。
 
 | マニフェストが拒否される条件 | メッセージ |
 |---|---|
+| `kind` が `"plugin"` 以外の文字列 ([予約済み](#予約済みのトップレベルキー)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `kind` が文字列でない ([予約済み](#予約済みのトップレベルキー)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
+| `requires` が空でない ([予約済み](#予約済みのトップレベルキー)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

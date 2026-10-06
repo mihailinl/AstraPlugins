@@ -32,6 +32,32 @@
 一个这个 Astra 不认识的段会被**保留，而不是拒绝**——各个段是随发布
 版本陆续加入的，一个更旧的守护进程必须能够跳过其中之一。
 `[capabilities]` 是唯一的例外，原因见下文。
+未知的顶层键同样会被保留，只有两个[保留](#保留的顶层键)键除外。
+
+## 保留的顶层键
+
+有两个键位于所有表之上，二者都是**保留的**。如今的插件不写它们，或者只写它本来就是的东西；任何其他值都会被拒绝。
+
+| 键 | 如今接受的值 | 其他任何值被拒绝时的消息 |
+|---|---|---|
+| `kind` | 不写，或 `"plugin"` | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `requires` | 不写、`[]`、`{}`，或像 `""` 这样的空白字符串 | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+
+不是字符串的 `kind` 同样会被拒绝：`kind` must be a string such as "plugin", not &lt;type&gt;.
+
+**`kind`.** **保留、失败即关闭：这是哪一种市场条目。** 不写或 `"plugin"`。
+
+市场将承载其他种类（游戏集成、库、角色、动画包 —— `MARKETPLACE_PLAN.md`），每种都有自己的安装器。这个结构体的其余部分对未知键是刻意宽容的，所以没有这一条，一个早于“种类”概念的构建会把游戏集成的 `kind = "game-integration"` 当作噪声读过，并把它当作插件安装。[`check_reserved_keys`] 转而拒绝它，并给出一句人能据以行动的话。
+
+**`requires`.** **保留、失败即关闭：这个条目需要的其他条目**（`[{ id, range }]`）。不写或为空。
+
+这个构建中没有解析器，所以需要解析器的条目无法被正确安装：在缺少其依赖的情况下安装它，是一次“看起来”成功的损坏安装。
+
+**未来的条目种类会另行公告。** 在 Astra 和 `astra-plugin` 的某个版本接受它之前，遇到任何其他值的工具都会拒绝它，而不是把它当作噪声读过。这个清单文件在其他地方都会保留它不认识的键，所以没有这条规则的读取方会把未来的游戏集成当作插件安装，并安装一个缺少其所需条目的条目。守护进程在安装时拒绝。`astra-plugin check`、`build`、`publish`、`dev` 和 `test` 用同一句话拒绝，说成 "this version of the CLI"，`doctor` 会报告它。`astra-plugin new` 从不写这两个键中的任何一个。
+
+**`check_reserved_keys`.** 这两个保留的顶层键，在任何读取清单文件的地方都以同样方式判定：在 [`PluginManifest::from_str`] 中从原始文档判定（这样即便未来清单的其余部分无法按插件清单解析，拒绝也会优先），在 [`PluginManifest::validate`] 中从已解析的结构体判定（这样直接反序列化的调用方也受约束）。
+
+不写 `kind` 或写 `"plugin"` 会通过；任何其他种类都会被拒绝。不写 `requires`、空列表、空表或空字符串会通过；其他任何值都会被拒绝。
 
 ## `[plugin]`
 
@@ -321,9 +347,13 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 条件就是 Rust 表达式本身：`plugin.id` 会成为路径的一部分 ——
 `<plugins_dir>/<id>/`，被创建，之后又会被 `remove_dir_all` —— 所以
 改写字符集规则不是这一页愿意做的事。
+前三行是保留键，它们的规则是一个 `match`，因此用文字表述；它们先于其他任何一行被检查。
 
 | 清单文件在以下条件下被拒绝 | 消息 |
 |---|---|
+| `kind` 是 `"plugin"` 以外的字符串（[保留](#保留的顶层键)） | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
+| `kind` 不是字符串（[保留](#保留的顶层键)） | `kind` must be a string such as "plugin", not &lt;type&gt; |
+| `requires` 不为空（[保留](#保留的顶层键)） | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

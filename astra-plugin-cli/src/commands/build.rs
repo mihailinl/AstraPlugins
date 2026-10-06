@@ -99,6 +99,9 @@ pub struct BuildOptions<'a> {
 /// foreign bundle. It builds what is there and names what is missing.
 pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
     let dir = Path::new(opts.path).canonicalize().context("Invalid path")?;
+    // Once, before the loop: per target it would land in `skipped` and come
+    // out as "2 of 2 targets could not be built", exit 2.
+    refuse_reserved_keys(&dir)?;
     let language = detect_language(&dir);
 
     if matches!(language.as_str(), "typescript" | "ts" | "python" | "py") {
@@ -150,6 +153,21 @@ pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
     Ok(())
 }
 
+/// The reserved top-level keys (`validate::reserved_key_refusal`), as `build`
+/// refuses: before anything is built or written, exit 1. A manifest that cannot
+/// be read is left to the caller, which says so in its own words.
+fn refuse_reserved_keys(dir: &Path) -> Result<()> {
+    let Ok(text) = fs::read_to_string(dir.join("plugin.toml")) else {
+        return Ok(());
+    };
+    match crate::commands::validate::reserved_key_refusal(&text) {
+        Some(why) => Err(crate::output::Rejected::err(format!(
+            "refusing to pack: {why} Nothing was written."
+        ))),
+        None => Ok(()),
+    }
+}
+
 pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     let dir = Path::new(opts.path)
         .canonicalize()
@@ -159,6 +177,10 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     if !manifest_path.exists() {
         anyhow::bail!("No plugin.toml found at {}", manifest_path.display());
     }
+
+    // Before `plugin.id` is looked for: an item that is not a plugin has none,
+    // and "plugin.id not found" would tell its author nothing.
+    refuse_reserved_keys(&dir)?;
 
     let manifest_str = fs::read_to_string(&manifest_path)?;
     let manifest: toml::Value = toml::from_str(&manifest_str)?;
@@ -1774,5 +1796,86 @@ actions = true
             "the oversized icon was left out of the bundle; the registry decides what to drop"
         );
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ── the reserved top-level keys, `kind` and `requires` ─────────────────
+
+    use crate::commands::validate::reserved_key_fixtures::{
+        FUTURE_ITEM, KIND_REFUSAL, REQUIRES_REFUSAL, dir_with, plugin_with,
+    };
+
+    /// `build` over `manifest`, packed to `out.astraplugin` in its directory:
+    /// the error and whether anything was written.
+    fn pack(tag: &str, manifest: &str) -> (Result<()>, bool) {
+        let dir = dir_with(tag, manifest);
+        let out = dir.join("out.astraplugin");
+        let got = run(BuildOptions {
+            path: dir.to_str().unwrap(),
+            output: Some(out.to_str().unwrap()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        });
+        let written = out.exists();
+        let _ = fs::remove_dir_all(&dir);
+        (got, written)
+    }
+
+    fn pack_refusal(tag: &str, manifest: &str) -> String {
+        let (got, written) = pack(tag, manifest);
+        let err = got.expect_err("the reserved keys refuse this manifest; it must not pack");
+        let msg = format!("{err:#}");
+        assert_eq!(crate::output::code_for(&err), 1, "a refusal is exit 1, not 2: {msg}");
+        assert!(!written, "`Nothing was written` has to be true: {msg}");
+        msg
+    }
+
+    /// **`build` (the pack step) refuses another kind with the sentence.** It
+    /// read the manifest as a `toml::Value` and asked `check` for errors only
+    /// after `plugin.id` — so it packed a game integration as a plugin, and an
+    /// item with no `[plugin]` failed as "plugin.id not found", exit 2.
+    #[test]
+    fn build_refuses_another_kind_and_writes_nothing() {
+        let msg = pack_refusal("build-kind", &plugin_with("kind = \"game-integration\""));
+        assert!(msg.contains(KIND_REFUSAL), "{msg}");
+        let msg = pack_refusal("build-item", FUTURE_ITEM);
+        assert!(msg.contains(KIND_REFUSAL), "{msg}");
+        assert!(!msg.contains("plugin.id not found"), "{msg}");
+
+        // `--all-targets` refuses once, as exit 1, and not as two skipped
+        // targets and "could not be built", which is exit 2.
+        let dir = dir_with("build-all", &plugin_with("kind = \"game-integration\""));
+        let err = run_all_targets(BuildOptions {
+            path: dir.to_str().unwrap(),
+            output: None,
+            target: None,
+            reproducible: true,
+            no_sign: false,
+        })
+        .expect_err("--all-targets must refuse it too");
+        let _ = fs::remove_dir_all(&dir);
+        let msg = format!("{err:#}");
+        assert!(msg.contains(KIND_REFUSAL), "{msg}");
+        assert_eq!(crate::output::code_for(&err), 1, "{msg}");
+    }
+
+    #[test]
+    fn build_refuses_a_non_empty_requires_and_writes_nothing() {
+        let msg = pack_refusal(
+            "build-requires",
+            &plugin_with("requires = [{ id = \"x\", range = \"^1\" }]"),
+        );
+        assert!(msg.contains(REQUIRES_REFUSAL), "{msg}");
+    }
+
+    /// The control, without which the refusals above prove nothing: the same
+    /// plugin packs with no `kind`, and with `kind = "plugin"`.
+    #[test]
+    fn build_packs_kind_plugin_and_absent_kind() {
+        for top in ["", "kind = \"plugin\"", "requires = []"] {
+            let (got, written) = pack("build-pass", &plugin_with(top));
+            got.unwrap_or_else(|e| panic!("{top:?} must pack: {e:#}"));
+            assert!(written, "{top:?} packed and wrote nothing");
+        }
     }
 }

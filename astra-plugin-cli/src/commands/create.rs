@@ -290,6 +290,32 @@ fn generate_typescript_project(out_path: &Path, name: &str, capabilities: &[&str
 mod tests {
     use super::*;
 
+    /// **No scaffold writes `kind` or `requires`.** Both are reserved top-level
+    /// keys (contract 3.14.0) that every reader refuses unless they are absent,
+    /// `"plugin"` or empty; a scaffold that wrote one would start every new
+    /// plugin one edit away from being refused as a different kind of item.
+    /// Asked of the raw TOML and of the daemon's own `from_str`, for every
+    /// template in every language — `generate_manifest` is the one writer.
+    #[test]
+    fn no_scaffold_writes_a_reserved_top_level_key() {
+        for (template, caps) in TEMPLATE_CAPABILITIES {
+            let caps = manifest_capabilities(caps);
+            for lang in ["rust", "python", "typescript"] {
+                let text = crate::templates::generate_manifest("demo", lang, &caps);
+                let raw: toml::Table = text.parse().expect("the scaffold is TOML");
+                for key in ["kind", "requires"] {
+                    assert!(
+                        !raw.contains_key(key),
+                        "--template {template} --lang {lang} writes the reserved `{key}`:\n{text}"
+                    );
+                }
+                let parsed = astra_plugin_manifest::PluginManifest::from_str(&text)
+                    .unwrap_or_else(|e| panic!("--template {template} --lang {lang}: {e:#}"));
+                assert!(parsed.kind.is_none() && parsed.requires.is_none());
+            }
+        }
+    }
+
     #[test]
     fn every_named_template_has_a_capability_set() {
         for name in TEMPLATE_NAMES {

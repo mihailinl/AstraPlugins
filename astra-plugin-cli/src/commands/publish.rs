@@ -95,6 +95,11 @@ pub fn run(opts: PublishOptions<'_>) -> Result<Option<String>> {
             dir.display()
         );
     }
+    // Before `from_file`, which refuses the same keys in the daemon's voice
+    // ("Update Astra") and as exit 2.
+    if let Ok(text) = std::fs::read_to_string(&manifest_path) {
+        crate::commands::validate::refuse_reserved_keys(&text)?;
+    }
     let manifest = PluginManifest::from_file(&manifest_path)?;
     let id = manifest.plugin.id.clone();
     let version = manifest.plugin.version.clone();
@@ -588,5 +593,48 @@ mod tests {
         assert_eq!(encode("[listing] you/thing"), "%5Blisting%5D+you%2Fthing");
         assert_eq!(encode("v1.0.0-rc.1+build"), "v1.0.0-rc.1%2Bbuild");
         assert_eq!(encode("plain"), "plain");
+    }
+
+    // ── the reserved top-level keys, `kind` and `requires` ─────────────────
+
+    use crate::commands::validate::reserved_key_fixtures::{
+        FUTURE_ITEM, KIND_REFUSAL, REQUIRES_REFUSAL, dir_with, plugin_with,
+    };
+
+    fn publish_refusal(tag: &str, manifest: &str) -> String {
+        let dir = dir_with(tag, manifest);
+        let got = run(PublishOptions {
+            path: dir.to_str().unwrap(),
+            repo: Some("you/chess"),
+            tag: Some("v0.1.0"),
+            dry_run: true,
+            notify: false,
+            print_url: true,
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+        let err = got.expect_err("the reserved keys refuse this manifest; publish must stop");
+        let msg = format!("{err:#}");
+        assert_eq!(crate::output::code_for(&err), 1, "a refusal is exit 1, not 2: {msg}");
+        msg
+    }
+
+    /// **`publish` refuses with the sentence, in this tool's voice.** It read
+    /// the manifest with the crate's `from_file`, whose sentence says "this
+    /// version of Astra" — wrong about which program is refusing — and exited 2,
+    /// which says the tool could not answer.
+    #[test]
+    fn publish_refuses_another_kind_and_a_non_empty_requires() {
+        assert_eq!(
+            publish_refusal("publish-kind", &plugin_with("kind = \"game-integration\"")),
+            KIND_REFUSAL
+        );
+        assert_eq!(publish_refusal("publish-item", FUTURE_ITEM), KIND_REFUSAL);
+        assert_eq!(
+            publish_refusal(
+                "publish-requires",
+                &plugin_with("requires = [{ id = \"x\", range = \"^1\" }]")
+            ),
+            REQUIRES_REFUSAL
+        );
     }
 }

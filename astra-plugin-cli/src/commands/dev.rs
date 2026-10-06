@@ -41,6 +41,8 @@ pub async fn run(path: &str, daemon_addr: Option<&str>, standalone: bool) -> Res
     }
 
     let manifest_str = std::fs::read_to_string(&manifest_path)?;
+    // Before `plugin.id`, which an item that is not a plugin does not have.
+    crate::commands::validate::refuse_reserved_keys(&manifest_str)?;
     let manifest: toml::Value = toml::from_str(&manifest_str)?;
 
     let plugin_id = manifest
@@ -351,4 +353,30 @@ fn start_plugin(
         .stderr(Stdio::inherit())
         .spawn()
         .with_context(|| format!("Failed to start '{}'", program.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::validate::reserved_key_fixtures::{
+        FUTURE_ITEM, KIND_REFUSAL, dir_with, plugin_with,
+    };
+
+    /// **`dev` refuses another kind before it builds or asks the daemon
+    /// anything.** An item with no `[plugin]` used to stop at "plugin.id not
+    /// found", which tells its author nothing they can act on.
+    #[tokio::test]
+    async fn dev_refuses_another_kind_before_touching_the_daemon() {
+        for (tag, manifest) in [
+            ("dev-kind", plugin_with("kind = \"game-integration\"")),
+            ("dev-item", FUTURE_ITEM.to_string()),
+        ] {
+            let dir = dir_with(tag, &manifest);
+            let got = run(dir.to_str().unwrap(), Some("127.0.0.1:9"), false).await;
+            let _ = std::fs::remove_dir_all(&dir);
+            let err = got.expect_err("the reserved keys refuse this manifest; dev must stop");
+            assert_eq!(format!("{err:#}"), KIND_REFUSAL, "{tag}");
+            assert_eq!(crate::output::code_for(&err), 1, "{tag}: {err:#}");
+        }
+    }
 }
