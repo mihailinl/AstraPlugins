@@ -26,9 +26,56 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
-## [Unreleased]
+## [0.5.0] — unreleased
+
+Release B of the registry's cutover: `publish` opens the panel for everybody.
+
+**0.5.0, because a behaviour is removed.** The registry closed its issue
+channel at the cutover — no listing form, no release ping, no `/recheck` — so
+`publish` no longer builds a GitHub issue link for anyone. A script that parsed
+the URL `publish --print-url` printed gets a different one. Per
+[`docs/en/versioning.md`](../docs/en/versioning.md)'s 0.x reading, that is the
+minor slot.
+
+### Added
+
+Landed on master between `cli-v0.4.0` and this release, and shipped by it:
+
+- **The `wakeword` capability.** `astra-plugin new --caps wakeword` and the
+  vendored manifest crate accept it, and `astra-plugin test` probes the
+  wake-word protocol's three `CallFromUi` methods — `status`, `reset-audio`,
+  `process-audio` — for the shapes `docs/en/wakeword-plugins.md` names.
+- **`build` warns when the icon is over the registry's cap**,
+  `max_icon_bytes` (8,192 bytes, `spec/listing-limits.yaml`). It measures the
+  icon the registry picks, the first of the accepted names present. A warning,
+  never a refusal: over the cap the registry drops the icon
+  (`W_ICON_DROPPED`) and lists the release anyway.
+- **Kazakh (`kk`)** is a language a plugin may ship, because Astra main
+  accepts it: `astra-plugin locale add kk` no longer refuses it.
 
 ### Changed
+
+- **`astra-plugin publish` opens the panel's submission page for every
+  repository** (FLOW-45), `https://astra.minice.ai/plugins/_/submit?repo=<owner>/<name>&tag=<tag>`,
+  with the repository and the tag filled in. The page submits nothing until
+  the author does, signed in. A repository whose owner file at `HEAD` carries
+  no binding line is told first that the registry refuses its first listing
+  `B_UNBOUND`, and how to bind.
+- **`--notify` is a stub for this one minor release** (FLOW-47). It prints
+  that the registry detects a new tag by itself, then opens the same page. The
+  next minor removes it.
+- `publish --dry-run` no longer lists the owner-file login check: it belonged
+  to the issue form, which is gone. The binding verdict, eligibility, the ids
+  against the identity record and the workflow allowlist stay (FLOW-48).
+- The ping text's "within minutes" is gone with the ping (ROLL-47 C4): nothing
+  promises how soon the registry's poll notices a tag.
+- **`publish --dry-run`'s last paragraph says what the registry does with a
+  release that passes** (contract 3.0.0, DEC-19): it publishes at once, marked
+  as not reviewed by Astra moderators, and only a change of hands on a listing
+  that already exists waits for a moderator. It used to say "published now,
+  delayed 24 hours, or held for a person". `docs/*/publishing.md` quotes the
+  section as a transcript, and `the_documented_dry_run_is_what_this_prints`
+  holds the English copy to what this binary prints.
 - **The manifest's top-level `kind` and `requires` are reserved, and every
   command that reads a manifest as a plugin refuses another value** (contract
   3.14.0; the vendored `astra-plugin-manifest` is synced to Astra `0ba3949d`).
@@ -58,6 +105,19 @@ reads to find out how to get the tool.
   the line is still recognised. The versions and the releases that write them
   are listed in `spec/init-ci-templates.yaml`, which mirrors astra-registry's
   token file, and C33 holds the list to both.
+- **The first CLI release that can reach crates.io.** It depends on the
+  vendored `astra-plugin-manifest` with a `version` beside its `path`, and
+  `release-cli.yml` uploads that crate first, then this one, once crates.io
+  holds the `astra-plugin-sdk` it requires (`sdk-v0.7.2`). `cli-v0.2.1` to
+  `cli-v0.4.0` shipped binaries only: their crates.io job refused the
+  path-only dependency every time. C37 (`tools/check-crates-publish.py`) now
+  dry-runs the whole chain on every pull request.
+
+### Removed
+
+- `REGISTRY_REPO`, `LISTING_TEMPLATE`, `RELEASE_PING_TEMPLATE` and
+  `release_ping_command` in `commands/publish.rs`, and the percent-encoder only
+  they used. The panel link is built from `src/panel.yaml` (`panel.rs`).
 
 ## [0.4.0] — unreleased
 

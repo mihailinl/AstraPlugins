@@ -42,7 +42,6 @@ astra-plugin publish --dry-run
   · the binding verdict: that the token on the binding line at the tagged commit is bound to a Minice account (B_BINDING_UNUSABLE)
   · eligibility: that the account behind the token may publish (B_ACCOUNT_INELIGIBLE)
   · the ids against the identity record: that the repository and its owner are the ones this listing is recorded under (B_OWNER_CHANGED, B_REPOSITORY_RECYCLED)
-  · for a request through the issue form, until the registry's cutover: that `.well-known/astra-plugin-owner` on your default branch names the account opening it
   · that the id and display name do not collide with a listed plugin
   · that the licence is on the registry's SPDX allowlist
   · that the version is strictly newer than the listed one
