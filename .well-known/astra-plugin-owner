@@ -1,13 +1,15 @@
-# Who may ask the Astra registry to list a plugin out of this repository.
+# Who may publish the Astra plugins in this repository.
 #
-# The registry reads this file over GitHub's public contents API, on the
-# default branch, at the moment it checks — so being able to write it here is
-# the proof. It says nothing about the code, and it is not a signature.
+# From the registry's cutover, a listing belongs to a Minice account, and this
+# file is where the repository says which one: a line `astra-binding: <token>`,
+# the first line, written by `astra-plugin init-ci --binding <token>` from a
+# token the account minted in the panel. The registry reads it at each release's
+# tagged commit, never from the default branch alone, and it covers every plugin
+# in the repository. The token is public and authenticates no release: never
+# merge a binding line you did not mint yourself.
 #
-# Removing a login stops that account opening a new listing request or passing
-# a `/recheck`. It does not reach a plugin that is already listed: every
-# release after the first is proved against the account that published it.
+# The login below is what the registry read before the cutover. It is ignored
+# now and harmless; `init-ci --binding` keeps it.
 #
-# One login per line. See docs/en/5-publish/get-listed.md § "Prove you control
-# the repository".
+# See docs/en/5-publish/get-listed.md § "Bind your repository".
 mihailinl

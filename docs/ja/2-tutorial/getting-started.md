@@ -470,21 +470,20 @@ SHA でピン留めされた `.github/workflows/release.yml` を書き出しま�
 なります。
 
 **その提出の前にやっておくべきこと**があります — これが欠けていると、
-正しいプラグインでも拒否される唯一のステップです: あなたの GitHub ログイン
-を含む `.well-known/astra-plugin-owner` を、リポジトリのデフォルトブランチ
-にコミットしてください。これが、あなたが掲載しようとしているリポジトリを
-制御していることをレジストリが確立する方法です — ビルド証明はバンドルが
-どこから来たかを証明しますが、あなたが誰かは証明しません。最初の push と
-一緒に、2 行だけです:
+正しいプラグインでも拒否される唯一のステップです: リポジトリをあなたの Minice
+アカウントにバインドしてください。https://astra.minice.ai/plugins のパネルで
+トークンを発行すれば、1 つのコマンドがそれを `.well-known/astra-plugin-owner`
+に書き込みます。それをデフォルトブランチにコミットします:
 
-<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+<!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
+astra-plugin init-ci --binding <token>
 ```
 
-詳細と、自動チェックがなぜあなたの代わりに答えられないかについては:
-[リストに掲載してもらう §2](../5-publish/get-listed.md#2--リポジトリを制御していることを証明する)。
+これが、あなたが掲載しようとしているリポジトリを代表するのがどのアカウントかを
+レジストリが知る方法です — ビルド証明はバンドルがどこから来たかを証明しますが、
+あなたが誰かは証明しません。詳細:
+[リストに掲載してもらう — リポジトリをバインドする](../5-publish/get-listed.md#リポジトリをバインドする)。
 
 公開が**何ではないか**に注意してください: このリポジトリを GitHub に
 push してもあなたのプラグインは公開されませんし、たった今ビルドした

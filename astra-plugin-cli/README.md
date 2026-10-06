@@ -8,27 +8,53 @@ Repository: <https://github.com/mihailinl/AstraPlugins>
 ## Install
 
 The crate is `astra-plugin-cli`; the binary it installs is **`astra-plugin`**.
+There are three ways to get it.
 
-**There are two ways to get it, and neither is crates.io.** `cli-v0.2.1`
-shipped on 2026-08-15 and carries linux-x64 (musl and gnu) and windows-x64
-archives with a Sigstore attestation — **[Prebuilt
+### From crates.io
+
+```bash
+cargo install astra-plugin-cli --locked
+astra-plugin --version
+```
+
+This builds the newest release on your machine, so it needs what any build of
+this crate needs: Rust **1.85 or newer** (`edition = "2024"`), and `protoc` on
+PATH — the crate depends on `astra-plugin-sdk`, whose `build.rs` compiles
+`proto/plugin.proto` with tonic-build and shells out to a real `protoc`.
+`--locked` builds with the `Cargo.lock` the release was tested with, rather than
+whatever newer dependencies resolve on the day. Unlike a `--git` build (below),
+the version it prints is a release's own number. On macOS and ARM Linux, which
+have no prebuilt archive, this is the shortest way in.
+
+**This works from 0.5.0 on, and through 0.4.0 it never did.** `plugin.toml` is
+parsed by the daemon's own `astra-plugin-manifest`, vendored into
+`vendor/astra-plugin-manifest/` (see
+[below](#where-the-manifest-types-come-from) for why), and this crate named it
+by `path` alone. `cargo publish` refuses that — *all dependencies must have a
+version requirement specified* — so `cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0`
+each released binaries and uploaded nothing to crates.io. The dependency now
+carries a version, `release-cli.yml` uploads the vendored crate first and this
+one after it, and C37 (`tools/check-crates-publish.py`) runs both dry runs on
+every pull request.
+
+### A prebuilt binary
+
+Every `cli-v` release from `cli-v0.2.1` (2026-08-15) on carries linux-x64 (musl
+and gnu) and windows-x64 archives with a Sigstore attestation, and needs no Rust
+toolchain — **[Prebuilt
 binaries](#prebuilt-binaries--from-the-first-cli-v-tag-onward)** below is how to
-take one, and needs no Rust toolchain. Building from source gets you `master`
-instead of the last tag. The crate is still not on crates.io
-(`https://index.crates.io/as/tr/astra-plugin-cli` answered `404` on
-2026-09-24); see below for why, and what changed.
+take one.
 
-Until 2026-08-23 this paragraph said there were no releases and no `cli-v*` tag,
+Until 2026-08-23 this section said there were no releases and no `cli-v*` tag,
 "verified" with a `gh release list` that had printed nothing when it was run.
 `release-cli.yml` landed in `e3bd6c7`, the tag went up 47 minutes later, and the
 sentence was still here eight days on, in the file whose whole job is to say how
 to install the tool.
 
-### From source (the only path that works today)
+### From source
 
-You need Rust **1.85 or newer** (`edition = "2024"`), and `protoc` on PATH — the
-crate depends on `astra-plugin-sdk`, whose `build.rs` compiles
-`proto/plugin.proto` with tonic-build and shells out to a real `protoc`.
+The same Rust and `protoc` as above. This gets you `master` instead of the last
+release.
 
 One line, no clone:
 
@@ -48,27 +74,16 @@ astra-plugin --version
 Both build whatever `master` carries when you run them, so the version they
 print is that commit's, not one you picked — and `master` runs **ahead of the
 last `cli-v` tag**, because the version is bumped on the branch that will
-release it. A source build printing `0.3.0` while the newest release is
-`cli-v0.2.1` is that gap and not a fault. What matters for the `init-ci` bug is
-the fix commit `5b8ab22`: any `master` build has it, and so does every `0.2.1`
-archive. To confirm, run `astra-plugin init-ci` and compare the SHA it pins
-with `git ls-remote https://github.com/mihailinl/AstraPlugins.git
+release it. A source build that printed `0.3.0` while the newest release was
+`cli-v0.2.1` was that gap and not a fault. What matters for the `init-ci` bug is
+the fix commit `5b8ab22`: any `master` build has it, and so does every release
+from `0.2.1` on. To confirm, run `astra-plugin init-ci` and compare the SHA it
+pins with `git ls-remote https://github.com/mihailinl/AstraPlugins.git
 refs/tags/plugin-release/v1 'refs/tags/plugin-release/v1^{}'`, preferring the
 peeled `^{}` line. The bug that broke first releases is dated:
 `plugin-release/v1` was an annotated tag from 2026-08-11 to 2026-08-19 and a CLI
 older than `5b8ab22` pinned its tag object
 `dc1a044876926e9cf1170f034e2eab533ec07641`; the tag is lightweight now.
-
-**`cargo install astra-plugin-cli` works only once the CLI is on crates.io,
-and through 0.4.0 it never was.** `plugin.toml` is parsed by the daemon's own
-`astra-plugin-manifest`, vendored into `vendor/astra-plugin-manifest/` (see
-[below](#where-the-manifest-types-come-from) for why), and this crate named it
-by `path` alone. `cargo publish` refuses that — *all dependencies must have a
-version requirement specified* — so `cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0`
-each released binaries and uploaded nothing to crates.io. The dependency now
-carries a version, `release-cli.yml` uploads the vendored crate first and this
-one after it, and C37 (`tools/check-crates-publish.py`) runs both dry runs on
-every pull request.
 
 ### Prebuilt binaries — from the first `cli-v` tag onward
 
@@ -151,7 +166,7 @@ than a missing feature.
 | `verify <FILE>` | Verify a built bundle and print its digests |
 | `version <VERSION> [PATH]` | Set the version in `plugin.toml` and every other manifest at once. `--allow-downgrade` |
 | `init-ci` | Write `.github/workflows/release.yml`, pinned to a commit of the reusable workflow. Idempotent — re-run it to upgrade the pin, it keeps your inputs |
-| `publish [PATH]` | Preflight a release, or open a prefilled listing request. `--dry-run`, `--notify`, `--repo`, `--print-url` |
+| `publish [PATH]` | Preflight a release, or open the panel's submission page, prefilled. `--dry-run`, `--repo`, `--tag`, `--print-url` |
 | `sign <FILE>` | Append the **retiring** in-ZIP `SIGNATURE`/`PUBKEY` pair. `--key` |
 | `keygen` | Generate the **optional** Ed25519 keypair `sign` uses |
 
@@ -216,21 +231,22 @@ that omits one rather than letting the run fail after the build.
 ## Getting listed
 
 ```bash
-astra-plugin publish --dry-run   # every registry check that can run locally
-astra-plugin publish             # opens a prefilled listing request
-astra-plugin publish --notify    # a release ping for a plugin already listed
+astra-plugin init-ci --binding <token>   # bind the repository to your Minice account
+astra-plugin check --tag v0.1.0          # read the binding line from the tag, as the registry will
+astra-plugin publish --dry-run           # every registry check that can run locally
+astra-plugin publish                     # open the panel's submission page, prefilled
 ```
 
 **This command never uploads a bundle and never holds a credential.** The
 artifacts are GitHub Release assets your CI attached and attested; the registry
 reads them from your repository and verifies every one from scratch. So a
 submission carries only `owner/repo` and a tag — which is exactly why it can be
-a URL you open in a browser you are already signed in to, rather than a token
-this program would have to be trusted with.
+a page you open in a browser you are already signed in to, rather than a token
+this program would have to be trusted with. The binding token is public text in
+a file, not a credential either.
 
-`publish` targets `mihailinl/astra-registry`, which is public and open for
-submissions. (An earlier note here said that repository returned 404. It does
-not — checked with `gh repo view mihailinl/astra-registry`.)
+A new release of a plugin already listed needs nothing from this command: the
+registry detects the tag by itself, and the panel shows its state.
 
 ## About `sign` and `keygen`
 
