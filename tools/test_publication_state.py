@@ -66,6 +66,8 @@ def files() -> list[str]:
         out += [f"docs/{loc}/{p}" for p in cps.SDK_PAGES.values()]
     out += [r[0] for r in cps.PACKAGE_READMES.values()]
     out += list(cps.CLAIM_FILES)
+    out += [r for r in cps.RELEASE_LINK_FILES if (ROOT / r).is_file()]
+    out += [f"docs/{loc}/install-cli.md" for loc in cps.LOCALES]
     return list(dict.fromkeys(out))
 
 
@@ -338,7 +340,68 @@ class C23b(unittest.TestCase):
         self.assertIn(f"FAIL C23b docs/en/4-sdk/python.md says the SDK is published at {ts}", out)
 
 
+def rel_definition(rel: str) -> tuple[str, str]:
+    """The `[rel]: …/releases/tag/<tag>` line in a tree file, and its tag."""
+    import re
+    m = re.search(r"^\[rel\]: https://github\.com/mihailinl/AstraPlugins/releases/tag/(\S+)$",
+                  (ROOT / rel).read_text(encoding="utf-8"), re.M)
+    if not m:
+        raise AssertionError(f"{rel} has no [rel] release definition")
+    return m.group(0), m.group(1)
+
+
+class C23bReleaseLinks(unittest.TestCase):
+    """README said "Release [`cli-v0.2.1`][rel]" and `[rel]` opened cli-v0.3.0 (to 2026-10-05)."""
+
+    def test_the_2026_10_05_readme_is_red(self):
+        """The label names one release, the definition thirty lines below opens another."""
+        line, tag = rel_definition("README.md")
+        with Tree() as t:
+            t.edit("README.md", line, line.replace(tag, "cli-v0.0.1"))
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b README.md's link labelled `{tag}` opens {tag}", out)
+        self.assertIn("it opens cli-v0.0.1", out)
+
+    def test_an_inline_link_in_the_publication_state_row_is_compared_too(self):
+        import re
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        m = re.search(r"\[`(cli-v[0-9.]+)`\]\((https://github\.com/mihailinl/AstraPlugins/releases/tag/cli-v[0-9.]+)\)", text)
+        self.assertIsNotNone(m, "README's CLI row has no inline release link")
+        with Tree() as t:
+            t.edit("README.md", m.group(0), f"[`{m.group(1)}`]({m.group(2).rsplit('/', 1)[0]}/cli-v0.0.1)")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b README.md's link labelled `{m.group(1)}` opens {m.group(1)}", out)
+
+    def test_one_translation_drifting_is_red_naming_it(self):
+        line, tag = rel_definition("docs/ja/install-cli.md")
+        with Tree() as t:
+            t.edit("docs/ja/install-cli.md", line, line.replace(tag, "cli-v0.0.1"))
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b docs/ja/install-cli.md's link labelled `{tag}` opens {tag}", out)
+        self.assertNotIn("FAIL C23b docs/en/install-cli.md", out)
+
+    def test_a_label_whose_definition_is_gone_is_red(self):
+        line, tag = rel_definition("README.md")
+        with Tree() as t:
+            t.edit("README.md", line + "\n", "")
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b README.md's link [`{tag}`][rel] is defined", out)
+
+    def test_the_floor_counts_what_was_compared(self):
+        """A docs tree that lost install-cli.md compares two links, not nine, and says so."""
+        with Tree() as t:
+            for loc in cps.LOCALES:
+                (t.dir / f"docs/{loc}/install-cli.md").unlink()
+            code, out = t.run(None, tree_only=True)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL C23b compared 2 release links (floor {cps.RELEASE_LINK_FLOOR})", out)
+
+
 if __name__ == "__main__":
     result = unittest.main(exit=False, verbosity=2).result
     # No test ran is not a pass.
-    sys.exit(0 if result.wasSuccessful() and result.testsRun >= 19 else 1)
+    sys.exit(0 if result.wasSuccessful() and result.testsRun >= 24 else 1)
