@@ -174,6 +174,62 @@ env:
   PROTOC_VERSION: "27.x"
 
 jobs:
+  ui-kit-scaffolds:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [rust, python, typescript]
+        frontend: [vanilla, react]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.4"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - run: cargo install --path astra-plugin-cli --locked
+      - name: Scaffold and build every backend/frontend pair
+        shell: bash
+        env:
+          BACKEND: ${{ matrix.backend }}
+          FRONTEND: ${{ matrix.frontend }}
+        run: |
+          set -euo pipefail
+          astra-plugin new kit-demo --template ui --lang "$BACKEND" --ui "$FRONTEND"
+          case "$BACKEND" in
+            rust) printf '\n[patch.crates-io]\nastra-plugin-sdk = { path = "../astra-plugin-sdk" }\n' >> kit-demo/Cargo.toml ;;
+            python) python3 -m venv kit-demo/.venv; source kit-demo/.venv/bin/activate; pip install ./astra-plugin-sdk-python ;;
+            typescript) (cd astra-plugin-sdk-ts && bun install --frozen-lockfile && bun run build); node -e 'const fs=require("fs"),p="kit-demo/package.json",j=JSON.parse(fs.readFileSync(p));j.dependencies["astra-plugin-sdk"]="file:../astra-plugin-sdk-ts";fs.writeFileSync(p,JSON.stringify(j,null,2));'; (cd kit-demo && bun install && bun install --frozen-lockfile) ;;
+          esac
+          if [ "$FRONTEND" = react ]; then (cd kit-demo/frontend && bun install --frozen-lockfile); fi
+          (cd kit-demo && astra-plugin build . --no-sign --reproducible)
+          first=$(sha256sum kit-demo/*.astraplugin | cut -d' ' -f1)
+          (cd kit-demo && astra-plugin build . --no-sign --reproducible)
+          second=$(sha256sum kit-demo/*.astraplugin | cut -d' ' -f1)
+          test "$first" = "$second"
+
+  ui-kit-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.4"
+      - run: node tools/sync-ui-kit.mjs --check
+      - run: node tools/gen-ui-docs.mjs --check
+      - run: bun test tools/ui-kit.test.mjs
+
   # A YAML parser is not a GitHub parser. `yaml.safe_load` accepts every file
   # in this directory, and GitHub rejected one of them at parse time — a
   # zero-second failure with no job to open, no annotation to read, and nothing
@@ -601,6 +657,18 @@ jobs:
       # exists there>` returns the file. That last clause is the one C22's
       # verdict rests on, and `_tag_tree_readable` re-asserts it at the point of
       # use rather than trusting this comment.
+      - uses: oven-sh/setup-bun@v2
+        if: env.MODE == 'full'
+        with:
+          bun-version: "1.3.4"
+      - name: UI Kit snapshot matches explicit checked-out commits
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          (cd _astra/astra-rs/astra-ui && bun install --frozen-lockfile)
+          node tools/sync-ui-kit.mjs --check --astra-dir _astra/astra-rs \
+            --astra-ref "$(git -C _astra rev-parse HEAD)" --plugins-ref "$(git rev-parse HEAD)"
+
       - name: fetch Astra's release tags (C22 reads the newest one)
         if: env.MODE == 'full'
         run: |
@@ -4188,6 +4256,8 @@ jobs:
     name: ci
     if: always()
     needs:
+      - ui-kit-contract
+      - ui-kit-scaffolds
       - proto-vendored
       - proto-upstream
       - sdk-rust

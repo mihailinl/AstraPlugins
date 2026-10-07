@@ -26,6 +26,14 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## 0.5.0 (unreleased)
+
+- Refresh the embedded UI v1 declarations and tokens for Astra's shared Inter typography, glass and motion update; preserve existing menu exit callbacks.
+
+- Add --ui vanilla|react independently of the backend language, using host Astra primitives.
+- Embed authoring-only UI types and adapter; build frontend/ from build and dev.
+- Fix the nonexistent web/index.html scaffold URL; install frozen frontend dependencies in the release build job for every backend.
+
 ## [Unreleased]
 
 ### Changed

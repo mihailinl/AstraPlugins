@@ -4,7 +4,7 @@
        - `astra-plugin --help` and one `--help` per subcommand, executed
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
-     Read from: astra-plugin 0.4.0
+     Read from: astra-plugin 0.5.0
 
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
@@ -12,7 +12,7 @@
 
 # CLI reference
 
-`astra-plugin 0.4.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
+`astra-plugin 0.5.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
 Astra Plugin Development CLI
 
@@ -71,6 +71,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | Programming language (default `rust`) |
 | `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
+| `--ui <UI>` | Frontend independent of the backend language (for UI contributions) (default `vanilla`; one of `vanilla`, `react`) |
 | `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
 | `-o, --output <OUTPUT>` | Output directory (default: ./<name>) |
 

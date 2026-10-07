@@ -106,6 +106,10 @@ enum Commands {
         #[arg(short, long, default_value = "tool", value_parser = commands::create::TEMPLATE_NAMES)]
         template: String,
 
+        /// Frontend independent of the backend language (for UI contributions)
+        #[arg(long, default_value = "vanilla", value_parser = ["vanilla", "react"])]
+        ui: String,
+
         /// Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client,
         /// actions, triggers, ui_contributions, event_handlers, dom_access).
         /// Overrides whatever --template implies.
@@ -501,6 +505,7 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             name,
             lang,
             template,
+            ui,
             capabilities,
             output,
         } => {
@@ -509,6 +514,7 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
                 name: &name,
                 lang: &lang,
                 template: &template,
+                ui: &ui,
                 capabilities: capabilities.as_deref(),
                 out_dir: &out_dir,
             })

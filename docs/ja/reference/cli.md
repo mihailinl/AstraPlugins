@@ -2,7 +2,7 @@
 
 # CLI リファレンス
 
-`astra-plugin 0.4.0`。以下のすべてのフラグはバイナリから読み取られた
+`astra-plugin 0.5.0`。以下のすべてのフラグはバイナリから読み取られた
 ものであるため、このページが存在しないオプションを説明することは
 あり得ません。出典は
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs)
@@ -79,6 +79,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | プログラミング言語(デフォルト `rust`) |
 | `-t, --template <TEMPLATE>` | これがどんな種類のプラグインか。ケーパビリティとサンプルコードを選びます; `--capabilities` はそれが含意するケーパビリティ集合を上書きします(デフォルト `tool`; `tool`、`tts`、`stt`、`stt-streaming`、`ai-provider`、`ui`、`action-trigger`、`client`、`blank` のいずれか) |
+| `--ui <UI>` | バックエンド言語から独立したフロントエンド（既定 `vanilla`; `vanilla`, `react`） |
 | `-c, --capabilities <CAPABILITIES>` | ケーパビリティ(カンマ区切り: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access)。--template が含意するものを上書きします |
 | `-o, --output <OUTPUT>` | 出力ディレクトリ(デフォルト: ./<name>) |
 

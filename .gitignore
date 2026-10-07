@@ -28,3 +28,7 @@ stage/
 # a record of one run, and a stale one in the tree would be a conformance claim
 # nobody re-derived.
 _conformance/
+
+# Private upstream checkout used by full-mode CI. Explicit-ref Kit checks
+# still require every public source file to be clean.
+_astra/

@@ -11,6 +11,8 @@
 
 ## プラグインを書く
 
+[Plugin UI Kit](4-sdk/ui-kit.md)
+
 | | |
 |---|---|
 | [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 11 個のケーパビリティと、あなたが欲しいのはどれか |

@@ -254,6 +254,8 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     let output_path = PathBuf::from(&output_name);
 
     build_for_language(&dir, &language)?;
+    build_frontend(&dir)?;
+    validate_ui_bundle(&dir)?;
 
     let entry_command = manifest
         .get("entry")
@@ -827,7 +829,26 @@ fn ensure_table<'a>(doc: &'a mut toml_edit::DocumentMut, key: &str) -> &'a mut t
 /// use exactly the same command `build` would.
 pub fn build_project(dir: &Path) -> Result<()> {
     let language = detect_language(dir);
-    build_for_language(dir, &language)
+    build_for_language(dir, &language)?;
+    build_frontend(dir)?;
+    validate_ui_bundle(dir)
+}
+
+fn validate_ui_bundle(dir: &Path) -> Result<()> {
+    if !dir.join("frontend/vendor/astra-plugin-ui/contract.json").exists() {return Ok(());}
+    let script=concat!(include_str!("../../resources/ui/verify-bundle.mjs"),"\nverifyUiBundle(process.argv.at(-2),JSON.parse(process.argv.at(-1)));\n");
+    let status=std::process::Command::new("bun").args(["-e",script]).arg(dir.join("ui")).arg(include_str!("../../vendor/astra-plugin-ui/contract.json")).status().context("Failed to validate compiled UI bundle")?;
+    if !status.success(){anyhow::bail!("Compiled UI bundle violates host import contract");}
+    Ok(())
+}
+
+fn build_frontend(dir: &Path) -> Result<()> {
+    let frontend=dir.join("frontend");
+    if !frontend.join("package.json").exists() {return Ok(());}
+    if !crate::toolchain::exists("bun") {anyhow::bail!("React frontend requires Bun. Run bun install --frozen-lockfile in frontend/ first.");}
+    let status=std::process::Command::new("bun").args(["run","build"]).current_dir(frontend).status().context("Failed to build frontend")?;
+    if !status.success() {anyhow::bail!("Frontend build failed");}
+    Ok(())
 }
 
 fn build_for_language(dir: &Path, language: &str) -> Result<()> {

@@ -2,7 +2,7 @@
 
 # Справочник CLI
 
-`astra-plugin 0.4.0`. Каждый флаг ниже прочитан из бинарника, так что эта
+`astra-plugin 0.5.0`. Каждый флаг ниже прочитан из бинарника, так что эта
 страница не может описывать опцию, которой не существует. Источник —
 [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
 
@@ -75,6 +75,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 |---|---|
 | `-l, --lang <LANG>` | Programming language (default `rust`) |
 | `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
+| `--ui <UI>` | Frontend независимо от языка backend (по умолчанию `vanilla`; `vanilla`, `react`) |
 | `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
 | `-o, --output <OUTPUT>` | Output directory (default: ./<name>) |
 

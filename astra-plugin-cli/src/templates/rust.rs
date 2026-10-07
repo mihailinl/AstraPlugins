@@ -320,7 +320,7 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         // anyway would hand a Python author a key nothing in their plugin
         // resolves. Make it `key("ui.main.label")` and add the key when you
         // translate this — Astra resolves it.
-        vec![UiContribution::page("main", "My Plugin", "web/index.html")]
+        vec![UiContribution::page("main", "My Plugin", "index.html")]
     }
 
     /// Called from that iframe by `astra.callBackend("ping", {})`. Push data back

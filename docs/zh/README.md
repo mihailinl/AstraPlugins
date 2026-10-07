@@ -10,6 +10,8 @@ UI，或者作为一个独立的聊天客户端运行。
 
 ## 编写插件
 
+[Plugin UI Kit](4-sdk/ui-kit.md)
+
 | | |
 |---|---|
 | [什么是插件](1-orientation/what-is-a-plugin.md) | 十一种能力(capability),以及你需要哪一种 |

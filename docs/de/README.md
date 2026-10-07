@@ -11,6 +11,8 @@ Es gibt hier zwei Wege, und alles auf dieser Seite gehört zu einem von beiden.
 
 ## Ein Plugin schreiben
 
+[Plugin UI Kit](4-sdk/ui-kit.md)
+
 | | |
 |---|---|
 | [Was ein Plugin ist](1-orientation/what-is-a-plugin.md) | Die elf Fähigkeiten (capabilities), und welche du willst |

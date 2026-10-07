@@ -186,7 +186,8 @@ DOCS = ROOT / "docs"
 #: treated as a locale directory and must be declared — a new non-locale
 #: directory fails this check rather than being waved through, which is the
 #: direction an enumerating check should be wrong in.
-NOT_A_LOCALE = {"tools"}
+# Maintainer architecture issue drafts are not translated documentation locales.
+NOT_A_LOCALE = {"tools", "issues"}
 
 #: The fewest rows `spec/locales.yaml` may contain before this reader concludes
 #: its own parse has broken rather than that the list shrank. Not the real

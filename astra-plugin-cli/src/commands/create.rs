@@ -68,6 +68,7 @@ pub struct NewOptions<'a> {
     pub name: &'a str,
     pub lang: &'a str,
     pub template: &'a str,
+    pub ui: &'a str,
     /// Overrides the template's capability set when present.
     pub capabilities: Option<&'a str>,
     pub out_dir: &'a str,
@@ -116,7 +117,15 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         .with_context(|| format!("Failed to create directory '{}'", opts.out_dir))?;
 
     let manifest_caps = manifest_capabilities(&caps);
-    let manifest = templates::generate_manifest(name, &lang, &manifest_caps);
+    if !["vanilla", "react"].contains(&opts.ui) {anyhow::bail!("Supported frontends: vanilla, react");}
+    let mut manifest = templates::generate_manifest(name, &lang, &manifest_caps);
+    if manifest_caps.contains(&"ui_contributions") {
+        let floor=templates::ui::minimum_version();
+        if manifest.lines().any(|line| line.starts_with("min_astra_version =")) {
+            manifest=manifest.lines().map(|line| if line.starts_with("min_astra_version =") {format!("min_astra_version = \"{floor}\"")} else {line.to_owned()}).collect::<Vec<_>>().join("\n");
+        } else {manifest=manifest.replacen("[plugin]",&format!("[plugin]\nmin_astra_version = \"{floor}\""),1);}
+        templates::ui::generate(out_path,opts.ui)?;
+    }
     fs::write(out_path.join("plugin.toml"), manifest)?;
 
     // No proto is scaffolded: the SDKs own the protocol and ship their own
@@ -130,7 +139,10 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         _ => unreachable!(),
     }
 
-    let readme = templates::generate_readme(name, &lang, &manifest_caps);
+    let mut readme = templates::generate_readme(name, &lang, &manifest_caps);
+    if manifest_caps.contains(&"ui_contributions") {
+        readme.push_str("\n## UI Kit\n\nThe served files live in ui/. Vanilla calls astra.loadUi({apiVersion: 1}), h and mount. React uses the local @astra/plugin-ui authoring package; run bun install --frozen-lockfile in frontend/ before astra-plugin build or dev. The frontend is independent of the backend language. Do not bundle another React runtime.\n");
+    }
     fs::write(out_path.join("README.md"), readme)?;
 
     // Both of these are the plugin's face in the store, and `astra-plugin
@@ -182,6 +194,9 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         "typescript" | "ts" => hprintln!("  npm install"),
         _ => {}
     }
+    if manifest_caps.contains(&"ui_contributions") && opts.ui == "react" {
+        hprintln!("  cd frontend && bun install --frozen-lockfile && cd ..");
+    }
     hprintln!("  astra-plugin test .");
     hprintln!("  astra-plugin dev .");
 
@@ -193,6 +208,7 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
             "path": opts.out_dir,
             "language": lang,
             "template": opts.template,
+            "ui": opts.ui,
             "capabilities": manifest_caps,
         }),
     );
@@ -289,6 +305,25 @@ fn generate_typescript_project(out_path: &Path, name: &str, capabilities: &[&str
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn all_backend_frontend_scaffolds_have_real_ui_assets_and_kit_floor() {
+        for backend in ["rust","python","typescript"] {
+            for frontend in ["vanilla","react"] {
+                let dir=std::env::temp_dir().join(format!("astra-kit-{}-{}-{}",std::process::id(),backend,frontend));
+                let _=fs::remove_dir_all(&dir);
+                run(NewOptions{name:"kit-demo",lang:backend,template:"ui",ui:frontend,capabilities:None,out_dir:dir.to_str().unwrap()}).unwrap();
+                let manifest:toml::Value=toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+                assert_eq!(manifest["plugin"]["min_astra_version"].as_str().unwrap(),templates::ui::minimum_version());
+                assert!(dir.join("ui/index.html").is_file());
+                if frontend=="react" {
+                    assert!(dir.join("frontend/bun.lock").is_file());
+                    assert!(dir.join("frontend/vendor/astra-plugin-ui/index.d.ts").is_file());
+                } else {assert!(!dir.join("frontend/package.json").exists());}
+                fs::remove_dir_all(dir).unwrap();
+            }
+        }
+    }
+
 
     /// **No scaffold writes `kind` or `requires`.** Both are reserved top-level
     /// keys (contract 3.14.0) that every reader refuses unless they are absent,
