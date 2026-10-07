@@ -402,7 +402,7 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      ASTRA_TOOLING_REF: "ec76f77f5e3cbd108070dc42e4eb0c856edbf836"
+      ASTRA_TOOLING_REF: "db77899cd8ac060d7527cf9e84f21256a9c7c139"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
