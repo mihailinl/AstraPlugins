@@ -5,7 +5,8 @@ export interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTex
     value: string;
     onChange: (value: string) => void;
     autoResize?: boolean;
+    autoList?: boolean;
     invalid?: boolean;
     ref?: React.Ref<HTMLTextAreaElement>;
 }
-export declare function Textarea({ value, onChange, autoResize, invalid, rows, className, "aria-invalid": ariaInvalid, ref, ...rest }: TextareaProps): import("react/jsx-runtime").JSX.Element;
+export declare function Textarea({ value, onChange, autoResize, autoList, invalid, rows, className, "aria-invalid": ariaInvalid, ref, onKeyDown, ...rest }: TextareaProps): import("react/jsx-runtime").JSX.Element;

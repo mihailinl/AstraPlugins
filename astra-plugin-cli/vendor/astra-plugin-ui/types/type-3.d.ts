@@ -17,6 +17,7 @@ export interface AnchoredMenuProps {
     side?: "bottom" | "top";
     onDismiss?: () => void;
     onMouseDown?: React.MouseEventHandler<HTMLDivElement>;
+    onExitComplete?: () => void;
     onAnimationEnd?: React.AnimationEventHandler<HTMLDivElement>;
 }
-export declare function AnchoredMenu({ anchorRef, open, children, menuRef, className, role, ariaLabel, maxHeight, matchAnchorWidth, align, side, onDismiss, onMouseDown, onAnimationEnd, }: AnchoredMenuProps): import("react").ReactPortal;
+export declare function AnchoredMenu({ anchorRef, open, children, menuRef, className, role, ariaLabel, maxHeight, matchAnchorWidth, align, side, onDismiss, onMouseDown, onExitComplete, onAnimationEnd, }: AnchoredMenuProps): import("react").ReactPortal;
