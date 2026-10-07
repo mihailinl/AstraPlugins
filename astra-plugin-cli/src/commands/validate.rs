@@ -68,8 +68,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use astra_plugin_manifest::{
-    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PluginManifest, explain_unknown_capability,
-    is_known_capability, platform_key_for,
+    KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, PluginManifest, check_reserved_keys,
+    explain_unknown_capability, is_known_capability, platform_key_for,
 };
 
 use crate::commands::init_ci::{self, REQUIRED_PERMISSIONS, WORKFLOW_FILE, WORKFLOW_REPO};
@@ -404,12 +404,6 @@ struct RegistryFinding {
     message: String,
 }
 
-/// A manifest every rule of `PluginManifest::validate` accepts except, possibly,
-/// the reserved keys — which [`reserved_key_refusal`] copies onto it.
-/// `the_reserved_key_probe_passes_every_other_rule` holds it to that.
-const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = \"probe\"\n\
-                                  version = \"0.0.0\"\n\n[entry]\ncommand = \"probe\"\n";
-
 /// The manifest crate's verdict on the two reserved top-level keys, `kind` and
 /// `requires`, in this tool's voice; `None` when they pass.
 ///
@@ -427,13 +421,11 @@ const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = 
 ///
 /// # The decision is the crate's
 ///
-/// `check_reserved_keys` is `pub` in a private module, and the crate's `lib.rs`
-/// does not re-export it, so it cannot be named from here. What can be named is
-/// `PluginManifest::validate`, whose first statement it is. So the author's two
-/// values are copied onto [`RESERVED_KEY_PROBE`] — a manifest every other rule
-/// accepts — and any error `validate` returns is the reserved-key rule's. There
-/// is no second copy of the rule to drift: which values are refused, and the
-/// sentence, both come from the crate.
+/// `check_reserved_keys` is `pub` and re-exported from the crate's `lib.rs`
+/// (Astra `1841aa27`), so it is called directly on the two raw values — no
+/// probe manifest stands in for it any more. There is no second copy of the
+/// rule to drift: which values are refused, and the sentence, both come from
+/// the crate.
 ///
 /// # The voice
 ///
@@ -447,14 +439,7 @@ const RESERVED_KEY_PROBE: &str = "[plugin]\nid = \"reserved-key-probe\"\nname = 
 /// caller reports it in its own words a line later.
 pub(crate) fn reserved_key_refusal(content: &str) -> Option<String> {
     let raw: toml::Table = content.parse().ok()?;
-    if !raw.contains_key("kind") && !raw.contains_key("requires") {
-        return None;
-    }
-    let mut probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE)
-        .expect("RESERVED_KEY_PROBE is a manifest: the_reserved_key_probe_passes_every_other_rule");
-    probe.kind = raw.get("kind").cloned();
-    probe.requires = raw.get("requires").cloned();
-    let refusal = probe.validate().err()?;
+    let refusal = check_reserved_keys(raw.get("kind"), raw.get("requires")).err()?;
     Some(
         format!("{refusal:#}")
             .replace("this version of Astra", "this version of the CLI")
@@ -2130,16 +2115,6 @@ label = "Sink"
             &plugin_with("requires = [{ id = \"x\", range = \"^1\" }]"),
         );
         assert_eq!(why, REQUIRES_REFUSAL);
-    }
-
-    /// The probe is a probe only while every OTHER rule accepts it: then any
-    /// error `validate` returns for it is the reserved-key rule's, and nothing
-    /// else can be mistaken for one.
-    #[test]
-    fn the_reserved_key_probe_passes_every_other_rule() {
-        let probe: PluginManifest = toml::from_str(RESERVED_KEY_PROBE).unwrap();
-        probe.validate().expect("the probe must pass every rule validate() has");
-        assert_eq!(reserved_key_refusal(RESERVED_KEY_PROBE), None);
     }
 
     /// **The sentence is the crate's, with the subject changed and nothing
