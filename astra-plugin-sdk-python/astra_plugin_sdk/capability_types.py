@@ -55,6 +55,7 @@ __all__ = [
     "ActionTypeDef",
     "TriggerTypeDef",
     "UiContribution",
+    "DesktopWidget", "WidgetFormat", "WidgetSurface", "WidgetContext",
     "coerce",
     "coerce_all",
 ]
@@ -446,6 +447,109 @@ class TriggerTypeDef(_CapabilityType):
 
 
 @dataclass
+class WidgetFormat(_CapabilityType):
+    """One desktop layout format. Grid dimensions are cells, readable dimensions pixels."""
+    _PROTO = plugin_pb2.PluginWidgetFormat
+    id: str = ""
+    label: str = ""
+    url: str = ""
+    preview_url: str = ""
+    appearance: str = "card"
+    default_w: int = 2
+    default_h: int = 2
+    min_w: int = 1
+    min_h: int = 1
+    max_w: int = 0
+    max_h: int = 0
+    fixed_size: bool = False
+    min_pixel_width: int = 0
+    min_pixel_height: int = 0
+
+    def to_proto(self):
+        return self._PROTO(**{key: getattr(self, key) for key in self.__dataclass_fields__})
+
+    @classmethod
+    def from_proto(cls, msg):
+        return cls(**{key: getattr(msg, key) for key in cls.__dataclass_fields__})
+
+
+@dataclass
+class WidgetSurface(_CapabilityType):
+    """A host popover or modal. All sizes are pixels, zero means host defaults."""
+    _PROTO = plugin_pb2.PluginWidgetSurface
+    id: str = ""
+    label: str = ""
+    url: str = ""
+    kind: str = "popover"
+    width: int = 0
+    height: int = 0
+    min_width: int = 0
+    min_height: int = 0
+    max_width: int = 0
+    max_height: int = 0
+
+    def to_proto(self):
+        return self._PROTO(**{key: getattr(self, key) for key in self.__dataclass_fields__})
+
+    @classmethod
+    def from_proto(cls, msg):
+        return cls(**{key: getattr(msg, key) for key in cls.__dataclass_fields__})
+
+    @classmethod
+    def popover(cls, id: str, label: str, url: str, **sizes):
+        return cls(id=id, label=label, url=url, kind="popover", **sizes)
+
+    @classmethod
+    def modal(cls, id: str, label: str, url: str, **sizes):
+        return cls(id=id, label=label, url=url, kind="modal", **sizes)
+
+
+@dataclass
+class DesktopWidget(_CapabilityType):
+    _PROTO = plugin_pb2.PluginDesktopWidget
+    repeatable: bool = False
+    formats: list[WidgetFormat] = field(default_factory=list)
+    surfaces: list[WidgetSurface] = field(default_factory=list)
+    config_fields: list[FieldDef] = field(default_factory=list)
+    settings_surface: str = ""
+
+    def to_proto(self):
+        return self._PROTO(repeatable=self.repeatable,
+            formats=[coerce(v, WidgetFormat, "formats").to_proto() for v in self.formats],
+            surfaces=[coerce(v, WidgetSurface, "surfaces").to_proto() for v in self.surfaces],
+            config_fields=[coerce(v, FieldDef, "config_fields").to_proto() for v in self.config_fields],
+            settings_surface=self.settings_surface)
+
+    @classmethod
+    def from_proto(cls, msg):
+        return cls(repeatable=msg.repeatable, formats=[WidgetFormat.from_proto(v) for v in msg.formats],
+            surfaces=[WidgetSurface.from_proto(v) for v in msg.surfaces],
+            config_fields=[FieldDef.from_proto(v) for v in msg.config_fields], settings_surface=msg.settings_surface)
+
+
+@dataclass
+class WidgetContext(_CapabilityType):
+    """Presentation metadata attached by Astra; confers no host permissions."""
+    _PROTO = plugin_pb2.PluginWidgetContext
+    widget_id: str = ""
+    instance_id: str = ""
+    format_id: str = ""
+    view_id: str = ""
+    preview: bool = False
+    active: bool = False
+    width: int = 0
+    height: int = 0
+    config_json: str = "{}"
+
+    def to_proto(self):
+        return self._PROTO(**{key: getattr(self, key) for key in self.__dataclass_fields__})
+
+    @classmethod
+    def from_proto(cls, msg):
+        return cls(**{key: getattr(msg, key) for key in cls.__dataclass_fields__})
+
+
+@dataclass
 class UiContribution(_CapabilityType):
     """One iframe this plugin puts into the Astra window.
 
@@ -469,6 +573,12 @@ class UiContribution(_CapabilityType):
     pointer_events: bool = True
     z_index: int = 0
     props: dict[str, str] = field(default_factory=dict)
+    desktop_widget: DesktopWidget | None = None
+
+    @classmethod
+    def widget(cls, id: str, label: str, widget: DesktopWidget) -> "UiContribution":
+        return cls(id=id, label=label, slot="desktop.widget", url=widget.formats[0].url if widget.formats else "",
+                   transparent=True, pointer_events=True, desktop_widget=widget)
 
     def to_proto(self) -> Any:
         return plugin_pb2.PluginUiContribution(
@@ -485,6 +595,7 @@ class UiContribution(_CapabilityType):
             pointer_events=self.pointer_events,
             z_index=self.z_index,
             props=dict(self.props),
+            desktop_widget=coerce(self.desktop_widget, DesktopWidget, "desktop_widget").to_proto() if self.desktop_widget else None,
         )
 
     @classmethod
@@ -503,4 +614,5 @@ class UiContribution(_CapabilityType):
             pointer_events=msg.pointer_events,
             z_index=msg.z_index,
             props=dict(msg.props),
+            desktop_widget=DesktopWidget.from_proto(msg.desktop_widget) if msg.HasField("desktop_widget") else None,
         )

@@ -9,7 +9,7 @@ There are two journeys here, and everything on this page belongs to one of them.
 
 ## Writing a plugin
 
-[Plugin UI Kit](4-sdk/ui-kit.md)
+[Plugin UI Kit](4-sdk/ui-kit.md) · [Desktop widgets](4-sdk/desktop-widgets.md)
 
 | | |
 |---|---|

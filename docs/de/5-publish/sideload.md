@@ -99,7 +99,7 @@ maschinenlesbaren Hälften dessen, was es tut.
 | **Signatur** | keine. Nichts bürgt für den Code |
 | **Rechte** | dein volles Benutzerkonto. Es gibt keine Sandbox — [Phase 7 existiert nicht](../1-orientation/security.md) |
 | **Auswirkungsradius des Schalters** | `allow_unsigned_plugins` gilt für jedes Plugin auf der Maschine, einschließlich unsignierter Dateien, die du später importierst |
-| **Auto-Start** | **nie.** Der Entwicklermodus ist zur Ladezeit erforderlich, und ein Neustart lässt ein sideload­etes Plugin gestoppt, bis du es erneut startest |
+| **Auto-Start** | Stellt die gespeicherte Aktivierung wieder her, wenn der Entwicklermodus aktiv ist und der Daemon dieselbe Quelle autorisiert. Fehlender oder unlesbarer Zustand bleibt deaktiviert. |
 | **Permission-Obergrenze** | **keine** — siehe unten |
 | **Dem Nutzer angezeigte Provenienz** | Stufe `sideloaded` — „aus einem Ordner geladen" — im Provenance-Panel |
 
@@ -112,10 +112,7 @@ Entwicklungsschleife für UI-Plugins, und `dom_access` ist genau das, was
 `companion`, `doom` und `bad-apple` brauchen. Stufe 3 zu deckeln würde
 diese unentwickelbar machen.
 
-Der Tausch ist, dass Stufe 3 hinter einer expliziten Einstellung gesperrt
-ist, nie automatisch startet, und ein Verzeichnis ist, auf das du selbst
-gezeigt hast — drei Tatsachen, die Stufe 2 (eine Datei, die irgendwoher
-ankam) nicht für sich beanspruchen kann.
+Stufe 3 erfordert den Entwicklermodus und ein ausdrücklich autorisiertes Quellverzeichnis. Astra behält die Aktivierungsentscheidung nach Neustarts bei; die Quellautorisierung allein aktiviert kein Plugin.
 
 Der Plan verlangt außerdem ein dauerhaftes, nicht wegklickbares
 „DEVELOPER — unverified code from a local directory"-Abzeichen auf der

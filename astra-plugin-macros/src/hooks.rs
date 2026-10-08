@@ -54,6 +54,7 @@ pub const KNOWN_HOOKS: &[(&str, Option<&str>)] = &[
     // UI
     ("ui_contributions", Some("ui_contributions")),
     ("handle_ui_call", Some("ui_contributions")),
+    ("handle_widget_ui_call", Some("ui_contributions")),
     // Events
     ("source_id", None),
     ("subscribed_events", Some("event_handlers")),

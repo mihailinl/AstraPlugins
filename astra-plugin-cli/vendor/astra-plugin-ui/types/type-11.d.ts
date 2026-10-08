@@ -1,16 +1,27 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-
-import { type ControlTone } from "./type-29";
-type IconButtonSize = "sm" | "md" | "lg";
-type IconButtonVariant = "ghost" | "solid" | "danger";
-export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+import { type ReactNode } from "react";
+export interface FloatingControlOption {
+    value: string;
     label: string;
-    size?: IconButtonSize;
-    variant?: IconButtonVariant;
-    tone?: ControlTone;
-    children: React.ReactNode;
-    ref?: React.Ref<HTMLButtonElement>;
+    disabled?: boolean;
 }
-export declare function IconButton({ label, size, variant, tone, className, children, type, ref, ...rest }: IconButtonProps): import("react/jsx-runtime").JSX.Element;
-export {};
+export interface FloatingControlRequest {
+    kind: "select" | "combobox" | "tooltip";
+    options?: FloatingControlOption[];
+    value?: string | null;
+    content?: string;
+    freeSolo?: boolean;
+    search?: string;
+    ownerId?: string;
+}
+export interface FloatingControls {
+    open: (request: FloatingControlRequest, anchor: HTMLElement) => Promise<string | null>;
+    close: (ownerId?: string) => Promise<unknown>;
+    onChange?: (ownerId: string, callback: (value: string) => void) => () => void;
+}
+export declare function FloatingControlsProvider({ value, children }: {
+    value: FloatingControls | null;
+    children: ReactNode;
+}): import("react/jsx-runtime").JSX.Element;
+export declare function useFloatingControls(): FloatingControls | null;

@@ -364,10 +364,11 @@ export class Harness {
 
   async callFromUi(
     method: string,
-    params: Record<string, unknown> | string = {}
+    params: Record<string, unknown> | string = {},
+    widgetContext?: import("../types.js").WidgetContext,
   ): Promise<{ resultJson: string; error: string }> {
     const paramsJson = typeof params === "string" ? params : JSON.stringify(params);
-    return (await this.unary("CallFromUi", { method, paramsJson })) as {
+    return (await this.unary("CallFromUi", { method, paramsJson, widgetContext })) as {
       resultJson: string;
       error: string;
     };

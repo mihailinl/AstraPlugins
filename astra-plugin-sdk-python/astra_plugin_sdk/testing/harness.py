@@ -461,6 +461,14 @@ class Harness:
         )
         return _result(response, ctx)
 
+    def widget_ui_call(self, method: str, widget, /, **params: Any) -> Result:
+        """Drive CallFromUi with a desktop instance context through the real servicer."""
+        ctx = FakeContext()
+        response = self.run(self._servicer.CallFromUi(
+            plugin_pb2.PluginUiCallRequest(method=method, params_json=json.dumps(params),
+                widget_context=widget.to_proto()), ctx))
+        return _result(response, ctx, result_field="result_json")
+
     def ui_call(self, method: str, /, **params: Any) -> Result:
         """Call the plugin the way its own UI iframe does (`CallFromUi`)."""
         ctx = FakeContext()

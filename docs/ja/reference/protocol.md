@@ -2,12 +2,12 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、170 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、171 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: 189c9aa31239ce90…`
+`astra.proto` から生成された一部(`surface-sha256: e9622b516f287a72…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:14030a06fabee846…` に固定されています。3 つの SDK
+によって `sha256:76bdcea59ea21e20…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -145,11 +145,11 @@ UI に提供します: インストール、インポート、アンインスト
 
 | サービス | RPC 数 |
 |---|---|
-| `CoreService` | 8 |
+| `CoreService` | 10 |
 | `ChatService` | 12 |
-| `VoiceService` | 34 |
-| `CommandService` | 13 |
-| `ConfigService` | 25 |
+| `VoiceService` | 42 |
+| `CommandService` | 14 |
+| `ConfigService` | 27 |
 | `MediaService` | 5 |
 | `MonitorService` | 3 |
 

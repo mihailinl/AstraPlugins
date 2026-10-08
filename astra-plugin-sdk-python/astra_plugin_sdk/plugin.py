@@ -30,6 +30,7 @@ from astra_plugin_sdk.capability_types import (
     ToolDef,
     TriggerTypeDef,
     UiContribution,
+    WidgetContext,
     VoiceInfo,
     coerce,
 )
@@ -834,6 +835,10 @@ class Plugin:
 
     # ── UI calls ──
 
+    async def handle_widget_ui_call(self, method: str, params_json: str, widget: WidgetContext | None):
+        """Instance-aware hook. By default dispatches existing @ui_call / legacy handlers."""
+        return await self.handle_ui_call(method, params_json)
+
     async def handle_ui_call(self, method: str, params_json: str) -> dict | str | None:
         """Handle a call from this plugin's UI iframe (``CallFromUi``).
 
@@ -1295,7 +1300,8 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
 
     async def CallFromUi(self, request, context):
         try:
-            result = await self.plugin.handle_ui_call(request.method, request.params_json)
+            result = await self.plugin.handle_widget_ui_call(request.method, request.params_json,
+                WidgetContext.from_proto(request.widget_context) if request.HasField("widget_context") else None)
         except BaseException as e:  # noqa: BLE001
             # The daemon relays `error_detail` on to the panel as
             # `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can

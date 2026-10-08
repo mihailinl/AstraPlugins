@@ -576,9 +576,7 @@ Both are for developers, both cost something, and **neither is publishing**:
 - [Install a local `.astraplugin` file](5-publish/local-install.md) — a bundle
   that arrived out of band. Four permissions are refused outright, whatever the
   manifest asks for.
-- [Sideload a source directory](5-publish/sideload.md) — the authoring loop.
-  Requires Developer Mode, runs unsigned code with your full user account, and
-  never auto-starts.
+- [Sideload a source directory](5-publish/sideload.md) — the authoring loop. Requires Developer Mode, runs unsigned code with your full user account and restores the saved enable choice for the authorised source.
 
 ## See also
 

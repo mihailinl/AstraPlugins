@@ -58,25 +58,32 @@ impl DaemonClient {
 
         Ok(Self {
             core: proto::core_service_client::CoreServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             chat: proto::chat_service_client::ChatServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             voice: proto::voice_service_client::VoiceServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             command: proto::command_service_client::CommandServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             config: proto::config_service_client::ConfigServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             media: proto::media_service_client::MediaServiceClient::with_interceptor(
-                channel.clone(), interceptor.clone(),
+                channel.clone(),
+                interceptor.clone(),
             ),
             monitor: proto::monitor_service_client::MonitorServiceClient::with_interceptor(
-                channel, interceptor,
+                channel,
+                interceptor,
             ),
         })
     }
@@ -129,10 +136,7 @@ impl Daemon for DaemonClient {
         Ok(resp.into_inner())
     }
 
-    async fn subscribe_chat_events(
-        &self,
-        cursors: HashMap<String, u64>,
-    ) -> Result<FirehoseStream> {
+    async fn subscribe_chat_events(&self, cursors: HashMap<String, u64>) -> Result<FirehoseStream> {
         let resp = self
             .chat
             .clone()
@@ -277,6 +281,7 @@ impl Daemon for DaemonClient {
                 id: id.to_string(),
                 variables,
                 entry_node_id: String::new(),
+                ..Default::default()
             })
             .await?;
         Ok(resp.into_inner())

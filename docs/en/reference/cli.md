@@ -70,7 +70,7 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 | Option | Description |
 |---|---|
 | `-l, --lang <LANG>` | Programming language (default `rust`) |
-| `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
+| `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `desktop-widget`, `action-trigger`, `client`, `blank`) |
 | `--ui <UI>` | Frontend independent of the backend language (for UI contributions) (default `vanilla`; one of `vanilla`, `react`) |
 | `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
 | `-o, --output <OUTPUT>` | Output directory (default: ./<name>) |

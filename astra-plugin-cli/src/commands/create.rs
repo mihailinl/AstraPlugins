@@ -25,13 +25,14 @@ use crate::{hprintln, output};
 ///
 /// `clap` validates against this, so a typo is refused with the list rather
 /// than silently scaffolding the default.
-pub const TEMPLATE_NAMES: [&str; 9] = [
+pub const TEMPLATE_NAMES: [&str; 10] = [
     "tool",
     "tts",
     "stt",
     "stt-streaming",
     "ai-provider",
     "ui",
+    "desktop-widget",
     "action-trigger",
     "client",
     "blank",
@@ -55,6 +56,10 @@ const TEMPLATE_CAPABILITIES: &[(&str, &[&str])] = &[
     ("stt-streaming", &["stt", STREAMING_MARKER]),
     ("ai-provider", &["ai_provider"]),
     ("ui", &["ui_contributions"]),
+    (
+        "desktop-widget",
+        &["ui_contributions", DESKTOP_WIDGET_MARKER],
+    ),
     ("action-trigger", &["actions", "triggers"]),
     ("client", &["client", "event_handlers"]),
     ("blank", &[]),
@@ -63,6 +68,7 @@ const TEMPLATE_CAPABILITIES: &[(&str, &[&str])] = &[
 /// Not a capability — a instruction to the code generators. Never written to a
 /// manifest.
 pub const STREAMING_MARKER: &str = "stt_streaming";
+pub const DESKTOP_WIDGET_MARKER: &str = "desktop_widget";
 
 pub struct NewOptions<'a> {
     pub name: &'a str,
@@ -104,7 +110,13 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         None => template_capabilities(opts.template)?.to_vec(),
     };
 
-    for cap in manifest_capabilities(&caps) {
+    // Markers belong to a built-in template, never to an author capability list.
+    let checked_caps = if opts.capabilities.is_some() {
+        caps.clone()
+    } else {
+        manifest_capabilities(&caps)
+    };
+    for cap in checked_caps {
         super::validate::check_capability_name(cap)?;
     }
 
@@ -117,14 +129,38 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         .with_context(|| format!("Failed to create directory '{}'", opts.out_dir))?;
 
     let manifest_caps = manifest_capabilities(&caps);
-    if !["vanilla", "react"].contains(&opts.ui) {anyhow::bail!("Supported frontends: vanilla, react");}
+    if !["vanilla", "react"].contains(&opts.ui) {
+        anyhow::bail!("Supported frontends: vanilla, react");
+    }
     let mut manifest = templates::generate_manifest(name, &lang, &manifest_caps);
     if manifest_caps.contains(&"ui_contributions") {
-        let floor=templates::ui::minimum_version();
-        if manifest.lines().any(|line| line.starts_with("min_astra_version =")) {
-            manifest=manifest.lines().map(|line| if line.starts_with("min_astra_version =") {format!("min_astra_version = \"{floor}\"")} else {line.to_owned()}).collect::<Vec<_>>().join("\n");
-        } else {manifest=manifest.replacen("[plugin]",&format!("[plugin]\nmin_astra_version = \"{floor}\""),1);}
-        templates::ui::generate(out_path,opts.ui)?;
+        let floor = templates::ui::minimum_version();
+        if manifest
+            .lines()
+            .any(|line| line.starts_with("min_astra_version ="))
+        {
+            manifest = manifest
+                .lines()
+                .map(|line| {
+                    if line.starts_with("min_astra_version =") {
+                        format!("min_astra_version = \"{floor}\"")
+                    } else {
+                        line.to_owned()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+        } else {
+            manifest = manifest.replacen(
+                "[plugin]",
+                &format!("[plugin]\nmin_astra_version = \"{floor}\""),
+                1,
+            );
+        }
+        templates::ui::generate(out_path, opts.ui)?;
+        if caps.contains(&DESKTOP_WIDGET_MARKER) {
+            templates::desktop_widget::generate_frontend(out_path, opts.ui)?;
+        }
     }
     fs::write(out_path.join("plugin.toml"), manifest)?;
 
@@ -142,6 +178,9 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
     let mut readme = templates::generate_readme(name, &lang, &manifest_caps);
     if manifest_caps.contains(&"ui_contributions") {
         readme.push_str("\n## UI Kit\n\nThe served files live in ui/. Vanilla calls astra.loadUi({apiVersion: 1}), h and mount. React uses the local @astra/plugin-ui authoring package; run bun install --frozen-lockfile in frontend/ before astra-plugin build or dev. The frontend is independent of the backend language. Do not bundle another React runtime.\n");
+    }
+    if caps.contains(&DESKTOP_WIDGET_MARKER) {
+        readme.push_str("\n## Desktop widget\n\nThis template needs the unreleased desktop-widget runtime and matching SDK checkout. The version floor will be set when that runtime ships. Add this widget twice from Home to see independent instance settings and counts. Choose Compact or List; open its popover, Details and custom settings. The host also renders the title/color/limit fields. Save applies the settings draft and Cancel discards it. All views share one HTML entrypoint and use astra.widget context. Preview is read-only. Overlay widgets are separate.\n");
     }
     fs::write(out_path.join("README.md"), readme)?;
 
@@ -180,9 +219,7 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
             manifest_caps.join(", ")
         }
     );
-    hprintln!(
-        "Locales: locales/en.json — your store card's text and your plugin's strings."
-    );
+    hprintln!("Locales: locales/en.json — your store card's text and your plugin's strings.");
     hprintln!("         `astra-plugin locale add ru` to translate it.");
     hprintln!();
     hprintln!("Next steps:");
@@ -191,7 +228,14 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
         // --release, because that is where entry.command points.
         "rust" => hprintln!("  cargo build --release"),
         "python" | "py" => hprintln!("  pip install -r requirements.txt"),
-        "typescript" | "ts" => hprintln!("  npm install"),
+        "typescript" | "ts" => hprintln!(
+            "  {} install",
+            if crate::toolchain::exists("bun") {
+                "bun"
+            } else {
+                "npm"
+            }
+        ),
         _ => {}
     }
     if manifest_caps.contains(&"ui_contributions") && opts.ui == "react" {
@@ -231,10 +275,10 @@ fn template_capabilities(template: &str) -> Result<&'static [&'static str]> {
 
 /// The same list with the code-generator markers removed — what may be written
 /// to `plugin.toml`.
-fn manifest_capabilities<'a>(caps: &[&'a str]) -> Vec<&'a str> {
+pub(crate) fn manifest_capabilities<'a>(caps: &[&'a str]) -> Vec<&'a str> {
     caps.iter()
         .copied()
-        .filter(|c| !c.is_empty() && *c != STREAMING_MARKER)
+        .filter(|c| !c.is_empty() && *c != STREAMING_MARKER && *c != DESKTOP_WIDGET_MARKER)
         .collect()
 }
 
@@ -305,25 +349,141 @@ fn generate_typescript_project(out_path: &Path, name: &str, capabilities: &[&str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_bridge_in_head(dir: &Path) {
+        let html = fs::read_to_string(dir.join("ui/index.html")).unwrap();
+        let head = html.find("<head>").expect("explicit head");
+        let bridge = html
+            .find("<script src=\"http://astra-plugin.localhost/bridge/astra-bridge.js\"")
+            .expect("bridge script");
+        let first_script = html.find("<script").expect("first script");
+        let end_head = html.find("</head>").expect("closed head");
+        let body = html.find("<body>").expect("body");
+        assert_eq!(
+            bridge, first_script,
+            "bridge initializes before other scripts"
+        );
+        assert!(head < bridge && bridge < end_head && end_head < body);
+    }
     #[test]
     fn all_backend_frontend_scaffolds_have_real_ui_assets_and_kit_floor() {
-        for backend in ["rust","python","typescript"] {
-            for frontend in ["vanilla","react"] {
-                let dir=std::env::temp_dir().join(format!("astra-kit-{}-{}-{}",std::process::id(),backend,frontend));
-                let _=fs::remove_dir_all(&dir);
-                run(NewOptions{name:"kit-demo",lang:backend,template:"ui",ui:frontend,capabilities:None,out_dir:dir.to_str().unwrap()}).unwrap();
-                let manifest:toml::Value=toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
-                assert_eq!(manifest["plugin"]["min_astra_version"].as_str().unwrap(),templates::ui::minimum_version());
+        for backend in ["rust", "python", "typescript"] {
+            for frontend in ["vanilla", "react"] {
+                let dir = std::env::temp_dir().join(format!(
+                    "astra-kit-{}-{}-{}",
+                    std::process::id(),
+                    backend,
+                    frontend
+                ));
+                let _ = fs::remove_dir_all(&dir);
+                run(NewOptions {
+                    name: "kit-demo",
+                    lang: backend,
+                    template: "ui",
+                    ui: frontend,
+                    capabilities: None,
+                    out_dir: dir.to_str().unwrap(),
+                })
+                .unwrap();
+                let manifest: toml::Value =
+                    toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+                assert_eq!(
+                    manifest["plugin"]["min_astra_version"].as_str().unwrap(),
+                    templates::ui::minimum_version()
+                );
                 assert!(dir.join("ui/index.html").is_file());
-                if frontend=="react" {
+                assert_bridge_in_head(&dir);
+                if frontend == "react" {
                     assert!(dir.join("frontend/bun.lock").is_file());
-                    assert!(dir.join("frontend/vendor/astra-plugin-ui/index.d.ts").is_file());
-                } else {assert!(!dir.join("frontend/package.json").exists());}
+                    assert!(dir
+                        .join("frontend/vendor/astra-plugin-ui/index.d.ts")
+                        .is_file());
+                } else {
+                    assert!(!dir.join("frontend/package.json").exists());
+                }
                 fs::remove_dir_all(dir).unwrap();
             }
         }
     }
 
+    #[test]
+    fn the_internal_widget_marker_is_refused_as_an_author_capability() {
+        let dir = std::env::temp_dir().join(format!("astra-widget-marker-{}", std::process::id()));
+        let result = run(NewOptions {
+            name: "widget-demo",
+            lang: "rust",
+            template: "blank",
+            ui: "vanilla",
+            capabilities: Some(DESKTOP_WIDGET_MARKER),
+            out_dir: dir.to_str().unwrap(),
+        });
+        assert!(
+            result.is_err(),
+            "an internal marker is not a public capability"
+        );
+        assert!(
+            !dir.exists(),
+            "invalid author input must be refused before creating a project"
+        );
+    }
+
+    #[test]
+    fn desktop_widget_scaffolds_are_typed_and_request_only_the_existing_capability() {
+        for backend in ["rust", "python", "typescript"] {
+            for frontend in ["vanilla", "react"] {
+                let dir = std::env::temp_dir().join(format!(
+                    "astra-widget-{}-{}-{}",
+                    std::process::id(),
+                    backend,
+                    frontend
+                ));
+                let _ = fs::remove_dir_all(&dir);
+                run(NewOptions {
+                    name: "widget-demo",
+                    lang: backend,
+                    template: "desktop-widget",
+                    ui: frontend,
+                    capabilities: None,
+                    out_dir: dir.to_str().unwrap(),
+                })
+                .unwrap();
+                let manifest: toml::Value =
+                    toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+                let caps = manifest["capabilities"].as_table().unwrap();
+                assert_eq!(caps.len(), 1);
+                assert_eq!(caps["ui_contributions"].as_bool(), Some(true));
+                assert!(!manifest["permissions"]
+                    .as_table()
+                    .unwrap()
+                    .contains_key("dom_access"));
+                let source = fs::read_to_string(dir.join(match backend {
+                    "rust" => "src/main.rs",
+                    "python" => "src/plugin.py",
+                    _ => "src/index.ts",
+                }))
+                .unwrap();
+                assert!(
+                    source.contains("counter")
+                        && source.contains("compact")
+                        && source.contains("settings")
+                );
+                assert!(
+                    !source.contains("UiContrib.page(")
+                        && !source.contains("UiContribution::page(")
+                        && !source.contains("@ui_page(")
+                );
+                let ui = fs::read_to_string(dir.join(if frontend == "react" {
+                    "frontend/App.tsx"
+                } else {
+                    "ui/main.js"
+                }))
+                .unwrap();
+                assert!(ui.contains("astra.widget.getContext") && ui.contains("context.preview"));
+                assert_bridge_in_head(&dir);
+                fs::remove_dir_all(dir).unwrap();
+            }
+        }
+    }
 
     /// **No scaffold writes `kind` or `requires`.** Both are reserved top-level
     /// keys (contract 3.14.0) that every reader refuses unless they are absent,
@@ -395,9 +555,18 @@ mod tests {
                 with_runtime += 1;
             }
             for (language, source) in [
-                ("rust", crate::templates::rust::generate_main_rs("demo", &caps)),
-                ("python", crate::templates::python::generate_plugin_py("demo", &caps)),
-                ("typescript", crate::templates::typescript::generate_index_ts("demo", &caps)),
+                (
+                    "rust",
+                    crate::templates::rust::generate_main_rs("demo", &caps),
+                ),
+                (
+                    "python",
+                    crate::templates::python::generate_plugin_py("demo", &caps),
+                ),
+                (
+                    "typescript",
+                    crate::templates::typescript::generate_index_ts("demo", &caps),
+                ),
             ] {
                 assert_eq!(
                     source.contains(KEY),
@@ -405,7 +574,11 @@ mod tests {
                     "--template {template} --lang {language}: locales/en.json {} `{KEY}` and \
                      the generated source {} it. One of the two was written without the other.",
                     if seeded { "declares" } else { "omits" },
-                    if source.contains(KEY) { "resolves" } else { "never mentions" }
+                    if source.contains(KEY) {
+                        "resolves"
+                    } else {
+                        "never mentions"
+                    }
                 );
             }
         }
@@ -440,8 +613,14 @@ mod tests {
             for key in KEYS {
                 let seeded = en.contains(key);
                 for (language, source) in [
-                    ("rust", crate::templates::rust::generate_main_rs("demo", &caps)),
-                    ("python", crate::templates::python::generate_plugin_py("demo", &caps)),
+                    (
+                        "rust",
+                        crate::templates::rust::generate_main_rs("demo", &caps),
+                    ),
+                    (
+                        "python",
+                        crate::templates::python::generate_plugin_py("demo", &caps),
+                    ),
                     (
                         "typescript",
                         crate::templates::typescript::generate_index_ts("demo", &caps),
@@ -453,7 +632,11 @@ mod tests {
                         "--template {template} --lang {language}: locales/en.json {} `{key}` \
                          and the generated source {} it",
                         if seeded { "declares" } else { "omits" },
-                        if source.contains(key) { "resolves" } else { "never mentions" }
+                        if source.contains(key) {
+                            "resolves"
+                        } else {
+                            "never mentions"
+                        }
                     );
                 }
             }
@@ -468,7 +651,11 @@ mod tests {
                 "--template {template}: the scaffold {} a `$key` the daemon resolves and its \
                  manifest {} a min_astra_version",
                 if any { "declares" } else { "declares no" },
-                if manifest.contains("min_astra_version") { "carries" } else { "omits" }
+                if manifest.contains("min_astra_version") {
+                    "carries"
+                } else {
+                    "omits"
+                }
             );
         }
         assert!(
@@ -539,7 +726,10 @@ mod tests {
         let py = scratch("py");
         generate_python_project(&py, "gate-py", &caps).unwrap();
         let py_test = fs::read_to_string(py.join("tests/test_plugin.py")).unwrap();
-        assert!(py_test.contains("def test_"), "no test function:\n{py_test}");
+        assert!(
+            py_test.contains("def test_"),
+            "no test function:\n{py_test}"
+        );
         assert!(
             py_test.contains("Harness") && py_test.contains("call_tool(\"hello\""),
             "the Python test must drive the scaffolded tool through the harness:\n{py_test}"
@@ -547,7 +737,10 @@ mod tests {
         // The class it imports has to be the class the scaffold defines.
         let py_src = fs::read_to_string(py.join("src/plugin.py")).unwrap();
         assert!(py_src.contains("class GatePy(Plugin):"), "{py_src}");
-        assert!(py_test.contains("from src.plugin import GatePy"), "{py_test}");
+        assert!(
+            py_test.contains("from src.plugin import GatePy"),
+            "{py_test}"
+        );
         let _ = fs::remove_dir_all(&py);
 
         let ts = scratch("ts");
@@ -588,8 +781,11 @@ mod tests {
             let rs = templates::rust::generate_main_rs("demo", caps);
 
             for (lang, src) in [("python", &py), ("typescript", &ts), ("rust", &rs)] {
-                for refusal in ["NotImplementedError", "not yet implemented", "not implemented yet"]
-                {
+                for refusal in [
+                    "NotImplementedError",
+                    "not yet implemented",
+                    "not implemented yet",
+                ] {
                     assert!(
                         !src.contains(refusal),
                         "template `{template}` ({lang}) scaffolds a hook that refuses to \

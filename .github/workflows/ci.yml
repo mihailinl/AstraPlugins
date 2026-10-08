@@ -183,6 +183,7 @@ jobs:
       matrix:
         backend: [rust, python, typescript]
         frontend: [vanilla, react]
+        template: [ui, desktop-widget]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -200,9 +201,10 @@ jobs:
         env:
           BACKEND: ${{ matrix.backend }}
           FRONTEND: ${{ matrix.frontend }}
+          TEMPLATE: ${{ matrix.template }}
         run: |
           set -euo pipefail
-          astra-plugin new kit-demo --template ui --lang "$BACKEND" --ui "$FRONTEND"
+          astra-plugin new kit-demo --template "$TEMPLATE" --lang "$BACKEND" --ui "$FRONTEND"
           case "$BACKEND" in
             rust) printf '\n[patch.crates-io]\nastra-plugin-sdk = { path = "../astra-plugin-sdk" }\n' >> kit-demo/Cargo.toml ;;
             python) python3 -m venv kit-demo/.venv; source kit-demo/.venv/bin/activate; pip install ./astra-plugin-sdk-python ;;
@@ -229,6 +231,8 @@ jobs:
       - run: node tools/sync-ui-kit.mjs --check
       - run: node tools/gen-ui-docs.mjs --check
       - run: bun test tools/ui-kit.test.mjs
+      # Host Save may close a widget editor before deferred field writes run.
+      - run: node --test tools/desktop-widget.test.mjs
 
   # A YAML parser is not a GitHub parser. `yaml.safe_load` accepts every file
   # in this directory, and GitHub rejected one of them at parse time — a
@@ -3082,7 +3086,7 @@ jobs:
           SDK="$PWD/astra-plugin-sdk"
           MACROS="$PWD/astra-plugin-macros"
           WORK="$(mktemp -d)"
-          for template in tool tts stt stt-streaming ai-provider ui action-trigger client blank; do
+          for template in tool tts stt stt-streaming ai-provider ui desktop-widget action-trigger client blank; do
             echo "::group::astra-plugin new --template $template"
             "$CLI" new "t-$template" --lang rust --template "$template" --output "$WORK/$template"
             # printf, not a heredoc: a heredoc terminator inside a YAML block
@@ -3096,7 +3100,7 @@ jobs:
             echo "::endgroup::"
           done
 
-      # The same nine templates in the other two languages. `astra-plugin test`
+      # The same templates in the other two languages. `astra-plugin test`
       # drives a PROCESS and does not care what wrote it, so the only reason
       # this was Rust-only was the unpublished SDKs — and the workaround is the
       # one every other job already uses (a `bun pm pack` tarball behind an
@@ -3120,7 +3124,7 @@ jobs:
           set -euo pipefail
           CLI="$PWD/astra-plugin-cli/target/release/astra-plugin"
           WORK="$(mktemp -d)"
-          for template in tool tts stt stt-streaming ai-provider ui action-trigger client blank; do
+          for template in tool tts stt stt-streaming ai-provider ui desktop-widget action-trigger client blank; do
             for lang in python typescript; do
               echo "::group::astra-plugin new --lang $lang --template $template"
               proj="$WORK/$lang-$template"

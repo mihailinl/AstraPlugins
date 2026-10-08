@@ -28,6 +28,7 @@ import type {
   ActionTypeDef,
   TriggerTypeDef,
   UiContribution,
+  WidgetContext,
   UiCallResult,
   FieldDef,
   AiChunk,
@@ -636,6 +637,10 @@ export abstract class Plugin {
   async handleUiCall(method: string, _paramsJson: string): Promise<unknown> {
     return { error: `No UI call handler implemented (method: ${method})` };
   }
+  /** Override for instance-aware calls. Default forwards to the existing handler. */
+  async handleWidgetUiCall(method: string, paramsJson: string, _widget?: WidgetContext): Promise<unknown> {
+    return this.handleUiCall(method, paramsJson);
+  }
   async onConfigChanged(_config: Record<string, unknown>): Promise<void> {}
   /** Called when the daemon's UI language changes. Override to update locale. */
   async onLanguageChanged(_language: string): Promise<void> {}
@@ -1139,6 +1144,7 @@ export abstract class Plugin {
       pointerEvents: c.pointerEvents !== false,
       zIndex: c.zIndex || 0,
       props: c.props || {},
+      desktopWidget: c.desktopWidget,
     })) };
   }
 
@@ -1148,7 +1154,7 @@ export abstract class Plugin {
 
     let result: unknown;
     try {
-      result = await this.handleUiCall(method, paramsJson);
+      result = await this.handleWidgetUiCall(method, paramsJson, call.request.widgetContext ?? undefined);
     } catch (e: unknown) {
       // The daemon relays `errorDetail` on to the panel as
       // `CallPluginFromUiResponse.error_detail`, so a plugin's own UI can render

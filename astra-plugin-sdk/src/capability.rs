@@ -408,51 +408,114 @@ impl From<AiChunk> for proto::PluginAiStreamChunk {
     }
 }
 
+pub use proto::ActionTypeDefinitionMsg as ActionTypeDef;
+pub use proto::DropdownOptionMsg as DropdownOption;
 /// A field definition for action/trigger type configuration.
 pub use proto::FieldDefinitionMsg as FieldDef;
-pub use proto::DropdownOptionMsg as DropdownOption;
 pub use proto::FieldVisibilityCondition as FieldCondition;
-pub use proto::ActionTypeDefinitionMsg as ActionTypeDef;
-pub use proto::TriggerTypeDefinitionMsg as TriggerTypeDef;
-pub use proto::PluginUiContribution as UiContribution;
 /// Colours, wallpaper and shader a plugin contributes to the active theme.
 pub use proto::PluginThemeContribution as ThemeContribution;
+pub use proto::PluginUiContribution as UiContribution;
+pub use proto::TriggerTypeDefinitionMsg as TriggerTypeDef;
+pub use proto::{
+    PluginDesktopWidget as DesktopWidget, PluginWidgetContext as WidgetContext,
+    PluginWidgetFormat as WidgetFormat, PluginWidgetSurface as WidgetSurface,
+};
 
 // ── UiContribution builder methods ──
 
 impl proto::PluginUiContribution {
     /// Create a custom page contribution (shows as a nav tab).
     pub fn page(id: impl Into<String>, label: impl Into<String>, url: impl Into<String>) -> Self {
-        Self { id: id.into(), slot: "page.custom".into(), label: label.into(), url: url.into(), pointer_events: true, ..Default::default() }
+        Self {
+            id: id.into(),
+            slot: "page.custom".into(),
+            label: label.into(),
+            url: url.into(),
+            pointer_events: true,
+            ..Default::default()
+        }
     }
     /// Create a named slot contribution.
     pub fn slot(slot: impl Into<String>, url: impl Into<String>) -> Self {
-        Self { slot: slot.into(), url: url.into(), pointer_events: true, ..Default::default() }
+        Self {
+            slot: slot.into(),
+            url: url.into(),
+            pointer_events: true,
+            ..Default::default()
+        }
     }
     /// Create a background effect contribution (fullscreen, transparent, no pointer events).
     pub fn effect(url: impl Into<String>) -> Self {
-        Self { slot: "background.behind".into(), url: url.into(), transparent: true, pointer_events: false, ..Default::default() }
+        Self {
+            slot: "background.behind".into(),
+            url: url.into(),
+            transparent: true,
+            pointer_events: false,
+            ..Default::default()
+        }
     }
     /// Create a CSS selector injection contribution.
-    pub fn inject(css_target: impl Into<String>, position: impl Into<String>, url: impl Into<String>) -> Self {
-        Self { css_target: css_target.into(), position: position.into(), url: url.into(), pointer_events: true, ..Default::default() }
+    pub fn inject(
+        css_target: impl Into<String>,
+        position: impl Into<String>,
+        url: impl Into<String>,
+    ) -> Self {
+        Self {
+            css_target: css_target.into(),
+            position: position.into(),
+            url: url.into(),
+            pointer_events: true,
+            ..Default::default()
+        }
     }
     /// Create a floating overlay contribution.
     pub fn overlay(id: impl Into<String>, url: impl Into<String>) -> Self {
-        Self { id: id.into(), slot: "overlay.floating".into(), url: url.into(), transparent: true, pointer_events: true, ..Default::default() }
+        Self {
+            id: id.into(),
+            slot: "overlay.floating".into(),
+            url: url.into(),
+            transparent: true,
+            pointer_events: true,
+            ..Default::default()
+        }
     }
-    pub fn with_id(mut self, id: impl Into<String>) -> Self { self.id = id.into(); self }
-    pub fn with_label(mut self, label: impl Into<String>) -> Self { self.label = label.into(); self }
-    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
-    pub fn with_size(mut self, width: i32, height: i32) -> Self { self.width = width; self.height = height; self }
-    pub fn transparent(mut self) -> Self { self.transparent = true; self }
-    pub fn no_pointer_events(mut self) -> Self { self.pointer_events = false; self }
-    pub fn with_z_index(mut self, z: i32) -> Self { self.z_index = z; self }
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = id.into();
+        self
+    }
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = label.into();
+        self
+    }
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self {
+        self.icon_svg = svg.into();
+        self
+    }
+    pub fn with_size(mut self, width: i32, height: i32) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+    pub fn transparent(mut self) -> Self {
+        self.transparent = true;
+        self
+    }
+    pub fn no_pointer_events(mut self) -> Self {
+        self.pointer_events = false;
+        self
+    }
+    pub fn with_z_index(mut self, z: i32) -> Self {
+        self.z_index = z;
+        self
+    }
     pub fn with_prop(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.props.insert(key.into(), value.into());
         self
     }
-    pub fn with_audio(self) -> Self { self.with_prop("audio", "true") }
+    pub fn with_audio(self) -> Self {
+        self.with_prop("audio", "true")
+    }
 }
 
 // ── ActionTypeDef / TriggerTypeDef builder methods ──
@@ -470,7 +533,11 @@ impl proto::ActionTypeDefinitionMsg {
     /// the editor shows. Everything else is chained on — most importantly
     /// [`with_icon_svg`](Self::with_icon_svg).
     pub fn new(type_name: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { r#type: type_name.into(), label: label.into(), ..Default::default() }
+        Self {
+            r#type: type_name.into(),
+            label: label.into(),
+            ..Default::default()
+        }
     }
     /// The glyph this step wears on the canvas, in the palette and in its
     /// config header — whole SVG markup, not a path string.
@@ -484,13 +551,23 @@ impl proto::ActionTypeDefinitionMsg {
     ///
     /// Leave it unset and the step still draws, falling back to the plugin's
     /// own icon and then to a generic plugin mark.
-    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self {
+        self.icon_svg = svg.into();
+        self
+    }
     /// The configuration fields the editor draws for this step.
-    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self { self.fields = fields; self }
+    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self {
+        self.fields = fields;
+        self
+    }
     /// Also offer this step to the assistant, not only to the editor.
     ///
     /// `primary_field` is the field the AI's single `value` argument maps to.
-    pub fn with_ai(mut self, description: impl Into<String>, primary_field: impl Into<String>) -> Self {
+    pub fn with_ai(
+        mut self,
+        description: impl Into<String>,
+        primary_field: impl Into<String>,
+    ) -> Self {
         self.ai_available = true;
         self.ai_description = description.into();
         self.ai_primary_field = primary_field.into();
@@ -499,22 +576,38 @@ impl proto::ActionTypeDefinitionMsg {
     /// Restrict the step to certain OSes (`"windows"`, `"linux"`, `"macos"`).
     /// Leave it unset for a step that runs everywhere — an empty list is what
     /// the daemon reads as "every platform".
-    pub fn with_platforms(mut self, platforms: Vec<String>) -> Self { self.platforms = platforms; self }
+    pub fn with_platforms(mut self, platforms: Vec<String>) -> Self {
+        self.platforms = platforms;
+        self
+    }
     /// Keep a half-built step out of the editor's add-node menus while the
     /// daemon goes on serving its definition to commands that already use it.
-    pub fn unfinished(mut self) -> Self { self.hidden = true; self }
+    pub fn unfinished(mut self) -> Self {
+        self.hidden = true;
+        self
+    }
 }
 
 impl proto::TriggerTypeDefinitionMsg {
     /// A new way for one of the user's commands to start.
     pub fn new(type_name: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { r#type: type_name.into(), label: label.into(), ..Default::default() }
+        Self {
+            r#type: type_name.into(),
+            label: label.into(),
+            ..Default::default()
+        }
     }
     /// The glyph this trigger wears in the command editor. Same rules as
     /// [`ActionTypeDef::with_icon_svg`].
-    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self { self.icon_svg = svg.into(); self }
+    pub fn with_icon_svg(mut self, svg: impl Into<String>) -> Self {
+        self.icon_svg = svg.into();
+        self
+    }
     /// The configuration fields the editor draws for this trigger.
-    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self { self.fields = fields; self }
+    pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self {
+        self.fields = fields;
+        self
+    }
 }
 
 // ── FieldDef builder methods ──
@@ -522,65 +615,135 @@ impl proto::TriggerTypeDefinitionMsg {
 impl proto::FieldDefinitionMsg {
     /// Create a text field.
     pub fn text(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "text".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "text".into(),
+            ..Default::default()
+        }
     }
     /// Create a textarea field.
     pub fn textarea(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "textarea".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "textarea".into(),
+            ..Default::default()
+        }
     }
     /// Create a textarea with variable support.
     pub fn textarea_with_variables(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "textarea_with_variables".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "textarea_with_variables".into(),
+            ..Default::default()
+        }
     }
     /// Create a dropdown field from `(value, label)` pairs.
-    pub fn dropdown(id: impl Into<String>, label: impl Into<String>, options: &[(&str, &str)]) -> Self {
+    pub fn dropdown(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        options: &[(&str, &str)],
+    ) -> Self {
         Self {
-            id: id.into(), label: label.into(), field_type: "dropdown".into(),
-            options: options.iter().map(|(v, l)| proto::DropdownOptionMsg {
-                value: (*v).into(), label: (*l).into(),
-            }).collect(),
+            id: id.into(),
+            label: label.into(),
+            field_type: "dropdown".into(),
+            options: options
+                .iter()
+                .map(|(v, l)| proto::DropdownOptionMsg {
+                    value: (*v).into(),
+                    label: (*l).into(),
+                })
+                .collect(),
             ..Default::default()
         }
     }
     /// Create a number field.
     pub fn number(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "number".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "number".into(),
+            ..Default::default()
+        }
     }
     /// Create a toggle (boolean) field.
     pub fn toggle(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "toggle".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "toggle".into(),
+            ..Default::default()
+        }
     }
     /// Create a hotkey recorder field.
     pub fn hotkey(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "hotkey_recorder".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "hotkey_recorder".into(),
+            ..Default::default()
+        }
     }
     /// Create a file picker field.
     pub fn file_picker(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), field_type: "file_picker".into(), ..Default::default() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            field_type: "file_picker".into(),
+            ..Default::default()
+        }
     }
 
     // Chainable setters
 
     /// Set placeholder text.
-    pub fn with_placeholder(mut self, p: impl Into<String>) -> Self { self.placeholder = p.into(); self }
+    pub fn with_placeholder(mut self, p: impl Into<String>) -> Self {
+        self.placeholder = p.into();
+        self
+    }
     /// Set default value.
-    pub fn with_default(mut self, v: impl Into<String>) -> Self { self.default_value = v.into(); self }
+    pub fn with_default(mut self, v: impl Into<String>) -> Self {
+        self.default_value = v.into();
+        self
+    }
     /// Set description text.
-    pub fn with_description(mut self, d: impl Into<String>) -> Self { self.description = d.into(); self }
+    pub fn with_description(mut self, d: impl Into<String>) -> Self {
+        self.description = d.into();
+        self
+    }
     /// Set minimum value (for number fields).
-    pub fn with_min(mut self, v: f64) -> Self { self.min = v; self.has_min = true; self }
+    pub fn with_min(mut self, v: f64) -> Self {
+        self.min = v;
+        self.has_min = true;
+        self
+    }
     /// Set maximum value (for number fields).
-    pub fn with_max(mut self, v: f64) -> Self { self.max = v; self.has_max = true; self }
+    pub fn with_max(mut self, v: f64) -> Self {
+        self.max = v;
+        self.has_max = true;
+        self
+    }
     /// Set step value (for number fields).
-    pub fn with_step(mut self, v: f64) -> Self { self.step = v; self.has_step = true; self }
+    pub fn with_step(mut self, v: f64) -> Self {
+        self.step = v;
+        self.has_step = true;
+        self
+    }
     /// Set group for collapsible sections.
     pub fn with_group(mut self, id: impl Into<String>, label: impl Into<String>) -> Self {
-        self.group = id.into(); self.group_label = label.into(); self
+        self.group = id.into();
+        self.group_label = label.into();
+        self
     }
     /// Add a visibility condition.
     pub fn with_condition(mut self, field_id: &str, operator: &str, value: &str) -> Self {
         self.conditions.push(proto::FieldVisibilityCondition {
-            field_id: field_id.into(), operator: operator.into(), value: value.into(),
+            field_id: field_id.into(),
+            operator: operator.into(),
+            value: value.into(),
         });
         self
     }
@@ -949,6 +1112,18 @@ pub trait PluginCapability: Send + Sync + 'static {
         Err(ToolError::NotFound(format!("no UI method `{method}`")))
     }
 
+    /// Handle a UI call with its desktop instance context. Older UI calls have none.
+    /// Override this for instance-aware backends; the default preserves legacy handlers.
+    async fn handle_widget_ui_call(
+        &self,
+        ctx: &PluginContext,
+        method: &str,
+        params_json: &str,
+        _widget: Option<&WidgetContext>,
+    ) -> Result<String, ToolError> {
+        self.handle_ui_call(ctx, method, params_json).await
+    }
+
     // ── Events ──
 
     /// Source id used when sending chat messages.
@@ -988,7 +1163,12 @@ pub trait PluginCapability: Send + Sync + 'static {
     }
 
     /// Daemon state changed (e.g. Ready → Listening).
-    async fn on_state_changed(&self, _ctx: &PluginContext, _event: crate::events::StateChangedEvent) {}
+    async fn on_state_changed(
+        &self,
+        _ctx: &PluginContext,
+        _event: crate::events::StateChangedEvent,
+    ) {
+    }
 
     /// A command was triggered.
     async fn on_command_triggered(
@@ -1219,10 +1399,18 @@ pub mod compat {
 
     impl ToolResult {
         pub fn ok(result: impl Into<String>) -> Self {
-            Self { success: true, result: result.into(), error: String::new() }
+            Self {
+                success: true,
+                result: result.into(),
+                error: String::new(),
+            }
         }
         pub fn err(error: impl Into<String>) -> Self {
-            Self { success: false, result: String::new(), error: error.into() }
+            Self {
+                success: false,
+                result: String::new(),
+                error: error.into(),
+            }
         }
     }
 
@@ -1240,10 +1428,18 @@ pub mod compat {
 
     impl ActionResult {
         pub fn ok(result: impl Into<String>) -> Self {
-            Self { success: true, result: result.into(), error: String::new() }
+            Self {
+                success: true,
+                result: result.into(),
+                error: String::new(),
+            }
         }
         pub fn err(error: impl Into<String>) -> Self {
-            Self { success: false, result: String::new(), error: error.into() }
+            Self {
+                success: false,
+                result: String::new(),
+                error: error.into(),
+            }
         }
     }
 
@@ -1261,10 +1457,16 @@ pub mod compat {
 
     impl UiCallResult {
         pub fn ok(json: impl Into<String>) -> Self {
-            Self { result_json: json.into(), error: String::new() }
+            Self {
+                result_json: json.into(),
+                error: String::new(),
+            }
         }
         pub fn err(msg: impl Into<String>) -> Self {
-            Self { result_json: String::new(), error: msg.into() }
+            Self {
+                result_json: String::new(),
+                error: msg.into(),
+            }
         }
     }
 
@@ -1333,7 +1535,11 @@ pub mod compat {
 
         // ── STT ──
 
-        async fn stt_transcribe(&self, _audio: &[u8], _sample_rate: u32) -> anyhow::Result<SttEvent> {
+        async fn stt_transcribe(
+            &self,
+            _audio: &[u8],
+            _sample_rate: u32,
+        ) -> anyhow::Result<SttEvent> {
             anyhow::bail!("STT not implemented")
         }
 
@@ -1411,7 +1617,12 @@ pub mod compat {
 
         async fn on_event(&self, _event_type: &str, _payload_json: &str) {}
 
-        async fn on_conversation_event(&self, _conv_id: &str, _event: &proto::ConversationEventMsg) {}
+        async fn on_conversation_event(
+            &self,
+            _conv_id: &str,
+            _event: &proto::ConversationEventMsg,
+        ) {
+        }
 
         async fn on_state_changed(&self, _event: crate::events::StateChangedEvent) {}
 
@@ -1489,7 +1700,9 @@ pub mod compat {
         if !first {
             return;
         }
-        plugin.set_host(Arc::new(Mutex::new(ctx.host().clone()))).await;
+        plugin
+            .set_host(Arc::new(Mutex::new(ctx.host().clone())))
+            .await;
         if let Some(daemon) = ctx.daemon() {
             plugin
                 .set_daemon_client(Arc::new(Mutex::new(daemon.clone())))
@@ -1827,7 +2040,10 @@ pub mod compat {
             assert_eq!(tools.len(), 1);
             assert_eq!(tools[0].name, "roll_dice");
 
-            let out = h.call_tool("roll_dice", serde_json::json!({})).await.unwrap();
+            let out = h
+                .call_tool("roll_dice", serde_json::json!({}))
+                .await
+                .unwrap();
             assert_eq!(out, "Rolled 1d6: [4] = 4");
 
             let fired = h.fired_triggers();
@@ -1866,18 +2082,33 @@ pub mod compat {
         async fn an_0_5_failure_becomes_a_tool_error_with_the_same_sentence() {
             let h = Harness::new(LegacyDice::default()).start().await.unwrap();
 
-            let err = h.call_tool("nope", serde_json::json!({})).await.unwrap_err();
-            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown tool: nope"), "{err:?}");
+            let err = h
+                .call_tool("nope", serde_json::json!({}))
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, ToolError::Internal(ref m) if m == "Unknown tool: nope"),
+                "{err:?}"
+            );
 
-            let err = h.execute_action("nope", serde_json::json!({})).await.unwrap_err();
-            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown action: nope"), "{err:?}");
+            let err = h
+                .execute_action("nope", serde_json::json!({}))
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, ToolError::Internal(ref m) if m == "Unknown action: nope"),
+                "{err:?}"
+            );
 
             assert_eq!(
                 h.ui_call("getConfig", serde_json::json!({})).await.unwrap(),
                 r#"{"default_sides":6}"#
             );
             let err = h.ui_call("nope", serde_json::json!({})).await.unwrap_err();
-            assert!(matches!(err, ToolError::Internal(ref m) if m == "Unknown method: nope"), "{err:?}");
+            assert!(
+                matches!(err, ToolError::Internal(ref m) if m == "Unknown method: nope"),
+                "{err:?}"
+            );
         }
 
         // ── the streaming hooks, which are the ones worth doubting ──
@@ -1898,7 +2129,10 @@ pub mod compat {
                 while let Some(chunk) = audio_rx.recv().await {
                     chunks += 1;
                     let _ = events_tx
-                        .send(SttEvent::partial(format!("chunk {chunks} ({} bytes)", chunk.len())))
+                        .send(SttEvent::partial(format!(
+                            "chunk {chunks} ({} bytes)",
+                            chunk.len()
+                        )))
                         .await;
                 }
                 let _ = events_tx
@@ -2033,13 +2267,18 @@ pub mod compat {
 
             let e = h.stt_load_state().await.unwrap_err();
             assert!(
-                e.downcast_ref::<crate::error::HookUnimplemented>().is_some(),
+                e.downcast_ref::<crate::error::HookUnimplemented>()
+                    .is_some(),
                 "stt_load_state must answer UNIMPLEMENTED, got {e:?}"
             );
 
-            let e = h.ai_complete(crate::capability::AiRequest::default()).await.unwrap_err();
+            let e = h
+                .ai_complete(crate::capability::AiRequest::default())
+                .await
+                .unwrap_err();
             assert!(
-                e.downcast_ref::<crate::error::HookUnimplemented>().is_some(),
+                e.downcast_ref::<crate::error::HookUnimplemented>()
+                    .is_some(),
                 "ai_complete must answer UNIMPLEMENTED, got {e:?}"
             );
         }
@@ -2087,7 +2326,9 @@ pub mod compat {
             let b = Harness::new(LegacyDice::default()).start().await.unwrap();
 
             for h in [&a, &b] {
-                h.call_tool("roll_dice", serde_json::json!({})).await.unwrap();
+                h.call_tool("roll_dice", serde_json::json!({}))
+                    .await
+                    .unwrap();
                 assert_eq!(h.fired_triggers().len(), 1);
                 assert_eq!(
                     h.plugin()

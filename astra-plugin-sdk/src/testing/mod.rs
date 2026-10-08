@@ -83,8 +83,8 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 
 use crate::capability::{
-    AiChunk, AiRequest, AudioChunk, AudioData, PluginCapability, SttEvent, SttLoadState, SttOptions,
-    ToolDef, TtsRequest,
+    AiChunk, AiRequest, AudioChunk, AudioData, PluginCapability, SttEvent, SttLoadState,
+    SttOptions, ToolDef, TtsRequest,
 };
 use crate::context::{Host, PluginContext};
 use crate::error::ToolError;
@@ -124,9 +124,8 @@ impl<P: PluginCapability> Harness<P> {
     /// the daemon uses, so a payload that does not fit the plugin's `Config`
     /// is handled by the plugin's real code and not by the harness.
     pub fn with_config(mut self, config: impl serde::Serialize) -> Self {
-        self.config_json = Some(
-            serde_json::to_string(&config).expect("harness config must serialize to JSON"),
-        );
+        self.config_json =
+            Some(serde_json::to_string(&config).expect("harness config must serialize to JSON"));
         self
     }
 
@@ -196,10 +195,8 @@ impl<P: PluginCapability> Harness<P> {
     /// ran these the other way round.
     pub async fn start(self) -> Result<Running<P>> {
         let plugin = Arc::new(self.plugin);
-        let mut ctx = PluginContext::new(
-            self.plugin_id.clone(),
-            self.host.clone() as Arc<dyn Host>,
-        );
+        let mut ctx =
+            PluginContext::new(self.plugin_id.clone(), self.host.clone() as Arc<dyn Host>);
         if let Some(daemon) = self.daemon {
             ctx = ctx.with_daemon(daemon);
         }
@@ -339,7 +336,11 @@ impl<P: PluginCapability> Running<P> {
 
     /// Call one tool. `args` is anything that serializes — `json!({..})`, or
     /// the argument type itself.
-    pub async fn call_tool(&self, name: &str, args: impl serde::Serialize) -> Result<String, ToolError> {
+    pub async fn call_tool(
+        &self,
+        name: &str,
+        args: impl serde::Serialize,
+    ) -> Result<String, ToolError> {
         let args = serde_json::to_string(&args).map_err(ToolError::from)?;
         self.plugin.call_tool(&self.ctx, name, &args).await
     }
@@ -421,7 +422,22 @@ impl<P: PluginCapability> Running<P> {
         params: impl serde::Serialize,
     ) -> Result<String, ToolError> {
         let params = serde_json::to_string(&params).map_err(ToolError::from)?;
-        self.plugin.handle_ui_call(&self.ctx, method, &params).await
+        self.plugin
+            .handle_widget_ui_call(&self.ctx, method, &params, None)
+            .await
+    }
+
+    /// A desktop iframe call with explicit presentation context.
+    pub async fn widget_ui_call(
+        &self,
+        method: &str,
+        params: impl serde::Serialize,
+        widget: &crate::WidgetContext,
+    ) -> Result<String, ToolError> {
+        let params = serde_json::to_string(&params).map_err(ToolError::from)?;
+        self.plugin
+            .handle_widget_ui_call(&self.ctx, method, &params, Some(widget))
+            .await
     }
 
     // ── STT ──
@@ -456,8 +472,9 @@ impl<P: PluginCapability> Running<P> {
         sample_rate: u32,
         options: SttOptions,
     ) -> Result<Vec<SttEvent>> {
-        let (audio_tx, audio_rx) =
-            tokio::sync::mpsc::channel::<Vec<u8>>(crate::limits::STT_AUDIO_CHANNEL_CAPACITY as usize);
+        let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(
+            crate::limits::STT_AUDIO_CHANNEL_CAPACITY as usize,
+        );
         let (events_tx, mut events_rx) = tokio::sync::mpsc::channel::<SttEvent>(8);
 
         let chunks: Vec<Vec<u8>> = chunks.into_iter().collect();
@@ -671,7 +688,11 @@ impl ToolSchema {
             .json
             .get("required")
             .and_then(|r| r.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         names.sort();
         names
@@ -709,8 +730,8 @@ impl ToolSchema {
     /// Assert this is the schema `T` generates.
     #[cfg(feature = "schema")]
     pub fn assert_matches<T: crate::schema::JsonSchema>(&self) {
-        let expected: serde_json::Value = serde_json::from_str(&crate::schema::of::<T>())
-            .expect("generated schema is JSON");
+        let expected: serde_json::Value =
+            serde_json::from_str(&crate::schema::of::<T>()).expect("generated schema is JSON");
         assert_eq!(
             self.json,
             expected,

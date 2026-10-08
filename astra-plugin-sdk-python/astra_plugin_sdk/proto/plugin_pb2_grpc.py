@@ -3050,6 +3050,11 @@ class CommandServiceStub(object):
                 request_serializer=plugin__pb2.ExecuteCommandRequest.SerializeToString,
                 response_deserializer=plugin__pb2.ExecuteCommandResponse.FromString,
                 _registered_method=True)
+        self.LaunchFile = channel.unary_unary(
+                '/astra.CommandService/LaunchFile',
+                request_serializer=plugin__pb2.LaunchFileRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ExecuteCommandResponse.FromString,
+                _registered_method=True)
         self.SetEnabled = channel.unary_unary(
                 '/astra.CommandService/SetEnabled',
                 request_serializer=plugin__pb2.SetCommandEnabledRequest.SerializeToString,
@@ -3129,6 +3134,13 @@ class CommandServiceServicer(object):
 
     def Execute(self, request, context):
         """Execute a command by ID
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LaunchFile(self, request, context):
+        """Human-initiated desktop launch, using the ordinary command executor.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3217,6 +3229,11 @@ def add_CommandServiceServicer_to_server(servicer, server):
             'Execute': grpc.unary_unary_rpc_method_handler(
                     servicer.Execute,
                     request_deserializer=plugin__pb2.ExecuteCommandRequest.FromString,
+                    response_serializer=plugin__pb2.ExecuteCommandResponse.SerializeToString,
+            ),
+            'LaunchFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.LaunchFile,
+                    request_deserializer=plugin__pb2.LaunchFileRequest.FromString,
                     response_serializer=plugin__pb2.ExecuteCommandResponse.SerializeToString,
             ),
             'SetEnabled': grpc.unary_unary_rpc_method_handler(
@@ -3418,6 +3435,33 @@ class CommandService(object):
             target,
             '/astra.CommandService/Execute',
             plugin__pb2.ExecuteCommandRequest.SerializeToString,
+            plugin__pb2.ExecuteCommandResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LaunchFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CommandService/LaunchFile',
+            plugin__pb2.LaunchFileRequest.SerializeToString,
             plugin__pb2.ExecuteCommandResponse.FromString,
             options,
             channel_credentials,

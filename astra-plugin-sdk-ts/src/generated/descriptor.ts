@@ -2435,6 +2435,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "ExecuteCommandRequest",
               "responseType": "ExecuteCommandResponse"
             },
+            "LaunchFile": {
+              "requestType": "LaunchFileRequest",
+              "responseType": "ExecuteCommandResponse"
+            },
             "SetEnabled": {
               "requestType": "SetCommandEnabledRequest",
               "responseType": "Empty"
@@ -2840,6 +2844,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "entryNodeId": {
               "type": "string",
+              "id": 3
+            },
+            "sourceSurface": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "LaunchFileRequest": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "arguments": {
+              "type": "string",
+              "id": 2
+            },
+            "runAsAdmin": {
+              "type": "bool",
               "id": 3
             }
           }
@@ -4808,6 +4832,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "WidgetVisibilitySettings": {
+          "oneofs": {
+            "_music": {
+              "oneof": [
+                "music"
+              ]
+            }
+          },
           "fields": {
             "notes": {
               "type": "bool",
@@ -4832,6 +4863,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "crypto": {
               "type": "bool",
               "id": 6
+            },
+            "music": {
+              "type": "bool",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -4906,6 +4944,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "defaultEnabled": {
               "type": "bool",
               "id": 9
+            },
+            "desktopSupported": {
+              "type": "bool",
+              "id": 10
+            },
+            "repeatable": {
+              "type": "bool",
+              "id": 12
+            },
+            "overlaySupported": {
+              "type": "bool",
+              "id": 11
             }
           }
         },
@@ -8512,6 +8562,181 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "keyType": "string",
               "type": "string",
               "id": 13
+            },
+            "desktopWidget": {
+              "type": "PluginDesktopWidget",
+              "id": 14
+            }
+          }
+        },
+        "PluginDesktopWidget": {
+          "fields": {
+            "repeatable": {
+              "type": "bool",
+              "id": 1
+            },
+            "formats": {
+              "rule": "repeated",
+              "type": "PluginWidgetFormat",
+              "id": 2
+            },
+            "surfaces": {
+              "rule": "repeated",
+              "type": "PluginWidgetSurface",
+              "id": 3
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 4
+            },
+            "settingsSurface": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginWidgetFormat": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "url": {
+              "type": "string",
+              "id": 3
+            },
+            "previewUrl": {
+              "type": "string",
+              "id": 4
+            },
+            "appearance": {
+              "type": "string",
+              "id": 5
+            },
+            "defaultW": {
+              "type": "uint32",
+              "id": 6
+            },
+            "defaultH": {
+              "type": "uint32",
+              "id": 7
+            },
+            "minW": {
+              "type": "uint32",
+              "id": 8
+            },
+            "minH": {
+              "type": "uint32",
+              "id": 9
+            },
+            "maxW": {
+              "type": "uint32",
+              "id": 10
+            },
+            "maxH": {
+              "type": "uint32",
+              "id": 11
+            },
+            "fixedSize": {
+              "type": "bool",
+              "id": 12
+            },
+            "minPixelWidth": {
+              "type": "uint32",
+              "id": 13
+            },
+            "minPixelHeight": {
+              "type": "uint32",
+              "id": 14
+            }
+          }
+        },
+        "PluginWidgetSurface": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "url": {
+              "type": "string",
+              "id": 3
+            },
+            "kind": {
+              "type": "string",
+              "id": 4
+            },
+            "width": {
+              "type": "uint32",
+              "id": 5
+            },
+            "height": {
+              "type": "uint32",
+              "id": 6
+            },
+            "minWidth": {
+              "type": "uint32",
+              "id": 7
+            },
+            "minHeight": {
+              "type": "uint32",
+              "id": 8
+            },
+            "maxWidth": {
+              "type": "uint32",
+              "id": 9
+            },
+            "maxHeight": {
+              "type": "uint32",
+              "id": 10
+            }
+          }
+        },
+        "PluginWidgetContext": {
+          "fields": {
+            "widgetId": {
+              "type": "string",
+              "id": 1
+            },
+            "instanceId": {
+              "type": "string",
+              "id": 2
+            },
+            "formatId": {
+              "type": "string",
+              "id": 3
+            },
+            "viewId": {
+              "type": "string",
+              "id": 4
+            },
+            "preview": {
+              "type": "bool",
+              "id": 5
+            },
+            "active": {
+              "type": "bool",
+              "id": 6
+            },
+            "width": {
+              "type": "uint32",
+              "id": 7
+            },
+            "height": {
+              "type": "uint32",
+              "id": 8
+            },
+            "configJson": {
+              "type": "string",
+              "id": 9
             }
           }
         },
@@ -8620,6 +8845,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "paramsJson": {
               "type": "string",
               "id": 2
+            },
+            "widgetContext": {
+              "type": "PluginWidgetContext",
+              "id": 3
             }
           }
         },
@@ -8668,6 +8897,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "paramsJson": {
               "type": "string",
               "id": 3
+            },
+            "widgetContext": {
+              "type": "PluginWidgetContext",
+              "id": 4
             }
           }
         },

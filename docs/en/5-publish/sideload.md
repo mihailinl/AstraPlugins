@@ -88,7 +88,7 @@ and `astra-plugin logs --json` are the machine-readable halves of what it does.
 | **Signature** | none. Nothing vouches for the code |
 | **Privileges** | your full user account. There is no sandbox — [Phase 7 does not exist](../1-orientation/security.md) |
 | **Blast radius of the switch** | `allow_unsigned_plugins` applies to every plugin on the machine, including unsigned files you import later |
-| **Auto-start** | **never.** Developer Mode is required at load time, and a restart leaves a sideloaded plugin stopped until you start it again |
+| **Auto-start** | Restores the saved enabled state when Developer Mode is on and the daemon still authorises the same source. Missing or unreadable saved state stays disabled. |
 | **Permission ceiling** | **none** — see below |
 | **Provenance shown to the user** | tier `sideloaded` — "loaded from a folder" — in the provenance panel |
 
@@ -100,9 +100,7 @@ is deliberate rather than an oversight: this is the authoring loop for UI
 plugins, and `dom_access` is exactly what `companion`, `doom` and `bad-apple`
 need. Capping tier 3 would make those undevelopable.
 
-The trade is that tier 3 is gated by an explicit setting, never auto-starts,
-and is a directory you pointed at yourself — three facts that tier 2 (a file
-that arrived from somewhere) cannot claim.
+Tier 3 requires Developer Mode and a source directory you explicitly authorised. Astra remembers your enable/disable choice across restarts; source authorisation alone does not enable a plugin.
 
 The plan also asks for a permanent, non-dismissible "DEVELOPER — unverified
 code from a local directory" badge on the plugin card and on the window chrome

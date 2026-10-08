@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange"> {
-    value: string;
-    onChange: (value: string) => void;
-    autoResize?: boolean;
-    autoList?: boolean;
-    invalid?: boolean;
-    ref?: React.Ref<HTMLTextAreaElement>;
+export interface SliderProps {
+    value: number;
+    onChange: (value: number) => void;
+    min?: number;
+    max?: number;
+    step?: number;
+    showValue?: boolean;
+    disabled?: boolean;
+    id?: string;
+    className?: string;
+    formatValue?: (value: number) => string;
 }
-export declare function Textarea({ value, onChange, autoResize, autoList, invalid, rows, className, "aria-invalid": ariaInvalid, ref, onKeyDown, ...rest }: TextareaProps): import("react/jsx-runtime").JSX.Element;
+export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, }: SliderProps): import("react/jsx-runtime").JSX.Element;

@@ -170,6 +170,17 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     }
 
     let ui = capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access");
+    let desktop = capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER);
+    if desktop {
+        imports.extend([
+            "UiContribution",
+            "DesktopWidget",
+            "WidgetFormat",
+            "WidgetSurface",
+            "Field",
+        ]);
+        methods.push_str(super::desktop_widget::PYTHON);
+    }
     if ui {
         imports.push("ui_call");
         methods.push_str(
@@ -220,7 +231,7 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     // The UI contributions themselves are declared with a CLASS decorator —
     // `@ui_page` registers, it does not return something to be plumbed. That is
     // the whole point of §5.8's change, so the scaffold has to show it.
-    let class_decorator = if ui {
+    let class_decorator = if ui && !desktop {
         "@ui_page(\"main\", \"My Plugin\", \"index.html\")\n"
     } else {
         ""

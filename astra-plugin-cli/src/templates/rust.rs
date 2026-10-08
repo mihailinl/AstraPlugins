@@ -306,7 +306,12 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         ));
     }
 
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
+        members.push(Member::new(
+            Some("ui_contributions"),
+            super::desktop_widget::RUST,
+        ));
+    } else if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
         members.push(Member::new(
             Some("ui_contributions"),
             r##"    /// The iframes this plugin puts in Astra's UI. `url` is served from the
@@ -381,11 +386,10 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     // more thing that can rot.
     let inferred: std::collections::BTreeSet<&str> =
         members.iter().filter_map(|m| m.implies).collect();
-    let requested: std::collections::BTreeSet<&str> = capabilities
-        .iter()
-        .copied()
-        .filter(|c| !c.is_empty())
-        .collect();
+    let requested: std::collections::BTreeSet<&str> =
+        crate::commands::create::manifest_capabilities(capabilities)
+            .into_iter()
+            .collect();
     let plugin_attr = if requested.is_empty() || requested == inferred {
         "#[astra::plugin]".to_string()
     } else {
@@ -517,7 +521,10 @@ mod tests {
         let main_rs = generate_main_rs("dice-roller", &["tools"]);
         assert!(main_rs.contains(TEST_MODULE_MARKER), "{main_rs}");
         assert!(main_rs.contains("#[tokio::test]"), "{main_rs}");
-        assert!(main_rs.contains("Harness::new(DiceRoller::default())"), "{main_rs}");
+        assert!(
+            main_rs.contains("Harness::new(DiceRoller::default())"),
+            "{main_rs}"
+        );
         assert!(
             main_rs.contains(r#"h.call_tool("hello", json!({})).await"#),
             "the scaffolded test has to exercise the scaffolded tool:\n{main_rs}"
@@ -571,6 +578,14 @@ mod tests {
             main_rs.contains(r#"#[astra::plugin(capabilities = "dom_access, tools")]"#),
             "{main_rs}"
         );
+    }
+
+    #[test]
+    fn template_markers_never_become_binary_capabilities() {
+        let main_rs = generate_main_rs("widget", &["desktop_widget", "ui_contributions"]);
+        assert!(main_rs.contains("\n#[astra::plugin]\n"), "{main_rs}");
+        assert!(!main_rs.contains("capabilities ="), "{main_rs}");
+        assert!(!main_rs.contains("desktop_widget"), "{main_rs}");
     }
 
     #[test]

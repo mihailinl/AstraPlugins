@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "size"> {
-    value: string;
-    onChange: (value: string) => void;
-    size?: "sm" | "md";
-    invalid?: boolean;
-    bare?: boolean;
-    iconLeft?: React.ReactNode;
-    clearable?: boolean;
-    onClear?: () => void;
-    clearLabel?: string;
-    ref?: React.Ref<HTMLInputElement>;
+export type IconName = "close" | "check" | "ellipsis" | "chevron-down" | "chevron-up" | "chevron-right" | "chevron-left" | "search" | "plus" | "minus" | "trash" | "edit" | "copy" | "settings" | "info" | "alert-triangle" | "x-circle" | "check-circle" | "badge-check" | "braces" | "menu" | "swap" | "external" | "steam" | "dot" | "terminal" | "file" | "folder" | "git-branch" | "globe" | "keyboard" | "play" | "volume" | "cloud-sun" | "sun" | "moon" | "cloud" | "cloud-moon" | "cloud-rain" | "cloud-sleet" | "cloud-snow" | "cloud-lightning" | "cloud-fog" | "wind" | "droplet" | "command" | "message-circle" | "brain" | "monitor" | "mouse-pointer" | "image" | "sticky-note" | "bell" | "calendar" | "list-checks" | "coins" | "app-window" | "clock" | "gauge" | "record" | "square" | "grip" | "eye" | "eye-off" | "mail" | "refresh" | "send" | "reply" | "forward" | "paperclip" | "download" | "lock" | "log-out" | "shield" | "plug" | "person";
+interface IconProps {
+    name: IconName;
+    size?: number;
+    strokeWidth?: number;
+    className?: string;
 }
-export declare function Input({ value, onChange, size, invalid, bare, iconLeft, clearable, onClear, clearLabel, className, disabled, "aria-invalid": ariaInvalid, ref, ...rest }: InputProps): import("react/jsx-runtime").JSX.Element;
+export declare function Icon({ name, size, strokeWidth, className }: IconProps): import("react/jsx-runtime").JSX.Element;
+export {};

@@ -275,7 +275,7 @@ sistema.
 |---|---|---|
 | **1 · Registro** | verificado según el algoritmo de instalación | **todo**, sujeto a consentimiento. Sin anulación ante un fallo |
 | **2 · Archivo local** (`ImportPluginFile`) | un `.astraplugin` recibido fuera del registro | `send_chat_message`, `set_theme_contribution`, `dom_access` y `client` se **rechazan de plano, no solo se advierten** |
-| **3 · Sideload** | un directorio fuente al que el usuario apuntó un diálogo de archivos, modo desarrollador activado | **ninguno** — y **nunca arranca automáticamente**: el modo desarrollador es obligatorio al cargar y un reinicio lo deja detenido hasta que el usuario lo arranca de nuevo |
+| **3 · Sideload** | un directorio fuente al que el usuario apuntó un diálogo de archivos, modo desarrollador activado | **sin límite** — Restaura la activación guardada si el modo desarrollador está activo y el daemon autoriza la misma fuente. Un estado ausente o ilegible permanece desactivado. |
 
 El nivel de sideload se muestra al usuario como
 `provenance.tier.sideloaded` ("cargado desde una carpeta") en el panel

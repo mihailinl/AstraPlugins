@@ -62,10 +62,10 @@ astra-plugin new my-plugin --lang rust --template tool
 ```
 
 `--lang` is `rust` (default), `python` or `typescript`. `--template` — one of
-`tool tts stt stt-streaming ai-provider ui action-trigger client blank` — picks
+`tool tts stt stt-streaming ai-provider ui desktop-widget action-trigger client blank` — picks
 the capabilities and the example code; `--capabilities` overrides that set.
 
-For the UI template, choose `--ui vanilla` (default) or `--ui react`
+For UI and desktop-widget templates, choose `--ui vanilla` (default) or `--ui react`
 independently of the backend language. Both use the installed application's
 actual UI Kit primitives; React frontend dependencies live in `frontend/` and
 are installed with `bun install --frozen-lockfile`. Start with

@@ -249,7 +249,7 @@ highest-risk surface in the system.
 |---|---|---|
 | **1 · Registry** | verified per the install algorithm | **everything**, subject to consent. No override on failure |
 | **2 · Local file** (`ImportPluginFile`) | a `.astraplugin` received out of band | `send_chat_message`, `set_theme_contribution`, `dom_access` and `client` are **refused outright, not warned about** |
-| **3 · Sideload** | a source directory the user pointed a file dialog at, Developer Mode on | **none** — and it **never auto-starts**: Developer Mode is required at load time and a restart leaves it stopped until the user starts it again |
+| **3 · Sideload** | a source directory the user pointed a file dialog at, Developer Mode on | **no ceiling** — Restores the saved enabled state when Developer Mode is on and the daemon still authorises the same source. Missing or unreadable saved state stays disabled. |
 
 Sideload's tier is surfaced to the user as `provenance.tier.sideloaded`
 ("loaded from a folder") in the provenance panel. The plan also asks for a

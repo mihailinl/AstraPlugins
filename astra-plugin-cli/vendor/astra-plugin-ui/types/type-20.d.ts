@@ -1,22 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SelectOption<T extends string> {
-    value: T;
-    label: React.ReactNode;
+export interface SectionProps {
+    title?: React.ReactNode;
     icon?: React.ReactNode;
-    badge?: React.ReactNode;
-    disabled?: boolean;
-}
-export interface SelectProps<T extends string> {
-    value: T | null;
-    onChange: (value: T) => void;
-    options: SelectOption<T>[];
-    placeholder?: React.ReactNode;
-    size?: "sm" | "md";
-    disabled?: boolean;
+    description?: React.ReactNode;
+    actions?: React.ReactNode;
     id?: string;
+    children: React.ReactNode;
     className?: string;
-    bare?: boolean;
+    dataTutorial?: string;
+    advanced?: boolean;
 }
-export declare function Select<T extends string>({ value, onChange, options, placeholder, size, disabled, id, className, bare, }: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function Section({ title, icon, description, actions, id, children, className, dataTutorial, advanced, }: SectionProps): import("react/jsx-runtime").JSX.Element;

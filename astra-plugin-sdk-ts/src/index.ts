@@ -143,6 +143,7 @@ export type {
   ActionTypeDef,
   TriggerTypeDef,
   UiContribution,
+  DesktopWidget, WidgetFormat, WidgetSurface, WidgetContext,
   UiCallResult,
   UiPanel,
   AudioChunk,

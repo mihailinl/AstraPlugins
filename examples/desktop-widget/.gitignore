@@ -1,0 +1,8 @@
+# Build artifacts
+*.astraplugin
+
+target/
+
+frontend/node_modules/
+ui/app.js
+ui/App.js

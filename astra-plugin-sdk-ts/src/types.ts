@@ -113,6 +113,29 @@ export interface TriggerTypeDef {
   fields: FieldDef[];
 }
 
+/** Desktop grid geometry is in cells; readable dimensions are pixels. */
+export interface WidgetFormat {
+  id: string; label: string; url: string; previewUrl?: string;
+  appearance?: "card" | "icon" | "bubble";
+  defaultW: number; defaultH: number; minW: number; minH: number;
+  maxW?: number; maxH?: number; fixedSize?: boolean;
+  minPixelWidth?: number; minPixelHeight?: number;
+}
+export interface WidgetSurface {
+  id: string; label?: string; url: string; kind: "popover" | "modal";
+  width?: number; height?: number; minWidth?: number; minHeight?: number;
+  maxWidth?: number; maxHeight?: number;
+}
+export interface DesktopWidget {
+  repeatable?: boolean; formats: WidgetFormat[]; surfaces?: WidgetSurface[];
+  configFields?: FieldDef[]; settingsSurface?: string;
+}
+/** Context attached automatically to backend calls; configJson is instance configuration. */
+export interface WidgetContext {
+  widgetId: string; instanceId: string; formatId: string; viewId: string;
+  preview: boolean; active: boolean; width: number; height: number; configJson: string;
+}
+
 /** UI contribution definition — targets a named slot or CSS selector. */
 export interface UiContribution {
   id: string;
@@ -128,6 +151,7 @@ export interface UiContribution {
   pointerEvents?: boolean;
   zIndex?: number;
   props?: Record<string, string>;
+  desktopWidget?: DesktopWidget;
 }
 
 /** @deprecated Use UiContribution instead */
@@ -300,6 +324,10 @@ export interface ChatChunk {
 
 /** Builder for UI contributions. */
 export const UiContrib = {
+  /** A user-placed widget in Astra's desktop grid. */
+  widget(id: string, label: string, desktopWidget: DesktopWidget): UiContribution {
+    return {id, label, slot: "desktop.widget", url: desktopWidget.formats[0]?.url ?? "", desktopWidget, transparent: true, pointerEvents: true};
+  },
   /** Custom navigation page. */
   page(id: string, label: string, url: string, opts?: { iconSvg?: string }): UiContribution {
     return { id, slot: "page.custom", label, url, iconSvg: opts?.iconSvg, pointerEvents: true };

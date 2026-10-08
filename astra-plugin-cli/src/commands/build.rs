@@ -98,7 +98,9 @@ pub struct BuildOptions<'a> {
 /// conjure, and pretending otherwise is how a host binary ends up inside a
 /// foreign bundle. It builds what is there and names what is missing.
 pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
-    let dir = Path::new(opts.path).canonicalize().context("Invalid path")?;
+    let dir = Path::new(opts.path)
+        .canonicalize()
+        .context("Invalid path")?;
     // Once, before the loop: per target it would land in `skipped` and come
     // out as "2 of 2 targets could not be built", exit 2.
     refuse_reserved_keys(&dir)?;
@@ -138,7 +140,14 @@ pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
     }
 
     hprintln!();
-    hprintln!("  Built: {}", if built.is_empty() { "nothing".into() } else { built.join(", ") });
+    hprintln!(
+        "  Built: {}",
+        if built.is_empty() {
+            "nothing".into()
+        } else {
+            built.join(", ")
+        }
+    );
     if !skipped.is_empty() {
         for (key, why) in &skipped {
             hprintln!("  Skipped {key}: {why}");
@@ -317,7 +326,11 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     }
 
     for root in packed_source_roots(&language) {
-        let path = if *root == "." { dir.clone() } else { dir.join(root) };
+        let path = if *root == "." {
+            dir.clone()
+        } else {
+            dir.join(root)
+        };
         if path.exists() {
             add_directory_recursive(&path, &mut builder, &dir)?;
         }
@@ -354,9 +367,10 @@ pub fn run(opts: BuildOptions<'_>) -> Result<()> {
     // the registry does not accept is an icon that silently never appears, and
     // one accepted there but not packed here is an icon an author added and this
     // tool threw away.
-    for name in ICON_FILENAMES
-        .iter()
-        .chain(&["README.md", "LICENSE", crate::commands::locale::LOCK_FILE])
+    for name in
+        ICON_FILENAMES
+            .iter()
+            .chain(&["README.md", "LICENSE", crate::commands::locale::LOCK_FILE])
     {
         let p = dir.join(name);
         if p.exists() && !builder.contains(name) {
@@ -835,19 +849,46 @@ pub fn build_project(dir: &Path) -> Result<()> {
 }
 
 fn validate_ui_bundle(dir: &Path) -> Result<()> {
-    if !dir.join("frontend/vendor/astra-plugin-ui/contract.json").exists() {return Ok(());}
-    let script=concat!(include_str!("../../resources/ui/verify-bundle.mjs"),"\nverifyUiBundle(process.argv.at(-2),JSON.parse(process.argv.at(-1)));\n");
-    let status=std::process::Command::new("bun").args(["-e",script]).arg(dir.join("ui")).arg(include_str!("../../vendor/astra-plugin-ui/contract.json")).status().context("Failed to validate compiled UI bundle")?;
-    if !status.success(){anyhow::bail!("Compiled UI bundle violates host import contract");}
+    if !dir
+        .join("frontend/vendor/astra-plugin-ui/contract.json")
+        .exists()
+    {
+        return Ok(());
+    }
+    let script = concat!(
+        include_str!("../../resources/ui/verify-bundle.mjs"),
+        "\nverifyUiBundle(process.argv.at(-2),JSON.parse(process.argv.at(-1)));\n"
+    );
+    let status = std::process::Command::new("bun")
+        .args(["-e", script])
+        .arg(dir.join("ui"))
+        .arg(include_str!("../../vendor/astra-plugin-ui/contract.json"))
+        .status()
+        .context("Failed to validate compiled UI bundle")?;
+    if !status.success() {
+        anyhow::bail!("Compiled UI bundle violates host import contract");
+    }
     Ok(())
 }
 
 fn build_frontend(dir: &Path) -> Result<()> {
-    let frontend=dir.join("frontend");
-    if !frontend.join("package.json").exists() {return Ok(());}
-    if !crate::toolchain::exists("bun") {anyhow::bail!("React frontend requires Bun. Run bun install --frozen-lockfile in frontend/ first.");}
-    let status=std::process::Command::new("bun").args(["run","build"]).current_dir(frontend).status().context("Failed to build frontend")?;
-    if !status.success() {anyhow::bail!("Frontend build failed");}
+    let frontend = dir.join("frontend");
+    if !frontend.join("package.json").exists() {
+        return Ok(());
+    }
+    if !crate::toolchain::exists("bun") {
+        anyhow::bail!(
+            "React frontend requires Bun. Run bun install --frozen-lockfile in frontend/ first."
+        );
+    }
+    let status = std::process::Command::new("bun")
+        .args(["run", "build"])
+        .current_dir(frontend)
+        .status()
+        .context("Failed to build frontend")?;
+    if !status.success() {
+        anyhow::bail!("Frontend build failed");
+    }
     Ok(())
 }
 
@@ -1022,7 +1063,11 @@ fn resolve_rust_binary_for(dir: &Path, entry_command: &str, target: Target) -> R
         Target::WindowsX64 => &["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"],
         Target::Noarch => &[],
     };
-    let suffix = if target == Target::WindowsX64 { ".exe" } else { "" };
+    let suffix = if target == Target::WindowsX64 {
+        ".exe"
+    } else {
+        ""
+    };
 
     // The bin name is a property of the package, not of the host, so the host
     // resolution is reused for it and only the directory changes.
@@ -1055,14 +1100,19 @@ fn resolve_rust_binary_for(dir: &Path, entry_command: &str, target: Target) -> R
         std::env::consts::OS,
         triples
             .iter()
-            .map(|t| target_root.join(t).join("release").join(format!("{stem}{suffix}")).display().to_string())
+            .map(|t| target_root
+                .join(t)
+                .join("release")
+                .join(format!("{stem}{suffix}"))
+                .display()
+                .to_string())
             .collect::<Vec<_>>()
             .join(", "),
         triples.first().copied().unwrap_or("<triple>")
     )
 }
 
-fn resolve_rust_binary(dir: &Path, entry_command: &str) -> Result<PathBuf> {
+pub(super) fn resolve_rust_binary(dir: &Path, entry_command: &str) -> Result<PathBuf> {
     let from_cargo = cargo_release_binary(dir);
 
     // The override: `entry.command` relative to the plugin directory. On
@@ -1364,7 +1414,10 @@ mod tests {
                 capabilities: vec![],
                 permissions: BTreeMap::new(),
                 permissions_hash: String::new(),
-                entry: ManifestEntry { command: "./x".into(), args: vec![] },
+                entry: ManifestEntry {
+                    command: "./x".into(),
+                    args: vec![],
+                },
                 files: vec![crate::bundle::FileEntry {
                     path: "ui/model.bin".into(),
                     sha256: String::new(),
@@ -1386,7 +1439,11 @@ mod tests {
         // Exit 1 is "the artefact is wrong"; exit 2 is "the CLI could not
         // answer". A release workflow branches on that, and an oversized
         // bundle reported as 2 reads as the toolchain having fallen over.
-        assert_eq!(crate::output::code_for(&err), 1, "an oversized bundle is a rejection, not a tool failure");
+        assert_eq!(
+            crate::output::code_for(&err),
+            1,
+            "an oversized bundle is a rejection, not a tool failure"
+        );
 
         for needle in [
             // The cap, exactly, so it can be compared with the registry's.
@@ -1751,15 +1808,33 @@ actions = true
             bytes
         };
 
-        assert_eq!(icon_size_warning(&dir), None, "no icon at all is not this rule's business");
+        assert_eq!(
+            icon_size_warning(&dir),
+            None,
+            "no icon at all is not this rule's business"
+        );
 
         fs::write(dir.join("icon.png"), png(cap)).unwrap();
-        assert_eq!(icon_size_warning(&dir), None, "an icon exactly at the cap is one the registry keeps");
+        assert_eq!(
+            icon_size_warning(&dir),
+            None,
+            "an icon exactly at the cap is one the registry keeps"
+        );
 
         fs::write(dir.join("icon.png"), png(cap + 1)).unwrap();
         let warned = icon_size_warning(&dir).expect("one byte over the cap must be warned about");
-        for want in ["icon.png", &(cap + 1).to_string(), &cap.to_string(), "max_icon_bytes", "drops", "128x128"] {
-            assert!(warned.contains(want), "the warning does not say {want:?}:\n{warned}");
+        for want in [
+            "icon.png",
+            &(cap + 1).to_string(),
+            &cap.to_string(),
+            "max_icon_bytes",
+            "drops",
+            "128x128",
+        ] {
+            assert!(
+                warned.contains(want),
+                "the warning does not say {want:?}:\n{warned}"
+            );
         }
 
         // The registry picks the first name in spec/icon-formats.yaml's order,
@@ -1846,7 +1921,11 @@ actions = true
         let (got, written) = pack(tag, manifest);
         let err = got.expect_err("the reserved keys refuse this manifest; it must not pack");
         let msg = format!("{err:#}");
-        assert_eq!(crate::output::code_for(&err), 1, "a refusal is exit 1, not 2: {msg}");
+        assert_eq!(
+            crate::output::code_for(&err),
+            1,
+            "a refusal is exit 1, not 2: {msg}"
+        );
         assert!(!written, "`Nothing was written` has to be true: {msg}");
         msg
     }

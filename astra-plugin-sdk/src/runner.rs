@@ -58,23 +58,31 @@ pub(crate) async fn dispatch_event<P: PluginCapability>(
 ) {
     match event.event_type.as_str() {
         "state_changed" => {
-            if let Ok(parsed) = serde_json::from_str::<events::StateChangedEvent>(&event.payload_json) {
+            if let Ok(parsed) =
+                serde_json::from_str::<events::StateChangedEvent>(&event.payload_json)
+            {
                 plugin.on_state_changed(ctx, parsed).await;
             }
         }
         "command_triggered" => {
-            if let Ok(parsed) = serde_json::from_str::<events::CommandTriggeredEvent>(&event.payload_json) {
+            if let Ok(parsed) =
+                serde_json::from_str::<events::CommandTriggeredEvent>(&event.payload_json)
+            {
                 plugin.on_command_triggered(ctx, parsed).await;
             }
         }
         "command_completed" => {
-            if let Ok(parsed) = serde_json::from_str::<events::CommandCompletedEvent>(&event.payload_json) {
+            if let Ok(parsed) =
+                serde_json::from_str::<events::CommandCompletedEvent>(&event.payload_json)
+            {
                 plugin.on_command_completed(ctx, parsed).await;
             }
         }
         _ => {}
     }
-    plugin.on_event(ctx, &event.event_type, &event.payload_json).await;
+    plugin
+        .on_event(ctx, &event.event_type, &event.payload_json)
+        .await;
 }
 
 /// CLI arguments passed by the Astra daemon when spawning a plugin.
@@ -380,7 +388,9 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     }
 
     let args = Args::parse_from(daemon_args(argv));
-    info!(
+    // This first line is the daemon's startup signal, not a filtered diagnostic.
+    // RUST_LOG=warn/off or an author's own subscriber must not suppress it.
+    eprintln!(
         "Starting plugin '{}', connecting to daemon at {}",
         args.plugin_id, args.daemon_addr
     );
@@ -400,7 +410,8 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     // ── register ──
     // `connect_bootstrap` can only Register; `register` consumes it and returns
     // the client that carries the session token.
-    let bootstrap = HostClient::connect_bootstrap(&args.daemon_addr, args.plugin_id.clone()).await?;
+    let bootstrap =
+        HostClient::connect_bootstrap(&args.daemon_addr, args.plugin_id.clone()).await?;
 
     let capabilities = resolve_capabilities(
         args.capabilities,
@@ -408,8 +419,7 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
         &config.capabilities,
     );
     info!("Registering with capabilities: {:?}", capabilities);
-    let is_client_plugin =
-        plugin.is_client() || capabilities.iter().any(|c| c == "client");
+    let is_client_plugin = plugin.is_client() || capabilities.iter().any(|c| c == "client");
 
     let (host, reg_response) = match bootstrap
         .register(port, capabilities, args.auth_token.clone())
@@ -431,8 +441,19 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     };
     info!(
         "Registered successfully. Daemon version: {}, protocol: {} (accepts {}+)",
-        reg_response.daemon_version, reg_response.protocol_version, reg_response.min_supported_protocol
+        reg_response.daemon_version,
+        reg_response.protocol_version,
+        reg_response.min_supported_protocol
     );
+
+    // Record the authenticated lifecycle transition even when tracing is quiet.
+    // Logging remains best-effort; a log failure does not abort the plugin.
+    let _ = host
+        .log_info(&format!(
+            "Plugin '{}' registered on port {}",
+            args.plugin_id, port
+        ))
+        .await;
 
     // ── build ctx ──
     let host = Arc::new(host);
@@ -474,12 +495,16 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     // Before on_start, so a plugin that starts a background loop has its
     // settings. `on_config_changed` defaults to parse-then-delegate.
     if !reg_response.config_json.is_empty() {
-        plugin.on_config_changed(&ctx, &reg_response.config_json).await;
+        plugin
+            .on_config_changed(&ctx, &reg_response.config_json)
+            .await;
     }
 
     // ── on_language_changed ──
     if !reg_response.language.is_empty() {
-        plugin.on_language_changed(&ctx, &reg_response.language).await;
+        plugin
+            .on_language_changed(&ctx, &reg_response.language)
+            .await;
     }
 
     // ── on_start ──
@@ -491,8 +516,9 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     match crate::panics::catch("on_start", plugin.on_start(&ctx)).await {
         Ok(res) => res.context("Plugin on_start failed; aborting startup")?,
         Err(panicked) => {
-            return Err(anyhow::anyhow!("{panicked}")
-                .context("Plugin on_start panicked; aborting startup"));
+            return Err(
+                anyhow::anyhow!("{panicked}").context("Plugin on_start panicked; aborting startup")
+            );
         }
     }
 
@@ -735,11 +761,7 @@ impl ShutdownTrigger {
     fn trigger(&self) {
         // A poisoned lock only means some other task panicked while taking the
         // sender; shutting down is still the right thing to do.
-        let taken = self
-            .0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
+        let taken = self.0.lock().unwrap_or_else(|e| e.into_inner()).take();
         if let Some(tx) = taken {
             let _ = tx.send(());
         }
@@ -805,10 +827,7 @@ fn invocation_of(invocation: Option<&proto::PluginInvocation>) -> Option<crate::
 /// `INTERNAL`, never `UNIMPLEMENTED`: the daemon reads the latter as *this hook
 /// is absent* and stops calling it for the life of the process, which would
 /// turn one panic into a plugin that has quietly lost a capability.
-async fn catch<F: std::future::Future>(
-    hook: &str,
-    fut: F,
-) -> Result<F::Output, tonic::Status> {
+async fn catch<F: std::future::Future>(hook: &str, fut: F) -> Result<F::Output, tonic::Status> {
     crate::panics::catch(hook, fut).await.map_err(Into::into)
 }
 
@@ -829,7 +848,9 @@ async fn caught_tool<T, F: std::future::Future<Output = Result<T, ToolError>>>(
 /// place for this is the stream's own error variant.
 fn ai_error_chunk(error: ToolError) -> proto::PluginAiStreamChunk {
     proto::PluginAiStreamChunk {
-        content: Some(proto::plugin_ai_stream_chunk::Content::Error(error.wire_string())),
+        content: Some(proto::plugin_ai_stream_chunk::Content::Error(
+            error.wire_string(),
+        )),
         error_detail: Some(error.to_plugin_error()),
     }
 }
@@ -1138,7 +1159,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         &self,
         request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::SttLoadStateResponse>, tonic::Status> {
-        match catch("stt_load_state", self.plugin.stt_load_state(&self.scoped(&request))).await? {
+        match catch(
+            "stt_load_state",
+            self.plugin.stt_load_state(&self.scoped(&request)),
+        )
+        .await?
+        {
             Ok(state) => Ok(tonic::Response::new(state.into())),
             Err(e) => Err(hook_status(e)),
         }
@@ -1194,7 +1220,9 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
                     Ok(tonic::Response::new(done))
                 }
                 Ok(Err(e)) => Err(hook_status(e)),
-                Err(e) => Err(tonic::Status::internal(format!("ai_complete panicked: {e}"))),
+                Err(e) => Err(tonic::Status::internal(format!(
+                    "ai_complete panicked: {e}"
+                ))),
             };
         };
 
@@ -1303,8 +1331,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         let req = request.into_inner();
         let resp = match caught_tool(
             "handle_ui_call",
-            self.plugin
-                .handle_ui_call(&ctx, &req.method, &req.params_json),
+            self.plugin.handle_widget_ui_call(
+                &ctx,
+                &req.method,
+                &req.params_json,
+                req.widget_context.as_ref(),
+            ),
         )
         .await
         {
@@ -1393,12 +1425,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         // A panic here answers "not healthy", which is true and actionable —
         // the daemon restarts the plugin. A `Status` would be read as the probe
         // failing, which it also treats as dead, but without the sentence.
-        let (healthy, status) = match crate::panics::catch("health_check", self.plugin.health_check())
-            .await
-        {
-            Ok(answer) => answer,
-            Err(panicked) => (false, panicked.to_string()),
-        };
+        let (healthy, status) =
+            match crate::panics::catch("health_check", self.plugin.health_check()).await {
+                Ok(answer) => answer,
+                Err(panicked) => (false, panicked.to_string()),
+            };
         Ok(tonic::Response::new(proto::PluginHealthResponse {
             healthy,
             status,
@@ -1557,9 +1588,8 @@ mod tests {
     /// improved the wording.
     #[test]
     fn only_a_refusal_no_retry_can_fix_stops_the_firehose() {
-        let refused = |code, msg: &str| {
-            anyhow::Error::from(tonic::Status::new(code, msg.to_string()))
-        };
+        let refused =
+            |code, msg: &str| anyhow::Error::from(tonic::Status::new(code, msg.to_string()));
 
         // The two the daemon actually answers a plugin's `ChatService` call
         // with. Both carry the daemon's own sentence through.
@@ -1569,9 +1599,13 @@ mod tests {
         ))
         .expect("permission_denied is terminal");
         assert!(stop.contains("plugin session tokens are scoped to PluginHostService"));
-        assert!(stop.contains("send_chat_message"), "it names the working path");
         assert!(
-            refuses_the_client_surface(&refused(tonic::Code::Unimplemented, "no such rpc")).is_some()
+            stop.contains("send_chat_message"),
+            "it names the working path"
+        );
+        assert!(
+            refuses_the_client_surface(&refused(tonic::Code::Unimplemented, "no such rpc"))
+                .is_some()
         );
 
         // A refusal with no message still has to read as a sentence.
@@ -1755,7 +1789,11 @@ mod tests {
             req.metadata_mut()
                 .insert(crate::wire::PLUGIN_TOKEN_HEADER, token.parse().unwrap());
         }
-        client.list_tools(req).await.map(|_| ()).map_err(|e| e.code())
+        client
+            .list_tools(req)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.code())
     }
 
     #[tokio::test]
@@ -1818,7 +1856,9 @@ mod tests {
         assert_eq!(err.code(), tonic::Code::Unimplemented, "{err}");
 
         for err in [
-            c.stt_load(proto::SttLoadRequest::default()).await.unwrap_err(),
+            c.stt_load(proto::SttLoadRequest::default())
+                .await
+                .unwrap_err(),
             c.stt_unload(proto::Empty {}).await.unwrap_err(),
             c.stt_get_load_state(proto::Empty {}).await.unwrap_err(),
             c.tts_activate(proto::PluginTtsActivateRequest::default())
@@ -1923,7 +1963,11 @@ mod tests {
         // be able to collect each other's cause.
         assert_eq!(
             spy.causes(),
-            vec![Some("lease-1".to_string()), None, Some("lease-2".to_string())]
+            vec![
+                Some("lease-1".to_string()),
+                None,
+                Some("lease-2".to_string())
+            ]
         );
     }
 
@@ -1941,7 +1985,10 @@ mod tests {
             type Config = NoConfig;
             async fn on_active_triggers(&self, ctx: &PluginContext, _types: Vec<String>) {
                 // The hook cannot observe the older value.
-                SAW_IT.store(ctx.active_triggers().contains("on_roll_value"), Ordering::SeqCst);
+                SAW_IT.store(
+                    ctx.active_triggers().contains("on_roll_value"),
+                    Ordering::SeqCst,
+                );
             }
         }
 

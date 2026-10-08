@@ -156,13 +156,9 @@ Five permissions are high-risk and each gets its own consent checkbox:
 |---|---|---|
 | **1 · Registry** | installed from the store, verified | everything it asked for, subject to consent. No override on a verification failure |
 | **2 · Local file** | a `.astraplugin` imported by hand | `send_chat_message`, `set_theme_contribution`, `dom_access` and `client` are **refused outright, not warned about** |
-| **3 · Sideload** | a source directory, Developer Mode on | **no ceiling** — and it never auto-starts |
+| **3 · Sideload** | a source directory, Developer Mode on | **no ceiling** — Restores the saved enabled state when Developer Mode is on and the daemon still authorises the same source. Missing or unreadable saved state stays disabled. |
 
-Tier 3 is uncapped on purpose: it is the authoring loop for UI plugins, and
-capping it would make `dom_access` undevelopable. It is also gated behind an
-explicit setting, never starts by itself after a restart, and is
-[documented as a developer tool](../5-publish/sideload.md) rather than as a way
-to install things.
+Tier 3 is uncapped for the UI authoring loop: a ceiling would make `dom_access` undevelopable. It requires Developer Mode, a daemon-authorised source and a saved enable choice to resume after restart. It is [documented as a developer tool](../5-publish/sideload.md).
 
 Four states get **nothing**, whatever the manifest says: `Untrusted`,
 `TamperDetected`, `Revoked`, and a `Verified` plugin whose record cannot be

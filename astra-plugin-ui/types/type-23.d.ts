@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SliderProps {
-    value: number;
-    onChange: (value: number) => void;
-    min?: number;
-    max?: number;
-    step?: number;
-    showValue?: boolean;
+export interface SelectTriggerProps {
+    open: boolean;
+    onToggle: () => void;
+    children?: React.ReactNode;
+    placeholder?: React.ReactNode;
+    icon?: React.ReactNode;
+    size?: "sm" | "md";
     disabled?: boolean;
     id?: string;
     className?: string;
-    formatValue?: (value: number) => string;
+    bare?: boolean;
+    title?: string;
+    popup?: "listbox" | "menu" | "dialog";
+    onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
 }
-export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, }: SliderProps): import("react/jsx-runtime").JSX.Element;
+export declare const SelectTrigger: import("react").ForwardRefExoticComponent<SelectTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;

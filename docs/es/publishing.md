@@ -620,10 +620,7 @@ dos es publicar**:
 - [Instalar un archivo `.astraplugin` local](5-publish/local-install.md)
   — un paquete que llegó fuera del registro. Cuatro permisos se
   rechazan de plano, pida lo que pida el manifiesto.
-- [Sideload de un directorio fuente](5-publish/sideload.md) — el
-  bucle de creación. Requiere el modo desarrollador, ejecuta código sin
-  firmar con tu cuenta de usuario completa, y nunca arranca
-  automáticamente.
+- [Cargar un directorio fuente](5-publish/sideload.md) — el ciclo de desarrollo. Requiere modo desarrollador, ejecuta código sin firma con los permisos de tu cuenta y restaura la activación guardada para la fuente autorizada.
 
 ## Ver también
 

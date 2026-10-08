@@ -36,7 +36,8 @@
     "Section",
     "SettingRow",
     "FieldLabel",
-    "EmptyState"
+    "EmptyState",
+    "ScrollArea"
   ],
   "tokens": [
     "--backdrop-tint",
@@ -222,6 +223,12 @@
     "--radius-textarea",
     "--radius-xl",
     "--scroll-edge-fade",
+    "--scrollbar-radius",
+    "--scrollbar-size",
+    "--scrollbar-thumb-color",
+    "--scrollbar-thumb-hover",
+    "--scrollbar-thumb-size",
+    "--scrollbar-track-color",
     "--secondary",
     "--section-scroll-margin",
     "--segmented-item-min",
@@ -290,6 +297,7 @@
       "NumberInput",
       "Popover",
       "RadioGroup",
+      "ScrollArea",
       "Section",
       "SegmentedControl",
       "Select",
@@ -379,5 +387,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "5e7cddf5aa76562f82bce867a02d3dc1e131d04e2f9651cb7cd63ea88ecee4b3"
+  "sourceHash": "1bd930fdb56ae7918f252756acb0afee8978e60c5b3196ddf5859cea8ac186a7"
 }

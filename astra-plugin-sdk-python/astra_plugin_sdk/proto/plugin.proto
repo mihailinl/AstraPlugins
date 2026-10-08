@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 189c9aa31239ce9057560bf33fc95689e7706d20ceb5a8ff82074e1eeba8eabf
+// surface-sha256: e9622b516f287a729e39055d78b5621120e8836775dd2394061ccec7557fa24a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1710,6 +1710,9 @@ service CommandService {
     // Execute a command by ID
     rpc Execute(ExecuteCommandRequest) returns (ExecuteCommandResponse);
 
+    // Human-initiated desktop launch, using the ordinary command executor.
+    rpc LaunchFile(LaunchFileRequest) returns (ExecuteCommandResponse);
+
     // Enable/disable a command
     rpc SetEnabled(SetCommandEnabledRequest) returns (Empty);
 
@@ -1826,6 +1829,13 @@ message ExecuteCommandRequest {
     string id = 1;
     map<string, string> variables = 2;  // Additional variables for execution
     string entry_node_id = 3;  // Start from specific node (empty = auto-detect)
+    string source_surface = 4;  // empty/editor = editor; desktop = launcher
+}
+
+message LaunchFileRequest {
+    string path = 1;
+    string arguments = 2;
+    bool run_as_admin = 3;
 }
 
 message ExecuteCommandResponse {
@@ -2893,6 +2903,7 @@ message WidgetVisibilitySettings {
     bool tasks = 4;
     bool currency = 5;
     bool crypto = 6;
+    optional bool music = 7;
 }
 
 // Overlay widget-grid settings — mirrors `astra_core::config::OverlayWidgetsSettings`.
@@ -2911,7 +2922,7 @@ message OverlayTilePlacement {
     uint32 row = 3;
 }
 
-// One overlay widget descriptor (from `astra_core::widgets::widget_registry`).
+// One widget descriptor (from `astra_core::widgets::widget_registry`).
 message WidgetDescriptorMsg {
     string id = 1;
     string display_key = 2;
@@ -2922,6 +2933,9 @@ message WidgetDescriptorMsg {
     bool editable = 7;  // supports CRUD popups
     bool user_toggleable = 8;  // shown in the Settings enable-list
     bool default_enabled = 9;  // enabled when the settings map has no entry
+    bool desktop_supported = 10;  // has a renderer on the main-window desktop
+    bool repeatable = 12;  // independently configured desktop instances
+    bool overlay_supported = 11;  // has a renderer on the Slint overlay
 }
 
 message WidgetDescriptorsResponse {
@@ -5585,6 +5599,62 @@ message PluginUiContribution {
     bool pointer_events = 11;  // Whether iframe captures mouse events
     int32 z_index = 12;  // Layer ordering
     map<string, string> props = 13;  // Extra properties (e.g., "audio": "true")
+    PluginDesktopWidget desktop_widget = 14;  // Required for slot "desktop.widget"; sandboxed UI only
+}
+
+// Desktop sizes are grid cells; surface sizes and readable sizes are pixels.
+message PluginDesktopWidget {
+    bool repeatable = 1;
+    repeated PluginWidgetFormat formats = 2;
+    repeated PluginWidgetSurface surfaces = 3;
+    repeated FieldDefinitionMsg config_fields = 4;
+    string settings_surface = 5;  // Optional declared modal surface ID
+}
+
+message PluginWidgetFormat {
+    string id = 1;
+    string label = 2;
+    string url = 3;
+    string preview_url = 4;
+    string appearance = 5;  // "card" (default), "icon", "bubble"
+
+    // Grid widths are 1..12; a wider desktop permits additional positions,
+    // not wider cards. Grid heights are positive and grow with the desktop.
+    uint32 default_w = 6;
+    uint32 default_h = 7;
+    uint32 min_w = 8;
+    uint32 min_h = 9;
+    uint32 max_w = 10;  // 0 = host span limit (12 columns)
+    uint32 max_h = 11;
+    bool fixed_size = 12;
+    uint32 min_pixel_width = 13;
+    uint32 min_pixel_height = 14;
+}
+
+message PluginWidgetSurface {
+    string id = 1;
+    string label = 2;
+    string url = 3;
+    string kind = 4;  // "popover", "modal"
+    uint32 width = 5;  // 0 = host default
+    uint32 height = 6;
+    uint32 min_width = 7;
+    uint32 min_height = 8;
+    uint32 max_width = 9;  // 0 = viewport limit
+    uint32 max_height = 10;
+}
+
+// Presentation context only: this confers no host permissions or conversation.
+message PluginWidgetContext {
+    string widget_id = 1;
+    string instance_id = 2;
+    string format_id = 3;
+    string view_id = 4;  // Empty for the placed format; surface ID otherwise
+    bool preview = 5;
+    bool active = 6;
+    uint32 width = 7;
+    uint32 height = 8;
+    string config_json = 9;
 }
 
 message PluginUiContributionsResponse {
@@ -5629,6 +5699,7 @@ message ActiveThemesResponse {
 message PluginUiCallRequest {
     string method = 1;
     string params_json = 2;
+    PluginWidgetContext widget_context = 3;
 }
 
 message PluginUiCallResponse {
@@ -5651,6 +5722,7 @@ message CallPluginFromUiRequest {
     string plugin_id = 1;
     string method = 2;
     string params_json = 3;
+    PluginWidgetContext widget_context = 4;
 }
 
 message CallPluginFromUiResponse {

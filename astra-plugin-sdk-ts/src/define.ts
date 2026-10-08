@@ -61,6 +61,7 @@ import type {
   ToolResult,
   TriggerTypeDef,
   UiContribution,
+  WidgetContext,
   VoiceInfo,
 } from "./types.js";
 
@@ -176,6 +177,8 @@ export interface AiDefinition {
 
 export interface UiDefinition {
   contributions: UiContribution[] | ((ctx: PluginContext) => UiContribution[] | Promise<UiContribution[]>);
+  /** Instance-aware handlers; falls back to onCall when the method is absent. */
+  onWidgetCall?: Record<string, (params: unknown, widget: WidgetContext | undefined, ctx: PluginContext) => ToolOutcome | Promise<ToolOutcome>>;
   /** `CallFromUi` handlers, keyed by the method name the iframe sends. */
   onCall?: Record<string, (params: unknown, ctx: PluginContext) => ToolOutcome | Promise<ToolOutcome>>;
 }
@@ -411,6 +414,13 @@ class DefinedPlugin extends Plugin {
     if (!handler) return { error: `No UI call handler for method: ${method}` };
     const params = paramsJson && paramsJson.trim() ? JSON.parse(paramsJson) : {};
     return await handler(params, this.ctx());
+  }
+
+  override async handleWidgetUiCall(method: string, paramsJson: string, widget?: WidgetContext): Promise<unknown> {
+    const handler = this.def.ui?.onWidgetCall?.[method];
+    if (!handler) return this.handleUiCall(method, paramsJson);
+    const params = paramsJson && paramsJson.trim() ? JSON.parse(paramsJson) : {};
+    return handler(params, widget, this.ctx());
   }
 
   // ── events ──

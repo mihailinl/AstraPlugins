@@ -175,14 +175,9 @@ der sich zu lesen lohnt: [Permissions](../3-reference/permissions.md).
 |---|---|---|
 | **1 · Registry** | aus dem Store installiert, verifiziert | alles, was angefragt wurde, vorbehaltlich Zustimmung. Kein Override bei einem Verifikationsfehler |
 | **2 · Lokale Datei** | eine von Hand importierte `.astraplugin` | `send_chat_message`, `set_theme_contribution`, `dom_access` und `client` werden **pauschal verweigert, nicht nur mit Warnung versehen** |
-| **3 · Sideload** | ein Quellverzeichnis, Entwicklermodus an | **keine Obergrenze** — und es startet nie automatisch |
+| **3 · Sideload** | ein Quellverzeichnis, Entwicklermodus an | **keine Obergrenze** — Stellt die gespeicherte Aktivierung wieder her, wenn der Entwicklermodus aktiv ist und der Daemon dieselbe Quelle autorisiert. Fehlender oder unlesbarer Zustand bleibt deaktiviert. |
 
-Stufe 3 ist absichtlich unbegrenzt: es ist die Entwicklungsschleife für
-UI-Plugins, und eine Begrenzung würde `dom_access` unentwickelbar machen. Sie
-ist außerdem hinter eine explizite Einstellung gesperrt, startet nach einem
-Neustart nie von selbst und ist
-[als Entwicklerwerkzeug dokumentiert](../5-publish/sideload.md), nicht als
-Installationsweg.
+Stufe 3 ist für die UI-Entwicklung unbegrenzt: eine Obergrenze würde `dom_access` unentwickelbar machen. Zur Wiederaufnahme nach einem Neustart sind Entwicklermodus, eine vom Daemon autorisierte Quelle und eine gespeicherte Aktivierung nötig. Sie ist [als Entwicklerwerkzeug dokumentiert](../5-publish/sideload.md).
 
 Vier Zustände bekommen **nichts**, egal was das Manifest sagt: `Untrusted`,
 `TamperDetected`, `Revoked`, und ein `Verified`-Plugin, dessen Record nicht

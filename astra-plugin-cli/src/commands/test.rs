@@ -70,11 +70,11 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use base64::Engine as _;
 use astra_plugin_sdk::limits::{PLUGIN_START_TIMEOUT_SECS, PLUGIN_STOP_GRACE_SECS};
 use astra_plugin_sdk::proto;
 use astra_plugin_sdk::proto::plugin_capability_service_client::PluginCapabilityServiceClient;
 use astra_plugin_sdk::testing::MockDaemon;
+use base64::Engine as _;
 use serde_json::{Value, json};
 use tokio::process::{Child, Command};
 
@@ -154,8 +154,8 @@ struct Hook {
 }
 
 fn conformance_hooks() -> Result<Vec<Hook>> {
-    let doc: Value =
-        serde_json::from_str(CONFORMANCE_JSON).context("the vendored conformance list is not JSON")?;
+    let doc: Value = serde_json::from_str(CONFORMANCE_JSON)
+        .context("the vendored conformance list is not JSON")?;
     let rows = doc
         .get("hooks")
         .and_then(Value::as_array)
@@ -293,7 +293,10 @@ pub async fn run(opts: TestOptions<'_>) -> Result<Verdict> {
     let capabilities = manifest.capabilities.as_list();
     let language = crate::commands::build::detect_language(&dir);
 
-    hprintln!("Testing plugin '{plugin_id}' ({language}) at {}", dir.display());
+    hprintln!(
+        "Testing plugin '{plugin_id}' ({language}) at {}",
+        dir.display()
+    );
     hprintln!(
         "  Capabilities: {}",
         if capabilities.is_empty() {
@@ -329,9 +332,14 @@ pub async fn run(opts: TestOptions<'_>) -> Result<Verdict> {
     daemon.set_config_json(config_instance.to_string());
     let _ = SPAWN_TOKEN.set(daemon.spawn_token());
 
-    let (mut child, first_output) =
-        spawn_plugin(&dir, &manifest, daemon.addr(), daemon.spawn_token(), &capabilities)
-            .context("could not start the plugin process")?;
+    let (mut child, first_output) = spawn_plugin(
+        &dir,
+        &manifest,
+        daemon.addr(),
+        daemon.spawn_token(),
+        &capabilities,
+    )
+    .context("could not start the plugin process")?;
 
     let outcome = drive(
         &daemon,
@@ -442,7 +450,9 @@ async fn drive(
     // the daemon — which had already killed the process at the start timeout —
     // never saw.
     let first_line = first_line_check(&mut first_output).await;
-    let registration = daemon.registration().expect("registration was just observed");
+    let registration = daemon
+        .registration()
+        .expect("registration was just observed");
     hprintln!(
         "  Registered: port {port}, protocol {}, sdk {} {}",
         registration.protocol_version,
@@ -567,9 +577,13 @@ async fn drive(
         // The round trip: the plugin was handed this config at registration and
         // is handed it again here. Answering `HealthCheck` afterwards is what
         // makes "it parsed it" observable from outside the process.
-        let sent = probe_call!(client, "OnConfigChanged", on_config_changed(proto::PluginConfigChangedMsg {
+        let sent = probe_call!(
+            client,
+            "OnConfigChanged",
+            on_config_changed(proto::PluginConfigChangedMsg {
                 config_json: config_instance.to_string(),
-            }));
+            })
+        );
         let healthy = probe_call!(client, "HealthCheck", health_check(proto::Empty {}));
         findings.checks.push(match (sent, healthy) {
             (Ok(_), Ok(h)) if h.healthy => (
@@ -591,7 +605,10 @@ async fn drive(
             (_, Ok(h)) => (
                 "config schema round-trips".into(),
                 false,
-                format!("the plugin reported itself unhealthy after OnConfigChanged: {}", h.status),
+                format!(
+                    "the plugin reported itself unhealthy after OnConfigChanged: {}",
+                    h.status
+                ),
             ),
         });
     }
@@ -687,7 +704,9 @@ async fn drive(
             status,
             detail,
         });
-        findings.checks.push(shutdown_check(exited.is_ok(), acknowledged, waited));
+        findings
+            .checks
+            .push(shutdown_check(exited.is_ok(), acknowledged, waited));
     }
 
     // ── what the plugin said back, and whether the daemon could hear it ──
@@ -706,10 +725,15 @@ async fn wakeword_checks(
         method: &str,
         params: Value,
     ) -> std::result::Result<Value, String> {
-        let response = probe_call!(client, method, call_from_ui(proto::PluginUiCallRequest {
-            method: method.to_string(),
-            params_json: params.to_string(),
-        }))
+        let response = probe_call!(
+            client,
+            method,
+            call_from_ui(proto::PluginUiCallRequest {
+                method: method.to_string(),
+                params_json: params.to_string(),
+                widget_context: None,
+            })
+        )
         .map_err(|error| error.to_string())?;
         if !response.error.is_empty() {
             return Err(response.error);
@@ -723,21 +747,42 @@ async fn wakeword_checks(
     let audio = call(client, "process-audio", json!({ "pcm_base64": pcm_base64 })).await;
     vec![
         match status {
-            Ok(value) if value.get("ready").and_then(Value::as_bool).is_some() =>
-                ("wakeword status".into(), true, "returned ready: bool".into()),
-            Ok(_) => ("wakeword status".into(), false, "status must return ready: bool".into()),
+            Ok(value) if value.get("ready").and_then(Value::as_bool).is_some() => (
+                "wakeword status".into(),
+                true,
+                "returned ready: bool".into(),
+            ),
+            Ok(_) => (
+                "wakeword status".into(),
+                false,
+                "status must return ready: bool".into(),
+            ),
             Err(error) => ("wakeword status".into(), false, error),
         },
         match reset {
-            Ok(value) if value.is_object() =>
-                ("wakeword reset-audio".into(), true, "accepted a reset".into()),
-            Ok(_) => ("wakeword reset-audio".into(), false, "reset-audio must return an object".into()),
+            Ok(value) if value.is_object() => (
+                "wakeword reset-audio".into(),
+                true,
+                "accepted a reset".into(),
+            ),
+            Ok(_) => (
+                "wakeword reset-audio".into(),
+                false,
+                "reset-audio must return an object".into(),
+            ),
             Err(error) => ("wakeword reset-audio".into(), false, error),
         },
         match audio {
-            Ok(value) if value.get("detected").and_then(Value::as_bool).is_some() =>
-                ("wakeword process-audio".into(), true, "returned detected: bool".into()),
-            Ok(_) => ("wakeword process-audio".into(), false, "process-audio must return detected: bool".into()),
+            Ok(value) if value.get("detected").and_then(Value::as_bool).is_some() => (
+                "wakeword process-audio".into(),
+                true,
+                "returned detected: bool".into(),
+            ),
+            Ok(_) => (
+                "wakeword process-audio".into(),
+                false,
+                "process-audio must return detected: bool".into(),
+            ),
             Err(error) => ("wakeword process-audio".into(), false, error),
         },
     ]
@@ -824,7 +869,11 @@ fn shutdown_probe(
 /// The two origins are why the parameters are `acknowledged` and `waited`
 /// rather than `acknowledged` and `total`: there is no single `elapsed` a caller
 /// could pass for both, so the bug cannot be rewritten by accident.
-fn shutdown_check(exited: bool, acknowledged: Duration, waited: Duration) -> (String, bool, String) {
+fn shutdown_check(
+    exited: bool,
+    acknowledged: Duration,
+    waited: Duration,
+) -> (String, bool, String) {
     let name = "Shutdown is honoured within the grace period".to_string();
     let total = acknowledged + waited;
     if exited {
@@ -955,27 +1004,45 @@ async fn locale_round_trip(
         let _ = probe_call!(
             client,
             "OnLanguageChanged",
-            on_language_changed(proto::LanguageChangedMsg { language: (*code).into() })
+            on_language_changed(proto::LanguageChangedMsg {
+                language: (*code).into()
+            })
         );
 
         let mut per: BTreeMap<String, String> = BTreeMap::new();
         if declared.contains("actions")
-            && let Ok(r) = probe_call!(client, "GetPluginActionTypes", get_plugin_action_types(proto::Empty {}))
+            && let Ok(r) = probe_call!(
+                client,
+                "GetPluginActionTypes",
+                get_plugin_action_types(proto::Empty {})
+            )
         {
             if counting {
                 definitions += r.types.len();
             }
             for ty in &r.types {
                 per.insert(format!("action '{}' label", ty.r#type), ty.label.clone());
-                per.insert(format!("action '{}' ai_description", ty.r#type), ty.ai_description.clone());
+                per.insert(
+                    format!("action '{}' ai_description", ty.r#type),
+                    ty.ai_description.clone(),
+                );
                 if counting {
                     slots += 2;
                 }
-                collect_field_labels(&format!("action '{}'", ty.r#type), &ty.fields, &mut per, counting.then_some(&mut slots));
+                collect_field_labels(
+                    &format!("action '{}'", ty.r#type),
+                    &ty.fields,
+                    &mut per,
+                    counting.then_some(&mut slots),
+                );
             }
         }
         if declared.contains("triggers")
-            && let Ok(r) = probe_call!(client, "GetPluginTriggerTypes", get_plugin_trigger_types(proto::Empty {}))
+            && let Ok(r) = probe_call!(
+                client,
+                "GetPluginTriggerTypes",
+                get_plugin_trigger_types(proto::Empty {})
+            )
         {
             if counting {
                 definitions += r.types.len();
@@ -985,11 +1052,20 @@ async fn locale_round_trip(
                 if counting {
                     slots += 1;
                 }
-                collect_field_labels(&format!("trigger '{}'", ty.r#type), &ty.fields, &mut per, counting.then_some(&mut slots));
+                collect_field_labels(
+                    &format!("trigger '{}'", ty.r#type),
+                    &ty.fields,
+                    &mut per,
+                    counting.then_some(&mut slots),
+                );
             }
         }
         if declared.contains("ui_contributions")
-            && let Ok(r) = probe_call!(client, "GetUiContributions", get_ui_contributions(proto::Empty {}))
+            && let Ok(r) = probe_call!(
+                client,
+                "GetUiContributions",
+                get_ui_contributions(proto::Empty {})
+            )
         {
             if counting {
                 definitions += r.contributions.len();
@@ -1081,7 +1157,11 @@ async fn locale_round_trip(
     // authoring time, as a note.
     if dir.join("locales").is_dir() {
         for e in i18n.load_errors() {
-            out.push(("the plugin's locale files all load".into(), false, e.clone()));
+            out.push((
+                "the plugin's locale files all load".into(),
+                false,
+                e.clone(),
+            ));
         }
     }
     out
@@ -1108,14 +1188,19 @@ fn round_trip_problems(
     let mut unreleased: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
     for (code, per) in seen {
         for (at, value) in per {
-            let Some(rest) = key_marker(value) else { continue };
+            let Some(rest) = key_marker(value) else {
+                continue;
+            };
             if !english.contains(rest) {
                 unresolvable
                     .entry((at.as_str(), value.as_str()))
                     .or_default()
                     .push(code.as_str());
             } else if min_astra_version.is_empty() {
-                unreleased.entry((at.as_str(), value.as_str())).or_default().push(code.as_str());
+                unreleased
+                    .entry((at.as_str(), value.as_str()))
+                    .or_default()
+                    .push(code.as_str());
             }
         }
     }
@@ -1173,13 +1258,22 @@ fn collect_field_labels(
 ) {
     for f in fields {
         per.insert(format!("{owner} field '{}' label", f.id), f.label.clone());
-        per.insert(format!("{owner} field '{}' placeholder", f.id), f.placeholder.clone());
-        per.insert(format!("{owner} field '{}' description", f.id), f.description.clone());
+        per.insert(
+            format!("{owner} field '{}' placeholder", f.id),
+            f.placeholder.clone(),
+        );
+        per.insert(
+            format!("{owner} field '{}' description", f.id),
+            f.description.clone(),
+        );
         if let Some(n) = slots.as_deref_mut() {
             *n += 3;
         }
         for (i, o) in f.options.iter().enumerate() {
-            per.insert(format!("{owner} field '{}' option {i} label", f.id), o.label.clone());
+            per.insert(
+                format!("{owner} field '{}' option {i} label", f.id),
+                o.label.clone(),
+            );
             if let Some(n) = slots.as_deref_mut() {
                 *n += 1;
             }
@@ -1194,7 +1288,11 @@ fn collect_field_labels(
 /// refuses less.
 fn key_marker(value: &str) -> Option<&str> {
     let rest = value.strip_prefix('$')?;
-    if rest.starts_with('$') { None } else { Some(rest) }
+    if rest.starts_with('$') {
+        None
+    } else {
+        Some(rest)
+    }
 }
 
 /// Every key in one `locales/<code>.json`, or nothing.
@@ -1236,7 +1334,11 @@ fn host_side_checks(daemon: &MockDaemon) -> Vec<(String, bool, String)> {
              bridge switched off."
                 .to_string()
         } else {
-            format!("{} host call(s) reached the daemon: {}", calls.len(), summarise(&calls))
+            format!(
+                "{} host call(s) reached the daemon: {}",
+                calls.len(),
+                summarise(&calls)
+            )
         },
     );
 
@@ -1269,7 +1371,13 @@ fn summarise(calls: &[String]) -> String {
     }
     counts
         .into_iter()
-        .map(|(name, n)| if n == 1 { name.to_string() } else { format!("{name}×{n}") })
+        .map(|(name, n)| {
+            if n == 1 {
+                name.to_string()
+            } else {
+                format!("{name}×{n}")
+            }
+        })
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -1299,46 +1407,64 @@ async fn probe_one(
                         .into(),
                 );
             }
-            probe_call!(client, rpc, call_tool(proto::PluginCallToolRequest {
+            probe_call!(
+                client,
+                rpc,
+                call_tool(proto::PluginCallToolRequest {
                     tool_name: name.clone(),
                     arguments_json: "{}".into(),
                     // `astra-plugin test` probes a plugin from outside any
                     // conversation, which is exactly what None means.
                     invocation: None,
-                }))
+                })
+            )
             .map(|r| {
                 if r.success {
                     format!("`{name}` answered")
                 } else {
                     // A tool that refuses empty arguments is a working tool.
-                    format!("`{name}` answered with an in-band error: {}", brief(&r.error))
+                    format!(
+                        "`{name}` answered with an in-band error: {}",
+                        brief(&r.error)
+                    )
                 }
             })
         }
-        "TtsSynthesize" => probe_call!(client, rpc, tts_synthesize(proto::PluginTtsSynthesizeRequest {
+        "TtsSynthesize" => probe_call!(
+            client,
+            rpc,
+            tts_synthesize(proto::PluginTtsSynthesizeRequest {
                 text: "Astra conformance probe.".into(),
                 voice_id: voices.first().cloned().unwrap_or_default(),
                 speed: 1.0,
                 pitch: 1.0,
-            }))
+            })
+        )
         .map(|r| format!("{} byte(s) of audio", r.audio_data.len())),
         "TtsListVoices" => probe_call!(client, rpc, tts_list_voices(proto::Empty {}))
             .map(|r| format!("{} voice(s)", r.voices.len())),
         "TtsGetConfigFields" => probe_call!(client, rpc, tts_get_config_fields(proto::Empty {}))
             .map(|r| format!("{} field(s)", r.config_fields.len())),
-        "TtsActivate" => probe_call!(client, rpc, tts_activate(proto::PluginTtsActivateRequest {
+        "TtsActivate" => probe_call!(
+            client,
+            rpc,
+            tts_activate(proto::PluginTtsActivateRequest {
                 // Not a real content-encryption key: 32 zero bytes. A provider
                 // that needs a real one refuses in band, which is an answer.
                 cek: vec![0u8; 32],
                 voice_id: voices.first().cloned().unwrap_or_default(),
-            }))
+            })
+        )
         .map(|_| "activated".into()),
         "SttProcess" => return stt_process(client).await,
         "SttGetLanguages" => probe_call!(client, rpc, stt_get_languages(proto::Empty {}))
             .map(|r| format!("{} language(s)", r.languages.len())),
         "SttGetConfigFields" => probe_call!(client, rpc, stt_get_config_fields(proto::Empty {}))
             .map(|r| format!("{} field(s)", r.config_fields.len())),
-        "SttLoad" => probe_call!(client, rpc, stt_load(proto::SttLoadRequest {
+        "SttLoad" => probe_call!(
+            client,
+            rpc,
+            stt_load(proto::SttLoadRequest {
                 model_path: String::new(),
                 use_gpu: false,
                 // An older daemon's request: no catalogue bundle and no
@@ -1348,10 +1474,12 @@ async fn probe_one(
                 // here and somebody decides what a mock daemon should send.
                 model_id: String::new(),
                 language: String::new(),
-            }))
+            })
+        )
         .map(|_| "loaded".into()),
-        "SttUnload" => probe_call!(client, rpc, stt_unload(proto::Empty {}))
-            .map(|_| "unloaded".into()),
+        "SttUnload" => {
+            probe_call!(client, rpc, stt_unload(proto::Empty {})).map(|_| "unloaded".into())
+        }
         "SttGetLoadState" => probe_call!(client, rpc, stt_get_load_state(proto::Empty {}))
             .map(|r| format!("state = {}", r.state)),
         "AiComplete" => return ai_complete(client).await,
@@ -1366,33 +1494,53 @@ async fn probe_one(
                         .into(),
                 );
             }
-            probe_call!(client, rpc, execute_action(proto::PluginExecuteActionRequest {
+            probe_call!(
+                client,
+                rpc,
+                execute_action(proto::PluginExecuteActionRequest {
                     action_type: action.clone(),
                     params_json: "{}".into(),
                     invocation: None,
-                }))
+                })
+            )
             .map(|r| {
                 if r.success {
                     format!("`{action}` ran")
                 } else {
-                    format!("`{action}` answered with an in-band error: {}", brief(&r.error))
+                    format!(
+                        "`{action}` answered with an in-band error: {}",
+                        brief(&r.error)
+                    )
                 }
             })
         }
-        "GetPluginActionTypes" => probe_call!(client, rpc, get_plugin_action_types(proto::Empty {}))
-        .map(|r| format!("{} action type(s)", r.types.len())),
-        "GetPluginTriggerTypes" => probe_call!(client, rpc, get_plugin_trigger_types(proto::Empty {}))
-        .map(|r| format!("{} trigger type(s)", r.types.len())),
-        "OnActiveTriggers" => probe_call!(client, rpc, on_active_triggers(proto::PluginActiveTriggersMsg {
+        "GetPluginActionTypes" => {
+            probe_call!(client, rpc, get_plugin_action_types(proto::Empty {}))
+                .map(|r| format!("{} action type(s)", r.types.len()))
+        }
+        "GetPluginTriggerTypes" => {
+            probe_call!(client, rpc, get_plugin_trigger_types(proto::Empty {}))
+                .map(|r| format!("{} trigger type(s)", r.types.len()))
+        }
+        "OnActiveTriggers" => probe_call!(
+            client,
+            rpc,
+            on_active_triggers(proto::PluginActiveTriggersMsg {
                 trigger_types: triggers.to_vec(),
-            }))
+            })
+        )
         .map(|_| format!("accepted {} active trigger(s)", triggers.len())),
         "GetUiContributions" => probe_call!(client, rpc, get_ui_contributions(proto::Empty {}))
             .map(|r| format!("{} contribution(s)", r.contributions.len())),
-        "CallFromUi" => probe_call!(client, rpc, call_from_ui(proto::PluginUiCallRequest {
+        "CallFromUi" => probe_call!(
+            client,
+            rpc,
+            call_from_ui(proto::PluginUiCallRequest {
                 method: "__astra_conformance_probe".into(),
                 params_json: "{}".into(),
-            }))
+                widget_context: None,
+            })
+        )
         .map(|r| {
             if r.error.is_empty() {
                 "answered".into()
@@ -1402,13 +1550,21 @@ async fn probe_one(
                 format!("rejected an unknown method in band: {}", brief(&r.error))
             }
         }),
-        "OnConfigChanged" => probe_call!(client, rpc, on_config_changed(proto::PluginConfigChangedMsg {
+        "OnConfigChanged" => probe_call!(
+            client,
+            rpc,
+            on_config_changed(proto::PluginConfigChangedMsg {
                 config_json: config_instance.to_string(),
-            }))
+            })
+        )
         .map(|_| "accepted".into()),
-        "OnLanguageChanged" => probe_call!(client, rpc, on_language_changed(proto::LanguageChangedMsg {
+        "OnLanguageChanged" => probe_call!(
+            client,
+            rpc,
+            on_language_changed(proto::LanguageChangedMsg {
                 language: "en".into(),
-            }))
+            })
+        )
         .map(|_| "accepted".into()),
         "HealthCheck" => probe_call!(client, rpc, health_check(proto::Empty {}))
             .map(|r| format!("healthy = {}, status = {}", r.healthy, brief(&r.status))),
@@ -1432,7 +1588,10 @@ fn classify(result: Result<String, tonic::Status>) -> (Status, String) {
         Err(s) if s.code() == tonic::Code::Unimplemented => {
             (Status::Unimplemented, "answered UNIMPLEMENTED".into())
         }
-        Err(s) => (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Err(s) => (
+            Status::Error,
+            format!("{:?}: {}", s.code(), brief(s.message())),
+        ),
     }
 }
 
@@ -1465,11 +1624,21 @@ async fn stt_process(
 
     let call = client.stt_process(req(stream));
     let resp = match tokio::time::timeout(PROBE_TIMEOUT, call).await {
-        Err(_) => return (Status::Error, format!("no response within {PROBE_TIMEOUT:?}")),
+        Err(_) => {
+            return (
+                Status::Error,
+                format!("no response within {PROBE_TIMEOUT:?}"),
+            );
+        }
         Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
             return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
         }
-        Ok(Err(s)) => return (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Ok(Err(s)) => {
+            return (
+                Status::Error,
+                format!("{:?}: {}", s.code(), brief(s.message())),
+            );
+        }
         Ok(Ok(r)) => r,
     };
 
@@ -1526,11 +1695,21 @@ async fn ai_complete(
         ..Default::default()
     };
     let resp = match tokio::time::timeout(PROBE_TIMEOUT, client.ai_complete(req(request))).await {
-        Err(_) => return (Status::Error, format!("no response within {PROBE_TIMEOUT:?}")),
+        Err(_) => {
+            return (
+                Status::Error,
+                format!("no response within {PROBE_TIMEOUT:?}"),
+            );
+        }
         Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
             return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
         }
-        Ok(Err(s)) => return (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Ok(Err(s)) => {
+            return (
+                Status::Error,
+                format!("{:?}: {}", s.code(), brief(s.message())),
+            );
+        }
         Ok(Ok(r)) => r,
     };
     let mut chunks = 0usize;
@@ -1575,7 +1754,11 @@ fn tool_schemas_check(tools: &[proto::PluginToolDef]) -> (String, bool, String) 
         }
     }
     if bad.is_empty() {
-        (name, true, format!("{} tool schema(s) checked", tools.len()))
+        (
+            name,
+            true,
+            format!("{} tool schema(s) checked", tools.len()),
+        )
     } else {
         (name, false, bad.join("; "))
     }
@@ -1607,10 +1790,12 @@ fn config_schema_check(schema: Option<&Value>, instance: &Value) -> (String, boo
 /// an object schema.
 fn schema_root_is_object(text: &str) -> Result<(), String> {
     if text.trim().is_empty() {
-        return Err("the schema is empty. A tool with no schema is a tool the model calls with \
+        return Err(
+            "the schema is empty. A tool with no schema is a tool the model calls with \
                     no arguments, which is rarely what was meant — write `{\"type\":\"object\", \
                     \"properties\":{}}` if it really takes none"
-            .into());
+                .into(),
+        );
     }
     let value: Value = serde_json::from_str(text).map_err(|e| format!("not valid JSON: {e}"))?;
     let Some(obj) = value.as_object() else {
@@ -1683,6 +1868,34 @@ impl FirstOutput {
     }
 }
 
+/// Resolve the declared command without changing PATH-based launchers.
+fn resolve_plugin_program(dir: &Path, command: &str) -> Result<PathBuf> {
+    if command.trim().is_empty() {
+        anyhow::bail!("plugin.toml has no entry.command, so there is nothing to start");
+    }
+    if !command.contains('/') && !command.contains('\\') {
+        return Ok(PathBuf::from(command));
+    }
+    let joined = dir.join(command);
+    if joined.is_file() {
+        return Ok(joined);
+    }
+    // Portable Rust manifests omit the executable suffix on Windows.
+    let suffix = std::env::consts::EXE_SUFFIX;
+    if !suffix.is_empty() {
+        let with_suffix = dir.join(format!("{command}{suffix}"));
+        if with_suffix.is_file() {
+            return Ok(with_suffix);
+        }
+    }
+    // A Rust scaffold may have been built outside its declared target/release
+    // directory. Share the packer's Cargo metadata resolver for this fallback.
+    if crate::commands::build::detect_language(dir) == "rust" {
+        return crate::commands::build::resolve_rust_binary(dir, command);
+    }
+    Ok(joined)
+}
+
 /// Start the plugin the way the daemon starts it.
 fn spawn_plugin(
     dir: &Path,
@@ -1691,11 +1904,7 @@ fn spawn_plugin(
     spawn_token: &str,
     capabilities: &[String],
 ) -> Result<(Child, FirstOutput)> {
-    let entry_command = manifest.entry.command.clone();
-    let command = entry_command.as_str();
-    if command.trim().is_empty() {
-        anyhow::bail!("plugin.toml has no entry.command, so there is nothing to start");
-    }
+    let program = resolve_plugin_program(dir, &manifest.entry.command)?;
 
     let mut args = manifest.entry.args.clone();
     args.push(format!("--daemon-addr={daemon_addr}"));
@@ -1704,26 +1913,6 @@ fn spawn_plugin(
     if !capabilities.is_empty() {
         args.push(format!("--capabilities={}", capabilities.join(",")));
     }
-
-    // Same resolution rule as `dev --standalone`: a command with a separator is
-    // a path inside the plugin directory, a bare word is a PATH lookup.
-    let program: PathBuf = if command.contains('/') || command.contains('\\') {
-        let joined = dir.join(command);
-        // A manifest written on Linux says `target/release/foo`; on Windows the
-        // file is `foo.exe`. The daemon applies the same fallback.
-        if !joined.is_file() && !std::env::consts::EXE_SUFFIX.is_empty() {
-            let with_suffix = dir.join(format!("{command}{}", std::env::consts::EXE_SUFFIX));
-            if with_suffix.is_file() {
-                with_suffix
-            } else {
-                joined
-            }
-        } else {
-            joined
-        }
-    } else {
-        PathBuf::from(command)
-    };
 
     hprintln!("  Starting: {} {}", program.display(), args.join(" "));
     tracing::debug!(
@@ -1734,8 +1923,7 @@ fn spawn_plugin(
     );
 
     let mut proc = Command::new(&program);
-    proc
-        .args(&args)
+    proc.args(&args)
         // The daemon states capabilities in the environment too — an SDK old
         // enough to reject unknown argv reads them there. Passing both is what
         // the daemon does.
@@ -1761,22 +1949,21 @@ fn spawn_plugin(
         .kill_on_drop(true);
 
     let spawned = Instant::now();
-    let mut child = proc
-        .spawn()
-        .with_context(|| {
-            format!(
-                "Failed to start '{}'. entry.command is `{command}` — does that file exist? \
+    let mut child = proc.spawn().with_context(|| {
+        format!(
+            "Failed to start '{}'. entry.command is `{}` — does that file exist? \
                  Run `astra-plugin build` first, or drop --no-build.",
-                program.display()
-            )
-        })?;
+            program.display(),
+            manifest.entry.command
+        )
+    })?;
 
     let (first_tx, first_rx) = tokio::sync::watch::channel(None);
     let first_tx = std::sync::Arc::new(first_tx);
 
     let relay = |reader: Option<tokio::process::ChildStdout>,
-                     err: Option<tokio::process::ChildStderr>,
-                     stream: &'static str| {
+                 err: Option<tokio::process::ChildStderr>,
+                 stream: &'static str| {
         let first_tx = first_tx.clone();
         tokio::spawn(async move {
             use tokio::io::{AsyncBufReadExt, BufReader};
@@ -1812,7 +1999,13 @@ fn spawn_plugin(
     relay(child.stdout.take(), None, "stdout");
     relay(None, child.stderr.take(), "stderr");
 
-    Ok((child, FirstOutput { at: first_rx, spawned }))
+    Ok((
+        child,
+        FirstOutput {
+            at: first_rx,
+            spawned,
+        },
+    ))
 }
 
 /// Wait for the plugin to `Register`, racing it against the process dying.
@@ -1874,8 +2067,10 @@ static SPAWN_TOKEN: OnceLock<&'static str> = OnceLock::new();
 fn req<T>(message: T) -> tonic::Request<T> {
     let mut r = tonic::Request::new(message);
     if let Some(token) = SPAWN_TOKEN.get() {
-        r.metadata_mut()
-            .insert(astra_plugin_sdk::wire::PLUGIN_TOKEN_HEADER, token.parse().expect("ascii token"));
+        r.metadata_mut().insert(
+            astra_plugin_sdk::wire::PLUGIN_TOKEN_HEADER,
+            token.parse().expect("ascii token"),
+        );
     }
     r
 }
@@ -1899,6 +2094,63 @@ fn brief(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn program_resolution_preserves_path_commands_and_existing_rust_entries() {
+        let dir = std::env::temp_dir().join(format!("astra-test-program-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("bin")).unwrap();
+        // A Cargo-assisted plugin can still use an interpreter or PATH wrapper.
+        // Invalid TOML proves that these entries never consult Cargo metadata.
+        std::fs::write(dir.join("Cargo.toml"), "not a cargo manifest").unwrap();
+        for command in ["python", "custom-plugin-wrapper"] {
+            assert_eq!(
+                resolve_plugin_program(&dir, command).unwrap(),
+                PathBuf::from(command)
+            );
+        }
+        let binary = dir.join(format!("bin/plugin{}", std::env::consts::EXE_SUFFIX));
+        std::fs::write(&binary, b"fixture binary").unwrap();
+        assert_eq!(resolve_plugin_program(&dir, "bin/plugin").unwrap(), binary);
+        assert!(resolve_plugin_program(&dir, "").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn missing_rust_entry_resolves_to_cargos_actual_target_directory() {
+        let dir =
+            std::env::temp_dir().join(format!("astra-test-cargo-target-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        let name = format!("astra_test_target_{}", std::process::id());
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            format!("[package]\nname=\"{name}\"\nversion=\"0.1.0\"\nedition=\"2021\"\n"),
+        )
+        .unwrap();
+        std::fs::write(dir.join("src/main.rs"), "fn main() {}\n").unwrap();
+        // Cargo resolves a relative CARGO_TARGET_DIR against the package cwd.
+        let target = std::env::var_os("CARGO_TARGET_DIR")
+            .map(PathBuf::from)
+            .map(|path| {
+                if path.is_absolute() {
+                    path
+                } else {
+                    dir.join(path)
+                }
+            })
+            .unwrap_or_else(|| dir.join("target"));
+        let binary = target
+            .join("release")
+            .join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+        std::fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        std::fs::write(&binary, b"fixture binary").unwrap();
+        let actual = resolve_plugin_program(&dir, "target/release/declared-plugin").unwrap();
+        assert_eq!(
+            actual.canonicalize().unwrap(),
+            binary.canonicalize().unwrap()
+        );
+        std::fs::remove_file(binary).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     /// The vendored hook list must be byte-identical to the generated one.
     ///
@@ -1951,8 +2203,10 @@ mod tests {
 
         // A call with the token the daemon issued: both pass.
         let mut ok = tonic::Request::new(line());
-        ok.metadata_mut()
-            .insert(astra_plugin_sdk::wire::SESSION_TOKEN_HEADER, daemon.session_token().parse().unwrap());
+        ok.metadata_mut().insert(
+            astra_plugin_sdk::wire::SESSION_TOKEN_HEADER,
+            daemon.session_token().parse().unwrap(),
+        );
         client.plugin_log(ok).await.unwrap();
         let checks = host_side_checks(&daemon);
         assert!(checks[0].1, "{}", checks[0].2);
@@ -1967,7 +2221,10 @@ mod tests {
             .expect_err("the mock daemon refuses an untokened host call");
         let checks = host_side_checks(&daemon);
         assert!(checks[0].1, "{}", checks[0].2);
-        assert!(!checks[1].1, "an unauthenticated host call must fail the check");
+        assert!(
+            !checks[1].1,
+            "an unauthenticated host call must fail the check"
+        );
         assert!(checks[1].2.contains("log"), "{}", checks[1].2);
     }
 
@@ -1990,7 +2247,10 @@ mod tests {
         // waiting. This is the case that used to lie.
         let (_, ok, hung) = shutdown_check(false, quick, grace);
         assert!(!ok);
-        assert!(hung.contains("120.0ms"), "the ACK time must survive: {hung}");
+        assert!(
+            hung.contains("120.0ms"),
+            "the ACK time must survive: {hung}"
+        );
         assert!(hung.contains("STILL RUNNING"), "{hung}");
         assert!(
             !hung.contains("acknowledged in 5.0s"),
@@ -2000,7 +2260,10 @@ mod tests {
         // Answered at once and exited at once — the healthy case.
         let (_, ok, fine) = shutdown_check(true, quick, Duration::from_millis(20));
         assert!(ok);
-        assert!(fine.contains("120.0ms") && fine.contains("140.0ms"), "{fine}");
+        assert!(
+            fine.contains("120.0ms") && fine.contains("140.0ms"),
+            "{fine}"
+        );
         // 120 ms of RPC plus 20 ms of waiting: the TOTAL is derived, never passed.
 
         // A genuinely slow acknowledgement, which is the state the bug's
@@ -2018,8 +2281,7 @@ mod tests {
         let (status, detail) = shutdown_probe(&Ok(proto::Empty {}), quick);
         assert_eq!(status, Status::Ok);
         assert_eq!(detail, "acknowledged in 120.0ms");
-        let (status, detail) =
-            shutdown_probe(&Err(tonic::Status::unimplemented("no")), quick);
+        let (status, detail) = shutdown_probe(&Err(tonic::Status::unimplemented("no")), quick);
         assert_eq!(status, Status::Unimplemented);
         assert_eq!(detail, "answered UNIMPLEMENTED");
     }
@@ -2040,7 +2302,10 @@ mod tests {
 
         let keys = locale_keys(&dir, "en");
         assert!(keys.contains("action.roll.label"), "{keys:?}");
-        assert!(locale_keys(&dir, "ru").is_empty(), "an absent locale has no keys");
+        assert!(
+            locale_keys(&dir, "ru").is_empty(),
+            "an absent locale has no keys"
+        );
 
         // The same predicate the probe applies, spelled out here so the escape
         // cannot be quietly dropped from it.
@@ -2099,7 +2364,10 @@ mod tests {
             problems[0]
         );
         assert!(problems[0].contains("ui.cat.labl"), "{}", problems[0]);
-        assert!(!problems[0].contains("$5 and up"), "the `$$` escape is not a key");
+        assert!(
+            !problems[0].contains("$5 and up"),
+            "the `$$` escape is not a key"
+        );
 
         // Property 3: a label that changes between languages.
         seen.get_mut("ru")
@@ -2107,8 +2375,11 @@ mod tests {
             .insert("ui 'cat' label".to_string(), "$ui.cat.labl.ru".to_string());
         let problems = round_trip_problems(&seen, &english, "0.3.0");
         assert!(
-            problems.iter().any(|p| p.contains("under `ru`") && p.contains("resolved \
-                 it itself")),
+            problems.iter().any(|p| p.contains("under `ru`")
+                && p.contains(
+                    "resolved \
+                 it itself"
+                )),
             "a label that differs between two passes is the `t()`-instead-of-`key()` \
              defect:\n{}",
             problems.join("\n")
@@ -2145,7 +2416,10 @@ mod tests {
             seen.insert(
                 (*code).to_string(),
                 [
-                    ("action 'x' label".to_string(), "$action.missing.label".to_string()),
+                    (
+                        "action 'x' label".to_string(),
+                        "$action.missing.label".to_string(),
+                    ),
                     // Neither of these may be caught by (2): the escape is a
                     // literal, and a plain label is not a key at all.
                     ("action 'x' price".to_string(), "$$5 and up".to_string()),
@@ -2163,7 +2437,11 @@ mod tests {
             "one label, one finding, collapsed across ten languages:\n{}",
             problems.join("\n")
         );
-        assert!(problems[0].contains("min_astra_version is empty"), "{}", problems[0]);
+        assert!(
+            problems[0].contains("min_astra_version is empty"),
+            "{}",
+            problems[0]
+        );
         assert!(problems[0].contains("action 'x' label"), "{}", problems[0]);
 
         // Naming a release that resolves them is the author's other way out,
@@ -2177,11 +2455,18 @@ mod tests {
         // whatever min_astra_version says — never twice.
         let mut missing = seen.clone();
         for per in missing.values_mut() {
-            per.insert("action 'x' label".to_string(), "$action.absent.label".to_string());
+            per.insert(
+                "action 'x' label".to_string(),
+                "$action.absent.label".to_string(),
+            );
         }
         let problems = round_trip_problems(&missing, &english, "");
         assert_eq!(problems.len(), 1, "{}", problems.join("\n"));
-        assert!(problems[0].contains("is in no locale file"), "{}", problems[0]);
+        assert!(
+            problems[0].contains("is in no locale file"),
+            "{}",
+            problems[0]
+        );
     }
 
     #[test]
@@ -2270,7 +2555,10 @@ mod tests {
         let hooks = conformance_hooks().unwrap();
         let list_tools = hooks.iter().find(|h| h.rpc == "ListTools").unwrap();
         let tts_activate = hooks.iter().find(|h| h.rpc == "TtsActivate").unwrap();
-        assert!(list_tools.required, "ListTools is `required` in spec/hooks.yaml");
+        assert!(
+            list_tools.required,
+            "ListTools is `required` in spec/hooks.yaml"
+        );
         assert!(
             !tts_activate.required,
             "TtsActivate is `optional` in spec/hooks.yaml — the exemption that keeps a scaffold \
@@ -2328,7 +2616,11 @@ mod tests {
             checks: vec![],
         };
         let failures = findings.failures();
-        assert_eq!(failures.len(), 1, "only the required hook fails: {failures:?}");
+        assert_eq!(
+            failures.len(),
+            1,
+            "only the required hook fails: {failures:?}"
+        );
         assert!(failures[0].starts_with("TtsSynthesize:"));
     }
 

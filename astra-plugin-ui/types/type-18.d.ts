@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SectionProps {
-    title?: React.ReactNode;
-    icon?: React.ReactNode;
+export interface RadioOption<T extends string> {
+    value: T;
+    label: React.ReactNode;
     description?: React.ReactNode;
-    actions?: React.ReactNode;
-    id?: string;
-    children: React.ReactNode;
-    className?: string;
-    dataTutorial?: string;
-    advanced?: boolean;
+    disabled?: boolean;
 }
-export declare function Section({ title, icon, description, actions, id, children, className, dataTutorial, advanced, }: SectionProps): import("react/jsx-runtime").JSX.Element;
+export interface RadioGroupProps<T extends string> {
+    value: T;
+    onChange: (value: T) => void;
+    options: RadioOption<T>[];
+    name: string;
+    className?: string;
+}
+export declare function RadioGroup<T extends string>({ value, onChange, options, name, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;

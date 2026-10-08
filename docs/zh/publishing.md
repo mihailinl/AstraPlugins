@@ -538,8 +538,7 @@ astra-plugin publish --notify
 
 - [安装本地 `.astraplugin` 文件](5-publish/local-install.md) —— 一个通过
   带外方式送达的包。不管清单里申请了什么，四种权限都会被直接拒绝。
-- [侧载(sideload)一个源码目录](5-publish/sideload.md) —— 开发时的循环手段。
-  需要开发者模式，会以你的完整用户账户运行未签名代码，且永远不会自动启动。
+- [侧载源码目录](5-publish/sideload.md) — 开发循环。需要开发者模式，以用户的全部权限运行未签名代码，并恢复已授权来源的保存启用状态。
 
 ## 另请参阅
 

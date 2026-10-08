@@ -177,7 +177,9 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
+        sections.push_str(super::desktop_widget::TYPESCRIPT);
+    } else if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
         sections.push_str(
             r#"
   ui: {
@@ -248,6 +250,9 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     }
     if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
         imports.push("UiContrib");
+    }
+    if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
+        imports.push("Field");
     }
     let import_list = imports.join(", ");
 

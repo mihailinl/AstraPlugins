@@ -282,7 +282,7 @@ hochriskanteste Surface im System zu servieren.
 |---|---|---|
 | **1 · Registry** | verifiziert gemäß dem Installationsalgorithmus | **alles**, vorbehaltlich Zustimmung. Kein Override bei einem Fehlschlag |
 | **2 · Lokale Datei** (`ImportPluginFile`) | eine von außerhalb des Kanals empfangene `.astraplugin` | `send_chat_message`, `set_theme_contribution`, `dom_access` und `client` werden **pauschal verweigert, nicht nur mit Warnung versehen** |
-| **3 · Sideload** | ein Quellverzeichnis, auf das der Nutzer einen Dateidialog gerichtet hat, Entwicklermodus an | **keine** — und es startet **nie automatisch**: der Entwicklermodus ist zur Ladezeit erforderlich, und ein Neustart lässt es gestoppt, bis der Nutzer es erneut startet |
+| **3 · Sideload** | ein Quellverzeichnis, auf das der Nutzer einen Dateidialog gerichtet hat, Entwicklermodus an | **keine Obergrenze** — Stellt die gespeicherte Aktivierung wieder her, wenn der Entwicklermodus aktiv ist und der Daemon dieselbe Quelle autorisiert. Fehlender oder unlesbarer Zustand bleibt deaktiviert. |
 
 Die Stufe von Sideload wird dem Nutzer als
 `provenance.tier.sideloaded` („aus einem Ordner geladen") im

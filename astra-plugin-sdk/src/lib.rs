@@ -88,6 +88,7 @@ pub mod wire;
 
 pub use auth::CapabilityAuth;
 pub use capability::*;
+mod desktop_widget;
 pub use context::{
     ActiveTriggers, ChatStream, Daemon, EventStream, FirehoseStream, Host, Invocation,
     PluginContext, ctx, install_context, try_ctx,

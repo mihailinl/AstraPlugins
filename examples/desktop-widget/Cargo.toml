@@ -1,0 +1,42 @@
+[package]
+name = "desktop_widget_demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# One dependency, on purpose. The SDK re-exports everything the generated code
+# names — tokio, serde, serde_json, anyhow, async-trait, schemars — and
+# `#[astra::plugin]` expands to `::astra_plugin_sdk::…` paths, so adding those
+# crates back here changes nothing and removing this line breaks everything.
+#
+# 0.6 is the first release whose HostClient attaches `x-session-token`; 0.5 and
+# earlier get `unauthenticated` from the daemon on every host call, so do not
+# relax this bound.
+astra-plugin-sdk = { path = "../../astra-plugin-sdk" }
+
+# Taking structured tool arguments? Mark the argument struct `#[astra::args]`:
+#
+#   #[astra::args]
+#   struct Roll {
+#       /// How many dice to roll
+#       #[serde(default)]
+#       count: u32,
+#   }
+#
+#   #[tool] async fn roll(&self, a: Roll) -> Result<String, ToolError> { .. }
+#
+# It is `#[derive(Deserialize, JsonSchema)]` pointed at the SDK's copies of both
+# crates, and the doc comments become the schema the model reads. Settings get
+# `#[astra::config]`, which is the same plus `#[serde(default)]` — the daemon's
+# first config payload to a freshly installed plugin is `{}`.
+#
+# Writing `#[derive(Deserialize)]` here instead does not work and says so: serde's
+# derive needs `serde` in the crate graph, which is the one line this file exists
+# not to have. Adding serde yourself is still supported — do that and
+# `use serde::Deserialize;` shadows the prelude's name.
+#
+# Developing against an unreleased SDK? Swap the line above for one of these.
+# The branch is `master` — AstraPlugins has no `main`, and cargo's error for a
+# branch that does not exist on the remote reads like the repository moved:
+#   astra-plugin-sdk = { git = "https://github.com/mihailinl/AstraPlugins", branch = "master" }
+#   astra-plugin-sdk = { path = "../AstraPlugins/astra-plugin-sdk" }

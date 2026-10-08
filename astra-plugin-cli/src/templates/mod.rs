@@ -1,5 +1,6 @@
 //! Embedded templates for plugin scaffolding.
 
+pub mod desktop_widget;
 pub mod python;
 pub mod rust;
 pub mod typescript;
@@ -26,10 +27,7 @@ pub const LABEL_RESOLVER_RELEASE: &str = "0.2.1";
 
 /// Generate a `plugin.toml` manifest.
 pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> String {
-    let caps_toml: Vec<String> = capabilities
-        .iter()
-        .map(|c| format!("{c} = true"))
-        .collect();
+    let caps_toml: Vec<String> = capabilities.iter().map(|c| format!("{c} = true")).collect();
 
     let (command, args, runtimes) = match lang {
         // Where `cargo build --release` actually puts it, with cargo's
@@ -504,26 +502,14 @@ fn title_case(name: &str) -> String {
 
 /// Generate a .gitignore.
 pub fn generate_gitignore(lang: &str) -> String {
-    let mut lines = vec![
-        "# Build artifacts",
-        "*.astraplugin",
-        "",
-    ];
+    let mut lines = vec!["# Build artifacts", "*.astraplugin", ""];
 
     match lang {
         "rust" => lines.extend_from_slice(&["target/", ""]),
-        "python" | "py" => lines.extend_from_slice(&[
-            "__pycache__/",
-            "*.pyc",
-            ".venv/",
-            "requirements.lock",
-            "",
-        ]),
-        "typescript" | "ts" => lines.extend_from_slice(&[
-            "node_modules/",
-            "dist/",
-            "",
-        ]),
+        "python" | "py" => {
+            lines.extend_from_slice(&["__pycache__/", "*.pyc", ".venv/", "requirements.lock", ""])
+        }
+        "typescript" | "ts" => lines.extend_from_slice(&["node_modules/", "dist/", ""]),
         _ => {}
     }
 

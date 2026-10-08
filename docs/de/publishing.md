@@ -632,9 +632,7 @@ davon ist Veröffentlichen**:
 - [Eine lokale `.astraplugin`-Datei installieren](5-publish/local-install.md)
   — ein Bundle, das außerhalb des Kanals ankam. Vier Permissions werden
   pauschal verweigert, egal was das Manifest verlangt.
-- [Ein Quellverzeichnis sideloaden](5-publish/sideload.md) — die
-  Entwicklungsschleife. Erfordert den Entwicklermodus, führt unsignierten
-  Code mit deinem vollen Benutzerkonto aus, und startet nie automatisch.
+- [Ein Quellverzeichnis sideloaden](5-publish/sideload.md) — die Entwicklungsschleife. Erfordert den Entwicklermodus, führt unsignierten Code mit deinem vollen Benutzerkonto aus und stellt die gespeicherte Aktivierung für die autorisierte Quelle wieder her.
 
 ## Siehe auch
 

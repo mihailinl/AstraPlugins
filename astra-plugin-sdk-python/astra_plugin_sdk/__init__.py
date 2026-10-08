@@ -18,6 +18,7 @@ from astra_plugin_sdk.capability_types import (
     ToolDef,
     TriggerTypeDef,
     UiContribution,
+    DesktopWidget, WidgetFormat, WidgetSurface, WidgetContext,
     VoiceInfo,
 )
 from astra_plugin_sdk.decorators import (
@@ -99,6 +100,7 @@ __all__ = [
     "ActionTypeDef",
     "TriggerTypeDef",
     "UiContribution",
+    "DesktopWidget", "WidgetFormat", "WidgetSurface", "WidgetContext",
     # ── logging and the reserved-name assertion (§5.10, §5.8) ──
     "install_logging_bridge",
     "PluginLogHandler",

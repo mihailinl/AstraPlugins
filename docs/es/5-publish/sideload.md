@@ -97,7 +97,7 @@ legibles por máquina de lo que hace.
 | **Firma** | ninguna. Nada responde por el código |
 | **Privilegios** | toda tu cuenta de usuario. No hay sandbox — [la Fase 7 no existe](../1-orientation/security.md) |
 | **Radio de impacto del interruptor** | `allow_unsigned_plugins` se aplica a cada plugin de la máquina, incluidos los archivos sin firmar que importes después |
-| **Auto-arranque** | **nunca.** El modo desarrollador es obligatorio en el momento de la carga, y un reinicio deja un plugin en sideload detenido hasta que lo arranques de nuevo |
+| **Auto-arranque** | Restaura la activación guardada si el modo desarrollador está activo y el daemon autoriza la misma fuente. Un estado ausente o ilegible permanece desactivado. |
 | **Techo de permisos** | **ninguno** — ver abajo |
 | **Procedencia mostrada al usuario** | nivel `sideloaded` — "cargado desde una carpeta" — en el panel de procedencia |
 
@@ -110,10 +110,7 @@ para plugins de UI, y `dom_access` es exactamente lo que necesitan
 `companion`, `doom` y `bad-apple`. Limitar el nivel 3 los haría
 indesarrollables.
 
-El intercambio es que el nivel 3 está bloqueado detrás de un ajuste
-explícito, nunca arranca automáticamente, y es un directorio al que tú
-mismo apuntaste — tres hechos que el nivel 2 (un archivo que llegó de
-algún sitio) no puede reclamar.
+El nivel 3 requiere el modo desarrollador y un directorio fuente autorizado explícitamente. Astra recuerda la activación o desactivación tras reiniciar; autorizar la fuente por sí solo no activa el plugin.
 
 El plan también pide una insignia permanente, no descartable, de
 "DEVELOPER — unverified code from a local directory" en la tarjeta del

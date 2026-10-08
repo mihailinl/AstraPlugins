@@ -170,13 +170,9 @@ incluyendo cómo escribir un `reason` que valga la pena leer:
 |---|---|---|
 | **1 · Registro** | instalado desde la tienda, verificado | todo lo que pidió, sujeto a consentimiento. Sin anulación ante un fallo de verificación |
 | **2 · Archivo local** | un `.astraplugin` importado a mano | `send_chat_message`, `set_theme_contribution`, `dom_access` y `client` se **rechazan de plano, no solo se advierten** |
-| **3 · Sideload** | un directorio fuente, modo desarrollador activado | **sin techo** — y nunca arranca automáticamente |
+| **3 · Sideload** | un directorio fuente, modo desarrollador activado | **sin límite** — Restaura la activación guardada si el modo desarrollador está activo y el daemon autoriza la misma fuente. Un estado ausente o ilegible permanece desactivado. |
 
-El nivel 3 no tiene límite a propósito: es el bucle de creación para plugins
-de UI, y limitarlo haría que `dom_access` fuera indesarrollable. También está
-bloqueado detrás de un ajuste explícito, nunca arranca solo tras un reinicio,
-y está [documentado como herramienta de desarrollo](../5-publish/sideload.md)
-en lugar de como una forma de instalar cosas.
+El nivel 3 no tiene límite para desarrollar UI: limitarlo haría imposible desarrollar `dom_access`. Para reanudar tras reiniciar requiere modo desarrollador, una fuente autorizada por el daemon y una activación guardada. Está [documentado como herramienta de desarrollo](../5-publish/sideload.md).
 
 Cuatro estados no obtienen **nada**, diga lo que diga el manifiesto:
 `Untrusted`, `TamperDetected`, `Revoked`, y un plugin `Verified` cuyo
