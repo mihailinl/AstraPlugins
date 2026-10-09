@@ -238,7 +238,9 @@
                 "characterLibraryChanged",
                 "companionStatusChanged",
                 "conversationDeleted",
-                "updateStateChanged"
+                "updateStateChanged",
+                "companionGameChanged",
+                "gamesChanged"
               ]
             }
           },
@@ -371,6 +373,14 @@
               "type": "UpdateStateChangedEvent",
               "id": 36
             },
+            "companionGameChanged": {
+              "type": "CompanionGameChangedEvent",
+              "id": 37
+            },
+            "gamesChanged": {
+              "type": "GamesChangedEvent",
+              "id": 38
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
@@ -405,6 +415,14 @@
           "fields": {
             "connected": {
               "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "CompanionGameChangedEvent": {
+          "fields": {
+            "state": {
+              "type": "string",
               "id": 1
             }
           }
@@ -8956,6 +8974,9 @@
           "fields": {}
         },
         "CreditsChangedEvent": {
+          "fields": {}
+        },
+        "GamesChangedEvent": {
           "fields": {}
         }
       }

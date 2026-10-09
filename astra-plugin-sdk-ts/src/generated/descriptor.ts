@@ -246,7 +246,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "characterLibraryChanged",
                 "companionStatusChanged",
                 "conversationDeleted",
-                "updateStateChanged"
+                "updateStateChanged",
+                "companionGameChanged",
+                "gamesChanged"
               ]
             }
           },
@@ -379,6 +381,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "UpdateStateChangedEvent",
               "id": 36
             },
+            "companionGameChanged": {
+              "type": "CompanionGameChangedEvent",
+              "id": 37
+            },
+            "gamesChanged": {
+              "type": "GamesChangedEvent",
+              "id": 38
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
@@ -413,6 +423,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "fields": {
             "connected": {
               "type": "bool",
+              "id": 1
+            }
+          }
+        },
+        "CompanionGameChangedEvent": {
+          "fields": {
+            "state": {
+              "type": "string",
               "id": 1
             }
           }
@@ -8964,6 +8982,9 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "fields": {}
         },
         "CreditsChangedEvent": {
+          "fields": {}
+        },
+        "GamesChangedEvent": {
           "fields": {}
         }
       }
