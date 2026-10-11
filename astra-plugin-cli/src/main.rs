@@ -13,8 +13,9 @@
 //!
 //! **Amended 2026-09-24, CLI 0.4.0 (contract ROLL-47 row C3).** This paragraph
 //! used to add "no second account to create", and from this release that is
-//! false. A repository is now bound to a Minice account holding `astraUser`:
-//! the author mints a binding token in the panel, signed in to that account,
+//! false. A repository is now bound to a Minice account holding
+//! `publish:plugin` (since contract 4.0.0, 2026-10-10): the author mints a
+//! binding token in the panel, signed in to that account,
 //! and `init-ci --binding <token>` writes it into the owner file. The rest
 //! stands, and C26 is what holds it — this CLI still has no `login`, stores no
 //! credential, and calls no service: the token is public text in a file, and
