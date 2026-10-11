@@ -244,8 +244,9 @@ einen Befehl, und dorthin geht jedes Listing; ein bestehendes Listing hat bis
 zur Binding-Frist Zeit (unten).
 
 **1 · Ein Token erzeugen.** Melde dich unter https://astra.minice.ai/plugins mit
-dem Minice-Konto an, dem das Listing gehören wird — es braucht `astraUser`, das
-mit dem Besitz von Astra kommt — und erzeuge ein Binding-Token für dieses
+dem Minice-Konto an, dem das Listing gehören wird — es braucht `publish:plugin`,
+das jedes Konto hat, dem Astra gehört, und das Minice auch eigenständig als
+Rolle `publisher` vergeben kann — und erzeuge ein Binding-Token für dieses
 Repository.
 
 **2 · Die Zeile schreiben.** Irgendwo innerhalb des Repositorys:

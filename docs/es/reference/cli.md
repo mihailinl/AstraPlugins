@@ -48,7 +48,8 @@ almacén de credenciales construido para guardar algo que nada pide.
 **Modificado el 2026-09-24, CLI 0.4.0 (contrato ROLL-47, fila C3).** Este
 párrafo añadía antes «ninguna segunda cuenta que crear», y desde esta
 versión eso es falso. Un repositorio se vincula ahora a una cuenta de Minice
-que tiene `astraUser`: el autor genera un token de vinculación en el panel,
+que tiene `publish:plugin` (desde el contrato 4.0.0, 2026-10-10): el autor
+genera un token de vinculación en el panel,
 con la sesión iniciada en esa cuenta, e `init-ci --binding <token>` lo escribe
 en el archivo de propietario. El resto sigue en pie, y C26 es lo que lo
 sostiene: esta CLI sigue sin `login`, no guarda ninguna credencial y no llama a
