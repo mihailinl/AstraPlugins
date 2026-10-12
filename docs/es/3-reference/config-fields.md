@@ -302,6 +302,12 @@ Setters encadenables: `with_placeholder`, `with_default`,
 `with_group(id, label)` para una sección colapsable, y
 `with_condition(field_id, operator, value)` para la visibilidad.
 
+`with_advanced()` marca un ajuste fino, y la página «Voz» de Astra lo pliega
+tras *Ajustes avanzados* (el editor de comandos ignora la marca). En Python los
+constructores de `Field` aceptan `advanced=True`, y en TypeScript
+`advanced: true`. Los ajustes propios del plugin usan en su lugar la palabra
+clave `"x-astra-advanced"`; consulta *Ajustes avanzados* más arriba.
+
 `default_value` es un **string** en el cable en todos los casos — lleva un
 valor por defecto codificado en JSON, así que el default de un número es
 `"440"` y el de un toggle es `"true"`.

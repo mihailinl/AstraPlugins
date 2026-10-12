@@ -306,6 +306,12 @@ Verkettbare Setter: `with_placeholder`, `with_default`, `with_description`,
 einklappbaren Abschnitt, und `with_condition(field_id, operator, value)`
 für Sichtbarkeit.
 
+`with_advanced()` markiert ein Feinjustier-Feld, und Astras Seite „Stimme“
+klappt es hinter *Erweiterte Einstellungen* ein (der Befehlseditor ignoriert die
+Markierung). In Python nehmen die `Field`-Builder `advanced=True`, in TypeScript
+`advanced: true`. Für die eigenen Einstellungen des Plugins dient stattdessen das
+Schlüsselwort `"x-astra-advanced"` — siehe *Erweiterte Einstellungen* oben.
+
 `default_value` ist in jedem Fall ein **String** auf der Leitung — er trägt
 einen JSON-kodierten Default, sodass der Default einer Zahl `"440"` ist und
 der eines Toggles `"true"`.

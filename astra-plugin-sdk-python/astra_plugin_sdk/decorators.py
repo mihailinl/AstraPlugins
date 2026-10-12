@@ -434,6 +434,10 @@ class Field:
     scalars here, so ``min=0`` and "no minimum" are the same bytes, and the
     ``has_min`` / ``has_max`` / ``has_step`` flags that tell them apart are what
     a hand-built field always forgets.
+
+    ``advanced=True`` marks a tuning knob: Astra's Voice page folds a provider
+    field marked so behind its "Advanced settings" disclosure. Never mark one
+    the provider needs in order to work.
     """
 
     @staticmethod
@@ -445,11 +449,13 @@ class Field:
         default: str = "",
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         return FieldDef(
             id=id, label=label, field_type="text",
             placeholder=placeholder, default_value=default,
             description=description, conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod
@@ -461,11 +467,13 @@ class Field:
         default: str = "",
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         return FieldDef(
             id=id, label=label, field_type="textarea",
             placeholder=placeholder, default_value=default,
             description=description, conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod
@@ -477,11 +485,13 @@ class Field:
         default: str = "",
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         return FieldDef(
             id=id, label=label, field_type="textarea_with_variables",
             placeholder=placeholder, default_value=default,
             description=description, conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod
@@ -493,6 +503,7 @@ class Field:
         default: str = "",
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         """Create a dropdown field.
 
@@ -516,6 +527,7 @@ class Field:
             id=id, label=label, field_type="dropdown",
             options=normalized, default_value=default,
             description=description, conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod
@@ -529,6 +541,7 @@ class Field:
         default: str = "",
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         return FieldDef(
             id=id, label=label, field_type="number",
@@ -540,6 +553,7 @@ class Field:
             max=float(max) if max is not None else 0.0,
             step=float(step) if step is not None else 0.0,
             conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod
@@ -550,11 +564,13 @@ class Field:
         default: bool = False,
         description: str = "",
         conditions: list | None = None,
+        advanced: bool = False,
     ) -> FieldDef:
         return FieldDef(
             id=id, label=label, field_type="toggle",
             default_value="true" if default else "false",
             description=description, conditions=list(conditions or []),
+            advanced=advanced,
         )
 
     @staticmethod

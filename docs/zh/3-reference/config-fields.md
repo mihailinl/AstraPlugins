@@ -292,6 +292,11 @@ astra::main!(ToneTts::default());
 的 `with_group(id, label)`，以及用于控制可见性的
 `with_condition(field_id, operator, value)`。
 
+`with_advanced()` 把字段标记为微调项：Astra 的“语音”页面会把它折叠到
+“高级设置”下(命令编辑器会忽略这个标记)。Python 的 `Field` 构建器接受
+`advanced=True`，TypeScript 的则接受 `advanced: true`。插件自己的设置改用
+关键字 `"x-astra-advanced"`——参见上文的“高级设置”。
+
 在传输层面上，`default_value` 在任何情况下都是一个**字符串**——它携带
 的是一个 JSON 编码后的默认值，所以一个数字类型字段的默认值是
 `"440"`，一个开关类型字段的默认值是 `"true"`。

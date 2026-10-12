@@ -304,6 +304,13 @@ astra::main!(ToneTts::default());
 可能なセクション用の `with_group(id, label)`、表示制御用の
 `with_condition(field_id, operator, value)`。
 
+`with_advanced()` は細かな調整用のフィールドであることを示し、Astra の
+「音声」ページはそれを「詳細設定」の下にたたみます(コマンドエディターは
+この印を無視します)。Python の `Field` ビルダーは `advanced=True` を、
+TypeScript のビルダーは `advanced: true` を受け取ります。プラグイン自身の
+設定では、代わりにキーワード `"x-astra-advanced"` を使います — 上の
+「詳細設定」を参照してください。
+
 `default_value` は、どの場合でもワイヤー上では**文字列**です — これは
 JSON エンコードされたデフォルト値を運びます。そのため、数値のデフォルト
 は `"440"` であり、トグルのデフォルトは `"true"` です。

@@ -15,6 +15,14 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [Unreleased]
+
+### Added
+- **`advanced=True` on every `Field` builder**, and `advanced` on `FieldDef`:
+  marks a provider settings field as a tuning knob, which Astra's Voice page
+  folds behind *Advanced settings*. The wire field already existed; nothing in
+  this package set it.
+
 ## [0.6.2] — 2026-10-04
 
 Additive. A tool call and an action can ask which conversation invoked them, and

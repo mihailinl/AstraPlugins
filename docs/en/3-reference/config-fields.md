@@ -294,6 +294,12 @@ Chainable setters: `with_placeholder`, `with_default`, `with_description`,
 `with_min`, `with_max`, `with_step`, `with_group(id, label)` for a collapsible
 section, and `with_condition(field_id, operator, value)` for visibility.
 
+`with_advanced()` marks a tuning knob, and Astra's Voice page folds it behind
+*Advanced settings* (the command editor ignores the mark). Python's `Field`
+builders take `advanced=True` and TypeScript's take `advanced: true`. A plugin's
+own settings use the `"x-astra-advanced"` keyword instead — see *Advanced
+settings* above.
+
 `default_value` is a **string** on the wire in every case — it carries a
 JSON-encoded default, so a number's default is `"440"` and a toggle's is
 `"true"`.

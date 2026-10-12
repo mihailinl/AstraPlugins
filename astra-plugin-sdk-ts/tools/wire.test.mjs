@@ -49,7 +49,7 @@ function demo() {
     tts: {
       voices: [{ id: "v1", name: "One", language: "en", gender: "neutral" }],
       configFields: [
-        { id: "warmth", label: "Warmth", fieldType: "number", min: 0, max: 1, hasMin: true, hasMax: true },
+        { id: "warmth", label: "Warmth", fieldType: "number", min: 0, max: 1, hasMin: true, hasMax: true, advanced: true },
       ],
       synthesize: () => ({ data: Buffer.from([1, 2, 3]), format: "wav", sampleRate: 16000, durationMs: 1 }),
     },
@@ -150,6 +150,7 @@ test("config fields survive the wire under keepCase: false", async () => {
   assert.equal(res.configFields.length, 1);
   assert.equal(res.configFields[0].id, "warmth");
   assert.equal(res.configFields[0].hasMax, true, "the presence flags must survive encoding");
+  assert.equal(res.configFields[0].advanced, true, "a tuning knob stays one on the wire");
 });
 
 test("a whole utterance survives a real bidi stream", async () => {
