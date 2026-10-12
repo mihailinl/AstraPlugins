@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: e9622b516f287a729e39055d78b5621120e8836775dd2394061ccec7557fa24a
+// surface-sha256: c126d5876ed044cc0ea236d2fac8bad493adf8fcc6f373bf43583e278d4a3a2c
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -300,6 +300,14 @@ message AstraEvent {
         // when somebody signed in or pressed a button. (The oneof skips 4, 9
         // and 13 — do not reuse them.)
         UpdateStateChangedEvent update_state_changed = 36;
+        // The avatar engine's game-bridge level moved — `state` alone, no
+        // title and no client. See `CompanionGameChangedEvent`.
+        CompanionGameChangedEvent companion_game_changed = 37;
+        // The Games tab's library moved (install/uninstall/play finished, a
+        // refusal cleared). Empty by design, same reason as
+        // `BackgroundJobsChangedEvent`: `ListGames` is the one document and a
+        // client that missed this still converges on the next call.
+        GamesChangedEvent games_changed = 38;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -385,6 +393,21 @@ message CharacterLibraryChangedEvent {
 // (`astra-daemon/src/plugins/event_view.rs`).
 message CompanionStatusChangedEvent {
     bool connected = 1;
+}
+
+// The avatar engine's game-bridge LEVEL moved. See `CompanionGameMsg` on
+// `CharacterLibraryResponse` for the document; this is the doorbell.
+//
+// **`state` alone — no title, no client.** The game's display name is the
+// user's ACTIVITY (`docs/GAME-INTEGRATIONS.md` §0): it never rides an event
+// that reaches plugins verbatim, the way this one does
+// (`astra-daemon/src/plugins/event_view.rs`). A client that wants the name,
+// the port, the client id or the consent flag re-reads
+// `CharacterService.ListCharacters`, which sits behind the ordinary auth gate
+// this stream's plugin audience is not.
+message CompanionGameChangedEvent {
+    // "desktop" | "asking" | "in_game" | "returning".
+    string state = 1;
 }
 
 // A conversation was deleted: its history and every store that held it are
@@ -5770,3 +5793,9 @@ message BackgroundJobsChangedEvent {}
 message UpdateStateChangedEvent {}
 
 message CreditsChangedEvent {}
+
+// Emitted when a game finishes installing or uninstalling, or Play starts or
+// ends. Empty by design, for the reason `BackgroundJobsChangedEvent` is:
+// `ListGames` is the one document, and a client that missed this still
+// converges on the next call.
+message GamesChangedEvent {}

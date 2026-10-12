@@ -661,10 +661,20 @@ jobs:
       # exists there>` returns the file. That last clause is the one C22's
       # verdict rests on, and `_tag_tree_readable` re-asserts it at the point of
       # use rather than trusting this comment.
+      # 1.3.4's fs.cpSync uses copy_file_range unconditionally: when the
+      # syscall returns EINVAL (as it does on this runner's filesystem for
+      # the copy build-plugin-ui.ts makes from Bun.build's temp output into
+      # dist/plugin-ui/v1), 1.3.4 throws instead of falling back to a plain
+      # read/write copy like Node does. Two runs (37992043672, 37992919625)
+      # failed identically on that EINVAL — not flaky. oven-sh/bun#24097: the
+      # fallback landed in 1.3.9 and was completed in 1.3.10. 1.3.14 is the
+      # newest release still on the pre-1.4 runtime (1.4 is a from-scratch
+      # Rust rewrite with its own early regressions, not worth taking just
+      # for this).
       - uses: oven-sh/setup-bun@v2
         if: env.MODE == 'full'
         with:
-          bun-version: "1.3.4"
+          bun-version: "1.3.14"
       - name: UI Kit snapshot matches explicit checked-out commits
         if: env.MODE == 'full'
         run: |
