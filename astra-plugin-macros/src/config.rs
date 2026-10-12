@@ -12,9 +12,12 @@
 //! this derive does not try to reinvent them — it is a *marker* that ties them
 //! together:
 //!
-//! * it implements [`PluginConfig`], whose `json_schema()` is what
-//!   `astra-plugin check` stamps into `plugin.toml`'s `[config] schema` and what
-//!   the level-1 test harness compares against; and
+//! * it implements [`PluginConfig`], whose `json_schema()` is the schema
+//!   `schemars` generates for the type — a starting point to paste into
+//!   `plugin.toml`'s `[config] schema`. Nothing reads it back: the Settings
+//!   page renders the manifest's schema, which the author writes and keeps in
+//!   step with this type by hand (`astra-plugin check` neither stamps nor
+//!   compares it); and
 //! * it asserts, at compile time and on the author's own type name, that the
 //!   type really does deserialize *and* has a `Default` — because
 //!   `PluginCapability::on_config_changed` parses the daemon's payload into it,
