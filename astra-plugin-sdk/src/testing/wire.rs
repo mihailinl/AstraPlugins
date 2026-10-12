@@ -547,12 +547,14 @@ impl WireHarness {
 
         let mut run = tokio::spawn(crate::run_with(plugin, config));
 
-        // Two things have to be raced against the plugin dying, and both of
+        // Three things have to be raced against the plugin dying, and all of
         // them used to be waits on a clock. Registration happens *before*
         // `on_start`, so a plugin whose `on_start` fails has already told the
         // daemon a port that will never accept — waiting on that socket reports
         // "transport error" ten seconds later, when what the author needs is
-        // the sentence `on_start` returned.
+        // the sentence `on_start` returned. The third is below, at the connect:
+        // a TCP connect proves nothing about `on_start` either, for the same
+        // reason — the listener is bound long before `on_start` runs.
         //
         // `&mut JoinHandle` is itself a future, so the select leaves the handle
         // usable when the plugin is the one that won.
@@ -578,11 +580,38 @@ impl WireHarness {
         };
 
         let addr = format!("http://127.0.0.1:{port}");
-        let client = tokio::select! {
+        let mut client = tokio::select! {
             biased;
             joined = &mut run => return Err(exit_error(joined, "serving")),
             client = connect(&addr) => client?,
         };
+
+        // `connect` only proves the TCP handshake finished, and the kernel
+        // finishes that out of the listen backlog whether or not anything has
+        // called `accept()` on it — `bind` is step one of `run_with`, long
+        // before `serve` ever calls `accept`. A plugin whose `on_start` fails
+        // never reaches `serve`: the socket it bound sits open and un-accepted
+        // until `run_with` returns and drops it. A client that connects inside
+        // that window is connected to nothing that will ever answer back, so
+        // "connected" and "serving" are different facts and only the second one
+        // is the one this harness promises callers.
+        //
+        // Make the plugin answer something. `HealthCheck` is already on every
+        // capability server, costs the plugin author nothing, and only gets a
+        // reply once `serve` is actually running — so race *that* against
+        // `run` ending first with `on_start`'s real error, the distinction a
+        // bare connect cannot make.
+        let mut health_request = tonic::Request::new(proto::Empty {});
+        health_request
+            .metadata_mut()
+            .insert(crate::wire::PLUGIN_TOKEN_HEADER, SPAWN_TOKEN.parse().unwrap());
+        tokio::select! {
+            biased;
+            joined = &mut run => return Err(exit_error(joined, "serving")),
+            resp = client.health_check(health_request) => {
+                resp.context("plugin accepted the connection but never answered HealthCheck")?;
+            }
+        }
 
         Ok(Self {
             daemon,
