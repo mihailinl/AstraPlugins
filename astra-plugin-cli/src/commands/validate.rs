@@ -603,10 +603,53 @@ fn check_config_schema(m: &PluginManifest, report: &mut Report) {
                     .warnings
                     .push("config.schema should have \"type\": \"object\" at root".into());
             }
+            check_advanced_properties(&schema, report);
         }
         Err(e) => report
             .errors
             .push(format!("config.schema is not valid JSON: {e}")),
+    }
+}
+
+/// The schema keyword that folds a property's control behind Astra's
+/// "Advanced settings" disclosure (`docs/en/3-reference/config-fields.md`).
+/// Astra's settings form reads it in `astra-ui/src/lib/pluginConfigSchema.ts`.
+const ADVANCED_KEYWORD: &str = "x-astra-advanced";
+
+/// Two ways an advanced flag goes wrong without anything saying so.
+///
+/// Astra folds a field only for the boolean `true`, so `"true"` is a field
+/// that stays on screen while its author believes it is folded. And a field
+/// the schema itself calls `required` is one the plugin needs to work: folded,
+/// the user looking for it concludes the setting does not exist.
+fn check_advanced_properties(schema: &serde_json::Value, report: &mut Report) {
+    let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) else {
+        return;
+    };
+    let required: BTreeSet<&str> = schema
+        .get("required")
+        .and_then(|r| r.as_array())
+        .map(|names| names.iter().filter_map(|n| n.as_str()).collect())
+        .unwrap_or_default();
+    for (name, property) in properties {
+        match property.get(ADVANCED_KEYWORD) {
+            None | Some(serde_json::Value::Bool(false)) => {}
+            Some(serde_json::Value::Bool(true)) => {
+                if required.contains(name.as_str()) {
+                    report.warnings.push(format!(
+                        "config.schema: \"{name}\" is required and also \"{ADVANCED_KEYWORD}\": \
+                         true — Astra would fold a setting the plugin needs behind \"Advanced \
+                         settings\", where a user looking for it concludes it is missing. Drop \
+                         one of the two"
+                    ));
+                }
+            }
+            Some(other) => report.warnings.push(format!(
+                "config.schema: \"{name}\" has \"{ADVANCED_KEYWORD}\": {other} — Astra folds a \
+                 field only for the boolean true, so this one stays on screen. Write true or \
+                 false without quotes"
+            )),
+        }
     }
 }
 
@@ -2146,6 +2189,62 @@ label = "Sink"
         assert_eq!(
             reserved_key_refusal(&plugin_with("").replace("[plugin]\n", "[plugin]\nkind = \"x\"\n")),
             None
+        );
+    }
+
+    /// **An advanced flag Astra would not read, or should not fold, is said.**
+    /// The UI folds a field only for the boolean `true`; a `required` field
+    /// folded is a setting the user cannot find. A plain advanced field, and
+    /// `false`, are ordinary and say nothing.
+    #[test]
+    fn check_names_an_advanced_flag_astra_would_not_read_or_should_not_fold() {
+        let warnings_for = |schema: &str| {
+            let manifest = format!("{}\n[config]\nschema = '''{schema}'''\n", plugin_with(""));
+            let (parsed, report) = report_for(&manifest);
+            parsed.expect("the manifest parses");
+            report.warnings
+        };
+        let advanced_warnings = |schema: &str| -> Vec<String> {
+            warnings_for(schema)
+                .into_iter()
+                .filter(|w| w.contains(ADVANCED_KEYWORD))
+                .collect()
+        };
+
+        assert_eq!(
+            advanced_warnings(
+                r#"{"type": "object", "properties": {
+                    "key": {"type": "string"},
+                    "ttl": {"type": "integer", "x-astra-advanced": true},
+                    "debug": {"type": "boolean", "x-astra-advanced": false}}}"#
+            ),
+            Vec::<String>::new()
+        );
+
+        let quoted = advanced_warnings(
+            r#"{"type": "object", "properties": {"ttl": {"type": "integer", "x-astra-advanced": "true"}}}"#,
+        );
+        assert_eq!(quoted.len(), 1, "{quoted:?}");
+        assert!(
+            quoted[0].contains("\"ttl\" has \"x-astra-advanced\": \"true\""),
+            "{}",
+            quoted[0]
+        );
+        assert!(
+            quoted[0].contains("only for the boolean true"),
+            "{}",
+            quoted[0]
+        );
+
+        let hidden = advanced_warnings(
+            r#"{"type": "object", "required": ["api_key"], "properties": {
+                "api_key": {"type": "string", "x-astra-advanced": true}}}"#,
+        );
+        assert_eq!(hidden.len(), 1, "{hidden:?}");
+        assert!(
+            hidden[0].contains("\"api_key\" is required"),
+            "{}",
+            hidden[0]
         );
     }
 

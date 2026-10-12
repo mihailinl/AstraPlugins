@@ -45,6 +45,58 @@ schema = """
 `astra-plugin check` 会解析它，如果根不是 `"type": "object"` 就会发出
 警告。
 
+每个属性用什么控件由 schema 决定：`boolean` 是开关，`number` 或 `integer`
+是数字框(`minimum`、`maximum`、`multipleOf`)，字符串 `enum` 是下拉列表，
+其他字符串——以及没有 `type` 的属性——是文本框。`"format": "password"` 会遮住
+值，`"format": "file"`(或 `"x-astra-field-type": "file_picker"`)提供文件
+选择，`"x-astra-field-type": "slider"` 或 `"textarea"` 则选用对应控件。
+`title` 是字段的标签，`description` 在其下方加以说明。`array` 或 `object`
+类型的属性没有控件；用户保存时，它已保存的值保持不变。
+
+### 高级设置
+
+大多数人从不需要碰的设置——超时、缓存有效期、调试开关——可以标记为
+`"x-astra-advanced": true`。Astra 会把它的控件折叠到与自身设置页相同的“高级设置”
+分隔条下；对于关闭了“隐藏高级设置”的用户，则直接显示。其余一切不变：值照旧被
+读取、保存并交付给你的插件。同一个关键字也会在“语音”页面上折叠该字段，唤醒词
+插件的设置就显示在那里。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "weather"
+name = "Weather"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/weather"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "api_key": { "type": "string", "title": "API key" },
+    "cache_ttl_secs": {
+      "type": "integer", "title": "Cache lifetime (s)", "minimum": 0, "default": 600,
+      "x-astra-advanced": true
+    }
+  }
+}
+"""
+```
+
+无论插件用哪种语言编写，这个关键字都写在 `plugin.toml` 里。只有布尔值 `true`
+才会折叠字段，其他任何值 `astra-plugin check` 都会发出警告。对同时列在
+`required` 中又标记为高级的属性，它也会警告，因为 Astra 在自己的页面上遵守一条
+规则：绝不折叠插件运行所必需的设置——API 密钥、模型、路径。找不到它的用户不会
+认为它被隐藏了，而会认为它不存在。
+
 ### 带类型地读取它
 
 声明 `type Config` 并实现 `on_config`。SDK 会解析负载(payload)，如果

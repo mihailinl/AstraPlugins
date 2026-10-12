@@ -46,6 +46,68 @@ schema = """
 `astra-plugin check` parst es und warnt, wenn die Wurzel nicht
 `"type": "object"` ist.
 
+Das Steuerelement jeder Eigenschaft ergibt sich aus dem Schema: `boolean` wird
+ein Schalter, `number` oder `integer` ein Zahlenfeld (`minimum`, `maximum`,
+`multipleOf`), ein String-`enum` eine Auswahlliste und jeder andere String —
+oder eine Eigenschaft ohne `type` — ein Textfeld. `"format": "password"`
+maskiert den Wert, `"format": "file"` (oder `"x-astra-field-type": "file_picker"`)
+bietet eine Dateiauswahl an, und `"x-astra-field-type": "slider"` oder
+`"textarea"` wählt dieses Steuerelement. `title` beschriftet das Feld,
+`description` erklärt es darunter. Eine Eigenschaft vom Typ `array` oder
+`object` bekommt kein Steuerelement; ihr gespeicherter Wert bleibt beim Speichern
+unverändert.
+
+### Erweiterte Einstellungen
+
+Eine Einstellung, die die meisten nie anfassen müssen — ein Timeout, eine
+Cache-Lebensdauer, ein Debug-Schalter —, lässt sich mit
+`"x-astra-advanced": true` markieren. Astra klappt ihr Steuerelement hinter
+dieselbe Leiste *Erweiterte Einstellungen*, die auch Astras eigene
+Einstellungsseiten verwenden, und zeigt es direkt an, wenn jemand *Erweiterte
+Einstellungen ausblenden* abgeschaltet hat. Sonst ändert sich nichts: Der Wert
+wird gelesen, gespeichert und an dein Plugin geliefert wie bisher. Dasselbe
+Schlüsselwort klappt das Feld auch auf der Seite „Stimme“ ein, wo die
+Einstellungen eines Wake-Word-Plugins erscheinen.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "weather"
+name = "Weather"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/weather"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "api_key": { "type": "string", "title": "API key" },
+    "cache_ttl_secs": {
+      "type": "integer", "title": "Cache lifetime (s)", "minimum": 0, "default": 600,
+      "x-astra-advanced": true
+    }
+  }
+}
+"""
+```
+
+Das Schlüsselwort steht in `plugin.toml`, gleich in welcher Sprache das Plugin
+geschrieben ist. Nur das boolesche `true` klappt ein Feld ein; vor jedem anderen
+Wert warnt `astra-plugin check`. Es warnt auch vor einer Eigenschaft, die
+zugleich in `required` steht und als erweitert markiert ist, denn Astra hält für
+die eigenen Seiten eine Regel ein: Nie eine Einstellung einklappen, ohne die das
+Plugin nicht funktioniert — einen API-Schlüssel, ein Modell, einen Pfad. Wer sie
+nicht findet, schließt nicht, dass sie versteckt ist, sondern dass es sie nicht
+gibt.
+
 ### Es typisiert lesen
 
 Deklariere `type Config` und implementiere `on_config`. Das SDK parst die

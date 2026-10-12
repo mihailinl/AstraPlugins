@@ -36,6 +36,14 @@ reads to find out how to get the tool.
 
 ## [Unreleased]
 
+### Added
+- **`check` reads `"x-astra-advanced"` in the `[config] schema`**, the keyword
+  that folds a setting behind Astra's *Advanced settings*. It warns about a
+  value that is not a boolean — Astra folds a field only for `true`, so
+  `"true"` leaves it on screen while its author believes it folded — and about
+  a property that is both `required` and advanced, which hides a setting the
+  plugin needs. Documented in `docs/en/3-reference/config-fields.md`.
+
 ### Changed
 - **The manifest's top-level `kind` and `requires` are reserved, and every
   command that reads a manifest as a plugin refuses another value** (contract

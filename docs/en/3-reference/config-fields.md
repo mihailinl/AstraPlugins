@@ -42,6 +42,63 @@ schema = """
 
 `astra-plugin check` parses it and warns if the root is not `"type": "object"`.
 
+Each property's control follows from the schema: `boolean` is a switch,
+`number` or `integer` a number box (`minimum`, `maximum`, `multipleOf`), a string
+`enum` a dropdown, and any other string — or a property with no `type` — a text
+box. `"format": "password"` masks the value, `"format": "file"` (or
+`"x-astra-field-type": "file_picker"`) offers a file picker, and
+`"x-astra-field-type": "slider"` or `"textarea"` chooses that control. `title`
+labels the field and `description` explains it underneath. An `array` or
+`object` property gets no control; its stored value is kept as it is when the
+user saves.
+
+### Advanced settings
+
+A setting most people never need to touch — a timeout, a cache lifetime, a
+debug switch — can be marked `"x-astra-advanced": true`. Astra folds its control
+behind the same *Advanced settings* strip its own settings pages use, and shows
+it inline to a user who has turned *Hide advanced settings* off. Nothing else
+changes: the value is read, saved and delivered to your plugin exactly as
+before. The same keyword folds the field on the Voice page, where a wake-word
+plugin's settings appear.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "weather"
+name = "Weather"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/weather"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "api_key": { "type": "string", "title": "API key" },
+    "cache_ttl_secs": {
+      "type": "integer", "title": "Cache lifetime (s)", "minimum": 0, "default": 600,
+      "x-astra-advanced": true
+    }
+  }
+}
+"""
+```
+
+The keyword lives in `plugin.toml`, whatever language the plugin is written
+in. Only the boolean `true` folds a field, and `astra-plugin check` warns about
+any other value. It also warns about a property that is both in `required` and
+advanced, because Astra keeps one rule for its own pages: never fold a setting
+the plugin needs in order to work — an API key, a model, a path. A user who
+cannot find it does not conclude it is hidden; they conclude it is missing.
+
 ### Reading it, typed
 
 Declare `type Config` and implement `on_config`. The SDK parses the payload and

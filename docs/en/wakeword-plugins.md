@@ -51,6 +51,8 @@ are supported. A string with `"format": "password"` uses a password field;
 file picker. `"x-astra-field-type": "slider"` and `"textarea"` choose those
 controls for numeric and string properties. The plugin reads the configured
 path; Astra does not prescribe a keyword-model format.
+`"x-astra-advanced": true` folds a field behind *Advanced settings*, as on the
+Plugins page — see [Configuration and settings fields](3-reference/config-fields.md).
 
 Protocol 1 uses the authenticated `CallFromUi` request/response channel for
 three methods. This is an internal daemon call; no iframe or page is created.
