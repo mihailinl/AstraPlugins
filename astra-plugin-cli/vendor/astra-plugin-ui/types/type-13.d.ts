@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export type IconName = "close" | "check" | "ellipsis" | "chevron-down" | "chevron-up" | "chevron-right" | "chevron-left" | "search" | "plus" | "minus" | "trash" | "edit" | "copy" | "settings" | "info" | "alert-triangle" | "x-circle" | "check-circle" | "badge-check" | "braces" | "menu" | "swap" | "external" | "steam" | "dot" | "terminal" | "file" | "folder" | "git-branch" | "globe" | "keyboard" | "play" | "volume" | "cloud-sun" | "sun" | "moon" | "cloud" | "cloud-moon" | "cloud-rain" | "cloud-sleet" | "cloud-snow" | "cloud-lightning" | "cloud-fog" | "wind" | "droplet" | "command" | "message-circle" | "brain" | "monitor" | "mouse-pointer" | "image" | "sticky-note" | "bell" | "calendar" | "list-checks" | "coins" | "app-window" | "clock" | "gauge" | "record" | "square" | "grip" | "eye" | "eye-off" | "mail" | "refresh" | "send" | "reply" | "forward" | "paperclip" | "download" | "lock" | "log-out" | "shield" | "plug" | "person";
-interface IconProps {
-    name: IconName;
-    size?: number;
-    strokeWidth?: number;
-    className?: string;
+import { type ControlTone } from "./type-31";
+type IconButtonSize = "sm" | "md" | "lg";
+type IconButtonVariant = "ghost" | "solid" | "danger";
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    label: string;
+    size?: IconButtonSize;
+    variant?: IconButtonVariant;
+    tone?: ControlTone;
+    children: React.ReactNode;
+    ref?: React.Ref<HTMLButtonElement>;
 }
-export declare function Icon({ name, size, strokeWidth, className }: IconProps): import("react/jsx-runtime").JSX.Element;
+export declare function IconButton({ label, size, variant, tone, className, children, type, ref, ...rest }: IconButtonProps): import("react/jsx-runtime").JSX.Element;
 export {};
