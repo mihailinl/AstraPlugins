@@ -207,8 +207,9 @@ Minice 账户登录。现在绑定只需要一条命令，而且所有上架最�
 上架的插件可以等到绑定截止日期(见下文)。
 
 **1 · 铸造一个令牌。** 用将来拥有这个上架的 Minice 账户登录
-https://astra.minice.ai/plugins —— 它需要 `astraUser`，拥有 Astra 就会有 ——
-然后为这个仓库铸造一个绑定令牌。
+https://astra.minice.ai/plugins —— 它需要 `publish:plugin`，拥有 Astra 的
+账户都会有，Minice 也可以单独把它作为 `publisher` 角色授予 —— 然后为这个
+仓库铸造一个绑定令牌。
 
 **2 · 写入这一行。** 在仓库里的任何位置运行：
 

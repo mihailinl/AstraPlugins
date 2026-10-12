@@ -50,7 +50,8 @@ nach dem nichts fragt.
 **Geändert am 2026-09-24, CLI 0.4.0 (Vertrag ROLL-47, Zeile C3).** Dieser
 Absatz sagte früher zusätzlich „kein zweites Konto zu erstellen", und ab
 diesem Release stimmt das nicht mehr. Ein Repository wird jetzt an ein
-Minice-Konto mit `astraUser` gebunden: Der Autor erzeugt im Panel, dort bei
+Minice-Konto mit `publish:plugin` gebunden (seit Vertrag 4.0.0, 2026-10-10):
+Der Autor erzeugt im Panel, dort bei
 diesem Konto angemeldet, ein Binding-Token, und `init-ci --binding <token>`
 schreibt es in die Owner-Datei. Der Rest gilt weiter, und C26 hält ihn fest —
 diese CLI hat weiterhin kein `login`, speichert keine Zugangsdaten und ruft

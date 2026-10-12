@@ -215,8 +215,9 @@ will publish. Binding now costs one command and is where every listing is
 going; an existing listing has until the binding deadline (below).
 
 **1 · Mint a token.** Sign in at https://astra.minice.ai/plugins with the Minice
-account that will own the listing — it needs `astraUser`, which comes with
-owning Astra — and mint a binding token for this repository.
+account that will own the listing — it needs `publish:plugin`, which every
+account that owns Astra has, and which Minice can also grant on its own as the
+`publisher` role — and mint a binding token for this repository.
 
 **2 · Write the line.** Anywhere inside the repository:
 

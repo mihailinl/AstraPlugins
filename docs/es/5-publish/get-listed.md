@@ -235,9 +235,10 @@ Vincular ahora cuesta un comando y es adonde va todo listado; un listado
 existente tiene hasta el plazo de vinculación (más abajo).
 
 **1 · Genera un token.** Inicia sesión en https://astra.minice.ai/plugins con la
-cuenta de Minice que será dueña del listado — necesita `astraUser`, que viene con
-ser propietario de Astra — y genera un token de vinculación para este
-repositorio.
+cuenta de Minice que será dueña del listado — necesita `publish:plugin`, que
+tiene toda cuenta que sea propietaria de Astra, y que Minice también puede
+otorgar por sí sola como el rol `publisher` — y genera un token de vinculación
+para este repositorio.
 
 **2 · Escribe la línea.** En cualquier lugar dentro del repositorio:
 
