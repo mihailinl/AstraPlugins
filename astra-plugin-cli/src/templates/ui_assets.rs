@@ -44,6 +44,7 @@ pub const AUTHORING: &[(&str, &[u8])] = &[
 ("types/type-39.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-39.d.ts")),
 ("types/type-4.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-4.d.ts")),
 ("types/type-40.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-40.d.ts")),
+("types/type-41.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-41.d.ts")),
 ("types/type-5.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-5.d.ts")),
 ("types/type-6.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-6.d.ts")),
 ("types/type-7.d.ts", include_bytes!("../../vendor/astra-plugin-ui/types/type-7.d.ts")),

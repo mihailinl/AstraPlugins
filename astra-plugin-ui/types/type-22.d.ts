@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
+import { type ReactNode } from "react";
 
-export interface SelectOption<T extends string> {
+export interface SegmentedControlOption<T extends string> {
     value: T;
-    label: React.ReactNode;
-    icon?: React.ReactNode;
-    badge?: React.ReactNode;
+    label: ReactNode;
+    icon?: ReactNode;
     disabled?: boolean;
+    title?: string;
 }
-export interface SelectProps<T extends string> {
-    value: T | null;
+interface SegmentedControlBaseProps<T extends string> {
+    value: T;
+    options: readonly SegmentedControlOption<T>[];
     onChange: (value: T) => void;
-    options: SelectOption<T>[];
-    placeholder?: React.ReactNode;
-    size?: "sm" | "md";
-    disabled?: boolean;
-    id?: string;
+    ariaLabel: string;
+    variant?: "default" | "plain";
     className?: string;
-    bare?: boolean;
 }
-export declare function SelectOptions<T extends string>({ options, value, onChange }: Pick<SelectProps<T>, "options" | "value" | "onChange">): import("react/jsx-runtime").JSX.Element;
-export declare function Select<T extends string>({ value, onChange, options, placeholder, size, disabled, id, className, bare, }: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
+export type SegmentedControlProps<T extends string> = SegmentedControlBaseProps<T> & ({
+    mode: "tabs";
+    id: string;
+    panelId: string;
+} | {
+    mode?: "selection";
+    id?: string;
+    panelId?: never;
+});
+export declare function SegmentedControl<T extends string>({ value, options, onChange, ariaLabel, mode, variant, id, panelId, className, }: SegmentedControlProps<T>): import("react/jsx-runtime").JSX.Element;
+export {};
