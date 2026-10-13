@@ -67,6 +67,102 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "CollectLogs": {
               "requestType": "Empty",
               "responseType": "LogBundleResponse"
+            },
+            "GetMoveOffer": {
+              "requestType": "Empty",
+              "responseType": "MoveOfferResponse"
+            },
+            "AcceptMove": {
+              "requestType": "AcceptMoveRequest",
+              "responseType": "MoveActionResponse"
+            },
+            "StayInEdition": {
+              "requestType": "Empty",
+              "responseType": "MoveActionResponse"
+            }
+          }
+        },
+        "MoveOfferResponse": {
+          "fields": {
+            "available": {
+              "type": "bool",
+              "id": 1
+            },
+            "edition": {
+              "type": "string",
+              "id": 2
+            },
+            "version": {
+              "type": "string",
+              "id": 3
+            },
+            "mode": {
+              "type": "string",
+              "id": 4
+            },
+            "offerText": {
+              "type": "string",
+              "id": 5
+            },
+            "consentText": {
+              "type": "string",
+              "id": 6
+            },
+            "problem": {
+              "type": "string",
+              "id": 7
+            },
+            "channel": {
+              "type": "string",
+              "id": 8
+            },
+            "pressedAt": {
+              "type": "string",
+              "id": 9
+            },
+            "offerSha256": {
+              "type": "string",
+              "id": 10
+            },
+            "consentSha256": {
+              "type": "string",
+              "id": 11
+            }
+          }
+        },
+        "AcceptMoveRequest": {
+          "fields": {
+            "version": {
+              "type": "string",
+              "id": 1
+            },
+            "offer": {
+              "type": "string",
+              "id": 2
+            },
+            "consent": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "MoveActionResponse": {
+          "fields": {
+            "ok": {
+              "type": "bool",
+              "id": 1
+            },
+            "refusalKey": {
+              "type": "string",
+              "id": 2
+            },
+            "problem": {
+              "type": "string",
+              "id": 3
+            },
+            "taskId": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -199,6 +295,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "updateChannel": {
               "type": "string",
               "id": 23
+            },
+            "islandAttached": {
+              "type": "bool",
+              "id": 24
+            },
+            "islandPresenceGeneration": {
+              "type": "uint64",
+              "id": 25
+            },
+            "updateReleasedAt": {
+              "type": "string",
+              "id": 26
+            },
+            "updateEdition": {
+              "type": "string",
+              "id": 27
             }
           }
         },
@@ -248,7 +360,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "conversationDeleted",
                 "updateStateChanged",
                 "companionGameChanged",
-                "gamesChanged"
+                "gamesChanged",
+                "islandPresenceChanged",
+                "clipboardHistoryChanged",
+                "shelfChanged"
               ]
             }
           },
@@ -388,6 +503,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "gamesChanged": {
               "type": "GamesChangedEvent",
               "id": 38
+            },
+            "islandPresenceChanged": {
+              "type": "IslandPresenceChangedEvent",
+              "id": 39
+            },
+            "clipboardHistoryChanged": {
+              "type": "ClipboardHistoryChangedEvent",
+              "id": 40
+            },
+            "shelfChanged": {
+              "type": "ShelfChangedEvent",
+              "id": 41
             },
             "capabilityEpoch": {
               "type": "string",
@@ -721,6 +848,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         "DaemonShuttingDownEvent": {
           "fields": {}
         },
+        "IslandPresenceChangedEvent": {
+          "fields": {
+            "attached": {
+              "type": "bool",
+              "id": 1
+            },
+            "generation": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
         "OverlayToggleEvent": {
           "fields": {
             "selectedText": {
@@ -774,6 +913,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "ClientControlRequestEvent": {
+          "oneofs": {
+            "_overlayCaptureCount": {
+              "oneof": [
+                "overlayCaptureCount"
+              ]
+            }
+          },
           "fields": {
             "requestId": {
               "type": "string",
@@ -790,6 +936,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "timeoutMs": {
               "type": "uint32",
               "id": 4
+            },
+            "overlayCaptureCount": {
+              "type": "uint32",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -2314,6 +2467,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "error": {
               "type": "string",
               "id": 9
+            },
+            "modelKind": {
+              "type": "string",
+              "id": 10
             }
           }
         },
@@ -3803,6 +3960,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "companionAppIcon": {
               "type": "CompanionAppIconSettings",
               "id": 21
+            },
+            "clipboardHistory": {
+              "type": "ClipboardHistorySettings",
+              "id": 22
+            },
+            "screenWidgets": {
+              "type": "ScreenWidgetsSettings",
+              "id": 23
             }
           }
         },
@@ -3872,6 +4037,35 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "enabled": {
               "type": "bool",
               "id": 1
+            }
+          }
+        },
+        "ClipboardHistorySettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "excludedApps": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ScreenWidgetsSettings": {
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "id": 1
+            },
+            "layout": {
+              "type": "string",
+              "id": 2
+            },
+            "hidePinnedFullscreen": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -4810,6 +5004,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "windowDecorations"
               ]
+            },
+            "_islandHideFullscreen": {
+              "oneof": [
+                "islandHideFullscreen"
+              ]
+            },
+            "_islandExcludeCapture": {
+              "oneof": [
+                "islandExcludeCapture"
+              ]
+            },
+            "_uiTheme": {
+              "oneof": [
+                "uiTheme"
+              ]
+            },
+            "_uiAccent": {
+              "oneof": [
+                "uiAccent"
+              ]
             }
           },
           "fields": {
@@ -4843,6 +5057,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "windowDecorations": {
               "type": "string",
               "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "islandHideFullscreen": {
+              "type": "bool",
+              "id": 8,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "islandExcludeCapture": {
+              "type": "bool",
+              "id": 9,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "uiTheme": {
+              "type": "string",
+              "id": 10,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "uiAccent": {
+              "type": "string",
+              "id": 11,
               "options": {
                 "proto3_optional": true
               }
@@ -5773,6 +6015,30 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "DiskInfo",
               "id": 10
+            },
+            "battery": {
+              "type": "BatteryStatus",
+              "id": 11
+            }
+          }
+        },
+        "BatteryStatus": {
+          "fields": {
+            "percent": {
+              "type": "float",
+              "id": 1
+            },
+            "charging": {
+              "type": "bool",
+              "id": 2
+            },
+            "onAcPower": {
+              "type": "bool",
+              "id": 3
+            },
+            "secondsLeft": {
+              "type": "uint32",
+              "id": 4
             }
           }
         },
@@ -8977,6 +9243,17 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "BackgroundJobsChangedEvent": {
           "fields": {}
+        },
+        "ClipboardHistoryChangedEvent": {
+          "fields": {}
+        },
+        "ShelfChangedEvent": {
+          "fields": {
+            "revision": {
+              "type": "uint64",
+              "id": 1
+            }
+          }
         },
         "UpdateStateChangedEvent": {
           "fields": {}

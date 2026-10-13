@@ -86,6 +86,21 @@ class CoreServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.LogBundleResponse.FromString,
                 _registered_method=True)
+        self.GetMoveOffer = channel.unary_unary(
+                '/astra.CoreService/GetMoveOffer',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.MoveOfferResponse.FromString,
+                _registered_method=True)
+        self.AcceptMove = channel.unary_unary(
+                '/astra.CoreService/AcceptMove',
+                request_serializer=plugin__pb2.AcceptMoveRequest.SerializeToString,
+                response_deserializer=plugin__pb2.MoveActionResponse.FromString,
+                _registered_method=True)
+        self.StayInEdition = channel.unary_unary(
+                '/astra.CoreService/StayInEdition',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.MoveActionResponse.FromString,
+                _registered_method=True)
 
 
 class CoreServiceServicer(object):
@@ -182,6 +197,36 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetMoveOffer(self, request, context):
+        """── The edition MOVE (RU_MOVE_PLAN.md): an INTL install whose account belongs to the RU
+        edition switches itself to the RU build. Present in every build; a build without the
+        `ru-move` feature answers `available: false` and refuses the two presses with
+        `move.refused.notCompiledIn`.
+
+        The standing move: its version, the mode the account was given, and the two texts the
+        person reads before the press (the offer and the consent, fetched from knice.tech and
+        proved against the digests in the signed manifest), as plain text.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AcceptMove(self, request, context):
+        """The press — or, in "proceed" mode, the notice having been shown. Records it with the
+        account service (with the digests of the texts shown) and, on the Windows installer,
+        starts the move's download and install; a refusal is an ANSWER, like ApplyUpdate's.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StayInEdition(self, request, context):
+        """«Я не из России»: the account service clears the mark, and this install forgets the move.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -234,6 +279,21 @@ def add_CoreServiceServicer_to_server(servicer, server):
                     servicer.CollectLogs,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.LogBundleResponse.SerializeToString,
+            ),
+            'GetMoveOffer': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMoveOffer,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.MoveOfferResponse.SerializeToString,
+            ),
+            'AcceptMove': grpc.unary_unary_rpc_method_handler(
+                    servicer.AcceptMove,
+                    request_deserializer=plugin__pb2.AcceptMoveRequest.FromString,
+                    response_serializer=plugin__pb2.MoveActionResponse.SerializeToString,
+            ),
+            'StayInEdition': grpc.unary_unary_rpc_method_handler(
+                    servicer.StayInEdition,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.MoveActionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -508,6 +568,87 @@ class CoreService(object):
             '/astra.CoreService/CollectLogs',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.LogBundleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetMoveOffer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/GetMoveOffer',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.MoveOfferResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AcceptMove(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/AcceptMove',
+            plugin__pb2.AcceptMoveRequest.SerializeToString,
+            plugin__pb2.MoveActionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StayInEdition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.CoreService/StayInEdition',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.MoveActionResponse.FromString,
             options,
             channel_credentials,
             insecure,
