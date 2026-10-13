@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import { type HTMLAttributes } from "react";
 
-export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
-    orientation?: "vertical" | "horizontal" | "both";
-    scrollbar?: boolean;
+export interface RadioOption<T extends string> {
+    value: T;
+    label: React.ReactNode;
+    description?: React.ReactNode;
+    disabled?: boolean;
 }
-export declare const ScrollArea: import("react").ForwardRefExoticComponent<ScrollAreaProps & import("react").RefAttributes<HTMLDivElement>>;
+export interface RadioGroupProps<T extends string> {
+    value: T;
+    onChange: (value: T) => void;
+    options: RadioOption<T>[];
+    name: string;
+    className?: string;
+}
+export declare function RadioGroup<T extends string>({ value, onChange, options, name, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;

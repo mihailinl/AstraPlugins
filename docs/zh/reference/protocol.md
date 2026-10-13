@@ -2,12 +2,12 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，171 个 RPC。来源：
+协议世代 **1**。10 个服务，174 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: c126d5876ed044cc…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 45b80d0f39040c72…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:e87a69b36b211049…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:d5c36d9e453fd064…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
@@ -135,7 +135,7 @@ trailer 来结束这个流。因此，一次被撤销的权限，是可以和一
 
 | 服务 | RPC 数 |
 |---|---|
-| `CoreService` | 10 |
+| `CoreService` | 13 |
 | `ChatService` | 12 |
 | `VoiceService` | 42 |
 | `CommandService` | 14 |

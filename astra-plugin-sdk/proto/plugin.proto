@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: c126d5876ed044cc0ea236d2fac8bad493adf8fcc6f373bf43583e278d4a3a2c
+// surface-sha256: 45b80d0f39040c7287663063e801d2b4b595c88b5b1a82e59bcc4bbf0421b5e8
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -78,6 +78,81 @@ service CoreService {
     // Strings and scalars only, same wire discipline as GetLogLocation, so the
     // Electron shell still needs no handler of its own.
     rpc CollectLogs(Empty) returns (LogBundleResponse);
+
+    // ── The edition MOVE (RU_MOVE_PLAN.md): an INTL install whose account belongs to the RU
+    // edition switches itself to the RU build. Present in every build; a build without the
+    // `ru-move` feature answers `available: false` and refuses the two presses with
+    // `move.refused.notCompiledIn`.
+    //
+    // The standing move: its version, the mode the account was given, and the two texts the
+    // person reads before the press (the offer and the consent, fetched from knice.tech and
+    // proved against the digests in the signed manifest), as plain text.
+    rpc GetMoveOffer(Empty) returns (MoveOfferResponse);
+
+    // The press — or, in "proceed" mode, the notice having been shown. Records it with the
+    // account service (with the digests of the texts shown) and, on the Windows installer,
+    // starts the move's download and install; a refusal is an ANSWER, like ApplyUpdate's.
+    rpc AcceptMove(AcceptMoveRequest) returns (MoveActionResponse);
+
+    // «Я не из России»: the account service clears the mark, and this install forgets the move.
+    rpc StayInEdition(Empty) returns (MoveActionResponse);
+}
+
+// The standing edition MOVE, for the move screen. Strings and bools only, so the Electron
+// shell's generic pass-through carries it.
+message MoveOfferResponse {
+    // A move is standing (the update offer is another edition's release).
+    bool available = 1;
+
+    // The edition moved to ("ru").
+    string edition = 2;
+    string version = 3;
+
+    // "ask" (one press) or "proceed" (a notice; Astra switches at the next start).
+    string mode = 4;
+
+    // The two texts, as the person must read them; "" while they could not be loaded.
+    string offer_text = 5;
+    string consent_text = 6;
+
+    // Why the texts could not be loaded, in English; "" when they were.
+    string problem = 7;
+
+    // How this Astra was installed ("installer" | "package" | "portable" | "steam"): only the
+    // installer switches itself; a package gets one command.
+    string channel = 8;
+
+    // RFC3339 of the recorded press, or "" when there is none for this offer.
+    string pressed_at = 9;
+
+    // The digests of the two texts above, from the signed manifest. The press echoes them back
+    // (AcceptMoveRequest), so what is recorded is what this screen showed — not whatever offer
+    // stands by the time the person has finished reading.
+    string offer_sha256 = 10;
+    string consent_sha256 = 11;
+}
+
+// The press, naming exactly what was shown. Single-word fields, so Tauri's camelCase renaming of
+// command arguments is a no-op and both shells send the same keys.
+message AcceptMoveRequest {
+    // The version the screen offered.
+    string version = 1;
+
+    // `MoveOfferResponse.offer_sha256` / `consent_sha256` as served to this screen.
+    string offer = 2;
+    string consent = 3;
+}
+
+// What a move press did. A refusal is an answer: `ok` false and an i18n KEY the UI words.
+message MoveActionResponse {
+    bool ok = 1;
+    string refusal_key = 2;
+
+    // English detail for the support bundle; "" when none.
+    string problem = 3;
+
+    // The background task the install runs as, when one started.
+    string task_id = 4;
 }
 
 message LogBundleResponse {
@@ -240,6 +315,22 @@ message CoreStateResponse {
     // Pinned to `updates::channel::InstallChannel::as_wire` and to the union in
     // `types/daemon.ts` by `consistency.rs::the_update_channel_vocabulary_is_one_list`.
     string update_channel = 23;
+
+    // Whether a Dynamic Island is attached right now, and the edge count that
+    // orders this answer against `IslandPresenceChangedEvent` — a reader keeps
+    // whichever carries the higher generation. Always false/0 in a build whose
+    // overlay is the native Slint one.
+    bool island_attached = 24;
+    uint64 island_presence_generation = 25;
+
+    // RFC3339 publication time from the signed update manifest; empty when unknown.
+    string update_released_at = 26;
+
+    // Which EDITION's release `update_version` is: "" for this build's own (every ordinary
+    // update), or "ru" when the offer is the MOVE of an INTL install whose account belongs to the
+    // RU edition (RU_MOVE_PLAN.md). The banner and the Updates section say "Astra is moving to
+    // knice.tech" instead of "an update", and open the move screen instead of installing.
+    string update_edition = 27;
 }
 
 enum CoreState {
@@ -308,6 +399,12 @@ message AstraEvent {
         // `BackgroundJobsChangedEvent`: `ListGames` is the one document and a
         // client that missed this still converges on the next call.
         GamesChangedEvent games_changed = 38;
+        // A Dynamic Island came or went. See `IslandPresenceChangedEvent`.
+        IslandPresenceChangedEvent island_presence_changed = 39;
+        // The clipboard history changed. A doorbell: see
+        // `ClipboardHistoryChangedEvent`.
+        ClipboardHistoryChangedEvent clipboard_history_changed = 40;
+        ShelfChangedEvent shelf_changed = 41;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -591,6 +688,19 @@ message DaemonStatusEvent {
 // Emitted right before the daemon process exits, so connected UIs can close themselves.
 message DaemonShuttingDownEvent {}
 
+// Whether a Dynamic Island is attached (an overlay client subscribed to the
+// event stream in a `web-island` build). The island draws the daemon's
+// notifications and fired reminders itself, so the main window does not toast
+// them while one is attached. Published on each edge; `CoreStateResponse`
+// carries the same level for a window that subscribed later, and
+// `generation` (growing with every edge and across daemon restarts) says which
+// of the two is newer.
+// Never published by a build whose overlay is the native Slint one.
+message IslandPresenceChangedEvent {
+    bool attached = 1;
+    uint64 generation = 2;
+}
+
 // Emitted when the user presses the global overlay-toggle hotkey.
 // `selected_text` carries any text the user had highlighted in the focused
 // app at the moment the hotkey fired (captured via UIAutomation, best-effort).
@@ -633,6 +743,9 @@ message ClientControlRequestEvent {
     string kind = 2;  // "hide_overlay" | "restore_overlay"
     bool ack_required = 3;
     uint32 timeout_ms = 4;
+
+    // Present on new daemons: authoritative holds, including stream resync.
+    optional uint32 overlay_capture_count = 5;
 }
 
 // ============ Chat Service ============
@@ -1657,6 +1770,7 @@ message DownloadProgressResponse {
     uint64 speed_bytes_per_sec = 7;
     uint32 eta_seconds = 8;  // Estimated time remaining
     string error = 9;  // Error message if failed
+    string model_kind = 10;  // stt or wakeword for shared voice-model managers
 }
 
 message DeleteWhisperModelRequest {
@@ -2322,6 +2436,8 @@ message SettingsResponse {
     CompanionAnimationSettings companion_animation = 19;
     CompanionMusicSettings companion_music = 20;
     CompanionAppIconSettings companion_app_icon = 21;
+    ClipboardHistorySettings clipboard_history = 22;
+    ScreenWidgetsSettings screen_widgets = 23;
 }
 
 // Inbox-widget preferences that are not per-mailbox. The mailboxes themselves
@@ -2401,6 +2517,31 @@ message CompanionMusicSettings {
 // feature costs no shell call and no bytes on the wire.
 message CompanionAppIconSettings {
     bool enabled = 1;
+}
+
+// Mirrors `astra-core::config::ClipboardHistorySettings`: whether Astra
+// remembers what the user copies (for the Dynamic Island), and which
+// applications it never records from. OFF by default; while off no watcher
+// runs. Read-only over gRPC — the UI writes `clipboard_history.enabled` and the
+// whole `clipboard_history.excluded_apps` list through SetSetting. Carries the
+// user's choices only, never anything that was copied.
+message ClipboardHistorySettings {
+    bool enabled = 1;
+
+    // Matched by file name, without `.exe`, ignoring case.
+    repeated string excluded_apps = 2;
+}
+
+// Mirrors `astra-core::config::ScreenWidgetsSettings`: the widgets the user
+// took out of Astra onto the computer's own screen. Read-only over gRPC — the
+// UI writes each field through SetSetting (`screen_widgets.layout` as one
+// string). `layout` is the placement document the UI owns
+// (`astra-ui/src/screenWidgets/layout.ts`); the daemon reads only which layers
+// it populates, to decide whether the screen-widgets process runs.
+message ScreenWidgetsSettings {
+    bool enabled = 1;
+    string layout = 2;
+    bool hide_pinned_fullscreen = 3;
 }
 
 // One reaction: when this happens, ask the pet to play that.
@@ -2535,14 +2676,11 @@ message ProjectEntry {
 // message only carries command-match (fuzzy fallback) settings plus the
 // embedding `model_id` (loaded automatically when memory is enabled).
 message SemanticSettings {
-    optional bool enabled = 1;  // command-match fuzzy/phonetic fallback
+    optional bool enabled = 1;  // whole-phrase typo matching
     optional string model_id = 2;  // memory embedding model id
     optional float threshold = 3;  // fuzzy-match threshold (command match)
 
-    // How much of a message a trigger phrase must explain before the command
-    // fires: "loose" | "normal" | "strict" (default "normal"). A string, not an
-    // enum, so this block stays on the generic Electron pass-through; an
-    // unrecognised value is read as "normal".
+    // Retired compatibility field; whole-phrase matching ignores it.
     optional string strictness = 7;
     reserved 4, 5, 6;
     reserved "mode", "llm_model_id", "memory_enabled";
@@ -2917,6 +3055,17 @@ message AppearanceSettings {
     // writers of this section know nothing about it and would otherwise reset
     // it to "" on every unrelated appearance write.
     optional string window_decorations = 7;
+
+    // Presence preserves the saved choice on unrelated appearance writes.
+    optional bool island_hide_fullscreen = 8;
+    optional bool island_exclude_capture = 9;
+
+    // The main window's theme mode and accent, MIRRORED for the surfaces with a
+    // browser profile of their own (the screen widgets). The choice is the
+    // UI's; the main window writes these through SetSetting. `optional` for the
+    // presence reason above.
+    optional string ui_theme = 10;
+    optional string ui_accent = 11;
 }
 
 message WidgetVisibilitySettings {
@@ -3336,6 +3485,17 @@ message SystemStats {
     repeated FanSensor fans = 8;
     repeated GpuStats gpus = 9;
     repeated DiskInfo disks = 10;
+
+    // The system battery. Absent on a machine without one (and, for now, on
+    // macOS, which is not read yet).
+    BatteryStatus battery = 11;
+}
+
+message BatteryStatus {
+    float percent = 1;  // 0-100
+    bool charging = 2;
+    bool on_ac_power = 3;  // plugged in: charging, full, or held by the OS
+    uint32 seconds_left = 4;  // estimated runtime; 0 = unknown or not discharging
 }
 
 message TemperatureSensor {
@@ -5783,6 +5943,15 @@ message PluginHealthResponse {
 // client that missed an event still converges. Output is DEBOUNCED daemon-side;
 // status changes are not.
 message BackgroundJobsChangedEvent {}
+
+// The clipboard history changed. Deliberately EMPTY: the bus must carry no
+// entry, size or application name, and one `ListClipboardHistory` read is the
+// document.
+message ClipboardHistoryChangedEvent {}
+
+message ShelfChangedEvent {
+    uint64 revision = 1;
+}
 
 // Emitted whenever the update block of `CoreStateResponse` changes — one
 // writer daemon-side (`edit`, the only mutable accessor of the update status

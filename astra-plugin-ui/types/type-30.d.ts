@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import { type ReactNode } from "react";
-export interface UiEnvironment {
-    readonly language: string;
-    readonly hideAdvancedSettings: boolean;
-    readonly labels: Readonly<{
-        advanced: string;
-        more: string;
-        increase: string;
-        decrease: string;
-    }>;
+import { type CSSProperties } from "react";
+
+export declare function forgetTooltipWarmth_for_test(): void;
+export declare function tooltipDwell(delay?: number): number;
+export declare function noteTooltipClosed(): void;
+export type TooltipPlacement = "top" | "bottom" | "left" | "right";
+export declare function tooltipPosition(anchor: DOMRect, size: {
+    width: number;
+    height: number;
+}, placement: TooltipPlacement): CSSProperties;
+export interface TooltipProps {
+    anchorRef?: React.RefObject<HTMLElement | null>;
+    content: React.ReactNode;
+    placement?: TooltipPlacement;
+    delay?: number;
+    children: React.ReactNode;
+    className?: string;
+    open?: boolean;
+    spotlightId?: string;
 }
-export declare const DEFAULT_UI_ENVIRONMENT: UiEnvironment;
-export declare function UiEnvironmentProvider({ value, children }: {
-    value: UiEnvironment;
-    children: ReactNode;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function useUiEnvironment(): UiEnvironment;
+export declare function Tooltip({ content, placement, delay, children, className, open, spotlightId, anchorRef }: TooltipProps): import("react/jsx-runtime").JSX.Element;

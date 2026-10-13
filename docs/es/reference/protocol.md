@@ -2,13 +2,13 @@
 
 # Referencia del protocolo
 
-Generación de protocolo **1**. 10 servicios, 171 RPC. Fuente:
+Generación de protocolo **1**. 10 servicios, 174 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: c126d5876ed044cc…`, el digest del cuerpo orientado a
+(`surface-sha256: 45b80d0f39040c72…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:e87a69b36b211049…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:d5c36d9e453fd064…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
@@ -144,7 +144,7 @@ implica.
 
 | Servicio | RPC |
 |---|---|
-| `CoreService` | 10 |
+| `CoreService` | 13 |
 | `ChatService` | 12 |
 | `VoiceService` | 42 |
 | `CommandService` | 14 |

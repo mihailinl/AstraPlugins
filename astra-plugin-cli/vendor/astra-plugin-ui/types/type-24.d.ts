@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SettingRowProps {
-    label: React.ReactNode;
-    description?: React.ReactNode;
-    control?: React.ReactNode;
-    htmlFor?: string;
-    layout?: "inline" | "stacked";
+export interface SelectTriggerProps {
+    open: boolean;
+    onToggle: () => void;
     children?: React.ReactNode;
+    placeholder?: React.ReactNode;
+    icon?: React.ReactNode;
+    size?: "sm" | "md";
+    disabled?: boolean;
+    id?: string;
     className?: string;
+    bare?: boolean;
+    title?: string;
+    popup?: "listbox" | "menu" | "dialog";
+    onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
 }
-export declare function SettingRow({ label, description, control, htmlFor, layout, children, className, }: SettingRowProps): import("react/jsx-runtime").JSX.Element;
+export declare const SelectTrigger: import("react").ForwardRefExoticComponent<SelectTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;
