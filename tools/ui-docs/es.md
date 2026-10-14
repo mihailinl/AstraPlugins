@@ -48,9 +48,15 @@ La versión mínima del snapshot identifica el build preparado de Astra con Kit;
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
 
+## Secciones en Settings, AI y Voice
+
+Una contribución en `settings.custom`, `ai.custom` o `voice.custom` se convierte en una sección de esa página. Astra dibuja el marco: la tarjeta de arcilla, el título de `label`, el icono de `icon_svg`, una insignia con el nombre del plugin y una entrada en la navegación de secciones (y en la búsqueda de Settings). Dibuje solo el contenido — `SettingRow`, `Card` con `variant: 'subtle'`, `Advanced` — y nunca un `Section` exterior, o la página mostrará una tarjeta dentro de otra con dos títulos. Astra dibuja `Select`, `Combobox` y `Tooltip` del Kit sobre la página, como en un widget; un `Modal` o `Popover` queda dentro del marco, así que declare una `height` si abre uno. Con `height = 0` el marco sigue la altura del documento, así que no fije `html` ni `body` al `100%`; una `height` distinta de 0 se mantiene fija. `settings.custom` también aparece en la tarjeta del plugin en Plugins.
+
+El aspecto es el Graphite de Astra: superficies de arcilla (esmeriladas si el usuario activa Glass), un acento que elige el usuario, placas en relieve para los botones y huecos para los campos. El Kit ya lo lleva. Los tokens `--glass-*` retirados ya no se publican; para pintar sus propias cajas use `--color-surface`, `--color-surface-raised`, `--color-text` y `--color-text-muted`.
+
 ## Desktop widgets (development contract)
 
-La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de cristal del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Use los artefactos CLI/SDK compatibles proporcionados; estas funciones todavía no están publicadas.
+La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de arcilla (clay) del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Use los artefactos CLI/SDK compatibles proporcionados; estas funciones todavía no están publicadas. Construya la cara de la tarjeta con `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` y `WidgetPlateButton`, la anatomía de los widgets propios de Astra; el marco es su contenedor de tamaño `desktop-widget`.
 
 ## Shared scrollbars
 

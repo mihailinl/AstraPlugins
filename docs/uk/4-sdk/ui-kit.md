@@ -9,7 +9,7 @@ Frontend обирається незалежно від backend на Rust, Pytho
 
 Дочекайтеся loadUi перед показом контролів. h приймає компонент або тег, props і дочірні елементи. mount додає оточення хоста й повертає render/unmount. Props і callbacks збігаються з Astra. Зміна мови, палітри й матеріалу зберігає дерево та стан форми.
 
-`Button`, `IconButton`, `Input`, `NumberInput`, `Textarea`, `Select`, `SelectTrigger`, `Combobox`, `Checkbox`, `RadioGroup`, `Toggle`, `SegmentedControl`, `Slider`, `Modal`, `Popover`, `AnchoredMenu`, `Tooltip`, `Card`, `Badge`, `Spinner`, `Icon`, `Section`, `SettingRow`, `FieldLabel`, `EmptyState`, `ScrollArea`
+`Button`, `IconButton`, `Input`, `NumberInput`, `Textarea`, `Select`, `SelectTrigger`, `Combobox`, `Checkbox`, `RadioGroup`, `Toggle`, `SegmentedControl`, `Slider`, `Modal`, `Popover`, `AnchoredMenu`, `Tooltip`, `Card`, `Badge`, `Spinner`, `Icon`, `Section`, `SettingRow`, `FieldLabel`, `EmptyState`, `ScrollArea`, `Advanced`, `Collapse`, `ProgressBar`, `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter`, `WidgetPlateButton`
 
 <!-- doctest: illustrative reason="Requires the installed Astra iframe runtime; controlled values match the public Kit declarations." -->
 ```js
@@ -48,9 +48,15 @@ API v1 зберігає назви експортів і сигнатури; о�
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
 
+## Секції на сторінках Settings, AI і Voice
+
+Contribution у `settings.custom`, `ai.custom` або `voice.custom` стає секцією цієї сторінки. Рамку малює Astra: clay-картка, заголовок із `label`, значок з `icon_svg`, бейдж з назвою плагіна, пункт у бічній навігації по секціях (і в пошуку Settings). Малюйте лише вміст — `SettingRow`, `Card` з `variant: 'subtle'`, `Advanced` — і ніколи зовнішній `Section`, інакше на сторінці буде картка в картці з двома заголовками. `Select`, `Combobox` і `Tooltip` з Kit малює поверх сторінки сама Astra, як у віджета; `Modal` і `Popover` лишаються всередині фрейму, тож якщо відкриваєте їх, задайте `height`. При `height = 0` рамка йде за висотою документа, тому не задавайте `html` і `body` висоту `100%`; ненульова `height` лишається фіксованою. `settings.custom` показується й у картці плагіна на сторінці Plugins.
+
+Оформлення — Graphite: clay-поверхні (матові, якщо користувач увімкнув Glass), один акцент, який обирає користувач, підняті плашки для кнопок і заглиблення для полів введення. Kit уже так виглядає. Токени `--glass-*` вилучено й більше не публікуються; якщо малюєте власні блоки, беріть поверхні й текст з `--color-surface`, `--color-surface-raised`, `--color-text` і `--color-text-muted`.
+
 ## Desktop widgets (development contract)
 
-Шаблон `desktop-widget` використовує цей Kit у скляних картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Використовуйте надані сумісні артефакти CLI/SDK; можливості ще не випущені.
+Шаблон `desktop-widget` використовує цей Kit у clay-картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Використовуйте надані сумісні артефакти CLI/SDK; можливості ще не випущені. Лицьовий бік картки складайте з `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` і `WidgetPlateButton` — з них побудовано вбудовані віджети Astra; рамка є для них контейнером розмірів `desktop-widget`.
 
 ## Shared scrollbars
 

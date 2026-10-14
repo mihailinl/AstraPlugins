@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SettingRowProps {
-    label: React.ReactNode;
+export interface SectionProps {
+    title?: React.ReactNode;
+    icon?: React.ReactNode;
     description?: React.ReactNode;
-    control?: React.ReactNode;
-    htmlFor?: string;
-    layout?: "inline" | "stacked";
-    children?: React.ReactNode;
+    actions?: React.ReactNode;
+    id?: string;
+    children: React.ReactNode;
     className?: string;
+    dataTutorial?: string;
+    advanced?: boolean;
 }
-export declare function SettingRow({ label, description, control, htmlFor, layout, children, className, }: SettingRowProps): import("react/jsx-runtime").JSX.Element;
+export declare function Section({ title, icon, description, actions, id, children, className, dataTutorial, advanced, }: SectionProps): import("react/jsx-runtime").JSX.Element;

@@ -4,6 +4,7 @@
 interface ModalBaseProps {
     open: boolean;
     onClose: () => void;
+    onExitComplete?: () => void;
     children: React.ReactNode;
     footer?: React.ReactNode;
     footerLayout?: "row" | "stack";
@@ -25,5 +26,5 @@ type ModalAccessibleName = {
     ariaLabel: string;
 };
 export type ModalProps = ModalBaseProps & ModalAccessibleName;
-export declare function Modal({ open, onClose, title, ariaLabel, children, footer, footerLayout, size, width, restoreFocus, closeOnBackdrop, closeOnEsc, closeLabel, hideClose, clearBehind, className, }: ModalProps): import("react").ReactPortal | null;
+export declare function Modal({ open, onClose, onExitComplete, title, ariaLabel, children, footer, footerLayout, size, width, restoreFocus, closeOnBackdrop, closeOnEsc, closeLabel, hideClose, clearBehind, className, }: ModalProps): import("react").ReactPortal | null;
 export {};

@@ -1,30 +1,20 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import { type ReactNode } from "react";
 
-export interface SegmentedControlOption<T extends string> {
-    value: T;
-    label: ReactNode;
-    icon?: ReactNode;
-    disabled?: boolean;
-    title?: string;
+export type ProgressTone = "accent" | "neutral" | "success" | "warning" | "danger";
+export interface ProgressSegment {
+    value: number;
+    tone?: ProgressTone;
+    label?: string;
 }
-interface SegmentedControlBaseProps<T extends string> {
-    value: T;
-    options: readonly SegmentedControlOption<T>[];
-    onChange: (value: T) => void;
-    ariaLabel: string;
-    variant?: "default" | "plain";
+export interface ProgressBarProps {
+    value?: number | null;
+    max?: number;
+    segments?: ProgressSegment[];
+    tone?: ProgressTone;
+    busy?: boolean;
+    size?: "sm" | "md";
+    label?: string;
     className?: string;
 }
-export type SegmentedControlProps<T extends string> = SegmentedControlBaseProps<T> & ({
-    mode: "tabs";
-    id: string;
-    panelId: string;
-} | {
-    mode?: "selection";
-    id?: string;
-    panelId?: never;
-});
-export declare function SegmentedControl<T extends string>({ value, options, onChange, ariaLabel, mode, variant, id, panelId, className, }: SegmentedControlProps<T>): import("react/jsx-runtime").JSX.Element;
-export {};
+export declare function ProgressBar({ value, max, segments, tone, busy, size, label, className, }: ProgressBarProps): import("react/jsx-runtime").JSX.Element;

@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
+import { type HTMLAttributes } from "react";
 
-export interface SelectTriggerProps {
-    open: boolean;
-    onToggle: () => void;
-    children?: React.ReactNode;
-    placeholder?: React.ReactNode;
-    icon?: React.ReactNode;
-    size?: "sm" | "md";
-    disabled?: boolean;
-    id?: string;
-    className?: string;
-    bare?: boolean;
-    title?: string;
-    popup?: "listbox" | "menu" | "dialog";
-    onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
+export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
+    orientation?: "vertical" | "horizontal" | "both";
+    scrollbar?: boolean;
 }
-export declare const SelectTrigger: import("react").ForwardRefExoticComponent<SelectTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;
+export declare const ScrollArea: import("react").ForwardRefExoticComponent<ScrollAreaProps & import("react").RefAttributes<HTMLDivElement>>;

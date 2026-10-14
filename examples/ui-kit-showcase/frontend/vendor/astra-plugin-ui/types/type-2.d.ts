@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 export interface AdvancedProps {
     variant?: "knobs" | "whole";
     label?: string;
+    alwaysCollapsible?: boolean;
     children: ReactNode;
 }
-export declare function Advanced({ variant, label, children }: AdvancedProps): import("react/jsx-runtime").JSX.Element;
+export declare function Advanced({ variant, label, alwaysCollapsible, children }: AdvancedProps): import("react/jsx-runtime").JSX.Element;

@@ -814,8 +814,9 @@ class Plugin:
                               icon_svg=icon_svg, pointer_events=True)
 
     @staticmethod
-    def ui_slot(slot: str, url: str, *, id: str = "", label: str = "", width: int = 0, height: int = 0) -> UiContribution:
-        return UiContribution(id=id or slot, slot=slot, url=url, label=label,
+    def ui_slot(slot: str, url: str, *, id: str = "", label: str = "", icon_svg: str = "",
+                width: int = 0, height: int = 0) -> UiContribution:
+        return UiContribution(id=id or slot, slot=slot, url=url, label=label, icon_svg=icon_svg,
                               width=width, height=height, pointer_events=True)
 
     @staticmethod

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface ToggleProps {
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-    disabled?: boolean;
-    loading?: boolean;
-    label?: React.ReactNode;
+export interface SettingRowProps {
+    label: React.ReactNode;
     description?: React.ReactNode;
-    ariaLabel?: string;
-    id?: string;
+    control?: React.ReactNode;
+    htmlFor?: string;
+    layout?: "inline" | "stacked";
+    children?: React.ReactNode;
     className?: string;
 }
-export declare function Toggle({ checked, onChange, disabled, loading, label, description, ariaLabel, id, className, }: ToggleProps): import("react/jsx-runtime").JSX.Element;
+export declare function SettingRow({ label, description, control, htmlFor, layout, children, className, }: SettingRowProps): import("react/jsx-runtime").JSX.Element;

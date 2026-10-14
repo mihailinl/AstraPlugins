@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-export type IconNode = readonly [string, Readonly<Record<string, string>>, readonly IconNode[]];
-export type IconData = readonly [Readonly<Record<string, string>>, readonly IconNode[]];
-export type IconName = "close" | "check" | "ellipsis" | "chevron-down" | "chevron-up" | "chevron-right" | "chevron-left" | "plus" | "minus" | "menu" | "swap" | "external" | "send" | "reply" | "forward" | "braces" | "refresh" | "steam" | "dot" | "grip" | "media-play" | "media-pause" | "skip-back" | "skip-forward" | "record" | "square" | "search" | "trash" | "edit" | "copy" | "settings" | "info" | "alert-triangle" | "x-circle" | "check-circle" | "badge-check" | "terminal" | "file" | "folder" | "git-branch" | "globe" | "keyboard" | "play" | "volume" | "mic" | "cloud-sun" | "sun" | "moon" | "cloud" | "cloud-moon" | "cloud-rain" | "cloud-sleet" | "cloud-snow" | "cloud-lightning" | "cloud-fog" | "wind" | "droplet" | "command" | "message-circle" | "brain" | "monitor" | "mouse-pointer" | "image" | "sticky-note" | "bell" | "calendar" | "list-checks" | "coins" | "app-window" | "clock" | "gauge" | "eye" | "eye-off" | "mail" | "paperclip" | "download" | "lock" | "log-out" | "shield" | "plug" | "person" | "music" | "zap" | "star" | "pin" | "pin-filled" | "heart" | "playlist" | "list-ordered" | "quote" | "clear-format" | "arrow-up" | "arrow-down" | "ellipsis-vertical" | "lock-open" | "help" | "sidebar" | "map-pin" | "shield-warning" | "slash" | "pulse" | "cpu" | "temperature" | "power" | "disk" | "memory" | "gpu" | "fan" | "tile-wide" | "tile-half" | "link" | "file-search" | "graduation-cap" | "qr-code" | "upload" | "sliders" | "shield-check" | "tools" | "server" | "bookmark" | "bookmark-filled" | "arrow-right" | "arrow-left" | "package" | "flag" | "inbox" | "chart" | "card" | "alert-circle" | "palette" | "quality" | "lightbulb" | "grid" | "body" | "reset" | "folder-add" | "folder-move" | "compose" | "list" | "undo" | "redo" | "maximize" | "minimize" | "fit-view" | "arrange" | "workflow" | "condition" | "switch" | "loop" | "finish" | "magic" | "timer" | "smile" | "widgets" | "stack" | "folder-check" | "folder-remove" | "volume-off" | "message-alert" | "route" | "signpost" | "smartphone" | "clipboard" | "home" | "shop" | "companion" | "sparkles" | "layers" | "account";
-export declare const ICON_NAMES: readonly IconName[];
-export declare const LINE_ICONS: Record<IconName, IconData>;
+
+import { type IconName } from "./type-14";
+export type { IconName } from "./type-14";
+export { ICON_NAMES } from "./type-14";
+interface IconProps {
+    name: IconName;
+    size?: number;
+    strokeWidth?: number;
+    className?: string;
+}
+export declare function Icon({ name, size, strokeWidth, className }: IconProps): import("react/jsx-runtime").JSX.Element;

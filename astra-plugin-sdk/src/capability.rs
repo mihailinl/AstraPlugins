@@ -437,6 +437,11 @@ impl proto::PluginUiContribution {
         }
     }
     /// Create a named slot contribution.
+    ///
+    /// In a section slot (`settings.custom`, `ai.custom`, `voice.custom`) Astra
+    /// draws the section around the iframe: set `label` (its heading) and
+    /// `icon_svg` (its mark in the page's section rail) on the result, and leave
+    /// `height` at 0 so the frame follows the page.
     pub fn slot(slot: impl Into<String>, url: impl Into<String>) -> Self {
         Self {
             slot: slot.into(),

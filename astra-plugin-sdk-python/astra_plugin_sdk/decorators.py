@@ -341,17 +341,25 @@ def ui_slot(
     *,
     id: str = "",
     label: str = "",
+    icon_svg: str = "",
     width: int = 0,
     height: int = 0,
     z_index: int = 0,
 ):
-    """Register an iframe in a named slot (``"page.custom"``, ``"sidebar.top"``…)."""
+    """Register an iframe in a named slot (``"settings.custom"``, ``"statusbar.left"``…).
+
+    In a section slot (``"settings.custom"``, ``"ai.custom"``, ``"voice.custom"``)
+    Astra draws the section around the iframe: ``label`` is its heading and
+    ``icon_svg`` its mark in the page's section rail. Render only the body, and
+    leave ``height`` at 0 so the frame follows the page.
+    """
     return _register_contribution(
         UiContribution(
             id=id or slot,
             slot=slot,
             url=url,
             label=label,
+            icon_svg=icon_svg,
             width=width,
             height=height,
             z_index=z_index,

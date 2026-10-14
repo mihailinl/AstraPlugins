@@ -1,13 +1,30 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface PopoverProps {
+interface ModalBaseProps {
     open: boolean;
-    onOpenChange: (open: boolean) => void;
-    trigger: React.ReactNode;
+    onClose: () => void;
+    onExitComplete?: () => void;
     children: React.ReactNode;
-    placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
-    matchTriggerWidth?: boolean;
+    footer?: React.ReactNode;
+    footerLayout?: "row" | "stack";
+    size?: "sm" | "md" | "lg";
+    width?: number;
+    restoreFocus?: boolean;
+    closeOnBackdrop?: boolean;
+    closeOnEsc?: boolean;
+    closeLabel?: string;
+    hideClose?: boolean;
+    clearBehind?: boolean;
     className?: string;
 }
-export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, }: PopoverProps): import("react/jsx-runtime").JSX.Element;
+type ModalAccessibleName = {
+    title: Exclude<React.ReactNode, null | undefined | boolean>;
+    ariaLabel?: string;
+} | {
+    title?: undefined;
+    ariaLabel: string;
+};
+export type ModalProps = ModalBaseProps & ModalAccessibleName;
+export declare function Modal({ open, onClose, onExitComplete, title, ariaLabel, children, footer, footerLayout, size, width, restoreFocus, closeOnBackdrop, closeOnEsc, closeLabel, hideClose, clearBehind, className, }: ModalProps): import("react").ReactPortal | null;
+export {};

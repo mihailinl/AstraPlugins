@@ -5,7 +5,7 @@
 
 本页包含可验证的完整代码示例。详细说明请参阅[英文指南](../../en/4-sdk/desktop-widgets.md)和[俄文指南](../../ru/4-sdk/desktop-widgets.md)。
 
-Desktop widgets are user-placed cards on Astra’s Home grid. Use the existing capability `ui_contributions` and slot `desktop.widget`; no new permission or `dom_access` is needed. Astra renders the glass shell, borders, fonts, placement and floating surfaces. The plugin renders transparent content. The overlay remains separate.
+Desktop widgets are user-placed cards on Astra’s Home grid. Use the existing capability `ui_contributions` and slot `desktop.widget`; no new permission or `dom_access` is needed. Astra renders the clay card, its edge, fonts, placement and floating surfaces. The plugin renders transparent content. The overlay remains separate.
 
 This contract is unreleased. Use the development CLI and SDK artifacts supplied for your Astra build; do not assume a registry package with the same version contains it. If building the public authoring checkout, run `cargo build --release --manifest-path astra-plugin-cli/Cargo.toml` (Rust and protoc required), then use that binary. You do not need Astra’s private source.
 

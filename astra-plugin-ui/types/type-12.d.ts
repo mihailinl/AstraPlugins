@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-import { type IconName } from "./type-13";
-export type { IconName } from "./type-13";
-export { ICON_NAMES } from "./type-13";
-interface IconProps {
-    name: IconName;
-    size?: number;
-    strokeWidth?: number;
-    className?: string;
+import { type ControlTone } from "./type-33";
+type IconButtonSize = "sm" | "md" | "lg";
+type IconButtonVariant = "ghost" | "solid" | "danger";
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    label: string;
+    size?: IconButtonSize;
+    variant?: IconButtonVariant;
+    tone?: ControlTone;
+    children: React.ReactNode;
+    ref?: React.Ref<HTMLButtonElement>;
 }
-export declare function Icon({ name, size, strokeWidth, className }: IconProps): import("react/jsx-runtime").JSX.Element;
+export declare function IconButton({ label, size, variant, tone, className, children, type, ref, ...rest }: IconButtonProps): import("react/jsx-runtime").JSX.Element;
+export {};

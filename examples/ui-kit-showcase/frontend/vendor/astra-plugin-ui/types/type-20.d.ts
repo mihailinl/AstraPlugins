@@ -1,22 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SelectOption<T extends string> {
+export interface RadioOption<T extends string> {
     value: T;
     label: React.ReactNode;
-    icon?: React.ReactNode;
-    badge?: React.ReactNode;
+    description?: React.ReactNode;
     disabled?: boolean;
 }
-export interface SelectProps<T extends string> {
-    value: T | null;
+export interface RadioGroupProps<T extends string> {
+    value: T;
     onChange: (value: T) => void;
-    options: SelectOption<T>[];
-    placeholder?: React.ReactNode;
-    size?: "sm" | "md";
-    disabled?: boolean;
-    id?: string;
+    options: RadioOption<T>[];
+    name: string;
     className?: string;
-    bare?: boolean;
 }
-export declare function Select<T extends string>({ value, onChange, options, placeholder, size, disabled, id, className, bare, }: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function RadioGroup<T extends string>({ value, onChange, options, name, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;

@@ -48,9 +48,15 @@ Snapshot の最低バージョンは Kit を含む準備中の Astra ビルド�
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
 
+## Settings・AI・Voice のセクション
+
+`settings.custom`、`ai.custom`、`voice.custom` のコントリビューションは、そのページのセクションになります。枠は Astra が描きます。クレイのカード、`label` による見出し、`icon_svg` によるマーク、プラグイン名のバッジ、ページのセクションナビゲーションの項目（Settings では検索にも）です。中身だけを描画してください（`SettingRow`、`variant: 'subtle'` の `Card`、`Advanced`）。外側の `Section` は使わないでください。カードの中にカードと見出しが二重に表示されます。Kit の `Select`、`Combobox`、`Tooltip` はウィジェットと同様に Astra がページ上に描きます。`Modal` や `Popover` はフレーム内にとどまるため、開く場合は `height` を宣言してください。`height = 0` では枠がドキュメントの高さに追従するため、`html` や `body` を `100%` に固定しないでください。0 以外の `height` は固定です。`settings.custom` は Plugins のプラグインカードにも表示されます。
+
+外観は Astra の Graphite です。クレイの面（Glass をオンにするとすりガラス）、ユーザーが選ぶ 1 色のアクセント、ボタンは浮き上がったプレート、入力欄はくぼみです。Kit はすでにこの外観です。廃止された `--glass-*` トークンは公開されません。独自のボックスを描く場合は `--color-surface`、`--color-surface-raised`、`--color-text`、`--color-text-muted` を使ってください。
+
 ## Desktop widgets (development contract)
 
-`desktop-widget` テンプレートはホストのガラスカードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。対応する提供済み CLI/SDK を使用してください。これらは未公開です。
+`desktop-widget` テンプレートはホストのクレイ（clay）カードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。対応する提供済み CLI/SDK を使用してください。これらは未公開です。 カードの表面は `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter`、`WidgetPlateButton` で組み立ててください。Astra 自身のウィジェットと同じ構成で、枠がそのサイズコンテナ `desktop-widget` になります。
 
 ## Shared scrollbars
 

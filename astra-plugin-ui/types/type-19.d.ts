@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface RadioOption<T extends string> {
-    value: T;
-    label: React.ReactNode;
-    description?: React.ReactNode;
-    disabled?: boolean;
+export type ProgressTone = "accent" | "neutral" | "success" | "warning" | "danger";
+export interface ProgressSegment {
+    value: number;
+    tone?: ProgressTone;
+    label?: string;
 }
-export interface RadioGroupProps<T extends string> {
-    value: T;
-    onChange: (value: T) => void;
-    options: RadioOption<T>[];
-    name: string;
+export interface ProgressBarProps {
+    value?: number | null;
+    max?: number;
+    segments?: ProgressSegment[];
+    tone?: ProgressTone;
+    busy?: boolean;
+    size?: "sm" | "md";
+    label?: string;
     className?: string;
 }
-export declare function RadioGroup<T extends string>({ value, onChange, options, name, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function ProgressBar({ value, max, segments, tone, busy, size, label, className, }: ProgressBarProps): import("react/jsx-runtime").JSX.Element;

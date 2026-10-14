@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
+import { type HTMLAttributes } from "react";
 
-export interface SectionProps {
-    title?: React.ReactNode;
-    icon?: React.ReactNode;
-    description?: React.ReactNode;
-    actions?: React.ReactNode;
-    id?: string;
-    children: React.ReactNode;
-    className?: string;
-    dataTutorial?: string;
-    advanced?: boolean;
+export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
+    orientation?: "vertical" | "horizontal" | "both";
+    scrollbar?: boolean;
 }
-export declare function Section({ title, icon, description, actions, id, children, className, dataTutorial, advanced, }: SectionProps): import("react/jsx-runtime").JSX.Element;
+export declare const ScrollArea: import("react").ForwardRefExoticComponent<ScrollAreaProps & import("react").RefAttributes<HTMLDivElement>>;

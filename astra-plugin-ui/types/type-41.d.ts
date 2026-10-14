@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import { createElement, type ReactNode } from "react";
-import { type UiEnvironment } from "./type-31";
-import { type FloatingControls } from "./type-11";
-export * from "./type-39";
-export declare const h: typeof createElement;
-
-export interface UiRoot {
-    render(tree: ReactNode): void;
-    unmount(): void;
-}
-export declare function mount(container: Element, tree: ReactNode): UiRoot;
+import { type SelectProps } from "./type-24";
+import { type ComboboxProps } from "./type-9";
+import { type TooltipProps } from "./type-31";
+export declare function Select<T extends string>(props: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function Combobox(props: ComboboxProps): import("react/jsx-runtime").JSX.Element;
+export declare function Tooltip(props: TooltipProps): import("react/jsx-runtime").JSX.Element;

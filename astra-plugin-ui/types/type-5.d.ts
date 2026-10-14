@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-import { type ControlTone } from "./type-32";
+import { type ControlTone } from "./type-33";
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md";
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

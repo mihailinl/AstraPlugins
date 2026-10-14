@@ -12,11 +12,13 @@ export interface AnchoredMenuProps {
     role?: string;
     ariaLabel?: string;
     maxHeight?: number;
+    overflowRowSelector?: string;
     matchAnchorWidth?: boolean;
     align?: "start" | "end";
     side?: "bottom" | "top";
     onDismiss?: () => void;
     onMouseDown?: React.MouseEventHandler<HTMLDivElement>;
+    onExitComplete?: () => void;
     onAnimationEnd?: React.AnimationEventHandler<HTMLDivElement>;
 }
-export declare function AnchoredMenu({ anchorRef, open, children, menuRef, className, role, ariaLabel, maxHeight, matchAnchorWidth, align, side, onDismiss, onMouseDown, onAnimationEnd, }: AnchoredMenuProps): import("react").ReactPortal;
+export declare function AnchoredMenu({ anchorRef, open, children, menuRef, className, role, ariaLabel, maxHeight, overflowRowSelector, matchAnchorWidth, align, side, onDismiss, onMouseDown, onExitComplete, onAnimationEnd, }: AnchoredMenuProps): import("react").ReactPortal;

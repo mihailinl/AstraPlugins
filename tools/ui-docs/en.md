@@ -47,9 +47,15 @@ The minimum version in the snapshot names the prepared Astra build containing th
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
+## Sections on Settings, AI and Voice
+
+A contribution in `settings.custom`, `ai.custom` or `voice.custom` becomes a section of that page. Astra draws the frame: the clay card, the heading from `label`, the mark from `icon_svg`, a badge with the plugin's name, an entry in the page's section rail (and in Settings' search). Render only the body — `SettingRow`, `Card` with `variant: 'subtle'`, `Advanced` — never an outer `Section`, or the page shows a card inside a card with two headings. Astra draws the Kit's `Select`, `Combobox` and `Tooltip` over the page, as for a widget; a `Modal` or `Popover` stays inside the frame, so declare a `height` if you open one. With `height = 0` the frame follows the document's height, so do not pin `html` or `body` to `100%`; a non-zero `height` stays fixed. `settings.custom` is also shown on the plugin's card in Plugins.
+
+The look is Astra's Graphite: clay surfaces (frosted when the user turns on Glass), one accent the user picks, raised plates for buttons and wells for inputs. The Kit already wears it. The retired `--glass-*` tokens are no longer published; read surfaces and text from `--color-surface`, `--color-surface-raised`, `--color-text` and `--color-text-muted` when you paint your own boxes.
+
 ## Desktop widgets (development contract)
 
-The `desktop-widget` scaffold uses this Kit inside Astra’s glass cards, popovers and modals. Call `astra.widget.getContext()` after initialization; `viewId` selects content. Custom settings edit the host draft, opened only by Astra’s editor; Save applies it and Cancel discards it. Preview is read-only, including instance data writes and backend calls. `openSurface` returns a token, opening parameters are `context.params`, and controls use value callbacks. See the [complete descriptor and content examples](desktop-widgets.md). The widget runtime and matching SDK changes are unreleased; use matching supplied artifacts and pin the runtime floor when Astra ships.
+The `desktop-widget` scaffold uses this Kit inside Astra’s clay cards, popovers and modals. Call `astra.widget.getContext()` after initialization; `viewId` selects content. Custom settings edit the host draft, opened only by Astra’s editor; Save applies it and Cancel discards it. Preview is read-only, including instance data writes and backend calls. `openSurface` returns a token, opening parameters are `context.params`, and controls use value callbacks. See the [complete descriptor and content examples](desktop-widgets.md). The widget runtime and matching SDK changes are unreleased; use matching supplied artifacts and pin the runtime floor when Astra ships. Build the card's face from `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` and `WidgetPlateButton` — the anatomy Astra's own widgets use; the frame is their `desktop-widget` size container.
 
 ## Shared scrollbars
 

@@ -335,9 +335,14 @@ export const UiContrib = {
   page(id: string, label: string, url: string, opts?: { iconSvg?: string }): UiContribution {
     return { id, slot: "page.custom", label, url, iconSvg: opts?.iconSvg, pointerEvents: true };
   },
-  /** Named slot contribution. */
-  slot(slot: string, url: string, opts?: { id?: string; label?: string; width?: number; height?: number }): UiContribution {
-    return { id: opts?.id || slot, slot, url, label: opts?.label, width: opts?.width, height: opts?.height, pointerEvents: true };
+  /**
+   * Named slot contribution. In a section slot (`settings.custom`, `ai.custom`,
+   * `voice.custom`) Astra draws the section: `label` is its heading, `iconSvg`
+   * its mark in the page's section rail; leave `height` unset so the frame
+   * follows the page.
+   */
+  slot(slot: string, url: string, opts?: { id?: string; label?: string; iconSvg?: string; width?: number; height?: number }): UiContribution {
+    return { id: opts?.id || slot, slot, url, label: opts?.label, iconSvg: opts?.iconSvg, width: opts?.width, height: opts?.height, pointerEvents: true };
   },
   /** Fullscreen background effect (transparent, no pointer events). */
   effect(url: string, opts?: { audio?: boolean; id?: string }): UiContribution {

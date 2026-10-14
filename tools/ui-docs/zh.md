@@ -48,9 +48,15 @@ Snapshot 的最低版本指向含 Kit 的待发布 Astra 构建。{{MIN_ASTRA_VE
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
 
+## Settings、AI 与 Voice 页面上的分区
+
+`settings.custom`、`ai.custom` 或 `voice.custom` 中的贡献会成为该页面的一个分区。框架由 Astra 绘制：黏土卡片、来自 `label` 的标题、来自 `icon_svg` 的图标、带插件名称的徽章，以及页面分区导航中的条目（Settings 还会出现在搜索中）。只渲染内容——`SettingRow`、`variant: 'subtle'` 的 `Card`、`Advanced`——不要再套一层 `Section`，否则页面会出现卡片套卡片和两个标题。Kit 的 `Select`、`Combobox` 和 `Tooltip` 由 Astra 在页面之上绘制，与小组件相同；`Modal` 或 `Popover` 留在框架内，因此若要打开它们，请声明 `height`。`height = 0` 时框架跟随文档高度，因此不要把 `html` 或 `body` 固定为 `100%`；非零的 `height` 保持固定。`settings.custom` 也会显示在 Plugins 页的插件卡片中。
+
+外观是 Astra 的 Graphite：黏土表面（用户开启 Glass 时为磨砂）、用户选择的单一强调色、按钮为凸起的面板、输入框为凹陷的槽。Kit 已采用这一外观。已退役的 `--glass-*` 令牌不再发布；自行绘制区块时请使用 `--color-surface`、`--color-surface-raised`、`--color-text` 和 `--color-text-muted`。
+
 ## Desktop widgets (development contract)
 
-`desktop-widget` 模板在主机玻璃卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。请使用提供的匹配 CLI/SDK 构建产物；这些功能尚未发布。
+`desktop-widget` 模板在主机黏土（clay）卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。请使用提供的匹配 CLI/SDK 构建产物；这些功能尚未发布。 请用 `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter` 和 `WidgetPlateButton` 组成卡片正面——这正是 Astra 自带小组件的结构；框架即它们的尺寸容器 `desktop-widget`。
 
 ## Shared scrollbars
 

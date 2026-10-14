@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange"> {
-    value: string;
-    onChange: (value: string) => void;
-    autoResize?: boolean;
-    invalid?: boolean;
-    ref?: React.Ref<HTMLTextAreaElement>;
+export interface SelectTriggerProps {
+    open: boolean;
+    onToggle: () => void;
+    children?: React.ReactNode;
+    placeholder?: React.ReactNode;
+    icon?: React.ReactNode;
+    size?: "sm" | "md";
+    disabled?: boolean;
+    id?: string;
+    className?: string;
+    bare?: boolean;
+    title?: string;
+    popup?: "listbox" | "menu" | "dialog";
+    onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
 }
-export declare function Textarea({ value, onChange, autoResize, invalid, rows, className, "aria-invalid": ariaInvalid, ref, ...rest }: TextareaProps): import("react/jsx-runtime").JSX.Element;
+export declare const SelectTrigger: import("react").ForwardRefExoticComponent<SelectTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
-export interface SectionProps {
-    title?: React.ReactNode;
-    icon?: React.ReactNode;
-    description?: React.ReactNode;
-    actions?: React.ReactNode;
-    id?: string;
+export interface PopoverProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    trigger: React.ReactNode;
     children: React.ReactNode;
+    placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
+    matchTriggerWidth?: boolean;
     className?: string;
-    dataTutorial?: string;
-    advanced?: boolean;
 }
-export declare function Section({ title, icon, description, actions, id, children, className, dataTutorial, advanced, }: SectionProps): import("react/jsx-runtime").JSX.Element;
+export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, }: PopoverProps): import("react/jsx-runtime").JSX.Element;

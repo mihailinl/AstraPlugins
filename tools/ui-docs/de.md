@@ -48,9 +48,15 @@ Die Mindestversion im Snapshot benennt den vorbereiteten Astra-Build mit Kit; {{
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
 
+## Abschnitte auf Settings, AI und Voice
+
+Ein Beitrag in `settings.custom`, `ai.custom` oder `voice.custom` wird zu einem Abschnitt dieser Seite. Astra zeichnet den Rahmen: die Clay-Karte, die Überschrift aus `label`, das Zeichen aus `icon_svg`, ein Badge mit dem Pluginnamen, einen Eintrag in der Abschnittsnavigation (und in der Suche von Settings). Rendern Sie nur den Inhalt — `SettingRow`, `Card` mit `variant: 'subtle'`, `Advanced` — nie ein äußeres `Section`, sonst zeigt die Seite eine Karte in einer Karte mit zwei Überschriften. `Select`, `Combobox` und `Tooltip` des Kits zeichnet Astra über der Seite, wie bei einem Widget; ein `Modal` oder `Popover` bleibt im Frame, deklarieren Sie also eine `height`, wenn Sie eines öffnen. Mit `height = 0` folgt der Rahmen der Höhe des Dokuments; setzen Sie `html` und `body` daher nicht auf `100%`. Eine `height` ungleich 0 bleibt fest. `settings.custom` erscheint außerdem auf der Pluginkarte unter Plugins.
+
+Das Aussehen ist Astras Graphite: Clay-Flächen (mattiert, wenn Glass eingeschaltet ist), ein vom Nutzer gewählter Akzent, erhabene Flächen für Buttons und Mulden für Eingabefelder. Das Kit trägt es bereits. Die entfernten `--glass-*`-Tokens werden nicht mehr veröffentlicht; für eigene Flächen lesen Sie `--color-surface`, `--color-surface-raised`, `--color-text` und `--color-text-muted`.
+
 ## Desktop widgets (development contract)
 
-Das `desktop-widget`-Template verwendet dieses Kit in den Glas-Karten und Oberflächen des Hosts. Die [vollständige Anleitung](desktop-widgets.md) beschreibt exakte SDK-Felder, Wert-Callbacks, `context.params`, Rückgabe-Token, den vom Host geöffneten Einstellungsentwurf und schreibgeschützte Vorschauen. Verwenden Sie passende bereitgestellte CLI/SDK-Artefakte; diese Funktionen sind noch nicht veröffentlicht.
+Das `desktop-widget`-Template verwendet dieses Kit in den Clay-Karten und Oberflächen des Hosts. Die [vollständige Anleitung](desktop-widgets.md) beschreibt exakte SDK-Felder, Wert-Callbacks, `context.params`, Rückgabe-Token, den vom Host geöffneten Einstellungsentwurf und schreibgeschützte Vorschauen. Verwenden Sie passende bereitgestellte CLI/SDK-Artefakte; diese Funktionen sind noch nicht veröffentlicht. Bauen Sie die Kartenfläche aus `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` und `WidgetPlateButton` — der Anatomie von Astras eigenen Widgets; der Rahmen ist ihr Größencontainer `desktop-widget`.
 
 ## Shared scrollbars
 

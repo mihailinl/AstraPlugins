@@ -1,6 +1,6 @@
 {
   "apiVersion": 1,
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "moduleBase": "http://astra-plugin.localhost/bridge/ui/v1/",
   "modules": {
     "@astra/plugin-ui": "index.js",
@@ -37,7 +37,16 @@
     "SettingRow",
     "FieldLabel",
     "EmptyState",
-    "ScrollArea"
+    "ScrollArea",
+    "Advanced",
+    "Collapse",
+    "ProgressBar",
+    "WidgetHead",
+    "WidgetMetric",
+    "AstraLine",
+    "WidgetPlate",
+    "WidgetMeter",
+    "WidgetPlateButton"
   ],
   "tokens": [
     "--accent-shift",
@@ -259,6 +268,10 @@
     "--page-tab-track-padding",
     "--press-scale",
     "--primary",
+    "--progress-fill",
+    "--progress-height",
+    "--progress-radius",
+    "--progress-track",
     "--radius-2xl",
     "--radius-capsule",
     "--radius-card",
@@ -351,11 +364,14 @@
   ],
   "moduleExports": {
     "index.js": [
+      "Advanced",
       "AnchoredMenu",
+      "AstraLine",
       "Badge",
       "Button",
       "Card",
       "Checkbox",
+      "Collapse",
       "Combobox",
       "EmptyState",
       "FieldLabel",
@@ -365,6 +381,7 @@
       "Modal",
       "NumberInput",
       "Popover",
+      "ProgressBar",
       "RadioGroup",
       "ScrollArea",
       "Section",
@@ -377,6 +394,11 @@
       "Textarea",
       "Toggle",
       "Tooltip",
+      "WidgetHead",
+      "WidgetMeter",
+      "WidgetMetric",
+      "WidgetPlate",
+      "WidgetPlateButton",
       "h",
       "mount"
     ],
@@ -456,5 +478,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "ce888195dff3f7280186ca9197428d52deff97ceaad89c1c3c6d8c22505a91cf"
+  "sourceHash": "575943accbf74ccda2bee7b5187f93805924a1596eb82929e1b005cd9a91de5f"
 }

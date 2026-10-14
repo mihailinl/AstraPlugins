@@ -36,9 +36,16 @@ backend calls and the bridge data methods for persistence.
 
 The current iframe slots are `page.custom` (a navigation tab), `home.top`,
 `home.widgets`, `home.bottom` (chat widget panels), `statusbar.left`,
-`statusbar.right`, `settings.appearance`, `settings.custom`,
-`background.behind`, `background.front`, and `overlay.floating` (full-window
-layers). A page fills its tab; give in-page panels an explicit height.
+`statusbar.right`, `settings.appearance`, the section slots
+`settings.custom`, `ai.custom` and `voice.custom`, `background.behind`,
+`background.front`, and `overlay.floating` (full-window layers). A page fills
+its tab; give other in-page panels an explicit height. A section slot is
+framed by Astra — the clay card, the heading (`label`), the mark (`icon_svg`),
+a badge with the plugin's name, an entry in the page's section rail (and in
+Settings' search) — so the plugin renders only the body and never an outer
+`Section`. With `height = 0` its frame follows the document's height (do not
+pin `html` or `body` to `100%`). Astra draws the Kit's `Select`, `Combobox`
+and `Tooltip` over the page; a `Modal` or `Popover` stays inside the frame.
 The full-window layers are always transparent and do not take clicks.
 
 The current `window.astra` request methods are `getTheme`, `getCssVariables`,
@@ -83,7 +90,7 @@ with `astra-plugin dev .` and examine the real window. Check:
 
 - the normal, empty, loading and error states;
 - a narrow window and the slot's actual size;
-- pale and dark base colours, and glass enabled and disabled;
+- pale and dark base colours, and the Glass material enabled and disabled;
 - focus order, keyboard operation and readable labels;
 - that a panel/overlay leaves the surrounding Astra UI usable;
 - that slow backend work does not freeze the window.
