@@ -109,3 +109,34 @@ lease_fire_grace_secs: 30
 # It is a replay bound, not a rate limit. Leased fires are deliberately not
 # throttled; root fires are, by a separate token bucket the daemon owns.
 lease_max_fires: 256
+
+# How often an SDK re-sends a music provider's snapshot when nothing changed,
+# in seconds (`PluginCapabilityService.MusicSubscribe`).
+#
+# A snapshot stream that stays open but goes silent — a wedged plugin, a stuck
+# event loop — is otherwise indistinguishable from a quiet one, and the music
+# widget would show a ghost of what played an hour ago. The heartbeat is what
+# lets the daemon tell the two apart: see `music_session_stale_secs`.
+music_snapshot_heartbeat_secs: 15
+
+# How old a music provider's last snapshot may be before the daemon stops
+# believing it, in seconds.
+#
+# Three heartbeats: one lost to a slow event loop is normal, three in a row is a
+# plugin that has stopped reporting. Must stay well above the heartbeat, or a
+# healthy provider's sessions blink out between two of its snapshots.
+music_session_stale_secs: 45
+
+# The most sessions one music snapshot may carry; the daemon drops the rest.
+#
+# A session is one playback a service reports (an account's active device, a
+# browser tab). Sixteen covers every service a plugin could reach many times
+# over; the bound exists so a buggy plugin cannot fill the widget's session
+# switcher or the daemon's memory.
+music_snapshot_max_sessions: 16
+
+# The most items one music search may return from one provider.
+#
+# The widget shows ten; the AI reads fewer. Twenty leaves room without letting a
+# provider hand back a whole catalogue page per keystroke.
+music_search_max_items: 20

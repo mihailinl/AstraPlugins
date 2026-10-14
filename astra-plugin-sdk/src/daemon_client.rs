@@ -314,6 +314,7 @@ impl Daemon for DaemonClient {
                 action,
                 session_id: session_id.to_string(),
                 seek_position_seconds: 0.0,
+                value: String::new(),
             })
             .await?;
         Ok(())

@@ -95,6 +95,48 @@
       "phase": "probe"
     },
     {
+      "rpc": "WebSearch",
+      "capability": "web_search",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "MusicSubscribe",
+      "capability": "music_provider",
+      "requirement": "required",
+      "streaming": "server",
+      "phase": "probe"
+    },
+    {
+      "rpc": "MusicControl",
+      "capability": "music_provider",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "MusicGetQueue",
+      "capability": "music_provider",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "MusicSearch",
+      "capability": "music_provider",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "MusicPlay",
+      "capability": "music_provider",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
       "rpc": "ExecuteAction",
       "capability": "actions",
       "requirement": "required",

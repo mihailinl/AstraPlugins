@@ -27,6 +27,12 @@ Diese implementierst du; der Daemon ruft sie auf.
 | `SttGetLoadState` | `stt` | optional | unary | stable | Meldet Loaded / NotLoaded / NotNeeded, damit der Daemon Idle-Unload steuern kann. |
 | `AiComplete` | `ai_provider` | required | server | stable | Streamt eine Model-Completion; der einzige Weg, wie ein Plugin ein AI-Provider sein kann. |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | Listet die Modelle, die dieser Provider ausführen kann. |
+| `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | optional | unary | stable | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | optional | unary | stable | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | required | unary | stable | Führt eine Command-Step-Action aus, die dieses Plugin beigesteuert hat. |
 | `GetPluginActionTypes` | `actions` | required | unary | stable | Die Action-Typen, die dieses Plugin zum Befehlseditor hinzufügt, beim Start gelesen. |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | stable | Die Trigger-Typen, die dieses Plugin zum Befehlseditor hinzufügt, beim Start gelesen. |

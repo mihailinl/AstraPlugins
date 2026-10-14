@@ -178,6 +178,8 @@ debe servir para que la capability funcione en absoluto. Los hooks
 | `stt` | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | ninguno |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`, `FireTrigger` |

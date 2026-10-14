@@ -28,6 +28,14 @@ reads to find out how to get the tool.
 
 ## 0.5.0 (unreleased)
 
+- `astra-plugin test` probes the five `music_provider` hooks. The probes name
+  a session and an item no plugin reports, so a correct plugin REFUSES in band
+  and nothing on the user's real player is paused, liked or started;
+  `MusicSubscribe` must deliver its first snapshot at once.
+- `--capabilities music_provider` scaffolds `music_control` (an in-band
+  `not_configured` refusal) and, in Rust, the `music_publisher` hook, in all
+  three languages.
+
 - Refresh the embedded UI v1 declarations and tokens for Astra's shared Inter typography, glass and motion update; preserve existing menu exit callbacks.
 
 - Add --ui vanilla|react independently of the backend language, using host Astra primitives.
@@ -37,6 +45,19 @@ reads to find out how to get the tool.
 ## [Unreleased]
 
 ### Added
+- **The `web_search` capability** (the vendored `astra-plugin-manifest` is
+  synced to the Astra working tree that adds it; the daemon half lands with it).
+  `check` accepts `[capabilities] web_search = true`; `new --capabilities
+  web_search` scaffolds the hook in all three languages, answering with an
+  in-band `not_configured` refusal until it is implemented; and `test` calls
+  `WebSearch` with a real query. A refusal the plugin means (`error_code`
+  set) passes, because the daemon reads it as an answer; an `error_code`
+  outside the five the daemon knows, more hits than were asked for, or a hit
+  whose URL is not http(s) fails, because the daemon would misread or drop it.
+  The probe allows 20 s rather than the usual 10, since the hook's whole job is
+  a round trip to another server. Declaring the capability makes a manifest
+  unreadable by an Astra that predates it, so set `plugin.min_astra_version`.
+  Guide: `docs/en/web-search-plugins.md`.
 - **`check` reads `"x-astra-advanced"` in the `[config] schema`**, the keyword
   that folds a setting behind Astra's *Advanced settings*. It warns about a
   value that is not a boolean — Astra folds a field only for `true`, so

@@ -26,6 +26,12 @@ You implement these; the daemon calls them.
 | `SttGetLoadState` | `stt` | optional | unary | stable | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
 | `AiComplete` | `ai_provider` | required | server | stable | Stream a model completion; the only way a plugin can be an AI provider. |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | List the models this provider can run. |
+| `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | optional | unary | stable | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | optional | unary | stable | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | required | unary | stable | Run one command-step action this plugin contributed. |
 | `GetPluginActionTypes` | `actions` | required | unary | stable | The action types this plugin adds to the command editor, read at startup. |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | stable | The trigger types this plugin adds to the command editor, read at startup. |

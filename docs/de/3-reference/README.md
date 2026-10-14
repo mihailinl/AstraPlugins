@@ -23,7 +23,7 @@ der Generator sie hinschreibt.
 | [CLI](../reference/cli.md) | den `clap`-Definitionen, durch Ausführen der Binärdatei |
 | [Protokoll](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [Fehler](../reference/errors.md) | die Fehler-Taxonomie in allen drei SDKs |
-| [Hook-Parität](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 35 Hooks, 3 SDKs |
+| [Hook-Parität](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 41 Hooks, 3 SDKs |
 
 Hook-Tabellen je SDK, aus derselben Spezifikation gerendert:
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

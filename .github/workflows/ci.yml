@@ -2011,6 +2011,15 @@ jobs:
           (cd examples/text-utils && python -m pytest tests -q)
           echo "ok   text-utils' reference suite passes against the in-repo SDK"
 
+      - name: examples/duckduckgo-search (Python, offline)
+        run: |
+          set -euo pipefail
+          # The parser on hand-written fixtures and the web_search hook through
+          # the SDK's Harness, with the HTTP layer replaced — no request reaches
+          # DuckDuckGo, so this cannot flake on the network or on their markup.
+          (cd examples/duckduckgo-search && python -m pytest tests -q)
+          echo "ok   duckduckgo-search's offline suite passes against the in-repo SDK"
+
   # ══ THE AUTHOR'S FIRST FIVE MINUTES ════════════════════════════════════════
 
   scaffold-roundtrip:
@@ -3867,9 +3876,9 @@ jobs:
           # `schema/version-v1.json` capability enum and `KNOWN_AUTHORITY`, or
           # the catalogue refuses every listing that declares it.
           CAPABILITIES = {
-              "tools", "tts", "stt", "wakeword", "ai_provider", "client",
-              "actions", "triggers", "ui_contributions", "event_handlers",
-              "dom_access",
+              "tools", "tts", "stt", "wakeword", "ai_provider", "web_search",
+              "music_provider", "client", "actions", "triggers",
+              "ui_contributions", "event_handlers", "dom_access",
           }
           check(vocab == CAPABILITIES,
                 f"C5 the CLI knows exactly the {len(CAPABILITIES)} capabilities this check names",

@@ -27,6 +27,12 @@
 | `SttGetLoadState` | `stt` | optional | unary | stable | 报告 Loaded / NotLoaded / NotNeeded，以便守护进程驱动空闲卸载。 |
 | `AiComplete` | `ai_provider` | required | server | stable | 流式返回一次模型补全；这是插件能成为 AI 提供者的唯一方式。 |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | 列出这个提供者能运行的模型。 |
+| `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | optional | unary | stable | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | optional | unary | stable | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | required | unary | stable | 运行这个插件贡献的一个命令步骤动作。 |
 | `GetPluginActionTypes` | `actions` | required | unary | stable | 这个插件添加到命令编辑器中的动作类型，在启动时读取。 |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | stable | 这个插件添加到命令编辑器中的触发器类型，在启动时读取。 |

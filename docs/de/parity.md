@@ -2,7 +2,7 @@
 
 # Hook-Parität
 
-Protokoll **1** · **35** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protokoll **1** · **36** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 Ein *Hook* ist ein RPC auf einem der beiden Plugin-seitigen Dienste.
 `PluginCapabilityService` läuft **Daemon → Plugin**: dein Plugin bedient
@@ -55,6 +55,12 @@ ein Weg, auf dem der Code eines Plugin-Autors heute scheitert.
 | `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **keine** |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
@@ -92,6 +98,8 @@ Kann ein in dieser Sprache geschriebenes Plugin diese Capability heute
 | `tts` | ja | ja | ja |
 | `stt` | ja | ja | ja |
 | `ai_provider` | ja | ja | ja |
+| `web_search` | ja | ja | ja |
+| `music_provider` | yes | yes | yes |
 | `actions` | ja | ja | ja |
 | `triggers` | ja | ja | ja |
 | `ui_contributions` | ja | ja | ja |
@@ -101,7 +109,7 @@ Kann ein in dieser Sprache geschriebenes Plugin diese Capability heute
 
 ## Conformance-Abdeckung
 
-Die 23 eingehenden Hooks, die ein Conformance-Lauf ausüben muss — jeder
+Die 24 eingehenden Hooks, die ein Conformance-Lauf ausüben muss — jeder
 `Daemon → Plugin`-Hook, den der Daemon tatsächlich aufruft.
 `astra-plugin test` ruft jeden auf, den die deklarierten Capabilities
 des Plugins implizieren, und sichert kein `UNIMPLEMENTED` für die
@@ -126,6 +134,12 @@ Plugin zu unterscheiden wäre. Maschinenlesbare Kopie:
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `WebSearch` | `web_search` | required | unary | probe |
+| `MusicSubscribe` | `music_provider` | required | server | probe |
+| `MusicControl` | `music_provider` | required | unary | probe |
+| `MusicGetQueue` | `music_provider` | optional | unary | probe |
+| `MusicSearch` | `music_provider` | optional | unary | probe |
+| `MusicPlay` | `music_provider` | optional | unary | probe |
 | `ExecuteAction` | `actions` | required | unary | probe |
 | `GetPluginActionTypes` | `actions` | required | unary | probe |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | probe |

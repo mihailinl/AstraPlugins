@@ -38,7 +38,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "d5c36d9e453fd064fbfefed77e7cb5e859c655c3698aaefe431b4c72dbedd7b1";
+export const PROTO_SHA256 = "91f2965eb081b1b518ce16473725924d8425de620433c89e3d864fbf5ad85115";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -58,7 +58,7 @@ export const SERVICE_METHODS = {
   MonitorService: ["GetSystemStats", "SubscribeSystemStats", "SubscribeToolSearchEvents"],
   PluginService: ["ListPlugins", "InstallPlugin", "InstallPluginStream", "CancelPluginInstall", "UninstallPlugin", "ReportPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "InspectPluginFile", "ResolvePendingUpdate", "GetPluginLogs", "GetPluginProvenance", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
   PluginHostService: ["Register", "SubscribeEvents", "SendChatMessage", "FireTrigger", "GetPluginSelfConfig", "PluginLog", "GetDaemonInfo", "SetVariable", "SetThemeContribution", "PushToUi"],
-  PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "TtsActivate", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "SttLoad", "SttUnload", "SttGetLoadState", "AiComplete", "AiGetModels", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
+  PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "TtsActivate", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "SttLoad", "SttUnload", "SttGetLoadState", "AiComplete", "AiGetModels", "WebSearch", "MusicSubscribe", "MusicControl", "MusicGetQueue", "MusicSearch", "MusicPlay", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
 } as const satisfies Record<string, readonly string[]>;
 
 /** Name of a service declared by `proto/plugin.proto`. */
@@ -81,6 +81,12 @@ export type PluginCapabilityMethod =
   | "SttGetLoadState"
   | "AiComplete"
   | "AiGetModels"
+  | "WebSearch"
+  | "MusicSubscribe"
+  | "MusicControl"
+  | "MusicGetQueue"
+  | "MusicSearch"
+  | "MusicPlay"
   | "ExecuteAction"
   | "GetPluginActionTypes"
   | "GetPluginTriggerTypes"

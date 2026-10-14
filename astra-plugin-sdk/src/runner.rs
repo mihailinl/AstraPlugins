@@ -37,9 +37,18 @@ use tonic::transport::Server;
 use tracing::{info, warn};
 
 use crate::auth::{CapabilityAuth, CapabilityInterceptor};
-use crate::capability::{AiChunk, AudioChunk, PluginCapability, SttEvent, TtsRequest};
+use crate::capability::{
+    AiChunk, AudioChunk, PluginCapability, SttEvent, TtsRequest, WebSearchRequest,
+};
 use crate::context::{Host, PluginContext, install_context};
 use crate::error::{ToolError, hook_status};
+
+/// A music hook's `Err` that is a refusal the plugin MEANT, as the three
+/// in-band fields (`error_code`, `error_message`, `retry_after_secs`).
+fn music_refusal(e: &anyhow::Error) -> Option<(String, String, u32)> {
+    e.downcast_ref::<crate::music::MusicRefusal>()
+        .map(|r| (r.code.as_str().to_string(), r.message.clone(), r.retry_after_secs))
+}
 use crate::events;
 use crate::host_client::HostClient;
 use crate::proto;
@@ -782,6 +791,21 @@ struct CapabilityServiceImpl<P: PluginCapability> {
 }
 
 impl<P: PluginCapability> CapabilityServiceImpl<P> {
+    /// A session key this plugin never reported, answered `not_found` before
+    /// the hook runs. The daemon only sends keys it read from a snapshot, so
+    /// this costs it nothing — and it is what keeps `astra-plugin test`'s
+    /// probe ("like" on a session nobody reports) from liking the author's
+    /// real track through a hook that ignores the key.
+    fn unreported_session(&self, session_key: &str) -> Option<(String, String)> {
+        let publisher = self.plugin.music_publisher()?;
+        (!session_key.is_empty() && !publisher.knows_session(session_key)).then(|| {
+            (
+                "not_found".to_string(),
+                format!("this plugin reports no session '{session_key}'"),
+            )
+        })
+    }
+
     /// The context to hand this call's handler: the shared one, scoped to the
     /// invocation lease the daemon put in the call's metadata.
     ///
@@ -1255,6 +1279,169 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
             models: models.into_iter().map(Into::into).collect(),
             default_model: default,
         }))
+    }
+
+    // ── Web search ──
+
+    async fn web_search(
+        &self,
+        request: tonic::Request<proto::PluginWebSearchRequest>,
+    ) -> Result<tonic::Response<proto::PluginWebSearchResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        let req: WebSearchRequest = request.into_inner().into();
+        let count = req.count;
+        // A refusal the plugin MEANT travels in the response body
+        // (`error_code`), so the daemon can tell "my allowance is spent, use
+        // the fallback" from "this plugin is broken". Only an `Err` — or a
+        // panic — becomes a status, and an un-overridden hook answers
+        // UNIMPLEMENTED, which is the protocol's word for absent.
+        match catch("web_search", self.plugin.web_search(&ctx, req)).await? {
+            Ok(response) => Ok(tonic::Response::new(response.into_proto(count))),
+            Err(e) => Err(hook_status(e)),
+        }
+    }
+
+    // ── Music provider ──
+    //
+    // A refusal the plugin MEANT (`MusicRefusal`) travels in the body; any
+    // other `Err` — or a panic — becomes a status, and an un-overridden hook
+    // answers UNIMPLEMENTED.
+
+    type MusicSubscribeStream = std::pin::Pin<
+        Box<dyn tokio_stream::Stream<Item = Result<proto::PluginMusicSnapshot, tonic::Status>> + Send>,
+    >;
+
+    async fn music_subscribe(
+        &self,
+        _request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<Self::MusicSubscribeStream>, tonic::Status> {
+        let Some(publisher) = self.plugin.music_publisher() else {
+            return Err(tonic::Status::unimplemented("this plugin is not a music provider"));
+        };
+        let stream = tokio_stream::StreamExt::map(publisher.stream(), Ok);
+        Ok(tonic::Response::new(Box::pin(stream)))
+    }
+
+    async fn music_control(
+        &self,
+        request: tonic::Request<proto::PluginMusicControlRequest>,
+    ) -> Result<tonic::Response<proto::PluginMusicResult>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        let req = request.into_inner();
+        if let Some((error_code, error_message)) = self.unreported_session(&req.session_key) {
+            return Ok(tonic::Response::new(proto::PluginMusicResult {
+                error_code,
+                error_message,
+                ..Default::default()
+            }));
+        }
+        let req = req.into();
+        match catch("music_control", self.plugin.music_control(&ctx, req)).await? {
+            Ok(()) => Ok(tonic::Response::new(proto::PluginMusicResult::default())),
+            Err(e) => match music_refusal(&e) {
+                Some((error_code, error_message, retry_after_secs)) => {
+                    Ok(tonic::Response::new(proto::PluginMusicResult { error_code, error_message, retry_after_secs }))
+                }
+                None => Err(hook_status(e)),
+            },
+        }
+    }
+
+    async fn music_get_queue(
+        &self,
+        request: tonic::Request<proto::PluginMusicQueueRequest>,
+    ) -> Result<tonic::Response<proto::PluginMusicQueueResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        let req = request.into_inner();
+        if let Some((error_code, error_message)) = self.unreported_session(&req.session_key) {
+            return Ok(tonic::Response::new(proto::PluginMusicQueueResponse {
+                current_index: -1,
+                error_code,
+                error_message,
+                ..Default::default()
+            }));
+        }
+        let req: crate::music::MusicQueueRequest = req.into();
+        let limit = req.limit as usize;
+        match catch("music_get_queue", self.plugin.music_get_queue(&ctx, req)).await? {
+            Ok(queue) => Ok(tonic::Response::new(proto::PluginMusicQueueResponse {
+                items: queue.items.into_iter().take(limit).map(Into::into).collect(),
+                current_index: queue.current_index,
+                ..Default::default()
+            })),
+            Err(e) => match music_refusal(&e) {
+                Some((error_code, error_message, retry_after_secs)) => {
+                    Ok(tonic::Response::new(proto::PluginMusicQueueResponse {
+                        current_index: -1,
+                        error_code,
+                        error_message,
+                        retry_after_secs,
+                        ..Default::default()
+                    }))
+                }
+                None => Err(hook_status(e)),
+            },
+        }
+    }
+
+    async fn music_search(
+        &self,
+        request: tonic::Request<proto::PluginMusicSearchRequest>,
+    ) -> Result<tonic::Response<proto::PluginMusicSearchResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        let req: crate::music::MusicSearchRequest = request.into_inner().into();
+        let limit = req.limit as usize;
+        match catch("music_search", self.plugin.music_search(&ctx, req)).await? {
+            Ok(items) => Ok(tonic::Response::new(proto::PluginMusicSearchResponse {
+                items: items.into_iter().take(limit).map(Into::into).collect(),
+                ..Default::default()
+            })),
+            Err(e) => match music_refusal(&e) {
+                Some((error_code, error_message, retry_after_secs)) => {
+                    Ok(tonic::Response::new(proto::PluginMusicSearchResponse {
+                        error_code,
+                        error_message,
+                        retry_after_secs,
+                        ..Default::default()
+                    }))
+                }
+                None => Err(hook_status(e)),
+            },
+        }
+    }
+
+    async fn music_play(
+        &self,
+        request: tonic::Request<proto::PluginMusicPlayRequest>,
+    ) -> Result<tonic::Response<proto::PluginMusicPlayResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        let req = request.into_inner();
+        if let Some((error_code, error_message)) = self.unreported_session(&req.session_key) {
+            return Ok(tonic::Response::new(proto::PluginMusicPlayResponse {
+                error_code,
+                error_message,
+                ..Default::default()
+            }));
+        }
+        let req = req.into();
+        match catch("music_play", self.plugin.music_play(&ctx, req)).await? {
+            Ok(played) => Ok(tonic::Response::new(proto::PluginMusicPlayResponse {
+                played: played.item.map(Into::into),
+                session_key: played.session_key,
+                ..Default::default()
+            })),
+            Err(e) => match music_refusal(&e) {
+                Some((error_code, error_message, retry_after_secs)) => {
+                    Ok(tonic::Response::new(proto::PluginMusicPlayResponse {
+                        error_code,
+                        error_message,
+                        retry_after_secs,
+                        ..Default::default()
+                    }))
+                }
+                None => Err(hook_status(e)),
+            },
+        }
     }
 
     // ── Actions ──
@@ -1864,6 +2051,9 @@ mod tests {
             c.tts_activate(proto::PluginTtsActivateRequest::default())
                 .await
                 .unwrap_err(),
+            c.web_search(proto::PluginWebSearchRequest::default())
+                .await
+                .unwrap_err(),
         ] {
             assert_eq!(err.code(), tonic::Code::Unimplemented, "{err}");
         }
@@ -2081,6 +2271,80 @@ mod tests {
         }
         assert_eq!(chunks.len(), 4);
         assert!(chunks.last().unwrap().is_last);
+    }
+
+    /// `web_search` over a socket: the request reaches the hook typed, the
+    /// answer is cut to the requested count, and a refusal the plugin MEANT is
+    /// a successful RPC with `error_code` set — never a status, because the
+    /// daemon falls back on `quota` and gives up on a broken plugin.
+    #[tokio::test]
+    async fn a_web_search_answers_in_band_and_never_exceeds_the_count() {
+        use crate::capability::{
+            WebSearchErrorCode, WebSearchFreshness, WebSearchHit, WebSearchResponse,
+        };
+
+        struct Search;
+        #[async_trait::async_trait]
+        impl PluginCapability for Search {
+            type Config = NoConfig;
+
+            async fn web_search(
+                &self,
+                _ctx: &PluginContext,
+                req: WebSearchRequest,
+            ) -> Result<WebSearchResponse> {
+                match req.query.as_str() {
+                    "spent" => Ok(WebSearchResponse::refuse(
+                        WebSearchErrorCode::RateLimited,
+                        "slow down",
+                    )
+                    .with_retry_after(7)),
+                    _ => {
+                        assert_eq!(req.freshness, WebSearchFreshness::Week);
+                        assert_eq!(req.country.as_deref(), Some("DE"));
+                        assert_eq!(req.language, None, "an empty language is None");
+                        Ok(WebSearchResponse::hits((0..5).map(|i| {
+                            WebSearchHit::new(format!("hit {i}"), format!("https://example.com/{i}"))
+                                .with_snippet("text")
+                                .with_published("2026-10-01")
+                        })))
+                    }
+                }
+            }
+        }
+
+        let addr = serve_plugin(Search, "", CapabilityAuth::Off).await;
+        let mut c = connect(&addr).await;
+
+        let resp = c
+            .web_search(proto::PluginWebSearchRequest {
+                query: "rust".into(),
+                count: 2,
+                freshness: "week".into(),
+                country: "DE".into(),
+                language: String::new(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(resp.error_code, "");
+        assert_eq!(resp.hits.len(), 2, "cut to the requested count");
+        assert_eq!(resp.hits[0].url, "https://example.com/0");
+        assert_eq!(resp.hits[0].published, "2026-10-01");
+
+        let resp = c
+            .web_search(proto::PluginWebSearchRequest {
+                query: "spent".into(),
+                count: 3,
+                ..Default::default()
+            })
+            .await
+            .expect("a refusal is an answer, not a status")
+            .into_inner();
+        assert!(resp.hits.is_empty());
+        assert_eq!(resp.error_code, "rate_limited");
+        assert_eq!(resp.error_message, "slow down");
+        assert_eq!(resp.retry_after_secs, 7);
     }
 
     /// The default streaming TTS is "synthesize the lot, send one chunk", so a

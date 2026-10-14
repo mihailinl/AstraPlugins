@@ -22,7 +22,7 @@
 | [CLI](../reference/cli.md) | визначення `clap`, через запуск бінарника |
 | [Протокол](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [Помилки](../reference/errors.md) | таксономія помилок у всіх трьох SDK |
-| [Паритет хуків](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 35 хуків, 3 SDK |
+| [Паритет хуків](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 41 хуків, 3 SDK |
 
 Таблиці хуків для кожного SDK, відрендерені з тієї самої специфікації:
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

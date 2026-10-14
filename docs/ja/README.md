@@ -15,7 +15,7 @@
 
 | | |
 |---|---|
-| [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 11 個のケーパビリティと、あなたが欲しいのはどれか |
+| [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 13 個のケーパビリティと、あなたが欲しいのはどれか |
 | [アーキテクチャ](1-orientation/architecture.md) | プロセスモデル、2 つのサービス、認証ハンドシェイク |
 | [セキュリティモデル](1-orientation/security.md) | 署名が証明すること・証明しないこと、プラグインが実行される権限 |
 | [プラットフォーム](1-orientation/platforms.md) | linux-x64 と windows-x64、OS ごとのパス、ビルド前提条件 |
@@ -72,7 +72,7 @@ zip を誰かに送ることも公開ではありません。メンテナーに�
 | [CLI](reference/cli.md) | `clap` の定義、`astra-plugin --help` を実行して生成 |
 | [プロトコル](reference/protocol.md) | `proto/plugin.proto` |
 | [エラー](reference/errors.md) | 3 つの SDK すべてのエラー分類 |
-| [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 35 個のフック |
+| [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 41 個のフック |
 | [パーミッション](3-reference/permissions.md) | 手書き: 各パーミッションが何を許可するか、理由の書き方 |
 | [設定フィールド](3-reference/config-fields.md) | 手書き: 設定 UI、`[config]`、TTS/STT のフィールドフック |
 | [ウェイクワードプラグイン](wakeword-plugins.md) | 手書き: 音声ページへの組み込み、プラグイン設定、音声呼び出しの契約 |

@@ -21,14 +21,14 @@ gRPC on loopback. Two services run in opposite directions:
 - `PluginHostService` — **plugin → daemon**. Astra serves it; your plugin calls
   out to log, fire a trigger, set a variable, push to the UI.
 
-35 hooks across the two, protocol version 1, one source of truth in
-[`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 35 — see
+41 hooks across the two, protocol version 1, one source of truth in
+[`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 41 — see
 the generated hook-parity page under [`docs/en/`](docs/en/README.md), which
 `tools/parity` renders from that file and CI drift-checks.
 
 ### What a plugin can do
 
-Eleven capabilities. A plugin declares the ones it implements in `[capabilities]`
+Thirteen capabilities. A plugin declares the ones it implements in `[capabilities]`
 in its `plugin.toml`; the list is closed, and an unknown key is a hard parse
 error rather than a silently-dropped line
 (`astra-plugin-cli/vendor/astra-plugin-manifest/src/capabilities.rs`).
@@ -42,6 +42,8 @@ error rather than a silently-dropped line
 | `stt` | Be a speech-to-text provider, one-shot or streaming |
 | `wakeword` | Be the wake-word detector Astra listens with ([docs/en/wakeword-plugins.md](docs/en/wakeword-plugins.md)) |
 | `ai_provider` | Be a completion backend |
+| `web_search` | Be a web search provider the user can pick for the assistant's searches ([docs/en/web-search-plugins.md](docs/en/web-search-plugins.md)) |
+| `music_provider` | Connect music services Astra's player and the assistant can drive: like, queue, search and play ([docs/en/music-provider-plugins.md](docs/en/music-provider-plugins.md)) |
 | `client` | Be a chat front-end of your own, with its own session |
 | `ui_contributions` | Add pages, panels and overlays to the Astra window |
 | `event_handlers` | Subscribe to daemon events |

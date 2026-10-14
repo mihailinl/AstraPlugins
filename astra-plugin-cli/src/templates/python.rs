@@ -169,6 +169,47 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"web_search") {
+        imports.extend(["WebSearchErrorCode", "WebSearchResponse"]);
+        methods.push_str(
+            r#"
+    async def web_search(self, request):
+        # The whole of the `web_search` capability: answer ONE query for the
+        # assistant's `web_search` tool. Call your search API with
+        # `request.query` and return at most `request.count` hits, e.g.
+        #     return [WebSearchHit(title=r.title, url=r.url, snippet=r.text)
+        #             for r in rows]
+        # A refusal you mean (missing key, spent allowance, rate limit) is an
+        # answer, as below; raising reports the plugin as broken. Keep the API
+        # key in `[config]` — the user sets it on the Plugins page.
+        return WebSearchResponse.refuse(
+            WebSearchErrorCode.NOT_CONFIGURED,
+            "this search provider is a scaffold: implement web_search",
+        )
+"#,
+        );
+    }
+
+    if capabilities.contains(&"music_provider") {
+        imports.extend(["MusicErrorCode", "MusicRefusal"]);
+        methods.push_str(
+            r#"
+    async def music_control(self, request):
+        # `music_provider`: report what your services play with
+        #     self.music.publish([MusicService(...)], [MusicSession(...)])
+        # (from `on_start` and whenever it changes — every publish is the whole
+        # set), and carry out `request.action` on `request.session_key` here.
+        # A refusal you mean is an answer, as below; raising reports the plugin
+        # as broken. `music_get_queue`, `music_search` and `music_play` are the
+        # optional rest.
+        raise MusicRefusal(
+            MusicErrorCode.NOT_CONFIGURED,
+            "this music provider is a scaffold: implement music_control",
+        )
+"#,
+        );
+    }
+
     let ui = capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access");
     let desktop = capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER);
     if desktop {

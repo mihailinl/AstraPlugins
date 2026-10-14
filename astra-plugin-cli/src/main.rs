@@ -111,8 +111,9 @@ enum Commands {
         #[arg(long, default_value = "vanilla", value_parser = ["vanilla", "react"])]
         ui: String,
 
-        /// Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, client,
-        /// actions, triggers, ui_contributions, event_handlers, dom_access).
+        /// Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, web_search,
+        /// music_provider, client, actions, triggers, ui_contributions, event_handlers,
+        /// dom_access).
         /// Overrides whatever --template implies.
         #[arg(short, long, alias = "caps")]
         capabilities: Option<String>,

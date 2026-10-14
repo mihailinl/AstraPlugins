@@ -16,7 +16,7 @@ generated and CI re-runs the generator with `--check`.
 """
 
 #: SHA-256 of the ``spec/limits.yaml`` these constants were generated from.
-SPEC_SHA256 = "4c2233725bc33d310b28ca4aabec38f7fd6ba6e1cf5970348f8fa5a624ab3d3d"
+SPEC_SHA256 = "ec2dc1e63fb9cf91aa03fdcaaffcc9e7699058d41f2c12ebc1b8313efc78853b"
 
 #: Capacity of the audio channel that carries streaming-STT chunks from the
 #: daemon's voice pipeline into the plugin process, in chunks.
@@ -94,6 +94,37 @@ LEASE_FIRE_GRACE_SECS = 30
 #: throttled; root fires are, by a separate token bucket the daemon owns.
 LEASE_MAX_FIRES = 256
 
+#: How often an SDK re-sends a music provider's snapshot when nothing changed,
+#: in seconds (`PluginCapabilityService.MusicSubscribe`).
+#:
+#: A snapshot stream that stays open but goes silent — a wedged plugin, a stuck
+#: event loop — is otherwise indistinguishable from a quiet one, and the music
+#: widget would show a ghost of what played an hour ago. The heartbeat is what
+#: lets the daemon tell the two apart: see `music_session_stale_secs`.
+MUSIC_SNAPSHOT_HEARTBEAT_SECS = 15
+
+#: How old a music provider's last snapshot may be before the daemon stops
+#: believing it, in seconds.
+#:
+#: Three heartbeats: one lost to a slow event loop is normal, three in a row is a
+#: plugin that has stopped reporting. Must stay well above the heartbeat, or a
+#: healthy provider's sessions blink out between two of its snapshots.
+MUSIC_SESSION_STALE_SECS = 45
+
+#: The most sessions one music snapshot may carry; the daemon drops the rest.
+#:
+#: A session is one playback a service reports (an account's active device, a
+#: browser tab). Sixteen covers every service a plugin could reach many times
+#: over; the bound exists so a buggy plugin cannot fill the widget's session
+#: switcher or the daemon's memory.
+MUSIC_SNAPSHOT_MAX_SESSIONS = 16
+
+#: The most items one music search may return from one provider.
+#:
+#: The widget shows ten; the AI reads fewer. Twenty leaves room without letting a
+#: provider hand back a whole catalogue page per keystroke.
+MUSIC_SEARCH_MAX_ITEMS = 20
+
 __all__ = [
     "SPEC_SHA256",
     "STT_AUDIO_CHANNEL_CAPACITY",
@@ -104,4 +135,8 @@ __all__ = [
     "LEASE_TTL_SECS",
     "LEASE_FIRE_GRACE_SECS",
     "LEASE_MAX_FIRES",
+    "MUSIC_SNAPSHOT_HEARTBEAT_SECS",
+    "MUSIC_SESSION_STALE_SECS",
+    "MUSIC_SNAPSHOT_MAX_SESSIONS",
+    "MUSIC_SEARCH_MAX_ITEMS",
 ]

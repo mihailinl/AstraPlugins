@@ -6,7 +6,7 @@
 
 # Hook parity
 
-Protocol **1** · **35** hooks · source of truth [`spec/hooks.yaml`](../../../spec/hooks.yaml).
+Protocol **1** · **41** hooks · source of truth [`spec/hooks.yaml`](../../../spec/hooks.yaml).
 
 A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityService` runs **daemon → plugin**: your plugin serves it and the daemon calls in. `PluginHostService` runs **plugin → daemon**: the daemon serves it and your plugin calls out. `PluginService` is not here — the daemon serves it to the Astra UI and no plugin ever touches it.
 
@@ -47,6 +47,12 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 | `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
@@ -83,6 +89,8 @@ Can a plugin written in this language implement this capability at all today?
 | `tts` | yes | yes | yes |
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
+| `web_search` | yes | yes | yes |
+| `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
 | `ui_contributions` | yes | yes | yes |
@@ -92,7 +100,7 @@ Can a plugin written in this language implement this capability at all today?
 
 ## Conformance coverage
 
-The 23 inbound hooks a conformance run must exercise — every `daemon → plugin` hook the daemon actually calls. `astra-plugin test` calls each one implied by the plugin's declared capabilities and asserts no `UNIMPLEMENTED` for the `required` ones; `optional` hooks are exempt, because `Unimplemented → hook absent` is the forward-compat contract and a scaffold declaring everything would otherwise be indistinguishable from a broken plugin. Machine-readable copy: [`spec/generated/conformance.json`](../../../spec/generated/conformance.json).
+The 29 inbound hooks a conformance run must exercise — every `daemon → plugin` hook the daemon actually calls. `astra-plugin test` calls each one implied by the plugin's declared capabilities and asserts no `UNIMPLEMENTED` for the `required` ones; `optional` hooks are exempt, because `Unimplemented → hook absent` is the forward-compat contract and a scaffold declaring everything would otherwise be indistinguishable from a broken plugin. Machine-readable copy: [`spec/generated/conformance.json`](../../../spec/generated/conformance.json).
 
 | RPC | Capability | Req | Stream | Phase |
 |---|---|---|---|---|
@@ -109,6 +117,12 @@ The 23 inbound hooks a conformance run must exercise — every `daemon → plugi
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `WebSearch` | `web_search` | required | unary | probe |
+| `MusicSubscribe` | `music_provider` | required | server | probe |
+| `MusicControl` | `music_provider` | required | unary | probe |
+| `MusicGetQueue` | `music_provider` | optional | unary | probe |
+| `MusicSearch` | `music_provider` | optional | unary | probe |
+| `MusicPlay` | `music_provider` | optional | unary | probe |
 | `ExecuteAction` | `actions` | required | unary | probe |
 | `GetPluginActionTypes` | `actions` | required | unary | probe |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | probe |
@@ -130,6 +144,9 @@ The 23 inbound hooks a conformance run must exercise — every `daemon → plugi
 - **`SttGetLoadState`** — Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. manager/voice.rs:530 maps an absent hook to NotNeeded, which is the pre-hook behaviour.
 - **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language.
 - **`AiGetModels`** — List the models this provider can run. FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more. Deprecated in 0.6, removed in 0.8, and there is no replacement: nothing in the daemon asks a plugin what models it has, and AiComplete carries the chosen model on the request.
+- **`WebSearch`** — Answer one web search for the assistant's web_search tool, as a provider the user picks. A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence.
+- **`MusicSubscribe`** — Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. The SDK serves this stream itself from what the plugin publishes (MusicPublisher): the latest snapshot at once, again on every publish, and every music_snapshot_heartbeat_secs. A session missing from a snapshot has ended.
+- **`MusicControl`** — Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. A refusal the plugin means (not_supported, no_active_device, auth, premium_required, rate_limited, ...) is an ANSWER in `error_code`, not a gRPC error.
 - **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager/capabilities.rs:438 routes it through `optional_hook`.
 - **`OnLanguageChanged`** — The Astra UI language changed; re-render anything user-visible. manager/ui_surface.rs:352 routes it through `optional_hook`.
 - **`Shutdown`** — Stop cleanly; the process group is killed after the grace period. Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit.

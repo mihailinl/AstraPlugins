@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 45b80d0f39040c7287663063e801d2b4b595c88b5b1a82e59bcc4bbf0421b5e8
+// surface-sha256: 2c3c1701683b66d75bc241ad0438bd72adb79198bf0d490f6f18cfe87e913a62
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3268,8 +3268,34 @@ message MediaState {
     // `xesam:url`), rewritten to the scheme the desktop registers to the app
     // where one is derivable, so following it opens Spotify rather than a web
     // page about the track. Empty on Windows: GSMTC's media properties carry
-    // title/artist/album/thumbnail and no URL of any kind.
+    // title/artist/album/thumbnail and no URL of any kind. A music-service
+    // plugin's session fills it when the OS one is empty.
     string track_url = 15;
+
+    // What a music-service plugin adds to this session — liking in the service,
+    // its queue, shuffle and repeat. Absent when no plugin reports it. A session
+    // whose `provider.remote` is set plays on ANOTHER device (a phone, a
+    // speaker): it has no OS session and never stands for "this computer".
+    MediaProvider provider = 16;
+}
+
+// A music service's view of one media session (`MediaState.provider`).
+message MediaProvider {
+    string plugin_id = 1;
+    string service_id = 2;  // "yandex", "spotify", "ytmusic", "soundcloud", "vk", "web", ...
+    string service_name = 3;  // for the user, in the UI language
+    string device_name = 4;  // the service's own name for the playing device
+    bool remote = 5;  // plays on another device, not this computer
+    bool liked = 6;
+    bool shuffle = 7;
+    string repeat = 8;  // "off" | "track" | "context"
+    int32 volume_percent = 9;  // the service's own volume; -1 when unknown
+    bool can_like = 10;
+    bool can_shuffle = 11;
+    bool can_repeat = 12;
+    bool can_volume = 13;
+    bool can_queue = 14;
+    bool can_search = 15;
 }
 
 enum MediaPlaybackStatus {
@@ -3288,12 +3314,23 @@ enum MediaControlAction {
     MEDIA_CONTROL_STOP = 5;
     MEDIA_CONTROL_SEEK = 6;
     MEDIA_CONTROL_ACTIVATE = 7;
+
+    // The verbs below reach a music-service plugin (`MediaState.provider`);
+    // an OS session without one refuses them.
+    MEDIA_CONTROL_LIKE = 8;
+    MEDIA_CONTROL_UNLIKE = 9;
+    MEDIA_CONTROL_SHUFFLE = 10;  // value: "on" | "off"
+    MEDIA_CONTROL_REPEAT = 11;  // value: "off" | "track" | "context"
+    MEDIA_CONTROL_VOLUME = 12;  // value: "0".."100", the service's own volume
 }
 
 message ControlMediaRequest {
     MediaControlAction action = 1;
     string session_id = 2;
     double seek_position_seconds = 3;
+
+    // The argument of SHUFFLE / REPEAT / VOLUME; empty for every other verb.
+    string value = 4;
 }
 
 message GetMediaStateRequest {
@@ -3313,6 +3350,11 @@ message MediaSessionInfo {
     string source_app_id = 3;
     bool is_current = 4;
     bytes app_icon = 5;
+
+    // Set when a music-service plugin reports this session (`MediaProvider`).
+    string service_id = 6;
+    string device_name = 7;
+    bool remote = 8;  // plays on another device, not this computer
 }
 
 message MediaSessionsResponse {
@@ -4173,6 +4215,32 @@ service PluginCapabilityService {
     rpc AiGetModels(Empty) returns (PluginAiModelsResponse) {
         option deprecated = true;
     }
+
+    // ── Web search ──
+    // A plugin that declares `capabilities.web_search` is a search provider the
+    // user can choose for the `web_search` AI tool, as `plugin__<plugin id>`.
+    // The daemon owns the provider chain, the cache, the result fence and what
+    // the model is told; the plugin answers ONE query. A refusal is an ANSWER
+    // (`error_code`), not a gRPC error, so the daemon can tell "my allowance is
+    // spent, use the fallback" from "this plugin is broken".
+    rpc WebSearch(PluginWebSearchRequest) returns (PluginWebSearchResponse);
+
+    // ── Music provider ──
+    // A plugin that declares `capabilities.music_provider` reports what music
+    // services play and drives them, so the music widget, the island and the AI
+    // media tools reach a service (like in it, its queue, search and play)
+    // through the one media hub. The daemon opens `MusicSubscribe` once per
+    // plugin run and keeps it; every other call is one request. A refusal is an
+    // ANSWER (`error_code`), not a gRPC error.
+    rpc MusicSubscribe(Empty) returns (stream PluginMusicSnapshot);
+
+    rpc MusicControl(PluginMusicControlRequest) returns (PluginMusicResult);
+
+    rpc MusicGetQueue(PluginMusicQueueRequest) returns (PluginMusicQueueResponse);
+
+    rpc MusicSearch(PluginMusicSearchRequest) returns (PluginMusicSearchResponse);
+
+    rpc MusicPlay(PluginMusicPlayRequest) returns (PluginMusicPlayResponse);
 
     // ── Actions ──
     rpc ExecuteAction(PluginExecuteActionRequest) returns (PluginExecuteActionResponse);
@@ -5665,6 +5733,175 @@ message SttLoadStateResponse {
 // list to the Voice page; DynamicField renders it without per-plugin code.
 message PluginConfigFieldsResponse {
     repeated FieldDefinitionMsg config_fields = 1;
+}
+
+// ── Web search ──
+
+// One web search, as the daemon asks a plugin provider for it
+// (`PluginCapabilityService.WebSearch`).
+message PluginWebSearchRequest {
+    string query = 1;
+    uint32 count = 2;  // 1..=10
+    string freshness = 3;  // "", "day", "week", "month" or "year"
+    string country = 4;  // ISO 3166-1 alpha-2, upper case, or ""
+    string language = 5;  // ISO 639-1, lower case, or ""
+}
+
+message PluginWebSearchHit {
+    string title = 1;
+    string url = 2;  // http(s) only; anything else is dropped
+    string snippet = 3;
+    string published = 4;  // YYYY-MM-DD, or "" when unknown
+}
+
+message PluginWebSearchResponse {
+    repeated PluginWebSearchHit hits = 1;
+
+    // Empty when the search ran (even with no hits). Otherwise one of
+    // "quota", "rate_limited", "auth", "not_configured", "unavailable";
+    // an unknown code is read as "unavailable".
+    string error_code = 2;
+
+    // Short and in English: the model reads it.
+    string error_message = 3;
+
+    // With "rate_limited": how long to wait, 0 when unknown.
+    uint32 retry_after_secs = 4;
+}
+
+// ── Music provider ──
+//
+// Refusals, in every response below: `error_code` is empty when the request
+// was carried out, otherwise one of "not_supported", "not_found",
+// "no_active_device", "auth", "premium_required", "rate_limited",
+// "unavailable", "not_configured"; an unknown code is read as "unavailable".
+// `error_message` is short, in English, for a person. `retry_after_secs` goes
+// with "rate_limited", 0 when unknown.
+
+// Everything a music-provider plugin reports — ALWAYS the whole set: a session
+// missing from a snapshot has ended. Sent on subscribe, on every change, and
+// again every `music_snapshot_heartbeat_secs` so a silent plugin is noticed.
+message PluginMusicSnapshot {
+    repeated PluginMusicService services = 1;
+    repeated PluginMusicSession sessions = 2;
+}
+
+// A service the plugin reaches, signed in or not.
+message PluginMusicService {
+    string service_id = 1;  // open vocabulary: "yandex", "spotify", "ytmusic", "soundcloud", "vk", "web", ...
+    string name = 2;  // for the user; a `$key` resolves through the plugin's locales
+    string status = 3;  // "ready" | "signed_out" | "error" | "disabled"
+    string status_message = 4;
+    bool can_search = 5;
+    bool can_play = 6;
+}
+
+// One playback a service reports.
+message PluginMusicSession {
+    string session_key = 1;  // [A-Za-z0-9._-]{1,64}, stable while the plugin runs
+    string service_id = 2;
+
+    // The audio may be coming out of THIS computer. Only such a session can
+    // stand for an OS media session; any other is shown as a remote one.
+    bool this_device = 3;
+    string device_name = 4;  // the service's own name for the device
+
+    // OS session ids (GSMTC AppUserModelId, executable name, MPRIS player name)
+    // of an app that plays nothing but this service: a match pairs on its own.
+    repeated string exclusive_app_hints = 5;
+
+    // Hosts of many things (browsers): a match pairs only when the song agrees.
+    repeated string shared_app_hints = 6;
+    string status = 7;  // "playing" | "paused" | "stopped" | "buffering"
+    string title = 8;
+    string artist = 9;
+    string album = 10;
+    string artwork_url = 11;  // https only; the daemon fetches and caches it
+    double position_seconds = 12;
+    double duration_seconds = 13;
+    string track_ref = 14;  // the plugin's own reference to the track
+    string track_url = 15;  // https, or an app scheme the service registers
+    bool liked = 16;
+    bool shuffle = 17;
+    string repeat = 18;  // "off" | "track" | "context"
+    int32 volume_percent = 19;  // -1 when unknown
+
+    // What `MusicControl` accepts for this session, an open vocabulary:
+    // "play", "pause", "next", "previous", "seek", "like", "unlike", "shuffle",
+    // "repeat", "volume", "queue" (MusicGetQueue), "play_into" (MusicPlay).
+    repeated string controls = 20;
+}
+
+message PluginMusicControlRequest {
+    string session_key = 1;
+    string action = 2;  // one of the session's `controls`
+
+    // "seek": seconds; "volume": "0".."100"; "shuffle": "on" | "off";
+    // "repeat": "off" | "track" | "context"; empty otherwise.
+    string value = 3;
+}
+
+message PluginMusicResult {
+    string error_code = 1;
+    string error_message = 2;
+    uint32 retry_after_secs = 3;
+}
+
+message PluginMusicItem {
+    string item_ref = 1;  // the plugin's own; comes back in MusicPlay
+    string kind = 2;  // "track" | "album" | "artist" | "playlist" | "wave"
+    string title = 3;
+    string subtitle = 4;
+    string album = 5;
+    string artwork_url = 6;  // https only
+    double duration_seconds = 7;
+    bool liked = 8;
+    string service_id = 9;
+}
+
+message PluginMusicQueueRequest {
+    string session_key = 1;
+    uint32 limit = 2;  // 1..=50
+}
+
+message PluginMusicQueueResponse {
+    repeated PluginMusicItem items = 1;
+    int32 current_index = 2;  // the playing item's index in `items`, -1 if none
+    string error_code = 3;
+    string error_message = 4;
+    uint32 retry_after_secs = 5;
+}
+
+message PluginMusicSearchRequest {
+    string query = 1;
+    string kind = 2;  // "" = anything, else a PluginMusicItem kind
+    uint32 limit = 3;  // 1..=`music_search_max_items`
+    string service_id = 4;  // "" = any service this plugin reaches
+    string language = 5;  // the UI language, ISO 639-1
+}
+
+message PluginMusicSearchResponse {
+    repeated PluginMusicItem items = 1;
+    string error_code = 2;
+    string error_message = 3;
+    uint32 retry_after_secs = 4;
+}
+
+message PluginMusicPlayRequest {
+    string item_ref = 1;  // a PluginMusicItem.item_ref, or empty with `query`
+    string query = 2;
+    string kind = 3;  // narrows `query`; "" = a track
+    string mode = 4;  // "now" | "next" | "end"
+    string session_key = 5;  // play into this session; empty = the plugin's choice
+    string service_id = 6;  // "" = the plugin's choice
+}
+
+message PluginMusicPlayResponse {
+    PluginMusicItem played = 1;
+    string session_key = 2;
+    string error_code = 3;
+    string error_message = 4;
+    uint32 retry_after_secs = 5;
 }
 
 // ── AI Provider ──

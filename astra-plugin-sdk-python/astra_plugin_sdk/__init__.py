@@ -59,6 +59,21 @@ from astra_plugin_sdk.protocol import (
     PROTOCOL_VERSION,
 )
 from astra_plugin_sdk.invocation import Invocation, current_invocation
+from astra_plugin_sdk.music import (
+    MUSIC_CONTROLS,
+    MusicControlRequest,
+    MusicErrorCode,
+    MusicItem,
+    MusicPlayed,
+    MusicPlayRequest,
+    MusicPublisher,
+    MusicQueue,
+    MusicQueueRequest,
+    MusicRefusal,
+    MusicSearchRequest,
+    MusicService,
+    MusicSession,
+)
 from astra_plugin_sdk.types import (
     AiChunk,
     AiCompleteRequest,
@@ -69,6 +84,10 @@ from astra_plugin_sdk.types import (
     SttLoadStatus,
     SttOptions,
     ThemeContribution,
+    WebSearchErrorCode,
+    WebSearchHit,
+    WebSearchRequest,
+    WebSearchResponse,
 )
 
 __all__ = [
@@ -135,6 +154,25 @@ __all__ = [
     "SttLoadStatus",
     "SttOptions",
     "ThemeContribution",
+    # ── web search provider payloads ──
+    "WebSearchErrorCode",
+    "WebSearchHit",
+    "WebSearchRequest",
+    "WebSearchResponse",
+    # ── music provider payloads ──
+    "MUSIC_CONTROLS",
+    "MusicControlRequest",
+    "MusicErrorCode",
+    "MusicItem",
+    "MusicPlayed",
+    "MusicPlayRequest",
+    "MusicPublisher",
+    "MusicQueue",
+    "MusicQueueRequest",
+    "MusicRefusal",
+    "MusicSearchRequest",
+    "MusicService",
+    "MusicSession",
 ]
 # Keep in lockstep with `version` in pyproject.toml.
 #

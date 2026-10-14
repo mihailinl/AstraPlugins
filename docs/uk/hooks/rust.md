@@ -27,6 +27,12 @@
 | `SttGetLoadState` | `stt` | опціональний | unary | stable | Повідомити Loaded / NotLoaded / NotNeeded, щоб демон міг керувати idle-unload. |
 | `AiComplete` | `ai_provider` | обов'язковий | server | stable | Стрімити завершення моделі; єдиний спосіб для плагіна бути провайдером ШІ. |
 | `AiGetModels` | `ai_provider` | опціональний | unary | stable | Перелічити моделі, які може запускати цей провайдер. |
+| `WebSearch` | `web_search` | обов'язковий | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | optional | unary | stable | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | optional | unary | stable | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | обов'язковий | unary | stable | Виконати одну дію-крок команди, додану цим плагіном. |
 | `GetPluginActionTypes` | `actions` | обов'язковий | unary | stable | Типи дій, які цей плагін додає до редактора команд, читаються при старті. |
 | `GetPluginTriggerTypes` | `triggers` | обов'язковий | unary | stable | Типи тригерів, які цей плагін додає до редактора команд, читаються при старті. |

@@ -13,7 +13,7 @@
 
 - **Писати можна будь-якою мовою**, що вміє gRPC. Тут постачаються три SDK —
   Rust, Python, TypeScript — і вони перебувають у стані
-  [повного паритету](../reference/parity.md): усі 35 хуків у всіх трьох.
+  [повного паритету](../reference/parity.md): усі 41 хуків у всіх трьох.
 - **У плагіна ваші права, а не менші.** Див. [модель безпеки](security.md).
 - **Він погано переживає власні баги, а Astra — взагалі ніяк.** Паніка
   всередині обробника перехоплюється й повертається як помилка, а не вбиває
@@ -41,7 +41,7 @@ true` не дає права підписуватися на події; це р
 `GetPluginSelfConfig` і `GetDaemonInfo`, і нічого більше
 ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## Одинадцять можливостей
+## Тринадцять можливостей
 
 Кожен ключ — булевий, за замовчуванням `false`, і зобов'язує вас обслуговувати
 певні хуки. У правій колонці — *обов'язкові*; необов'язкові — у
@@ -54,6 +54,8 @@ true` не дає права підписуватися на події; це р
 | `stt` | провайдер розпізнавання мовлення | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | детектор слова-активатора в налаштуваннях голосу | методи `CallFromUi` для аудіо ([контракт](../wakeword-plugins.md)) |
 | `ai_provider` | бекенд моделі | `AiComplete` |
+| `web_search` | a web search provider the user can pick for the assistant's searches | `WebSearch` ([guide](../../en/web-search-plugins.md)) |
+| `music_provider` | music services Astra's player and the assistant can drive: like, queue, search and play | `MusicSubscribe`, `MusicControl` ([guide](../../en/music-provider-plugins.md)) |
 | `actions` | кроки в редакторі команд | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | типи тригерів, на які можуть підписуватися команди | `GetPluginTriggerTypes`, `FireTrigger` |
 | `ui_contributions` | панелі, сторінки й оверлеї у вікні Astra | `GetUiContributions` |

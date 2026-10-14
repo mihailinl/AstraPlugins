@@ -101,6 +101,7 @@ fn capabilities_are_only_claimed_by_hooks_that_need_them() {
     assert_eq!(hooks::capability_for("tts_synthesize"), Some("tts"));
     assert_eq!(hooks::capability_for("stt_load"), Some("stt"));
     assert_eq!(hooks::capability_for("ai_complete"), Some("ai_provider"));
+    assert_eq!(hooks::capability_for("web_search"), Some("web_search"));
     // Lifecycle declares nothing. A plugin with settings is not thereby a
     // plugin with capabilities.
     assert_eq!(hooks::capability_for("on_config"), None);

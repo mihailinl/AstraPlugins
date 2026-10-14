@@ -42,8 +42,14 @@ __all__ = [
     "SttLoadState",
     "SttLoadStatus",
     "ThemeContribution",
+    "WebSearchErrorCode",
+    "WebSearchHit",
+    "WebSearchRequest",
+    "WebSearchResponse",
+    "WEB_SEARCH_MAX_COUNT",
     "coerce_ai_chunk",
     "coerce_audio_chunk",
+    "coerce_web_search_response",
 ]
 
 
@@ -294,6 +300,197 @@ class SttLoadStatus:
         return plugin_pb2.SttLoadStateResponse(
             state=int(self.state), detail=self.detail
         )
+
+
+# ── web search ───────────────────────────────────────────────────────────────
+
+#: The most hits the daemon ever asks a `web_search` provider for.
+WEB_SEARCH_MAX_COUNT = 10
+
+#: The freshness values the daemon sends. Anything else (a newer daemon's
+#: sixth value) reads as "" — no restriction — so a provider answers too
+#: broadly rather than not at all.
+_FRESHNESS = ("", "day", "week", "month", "year")
+
+
+class WebSearchErrorCode(str, enum.Enum):
+    """Why a provider did not search. Each code changes what the daemon does
+    next, which is why they are a closed set rather than a message.
+
+    A `str` enum, so the member IS its wire string: `WebSearchErrorCode.QUOTA ==
+    "quota"`.
+    """
+
+    #: The account's allowance is spent; the daemon falls back to the next
+    #: provider in the user's chain.
+    QUOTA = "quota"
+    #: Too many requests right now. Set `retry_after_secs` when the API says.
+    RATE_LIMITED = "rate_limited"
+    #: The key was refused.
+    AUTH = "auth"
+    #: Something the user has to set (usually the key) is missing.
+    NOT_CONFIGURED = "not_configured"
+    #: Anything else: the service is down, the network failed, the answer was
+    #: unreadable.
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass
+class WebSearchRequest:
+    """One web search, as the daemon asks a `web_search` provider for it.
+
+    The daemon has already validated the query and normalised the region, so a
+    provider maps these fields onto its own API and nothing more. Empty strings
+    mean "not asked for".
+    """
+
+    #: What the model searched for.
+    query: str = ""
+    #: How many hits to return, 1..=`WEB_SEARCH_MAX_COUNT`. Fewer is fine; the
+    #: SDK cuts a longer answer to this length.
+    count: int = 5
+    #: "" | "day" | "week" | "month" | "year"
+    freshness: str = ""
+    #: ISO 3166-1 alpha-2, upper case ("DE"), or "".
+    country: str = ""
+    #: ISO 639-1, lower case ("de"), or "".
+    language: str = ""
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "WebSearchRequest":
+        freshness = msg.freshness.strip()
+        return cls(
+            query=msg.query,
+            # The daemon sends 1..=10. A zero still asks for one hit.
+            count=max(1, min(int(msg.count), WEB_SEARCH_MAX_COUNT)),
+            freshness=freshness if freshness in _FRESHNESS else "",
+            country=msg.country.strip(),
+            language=msg.language.strip(),
+        )
+
+
+@dataclass
+class WebSearchHit:
+    """One search result."""
+
+    title: str = ""
+    #: `http` or `https` only — the daemon drops a hit with any other scheme.
+    url: str = ""
+    #: Plain text. The daemon strips markup anyway, but a provider that sends
+    #: text is the one whose snippets read well.
+    snippet: str = ""
+    #: "YYYY-MM-DD" when the source dates the page, else "".
+    published: str = ""
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "WebSearchHit":
+        return cls(
+            title=msg.title, url=msg.url, snippet=msg.snippet, published=msg.published
+        )
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginWebSearchHit(
+            title=self.title,
+            url=self.url,
+            snippet=self.snippet,
+            published=self.published,
+        )
+
+
+@dataclass
+class WebSearchResponse:
+    """A provider's answer: the hits, or the refusal it means.
+
+    A refusal is an ANSWER, not an exception. ``WebSearchResponse.refuse(
+    WebSearchErrorCode.QUOTA, "monthly allowance used")`` is how the daemon
+    learns to fall back to another provider; raising tells it this plugin is
+    broken.
+    """
+
+    hits: list[WebSearchHit] = field(default_factory=list)
+    #: "" when the search ran (even with no hits), else a `WebSearchErrorCode`.
+    error_code: str = ""
+    #: Short and in English: the model reads it.
+    error_message: str = ""
+    #: With `RATE_LIMITED`: seconds to wait, 0 when unknown.
+    retry_after_secs: int = 0
+
+    @classmethod
+    def of(cls, hits: "list[WebSearchHit | dict]") -> "WebSearchResponse":
+        """The search ran. An empty list is a search with no results."""
+        return cls(hits=[_coerce_hit(h) for h in hits])
+
+    @classmethod
+    def refuse(
+        cls,
+        code: "WebSearchErrorCode | str",
+        message: str,
+        retry_after_secs: int = 0,
+    ) -> "WebSearchResponse":
+        """The search did not run, for `code`'s reason.
+
+        `code` is checked here, so a typo fails in the plugin's own test rather
+        than reaching the daemon as an unknown code it reads as "unavailable".
+        """
+        return cls(
+            error_code=WebSearchErrorCode(code).value,
+            error_message=message,
+            retry_after_secs=max(0, int(retry_after_secs)),
+        )
+
+    @property
+    def refused(self) -> bool:
+        return bool(self.error_code)
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "WebSearchResponse":
+        return cls(
+            hits=[WebSearchHit.from_proto(h) for h in msg.hits],
+            error_code=msg.error_code,
+            error_message=msg.error_message,
+            retry_after_secs=msg.retry_after_secs,
+        )
+
+    def to_proto(self, count: int | None = None) -> Any:
+        """The wire message, with at most `count` hits. A refusal carries none."""
+        if self.error_code:
+            return plugin_pb2.PluginWebSearchResponse(
+                error_code=self.error_code,
+                error_message=self.error_message,
+                retry_after_secs=max(0, int(self.retry_after_secs)),
+            )
+        hits = self.hits if count is None else self.hits[: max(0, count)]
+        return plugin_pb2.PluginWebSearchResponse(
+            hits=[_coerce_hit(h).to_proto() for h in hits]
+        )
+
+
+def _coerce_hit(value: Any) -> WebSearchHit:
+    if isinstance(value, WebSearchHit):
+        return value
+    if isinstance(value, dict):
+        return WebSearchHit(
+            title=str(value.get("title", "")),
+            url=str(value.get("url", "")),
+            snippet=str(value.get("snippet", "")),
+            published=str(value.get("published", "") or ""),
+        )
+    raise TypeError(
+        f"a web search hit must be a WebSearchHit or a dict, not {type(value).__name__}"
+    )
+
+
+def coerce_web_search_response(value: Any) -> WebSearchResponse:
+    """Accept what an author returns: a `WebSearchResponse`, or a bare list of
+    hits (`WebSearchHit` or dicts), which means the search ran."""
+    if isinstance(value, WebSearchResponse):
+        return value
+    if isinstance(value, (list, tuple)):
+        return WebSearchResponse.of(list(value))
+    raise TypeError(
+        f"web_search returned {type(value).__name__}; return a WebSearchResponse "
+        f"or a list of WebSearchHit"
+    )
 
 
 # ── theme ────────────────────────────────────────────────────────────────────

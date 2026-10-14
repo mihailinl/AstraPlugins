@@ -41,7 +41,7 @@ from astra_plugin_sdk import limits
 from astra_plugin_sdk.plugin import Plugin, _CapabilityServicer
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.testing.recording_host import RecordingHost
-from astra_plugin_sdk.types import AudioChunk, SttOptions
+from astra_plugin_sdk.types import AudioChunk, SttOptions, WebSearchResponse
 
 __all__ = ["Harness", "Result", "SttEvent", "HarnessError", "FakeContext"]
 
@@ -266,6 +266,8 @@ class Harness:
             await self.set_config_async(self._config)
         await self.plugin.on_language_changed(self._language)
         self.plugin.language = self._language
+        # As the runner does: on_start comes after language and config.
+        await self.plugin.on_start()
 
     def stop(self) -> None:
         """Send `Shutdown` and shut the harness loop down. Idempotent.
@@ -479,6 +481,109 @@ class Harness:
             )
         )
         return _result(response, ctx, result_field="result_json")
+
+    def web_search(
+        self,
+        query: str,
+        /,
+        *,
+        count: int = 5,
+        freshness: str = "",
+        country: str = "",
+        language: str = "",
+    ) -> WebSearchResponse:
+        """Search the way the daemon does (`WebSearch`), through the real servicer.
+
+        The answer is what crossed the wire — cut to `count` — read back into a
+        `WebSearchResponse`. A refusal the plugin meant is a normal answer here
+        (`response.refused`); a raise, or a hook that is not implemented, is a
+        `HarnessError`.
+        """
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.WebSearch(
+                plugin_pb2.PluginWebSearchRequest(
+                    query=query,
+                    count=count,
+                    freshness=freshness,
+                    country=country,
+                    language=language,
+                ),
+                ctx,
+            )
+        )
+        self._raise_if_failed(ctx, "web_search")
+        return WebSearchResponse.from_proto(response)
+
+    # ── music_provider ──
+
+    def music_snapshot(self):
+        """The first snapshot the daemon would read on `MusicSubscribe` —
+        what the plugin last published — as a `PluginMusicSnapshot`."""
+
+        async def first():
+            ctx = FakeContext()
+            stream = self._servicer.MusicSubscribe(plugin_pb2.Empty(), ctx)
+            try:
+                async for snapshot in stream:
+                    return snapshot
+            finally:
+                await stream.aclose()
+            self._raise_if_failed(ctx, "music_subscribe")
+            return None
+
+        return self.run(first())
+
+    def music_control(self, session_key: str, action: str, value: str = ""):
+        """`MusicControl` through the real servicer. A refusal the plugin meant
+        is a normal answer (`error_code` set); a raise is a `HarnessError`."""
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.MusicControl(
+                plugin_pb2.PluginMusicControlRequest(session_key=session_key, action=action, value=value),
+                ctx,
+            )
+        )
+        self._raise_if_failed(ctx, "music_control")
+        return response
+
+    def music_queue(self, session_key: str, limit: int = 20):
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.MusicGetQueue(
+                plugin_pb2.PluginMusicQueueRequest(session_key=session_key, limit=limit), ctx
+            )
+        )
+        self._raise_if_failed(ctx, "music_get_queue")
+        return response
+
+    def music_search(self, query: str, *, kind: str = "", limit: int = 10, service_id: str = "", language: str = "en"):
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.MusicSearch(
+                plugin_pb2.PluginMusicSearchRequest(
+                    query=query, kind=kind, limit=limit, service_id=service_id, language=language
+                ),
+                ctx,
+            )
+        )
+        self._raise_if_failed(ctx, "music_search")
+        return response
+
+    def music_play(self, *, item_ref: str = "", query: str = "", kind: str = "", mode: str = "now",
+                   session_key: str = "", service_id: str = ""):
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.MusicPlay(
+                plugin_pb2.PluginMusicPlayRequest(
+                    item_ref=item_ref, query=query, kind=kind, mode=mode,
+                    session_key=session_key, service_id=service_id,
+                ),
+                ctx,
+            )
+        )
+        self._raise_if_failed(ctx, "music_play")
+        return response
 
     def health(self) -> tuple[bool, str]:
         ctx = FakeContext()

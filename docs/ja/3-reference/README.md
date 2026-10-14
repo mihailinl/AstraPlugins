@@ -23,7 +23,7 @@
 | [CLI](../reference/cli.md) | `clap` の定義、バイナリを実行して |
 | [プロトコル](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [エラー](../reference/errors.md) | 3 つの SDK すべてのエラー分類 |
-| [フックの対応表](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 35 個のフック、3 つの SDK |
+| [フックの対応表](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 41 個のフック、3 つの SDK |
 
 同じ仕様から描画された、SDK ごとのフック表:
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

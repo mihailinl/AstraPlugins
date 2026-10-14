@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<!-- A trimmed results page in the shape html.duckduckgo.com/html/ serves:
+     one ad, three real results (a redirect link, a redirect whose target has
+     its own query string, a direct link with a <div> snippet), and a result
+     whose link is not a web page. Hand-written for the parser's tests; it is
+     not a capture of a real response. -->
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <title>rust language at DuckDuckGo</title>
+</head>
+<body>
+<div id="links" class="results">
+
+  <div class="result results_links results_links_deep result--ad result--ad--small">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="https://duckduckgo.com/y.js?ad_domain=example-ads.com&amp;ad_provider=x&amp;u3=y">Buy <b>Rust</b> Now</a>
+      </h2>
+      <a class="result__snippet" href="https://duckduckgo.com/y.js?ad_domain=example-ads.com">An advertisement, which must not become a hit.</a>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result ">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.rust%2Dlang.org%2F&amp;rut=abc123">Rust Programming <b>Language</b></a>
+      </h2>
+      <div class="result__extras">
+        <div class="result__extras__url">
+          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.rust%2Dlang.org%2F&amp;rut=abc123">www.rust-lang.org</a>
+        </div>
+      </div>
+      <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.rust%2Dlang.org%2F&amp;rut=abc123">A language empowering everyone to build reliable and efficient software. <b>Rust</b> is fast &amp; memory-efficient.</a>
+      <div class="clear"></div>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result ">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FRust_(programming_language)%3Fa%3D1%26b%3D2&amp;rut=def456">Rust (programming language) - Wikipedia</a>
+      </h2>
+      <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FRust_(programming_language)&amp;rut=def456">Rust is a general-purpose programming language emphasizing performance, type safety, and concurrency.</a>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result ">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="https://doc.rust-lang.org/book/">The Rust Programming Language - The <b>Rust</b> Book</a>
+      </h2>
+      <div class="result__snippet">by Steve Klabnik<br>and Carol Nichols &mdash; an introductory book about Rust.</div>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result ">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="javascript:alert(1)">Not a web page</a>
+      </h2>
+      <a class="result__snippet" href="javascript:alert(1)">This one has no http(s) URL and must be dropped.</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

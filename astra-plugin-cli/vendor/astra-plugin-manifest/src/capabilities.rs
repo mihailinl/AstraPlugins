@@ -34,6 +34,18 @@ pub struct Capabilities {
     pub wakeword: bool,
     #[serde(default)]
     pub ai_provider: bool,
+    /// The plugin answers `PluginCapabilityService.WebSearch`: it is a web
+    /// search provider the user can choose for the `web_search` AI tool.
+    /// Declaring it makes a manifest unreadable by a daemon older than the one
+    /// that introduced it (`deny_unknown_fields`), so set `min_astra_version`.
+    #[serde(default)]
+    pub web_search: bool,
+    /// The plugin answers the `PluginCapabilityService.Music*` hooks: it reports
+    /// what music services play and drives them, so the music widget, the
+    /// island and the AI media tools reach those services through the media
+    /// hub. Set `min_astra_version`, for the reason `web_search` gives.
+    #[serde(default)]
+    pub music_provider: bool,
     #[serde(default)]
     pub client: bool,
     #[serde(default)]
@@ -60,6 +72,8 @@ pub const CAPABILITY_NAMES: &[&str] = &[
     "stt",
     "wakeword",
     "ai_provider",
+    "web_search",
+    "music_provider",
     "client",
     "actions",
     "triggers",
@@ -116,6 +130,12 @@ impl Capabilities {
         }
         if self.ai_provider {
             list.push("ai_provider".into());
+        }
+        if self.web_search {
+            list.push("web_search".into());
+        }
+        if self.music_provider {
+            list.push("music_provider".into());
         }
         if self.client {
             list.push("client".into());

@@ -2,7 +2,7 @@
 
 # 钩子对照表(Hook parity)
 
-协议 **1** · **35** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+协议 **1** · **36** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *钩子(hook)* 指的是插件面向的两个服务之一上的一个 RPC。`PluginCapabilityService`
 是**守护进程 → 插件**方向的：你的插件提供服务，守护进程发起调用。
@@ -53,6 +53,12 @@
 | `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
@@ -89,6 +95,8 @@
 | `tts` | yes | yes | yes |
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
+| `web_search` | yes | yes | yes |
+| `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
 | `ui_contributions` | yes | yes | yes |
@@ -98,7 +106,7 @@
 
 ## 一致性测试覆盖范围
 
-一次一致性测试运行必须行使的 23 个入站钩子 —— 也就是守护进程真正会调用的
+一次一致性测试运行必须行使的 24 个入站钩子 —— 也就是守护进程真正会调用的
 每一个 `daemon → plugin` 钩子。`astra-plugin test` 会调用插件所声明的
 capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返回
 `UNIMPLEMENTED`；`optional` 的钩子则被豁免，因为 `Unimplemented → 钩子
@@ -121,6 +129,12 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `WebSearch` | `web_search` | required | unary | probe |
+| `MusicSubscribe` | `music_provider` | required | server | probe |
+| `MusicControl` | `music_provider` | required | unary | probe |
+| `MusicGetQueue` | `music_provider` | optional | unary | probe |
+| `MusicSearch` | `music_provider` | optional | unary | probe |
+| `MusicPlay` | `music_provider` | optional | unary | probe |
 | `ExecuteAction` | `actions` | required | unary | probe |
 | `GetPluginActionTypes` | `actions` | required | unary | probe |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | probe |

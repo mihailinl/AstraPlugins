@@ -169,6 +169,8 @@ check` друкував «No capabilities enabled».
 | `stt` | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | немає |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`, `FireTrigger` |

@@ -39,7 +39,29 @@ import type {
   StateChangedEvent,
   CommandTriggeredEvent,
   CommandCompletedEvent,
+  WebSearchFreshness,
+  WebSearchHit,
+  WebSearchRequest,
+  WebSearchResponse,
 } from "./types.js";
+import { WebSearch } from "./types.js";
+import {
+  MusicPublisher,
+  musicControlFromWire,
+  musicItemWire,
+  musicPlayFromWire,
+  musicQueueFromWire,
+  musicRefusalWire,
+  musicSearchFromWire,
+  MusicRefusal,
+  type MusicControlRequest,
+  type MusicItem,
+  type MusicPlayRequest,
+  type MusicPlayed,
+  type MusicQueue,
+  type MusicQueueRequest,
+  type MusicSearchRequest,
+} from "./music.js";
 import { PluginError } from "./errors.js";
 import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits.js";
 import { DaemonClient } from "./daemon-client.js";
@@ -47,6 +69,50 @@ import type { Host } from "./host.js";
 import { PluginContextImpl, type PluginContext } from "./context.js";
 import { I18n } from "./i18n.js";
 import { installConsoleBridge, installFatalHandlers } from "./logging.js";
+
+const WEB_SEARCH_FRESHNESS: readonly WebSearchFreshness[] = ["", "day", "week", "month", "year"];
+
+/** The wire request (camelCase, as protobufjs loads it) as the SDK's type. */
+function webSearchRequestFromWire(wire: Record<string, unknown>): WebSearchRequest {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const freshness = str(wire.freshness) as WebSearchFreshness;
+  const count = Number(wire.count ?? 0);
+  return {
+    query: typeof wire.query === "string" ? wire.query : "",
+    // The daemon sends 1..=10. A zero still asks for one hit.
+    count: Math.max(1, Math.min(Number.isFinite(count) ? Math.trunc(count) : 1, WebSearch.MAX_COUNT)),
+    freshness: WEB_SEARCH_FRESHNESS.includes(freshness) ? freshness : "",
+    country: str(wire.country),
+    language: str(wire.language),
+  };
+}
+
+/** A hook's answer as the wire response, with at most `count` hits. */
+function webSearchResponseToWire(
+  answer: WebSearchResponse | WebSearchHit[],
+  count: number
+): Record<string, unknown> {
+  const response: WebSearchResponse = Array.isArray(answer) ? { hits: answer } : (answer ?? {});
+  if (response.errorCode) {
+    return {
+      hits: [],
+      errorCode: response.errorCode,
+      errorMessage: response.errorMessage ?? "",
+      retryAfterSecs: Math.max(0, Math.trunc(response.retryAfterSecs ?? 0)),
+    };
+  }
+  return {
+    hits: (response.hits ?? []).slice(0, count).map((h) => ({
+      title: h.title ?? "",
+      url: h.url ?? "",
+      snippet: h.snippet ?? "",
+      published: h.published ?? "",
+    })),
+    errorCode: "",
+    errorMessage: "",
+    retryAfterSecs: 0,
+  };
+}
 
 /**
  * The daemon's word for "this plugin does not have that hook".
@@ -174,6 +240,12 @@ export abstract class Plugin {
 
   /** Set of active trigger types (auto-updated by daemon). */
   activeTriggers: Set<string> = new Set();
+
+  /**
+   * What a `music_provider` plugin reports — `this.music.publish(services,
+   * sessions)`. See `music.ts`.
+   */
+  music: MusicPublisher = new MusicPublisher();
 
   /** This plugin's id, as the daemon spawned it. `""` until `run()` parses argv. */
   pluginId: string = "";
@@ -601,6 +673,58 @@ export abstract class Plugin {
   }
 
   /**
+   * Answer one web search. The whole of the `web_search` capability.
+   *
+   * The user picks this plugin as the provider for the assistant's
+   * `web_search` tool. The daemon owns everything around the call — the
+   * provider chain and its fallback, the cache, and the fence that marks
+   * results as untrusted text for the model — so this hook answers ONE query
+   * and does none of that itself.
+   *
+   * ```typescript
+   * async webSearch(req: WebSearchRequest) {
+   *   if (!this.apiKey) return WebSearch.refuse("not_configured", "no API key is set");
+   *   const rows = await this.client.search(req.query, req.count);
+   *   return rows.map((r) => ({ title: r.title, url: r.url, snippet: r.text }));
+   * }
+   * ```
+   *
+   * Return a `WebSearchResponse` or a bare `WebSearchHit[]` (the search ran).
+   * A refusal you mean is `WebSearch.refuse(code, message)`, an answer the
+   * daemon acts on; throwing reports the plugin as failing. Keep any API key
+   * in the plugin's own `[config]`, where the user sets it on the Plugins page.
+   */
+  async webSearch(_request: WebSearchRequest): Promise<WebSearchResponse | WebSearchHit[]> {
+    throw new HookUnimplemented("this plugin is not a web search provider");
+  }
+
+  // ── music_provider ──
+  //
+  // Reporting is `this.music.publish(...)`; these four answer. `throw new
+  // MusicRefusal(code, message)` is a refusal the daemon shows the person; any
+  // other throw reports the plugin as failing.
+
+  /** Carry out one verb on one of your sessions (`request.action`). */
+  async musicControl(_request: MusicControlRequest): Promise<void> {
+    throw new HookUnimplemented("this plugin is not a music provider");
+  }
+
+  /** A session's queue around the playing item. */
+  async musicGetQueue(_request: MusicQueueRequest): Promise<MusicQueue | MusicItem[]> {
+    throw new HookUnimplemented("this plugin does not share a queue");
+  }
+
+  /** Search a catalogue; each item's `itemRef` comes back in `musicPlay`. */
+  async musicSearch(_request: MusicSearchRequest): Promise<MusicItem[]> {
+    throw new HookUnimplemented("this plugin cannot search");
+  }
+
+  /** Start — or queue next / at the end — an item or the first match. */
+  async musicPlay(_request: MusicPlayRequest): Promise<MusicPlayed | MusicItem | null> {
+    throw new HookUnimplemented("this plugin cannot start playback");
+  }
+
+  /**
    * @deprecated The daemon has no call site — `all_ai_providers` builds every
    * plugin provider with `supports_model_discovery: false`, so the model picker
    * never asks. Kept so an existing plugin keeps compiling.
@@ -729,6 +853,8 @@ export abstract class Plugin {
     // and defaults to empty, so a provider that implemented the hook that
     // matters used to register without the capability that names it.
     if (models.length > 0 || this.overrides("aiComplete")) caps.push("ai_provider");
+    if (this.overrides("webSearch")) caps.push("web_search");
+    if (this.overrides("musicControl")) caps.push("music_provider");
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
     if ((await this.getTriggerTypes()).length > 0) caps.push("triggers");
     if ((await this.getUiContributions()).length > 0) caps.push("ui_contributions");
@@ -772,10 +898,16 @@ export abstract class Plugin {
       SttLoad: this.wrapHandler(this.handleSttLoad.bind(this)),
       SttUnload: this.wrapHandler(this.handleSttUnload.bind(this)),
       SttGetLoadState: this.wrapHandler(this.handleSttGetLoadState.bind(this)),
+      WebSearch: this.wrapHandler(this.handleWebSearch.bind(this)),
+      MusicControl: this.wrapHandler(this.handleMusicControl.bind(this)),
+      MusicGetQueue: this.wrapHandler(this.handleMusicGetQueue.bind(this)),
+      MusicSearch: this.wrapHandler(this.handleMusicSearch.bind(this)),
+      MusicPlay: this.wrapHandler(this.handleMusicPlay.bind(this)),
       // Streaming RPCs.
       TtsSynthesizeStream: this.wrapStream(this.handleTtsSynthesizeStream.bind(this)),
       SttProcess: this.wrapStream(this.handleSttProcess.bind(this)),
       AiComplete: this.wrapStream(this.handleAiComplete.bind(this)),
+      MusicSubscribe: this.wrapStream(this.handleMusicSubscribe.bind(this)),
     } as unknown as HandlerMap;
   }
 
@@ -1093,6 +1225,113 @@ export abstract class Plugin {
     // and forgetting it is the easiest mistake to make here.
     if (!last || (!last.done && !last.error)) call.write({ done: true });
     call.end();
+  }
+
+  /**
+   * A refusal the plugin MEANT travels in the body (`errorCode`), so the daemon
+   * can tell "my allowance is spent, use the fallback" from "this plugin is
+   * broken". Only a throw becomes a status; an un-overridden hook answers
+   * UNIMPLEMENTED, the protocol's word for absent.
+   */
+  private async handleWebSearch(call: any) {
+    const req = webSearchRequestFromWire(call.request ?? {});
+    const answer = await this.webSearch(req);
+    return webSearchResponseToWire(answer, req.count);
+  }
+
+  // A refusal the plugin MEANT (`MusicRefusal`) travels in the body; any other
+  // throw becomes a status, and an un-overridden hook answers UNIMPLEMENTED.
+
+  private async handleMusicSubscribe(call: any): Promise<void> {
+    if (!this.overrides("musicControl")) {
+      this.failStream(call, new HookUnimplemented("this plugin is not a music provider"));
+      return;
+    }
+    const signal = { cancelled: false };
+    call.on?.("cancelled", () => {
+      signal.cancelled = true;
+    });
+    try {
+      for await (const snapshot of this.music.stream(undefined, signal)) {
+        if (signal.cancelled) break;
+        call.write(snapshot);
+      }
+      call.end();
+    } catch (e: unknown) {
+      this.failStream(call, e);
+    }
+  }
+
+  /**
+   * A session key this plugin never reported is answered `not_found` before the
+   * hook runs. The daemon only sends keys it read from a snapshot;
+   * `astra-plugin test` sends one nobody reports, and a hook that ignores the
+   * key must not like the author's real track for it.
+   */
+  private refuseUnreported(sessionKey: string): void {
+    if (sessionKey && this.overrides("musicControl") && !this.music.knowsSession(sessionKey)) {
+      throw new MusicRefusal("not_found", `this plugin reports no session '${sessionKey}'`);
+    }
+  }
+
+  private async handleMusicControl(call: any) {
+    try {
+      const req = musicControlFromWire(call.request ?? {});
+      this.refuseUnreported(req.sessionKey);
+      await this.musicControl(req);
+      return {};
+    } catch (e: unknown) {
+      const refused = musicRefusalWire(e);
+      if (refused) return refused;
+      throw e;
+    }
+  }
+
+  private async handleMusicGetQueue(call: any) {
+    const req = musicQueueFromWire(call.request ?? {});
+    try {
+      this.refuseUnreported(req.sessionKey);
+      const answer = await this.musicGetQueue(req);
+      const queue: MusicQueue = Array.isArray(answer) ? { items: answer, currentIndex: -1 } : answer;
+      return {
+        items: queue.items.slice(0, req.limit).map(musicItemWire),
+        currentIndex: queue.currentIndex,
+      };
+    } catch (e: unknown) {
+      const refused = musicRefusalWire(e);
+      if (refused) return { ...refused, currentIndex: -1 };
+      throw e;
+    }
+  }
+
+  private async handleMusicSearch(call: any) {
+    const req = musicSearchFromWire(call.request ?? {});
+    try {
+      const items = await this.musicSearch(req);
+      return { items: (items ?? []).slice(0, req.limit).map(musicItemWire) };
+    } catch (e: unknown) {
+      const refused = musicRefusalWire(e);
+      if (refused) return refused;
+      throw e;
+    }
+  }
+
+  private async handleMusicPlay(call: any) {
+    try {
+      const req = musicPlayFromWire(call.request ?? {});
+      this.refuseUnreported(req.sessionKey);
+      const answer = await this.musicPlay(req);
+      const played: MusicPlayed =
+        answer && "itemRef" in answer ? { item: answer as MusicItem } : (answer as MusicPlayed) ?? {};
+      return {
+        played: played.item ? musicItemWire(played.item) : null,
+        sessionKey: played.sessionKey ?? "",
+      };
+    } catch (e: unknown) {
+      const refused = musicRefusalWire(e);
+      if (refused) return refused;
+      throw e;
+    }
   }
 
   private async handleAiGetModels(_call: any) {

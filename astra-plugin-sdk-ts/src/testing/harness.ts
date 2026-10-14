@@ -42,6 +42,9 @@ import type {
   TriggerTypeDef,
   UiContribution,
   VoiceInfo,
+  WebSearchErrorCode,
+  WebSearchFreshness,
+  WebSearchResponse,
 } from "../types.js";
 import type { HandlerMap } from "../service-contract.js";
 import { validate, type JsonSchema, type ValidationIssue } from "../schema.js";
@@ -485,6 +488,38 @@ export class Harness {
     return { chunks: call.written as AiChunk[], status: call.status };
   }
 
+  /**
+   * `WebSearch`, through the real handler: the answer as it crossed the wire —
+   * cut to `count` — with a refusal the plugin meant as a normal answer
+   * (`errorCode` set). A throw, or an absent hook, is a `HookStatusError`.
+   */
+  async webSearch(
+    query: string,
+    opts: { count?: number; freshness?: WebSearchFreshness; country?: string; language?: string } = {}
+  ): Promise<WebSearchResponse> {
+    const res = (await this.unary("WebSearch", {
+      query,
+      count: opts.count ?? 5,
+      freshness: opts.freshness ?? "",
+      country: opts.country ?? "",
+      language: opts.language ?? "",
+    })) as {
+      hits: { title: string; url: string; snippet: string; published: string }[];
+      errorCode: string;
+      errorMessage: string;
+      retryAfterSecs: number;
+    };
+    if (res.errorCode) {
+      return {
+        hits: [],
+        errorCode: res.errorCode as WebSearchErrorCode,
+        errorMessage: res.errorMessage,
+        retryAfterSecs: res.retryAfterSecs,
+      };
+    }
+    return { hits: res.hits };
+  }
+
   // ── events ──
 
   /**
@@ -522,6 +557,12 @@ export class Harness {
   async unaryStatus(method: string, request: unknown): Promise<FakeStatus | null> {
     const outcome = await invokeUnary(this.handler(method) as never, request);
     return outcome.error ?? null;
+  }
+
+  /** What a `music_provider` plugin last published — the first snapshot the
+   *  daemon reads on `MusicSubscribe`. */
+  musicSnapshot() {
+    return this.plugin.music.snapshot;
   }
 
   /** Call a server-streaming hook by its proto name. */

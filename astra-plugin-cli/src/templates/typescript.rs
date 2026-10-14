@@ -217,6 +217,41 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"web_search") {
+        sections.push_str(
+            r#"
+  // The whole of the `web_search` capability: answer ONE query for the
+  // assistant's `web_search` tool. Call your search API with `req.query` and
+  // return at most `req.count` hits, e.g.
+  //   return rows.map((r) => ({ title: r.title, url: r.url, snippet: r.text }));
+  // A refusal you mean (missing key, spent allowance, rate limit) is an answer,
+  // as below; throwing reports the plugin as broken. Keep the API key in
+  // `[config]` — the user sets it on the Plugins page.
+  webSearch: (_req) =>
+    WebSearch.refuse("not_configured", "this search provider is a scaffold: implement webSearch"),
+"#,
+        );
+    }
+
+    if capabilities.contains(&"music_provider") {
+        sections.push_str(
+            r#"
+  // `music_provider`: report what your services play with
+  //   music.publisher.publish([{ serviceId, name }], [{ sessionKey, serviceId, ... }])
+  // (every publish is the whole set), and carry out `req.action` on
+  // `req.sessionKey` in `control`. A refusal you mean is an answer, as below;
+  // any other throw reports the plugin as broken. `getQueue`, `search` and
+  // `play` are the optional rest.
+  music: {
+    publisher: new MusicPublisher(),
+    control: () => {
+      throw new MusicRefusal("not_configured", "this music provider is a scaffold: implement music.control");
+    },
+  },
+"#,
+        );
+    }
+
     if capabilities.contains(&"client") {
         sections.push_str(
             r#"
@@ -253,6 +288,12 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     }
     if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
         imports.push("Field");
+    }
+    if capabilities.contains(&"web_search") {
+        imports.push("WebSearch");
+    }
+    if capabilities.contains(&"music_provider") {
+        imports.extend(["MusicPublisher", "MusicRefusal"]);
     }
     let import_list = imports.join(", ");
 

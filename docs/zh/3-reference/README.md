@@ -22,7 +22,7 @@
 | [CLI](../reference/cli.md) | `clap` 的定义，通过运行这个二进制文件生成 |
 | [协议](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [错误](../reference/errors.md) | 三个 SDK 中共有的错误分类 |
-| [钩子对照表](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) —— 35 个钩子，3 个 SDK |
+| [钩子对照表](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) —— 41 个钩子，3 个 SDK |
 
 按 SDK 分别渲染、但源自同一份规格的钩子表：
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

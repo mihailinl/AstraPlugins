@@ -134,6 +134,8 @@
 | `stt` | `SttProcess`、`SttGetLanguages` |
 | `wakeword` | 无 |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`、`FireTrigger` |

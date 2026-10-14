@@ -84,7 +84,7 @@ use anyhow::{Context, Result};
 
 use crate::capability::{
     AiChunk, AiRequest, AudioChunk, AudioData, PluginCapability, SttEvent, SttLoadState,
-    SttOptions, ToolDef, TtsRequest,
+    SttOptions, ToolDef, TtsRequest, WebSearchRequest, WebSearchResponse,
 };
 use crate::context::{Host, PluginContext};
 use crate::error::ToolError;
@@ -555,6 +555,39 @@ impl<P: PluginCapability> Running<P> {
         }
         hook.await.context("ai_complete panicked")??;
         Ok(chunks)
+    }
+
+    // ── Web search ──
+
+    /// `web_search(..)`, exactly as the hook answered — the SDK's cut to
+    /// `req.count` happens on the wire, not here.
+    pub async fn web_search(&self, req: WebSearchRequest) -> Result<WebSearchResponse> {
+        self.plugin.web_search(&self.ctx, req).await
+    }
+
+    // ── music_provider ──
+
+    /// What the plugin last published (`None` when it is not a music provider).
+    pub fn music_snapshot(&self) -> Option<crate::proto::PluginMusicSnapshot> {
+        self.plugin.music_publisher().map(|p| p.snapshot())
+    }
+
+    /// `music_control(..)`, exactly as the hook answered — a refusal the plugin
+    /// meant is an `Err` that downcasts to [`crate::MusicRefusal`].
+    pub async fn music_control(&self, req: crate::MusicControlRequest) -> Result<()> {
+        self.plugin.music_control(&self.ctx, req).await
+    }
+
+    pub async fn music_get_queue(&self, req: crate::MusicQueueRequest) -> Result<crate::MusicQueue> {
+        self.plugin.music_get_queue(&self.ctx, req).await
+    }
+
+    pub async fn music_search(&self, req: crate::MusicSearchRequest) -> Result<Vec<crate::MusicItem>> {
+        self.plugin.music_search(&self.ctx, req).await
+    }
+
+    pub async fn music_play(&self, req: crate::MusicPlayRequest) -> Result<crate::MusicPlayed> {
+        self.plugin.music_play(&self.ctx, req).await
     }
 
     // ── lifecycle ──

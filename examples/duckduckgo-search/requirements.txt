@@ -1,0 +1,5 @@
+# The SDK release that carries the `web_search` hook. Until it is on PyPI,
+# install the one in this repository: pip install -e ../../astra-plugin-sdk-python
+astra-plugin-sdk
+grpcio>=1.60.0
+protobuf>=4.25.0

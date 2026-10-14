@@ -79,6 +79,7 @@ mod host_client;
 pub mod i18n;
 pub mod limits;
 pub mod logging;
+pub mod music;
 pub mod panics;
 pub mod plural;
 pub mod protocol;
@@ -88,6 +89,10 @@ pub mod wire;
 
 pub use auth::CapabilityAuth;
 pub use capability::*;
+pub use music::{
+    MusicControlRequest, MusicErrorCode, MusicItem, MusicPlayRequest, MusicPlayed, MusicPublisher,
+    MusicQueue, MusicQueueRequest, MusicRefusal, MusicSearchRequest, MusicService, MusicSession,
+};
 mod desktop_widget;
 pub use context::{
     ActiveTriggers, ChatStream, Daemon, EventStream, FirehoseStream, Host, Invocation,
@@ -294,6 +299,10 @@ pub mod schema {
 /// Everything a plugin normally needs, in one `use`.
 pub mod prelude {
     pub use crate::capability::*;
+    pub use crate::music::{
+        MusicControlRequest, MusicErrorCode, MusicItem, MusicPlayRequest, MusicPlayed, MusicPublisher,
+        MusicQueue, MusicQueueRequest, MusicRefusal, MusicSearchRequest, MusicService, MusicSession,
+    };
     pub use crate::context::{
         ActiveTriggers, Daemon, Host, Invocation, PluginContext, ctx, try_ctx,
     };

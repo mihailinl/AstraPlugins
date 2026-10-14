@@ -13,7 +13,7 @@ There are two journeys here, and everything on this page belongs to one of them.
 
 | | |
 |---|---|
-| [What a plugin is](1-orientation/what-is-a-plugin.md) | The eleven capabilities, and which one you want |
+| [What a plugin is](1-orientation/what-is-a-plugin.md) | The thirteen capabilities, and which one you want |
 | [Architecture](1-orientation/architecture.md) | Process model, the two services, the auth handshake |
 | [Security model](1-orientation/security.md) | What signatures prove, what they do not, and the privilege a plugin runs with |
 | [Platforms](1-orientation/platforms.md) | linux-x64 and windows-x64, per-OS paths, build prerequisites |
@@ -72,10 +72,11 @@ and it is always the one that is wrong.
 | [CLI](reference/cli.md) | the `clap` definitions, by running `astra-plugin --help` |
 | [Protocol](reference/protocol.md) | `proto/plugin.proto` |
 | [Errors](reference/errors.md) | the error taxonomy in all three SDKs |
-| [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 35 hooks in all three SDKs |
+| [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 41 hooks in all three SDKs |
 | [Permissions](3-reference/permissions.md) | written: each permission, what it grants, how to write a reason |
 | [Config fields](3-reference/config-fields.md) | written: settings UI, `[config]`, and the TTS/STT field hooks |
 | [Wake word plugins](wakeword-plugins.md) | written: Voice integration, plugin settings and audio call contract |
+| [Web search plugins](web-search-plugins.md) | written: a search provider for the assistant's `web_search` tool — the `WebSearch` contract, refusal codes, where the key lives |
 | [Localisation](3-reference/localisation.md) | written: `locales/<code>.json`, the `$key` marker, and where the English gate fires |
 
 Normative specifications, for someone implementing a verifier or a registry

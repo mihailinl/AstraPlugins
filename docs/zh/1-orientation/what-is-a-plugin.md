@@ -11,7 +11,7 @@
 
 - **你可以用任何能说 gRPC 的语言来编写它。** 这里提供了三个 SDK ——
   Rust、Python、TypeScript —— 它们处于[完全一致](../reference/parity.md)
-  的状态：全部 35 个钩子，三者都有。
+  的状态：全部 41 个钩子，三者都有。
 - **它拥有和你一样的权限，不会更少。** 参见
   [安全模型](security.md)。
 - **它自己的 bug 熬不过去，Astra 却完全不受影响。** 处理函数中的 panic
@@ -38,7 +38,7 @@
 `Register`、`PluginLog`、`GetPluginSelfConfig` 和 `GetDaemonInfo`，其他
 一律不行（[`spec/permissions.md` §2](../spec/permissions.md)）。
 
-## 十一种能力(capability)
+## 十三种能力(capability)
 
 每个键都是布尔值，默认 `false`，一旦声明就有义务提供某些钩子。右边一列
 是*必须*提供的钩子；可选的钩子在[对照表](../reference/parity.md)中。
@@ -50,6 +50,8 @@
 | `stt` | 语音转文本提供者 | `SttProcess`、`SttGetLanguages` |
 | `wakeword` | 语音设置中的唤醒词检测器 | `CallFromUi` 的音频方法([约定](../wakeword-plugins.md)) |
 | `ai_provider` | 一个模型后端 | `AiComplete` |
+| `web_search` | a web search provider the user can pick for the assistant's searches | `WebSearch` ([guide](../../en/web-search-plugins.md)) |
+| `music_provider` | music services Astra's player and the assistant can drive: like, queue, search and play | `MusicSubscribe`, `MusicControl` ([guide](../../en/music-provider-plugins.md)) |
 | `actions` | 命令编辑器中的步骤 | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | 命令可以监听的触发器类型 | `GetPluginTriggerTypes`、`FireTrigger` |
 | `ui_contributions` | Astra 窗口中的面板、页面和覆盖层 | `GetUiContributions` |

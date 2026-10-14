@@ -2,12 +2,12 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、174 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、180 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: 45b80d0f39040c72…`
+`astra.proto` から生成された一部(`surface-sha256: 2c3c1701683b66d7…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:d5c36d9e453fd064…` に固定されています。3 つの SDK
+によって `sha256:91f2965eb081b1b5…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -15,7 +15,7 @@
 
 | サービス | 方向 | RPC 数 | 誰が提供するか |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 25 | あなたのプラグイン |
+| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 26 | あなたのプラグイン |
 | [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 10 | デーモン |
 | [`PluginService`](#pluginservice) | UI → デーモン | 23 | デーモン |
 
@@ -50,6 +50,12 @@
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | デーモンがアイドル時アンロードを駆動できるよう、Loaded / NotLoaded / NotNeeded を報告します。 |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
 | `AiGetModels` *(非推奨)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | このプロバイダが動かせるモデルを一覧します。 |
+| `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | `PluginMusicSearchRequest` | `PluginMusicSearchResponse` | unary | live | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | `PluginMusicPlayRequest` | `PluginMusicPlayResponse` | unary | live | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | `PluginExecuteActionRequest` | `PluginExecuteActionResponse` | unary | live | このプラグインが提供したコマンドステップアクションを 1 回実行します。 |
 | `GetPluginActionTypes` | `actions` | `Empty` | `PluginActionTypesResponse` | unary | live | このプラグインがコマンドエディタに追加するアクション種別。起動時に読まれます。 |
 | `GetPluginTriggerTypes` | `triggers` | `Empty` | `PluginTriggerTypesResponse` | unary | live | このプラグインがコマンドエディタに追加するトリガー種別。起動時に読まれます。 |

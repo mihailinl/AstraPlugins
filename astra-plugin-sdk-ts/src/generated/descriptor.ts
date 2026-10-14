@@ -5520,6 +5520,74 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "trackUrl": {
               "type": "string",
               "id": 15
+            },
+            "provider": {
+              "type": "MediaProvider",
+              "id": 16
+            }
+          }
+        },
+        "MediaProvider": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 2
+            },
+            "serviceName": {
+              "type": "string",
+              "id": 3
+            },
+            "deviceName": {
+              "type": "string",
+              "id": 4
+            },
+            "remote": {
+              "type": "bool",
+              "id": 5
+            },
+            "liked": {
+              "type": "bool",
+              "id": 6
+            },
+            "shuffle": {
+              "type": "bool",
+              "id": 7
+            },
+            "repeat": {
+              "type": "string",
+              "id": 8
+            },
+            "volumePercent": {
+              "type": "int32",
+              "id": 9
+            },
+            "canLike": {
+              "type": "bool",
+              "id": 10
+            },
+            "canShuffle": {
+              "type": "bool",
+              "id": 11
+            },
+            "canRepeat": {
+              "type": "bool",
+              "id": 12
+            },
+            "canVolume": {
+              "type": "bool",
+              "id": 13
+            },
+            "canQueue": {
+              "type": "bool",
+              "id": 14
+            },
+            "canSearch": {
+              "type": "bool",
+              "id": 15
             }
           }
         },
@@ -5540,7 +5608,12 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "MEDIA_CONTROL_PREVIOUS": 4,
             "MEDIA_CONTROL_STOP": 5,
             "MEDIA_CONTROL_SEEK": 6,
-            "MEDIA_CONTROL_ACTIVATE": 7
+            "MEDIA_CONTROL_ACTIVATE": 7,
+            "MEDIA_CONTROL_LIKE": 8,
+            "MEDIA_CONTROL_UNLIKE": 9,
+            "MEDIA_CONTROL_SHUFFLE": 10,
+            "MEDIA_CONTROL_REPEAT": 11,
+            "MEDIA_CONTROL_VOLUME": 12
           }
         },
         "ControlMediaRequest": {
@@ -5556,6 +5629,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "seekPositionSeconds": {
               "type": "double",
               "id": 3
+            },
+            "value": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -5599,6 +5676,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "appIcon": {
               "type": "bytes",
               "id": 5
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 6
+            },
+            "deviceName": {
+              "type": "string",
+              "id": 7
+            },
+            "remote": {
+              "type": "bool",
+              "id": 8
             }
           }
         },
@@ -7078,6 +7167,31 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                   "deprecated": true
                 }
               ]
+            },
+            "WebSearch": {
+              "requestType": "PluginWebSearchRequest",
+              "responseType": "PluginWebSearchResponse"
+            },
+            "MusicSubscribe": {
+              "requestType": "Empty",
+              "responseType": "PluginMusicSnapshot",
+              "responseStream": true
+            },
+            "MusicControl": {
+              "requestType": "PluginMusicControlRequest",
+              "responseType": "PluginMusicResult"
+            },
+            "MusicGetQueue": {
+              "requestType": "PluginMusicQueueRequest",
+              "responseType": "PluginMusicQueueResponse"
+            },
+            "MusicSearch": {
+              "requestType": "PluginMusicSearchRequest",
+              "responseType": "PluginMusicSearchResponse"
+            },
+            "MusicPlay": {
+              "requestType": "PluginMusicPlayRequest",
+              "responseType": "PluginMusicPlayResponse"
             },
             "ExecuteAction": {
               "requestType": "PluginExecuteActionRequest",
@@ -8596,6 +8710,406 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "FieldDefinitionMsg",
               "id": 1
+            }
+          }
+        },
+        "PluginWebSearchRequest": {
+          "fields": {
+            "query": {
+              "type": "string",
+              "id": 1
+            },
+            "count": {
+              "type": "uint32",
+              "id": 2
+            },
+            "freshness": {
+              "type": "string",
+              "id": 3
+            },
+            "country": {
+              "type": "string",
+              "id": 4
+            },
+            "language": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginWebSearchHit": {
+          "fields": {
+            "title": {
+              "type": "string",
+              "id": 1
+            },
+            "url": {
+              "type": "string",
+              "id": 2
+            },
+            "snippet": {
+              "type": "string",
+              "id": 3
+            },
+            "published": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PluginWebSearchResponse": {
+          "fields": {
+            "hits": {
+              "rule": "repeated",
+              "type": "PluginWebSearchHit",
+              "id": 1
+            },
+            "errorCode": {
+              "type": "string",
+              "id": 2
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 3
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "PluginMusicSnapshot": {
+          "fields": {
+            "services": {
+              "rule": "repeated",
+              "type": "PluginMusicService",
+              "id": 1
+            },
+            "sessions": {
+              "rule": "repeated",
+              "type": "PluginMusicSession",
+              "id": 2
+            }
+          }
+        },
+        "PluginMusicService": {
+          "fields": {
+            "serviceId": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "status": {
+              "type": "string",
+              "id": 3
+            },
+            "statusMessage": {
+              "type": "string",
+              "id": 4
+            },
+            "canSearch": {
+              "type": "bool",
+              "id": 5
+            },
+            "canPlay": {
+              "type": "bool",
+              "id": 6
+            }
+          }
+        },
+        "PluginMusicSession": {
+          "fields": {
+            "sessionKey": {
+              "type": "string",
+              "id": 1
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 2
+            },
+            "thisDevice": {
+              "type": "bool",
+              "id": 3
+            },
+            "deviceName": {
+              "type": "string",
+              "id": 4
+            },
+            "exclusiveAppHints": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
+            },
+            "sharedAppHints": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 6
+            },
+            "status": {
+              "type": "string",
+              "id": 7
+            },
+            "title": {
+              "type": "string",
+              "id": 8
+            },
+            "artist": {
+              "type": "string",
+              "id": 9
+            },
+            "album": {
+              "type": "string",
+              "id": 10
+            },
+            "artworkUrl": {
+              "type": "string",
+              "id": 11
+            },
+            "positionSeconds": {
+              "type": "double",
+              "id": 12
+            },
+            "durationSeconds": {
+              "type": "double",
+              "id": 13
+            },
+            "trackRef": {
+              "type": "string",
+              "id": 14
+            },
+            "trackUrl": {
+              "type": "string",
+              "id": 15
+            },
+            "liked": {
+              "type": "bool",
+              "id": 16
+            },
+            "shuffle": {
+              "type": "bool",
+              "id": 17
+            },
+            "repeat": {
+              "type": "string",
+              "id": 18
+            },
+            "volumePercent": {
+              "type": "int32",
+              "id": 19
+            },
+            "controls": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 20
+            }
+          }
+        },
+        "PluginMusicControlRequest": {
+          "fields": {
+            "sessionKey": {
+              "type": "string",
+              "id": 1
+            },
+            "action": {
+              "type": "string",
+              "id": 2
+            },
+            "value": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginMusicResult": {
+          "fields": {
+            "errorCode": {
+              "type": "string",
+              "id": 1
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 2
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 3
+            }
+          }
+        },
+        "PluginMusicItem": {
+          "fields": {
+            "itemRef": {
+              "type": "string",
+              "id": 1
+            },
+            "kind": {
+              "type": "string",
+              "id": 2
+            },
+            "title": {
+              "type": "string",
+              "id": 3
+            },
+            "subtitle": {
+              "type": "string",
+              "id": 4
+            },
+            "album": {
+              "type": "string",
+              "id": 5
+            },
+            "artworkUrl": {
+              "type": "string",
+              "id": 6
+            },
+            "durationSeconds": {
+              "type": "double",
+              "id": 7
+            },
+            "liked": {
+              "type": "bool",
+              "id": 8
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "PluginMusicQueueRequest": {
+          "fields": {
+            "sessionKey": {
+              "type": "string",
+              "id": 1
+            },
+            "limit": {
+              "type": "uint32",
+              "id": 2
+            }
+          }
+        },
+        "PluginMusicQueueResponse": {
+          "fields": {
+            "items": {
+              "rule": "repeated",
+              "type": "PluginMusicItem",
+              "id": 1
+            },
+            "currentIndex": {
+              "type": "int32",
+              "id": 2
+            },
+            "errorCode": {
+              "type": "string",
+              "id": 3
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 4
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 5
+            }
+          }
+        },
+        "PluginMusicSearchRequest": {
+          "fields": {
+            "query": {
+              "type": "string",
+              "id": 1
+            },
+            "kind": {
+              "type": "string",
+              "id": 2
+            },
+            "limit": {
+              "type": "uint32",
+              "id": 3
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 4
+            },
+            "language": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "PluginMusicSearchResponse": {
+          "fields": {
+            "items": {
+              "rule": "repeated",
+              "type": "PluginMusicItem",
+              "id": 1
+            },
+            "errorCode": {
+              "type": "string",
+              "id": 2
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 3
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "PluginMusicPlayRequest": {
+          "fields": {
+            "itemRef": {
+              "type": "string",
+              "id": 1
+            },
+            "query": {
+              "type": "string",
+              "id": 2
+            },
+            "kind": {
+              "type": "string",
+              "id": 3
+            },
+            "mode": {
+              "type": "string",
+              "id": 4
+            },
+            "sessionKey": {
+              "type": "string",
+              "id": 5
+            },
+            "serviceId": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "PluginMusicPlayResponse": {
+          "fields": {
+            "played": {
+              "type": "PluginMusicItem",
+              "id": 1
+            },
+            "sessionKey": {
+              "type": "string",
+              "id": 2
+            },
+            "errorCode": {
+              "type": "string",
+              "id": 3
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 4
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 5
             }
           }
         },

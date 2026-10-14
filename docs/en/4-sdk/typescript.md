@@ -238,7 +238,7 @@ test("no config the daemon can deliver crashes this plugin", async () => {
 
 `Harness` drives the real capability service in process:
 `listTools`, `callTool`, `schema`, `assertSchemaAccepts`, `assertSchemaRejects`,
-`executeAction`, `callFromUi`, `synthesize`, `sttStream`, `aiComplete`,
+`executeAction`, `callFromUi`, `synthesize`, `sttStream`, `aiComplete`, `webSearch`,
 `event`, `conversationEvent`, `configChanged`, `healthCheck`, `fuzzConfig`.
 `RecordingHost` records what your plugin told Astra. `MockDaemon` and
 `WirePlugin` are the level-2 pair: a real process over gRPC.

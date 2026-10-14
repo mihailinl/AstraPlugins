@@ -23,5 +23,5 @@
 #                        header, and its absence is reported, not assumed.
 #
 protocol=1
-plugin_proto_sha256=d5c36d9e453fd064fbfefed77e7cb5e859c655c3698aaefe431b4c72dbedd7b1
-surface_sha256=45b80d0f39040c7287663063e801d2b4b595c88b5b1a82e59bcc4bbf0421b5e8
+plugin_proto_sha256=91f2965eb081b1b518ce16473725924d8425de620433c89e3d864fbf5ad85115
+surface_sha256=2c3c1701683b66d75bc241ad0438bd72adb79198bf0d490f6f18cfe87e913a62

@@ -40,6 +40,7 @@ reusing it. Do not copy a manifest instead of running the CLI scaffold. Keep the
 | Transcribe speech | `stt` | [provider config fields](en/3-reference/config-fields.md) | [mock-stt](../examples/mock-stt/), [echo-stt](../examples/echo-stt/) for streaming |
 | Detect a wake word | `wakeword` | [wake word contract](en/wakeword-plugins.md) | No maintained example yet; scaffold as the guide shows, then replay phrase and non-phrase audio |
 | Provide an AI completion backend | `ai_provider` | [hook parity](en/reference/parity.md) | Scaffold with `--template ai-provider` |
+| Be a web search provider for the assistant | `web_search` | [web search guide](en/web-search-plugins.md) | Scaffold with `--template blank --capabilities web_search`; [duckduckgo-search](../examples/duckduckgo-search/) shows the shape but scrapes an unofficial page and is not for the catalogue |
 | Connect another chat surface | `client` | [SDK host calls](en/4-sdk/rust.md) | [telegram-client](../examples/telegram-client/) |
 | Add an automation step | `actions` | [hooks](en/reference/parity.md) | [dice-roller](../examples/dice-roller/) |
 | Start an automation | `triggers` | [permissions](en/3-reference/permissions.md) | [dice-roller](../examples/dice-roller/) |

@@ -23,7 +23,7 @@ donde el generador las escribe.
 | [CLI](../reference/cli.md) | las definiciones de `clap`, ejecutando el binario |
 | [Protocolo](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [Errores](../reference/errors.md) | la taxonomía de errores en los tres SDK |
-| [Paridad de hooks](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 35 hooks, 3 SDK |
+| [Paridad de hooks](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 41 hooks, 3 SDK |
 
 Tablas de hooks por SDK, renderizadas a partir de la misma spec:
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

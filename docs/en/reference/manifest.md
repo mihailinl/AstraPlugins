@@ -114,6 +114,8 @@ Every key is a boolean and defaults to `false`. The right-hand column is the joi
 | `stt` | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | none |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`, `FireTrigger` |

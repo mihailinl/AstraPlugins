@@ -41,6 +41,19 @@ Nine are Rust, one Python, one TypeScript. The Rust ones build per platform
 > with it: a plugin cannot list or create conversations, so one bridge holds one
 > conversation, not one per Telegram topic.
 
+## Not for publishing
+
+| Example | Lang | What it demonstrates | `[capabilities]` | `[permissions]` | Needs |
+|---|---|---|---|---|---|
+| [duckduckgo-search](duckduckgo-search/) | Python | A `web_search` provider: one query in, hits or an in-band refusal out (`rate_limited`, `unavailable`), standard library only, offline tests on hand-written fixtures | `web_search` | none | **Astra 0.2.7+**, **Python 3.10+**, outbound HTTPS to `html.duckduckgo.com` |
+
+**`duckduckgo-search` scrapes DuckDuckGo's HTML results page, which is
+unofficial**: it can break whenever the markup changes, DuckDuckGo may refuse
+automated requests, and DuckDuckGo's terms govern its use. It shows the shape
+of a search-provider plugin and is not intended for the catalogue — see
+[its README](duckduckgo-search/README.md) and
+[the web search guide](../docs/en/web-search-plugins.md).
+
 ## Reading the two permission columns
 
 They answer different questions and one does not imply the other.
@@ -116,7 +129,7 @@ and none of these examples should be read as a demonstration that it is.
 
 ## See also
 
-- [The root README](../README.md) — what a plugin is, and the eleven capabilities
+- [The root README](../README.md) — what a plugin is, and the thirteen capabilities
 - [`docs/en/`](../docs/en/README.md) — the documentation
-- [`spec/hooks.yaml`](../spec/hooks.yaml) — the 35 hooks, and which SDK
+- [`spec/hooks.yaml`](../spec/hooks.yaml) — the 41 hooks, and which SDK
   implements each

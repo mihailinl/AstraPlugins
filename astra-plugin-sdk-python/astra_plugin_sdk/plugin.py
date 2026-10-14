@@ -16,6 +16,7 @@ import signal
 import sys
 from collections.abc import AsyncIterator
 from concurrent import futures
+from typing import Any
 
 import grpc
 
@@ -38,6 +39,18 @@ from astra_plugin_sdk.errors import NotFound, PluginError
 from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
 from astra_plugin_sdk.i18n import I18n
 from astra_plugin_sdk.logging_bridge import install_logging_bridge
+from astra_plugin_sdk.music import (
+    MusicControlRequest,
+    MusicErrorCode,
+    MusicItem,
+    MusicPlayed,
+    MusicPlayRequest,
+    MusicPublisher,
+    MusicQueue,
+    MusicQueueRequest,
+    MusicRefusal,
+    MusicSearchRequest,
+)
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.types import (
     AiCompleteRequest,
@@ -45,8 +58,12 @@ from astra_plugin_sdk.types import (
     SttLoadState,
     SttLoadStatus,
     SttOptions,
+    WebSearchHit,
+    WebSearchRequest,
+    WebSearchResponse,
     coerce_ai_chunk,
     coerce_audio_chunk,
+    coerce_web_search_response,
 )
 
 #: Where the SDK itself logs. Routed to the daemon by the bridge (§5.10) like
@@ -97,6 +114,14 @@ def _accepts(func, name: str) -> bool:
     return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
 
+def _coerce_music_item(value: Any) -> MusicItem:
+    if isinstance(value, MusicItem):
+        return value
+    if isinstance(value, dict):
+        return MusicItem(**value)
+    raise TypeError(f"a music hook returned {type(value).__name__}, not a MusicItem")
+
+
 def _overrides(plugin: "Plugin", name: str) -> bool:
     """Whether the subclass replaced `Plugin.<name>`.
 
@@ -143,6 +168,9 @@ class Plugin:
         self._server: grpc.aio.Server | None = None
         self._log_handler = None  # PluginLogHandler, installed by `_run_async`
         self.port: int | None = None  # set once the capability server binds
+        #: What a ``music_provider`` plugin reports — ``self.music.publish(...)``.
+        #: See :mod:`astra_plugin_sdk.music`.
+        self.music = MusicPublisher()
         #: Released to make `_run_async` return. Created BEFORE the capability
         #: server starts serving — see `_run_async`, which says why.
         self._stop_event: asyncio.Event | None = None
@@ -438,6 +466,17 @@ class Plugin:
             print(f"Subscribing to events: {event_types}", flush=True)
             asyncio.create_task(self._event_loop(event_types))
 
+        # The plugin's own start: after language and config have arrived, before
+        # waiting for shutdown — where a long-lived task (a websocket, a poll)
+        # belongs. A failure here is a plugin that cannot run, as in the Rust
+        # and TypeScript SDKs: log it, stop serving and exit non-zero.
+        try:
+            await self.on_start()
+        except Exception:  # noqa: BLE001
+            log.exception("on_start failed; stopping")
+            await self._server.stop(grace=0)
+            raise SystemExit(1)
+
         # Wait for shutdown. The event was created before the server started
         # serving; `Shutdown` may already have set it, in which case this
         # returns at once, which is the whole point.
@@ -496,6 +535,13 @@ class Plugin:
             self._log_handler.close()
             self._log_handler = None
 
+    async def on_start(self) -> None:
+        """Called once the plugin is registered and has its language and config.
+
+        Start long-lived work here — a websocket, a polling loop — with
+        ``asyncio.create_task``; return promptly. Raising stops the plugin.
+        """
+
     async def _discover_capabilities(self) -> list[str]:
         """Guess the capability list from what the subclass implements.
 
@@ -519,6 +565,10 @@ class Plugin:
         models, _ = await self.ai_get_models()
         if models or _overrides(self, "ai_complete"):
             caps.append("ai_provider")
+        if _overrides(self, "web_search"):
+            caps.append("web_search")
+        if _overrides(self, "music_control"):
+            caps.append("music_provider")
         action_types = await self.get_action_types()
         if action_types:
             caps.append("actions")
@@ -754,6 +804,56 @@ class Plugin:
         and ``request.show_reasoning`` says whether anyone will read the
         ``AiChunk.thinking_delta`` chunks you emit.
         """
+        raise NotImplementedError
+
+    async def web_search(
+        self, request: WebSearchRequest
+    ) -> "WebSearchResponse | list[WebSearchHit]":
+        """Answer one web search. The whole of the ``web_search`` capability.
+
+        The user picks this plugin as the provider for the assistant's
+        ``web_search`` tool. The daemon owns everything around the call — the
+        provider chain and its fallback, the cache, and the fence that marks
+        results as untrusted text for the model — so this hook answers ONE
+        query and does none of that itself.
+
+            async def web_search(self, request):
+                if not self.config.get("api_key"):
+                    return WebSearchResponse.refuse(
+                        WebSearchErrorCode.NOT_CONFIGURED, "no API key is set")
+                rows = await self.client.search(request.query, request.count)
+                return [WebSearchHit(title=r.title, url=r.url, snippet=r.text)
+                        for r in rows]
+
+        Return a :class:`~astra_plugin_sdk.types.WebSearchResponse`, or a bare
+        list of hits (which means the search ran). A refusal you mean —
+        quota, rate limit, bad key, missing key, service down — is
+        ``WebSearchResponse.refuse(code, message)``, an answer the daemon acts
+        on; raising reports the plugin as failing. Keep any API key in the
+        plugin's own ``[config]``, where the user sets it on the Plugins page.
+        """
+        raise NotImplementedError
+
+    # ── music_provider ──
+    #
+    # Reporting is ``self.music.publish(services, sessions)``; these four
+    # answer. ``raise MusicRefusal(code, message)`` is a refusal the daemon
+    # shows the person; any other exception reports the plugin as failing.
+
+    async def music_control(self, request: MusicControlRequest) -> None:
+        """Carry out one verb on one of your sessions (``request.action``)."""
+        raise NotImplementedError
+
+    async def music_get_queue(self, request: MusicQueueRequest) -> "MusicQueue | list[MusicItem]":
+        """A session's queue around the playing item."""
+        raise NotImplementedError
+
+    async def music_search(self, request: MusicSearchRequest) -> "list[MusicItem]":
+        """Search a catalogue. Each item's ``item_ref`` comes back in ``music_play``."""
+        raise NotImplementedError
+
+    async def music_play(self, request: MusicPlayRequest) -> "MusicPlayed | MusicItem | None":
+        """Start — or queue next / at the end — ``request.item_ref`` or the first match for ``request.query``."""
         raise NotImplementedError
 
     async def ai_get_models(self) -> tuple[list[dict], str]:
@@ -1518,6 +1618,141 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
             return plugin_pb2.SttLoadStateResponse()
 
     # ── AI provider ──
+
+    # ── web search ──
+
+    async def WebSearch(self, request, context):
+        # A refusal the plugin MEANT travels in the body (`error_code`), so the
+        # daemon can tell "my allowance is spent, use the fallback" from "this
+        # plugin is broken". Only a raise becomes a status; an un-overridden
+        # hook answers UNIMPLEMENTED, the protocol's word for absent.
+        req = WebSearchRequest.from_proto(request)
+        try:
+            result = await self.plugin.web_search(req)
+            response = coerce_web_search_response(result)
+            return response.to_proto(req.count)
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin is not a web search provider")
+            return plugin_pb2.PluginWebSearchResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "web_search").abort(context)
+            return plugin_pb2.PluginWebSearchResponse()
+
+    # ── music_provider ──
+    #
+    # A refusal the plugin MEANT (`MusicRefusal`) travels in the body; only any
+    # other raise becomes a status, and an un-overridden hook answers
+    # UNIMPLEMENTED, the protocol's word for absent.
+
+    async def MusicSubscribe(self, request, context):
+        if not _overrides(self.plugin, "music_control"):
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("this plugin is not a music provider")
+            return
+        async for snapshot in self.plugin.music.stream():
+            yield snapshot
+
+    def _refuse_unreported(self, session_key: str) -> None:
+        """A session key this plugin never reported is answered ``not_found``
+        before the hook runs. The daemon only sends keys it read from a
+        snapshot; ``astra-plugin test`` sends one nobody reports, and a hook
+        that ignores the key must not like the author's real track for it."""
+        if (
+            session_key
+            and _overrides(self.plugin, "music_control")
+            and not self.plugin.music.knows_session(session_key)
+        ):
+            raise MusicRefusal(
+                MusicErrorCode.NOT_FOUND, f"this plugin reports no session {session_key!r}"
+            )
+
+    async def MusicControl(self, request, context):
+        try:
+            self._refuse_unreported(request.session_key)
+            await self.plugin.music_control(MusicControlRequest.from_proto(request))
+            return plugin_pb2.PluginMusicResult()
+        except MusicRefusal as r:
+            return plugin_pb2.PluginMusicResult(
+                error_code=r.code, error_message=r.message, retry_after_secs=r.retry_after_secs
+            )
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin is not a music provider")
+            return plugin_pb2.PluginMusicResult()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "music_control").abort(context)
+            return plugin_pb2.PluginMusicResult()
+
+    async def MusicGetQueue(self, request, context):
+        req = MusicQueueRequest.from_proto(request)
+        try:
+            self._refuse_unreported(request.session_key)
+            result = await self.plugin.music_get_queue(req)
+            if isinstance(result, MusicQueue):
+                queue = result
+            elif isinstance(result, dict):
+                queue = MusicQueue(
+                    items=list(result.get("items") or []), current_index=int(result.get("current_index", -1))
+                )
+            else:
+                queue = MusicQueue(items=list(result or []))
+            items = [_coerce_music_item(i).to_proto() for i in queue.items][: req.limit]
+            return plugin_pb2.PluginMusicQueueResponse(items=items, current_index=queue.current_index)
+        except MusicRefusal as r:
+            return plugin_pb2.PluginMusicQueueResponse(
+                current_index=-1, error_code=r.code, error_message=r.message, retry_after_secs=r.retry_after_secs
+            )
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin does not share a queue")
+            return plugin_pb2.PluginMusicQueueResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "music_get_queue").abort(context)
+            return plugin_pb2.PluginMusicQueueResponse()
+
+    async def MusicSearch(self, request, context):
+        req = MusicSearchRequest.from_proto(request)
+        try:
+            found = await self.plugin.music_search(req)
+            items = [_coerce_music_item(i).to_proto() for i in found or []][: req.limit]
+            return plugin_pb2.PluginMusicSearchResponse(items=items)
+        except MusicRefusal as r:
+            return plugin_pb2.PluginMusicSearchResponse(
+                error_code=r.code, error_message=r.message, retry_after_secs=r.retry_after_secs
+            )
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin cannot search")
+            return plugin_pb2.PluginMusicSearchResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "music_search").abort(context)
+            return plugin_pb2.PluginMusicSearchResponse()
+
+    async def MusicPlay(self, request, context):
+        try:
+            self._refuse_unreported(request.session_key)
+            result = await self.plugin.music_play(MusicPlayRequest.from_proto(request))
+            if isinstance(result, MusicPlayed):
+                played = result
+            else:
+                played = MusicPlayed(item=result)
+            item = _coerce_music_item(played.item) if played.item is not None else None
+            return plugin_pb2.PluginMusicPlayResponse(
+                played=item.to_proto() if item is not None else None,
+                session_key=played.session_key,
+            )
+        except MusicRefusal as r:
+            return plugin_pb2.PluginMusicPlayResponse(
+                error_code=r.code, error_message=r.message, retry_after_secs=r.retry_after_secs
+            )
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin cannot start playback")
+            return plugin_pb2.PluginMusicPlayResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "music_play").abort(context)
+            return plugin_pb2.PluginMusicPlayResponse()
 
     async def AiComplete(self, request, context):
         try:

@@ -2,19 +2,19 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，174 个 RPC。来源：
+协议世代 **1**。10 个服务，180 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: 45b80d0f39040c72…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 2c3c1701683b66d7…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:d5c36d9e453fd064…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:91f2965eb081b1b5…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
 
 | 服务 | 方向 | RPC 数 | 由谁提供 |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | 守护进程 → 插件 | 25 | 你的插件 |
+| [`PluginCapabilityService`](#plugincapabilityservice) | 守护进程 → 插件 | 26 | 你的插件 |
 | [`PluginHostService`](#pluginhostservice) | 插件 → 守护进程 | 10 | 守护进程 |
 | [`PluginService`](#pluginservice) | UI → 守护进程 | 23 | 守护进程 |
 
@@ -47,6 +47,12 @@
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | 报告 Loaded / NotLoaded / NotNeeded，以便守护进程驱动空闲卸载。 |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | 流式返回一次模型补全；这是插件能成为 AI 提供者的唯一方式。 |
 | `AiGetModels` *(已弃用)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | 列出这个提供者能运行的模型。 |
+| `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | `PluginMusicSearchRequest` | `PluginMusicSearchResponse` | unary | live | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | `PluginMusicPlayRequest` | `PluginMusicPlayResponse` | unary | live | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | `PluginExecuteActionRequest` | `PluginExecuteActionResponse` | unary | live | 运行这个插件贡献的一个命令步骤动作。 |
 | `GetPluginActionTypes` | `actions` | `Empty` | `PluginActionTypesResponse` | unary | live | 这个插件添加到命令编辑器中的动作类型，在启动时读取。 |
 | `GetPluginTriggerTypes` | `triggers` | `Empty` | `PluginTriggerTypesResponse` | unary | live | 这个插件添加到命令编辑器中的触发器类型，在启动时读取。 |

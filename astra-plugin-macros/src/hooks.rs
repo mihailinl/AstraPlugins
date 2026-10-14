@@ -46,6 +46,14 @@ pub const KNOWN_HOOKS: &[(&str, Option<&str>)] = &[
     // AI
     ("ai_complete", Some("ai_provider")),
     ("ai_models", Some("ai_provider")),
+    // Web search
+    ("web_search", Some("web_search")),
+    // Music provider
+    ("music_publisher", Some("music_provider")),
+    ("music_control", Some("music_provider")),
+    ("music_get_queue", Some("music_provider")),
+    ("music_search", Some("music_provider")),
+    ("music_play", Some("music_provider")),
     // Actions
     ("action_types", Some("actions")),
     ("execute_action", Some("actions")),

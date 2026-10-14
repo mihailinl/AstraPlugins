@@ -2,7 +2,7 @@
 
 # フックの対応表(Hook parity)
 
-プロトコル **1** · **35** 個のフック · 正典は [`spec/hooks.yaml`](../../../spec/hooks.yaml)。
+プロトコル **1** · **36** 個のフック · 正典は [`spec/hooks.yaml`](../../../spec/hooks.yaml)。
 
 *フック* とは、プラグイン向けの 2 つのサービスのどちらか一方にある 1 つの
 RPC のことです。`PluginCapabilityService` は **デーモン → プラグイン**方向
@@ -57,6 +57,12 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
@@ -94,6 +100,8 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `tts` | yes | yes | yes |
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
+| `web_search` | yes | yes | yes |
+| `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
 | `ui_contributions` | yes | yes | yes |
@@ -103,7 +111,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 
 ## 適合性テストのカバレッジ
 
-適合性テストの実行が行使すべき 23 個の受信側フック — デーモンが実際に
+適合性テストの実行が行使すべき 24 個の受信側フック — デーモンが実際に
 呼び出すすべての `daemon → plugin` フックです。`astra-plugin test` は
 プラグインが宣言している capabilities から暗黙に決まる各フックを呼び出し、
 `required` のものについて `UNIMPLEMENTED` が返らないことをアサートします。
@@ -127,6 +135,12 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `WebSearch` | `web_search` | required | unary | probe |
+| `MusicSubscribe` | `music_provider` | required | server | probe |
+| `MusicControl` | `music_provider` | required | unary | probe |
+| `MusicGetQueue` | `music_provider` | optional | unary | probe |
+| `MusicSearch` | `music_provider` | optional | unary | probe |
+| `MusicPlay` | `music_provider` | optional | unary | probe |
 | `ExecuteAction` | `actions` | required | unary | probe |
 | `GetPluginActionTypes` | `actions` | required | unary | probe |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | probe |

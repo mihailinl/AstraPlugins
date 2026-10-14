@@ -15,7 +15,7 @@ Es gibt hier zwei Wege, und alles auf dieser Seite gehört zu einem von beiden.
 
 | | |
 |---|---|
-| [Was ein Plugin ist](1-orientation/what-is-a-plugin.md) | Die elf Fähigkeiten (capabilities), und welche du willst |
+| [Was ein Plugin ist](1-orientation/what-is-a-plugin.md) | Die dreizehn Fähigkeiten (capabilities), und welche du willst |
 | [Architektur](1-orientation/architecture.md) | Prozessmodell, die zwei Dienste, der Auth-Handshake |
 | [Sicherheitsmodell](1-orientation/security.md) | Was Signaturen beweisen, was nicht, und mit welchen Rechten ein Plugin läuft |
 | [Plattformen](1-orientation/platforms.md) | linux-x64 und windows-x64, Pfade je Betriebssystem, Build-Voraussetzungen |
@@ -77,7 +77,7 @@ die falsch ist.
 | [CLI](reference/cli.md) | den `clap`-Definitionen, durch Ausführen von `astra-plugin --help` |
 | [Protokoll](reference/protocol.md) | `proto/plugin.proto` |
 | [Fehler](reference/errors.md) | die Fehler-Taxonomie in allen drei SDKs |
-| [Hook-Parität](reference/parity.md) | `spec/hooks.yaml` — alle 35 Hooks in allen drei SDKs |
+| [Hook-Parität](reference/parity.md) | `spec/hooks.yaml` — alle 41 Hooks in allen drei SDKs |
 | [Berechtigungen](3-reference/permissions.md) | handgeschrieben: jede Berechtigung, was sie gewährt, wie man eine Begründung schreibt |
 | [Config-Felder](3-reference/config-fields.md) | handgeschrieben: Settings-UI, `[config]`, und die TTS/STT-Feld-Hooks |
 | [Wake-Word-Plugins](wakeword-plugins.md) | handgeschrieben: Einbindung unter Stimme, Plugin-Einstellungen und der Vertrag der Audioaufrufe |

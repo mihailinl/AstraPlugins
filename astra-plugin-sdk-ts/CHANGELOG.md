@@ -18,6 +18,25 @@ are removable in.
 ## [Unreleased]
 
 ### Added
+- **The `music_provider` capability.** `this.music.publish(services,
+  sessions)` (or `music.publisher` in `plugin({...})`) feeds the daemon's
+  `MusicSubscribe` stream; `musicControl` (required), `musicGetQueue`,
+  `musicSearch` and `musicPlay` answer — `music: { control, getQueue, search,
+  play }` in the definition style. `throw new MusicRefusal(code, message)` is
+  a refusal in the response body. A session key the plugin never published is answered `not_found` before the hook runs. Harness: `musicSnapshot()`.
+- **The `web_search` capability: `Plugin.webSearch(request)`, and `webSearch`
+  in `plugin({...})`.** A plugin can be a web search provider the user picks
+  for the assistant's `web_search` tool (Astra 0.2.7; set
+  `min_astra_version`). It receives a `WebSearchRequest` (`query`, `count`
+  clamped to 1..10, `freshness`, `country`, `language`; `""` means not asked
+  for) and returns a `WebSearchResponse` or a bare `WebSearchHit[]`;
+  `WebSearch.hits(...)` and `WebSearch.refuse(code, message, retryAfterSecs)`
+  build one, and `refuse` rejects a code the daemon does not read. A refusal
+  travels in the response body, never as a status; the SDK cuts hits to
+  `count`. Not overriding it answers `UNIMPLEMENTED`; overriding it is what
+  registers `web_search` when the daemon states no capability list. The
+  testing `Harness` gained `webSearch(query, opts)`. `src/generated/*` is
+  regenerated from the re-synced slice. Guide: `docs/en/web-search-plugins.md`.
 - **`advanced` on `FieldDef` and on every `Field` builder's options**: marks a
   provider settings field as a tuning knob, which Astra's Voice page folds
   behind *Advanced settings*. The wire field already existed; nothing in this

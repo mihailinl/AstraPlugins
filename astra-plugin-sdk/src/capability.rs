@@ -408,6 +408,252 @@ impl From<AiChunk> for proto::PluginAiStreamChunk {
     }
 }
 
+// ── Web search ──
+
+/// How recent a search's results must be.
+///
+/// The daemon sends one of five strings. An unrecognised one — a newer daemon
+/// with a sixth — reads as [`Any`](Self::Any), so a provider answers with
+/// results that are too broad rather than not answering at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WebSearchFreshness {
+    /// No restriction (`""` on the wire).
+    #[default]
+    Any,
+    Day,
+    Week,
+    Month,
+    Year,
+}
+
+impl WebSearchFreshness {
+    /// Parse the wire string; anything unrecognised is [`Any`](Self::Any).
+    pub fn from_wire(s: &str) -> Self {
+        match s.trim() {
+            "day" => Self::Day,
+            "week" => Self::Week,
+            "month" => Self::Month,
+            "year" => Self::Year,
+            _ => Self::Any,
+        }
+    }
+
+    /// The wire string: `""`, `"day"`, `"week"`, `"month"` or `"year"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Any => "",
+            Self::Day => "day",
+            Self::Week => "week",
+            Self::Month => "month",
+            Self::Year => "year",
+        }
+    }
+}
+
+/// One web search, as the daemon asks a `web_search` provider for it.
+///
+/// The daemon has already validated the query and normalised the region, so a
+/// provider maps these fields onto its own API and nothing more.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebSearchRequest {
+    /// What the model searched for.
+    pub query: String,
+    /// How many hits to return, `1..=`[`MAX_COUNT`](Self::MAX_COUNT). Fewer is
+    /// fine; the SDK cuts a longer answer to this length.
+    pub count: u32,
+    pub freshness: WebSearchFreshness,
+    /// ISO 3166-1 alpha-2, upper case (`"DE"`), when a region was asked for.
+    pub country: Option<String>,
+    /// ISO 639-1, lower case (`"de"`), when a language was asked for.
+    pub language: Option<String>,
+}
+
+impl WebSearchRequest {
+    /// The most hits the daemon ever asks for.
+    pub const MAX_COUNT: u32 = 10;
+}
+
+impl From<proto::PluginWebSearchRequest> for WebSearchRequest {
+    fn from(r: proto::PluginWebSearchRequest) -> Self {
+        let non_empty = |s: String| {
+            let s = s.trim().to_string();
+            (!s.is_empty()).then_some(s)
+        };
+        Self {
+            query: r.query,
+            // The daemon sends 1..=10. A zero (a request built by hand, or a
+            // field an older caller never set) still asks for one hit.
+            count: r.count.clamp(1, Self::MAX_COUNT),
+            freshness: WebSearchFreshness::from_wire(&r.freshness),
+            country: non_empty(r.country),
+            language: non_empty(r.language),
+        }
+    }
+}
+
+/// One search result.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WebSearchHit {
+    pub title: String,
+    /// `http` or `https` only — the daemon drops a hit with any other scheme.
+    pub url: String,
+    /// Plain text. The daemon strips markup anyway, but a provider that sends
+    /// text is the one whose snippets read well.
+    pub snippet: String,
+    /// `YYYY-MM-DD`, when the source dates the page.
+    pub published: Option<String>,
+}
+
+impl WebSearchHit {
+    pub fn new(title: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            url: url.into(),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_snippet(mut self, snippet: impl Into<String>) -> Self {
+        self.snippet = snippet.into();
+        self
+    }
+
+    /// `YYYY-MM-DD`.
+    pub fn with_published(mut self, date: impl Into<String>) -> Self {
+        self.published = Some(date.into());
+        self
+    }
+}
+
+impl From<WebSearchHit> for proto::PluginWebSearchHit {
+    fn from(h: WebSearchHit) -> Self {
+        Self {
+            title: h.title,
+            url: h.url,
+            snippet: h.snippet,
+            published: h.published.unwrap_or_default(),
+        }
+    }
+}
+
+/// Why a provider did not search. Each code changes what the daemon does next,
+/// which is why they are a closed set rather than a message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebSearchErrorCode {
+    /// The account's allowance is spent. The daemon falls back to the next
+    /// provider in the user's chain.
+    Quota,
+    /// Too many requests right now. Pair it with
+    /// [`WebSearchResponse::with_retry_after`] when the API says how long.
+    RateLimited,
+    /// The key was refused.
+    Auth,
+    /// Something the user has to set (usually the key) is missing.
+    NotConfigured,
+    /// Anything else: the service is down, the network failed, the answer was
+    /// unreadable.
+    Unavailable,
+}
+
+impl WebSearchErrorCode {
+    /// The wire string the daemon reads.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Quota => "quota",
+            Self::RateLimited => "rate_limited",
+            Self::Auth => "auth",
+            Self::NotConfigured => "not_configured",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
+
+impl std::fmt::Display for WebSearchErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A provider's answer: the hits, or the refusal it means.
+///
+/// A refusal is an ANSWER, not an error. Returning
+/// `Ok(WebSearchResponse::refuse(WebSearchErrorCode::Quota, …))` is how the
+/// daemon learns to fall back to another provider; returning `Err` tells it this
+/// plugin is broken.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WebSearchResponse {
+    /// The search ran. An empty list is a search with no results.
+    Hits(Vec<WebSearchHit>),
+    /// The provider did not search, and says why.
+    Refused {
+        code: WebSearchErrorCode,
+        /// Short, in English: the model reads it.
+        message: String,
+        /// With [`WebSearchErrorCode::RateLimited`]: seconds to wait, `0` when
+        /// unknown.
+        retry_after_secs: u32,
+    },
+}
+
+impl WebSearchResponse {
+    /// The search ran.
+    pub fn hits(hits: impl IntoIterator<Item = WebSearchHit>) -> Self {
+        Self::Hits(hits.into_iter().collect())
+    }
+
+    /// The search did not run, for `code`'s reason. `message` is short English
+    /// the model reads.
+    pub fn refuse(code: WebSearchErrorCode, message: impl Into<String>) -> Self {
+        Self::Refused {
+            code,
+            message: message.into(),
+            retry_after_secs: 0,
+        }
+    }
+
+    /// How long to wait before asking again. Meaningful with
+    /// [`WebSearchErrorCode::RateLimited`]; a no-op on [`Hits`](Self::Hits).
+    pub fn with_retry_after(mut self, secs: u32) -> Self {
+        if let Self::Refused {
+            retry_after_secs, ..
+        } = &mut self
+        {
+            *retry_after_secs = secs;
+        }
+        self
+    }
+
+    /// The wire message, with at most `count` hits.
+    pub(crate) fn into_proto(self, count: u32) -> proto::PluginWebSearchResponse {
+        match self {
+            Self::Hits(hits) => proto::PluginWebSearchResponse {
+                hits: hits
+                    .into_iter()
+                    .take(count as usize)
+                    .map(Into::into)
+                    .collect(),
+                ..Default::default()
+            },
+            Self::Refused {
+                code,
+                message,
+                retry_after_secs,
+            } => proto::PluginWebSearchResponse {
+                hits: Vec::new(),
+                error_code: code.as_str().to_string(),
+                error_message: message,
+                retry_after_secs,
+            },
+        }
+    }
+}
+
+impl From<Vec<WebSearchHit>> for WebSearchResponse {
+    fn from(hits: Vec<WebSearchHit>) -> Self {
+        Self::Hits(hits)
+    }
+}
+
 pub use proto::ActionTypeDefinitionMsg as ActionTypeDef;
 pub use proto::DropdownOptionMsg as DropdownOption;
 /// A field definition for action/trigger type configuration.
@@ -1082,6 +1328,74 @@ pub trait PluginCapability: Send + Sync + 'static {
         (vec![], String::new())
     }
 
+    // ── Web search ──
+
+    /// Answer one web search. The whole of the `web_search` capability.
+    ///
+    /// The user picks this plugin as the provider for the assistant's
+    /// `web_search` tool. The daemon owns everything around the call — the
+    /// provider chain and its fallback, the cache, and the fence that marks
+    /// results as untrusted text for the model — so this hook answers ONE
+    /// query and does none of that itself.
+    ///
+    /// A refusal you mean is an answer:
+    /// `Ok(WebSearchResponse::refuse(WebSearchErrorCode::NotConfigured, "no API key set"))`.
+    /// `Err` reports the plugin as failing. Keep any API key in the plugin's
+    /// own `[config]`, where the user sets it on the Plugins page.
+    async fn web_search(
+        &self,
+        _ctx: &PluginContext,
+        _req: WebSearchRequest,
+    ) -> anyhow::Result<WebSearchResponse> {
+        Err(unimplemented("web_search"))
+    }
+
+    // ── Music provider ──
+
+    /// The publisher this plugin reports its music sessions through
+    /// ([`crate::music`]). `None`, the default, is "not a music provider": the
+    /// SDK answers `MusicSubscribe` UNIMPLEMENTED.
+    fn music_publisher(&self) -> Option<crate::music::MusicPublisher> {
+        None
+    }
+
+    /// Carry out one verb on one of your sessions (`req.action`). A refusal
+    /// you mean is `Err(MusicRefusal::new(..).into())`.
+    async fn music_control(
+        &self,
+        _ctx: &PluginContext,
+        _req: crate::music::MusicControlRequest,
+    ) -> anyhow::Result<()> {
+        Err(unimplemented("music_control"))
+    }
+
+    /// A session's queue around the playing item.
+    async fn music_get_queue(
+        &self,
+        _ctx: &PluginContext,
+        _req: crate::music::MusicQueueRequest,
+    ) -> anyhow::Result<crate::music::MusicQueue> {
+        Err(unimplemented("music_get_queue"))
+    }
+
+    /// Search a catalogue; each item's `item_ref` comes back in `music_play`.
+    async fn music_search(
+        &self,
+        _ctx: &PluginContext,
+        _req: crate::music::MusicSearchRequest,
+    ) -> anyhow::Result<Vec<crate::music::MusicItem>> {
+        Err(unimplemented("music_search"))
+    }
+
+    /// Start — or queue next / at the end — an item or the first match.
+    async fn music_play(
+        &self,
+        _ctx: &PluginContext,
+        _req: crate::music::MusicPlayRequest,
+    ) -> anyhow::Result<crate::music::MusicPlayed> {
+        Err(unimplemented("music_play"))
+    }
+
     // ── Actions ──
 
     /// The action types this plugin contributes to the command editor.
@@ -1338,7 +1652,7 @@ pub trait PluginCapability: Send + Sync + 'static {
 ///   reads. `Internal` is the one that promises the model nothing, which is the
 ///   honest answer for a string.
 /// * Hooks that did not exist in 0.5 — `ai_complete`, `tts_activate`,
-///   `stt_load`/`stt_unload`/`stt_load_state` — stay `UNIMPLEMENTED`, which the
+///   `stt_load`/`stt_unload`/`stt_load_state`, `web_search` — stay `UNIMPLEMENTED`, which the
 ///   protocol reads as *absent*. Implement them by migrating the trait.
 ///
 /// [`docs/en/migration-0.6.md`]: https://github.com/mihailinl/AstraPlugins/blob/master/docs/en/migration-0.6.md
@@ -2295,6 +2609,22 @@ pub mod compat {
                     .is_some(),
                 "ai_complete must answer UNIMPLEMENTED, got {e:?}"
             );
+
+            let e = h
+                .web_search(crate::capability::WebSearchRequest {
+                    query: "rust".into(),
+                    count: 3,
+                    freshness: crate::capability::WebSearchFreshness::Any,
+                    country: None,
+                    language: None,
+                })
+                .await
+                .unwrap_err();
+            assert!(
+                e.downcast_ref::<crate::error::HookUnimplemented>()
+                    .is_some(),
+                "web_search must answer UNIMPLEMENTED, got {e:?}"
+            );
         }
 
         /// Two contexts never share a delivery record, whatever the allocator
@@ -2508,5 +2838,57 @@ mod tests {
         let msg = host.0.lock().unwrap().join("\n");
         assert!(msg.contains("keeping the previous config"), "{msg}");
         assert!(!msg.contains("no settings saved yet"), "{msg}");
+    }
+
+    /// The wire strings are the daemon's vocabulary, and an unknown freshness
+    /// from a newer daemon must degrade to "no restriction", not fail.
+    #[test]
+    fn web_search_wire_values_round_trip() {
+        for f in [
+            WebSearchFreshness::Any,
+            WebSearchFreshness::Day,
+            WebSearchFreshness::Week,
+            WebSearchFreshness::Month,
+            WebSearchFreshness::Year,
+        ] {
+            assert_eq!(WebSearchFreshness::from_wire(f.as_str()), f);
+        }
+        assert_eq!(WebSearchFreshness::from_wire("hour"), WebSearchFreshness::Any);
+
+        let codes = [
+            (WebSearchErrorCode::Quota, "quota"),
+            (WebSearchErrorCode::RateLimited, "rate_limited"),
+            (WebSearchErrorCode::Auth, "auth"),
+            (WebSearchErrorCode::NotConfigured, "not_configured"),
+            (WebSearchErrorCode::Unavailable, "unavailable"),
+        ];
+        for (code, wire) in codes {
+            assert_eq!(code.as_str(), wire);
+            assert_eq!(code.to_string(), wire);
+        }
+
+        let req: WebSearchRequest = proto::PluginWebSearchRequest {
+            query: "q".into(),
+            count: 0,
+            freshness: String::new(),
+            country: " ".into(),
+            language: "de".into(),
+        }
+        .into();
+        assert_eq!(req.count, 1, "a zero count still asks for one hit");
+        assert_eq!(req.country, None);
+        assert_eq!(req.language.as_deref(), Some("de"));
+        let req: WebSearchRequest = proto::PluginWebSearchRequest {
+            count: 50,
+            ..Default::default()
+        }
+        .into();
+        assert_eq!(req.count, WebSearchRequest::MAX_COUNT);
+
+        // `with_retry_after` means nothing on a search that ran.
+        assert_eq!(
+            WebSearchResponse::hits(vec![]).with_retry_after(9),
+            WebSearchResponse::Hits(vec![])
+        );
     }
 }

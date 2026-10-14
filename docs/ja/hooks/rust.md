@@ -28,6 +28,12 @@
 | `SttGetLoadState` | `stt` | optional | unary | stable | デーモンがアイドル時アンロードを駆動できるよう、Loaded / NotLoaded / NotNeeded を報告します。 |
 | `AiComplete` | `ai_provider` | required | server | stable | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | このプロバイダが動かせるモデルを一覧します。 |
+| `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | optional | unary | stable | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | optional | unary | stable | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | required | unary | stable | このプラグインが提供したコマンドステップアクションを 1 回実行します。 |
 | `GetPluginActionTypes` | `actions` | required | unary | stable | このプラグインがコマンドエディタに追加するアクション種別。起動時に読まれます。 |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | stable | このプラグインがコマンドエディタに追加するトリガー種別。起動時に読まれます。 |

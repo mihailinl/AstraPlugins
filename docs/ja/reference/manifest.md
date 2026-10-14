@@ -144,6 +144,8 @@ Astra、semver バージョンとして(`"0.9.0"`)。空 = 要件なし。
 | `stt` | `SttProcess`、`SttGetLanguages` |
 | `wakeword` | なし |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`、`FireTrigger` |

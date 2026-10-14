@@ -1,0 +1,11 @@
+# Build artifacts
+*.astraplugin
+
+__pycache__/
+*.pyc
+.venv/
+requirements.lock
+
+frontend/node_modules/
+ui/app.js
+ui/App.js

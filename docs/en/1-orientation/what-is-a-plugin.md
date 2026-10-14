@@ -10,7 +10,7 @@ That single fact decides most of the rest:
 
 - **You can write it in anything** that speaks gRPC. Three SDKs ship here —
   Rust, Python, TypeScript — and they are at
-  [full parity](../reference/parity.md): all 35 hooks in all three.
+  [full parity](../reference/parity.md): all 41 hooks in all three.
 - **It has your privileges, not fewer.** See [the security model](security.md).
 - **It survives its own bugs badly and Astra's not at all.** A panic in a
   handler is caught and returned as an error rather than killing the process
@@ -37,7 +37,7 @@ declaring it. They are two words now. Declaring
 `Register`, `PluginLog`, `GetPluginSelfConfig` and `GetDaemonInfo` and nothing
 else ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## The eleven capabilities
+## The thirteen capabilities
 
 Every key is a boolean, defaults to `false`, and obliges you to serve some
 hooks. The right-hand column is the *required* ones; the optional ones are in
@@ -50,6 +50,8 @@ hooks. The right-hand column is the *required* ones; the optional ones are in
 | `stt` | a speech-to-text provider | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | a wake-word detector in Voice settings | `CallFromUi` audio methods ([contract](../wakeword-plugins.md)) |
 | `ai_provider` | a model backend | `AiComplete` |
+| `web_search` | a web search provider the user can pick for the assistant's searches | `WebSearch` ([guide](../web-search-plugins.md)) |
+| `music_provider` | music services Astra's player and the assistant can drive: like, queue, search and play | `MusicSubscribe`, `MusicControl` ([guide](../music-provider-plugins.md)) |
 | `actions` | steps in the command editor | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | trigger types commands can listen for | `GetPluginTriggerTypes`, `FireTrigger` |
 | `ui_contributions` | panels, pages and overlays in the Astra window | `GetUiContributions` |

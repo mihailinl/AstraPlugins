@@ -20,7 +20,7 @@ the generator writes them.
 | [CLI](../reference/cli.md) | the `clap` definitions, by running the binary |
 | [Protocol](../reference/protocol.md) | [`proto/plugin.proto`](../../../proto/plugin.proto) |
 | [Errors](../reference/errors.md) | the error taxonomy in all three SDKs |
-| [Hook parity](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 35 hooks, 3 SDKs |
+| [Hook parity](../reference/parity.md) | [`spec/hooks.yaml`](../../../spec/hooks.yaml) — 41 hooks, 3 SDKs |
 
 Per-SDK hook tables, rendered from the same spec:
 [Rust](../hooks/rust.md) · [Python](../hooks/python.md) ·

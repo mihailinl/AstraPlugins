@@ -2,7 +2,7 @@
 
 # Паритет хуків
 
-Протокол **1** · **35** хуків · джерело істини [`spec/hooks.yaml`](../../../spec/hooks.yaml).
+Протокол **1** · **36** хуків · джерело істини [`spec/hooks.yaml`](../../../spec/hooks.yaml).
 
 *Хук* — це один RPC на одному з двох звернених до плагіна сервісів.
 `PluginCapabilityService` працює **демон → плагін**: ваш плагін його
@@ -54,6 +54,12 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 | `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **немає** |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
 | `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
 | `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
@@ -91,6 +97,8 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 | `tts` | так | так | так |
 | `stt` | так | так | так |
 | `ai_provider` | так | так | так |
+| `web_search` | так | так | так |
+| `music_provider` | yes | yes | yes |
 | `actions` | так | так | так |
 | `triggers` | так | так | так |
 | `ui_contributions` | так | так | так |
@@ -100,7 +108,7 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 
 ## Покриття перевіркою відповідності
 
-23 вхідних хука, які зобов'язаний вправляти прогін перевірки
+24 вхідних хука, які зобов'язаний вправляти прогін перевірки
 відповідності — кожен хук `демон → плагін`, який демон реально викликає.
 `astra-plugin test` викликає кожен з них, передбачений оголошеними
 можливостями плагіна, і перевіряє відсутність `UNIMPLEMENTED` для
@@ -125,6 +133,12 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `WebSearch` | `web_search` | required | unary | probe |
+| `MusicSubscribe` | `music_provider` | required | server | probe |
+| `MusicControl` | `music_provider` | required | unary | probe |
+| `MusicGetQueue` | `music_provider` | optional | unary | probe |
+| `MusicSearch` | `music_provider` | optional | unary | probe |
+| `MusicPlay` | `music_provider` | optional | unary | probe |
 | `ExecuteAction` | `actions` | required | unary | probe |
 | `GetPluginActionTypes` | `actions` | required | unary | probe |
 | `GetPluginTriggerTypes` | `triggers` | required | unary | probe |

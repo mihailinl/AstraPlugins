@@ -18,6 +18,34 @@ are removable in.
 ## [Unreleased]
 
 ### Added
+- **The `music_provider` capability** (`astra_plugin_sdk.music`). A plugin
+  reports what music services play through `self.music.publish(services,
+  sessions)` — the SDK serves the daemon's `MusicSubscribe` stream from it, at
+  once, on every publish and every `MUSIC_SNAPSHOT_HEARTBEAT_SECS` — and
+  answers `music_control` (required), `music_get_queue`, `music_search` and
+  `music_play`. `raise MusicRefusal(MusicErrorCode.…, message)` is a refusal
+  in the response body; any other raise is a status; not overriding answers
+  `UNIMPLEMENTED`. Searches and queues are cut to the shared bounds. A session key the plugin never published is answered `not_found` before the hook runs.
+  A queue or a played item may be a plain dict. Harness: `music_snapshot`,
+  `music_control`, `music_queue`, `music_search`, `music_play`.
+- **`Plugin.on_start()`**, called once the plugin is registered and has its
+  language and config — the place to start a websocket or a poll. Raising
+  stops the plugin and exits non-zero, as in the Rust and TypeScript SDKs.
+  The harness calls it on `start()`.
+- **The `web_search` capability: `Plugin.web_search(request)`.** A plugin can
+  be a web search provider the user picks for the assistant's `web_search`
+  tool (Astra 0.2.7; set `min_astra_version`). It receives a
+  `WebSearchRequest` (`query`, `count` clamped to 1..10, `freshness`,
+  `country`, `language`; `""` means not asked for) and returns a
+  `WebSearchResponse` — `WebSearchResponse.of(hits)` or
+  `WebSearchResponse.refuse(WebSearchErrorCode.…, message,
+  retry_after_secs=0)`, which checks the code — or a bare list of
+  `WebSearchHit`. A refusal travels in the response body, never as a status;
+  the SDK cuts hits to `count`. Not overriding it answers `UNIMPLEMENTED`;
+  overriding it is what registers `web_search` when the daemon states no
+  capability list. The testing `Harness` gained `web_search(query, count=…)`.
+  `plugin_pb2{,_grpc}.py` are regenerated (grpcio-tools 1.75.1) from the
+  re-synced slice. Guide: `docs/en/web-search-plugins.md`.
 - **`advanced=True` on every `Field` builder**, and `advanced` on `FieldDef`:
   marks a provider settings field as a tuning knob, which Astra's Voice page
   folds behind *Advanced settings*. The wire field already existed; nothing in

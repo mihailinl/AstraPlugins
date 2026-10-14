@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<!-- The shape of the bot-challenge ("anomaly") page the HTML front end serves
+     to requests it takes for automated ones. Hand-written for the tests. -->
+<html lang="en-US">
+<head><meta charset="utf-8"><title>DuckDuckGo</title></head>
+<body>
+  <div class="anomaly-modal__mask">
+    <div class="anomaly-modal__modal">
+      <div class="anomaly-modal__title">Unfortunately, bots use DuckDuckGo too.</div>
+      <div class="anomaly-modal__description">Please complete the following challenge to confirm this search was made by a human.</div>
+      <form id="challenge-form" action="//duckduckgo.com/anomaly.js?sv=html&amp;cc=sre" method="POST"></form>
+    </div>
+  </div>
+</body>
+</html>

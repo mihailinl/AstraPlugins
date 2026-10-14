@@ -2,20 +2,20 @@
 
 # Referencia del protocolo
 
-Generación de protocolo **1**. 10 servicios, 174 RPC. Fuente:
+Generación de protocolo **1**. 10 servicios, 180 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: 45b80d0f39040c72…`, el digest del cuerpo orientado a
+(`surface-sha256: 2c3c1701683b66d7…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:d5c36d9e453fd064…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:91f2965eb081b1b5…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
 
 | Servicio | Dirección | RPC | Quién lo sirve |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 25 | tu plugin |
+| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 26 | tu plugin |
 | [`PluginHostService`](#pluginhostservice) | plugin → daemon | 10 | el daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | el daemon |
 
@@ -48,6 +48,12 @@ protocolo para *este plugin no tiene ese hook* — no para un error.
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | Reporta Loaded / NotLoaded / NotNeeded para que el daemon pueda gestionar idle-unload. |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Transmite en streaming una completion de modelo; la única forma en que un plugin puede ser un proveedor de IA. |
 | `AiGetModels` *(obsoleto)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | Lista los modelos que este proveedor puede ejecutar. |
+| `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
+| `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
+| `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |
+| `MusicSearch` | `music_provider` | `PluginMusicSearchRequest` | `PluginMusicSearchResponse` | unary | live | Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay. |
+| `MusicPlay` | `music_provider` | `PluginMusicPlayRequest` | `PluginMusicPlayResponse` | unary | live | Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call. |
 | `ExecuteAction` | `actions` | `PluginExecuteActionRequest` | `PluginExecuteActionResponse` | unary | live | Ejecuta una acción de paso de comando que aportó este plugin. |
 | `GetPluginActionTypes` | `actions` | `Empty` | `PluginActionTypesResponse` | unary | live | Los tipos de action que este plugin añade al editor de comandos, leídos al arrancar. |
 | `GetPluginTriggerTypes` | `triggers` | `Empty` | `PluginTriggerTypesResponse` | unary | live | Los tipos de trigger que este plugin añade al editor de comandos, leídos al arrancar. |

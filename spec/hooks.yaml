@@ -107,7 +107,7 @@
 protocol: 1
 proto: "proto/plugin.proto"
 astra_daemon_root: "astra-rs/astra-daemon"
-capabilities: "tools tts stt wakeword ai_provider client actions triggers ui_contributions event_handlers dom_access core"
+capabilities: "tools tts stt wakeword ai_provider web_search music_provider client actions triggers ui_contributions event_handlers dom_access core"
 
 # `wakeword` uses CallFromUi's documented status/process-audio/reset-audio
 # methods while a dedicated audio RPC is not part of protocol 1. `dom_access`
@@ -137,7 +137,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/lifecycle.rs:635"
+    daemon_calls: "src/plugins/manager/lifecycle.rs:643"
     summary: "The tool schemas this plugin offers the model, read once at startup."
     rust: stable
     python: stable
@@ -298,7 +298,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:570"
+    daemon_calls: "src/plugins/manager/voice.rs:565"
     summary: "Drop the recognizer model so idle-unload actually frees VRAM."
     rust: stable
     python: stable
@@ -312,7 +312,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:521"
+    daemon_calls: "src/plugins/manager/voice.rs:516"
     summary: "Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload."
     note: "manager/voice.rs:530 maps an absent hook to NotNeeded, which is the pre-hook behaviour."
     rust: stable
@@ -328,7 +328,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/capability_bridge.rs:158"
+    daemon_calls: "src/plugins/capability_bridge.rs:166"
     summary: "Stream a model completion; the only way a plugin can be an AI provider."
     note: "Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language."
     rust: stable
@@ -348,6 +348,95 @@ hooks:
     removed_in: "0.8"
     summary: "List the models this provider can run."
     note: "FINDING: implemented in all three SDKs and called by nobody. `all_ai_providers` hardcodes supports_model_discovery=false, so the picker never asks. Marked deprecated in the proto; keep the bindings, grow no more. Deprecated in 0.6, removed in 0.8, and there is no replacement: nothing in the daemon asks a plugin what models it has, and AiComplete carries the chosen model on the request."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — web_search ──
+  - rpc: WebSearch
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: web_search
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/capabilities.rs:519"
+    summary: "Answer one web search for the assistant's web_search tool, as a provider the user picks."
+    note: "A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — music_provider ──
+  - rpc: MusicSubscribe
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: music_provider
+    requirement: required
+    routing: live
+    since: 1
+    streaming: server
+    daemon_calls: "src/plugins/manager/music.rs:124"
+    summary: "Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools."
+    note: "The SDK serves this stream itself from what the plugin publishes (MusicPublisher): the latest snapshot at once, again on every publish, and every music_snapshot_heartbeat_secs. A session missing from a snapshot has ended."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: MusicControl
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: music_provider
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/music.rs:142"
+    summary: "Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume."
+    note: "A refusal the plugin means (not_supported, no_active_device, auth, premium_required, rate_limited, ...) is an ANSWER in `error_code`, not a gRPC error."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: MusicGetQueue
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: music_provider
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/music.rs:142"
+    summary: "List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: MusicSearch
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: music_provider
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/music.rs:172"
+    summary: "Search a service's catalogue; items carry the plugin's own reference, handed back to MusicPlay."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: MusicPlay
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: music_provider
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/music.rs:172"
+    summary: "Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call."
     rust: stable
     python: stable
     typescript: stable
@@ -375,7 +464,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/lifecycle.rs:658"
+    daemon_calls: "src/plugins/manager/lifecycle.rs:666"
     summary: "The action types this plugin adds to the command editor, read at startup."
     rust: stable
     python: stable
@@ -390,7 +479,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/lifecycle.rs:681"
+    daemon_calls: "src/plugins/manager/lifecycle.rs:689"
     summary: "The trigger types this plugin adds to the command editor, read at startup."
     rust: stable
     python: stable
@@ -420,7 +509,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/lifecycle.rs:704"
+    daemon_calls: "src/plugins/manager/lifecycle.rs:712"
     summary: "The pages, slots, overlays and effects this plugin renders in the Astra window."
     rust: stable
     python: stable
@@ -434,7 +523,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/ui_surface.rs:211"
+    daemon_calls: "src/plugins/manager/ui_surface.rs:247"
     summary: "A named request from the plugin's UI or Astra's wake-word bridge into its backend."
     rust: stable
     python: stable
@@ -449,7 +538,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/ui_surface.rs:424"
+    daemon_calls: "src/plugins/manager/ui_surface.rs:460"
     summary: "The user saved new settings; here is the whole config as JSON."
     rust: stable
     python: stable
@@ -463,7 +552,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/ui_surface.rs:349"
+    daemon_calls: "src/plugins/manager/ui_surface.rs:385"
     summary: "The Astra UI language changed; re-render anything user-visible."
     note: "manager/ui_surface.rs:352 routes it through `optional_hook`."
     rust: stable
@@ -478,7 +567,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/instance.rs:1582"
+    daemon_calls: "src/plugins/instance.rs:1630"
     summary: "Stop cleanly; the process group is killed after the grace period."
     note: "Grace is spec/limits.yaml:plugin_stop_grace_secs. Answer, then exit."
     rust: stable
@@ -493,7 +582,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/health.rs:329"
+    daemon_calls: "src/plugins/manager/health.rs:347"
     summary: "Liveness probe, every 15 s."
     note: "Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager/health.rs:337)."
     rust: stable
@@ -510,7 +599,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:1993"
+    daemon_calls: "src/plugins/host_service.rs:1995"
     summary: "The handshake: prove the spawn token, receive the per-plugin session token."
     note: "The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token."
     rust: stable
@@ -526,7 +615,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2744"
+    daemon_calls: "src/plugins/host_service.rs:2746"
     summary: "Read this plugin's own persisted settings."
     rust: stable
     python: stable
@@ -541,7 +630,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2767"
+    daemon_calls: "src/plugins/host_service.rs:2769"
     summary: "Write a line into the daemon log buffer the plugin's log pane reads."
     rust: stable
     python: stable
@@ -556,7 +645,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2805"
+    daemon_calls: "src/plugins/host_service.rs:2807"
     summary: "Daemon version, state and gRPC port."
     rust: stable
     python: stable
@@ -571,7 +660,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2825"
+    daemon_calls: "src/plugins/host_service.rs:2827"
     summary: "Publish a variable that commands and other plugins can read."
     rust: stable
     python: stable
@@ -587,7 +676,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:2184"
+    daemon_calls: "src/plugins/host_service.rs:2186"
     summary: "The filtered daemon event stream; the whole of the event_handlers capability."
     rust: stable
     python: stable
@@ -603,7 +692,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2559"
+    daemon_calls: "src/plugins/host_service.rs:2561"
     summary: "Fire one of this plugin's trigger types and run whatever commands listen."
     rust: stable
     python: stable
@@ -619,7 +708,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:2238"
+    daemon_calls: "src/plugins/host_service.rs:2240"
     summary: "Send a chat message as this plugin and stream the assistant's reply back."
     note: "The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4."
     rust: stable
@@ -636,7 +725,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2869"
+    daemon_calls: "src/plugins/host_service.rs:2871"
     summary: "Push an event into this plugin's own iframes — the return path for CallFromUi."
     note: "Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously."
     rust: stable
@@ -652,7 +741,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2900"
+    daemon_calls: "src/plugins/host_service.rs:2902"
     summary: "Contribute colours, wallpaper and shader to the active Astra theme."
     note: "Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4."
     rust: stable

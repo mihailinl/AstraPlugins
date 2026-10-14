@@ -63,7 +63,20 @@ import type {
   UiContribution,
   WidgetContext,
   VoiceInfo,
+  WebSearchHit,
+  WebSearchRequest,
+  WebSearchResponse,
 } from "./types.js";
+import type {
+  MusicControlRequest,
+  MusicItem,
+  MusicPlayRequest,
+  MusicPlayed,
+  MusicPublisher,
+  MusicQueue,
+  MusicQueueRequest,
+  MusicSearchRequest,
+} from "./music.js";
 
 /** What a tool handler may return. Anything but a `ToolResult` is serialized. */
 export type ToolOutcome = string | ToolResult | unknown;
@@ -169,6 +182,19 @@ export interface SttDefinition {
   loadState?(ctx: PluginContext): SttLoadStatus | Promise<SttLoadStatus>;
 }
 
+/** The `music_provider` capability — see `music.ts`. */
+export interface MusicDefinition {
+  /** What you report through: `publisher.publish(services, sessions)`. */
+  publisher?: MusicPublisher;
+  control(req: MusicControlRequest, ctx: PluginContext): void | Promise<void>;
+  getQueue?(req: MusicQueueRequest, ctx: PluginContext): MusicQueue | MusicItem[] | Promise<MusicQueue | MusicItem[]>;
+  search?(req: MusicSearchRequest, ctx: PluginContext): MusicItem[] | Promise<MusicItem[]>;
+  play?(
+    req: MusicPlayRequest,
+    ctx: PluginContext
+  ): MusicPlayed | MusicItem | null | Promise<MusicPlayed | MusicItem | null>;
+}
+
 export interface AiDefinition {
   complete(req: AiCompleteRequest, ctx: PluginContext): AsyncIterable<AiChunk | string>;
   /** @deprecated The daemon never asks; see `Plugin.aiGetModels`. */
@@ -210,6 +236,22 @@ export interface PluginDefinition {
   tts?: TtsDefinition;
   stt?: SttDefinition;
   ai?: AiDefinition;
+  /**
+   * Answer one web search — the whole of the `web_search` capability. Return
+   * hits, or `WebSearch.refuse(code, message)` for a refusal you mean; a throw
+   * reports the plugin as failing.
+   */
+  webSearch?(
+    req: WebSearchRequest,
+    ctx: PluginContext
+  ): WebSearchResponse | WebSearchHit[] | Promise<WebSearchResponse | WebSearchHit[]>;
+  /**
+   * The `music_provider` capability. `publisher` is what you report through
+   * (`publisher.publish(services, sessions)`); `control` is required, the
+   * other three optional. `throw new MusicRefusal(code, message)` is a refusal
+   * you mean; any other throw reports the plugin as failing.
+   */
+  music?: MusicDefinition;
   ui?: UiDefinition;
   events?: EventsDefinition;
   /** Declare the `client` capability and get a `DaemonClient` when it is ready. */
@@ -261,7 +303,7 @@ async function resolve<T>(
  * methods, and only when the definition supplies them. `Plugin.overrides()`
  * compares against `Plugin.prototype`, so an unconditional subclass method
  * would make every definition claim streaming STT and the `ai_provider`
- * capability — which is how a class-based wrapper quietly breaks the two
+ * (or `web_search`) capability — which is how a class-based wrapper quietly breaks the two
  * routing decisions that depend on that answer.
  */
 class DefinedPlugin extends Plugin {
@@ -314,6 +356,27 @@ class DefinedPlugin extends Plugin {
     if (def.ai?.complete) {
       const fn = def.ai.complete;
       (this as Plugin).aiComplete = (req) => fn(req, ctx());
+    }
+    if (def.webSearch) {
+      const fn = def.webSearch;
+      (this as Plugin).webSearch = async (req) => await fn(req, ctx());
+    }
+    if (def.music) {
+      const music = def.music;
+      if (music.publisher) (this as Plugin).music = music.publisher;
+      (this as Plugin).musicControl = async (req) => await music.control(req, ctx());
+      if (music.getQueue) {
+        const fn = music.getQueue;
+        (this as Plugin).musicGetQueue = async (req) => await fn(req, ctx());
+      }
+      if (music.search) {
+        const fn = music.search;
+        (this as Plugin).musicSearch = async (req) => await fn(req, ctx());
+      }
+      if (music.play) {
+        const fn = music.play;
+        (this as Plugin).musicPlay = async (req) => await fn(req, ctx());
+      }
     }
   }
 

@@ -1,0 +1,29 @@
+[plugin]
+id = "duckduckgo-search"
+name = "DuckDuckGo Search (example)"
+version = "0.1.0"
+description = "Example web search provider: DuckDuckGo's HTML results page, scraped. Not for the catalogue"
+author = "Minice"
+license = "MPL-2.0"
+# `web_search` arrived in Astra 0.2.7. A daemon older than that refuses a
+# manifest declaring it outright (`[capabilities]` is a closed set), so this
+# line turns "it would not parse" into "it needs a newer Astra".
+min_astra_version = "0.2.7"
+
+[entry]
+command = "python"
+# `-u`: unbuffered stdout, so the daemon reads the plugin's first line while
+# the process is still running rather than whenever the buffer flushes.
+args = ["-u", "-m", "src.plugin"]
+runtimes = ["python"]
+
+# `[capabilities]` is what the daemon may call INTO this plugin.
+[capabilities]
+web_search = true
+
+# `[permissions]` is the other direction: which host RPCs the plugin may call
+# out to. Default-deny, and this plugin calls none — answering `WebSearch` is a
+# capability, not a host call. The outbound HTTPS request to DuckDuckGo is not
+# something Astra grants or can refuse: a plugin is a process with the user's
+# own network access.
+[permissions]

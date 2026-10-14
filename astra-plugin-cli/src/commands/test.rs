@@ -110,6 +110,42 @@ const DISCOVERY: &[&str] = &[
 /// applies `entry.call_timeout_secs` to the same call.
 const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// [`PROBE_TIMEOUT`] for `WebSearch`, which is the one hook whose whole job is
+/// a round trip to somebody else's server. Still well under the daemon's
+/// default call budget, so a plugin that needs longer than this is one the
+/// assistant waits on noticeably.
+const WEB_SEARCH_PROBE_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// The refusal codes the daemon reads (`PluginWebSearchResponse.error_code`).
+/// Anything else it reads as `unavailable`, which is never what a plugin meant.
+const WEB_SEARCH_ERROR_CODES: &[&str] = &[
+    "quota",
+    "rate_limited",
+    "auth",
+    "not_configured",
+    "unavailable",
+];
+
+/// The refusal codes the daemon reads on every music answer
+/// (`PluginMusicResult.error_code` and its siblings). Anything else it reads as
+/// `unavailable`.
+const MUSIC_ERROR_CODES: &[&str] = &[
+    "not_supported",
+    "not_found",
+    "no_active_device",
+    "auth",
+    "premium_required",
+    "rate_limited",
+    "unavailable",
+    "not_configured",
+];
+
+/// The session key and item reference the music probes use. No plugin reports
+/// them, so a correct plugin REFUSES (`not_found`) — and nothing on the user's
+/// real player is paused, liked or started by a conformance run.
+const MUSIC_PROBE_SESSION: &str = "astra-plugin-test.probe";
+const MUSIC_PROBE_REF: &str = "astra-plugin-test:probe:0";
+
 pub struct TestOptions<'a> {
     pub path: &'a str,
     /// Skip the language build step and use whatever is already on disk.
@@ -1483,6 +1519,70 @@ async fn probe_one(
         "SttGetLoadState" => probe_call!(client, rpc, stt_get_load_state(proto::Empty {}))
             .map(|r| format!("state = {}", r.state)),
         "AiComplete" => return ai_complete(client).await,
+        "WebSearch" => return web_search(client).await,
+        "MusicSubscribe" => return music_subscribe(client).await,
+        "MusicControl" => {
+            let answer = probe_call!(
+                client,
+                rpc,
+                music_control(proto::PluginMusicControlRequest {
+                    session_key: MUSIC_PROBE_SESSION.into(),
+                    action: "like".into(),
+                    value: String::new(),
+                })
+            );
+            return music_answer(answer.map(|r| r.error_code));
+        }
+        "MusicGetQueue" => {
+            let answer = probe_call!(
+                client,
+                rpc,
+                music_get_queue(proto::PluginMusicQueueRequest {
+                    session_key: MUSIC_PROBE_SESSION.into(),
+                    limit: 5,
+                })
+            );
+            if let Ok(r) = &answer {
+                if r.error_code.is_empty() && r.items.len() > 5 {
+                    return (Status::Error, format!("asked for 5 item(s) and got {}", r.items.len()));
+                }
+            }
+            return music_answer(answer.map(|r| r.error_code));
+        }
+        "MusicSearch" => {
+            let answer = probe_call!(
+                client,
+                rpc,
+                music_search(proto::PluginMusicSearchRequest {
+                    query: "Astra".into(),
+                    kind: "track".into(),
+                    limit: 3,
+                    service_id: String::new(),
+                    language: "en".into(),
+                })
+            );
+            if let Ok(r) = &answer {
+                if r.error_code.is_empty() && r.items.len() > 3 {
+                    return (Status::Error, format!("asked for 3 item(s) and got {}", r.items.len()));
+                }
+            }
+            return music_answer(answer.map(|r| r.error_code));
+        }
+        "MusicPlay" => {
+            let answer = probe_call!(
+                client,
+                rpc,
+                music_play(proto::PluginMusicPlayRequest {
+                    item_ref: MUSIC_PROBE_REF.into(),
+                    query: String::new(),
+                    kind: String::new(),
+                    mode: "end".into(),
+                    session_key: MUSIC_PROBE_SESSION.into(),
+                    service_id: String::new(),
+                })
+            );
+            return music_answer(answer.map(|r| r.error_code));
+        }
         "ExecuteAction" => {
             let action = actions.first().cloned().unwrap_or_default();
             if action.is_empty() {
@@ -1738,6 +1838,170 @@ async fn ai_complete(
         );
     }
     (Status::Ok, format!("{chunks} chunk(s)"))
+}
+
+/// The verdict on one music answer: an in-band refusal is an answer (and the
+/// probes are built to be refused); an unknown code, an UNIMPLEMENTED on a
+/// required hook's sibling or a status is what the daemon would misread.
+fn music_answer(answer: Result<String, tonic::Status>) -> (Status, String) {
+    match answer {
+        Err(s) if s.code() == tonic::Code::Unimplemented => {
+            (Status::Unimplemented, "answered UNIMPLEMENTED".into())
+        }
+        Err(s) => (
+            Status::Error,
+            format!(
+                "{:?}: {} — a refusal the plugin means belongs in `error_code`, not in a status",
+                s.code(),
+                brief(s.message())
+            ),
+        ),
+        Ok(code) if code.is_empty() => (Status::Ok, "carried out".into()),
+        Ok(code) if MUSIC_ERROR_CODES.contains(&code.as_str()) => {
+            (Status::Ok, format!("refused in band: {code}"))
+        }
+        Ok(code) => (
+            Status::Error,
+            format!(
+                "refused with error_code `{}`, which the daemon reads as `unavailable`. Use one \
+                 of: {}",
+                brief(&code),
+                MUSIC_ERROR_CODES.join(", ")
+            ),
+        ),
+    }
+}
+
+/// `MusicSubscribe`: the first snapshot must arrive at once — the SDKs send
+/// the latest on subscribe — and the stream is then dropped, which is what the
+/// daemon does when a plugin stops.
+async fn music_subscribe(
+    client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+) -> (Status, String) {
+    let mut stream = match tokio::time::timeout(PROBE_TIMEOUT, client.music_subscribe(req(proto::Empty {}))).await
+    {
+        Err(_) => return (Status::Error, format!("no response within {PROBE_TIMEOUT:?}")),
+        Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
+            return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
+        }
+        Ok(Err(s)) => return (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Ok(Ok(r)) => r.into_inner(),
+    };
+    match tokio::time::timeout(PROBE_TIMEOUT, stream.message()).await {
+        Err(_) => (
+            Status::Error,
+            format!(
+                "opened, but no snapshot within {PROBE_TIMEOUT:?}. The daemon shows nothing from a \
+                 provider until its first snapshot arrives"
+            ),
+        ),
+        Ok(Err(s)) => (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Ok(Ok(None)) => (Status::Error, "the stream ended without a snapshot".into()),
+        Ok(Ok(Some(snapshot))) => (
+            Status::Ok,
+            format!(
+                "first snapshot: {} service(s), {} session(s)",
+                snapshot.services.len(),
+                snapshot.sessions.len()
+            ),
+        ),
+    }
+}
+
+/// `WebSearch`, with a real query.
+///
+/// A refusal the plugin MEANT (`error_code` set — no key configured, no
+/// network on this machine) is an answer and passes: the daemon reads it and
+/// moves on to the next provider. What fails is what the daemon would misread
+/// or silently drop: an `error_code` outside the five it knows (read as
+/// `unavailable`), more hits than were asked for, or a hit whose URL is not
+/// http(s) (dropped before the model sees it).
+async fn web_search(
+    client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+) -> (Status, String) {
+    const COUNT: u32 = 3;
+    let request = proto::PluginWebSearchRequest {
+        query: "Astra desktop assistant".into(),
+        count: COUNT,
+        freshness: String::new(),
+        country: String::new(),
+        language: String::new(),
+    };
+    let resp = match tokio::time::timeout(WEB_SEARCH_PROBE_TIMEOUT, client.web_search(req(request)))
+        .await
+    {
+        Err(_) => {
+            return (
+                Status::Error,
+                format!("no response within {WEB_SEARCH_PROBE_TIMEOUT:?}"),
+            );
+        }
+        Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
+            return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
+        }
+        Ok(Err(s)) => {
+            return (
+                Status::Error,
+                format!(
+                    "{:?}: {} — a refusal the plugin means belongs in `error_code`, not in a \
+                     status; the daemon reads a status as this plugin being broken",
+                    s.code(),
+                    brief(s.message())
+                ),
+            );
+        }
+        Ok(Ok(r)) => r.into_inner(),
+    };
+
+    let code = resp.error_code.trim();
+    if !code.is_empty() {
+        if !WEB_SEARCH_ERROR_CODES.contains(&code) {
+            return (
+                Status::Error,
+                format!(
+                    "refused with error_code `{}`, which the daemon does not know and reads as \
+                     `unavailable`. Use one of: {}",
+                    brief(code),
+                    WEB_SEARCH_ERROR_CODES.join(", ")
+                ),
+            );
+        }
+        return (
+            Status::Ok,
+            format!("refused in band: {code}: {}", brief(&resp.error_message)),
+        );
+    }
+
+    if resp.hits.len() > COUNT as usize {
+        return (
+            Status::Error,
+            format!(
+                "asked for {COUNT} hit(s) and got {}; the SDKs cut to `count`, so this plugin \
+                 answers the wire by hand",
+                resp.hits.len()
+            ),
+        );
+    }
+    let dropped: Vec<&str> = resp
+        .hits
+        .iter()
+        .map(|h| h.url.as_str())
+        .filter(|u| {
+            let lower = u.trim().to_ascii_lowercase();
+            !(lower.starts_with("https://") || lower.starts_with("http://"))
+        })
+        .collect();
+    if !dropped.is_empty() {
+        return (
+            Status::Error,
+            format!(
+                "{} hit(s) have a URL that is not http(s) and the daemon drops them: {}",
+                dropped.len(),
+                brief(&dropped.join(", "))
+            ),
+        );
+    }
+    (Status::Ok, format!("{} hit(s)", resp.hits.len()))
 }
 
 // ── the two schema assertions ────────────────────────────────────────────────
@@ -2501,6 +2765,12 @@ mod tests {
             "SttUnload",
             "SttGetLoadState",
             "AiComplete",
+            "WebSearch",
+            "MusicSubscribe",
+            "MusicControl",
+            "MusicGetQueue",
+            "MusicSearch",
+            "MusicPlay",
             "ExecuteAction",
             "GetPluginActionTypes",
             "GetPluginTriggerTypes",
@@ -2533,7 +2803,7 @@ mod tests {
     /// close, so it is asserted rather than assumed.
     #[test]
     fn the_streaming_probes_are_the_streaming_hooks() {
-        const STREAMED_HERE: &[&str] = &["SttProcess", "AiComplete"];
+        const STREAMED_HERE: &[&str] = &["SttProcess", "AiComplete", "MusicSubscribe"];
         let streamed_in_spec: Vec<String> = conformance_hooks()
             .unwrap()
             .into_iter()

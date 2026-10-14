@@ -303,6 +303,109 @@ export interface ThemeContribution {
   effectConfigJson?: string;
 }
 
+// ── web search ───────────────────────────────────────────────────────────────
+
+/**
+ * How recent a search's results must be. `""` is no restriction. A value the
+ * SDK does not know (a newer daemon's sixth) arrives as `""`, so a provider
+ * answers too broadly rather than not at all.
+ */
+export type WebSearchFreshness = "" | "day" | "week" | "month" | "year";
+
+/**
+ * One web search, as the daemon asks a `web_search` provider for it.
+ *
+ * The daemon has already validated the query and normalised the region, so a
+ * provider maps these fields onto its own API and nothing more. Empty strings
+ * mean "not asked for".
+ */
+export interface WebSearchRequest {
+  /** What the model searched for. */
+  query: string;
+  /** How many hits to return, 1..=`WebSearch.MAX_COUNT`. Fewer is fine; the SDK cuts a longer answer. */
+  count: number;
+  freshness: WebSearchFreshness;
+  /** ISO 3166-1 alpha-2, upper case (`"DE"`), or `""`. */
+  country: string;
+  /** ISO 639-1, lower case (`"de"`), or `""`. */
+  language: string;
+}
+
+/** One search result. */
+export interface WebSearchHit {
+  title: string;
+  /** `http` or `https` only — the daemon drops a hit with any other scheme. */
+  url: string;
+  /** Plain text. The daemon strips markup anyway, but text reads better. */
+  snippet?: string;
+  /** `YYYY-MM-DD` when the source dates the page. */
+  published?: string;
+}
+
+/**
+ * Why a provider did not search. Each code changes what the daemon does next:
+ * `quota` falls back to the next provider in the user's chain, `rate_limited`
+ * may carry `retryAfterSecs`, `auth` is a refused key, `not_configured` a
+ * missing one, `unavailable` anything else.
+ */
+export type WebSearchErrorCode =
+  | "quota"
+  | "rate_limited"
+  | "auth"
+  | "not_configured"
+  | "unavailable";
+
+/**
+ * A provider's answer: hits, or the refusal it means. A refusal is an ANSWER,
+ * not a throw — throwing tells the daemon this plugin is broken. Build one
+ * with `WebSearch.hits(...)` / `WebSearch.refuse(...)`, or return a bare
+ * `WebSearchHit[]`.
+ */
+export interface WebSearchResponse {
+  hits?: WebSearchHit[];
+  /** Absent when the search ran (even with no hits). */
+  errorCode?: WebSearchErrorCode;
+  /** Short and in English: the model reads it. */
+  errorMessage?: string;
+  /** With `rate_limited`: seconds to wait, 0 when unknown. */
+  retryAfterSecs?: number;
+}
+
+const WEB_SEARCH_ERROR_CODES: readonly WebSearchErrorCode[] = [
+  "quota",
+  "rate_limited",
+  "auth",
+  "not_configured",
+  "unavailable",
+];
+
+/** Builders for a `web_search` provider's answer. */
+export const WebSearch = {
+  /** The most hits the daemon ever asks for. */
+  MAX_COUNT: 10,
+  /** Every refusal code the daemon reads. */
+  ERROR_CODES: WEB_SEARCH_ERROR_CODES,
+  /** The search ran. An empty list is a search with no results. */
+  hits: (hits: WebSearchHit[]): WebSearchResponse => ({ hits }),
+  /**
+   * The search did not run, for `code`'s reason. `code` is checked here, so a
+   * typo fails in the plugin's own test rather than reaching the daemon as an
+   * unknown code it reads as `unavailable`.
+   */
+  refuse: (
+    code: WebSearchErrorCode,
+    message: string,
+    retryAfterSecs = 0
+  ): WebSearchResponse => {
+    if (!WEB_SEARCH_ERROR_CODES.includes(code)) {
+      throw new TypeError(
+        `"${code}" is not a web search error code; use one of ${WEB_SEARCH_ERROR_CODES.join(", ")}`
+      );
+    }
+    return { errorCode: code, errorMessage: message, retryAfterSecs: Math.max(0, retryAfterSecs) };
+  },
+};
+
 /** One chunk of the assistant's reply to `host.sendChatMessage`. */
 export interface ChatChunk {
   /** A text delta, when this chunk carries one. */

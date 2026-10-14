@@ -170,6 +170,8 @@ string such as "plugin", not &lt;type&gt;.
 | `stt` | `SttProcess`, `SttGetLanguages` |
 | `wakeword` | нет |
 | `ai_provider` | `AiComplete` |
+| `web_search` | `WebSearch` |
+| `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | `GetPluginTriggerTypes`, `FireTrigger` |

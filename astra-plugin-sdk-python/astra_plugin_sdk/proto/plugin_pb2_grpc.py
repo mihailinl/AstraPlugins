@@ -7166,6 +7166,36 @@ class PluginCapabilityServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginAiModelsResponse.FromString,
                 _registered_method=True)
+        self.WebSearch = channel.unary_unary(
+                '/astra.PluginCapabilityService/WebSearch',
+                request_serializer=plugin__pb2.PluginWebSearchRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginWebSearchResponse.FromString,
+                _registered_method=True)
+        self.MusicSubscribe = channel.unary_stream(
+                '/astra.PluginCapabilityService/MusicSubscribe',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.PluginMusicSnapshot.FromString,
+                _registered_method=True)
+        self.MusicControl = channel.unary_unary(
+                '/astra.PluginCapabilityService/MusicControl',
+                request_serializer=plugin__pb2.PluginMusicControlRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginMusicResult.FromString,
+                _registered_method=True)
+        self.MusicGetQueue = channel.unary_unary(
+                '/astra.PluginCapabilityService/MusicGetQueue',
+                request_serializer=plugin__pb2.PluginMusicQueueRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginMusicQueueResponse.FromString,
+                _registered_method=True)
+        self.MusicSearch = channel.unary_unary(
+                '/astra.PluginCapabilityService/MusicSearch',
+                request_serializer=plugin__pb2.PluginMusicSearchRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginMusicSearchResponse.FromString,
+                _registered_method=True)
+        self.MusicPlay = channel.unary_unary(
+                '/astra.PluginCapabilityService/MusicPlay',
+                request_serializer=plugin__pb2.PluginMusicPlayRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginMusicPlayResponse.FromString,
+                _registered_method=True)
         self.ExecuteAction = channel.unary_unary(
                 '/astra.PluginCapabilityService/ExecuteAction',
                 request_serializer=plugin__pb2.PluginExecuteActionRequest.SerializeToString,
@@ -7342,6 +7372,56 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WebSearch(self, request, context):
+        """── Web search ──
+        A plugin that declares `capabilities.web_search` is a search provider the
+        user can choose for the `web_search` AI tool, as `plugin__<plugin id>`.
+        The daemon owns the provider chain, the cache, the result fence and what
+        the model is told; the plugin answers ONE query. A refusal is an ANSWER
+        (`error_code`), not a gRPC error, so the daemon can tell "my allowance is
+        spent, use the fallback" from "this plugin is broken".
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MusicSubscribe(self, request, context):
+        """── Music provider ──
+        A plugin that declares `capabilities.music_provider` reports what music
+        services play and drives them, so the music widget, the island and the AI
+        media tools reach a service (like in it, its queue, search and play)
+        through the one media hub. The daemon opens `MusicSubscribe` once per
+        plugin run and keeps it; every other call is one request. A refusal is an
+        ANSWER (`error_code`), not a gRPC error.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MusicControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MusicGetQueue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MusicSearch(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MusicPlay(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ExecuteAction(self, request, context):
         """── Actions ──
         """
@@ -7483,6 +7563,36 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     servicer.AiGetModels,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginAiModelsResponse.SerializeToString,
+            ),
+            'WebSearch': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebSearch,
+                    request_deserializer=plugin__pb2.PluginWebSearchRequest.FromString,
+                    response_serializer=plugin__pb2.PluginWebSearchResponse.SerializeToString,
+            ),
+            'MusicSubscribe': grpc.unary_stream_rpc_method_handler(
+                    servicer.MusicSubscribe,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.PluginMusicSnapshot.SerializeToString,
+            ),
+            'MusicControl': grpc.unary_unary_rpc_method_handler(
+                    servicer.MusicControl,
+                    request_deserializer=plugin__pb2.PluginMusicControlRequest.FromString,
+                    response_serializer=plugin__pb2.PluginMusicResult.SerializeToString,
+            ),
+            'MusicGetQueue': grpc.unary_unary_rpc_method_handler(
+                    servicer.MusicGetQueue,
+                    request_deserializer=plugin__pb2.PluginMusicQueueRequest.FromString,
+                    response_serializer=plugin__pb2.PluginMusicQueueResponse.SerializeToString,
+            ),
+            'MusicSearch': grpc.unary_unary_rpc_method_handler(
+                    servicer.MusicSearch,
+                    request_deserializer=plugin__pb2.PluginMusicSearchRequest.FromString,
+                    response_serializer=plugin__pb2.PluginMusicSearchResponse.SerializeToString,
+            ),
+            'MusicPlay': grpc.unary_unary_rpc_method_handler(
+                    servicer.MusicPlay,
+                    request_deserializer=plugin__pb2.PluginMusicPlayRequest.FromString,
+                    response_serializer=plugin__pb2.PluginMusicPlayResponse.SerializeToString,
             ),
             'ExecuteAction': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteAction,
@@ -7942,6 +8052,168 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/AiGetModels',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginAiModelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WebSearch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/WebSearch',
+            plugin__pb2.PluginWebSearchRequest.SerializeToString,
+            plugin__pb2.PluginWebSearchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MusicSubscribe(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/astra.PluginCapabilityService/MusicSubscribe',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.PluginMusicSnapshot.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MusicControl(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/MusicControl',
+            plugin__pb2.PluginMusicControlRequest.SerializeToString,
+            plugin__pb2.PluginMusicResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MusicGetQueue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/MusicGetQueue',
+            plugin__pb2.PluginMusicQueueRequest.SerializeToString,
+            plugin__pb2.PluginMusicQueueResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MusicSearch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/MusicSearch',
+            plugin__pb2.PluginMusicSearchRequest.SerializeToString,
+            plugin__pb2.PluginMusicSearchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MusicPlay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/MusicPlay',
+            plugin__pb2.PluginMusicPlayRequest.SerializeToString,
+            plugin__pb2.PluginMusicPlayResponse.FromString,
             options,
             channel_credentials,
             insecure,

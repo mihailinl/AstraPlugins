@@ -306,6 +306,61 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         ));
     }
 
+    if capabilities.contains(&"web_search") {
+        members.push(Member::new(
+            Some("web_search"),
+            r#"    /// Answer one web search for the assistant's `web_search` tool. A
+    /// refusal you mean (missing key, spent allowance, rate limit) is an
+    /// answer, as below; `Err` reports the plugin as broken. Keep the API key
+    /// in `[config]` — the user sets it on the Plugins page.
+    #[hook]
+    async fn web_search(
+        &self,
+        _ctx: &PluginContext,
+        _req: WebSearchRequest,
+    ) -> anyhow::Result<WebSearchResponse> {
+        // Call your search API with `req.query` and return at most
+        // `req.count` hits:
+        //   Ok(WebSearchResponse::hits(rows.into_iter().map(|r| {
+        //       WebSearchHit::new(r.title, r.url).with_snippet(r.text)
+        //   })))
+        Ok(WebSearchResponse::refuse(
+            WebSearchErrorCode::NotConfigured,
+            "this search provider is a scaffold: implement web_search",
+        ))
+    }"#,
+        ));
+    }
+
+    if capabilities.contains(&"music_provider") {
+        members.push(Member::new(
+            Some("music_provider"),
+            r#"    /// What this plugin reports. Publish the WHOLE set of services and
+    /// sessions whenever it changes:
+    /// `self.music_publisher().unwrap().publish(services, sessions)`.
+    #[hook]
+    fn music_publisher(&self) -> Option<MusicPublisher> {
+        static PUBLISHER: std::sync::OnceLock<MusicPublisher> = std::sync::OnceLock::new();
+        Some(PUBLISHER.get_or_init(MusicPublisher::new).clone())
+    }
+
+    /// Carry out `req.action` on `req.session_key`. A refusal you mean is an
+    /// answer, as below; any other `Err` reports the plugin as broken.
+    #[hook]
+    async fn music_control(
+        &self,
+        _ctx: &PluginContext,
+        _req: MusicControlRequest,
+    ) -> anyhow::Result<()> {
+        Err(MusicRefusal::new(
+            MusicErrorCode::NotConfigured,
+            "this music provider is a scaffold: implement music_control",
+        )
+        .into())
+    }"#,
+        ));
+    }
+
     if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
         members.push(Member::new(
             Some("ui_contributions"),

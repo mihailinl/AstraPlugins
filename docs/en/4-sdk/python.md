@@ -103,7 +103,7 @@ generic plugin mark.
 Everything else is an override on `Plugin`: `tts_synthesize`, `tts_list_voices`,
 `tts_config_fields`, `stt_transcribe`, `stt_transcribe_stream`,
 `stt_get_languages`, `stt_load` / `stt_unload` / `stt_load_state`,
-`ai_complete`, `get_action_types`, `execute_action`, `get_trigger_types`,
+`ai_complete`, `web_search`, `get_action_types`, `execute_action`, `get_trigger_types`,
 `get_ui_contributions`, `handle_ui_call`, `on_config_changed`,
 `on_language_changed`, `on_active_triggers`, `on_shutdown`, `health_check`.
 

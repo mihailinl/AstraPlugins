@@ -73,7 +73,7 @@ are installed with `bun install --frozen-lockfile`. Start with
 
 **Do not hand-write `plugin.toml`, and do not copy one out of `examples/`.** The
 scaffold writes a correct manifest with commented, ready-to-uncomment permission
-lines. `[capabilities]` is what Astra may call **into** your plugin (eleven keys);
+lines. `[capabilities]` is what Astra may call **into** your plugin (thirteen keys);
 `[permissions]` is what your plugin may call **out** to Astra (eight ids,
 default-deny, each needing a `reason` the user reads before consenting). They are
 independent — declaring `tools` does not grant `fire_trigger` — and both are
@@ -145,7 +145,7 @@ fails on the drift. Change the source, re-run the generator, commit both.
 | `astra-plugin-cli/src/conformance.json` | copied from `spec/generated/conformance.json` |
 
 **[`spec/hooks.yaml`](spec/hooks.yaml) and [`spec/limits.yaml`](spec/limits.yaml)
-are the source of truth** — for the 35 hooks, and for the numbers that must be
+are the source of truth** — for the 41 hooks, and for the numbers that must be
 identical in the daemon and the SDKs. Both are shared with `Astra`, so changing
 either is an *issue first* change (§6).
 

@@ -17,6 +17,29 @@ are removable in.
 ## [Unreleased]
 
 ### Added
+- **The `music_provider` capability** (`astra_plugin_sdk::music`). Return a
+  `MusicPublisher` from `PluginCapability::music_publisher` and `publish` the
+  whole set of services and sessions whenever it changes; the runner serves
+  `MusicSubscribe` from it (at once, on every publish, every
+  `MUSIC_SNAPSHOT_HEARTBEAT_SECS`). The answering hooks are `music_control`
+  (required), `music_get_queue`, `music_search` and `music_play`; an `Err`
+  that downcasts to `MusicRefusal` travels in the response body. A session key the plugin never published is answered `not_found` before the hook runs.
+  The macro infers `music_provider` from any of them.
+- **The `web_search` capability: `PluginCapability::web_search`.** A plugin
+  can be a web search provider the user picks for the assistant's
+  `web_search` tool (Astra 0.2.7; set `min_astra_version`). The hook takes a
+  `WebSearchRequest` (`query`, `count` clamped to `1..=10`, a
+  `WebSearchFreshness`, `country` and `language` as `Option`s) and returns
+  `anyhow::Result<WebSearchResponse>`: `WebSearchResponse::hits(..)` of
+  `WebSearchHit`s, or `WebSearchResponse::refuse(WebSearchErrorCode::…, msg)`
+  (`.with_retry_after(secs)` for `RateLimited`). A refusal travels in the
+  response body, never as a status, so the daemon can fall back on `Quota`
+  instead of reading the plugin as broken; the SDK cuts hits to `count`. The
+  default answers `UNIMPLEMENTED`, `#[hook] web_search` is in the macro's hook
+  table (it infers `web_search`), and the testing `Harness` gained
+  `web_search(req)`. Guide: `docs/en/web-search-plugins.md`. The protocol slice
+  is re-synced with Astra for it, which also brings the island-presence,
+  clipboard-history, shelf and battery messages the daemon added since 0.7.2.
 - **`FieldDef::with_advanced()`** marks a provider settings field as a tuning
   knob, and Astra's Voice page folds it behind *Advanced settings*. The wire
   field (`FieldDefinitionMsg.advanced`, 18) has existed since the daemon learned
