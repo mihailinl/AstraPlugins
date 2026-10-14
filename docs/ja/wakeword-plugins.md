@@ -54,6 +54,8 @@ Python では SDK の `@ui_call` ハンドラを、TypeScript では 3 つのメ
 `"x-astra-field-type": "slider"` と `"textarea"` は、数値と文字列のプロパティに
 それぞれその部品を選びます。設定されたパスを読むのはプラグインで、Astra は
 キーワードモデルの形式を定めません。
+`"x-astra-advanced": true` は、「プラグイン」ページと同じようにフィールドを
+「詳細設定」の下にたたみます。[設定とフィールド](3-reference/config-fields.md) を参照してください。
 
 プロトコル 1 は、3 つのメソッドに認証付きのリクエスト/レスポンスチャネル
 `CallFromUi` を使います。これはデーモン内部の呼び出しで、iframe やページは

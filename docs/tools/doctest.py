@@ -319,23 +319,51 @@ class Env:
 
     @property
     def cli(self) -> Path:
+        """The `astra-plugin` the `toml-manifest` and `cli` runners call.
+
+        `ASTRA_PLUGIN_BIN` wins, and a value that names no file is refused
+        rather than passed over. Otherwise the CLI is BUILT from this tree and
+        taken from where cargo reports it put it — never looked for at a fixed
+        path first. Looking first had two failures, both quiet. On a machine
+        whose `CARGO_TARGET_DIR` points elsewhere, a binary left in
+        `astra-plugin-cli/target/release` weeks ago checked every manifest
+        sample, so a page documenting a new `check` warning went green against
+        a CLI that had never heard of it. With no such leftover, the build
+        landed in the other directory, was not found, and the property rebuilt
+        and recursed until Python gave up.
+
+        `--no-build` reads cargo's own target directory and says which binary
+        it is using, since nothing then vouches for its age.
+        """
         if self._cli is not None:
             return self._cli
         env_bin = os.environ.get("ASTRA_PLUGIN_BIN")
-        candidates = [Path(env_bin)] if env_bin else []
-        candidates += [
-            ROOT / "astra-plugin-cli/target/release/astra-plugin",
-            ROOT / "astra-plugin-cli/target/release/astra-plugin.exe",
-        ]
-        for c in candidates:
-            if c.is_file():
-                self._cli = c
-                return c
-        if not self.build:
-            raise Skip("astra-plugin is not built (pass no --no-build, or set ASTRA_PLUGIN_BIN)")
-        run(["cargo", "build", "--release", "--manifest-path",
-             str(ROOT / "astra-plugin-cli/Cargo.toml")], cwd=ROOT)
-        return self.cli
+        if env_bin:
+            if not Path(env_bin).is_file():
+                raise SystemExit(f"doctest: ASTRA_PLUGIN_BIN={env_bin} names no file")
+            self._cli = Path(env_bin)
+            return self._cli
+        manifest = str(ROOT / "astra-plugin-cli/Cargo.toml")
+        if self.build:
+            p = run(["cargo", "build", "--release", "--message-format=json-render-diagnostics",
+                     "--manifest-path", manifest], cwd=ROOT)
+            for line in p.stdout.splitlines():
+                msg = json.loads(line) if line.startswith("{") else {}
+                if (msg.get("reason") == "compiler-artifact"
+                        and msg.get("target", {}).get("name") == "astra-plugin"
+                        and msg.get("executable")):
+                    self._cli = Path(msg["executable"])
+                    return self._cli
+            raise Fail("cargo built astra-plugin-cli but reported no `astra-plugin` executable")
+        meta = run(["cargo", "metadata", "--format-version", "1", "--no-deps",
+                    "--manifest-path", manifest], cwd=ROOT)
+        release = Path(json.loads(meta.stdout)["target_directory"]) / "release"
+        for name in ("astra-plugin", "astra-plugin.exe"):
+            if (release / name).is_file():
+                self._cli = release / name
+                print(f"doctest: --no-build, so {self._cli} is used as found", file=sys.stderr)
+                return self._cli
+        raise Skip(f"astra-plugin is not built in {release} (drop --no-build, or set ASTRA_PLUGIN_BIN)")
 
     # -- a Rust project whose SDK is this tree --------------------------------
 

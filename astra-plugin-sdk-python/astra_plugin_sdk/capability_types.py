@@ -297,6 +297,8 @@ class FieldDef(_CapabilityType):
     group: str = ""
     group_label: str = ""
     storage_path: str = ""
+    #: A tuning knob: Astra folds it behind "Advanced settings" (Voice page).
+    advanced: bool = False
 
     def to_proto(self) -> Any:
         return plugin_pb2.FieldDefinitionMsg(
@@ -319,6 +321,7 @@ class FieldDef(_CapabilityType):
             group=self.group,
             group_label=self.group_label,
             storage_path=self.storage_path,
+            advanced=self.advanced,
         )
 
     @classmethod
@@ -341,6 +344,7 @@ class FieldDef(_CapabilityType):
             group=msg.group,
             group_label=msg.group_label,
             storage_path=msg.storage_path,
+            advanced=msg.advanced,
         )
 
     @classmethod

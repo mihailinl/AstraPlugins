@@ -57,6 +57,8 @@ un campo de contraseña; `"format": "file"` (o
 `"x-astra-field-type": "slider"` y `"textarea"` eligen esos controles para
 propiedades numéricas y de cadena. El plugin lee la ruta configurada; Astra no
 impone ningún formato de modelo de palabra clave.
+`"x-astra-advanced": true` pliega un campo tras *Ajustes avanzados*, como en la
+página «Complementos»; consulta [Campos de configuración y ajustes](3-reference/config-fields.md).
 
 El protocolo 1 usa el canal autenticado de petición/respuesta `CallFromUi` para
 tres métodos. Es una llamada interna del daemon; no se crea ningún iframe ni

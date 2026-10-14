@@ -65,6 +65,24 @@ def test_populated_values_survive_the_round_trip():
     assert ActionTypeDef.from_proto(definition.to_proto()) == definition
 
 
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda **kw: Field.text("k", "K", **kw),
+        lambda **kw: Field.textarea("k", "K", **kw),
+        lambda **kw: Field.textarea_with_variables("k", "K", **kw),
+        lambda **kw: Field.dropdown("k", "K", options=["a"], **kw),
+        lambda **kw: Field.number("k", "K", **kw),
+        lambda **kw: Field.toggle("k", "K", **kw),
+    ],
+    ids=["text", "textarea", "textarea_with_variables", "dropdown", "number", "toggle"],
+)
+def test_every_field_builder_can_mark_a_tuning_knob(build):
+    """`advanced=True` reaches the wire from each builder; a field is ordinary unless marked."""
+    assert build(advanced=True).to_proto().advanced is True
+    assert build().to_proto().advanced is False
+
+
 def test_dict_is_accepted_and_warns_once_naming_the_hook():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

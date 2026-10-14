@@ -14,6 +14,15 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [Unreleased]
+
+### Added
+- **`FieldDef::with_advanced()`** marks a provider settings field as a tuning
+  knob, and Astra's Voice page folds it behind *Advanced settings*. The wire
+  field (`FieldDefinitionMsg.advanced`, 18) has existed since the daemon learned
+  to fold built-in knobs; no SDK offered a way to set it, so a plugin's provider
+  fields were always drawn in full.
+
 ## [0.7.2] — 2026-10-04
 
 Two additions, a fix, Kazakh plurals, and the protocol re-synced with the

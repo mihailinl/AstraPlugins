@@ -109,8 +109,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 /// `ToolError::NotConfigured { field: "api_key", .. }` — which carries a
 /// deep-link to that exact settings field.
 ///
-/// It also derives `PluginConfig`, because a settings type that has no schema
-/// has nothing for the Settings page to render.
+/// It also derives `PluginConfig`, so the type can print the JSON Schema it
+/// implies — what to paste into `plugin.toml`'s `[config] schema`, which is the
+/// schema the Settings page actually renders.
 ///
 /// # The expansion
 ///

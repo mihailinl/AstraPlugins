@@ -47,6 +47,64 @@ schema = """
 `astra-plugin check` がこれをパースし、ルートが `"type": "object"` で
 なければ警告します。
 
+各プロパティのコントロールはスキーマから決まります。`boolean` はスイッチ、
+`number` と `integer` は数値欄(`minimum`、`maximum`、`multipleOf`)、文字列の
+`enum` はドロップダウン、それ以外の文字列 — および `type` のないプロパティ —
+はテキスト欄になります。`"format": "password"` は値を伏せ、`"format": "file"`
+(または `"x-astra-field-type": "file_picker"`)はファイル選択を出し、
+`"x-astra-field-type": "slider"` や `"textarea"` はそのコントロールを選びます。
+`title` はフィールドの見出し、`description` はその下の説明になります。
+`array` と `object` のプロパティにはコントロールがなく、保存しても保存済みの値は
+そのまま保たれます。
+
+### 詳細設定
+
+ほとんどの人が触る必要のない設定 — タイムアウト、キャッシュの寿命、デバッグ用
+スイッチなど — には `"x-astra-advanced": true` を付けられます。Astra はその
+コントロールを、自身の設定ページと同じ「詳細設定」の帯の下にたたみ、
+「詳細設定を隠す」をオフにしているユーザーにはそのまま表示します。それ以外は
+何も変わりません。値は以前と同じように読み込まれ、保存され、プラグインに届けられ
+ます。同じキーワードは、ウェイクワードプラグインの設定が表示される「音声」
+ページでもフィールドをたたみます。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "weather"
+name = "Weather"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/weather"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "api_key": { "type": "string", "title": "API key" },
+    "cache_ttl_secs": {
+      "type": "integer", "title": "Cache lifetime (s)", "minimum": 0, "default": 600,
+      "x-astra-advanced": true
+    }
+  }
+}
+"""
+```
+
+このキーワードは、プラグインをどの言語で書いていても `plugin.toml` に書きます。
+フィールドをたたむのは真偽値の `true` だけで、それ以外の値には
+`astra-plugin check` が警告します。`required` に含まれ、かつ詳細設定として
+印の付いたプロパティにも警告します。Astra は自身のページで一つの規則を守って
+いるからです。プラグインが動くのに必要な設定 — API キー、モデル、パス — は
+決してたたまないこと。見つけられなかったユーザーは、隠れているとは考えず、
+存在しないと考えます。
+
 ### 型付きで読む
 
 `type Config` を宣言し、`on_config` を実装してください。SDK はペイロード
@@ -245,6 +303,13 @@ astra::main!(ToneTts::default());
 `with_description`、`with_min`、`with_max`、`with_step`、折りたたみ
 可能なセクション用の `with_group(id, label)`、表示制御用の
 `with_condition(field_id, operator, value)`。
+
+`with_advanced()` は細かな調整用のフィールドであることを示し、Astra の
+「音声」ページはそれを「詳細設定」の下にたたみます(コマンドエディターは
+この印を無視します)。Python の `Field` ビルダーは `advanced=True` を、
+TypeScript のビルダーは `advanced: true` を受け取ります。プラグイン自身の
+設定では、代わりにキーワード `"x-astra-advanced"` を使います — 上の
+「詳細設定」を参照してください。
 
 `default_value` は、どの場合でもワイヤー上では**文字列**です — これは
 JSON エンコードされたデフォルト値を運びます。そのため、数値のデフォルト

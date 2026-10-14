@@ -56,6 +56,8 @@ String-, Zahlen-, Boolean- und Enum-Eigenschaften. Ein String mit
 `"x-astra-field-type": "slider"` und `"textarea"` wählen diese Steuerelemente für
 Zahlen- bzw. String-Eigenschaften. Den konfigurierten Pfad liest das Plugin
 selbst; ein Format für Keyword-Modelle schreibt Astra nicht vor.
+`"x-astra-advanced": true` klappt ein Feld hinter *Erweiterte Einstellungen* ein,
+wie auf der Seite „Plugins“ — siehe [Config- und Settings-Felder](3-reference/config-fields.md).
 
 Protokoll 1 nutzt für drei Methoden den authentifizierten
 Request/Response-Kanal `CallFromUi`. Das ist ein interner Aufruf des Daemons; es

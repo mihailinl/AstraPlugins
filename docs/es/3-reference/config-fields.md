@@ -46,6 +46,64 @@ schema = """
 `astra-plugin check` lo analiza y avisa si la raíz no es
 `"type": "object"`.
 
+El control de cada propiedad se deduce del esquema: `boolean` es un
+interruptor, `number` o `integer` una casilla numérica (`minimum`, `maximum`,
+`multipleOf`), un `enum` de cadenas una lista desplegable, y cualquier otra
+cadena —o una propiedad sin `type`— una casilla de texto. `"format": "password"`
+oculta el valor, `"format": "file"` (o `"x-astra-field-type": "file_picker"`)
+ofrece un selector de archivos, y `"x-astra-field-type": "slider"` o
+`"textarea"` elige ese control. `title` da nombre al campo y `description` lo
+explica debajo. Una propiedad `array` u `object` no recibe control; su valor
+guardado se conserva tal cual cuando el usuario guarda.
+
+### Ajustes avanzados
+
+Un ajuste que casi nadie necesita tocar —un tiempo de espera, la vida de una
+caché, un interruptor de depuración— puede marcarse con
+`"x-astra-advanced": true`. Astra pliega su control tras la misma franja
+*Ajustes avanzados* que usan sus propias páginas de ajustes, y lo muestra
+directamente a quien haya desactivado *Ocultar los ajustes avanzados*. Nada más
+cambia: el valor se lee, se guarda y llega a tu plugin igual que antes. La misma
+palabra clave pliega el campo en la página «Voz», donde aparecen los ajustes de
+un plugin de palabra de activación.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "weather"
+name = "Weather"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/weather"
+
+[capabilities]
+tools = true
+
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "api_key": { "type": "string", "title": "API key" },
+    "cache_ttl_secs": {
+      "type": "integer", "title": "Cache lifetime (s)", "minimum": 0, "default": 600,
+      "x-astra-advanced": true
+    }
+  }
+}
+"""
+```
+
+La palabra clave va en `plugin.toml`, sea cual sea el lenguaje del plugin. Solo
+el booleano `true` pliega un campo, y `astra-plugin check` avisa de cualquier
+otro valor. También avisa de una propiedad que está en `required` y a la vez es
+avanzada, porque Astra sigue una regla en sus propias páginas: no plegar nunca un
+ajuste sin el que el plugin no funciona —una clave de API, un modelo, una ruta—.
+Quien no lo encuentra no concluye que está oculto; concluye que no existe.
+
 ### Leerlo de forma tipada
 
 Declara `type Config` e implementa `on_config`. El SDK analiza la carga
@@ -243,6 +301,12 @@ Setters encadenables: `with_placeholder`, `with_default`,
 `with_description`, `with_min`, `with_max`, `with_step`,
 `with_group(id, label)` para una sección colapsable, y
 `with_condition(field_id, operator, value)` para la visibilidad.
+
+`with_advanced()` marca un ajuste fino, y la página «Voz» de Astra lo pliega
+tras *Ajustes avanzados* (el editor de comandos ignora la marca). En Python los
+constructores de `Field` aceptan `advanced=True`, y en TypeScript
+`advanced: true`. Los ajustes propios del plugin usan en su lugar la palabra
+clave `"x-astra-advanced"`; consulta *Ajustes avanzados* más arriba.
 
 `default_value` es un **string** en el cable en todos los casos — lleva un
 valor por defecto codificado en JSON, así que el default de un número es

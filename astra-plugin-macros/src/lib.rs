@@ -246,9 +246,9 @@ pub fn derive_json_schema_feature_off(_item: TokenStream) -> TokenStream {
 }
 
 /// Mark a type as a plugin's settings: implements `PluginConfig` (whose
-/// `json_schema()` is what `plugin.toml`'s `[config] schema` is generated from)
-/// and asserts at compile time that the type both `Deserialize`s and has a
-/// `Default`.
+/// `json_schema()` is a schema to paste into `plugin.toml`'s `[config] schema`;
+/// nothing generates the manifest from it) and asserts at compile time that the
+/// type both `Deserialize`s and has a `Default`.
 #[proc_macro_derive(PluginConfig)]
 pub fn derive_plugin_config(item: TokenStream) -> TokenStream {
     match config::expand(item.into()) {

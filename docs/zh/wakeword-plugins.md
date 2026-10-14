@@ -45,6 +45,8 @@ method: &str, params_json: &str) -> Result<String, ToolError>` 钩子，或者�
 `"format": "file"`(或 `"x-astra-field-type": "file_picker"`)提供本地文件选择器。
 `"x-astra-field-type": "slider"` 和 `"textarea"` 分别为数字和字符串属性选用这两种
 控件。配置的路径由插件自己读取；Astra 不规定关键词模型的格式。
+`"x-astra-advanced": true` 会像在“插件”页面上一样，把字段折叠到“高级设置”下——
+参见[配置与设置字段](3-reference/config-fields.md)。
 
 协议 1 为三个方法使用经过认证的 `CallFromUi` 请求/响应通道。这是守护进程内部的
 调用，不会创建 iframe 或页面。

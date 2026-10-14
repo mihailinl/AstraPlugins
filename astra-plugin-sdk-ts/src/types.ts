@@ -92,6 +92,9 @@ export interface FieldDef {
   description?: string;
   group?: string;
   groupLabel?: string;
+  /** A tuning knob: Astra's Voice page folds a provider field marked so behind
+   * its "Advanced settings" disclosure. Never mark one the provider needs to work. */
+  advanced?: boolean;
 }
 
 /** Action type definition. */
@@ -356,22 +359,22 @@ export const UiContrib = {
 
 /** Builder for action/trigger field definitions. */
 export const Field = {
-  text(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
-    return { id, label, fieldType: "text", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions };
+  text(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
+    return { id, label, fieldType: "text", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions, advanced: opts?.advanced };
   },
-  textarea(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
-    return { id, label, fieldType: "textarea", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions };
+  textarea(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
+    return { id, label, fieldType: "textarea", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions, advanced: opts?.advanced };
   },
-  textareaWithVariables(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
-    return { id, label, fieldType: "textarea_with_variables", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions };
+  textareaWithVariables(id: string, label: string, opts?: { placeholder?: string; default?: string; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
+    return { id, label, fieldType: "textarea_with_variables", placeholder: opts?.placeholder, defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions, advanced: opts?.advanced };
   },
-  dropdown(id: string, label: string, opts: { options: ([string, string] | string)[]; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
+  dropdown(id: string, label: string, opts: { options: ([string, string] | string)[]; default?: string; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
     const options = opts.options.map(o =>
       typeof o === "string" ? { value: o, label: o } : { value: o[0], label: o[1] }
     );
-    return { id, label, fieldType: "dropdown", options, defaultValue: opts.default, description: opts.description, conditions: opts.conditions };
+    return { id, label, fieldType: "dropdown", options, defaultValue: opts.default, description: opts.description, conditions: opts.conditions, advanced: opts.advanced };
   },
-  number(id: string, label: string, opts?: { min?: number; max?: number; step?: number; default?: string; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
+  number(id: string, label: string, opts?: { min?: number; max?: number; step?: number; default?: string; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
     return {
       id, label, fieldType: "number",
       min: opts?.min, max: opts?.max, step: opts?.step,
@@ -379,10 +382,11 @@ export const Field = {
       // unbounded input, because proto3 sends an absent double as 0.0.
       hasMin: opts?.min !== undefined, hasMax: opts?.max !== undefined, hasStep: opts?.step !== undefined,
       defaultValue: opts?.default, description: opts?.description, conditions: opts?.conditions,
+      advanced: opts?.advanced,
     };
   },
-  toggle(id: string, label: string, opts?: { default?: boolean; description?: string; conditions?: FieldDef["conditions"] }): FieldDef {
-    return { id, label, fieldType: "toggle", defaultValue: opts?.default ? "true" : "false", description: opts?.description, conditions: opts?.conditions };
+  toggle(id: string, label: string, opts?: { default?: boolean; description?: string; conditions?: FieldDef["conditions"]; advanced?: boolean }): FieldDef {
+    return { id, label, fieldType: "toggle", defaultValue: opts?.default ? "true" : "false", description: opts?.description, conditions: opts?.conditions, advanced: opts?.advanced };
   },
   condition(fieldId: string, operator: string, value: string = ""): NonNullable<FieldDef["conditions"]>[0] {
     return { fieldId, operator, value };

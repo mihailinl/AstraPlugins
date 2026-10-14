@@ -738,6 +738,15 @@ impl proto::FieldDefinitionMsg {
         self.group_label = label.into();
         self
     }
+    /// Mark a tuning knob: Astra's Voice page folds a provider field marked
+    /// this way behind its "Advanced settings" disclosure, and shows it inline
+    /// to a user who turned "Hide advanced settings" off. Never mark a field
+    /// the provider needs in order to work — a user who cannot find it
+    /// concludes it does not exist.
+    pub fn with_advanced(mut self) -> Self {
+        self.advanced = true;
+        self
+    }
     /// Add a visibility condition.
     pub fn with_condition(mut self, field_id: &str, operator: &str, value: &str) -> Self {
         self.conditions.push(proto::FieldVisibilityCondition {
@@ -2353,6 +2362,15 @@ mod tests {
         serde_json::from_str::<NoConfig>(r#"{"surprise":[1,2,3]}"#).unwrap();
         serde_json::from_str::<NoConfig>("null").unwrap();
         assert_eq!(serde_json::to_string(&NoConfig).unwrap(), "{}");
+    }
+
+    #[test]
+    fn an_advanced_field_says_so_on_the_wire() {
+        use prost::Message;
+        let field = FieldDef::number("ttl", "Cache lifetime").with_advanced();
+        let decoded = FieldDef::decode(field.encode_to_vec().as_slice()).unwrap();
+        assert!(decoded.advanced);
+        assert!(!FieldDef::number("ttl", "Cache lifetime").advanced, "ordinary unless marked");
     }
 
     #[test]
