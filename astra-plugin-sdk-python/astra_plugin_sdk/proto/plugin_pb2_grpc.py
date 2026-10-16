@@ -3828,6 +3828,11 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.SetSettingRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.SaveWidgetPanel = channel.unary_unary(
+                '/astra.ConfigService/SaveWidgetPanel',
+                request_serializer=plugin__pb2.SaveWidgetPanelRequest.SerializeToString,
+                response_deserializer=plugin__pb2.WidgetPanelSettings.FromString,
+                _registered_method=True)
         self.CompleteOobe = channel.unary_unary(
                 '/astra.ConfigService/CompleteOobe',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -3972,6 +3977,12 @@ class ConfigServiceServicer(object):
         The UI sends exactly one change; the daemon emits a granular
         SettingsChanged event carrying just that path.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SaveWidgetPanel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -4193,6 +4204,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
                     request_deserializer=plugin__pb2.SetSettingRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
+            'SaveWidgetPanel': grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveWidgetPanel,
+                    request_deserializer=plugin__pb2.SaveWidgetPanelRequest.FromString,
+                    response_serializer=plugin__pb2.WidgetPanelSettings.SerializeToString,
+            ),
             'CompleteOobe': grpc.unary_unary_rpc_method_handler(
                     servicer.CompleteOobe,
                     request_deserializer=plugin__pb2.Empty.FromString,
@@ -4395,6 +4411,33 @@ class ConfigService(object):
             '/astra.ConfigService/SetSetting',
             plugin__pb2.SetSettingRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SaveWidgetPanel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/SaveWidgetPanel',
+            plugin__pb2.SaveWidgetPanelRequest.SerializeToString,
+            plugin__pb2.WidgetPanelSettings.FromString,
             options,
             channel_credentials,
             insecure,

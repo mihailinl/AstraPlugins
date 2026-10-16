@@ -303,6 +303,10 @@
             "updateEdition": {
               "type": "string",
               "id": 27
+            },
+            "islandCompiledIn": {
+              "type": "bool",
+              "id": 28
             }
           }
         },
@@ -3445,6 +3449,10 @@
               "requestType": "SetSettingRequest",
               "responseType": "Empty"
             },
+            "SaveWidgetPanel": {
+              "requestType": "SaveWidgetPanelRequest",
+              "responseType": "WidgetPanelSettings"
+            },
             "CompleteOobe": {
               "requestType": "Empty",
               "responseType": "Empty"
@@ -3867,6 +3875,30 @@
             }
           }
         },
+        "WidgetPanelSettings": {
+          "fields": {
+            "layout": {
+              "type": "string",
+              "id": 1
+            },
+            "revision": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "SaveWidgetPanelRequest": {
+          "fields": {
+            "layout": {
+              "type": "string",
+              "id": 1
+            },
+            "expectedRevision": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
         "SettingsResponse": {
           "fields": {
             "general": {
@@ -3960,6 +3992,10 @@
             "screenWidgets": {
               "type": "ScreenWidgetsSettings",
               "id": 23
+            },
+            "widgetPanel": {
+              "type": "WidgetPanelSettings",
+              "id": 24
             }
           }
         },
@@ -6846,6 +6882,13 @@
           }
         },
         "CurrentWeatherResponse": {
+          "oneofs": {
+            "_apparentTemperature": {
+              "oneof": [
+                "apparentTemperature"
+              ]
+            }
+          },
           "fields": {
             "temperature": {
               "type": "double",
@@ -6870,10 +6913,24 @@
             "ultravioletIndex": {
               "type": "double",
               "id": 6
+            },
+            "apparentTemperature": {
+              "type": "double",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
         "DayForecastEntry": {
+          "oneofs": {
+            "_precipitationMm": {
+              "oneof": [
+                "precipitationMm"
+              ]
+            }
+          },
           "fields": {
             "date": {
               "type": "string",
@@ -6890,6 +6947,21 @@
             "symbolCode": {
               "type": "string",
               "id": 4
+            },
+            "precipitationMm": {
+              "type": "double",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "sunrise": {
+              "type": "string",
+              "id": 6
+            },
+            "sunset": {
+              "type": "string",
+              "id": 7
             }
           }
         },
@@ -6924,6 +6996,10 @@
               "rule": "repeated",
               "type": "HourlyForecastEntry",
               "id": 2
+            },
+            "today": {
+              "type": "DayForecastEntry",
+              "id": 3
             }
           }
         },

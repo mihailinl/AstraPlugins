@@ -53,6 +53,7 @@
     "--backdrop-tint",
     "--bare",
     "--blur-surface",
+    "--bubble-caption-line",
     "--chrome-top-clearance",
     "--clay-bar-selection",
     "--clay-contrast-text-secondary",
@@ -302,6 +303,8 @@
     "--shadow-lg",
     "--shadow-md",
     "--shadow-sm",
+    "--side-panel-bottom",
+    "--side-panel-top",
     "--solid",
     "--status-bar-height",
     "--theme-sample-charcoal-clay",
@@ -478,5 +481,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "575943accbf74ccda2bee7b5187f93805924a1596eb82929e1b005cd9a91de5f"
+  "sourceHash": "98a2a27649f37d7f48a2b22e240c828de6316ea0184a2b1742e801d1d3a5d28f"
 }
