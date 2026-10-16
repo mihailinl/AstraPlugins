@@ -5,6 +5,7 @@
        - astra-plugin-cli/src/main.rs — `#[command(alias)]` and `#[arg(hide = true)]`, which clap never prints
 
      Read from: astra-plugin 0.5.0
+
      Change the source, then run `python3 tools/docgen/gen.py`. CI runs
      `python3 tools/docgen/gen.py --check` and fails when this file and a fresh
      run differ. -->
@@ -12,6 +13,7 @@
 # CLI reference
 
 `astra-plugin 0.5.0`. Every flag below was read out of the binary, so this page cannot describe an option that does not exist. The source is [`astra-plugin-cli/src/main.rs`](../../../astra-plugin-cli/src/main.rs).
+
 Astra Plugin Development CLI
 
 ## Everywhere
@@ -68,8 +70,9 @@ Usage: astra-plugin new [OPTIONS] <NAME>
 | Option | Description |
 |---|---|
 | `-l, --lang <LANG>` | Programming language (default `rust`) |
-| `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `action-trigger`, `client`, `blank`) |
-| `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, ai_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
+| `-t, --template <TEMPLATE>` | What kind of plugin this is. Picks the capabilities and the example code; `--capabilities` overrides the capability set it implies (default `tool`; one of `tool`, `tts`, `stt`, `stt-streaming`, `ai-provider`, `ui`, `desktop-widget`, `action-trigger`, `client`, `blank`) |
+| `--ui <UI>` | Frontend independent of the backend language (for UI contributions) (default `vanilla`; one of `vanilla`, `react`) |
+| `-c, --capabilities <CAPABILITIES>` | Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, web_search, music_provider, client, actions, triggers, ui_contributions, event_handlers, dom_access). Overrides whatever --template implies |
 | `-o, --output <OUTPUT>` | Output directory (default: ./<name>) |
 
 ## astra-plugin dev
@@ -243,6 +246,7 @@ Usage: astra-plugin check [OPTIONS] [PATH]
 | `--strict` | Treat warnings as errors |
 | `--fix` | Apply the fixes that can be applied mechanically, then re-check. Only rewrites what it can prove; everything else is still reported |
 | `--resolve-pin` | Ask GitHub whether the release workflow pin is current. Off by default: `astra-plugin dev` runs `check --strict` on every start, and the release workflow tells the check what it is running from through ASTRA_PLUGIN_WORKFLOW_SHA, so neither needs the network |
+| `--tag <TAG>` | Read the binding line from this tag's commit instead of the working tree, as the registry will: `<tag>^{commit}` of the repository root, whatever `plugin-dir` says. Local git only |
 
 ## astra-plugin init-ci
 
@@ -265,6 +269,7 @@ Usage: astra-plugin init-ci [OPTIONS] [PATH]
 | `--ref <WORKFLOW_REF>` | A 40-hex commit to pin (used verbatim, no network), or a ref name to resolve. Default: the released workflow tag, else the default branch head |
 | `--linux-packages <LINUX_PACKAGES>` | Set the linux-packages input, e.g. "libasound2-dev pkg-config". Omitted, an existing file's value is kept |
 | `--offline` | Never touch the network: keep the pin already in the file |
+| `--binding <TOKEN>` | Write `astra-binding: <TOKEN>` as the first line of the repository root's `.well-known/astra-plugin-owner`, removing every earlier binding line in any case, and do nothing else. TOKEN is the one the panel minted. No network |
 
 ## astra-plugin version
 
