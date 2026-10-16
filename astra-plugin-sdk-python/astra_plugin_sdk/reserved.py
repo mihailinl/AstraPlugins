@@ -79,6 +79,12 @@ REGISTRY: Mapping[str, frozenset[str]] = {
     # endpoints. Astra added this message with `reserved 3; reserved "api_key";`
     # already in it — the name has never been live and never will be.
     "AiProviderCredentialsMsg": frozenset({"api_key"}),
+    # The edition move's ask mode (press, consent, the two texts and their digests), retired when
+    # Astra moved to the proceed contract — a move with notices only. The names stay retired so a
+    # plugin built against the old slice cannot read a revived field as the old meaning.
+    "MoveOfferResponse": frozenset(
+        {"mode", "offer_text", "consent_text", "problem", "pressed_at", "offer_sha256", "consent_sha256"}
+    ),
 }
 
 
