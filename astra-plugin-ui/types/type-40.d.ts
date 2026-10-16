@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 export { Button } from "./type-5";
-export { IconButton } from "./type-12";
+export { IconButton } from "./type-14";
 export { Input } from "./type-15";
 export { NumberInput } from "./type-1";
 export { Textarea } from "./type-29";
@@ -20,7 +20,7 @@ export { Tooltip } from "./type-41";
 export { Card } from "./type-6";
 export { Badge } from "./type-4";
 export { Spinner } from "./type-28";
-export { Icon } from "./type-13";
+export { Icon } from "./type-12";
 export { Section } from "./type-22";
 export { SettingRow } from "./type-26";
 export { FieldLabel } from "./type-10";

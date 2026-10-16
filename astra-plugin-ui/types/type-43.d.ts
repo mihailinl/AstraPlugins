@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { type ButtonProps } from "./type-5";
-import { type IconName } from "./type-13";
+import { type IconName } from "./type-12";
 
 export declare function WidgetHead({ icon, title, meta, trailing, className }: {
     icon: IconName;
@@ -20,9 +20,8 @@ export declare function AstraLine({ children, className }: {
     children: ReactNode;
     className?: string;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function WidgetPlate({ children, className, pill }: {
+export declare function WidgetPlate({ children, className, pill, ...rest }: HTMLAttributes<HTMLDivElement> & {
     children: ReactNode;
-    className?: string;
     pill?: boolean;
 }): import("react/jsx-runtime").JSX.Element;
 export declare function WidgetMeter({ value, max, label, className }: {

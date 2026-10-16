@@ -311,6 +311,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "updateEdition": {
               "type": "string",
               "id": 27
+            },
+            "islandCompiledIn": {
+              "type": "bool",
+              "id": 28
             }
           }
         },
@@ -3453,6 +3457,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "SetSettingRequest",
               "responseType": "Empty"
             },
+            "SaveWidgetPanel": {
+              "requestType": "SaveWidgetPanelRequest",
+              "responseType": "WidgetPanelSettings"
+            },
             "CompleteOobe": {
               "requestType": "Empty",
               "responseType": "Empty"
@@ -3875,6 +3883,30 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "WidgetPanelSettings": {
+          "fields": {
+            "layout": {
+              "type": "string",
+              "id": 1
+            },
+            "revision": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
+        "SaveWidgetPanelRequest": {
+          "fields": {
+            "layout": {
+              "type": "string",
+              "id": 1
+            },
+            "expectedRevision": {
+              "type": "uint64",
+              "id": 2
+            }
+          }
+        },
         "SettingsResponse": {
           "fields": {
             "general": {
@@ -3968,6 +4000,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "screenWidgets": {
               "type": "ScreenWidgetsSettings",
               "id": 23
+            },
+            "widgetPanel": {
+              "type": "WidgetPanelSettings",
+              "id": 24
             }
           }
         },
@@ -6854,6 +6890,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "CurrentWeatherResponse": {
+          "oneofs": {
+            "_apparentTemperature": {
+              "oneof": [
+                "apparentTemperature"
+              ]
+            }
+          },
           "fields": {
             "temperature": {
               "type": "double",
@@ -6878,10 +6921,24 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "ultravioletIndex": {
               "type": "double",
               "id": 6
+            },
+            "apparentTemperature": {
+              "type": "double",
+              "id": 7,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
         "DayForecastEntry": {
+          "oneofs": {
+            "_precipitationMm": {
+              "oneof": [
+                "precipitationMm"
+              ]
+            }
+          },
           "fields": {
             "date": {
               "type": "string",
@@ -6898,6 +6955,21 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "symbolCode": {
               "type": "string",
               "id": 4
+            },
+            "precipitationMm": {
+              "type": "double",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "sunrise": {
+              "type": "string",
+              "id": 6
+            },
+            "sunset": {
+              "type": "string",
+              "id": 7
             }
           }
         },
@@ -6932,6 +7004,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "HourlyForecastEntry",
               "id": 2
+            },
+            "today": {
+              "type": "DayForecastEntry",
+              "id": 3
             }
           }
         },

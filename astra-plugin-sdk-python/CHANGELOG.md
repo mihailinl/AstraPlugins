@@ -15,9 +15,26 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [Unreleased]
+## [0.6.3] — unreleased
+
+Additive: the `music_provider` and `web_search` capabilities, `on_start()`, a
+knob for provider settings fields, and desktop-widget UI calls now carry
+their instance context. All four landed on master directly, without a
+version bump or a CHANGELOG entry — couplings C4 caught it.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.6.2 compiles unchanged.
 
 ### Added
+- **`Plugin.handle_widget_ui_call(method, params_json, widget)`**, with a
+  `WidgetContext` (`widget_id`, `instance_id`, `format_id`, `view_id`,
+  `preview`, `active`, `width`, `height`, `config_json`) naming which
+  desktop-widget instance made the call; `widget` is `None` for a caller that
+  predates it. `handle_ui_call` (no context) is still the default a plugin
+  overrides for its own UI iframe; not overriding `handle_widget_ui_call`
+  falls back to it, so an existing handler keeps working unchanged.
 - **The `music_provider` capability** (`astra_plugin_sdk.music`). A plugin
   reports what music services play through `self.music.publish(services,
   sessions)` — the SDK serves the daemon's `MusicSubscribe` stream from it, at
@@ -50,6 +67,13 @@ are removable in.
   marks a provider settings field as a tuning knob, which Astra's Voice page
   folds behind *Advanced settings*. The wire field already existed; nothing in
   this package set it.
+- The protocol slice is re-synced once more: `CoreStateResponse.island_compiled_in`
+  (the `island` build feature), `ConfigService.SaveWidgetPanel` with
+  `WidgetPanelSettings`/`SaveWidgetPanelRequest`, and weather forecast fields
+  (`CurrentWeatherResponse.apparent_temperature`,
+  `DayForecastEntry.precipitation_mm`/`sunrise`/`sunset`,
+  `WeatherForecastResponse.today`). `plugin_pb2{,_grpc}.py` are regenerated
+  (grpcio-tools 1.75.1) from it; nothing hand-written in this package changed.
 
 ## [0.6.2] — 2026-10-04
 

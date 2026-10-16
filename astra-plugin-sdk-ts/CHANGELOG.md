@@ -15,9 +15,27 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [Unreleased]
+## [0.7.2] — unreleased
+
+Additive: the `music_provider` and `web_search` capabilities, a knob for
+provider settings fields, and desktop-widget UI calls now carry their
+instance context. All four landed on master directly, without a version
+bump or a CHANGELOG entry — couplings C4 caught it.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.1 compiles unchanged.
 
 ### Added
+- **`handleWidgetUiCall(method, paramsJson, widget)`** (and `onWidgetCall` in
+  `plugin({...})`), with a `WidgetContext` (`widgetId`, `instanceId`,
+  `formatId`, `viewId`, `preview`, `active`, `width`, `height`,
+  `configJson`) naming which desktop-widget instance made the call; `widget`
+  is `undefined` for a caller that predates it. `handleUiCall` (no context)
+  is still the default a plugin overrides for its own UI iframe; not
+  overriding `handleWidgetUiCall` falls back to it, so an existing handler
+  keeps working unchanged.
 - **The `music_provider` capability.** `this.music.publish(services,
   sessions)` (or `music.publisher` in `plugin({...})`) feeds the daemon's
   `MusicSubscribe` stream; `musicControl` (required), `musicGetQueue`,
@@ -41,6 +59,13 @@ are removable in.
   provider settings field as a tuning knob, which Astra's Voice page folds
   behind *Advanced settings*. The wire field already existed; nothing in this
   package set it.
+- The protocol slice is re-synced once more: `CoreStateResponse.island_compiled_in`
+  (the `island` build feature), `ConfigService.SaveWidgetPanel` with
+  `WidgetPanelSettings`/`SaveWidgetPanelRequest`, and weather forecast fields
+  (`CurrentWeatherResponse.apparent_temperature`,
+  `DayForecastEntry.precipitation_mm`/`sunrise`/`sunset`,
+  `WeatherForecastResponse.today`). `src/generated/*` is regenerated from it;
+  nothing hand-written in this package changed.
 
 ## [0.7.1] — 2026-10-04
 
