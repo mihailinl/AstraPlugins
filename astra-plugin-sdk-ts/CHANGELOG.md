@@ -59,6 +59,13 @@ compatibility, patch is bug fixes and additions only*. Code written against
   provider settings field as a tuning knob, which Astra's Voice page folds
   behind *Advanced settings*. The wire field already existed; nothing in this
   package set it.
+- The protocol slice is re-synced once more: `CoreStateResponse.island_compiled_in`
+  (the `island` build feature), `ConfigService.SaveWidgetPanel` with
+  `WidgetPanelSettings`/`SaveWidgetPanelRequest`, and weather forecast fields
+  (`CurrentWeatherResponse.apparent_temperature`,
+  `DayForecastEntry.precipitation_mm`/`sunrise`/`sunset`,
+  `WeatherForecastResponse.today`). `src/generated/*` is regenerated from it;
+  nothing hand-written in this package changed.
 
 ## [0.7.1] — 2026-10-04
 

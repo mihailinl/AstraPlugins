@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 2c3c1701683b66d75bc241ad0438bd72adb79198bf0d490f6f18cfe87e913a62
+// surface-sha256: ced6d0cd59e3e4ed829bc282a5d26679a8f14b8127e5dffcd0ac4c8f1a57fd07
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -331,6 +331,11 @@ message CoreStateResponse {
     // RU edition (RU_MOVE_PLAN.md). The banner and the Updates section say "Astra is moving to
     // knice.tech" instead of "an update", and open the move screen instead of installing.
     string update_edition = 27;
+
+    // Whether this build has the Dynamic Island at all (the `island` build feature). False: the
+    // island is never started, its hotkey never registered, and the UI hides everything that
+    // configures it — the island settings section and the onboarding's overlay step.
+    bool island_compiled_in = 28;
 }
 
 enum CoreState {
@@ -2167,6 +2172,8 @@ service ConfigService {
     // SettingsChanged event carrying just that path.
     rpc SetSetting(SetSettingRequest) returns (Empty);
 
+    rpc SaveWidgetPanel(SaveWidgetPanelRequest) returns (WidgetPanelSettings);
+
     // Mark OOBE as complete
     rpc CompleteOobe(Empty) returns (Empty);
 
@@ -2414,6 +2421,16 @@ message IndexerScanProgressMsg {
     uint64 elapsed_seconds = 8;  // since the run started
 }
 
+message WidgetPanelSettings {
+    string layout = 1;
+    uint64 revision = 2;
+}
+
+message SaveWidgetPanelRequest {
+    string layout = 1;
+    uint64 expected_revision = 2;
+}
+
 message SettingsResponse {
     GeneralSettings general = 1;
     VoiceSettings voice = 2;
@@ -2438,6 +2455,7 @@ message SettingsResponse {
     CompanionAppIconSettings companion_app_icon = 21;
     ClipboardHistorySettings clipboard_history = 22;
     ScreenWidgetsSettings screen_widgets = 23;
+    WidgetPanelSettings widget_panel = 24;
 }
 
 // Inbox-widget preferences that are not per-mailbox. The mailboxes themselves
@@ -3938,13 +3956,22 @@ message CurrentWeatherResponse {
     double wind_from_direction = 4;  // degrees 0-360
     double relative_humidity = 5;  // percent 0-100
     double ultraviolet_index = 6;
+
+    // What the air feels like (wind chill / heat index), Celsius. Optional so a
+    // daemon from before it reads as "absent", not as a feels-like of 0°.
+    optional double apparent_temperature = 7;
 }
 
 message DayForecastEntry {
-    string date = 1;  // YYYY-MM-DD
+    string date = 1;  // YYYY-MM-DD, the calendar date on the daemon's clock
     double temp_min = 2;  // Celsius
     double temp_max = 3;  // Celsius
     string symbol_code = 4;
+
+    // Precipitation over what the forecast still covers of the day (mm).
+    optional double precipitation_mm = 5;
+    string sunrise = 6;  // ISO-8601 UTC; empty in polar day/night
+    string sunset = 7;  // ISO-8601 UTC; empty in polar day/night
 }
 
 message HourlyForecastEntry {
@@ -3955,8 +3982,9 @@ message HourlyForecastEntry {
 }
 
 message WeatherForecastResponse {
-    repeated DayForecastEntry days = 1;
+    repeated DayForecastEntry days = 1;  // the coming days, today NOT included
     repeated HourlyForecastEntry hours = 2;  // next ~24h, hourly resolution
+    DayForecastEntry today = 3;  // what is left of today; absent from an older daemon
 }
 
 message DetectedLocationResponse {

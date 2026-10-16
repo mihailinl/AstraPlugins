@@ -26,8 +26,8 @@ Nothing was removed, narrowed or renamed, so this is the patch slot per
 compatibility, patch is bug fixes and additions only*. Code written against
 0.7.2 compiles unchanged.
 
-Between `sdk-v0.7.2` and this release the protocol gained 31 fields on 16
-messages that already existed, 32 new messages and 10 new rpcs and removed or
+Between `sdk-v0.7.2` and this release the protocol gained 38 fields on 19
+messages that already existed, 34 new messages and 11 new rpcs and removed or
 renumbered nothing.
 
 ### Added
@@ -67,6 +67,13 @@ renumbered nothing.
   field (`FieldDefinitionMsg.advanced`, 18) has existed since the daemon learned
   to fold built-in knobs; no SDK offered a way to set it, so a plugin's provider
   fields were always drawn in full.
+- The protocol slice is re-synced once more: `CoreStateResponse.island_compiled_in`
+  (the `island` build feature), `ConfigService.SaveWidgetPanel` with
+  `WidgetPanelSettings`/`SaveWidgetPanelRequest`, and weather forecast fields
+  (`CurrentWeatherResponse.apparent_temperature`,
+  `DayForecastEntry.precipitation_mm`/`sunrise`/`sunset`,
+  `WeatherForecastResponse.today`) — generated-type changes only, nothing in
+  this crate's hand-written surface.
 
 ## [0.7.2] — 2026-10-04
 
