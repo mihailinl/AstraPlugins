@@ -14,6 +14,53 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.4] — unreleased
+
+Generated code only: the protocol slice is re-synced with Astra's
+microphone-check screen and the M5 reshape of the edition move
+(RU_MOVE_PLAN.md §12.11). Nothing in this crate's hand-written surface
+changed.
+
+Between `sdk-v0.7.3` and this release the protocol gained 6 fields on 1
+message that already existed, 2 new messages and 3 new rpcs.
+
+Nothing in the authoring API was removed, narrowed or renamed, so this is the
+patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may
+break source compatibility, patch is bug fixes and additions only*. Code
+written against 0.7.3 compiles unchanged unless it does one of two things,
+both in the generated `astra_plugin_sdk::proto` module and neither of them in
+anything `astra-plugin new` writes:
+
+- **An exhaustive struct literal of `MoveOfferResponse`.** It gained six
+  fields — `title`, `body`, `button`, `linux_line`, `linux_command`,
+  `download_url` — replacing the ask mode's `mode` / `offer_text` /
+  `consent_text` / `problem` / `pressed_at` / `offer_sha256` /
+  `consent_sha256` (now `reserved`, never to be revived with a different
+  meaning). A literal that lists every field and has no
+  `..Default::default()` fails with `E0063 missing fields`; the form
+  `astra-plugin new` writes is unaffected. `MoveOfferResponse` is
+  Astra-internal — the edition-move screen's own message — and no example or
+  test in this crate constructs or destructures one.
+- **A call to `CoreServiceClient::accept_move` / `::stay_in_edition`, or a
+  hand-written implementation of the generated `CoreService` server trait
+  that relied on either.** Astra's edition move is now automatic and only
+  TOLD (a notice, one button), so `AcceptMove`, `StayInEdition` and their
+  messages `AcceptMoveRequest` / `MoveActionResponse` are gone from the
+  protocol. Grepped all three SDKs for `accept_move` / `AcceptMove` /
+  `stay_in_edition` / `StayInEdition` before the sync: no hit outside the
+  generated client/stub methods themselves — neither rpc was ever wrapped by
+  this SDK's `DaemonClient`, so the drop reaches no plugin's source. The
+  protocol integer stays `1` for the same reason: it bumps when the plugin
+  contract changes in a way an SDK must notice, and this one does not.
+
+### Added
+- **`VoiceService` gained three rpcs for the microphone-check screen** —
+  `StartMicCheck`, `GetMicLevel`, `StopMicCheck` — with `MicCheckResponse` /
+  `MicLevelResponse`. They measure the same capture listening uses (AstraAudio
+  + echo cancellation + noise suppression) without changing the listening
+  state; the check is leased and stops itself when unpolled. Generated-type
+  changes only — this crate wraps no new hook for them.
+
 ## [0.7.3] — 2026-10-16
 
 Additive: the `music_provider` and `web_search` capabilities, a knob for
@@ -27,7 +74,7 @@ compatibility, patch is bug fixes and additions only*. Code written against
 0.7.2 compiles unchanged.
 
 Between `sdk-v0.7.2` and this release the protocol gained 38 fields on 19
-messages that already existed, 34 new messages and 12 new rpcs and removed or
+messages that already existed, 34 new messages and 11 new rpcs and removed or
 renumbered nothing.
 
 ### Added
