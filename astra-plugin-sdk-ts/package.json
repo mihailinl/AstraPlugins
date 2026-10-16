@@ -1,6 +1,6 @@
 {
   "name": "astra-plugin-sdk",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "TypeScript SDK for building Astra plugins",
   "type": "commonjs",
   "main": "./dist/index.js",

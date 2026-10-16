@@ -15,7 +15,39 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.2] — unreleased
+## [0.7.3] — unreleased
+
+Generated code only: the protocol slice is re-synced with Astra's
+microphone-check screen and the M5 reshape of the edition move
+(RU_MOVE_PLAN.md §12.11). Nothing in this package's hand-written surface
+changed.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.2 compiles unchanged: the TypeScript SDK reads its descriptor at run time,
+so a dropped field breaks nothing static, and nothing here ever called
+`CoreService`'s `AcceptMove` / `StayInEdition` — grepped the whole package
+before the sync, no hit outside the generated descriptor itself.
+
+### Added
+- **`VoiceService` gained three rpcs for the microphone-check screen** —
+  `StartMicCheck`, `GetMicLevel`, `StopMicCheck` — with `MicCheckResponse` /
+  `MicLevelResponse`. They measure the same capture listening uses (AstraAudio
+  + echo cancellation + noise suppression) without changing the listening
+  state; the check is leased and stops itself when unpolled. `src/generated/*`
+  is regenerated from the re-synced slice.
+
+### Changed (generated code only)
+- **`CoreService.AcceptMove` / `StayInEdition` are gone**, with
+  `AcceptMoveRequest` / `MoveActionResponse`. Astra's edition move is now
+  automatic and only TOLD (a notice, one button) rather than asked, so
+  `MoveOfferResponse` drops `mode` / `offer_text` / `consent_text` /
+  `problem` / `pressed_at` / `offer_sha256` / `consent_sha256` for `title` /
+  `body` / `button` / `linux_line` / `linux_command` / `download_url`. The
+  protocol integer stays `1`: no SDK ever wrapped either removed rpc.
+
+## [0.7.2] — 2026-10-16
 
 Additive: the `music_provider` and `web_search` capabilities, a knob for
 provider settings fields, and desktop-widget UI calls now carry their

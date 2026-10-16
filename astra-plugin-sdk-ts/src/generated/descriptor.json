@@ -63,14 +63,6 @@
             "GetMoveOffer": {
               "requestType": "Empty",
               "responseType": "MoveOfferResponse"
-            },
-            "AcceptMove": {
-              "requestType": "AcceptMoveRequest",
-              "responseType": "MoveActionResponse"
-            },
-            "StayInEdition": {
-              "requestType": "Empty",
-              "responseType": "MoveActionResponse"
             }
           }
         },
@@ -88,75 +80,72 @@
               "type": "string",
               "id": 3
             },
-            "mode": {
-              "type": "string",
-              "id": 4
-            },
-            "offerText": {
-              "type": "string",
-              "id": 5
-            },
-            "consentText": {
-              "type": "string",
-              "id": 6
-            },
-            "problem": {
-              "type": "string",
-              "id": 7
-            },
             "channel": {
               "type": "string",
               "id": 8
             },
-            "pressedAt": {
+            "title": {
               "type": "string",
-              "id": 9
+              "id": 12
             },
-            "offerSha256": {
+            "body": {
               "type": "string",
-              "id": 10
+              "id": 13
             },
-            "consentSha256": {
+            "button": {
               "type": "string",
-              "id": 11
+              "id": 14
+            },
+            "linuxLine": {
+              "type": "string",
+              "id": 15
+            },
+            "linuxCommand": {
+              "type": "string",
+              "id": 16
+            },
+            "downloadUrl": {
+              "type": "string",
+              "id": 17
             }
-          }
-        },
-        "AcceptMoveRequest": {
-          "fields": {
-            "version": {
-              "type": "string",
-              "id": 1
-            },
-            "offer": {
-              "type": "string",
-              "id": 2
-            },
-            "consent": {
-              "type": "string",
-              "id": 3
-            }
-          }
-        },
-        "MoveActionResponse": {
-          "fields": {
-            "ok": {
-              "type": "bool",
-              "id": 1
-            },
-            "refusalKey": {
-              "type": "string",
-              "id": 2
-            },
-            "problem": {
-              "type": "string",
-              "id": 3
-            },
-            "taskId": {
-              "type": "string",
-              "id": 4
-            }
-          }
+          },
+          "reserved": [
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              7,
+              7
+            ],
+            [
+              9,
+              9
+            ],
+            [
+              10,
+              10
+            ],
+            [
+              11,
+              11
+            ],
+            "mode",
+            "offer_text",
+            "consent_text",
+            "problem",
+            "pressed_at",
+            "offer_sha256",
+            "consent_sha256"
+          ]
         },
         "LogBundleResponse": {
           "fields": {
@@ -2068,6 +2057,18 @@
               "requestType": "SetMicrophoneRequest",
               "responseType": "Empty"
             },
+            "StartMicCheck": {
+              "requestType": "Empty",
+              "responseType": "MicCheckResponse"
+            },
+            "GetMicLevel": {
+              "requestType": "Empty",
+              "responseType": "MicLevelResponse"
+            },
+            "StopMicCheck": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
             "GetOutputDevices": {
               "requestType": "Empty",
               "responseType": "OutputDeviceListResponse"
@@ -2248,6 +2249,46 @@
             "isDefault": {
               "type": "bool",
               "id": 3
+            }
+          }
+        },
+        "MicCheckResponse": {
+          "fields": {
+            "ok": {
+              "type": "bool",
+              "id": 1
+            },
+            "problemKey": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "MicLevelResponse": {
+          "fields": {
+            "active": {
+              "type": "bool",
+              "id": 1
+            },
+            "listening": {
+              "type": "bool",
+              "id": 2
+            },
+            "rawRms": {
+              "type": "float",
+              "id": 3
+            },
+            "processedRms": {
+              "type": "float",
+              "id": 4
+            },
+            "deviceName": {
+              "type": "string",
+              "id": 5
+            },
+            "problemKey": {
+              "type": "string",
+              "id": 6
             }
           }
         },
