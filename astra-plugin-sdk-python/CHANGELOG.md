@@ -15,6 +15,42 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.6.4] — unreleased
+
+Generated code only: the protocol slice is re-synced with Astra's
+microphone-check screen and the M5 reshape of the edition move
+(RU_MOVE_PLAN.md §12.11). Nothing in this package's hand-written surface
+changed.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.6.3 runs unchanged: Python message classes take keyword arguments, so a
+dropped field is simply absent from the ones you can pass, and nothing here
+ever called `CoreServiceStub.AcceptMove` / `StayInEdition` — grepped the whole
+package before the sync, no hit outside the generated stub itself.
+
+### Added
+- **`VoiceServiceStub` gained three rpcs for the microphone-check screen** —
+  `StartMicCheck`, `GetMicLevel`, `StopMicCheck` — with `MicCheckResponse` /
+  `MicLevelResponse`. They measure the same capture listening uses (AstraAudio
+  + echo cancellation + noise suppression) without changing the listening
+  state; the check is leased and stops itself when unpolled.
+  `plugin_pb2{,_grpc}.py` are regenerated (grpcio-tools 1.75.1) from the
+  re-synced slice.
+
+### Changed (generated code only)
+- **`CoreServiceStub.AcceptMove` / `StayInEdition` are gone**, with
+  `AcceptMoveRequest` / `MoveActionResponse`. Astra's edition move is now
+  automatic and only TOLD (a notice, one button) rather than asked, so
+  `MoveOfferResponse` drops `mode` / `offer_text` / `consent_text` /
+  `problem` / `pressed_at` / `offer_sha256` / `consent_sha256` for `title` /
+  `body` / `button` / `linux_line` / `linux_command` / `download_url`. The
+  seven retired names join `astra_plugin_sdk.reserved.REGISTRY`'s
+  `MoveOfferResponse` entry, so a revived field number cannot be misread as
+  its old meaning. The protocol integer stays `1`: no SDK ever wrapped either
+  removed rpc.
+
 ## [0.6.3] — 2026-10-16
 
 Additive: the `music_provider` and `web_search` capabilities, `on_start()`, a
