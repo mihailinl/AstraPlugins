@@ -14,7 +14,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.3] — unreleased
+## [0.7.3] — 2026-10-16
 
 Additive: the `music_provider` and `web_search` capabilities, a knob for
 provider settings fields, and desktop-widget UI calls now carry their
