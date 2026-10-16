@@ -2,7 +2,7 @@
 
 # Protokoll-Referenz
 
-Protokoll-Generation **1**. 10 Dienste, 180 RPCs. Quelle:
+Protokoll-Generation **1**. 10 Dienste, 181 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
 (`surface-sha256: ced6d0cd59e3e4ed…`, der Digest des Plugin-zugewandten

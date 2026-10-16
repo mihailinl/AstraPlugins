@@ -2,7 +2,7 @@
 
 # Referencia del protocolo
 
-Generación de protocolo **1**. 10 servicios, 180 RPC. Fuente:
+Generación de protocolo **1**. 10 servicios, 181 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
 (`surface-sha256: ced6d0cd59e3e4ed…`, el digest del cuerpo orientado a

@@ -2,7 +2,7 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，180 个 RPC。来源：
+协议世代 **1**。10 个服务，181 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
 `astra.proto` 生成出的一部分（`surface-sha256: ced6d0cd59e3e4ed…`，
 即本页所讲述的面向插件主体的摘要），由

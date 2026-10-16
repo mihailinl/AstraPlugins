@@ -2,7 +2,7 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、180 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、181 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
 `astra.proto` から生成された一部(`surface-sha256: ced6d0cd59e3e4ed…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
