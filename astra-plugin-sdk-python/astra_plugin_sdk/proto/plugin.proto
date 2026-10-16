@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: ced6d0cd59e3e4ed829bc282a5d26679a8f14b8127e5dffcd0ac4c8f1a57fd07
+// surface-sha256: 736afa8bbcdf30a7bb94a457965b313f33d8528ab0c392e8a1b45b17415cd6dc
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -79,27 +79,20 @@ service CoreService {
     // Electron shell still needs no handler of its own.
     rpc CollectLogs(Empty) returns (LogBundleResponse);
 
-    // ── The edition MOVE (RU_MOVE_PLAN.md): an INTL install whose account belongs to the RU
-    // edition switches itself to the RU build. Present in every build; a build without the
-    // `ru-move` feature answers `available: false` and refuses the two presses with
-    // `move.refused.notCompiledIn`.
+    // ── The edition MOVE (RU_MOVE_PLAN.md, M5 — minice-id doc 20 §12.11): an INTL install whose
+    // account the server has moved to the RU edition installs the RU build. Automatic, and only
+    // TOLD: notice (a), once, with one button — no offer to read, no consent, no stay. Present in
+    // every build; a build without the `ru-move` feature answers `available: false`.
     //
-    // The standing move: its version, the mode the account was given, and the two texts the
-    // person reads before the press (the offer and the consent, fetched from knice.tech and
-    // proved against the digests in the signed manifest), as plain text.
+    // The standing move: notice (a) in the UI language — the signed RU manifest's own text when
+    // it is valid, else the compiled canonical one — and what this install does with its button.
+    // The button on the Windows installer is the ordinary `ApplyUpdate` press, whose hand-over
+    // mints the press-less ticket that keeps the person signed in.
     rpc GetMoveOffer(Empty) returns (MoveOfferResponse);
-
-    // The press — or, in "proceed" mode, the notice having been shown. Records it with the
-    // account service (with the digests of the texts shown) and, on the Windows installer,
-    // starts the move's download and install; a refusal is an ANSWER, like ApplyUpdate's.
-    rpc AcceptMove(AcceptMoveRequest) returns (MoveActionResponse);
-
-    // «Я не из России»: the account service clears the mark, and this install forgets the move.
-    rpc StayInEdition(Empty) returns (MoveActionResponse);
 }
 
-// The standing edition MOVE, for the move screen. Strings and bools only, so the Electron
-// shell's generic pass-through carries it.
+// The standing edition MOVE: notice (a). Strings and bools only, so the Electron shell's generic
+// pass-through carries it.
 message MoveOfferResponse {
     // A move is standing (the update offer is another edition's release).
     bool available = 1;
@@ -108,51 +101,33 @@ message MoveOfferResponse {
     string edition = 2;
     string version = 3;
 
-    // "ask" (one press) or "proceed" (a notice; Astra switches at the next start).
-    string mode = 4;
-
-    // The two texts, as the person must read them; "" while they could not be loaded.
-    string offer_text = 5;
-    string consent_text = 6;
-
-    // Why the texts could not be loaded, in English; "" when they were.
-    string problem = 7;
-
     // How this Astra was installed ("installer" | "package" | "portable" | "steam"): only the
-    // installer switches itself; a package gets one command.
+    // installer switches itself; a package gets `linux_command`, the rest `download_url`.
     string channel = 8;
 
-    // RFC3339 of the recorded press, or "" when there is none for this offer.
-    string pressed_at = 9;
+    // Notice (a), plain text, in the UI language (ru for "ru", en otherwise).
+    string title = 12;
+    string body = 13;
 
-    // The digests of the two texts above, from the signed manifest. The press echoes them back
-    // (AcceptMoveRequest), so what is recorded is what this screen showed — not whatever offer
-    // stands by the time the person has finished reading.
-    string offer_sha256 = 10;
-    string consent_sha256 = 11;
-}
+    // The one button's label («Понятно» / "Got it").
+    string button = 14;
 
-// The press, naming exactly what was shown. Single-word fields, so Tauri's camelCase renaming of
-// command arguments is a no-op and both shells send the same keys.
-message AcceptMoveRequest {
-    // The version the screen offered.
-    string version = 1;
+    // For a package install: the paragraph that carries the command, with "{command}" — exactly
+    // once — where `linux_command` goes.
+    string linux_line = 15;
 
-    // `MoveOfferResponse.offer_sha256` / `consent_sha256` as served to this screen.
-    string offer = 2;
-    string consent = 3;
-}
+    // The reinstall command for this machine's package tool; "" when the channel is not a
+    // package, or the tool is unknown (then `download_url` is set instead).
+    string linux_command = 16;
 
-// What a move press did. A refusal is an answer: `ok` false and an i18n KEY the UI words.
-message MoveActionResponse {
-    bool ok = 1;
-    string refusal_key = 2;
+    // The moved-to edition's download page, for an install that cannot install itself
+    // (portable, Steam, a package on an unknown machine); "" otherwise.
+    string download_url = 17;
 
-    // English detail for the support bundle; "" when none.
-    string problem = 3;
-
-    // The background task the install runs as, when one started.
-    string task_id = 4;
+    // Ask mode's fields, retired with it (§12.11): the mode, the offer and consent texts, the
+    // load problem, the recorded press and the two digests.
+    reserved 4, 5, 6, 7, 9, 10, 11;
+    reserved "mode", "offer_text", "consent_text", "problem", "pressed_at", "offer_sha256", "consent_sha256";
 }
 
 message LogBundleResponse {
@@ -328,8 +303,8 @@ message CoreStateResponse {
 
     // Which EDITION's release `update_version` is: "" for this build's own (every ordinary
     // update), or "ru" when the offer is the MOVE of an INTL install whose account belongs to the
-    // RU edition (RU_MOVE_PLAN.md). The banner and the Updates section say "Astra is moving to
-    // knice.tech" instead of "an update", and open the move screen instead of installing.
+    // RU edition (RU_MOVE_PLAN.md). The banner and the Updates section show notice (a)
+    // (`GetMoveOffer`) instead of "an update"; its one button is the install.
     string update_edition = 27;
 
     // Whether this build has the Dynamic Island at all (the `island` build feature). False: the
@@ -1532,6 +1507,24 @@ service VoiceService {
     // Set active microphone
     rpc SetMicrophone(SetMicrophoneRequest) returns (Empty);
 
+    // ===== Microphone check =====
+    // Measures the microphone through the SAME capture listening uses
+    // (AstraAudio + echo cancellation + noise suppression), not a browser's.
+    // It does not change the listening state. While listening, it opens
+    // nothing and reports listening's live levels. The check is leased: it
+    // stops by itself when GetMicLevel has not been called for 5 s, and after
+    // 120 s regardless.
+
+    // Open the check for the selected microphone (or attach to listening).
+    // Refusals answer ok = false with an `error.*` i18n key in problem_key.
+    rpc StartMicCheck(Empty) returns (MicCheckResponse);
+
+    // The live levels; also renews the check's lease. Poll it (~10 Hz).
+    rpc GetMicLevel(Empty) returns (MicLevelResponse);
+
+    // End the check. Leaves listening alone.
+    rpc StopMicCheck(Empty) returns (Empty);
+
     // Get available audio output devices (speakers, headphones, etc.)
     rpc GetOutputDevices(Empty) returns (OutputDeviceListResponse);
 
@@ -1685,6 +1678,34 @@ message Microphone {
     string id = 1;
     string name = 2;
     bool is_default = 3;
+}
+
+message MicCheckResponse {
+    bool ok = 1;
+
+    // `error.*` i18n key when refused, empty when ok.
+    string problem_key = 2;
+}
+
+message MicLevelResponse {
+    // A capture runs (listening, or the check's own): the levels are live.
+    bool active = 1;
+
+    // The capture is listening's.
+    bool listening = 2;
+
+    // RMS (0.0-1.0) of the microphone BEFORE processing.
+    float raw_rms = 3;
+
+    // RMS after echo cancellation + noise suppression: what listening hears.
+    float processed_rms = 4;
+
+    // The microphone the capture opened (for Auto, the system default).
+    string device_name = 5;
+
+    // When nothing captures because the check could not (re)open — a device
+    // change it could not follow, say — the `error.*` i18n key saying why.
+    string problem_key = 6;
 }
 
 message SetMicrophoneRequest {

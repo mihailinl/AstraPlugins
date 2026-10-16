@@ -27,7 +27,7 @@ compatibility, patch is bug fixes and additions only*. Code written against
 0.7.2 compiles unchanged.
 
 Between `sdk-v0.7.2` and this release the protocol gained 38 fields on 19
-messages that already existed, 34 new messages and 11 new rpcs and removed or
+messages that already existed, 34 new messages and 12 new rpcs and removed or
 renumbered nothing.
 
 ### Added
