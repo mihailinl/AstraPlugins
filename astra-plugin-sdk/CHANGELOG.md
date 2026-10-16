@@ -14,9 +14,31 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [Unreleased]
+## [0.7.3] — unreleased
+
+Additive: the `music_provider` and `web_search` capabilities, a knob for
+provider settings fields, and desktop-widget UI calls now carry their
+instance context. All four landed on master directly, without a version bump
+or a CHANGELOG entry — couplings C4 caught it.
+
+Nothing was removed, narrowed or renamed, so this is the patch slot per
+[`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
+compatibility, patch is bug fixes and additions only*. Code written against
+0.7.2 compiles unchanged.
+
+Between `sdk-v0.7.2` and this release the protocol gained 31 fields on 16
+messages that already existed, 32 new messages and 10 new rpcs and removed or
+renumbered nothing.
 
 ### Added
+- **`PluginCapability::handle_widget_ui_call`**, with a `WidgetContext`
+  (`widget_id`, `instance_id`, `format_id`, `view_id`, `preview`, `active`,
+  `width`, `height`, `config_json`) naming which desktop-widget instance made
+  the call. `handle_ui_call` (no context) is still the default a plugin
+  overrides for its own UI iframe; `handle_widget_ui_call` defaults to calling
+  it, so an existing handler keeps working unchanged. The new
+  `PluginUiCallRequest.widget_context` field (proto field 3) is `None` for a
+  caller that predates it.
 - **The `music_provider` capability** (`astra_plugin_sdk::music`). Return a
   `MusicPublisher` from `PluginCapability::music_publisher` and `publish` the
   whole set of services and sessions whenever it changes; the runner serves
