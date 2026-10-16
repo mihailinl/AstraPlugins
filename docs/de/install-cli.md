@@ -316,10 +316,11 @@ hob, was bedeutet:
 `0.2.1` ist es also wert — es ist die erste Zahl, die die Frage von selbst
 beantwortet, und genau dafür existiert sie — aber ein `0.2.0`, das `0.2.0`
 sagt, ist kein Beweis für irgendetwas. `0.2.1` fügt kein Flag hinzu und
-ändert keine API; das eine geänderte Verhalten ist `publish --notify`,
-dessen Link jetzt das Release-Ping-Formular der Registry benennt statt
-auf ein leeres Issue zu setzen, das die Registry inzwischen abgeschaltet
-hat.
+ändert keine API; das eine geänderte Verhalten ist der Link, den `publish`
+für ein schon gelistetes Plugin ausgab: Er benannte seitdem das Formular der
+Registry dafür, statt auf ein leeres Issue zu setzen, das die Registry
+abgeschaltet hatte. Dieses Formular und das Flag, das es öffnete, gibt es seit
+CLI 0.5.0 nicht mehr: Die Registry erkennt einen neuen Tag von selbst.
 
 Wenn `--version` `0.2.0` ausgibt, führe zuerst `which astra-plugin`
 (`where` unter Windows) aus: die häufigste Ursache ist eine ältere
@@ -372,7 +373,7 @@ Commands:
   check    Check a plugin manifest, config schema and release workflow
   init-ci  Write .github/workflows/release.yml, pinned to a commit of the Astra reusable workflow. Re-run it to upgrade the pin; it keeps your inputs
   version  Set the version in plugin.toml and every other manifest at once
-  publish  Get a release listed: preflight it, or open a prefilled submission
+  publish  Get a release listed: preflight it, or open the panel's submission page
   keygen   Generate the OPTIONAL Ed25519 keypair `astra-plugin sign` uses
   locale   Manage `locales/` — the plugin's translations, and its store card's text
   help     Print this message or the help of the given subcommand(s)

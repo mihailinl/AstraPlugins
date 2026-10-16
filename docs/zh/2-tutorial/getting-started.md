@@ -440,19 +440,18 @@ astra-plugin version 0.1.1
 然后只需要一次性提交一次，此后每一次发布都是零接触的。
 
 **在这次提交之前有一件事要做**，因为缺了这一步是唯一会让一个正确的
-插件被拒绝的原因：把包含你 GitHub 登录名的 `.well-known/astra-plugin-owner`
-提交到你仓库的默认分支上。这正是注册表用来确立你控制着你正在上架的
-这个仓库的方式 —— 构建证明能证明这个包来自哪里，却不能证明你是谁。
-只需要两行，跟你的第一次 push 一起做：
+插件被拒绝的原因：把仓库绑定到你的 Minice 账户。在
+https://astra.minice.ai/plugins 的面板里铸造一个令牌，一条命令就会把它写进
+`.well-known/astra-plugin-owner`，再把它提交到默认分支：
 
-<!-- doctest: illustrative reason="shell against the author's own repository; `cli` blocks must contain an astra-plugin command, and this one is deliberately shell-only" -->
+<!-- doctest: cli -->
 ```bash
-mkdir -p .well-known
-echo 'your-github-login' > .well-known/astra-plugin-owner
+astra-plugin init-ci --binding <token>
 ```
 
-详情，以及为什么自动检查无法替你回答这一点：
-[申请上架 §2](../5-publish/get-listed.md#2--证明你控制着这个仓库)。
+这正是注册表用来知道由哪个账户代表你正在上架的仓库发言的方式 —— 构建证明
+能证明这个包来自哪里，却不能证明你是谁。详情：
+[申请上架 —— 绑定你的仓库](../5-publish/get-listed.md#绑定你的仓库)。
 
 请注意发布**不是**什么：把这个仓库推送到 GitHub 并不会发布你的插件，
 把你刚刚构建出的 `.astraplugin` 发给别人也不会。注册表固定的是 CI 生成
