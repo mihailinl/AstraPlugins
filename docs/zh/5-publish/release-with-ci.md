@@ -151,6 +151,7 @@ Release it:
 | **plan** | **否** | 是 | 用 Python 的 `tomllib` 把 `plugin.toml` 当作*数据*读取，检查标签是否等于版本号，决定构建矩阵，创建草稿 Release |
 | **build**（矩阵） | 是 | **否** | `astra-plugin check --strict`、`astra-plugin build`、验证、解包，断言 glibc 下限和 TypeScript 包的自包含性 |
 | **publish** | 否 | 是 | 自己重新推导每一个摘要值，写出 `SHA256SUMS.txt`，出具证明，上传，把 Release 从草稿状态转正 |
+| **notify**（尚未进入 `plugin-release/v1`） | 否 | **否** — 只有 `id-token: write` | Release 公开后通知 Astra 注册表一次，不重试；从不让运行失败 |
 
 `plan` 从不执行仓库之外的任何东西 —— 没有子模块，没有持久化在
 `.git/config` 中的凭证。`build` 会运行你的 `build.rs` 和你的生命周期
@@ -159,6 +160,30 @@ Release it:
 
 矩阵是根据你插件所用的语言决定的：Rust 是 `linux-x64` +
 `windows-x64`，TypeScript 和 Python 是单一的 `noarch` 分支。
+
+### 唤醒注册表：`notify`
+
+在 `master` 上，`plugin-release.yml` 有第四个 job，但它**尚未进入
+`plugin-release/v1`**。注册表只接受 `trust.json` 列出的工作流提交所构建的产物；
+一个提交只能通过根签名仪式被列入，标签在那之后才移到它上面。随后 `init-ci`
+照常把它钉住。
+
+你的 Release 公开后，`notify` 向 Minice 插件服务发送一次请求：一个为受众
+`https://api.minice.ai/plugins/v1/author` 签发的 GitHub OIDC 令牌，
+以及固定的请求体 `{"schema":"astra.plugins.author-wake/1"}`。
+别的都不发——标签、仓库和提交只以令牌自身已签名的声明到达服务。这样注册表会
+立刻处理你的标签，而不是等到下一次查看。
+
+- 它**不会让你的发布失败。** 任何拒绝、故障或超时都以绿色结束这个 job；日志里
+  只有 HTTP 状态码，以及应答的 schema 或拒绝令牌，别无其他。
+- 它只持有 `id-token: write`，不 checkout、不下载任何东西，也不运行你的任何
+  代码。你的 `release.yml` 已经为构建证明授予了 `id-token: write`，所以无需改动。
+- 来自 fork、私有或内部仓库、或者不是由推送标签触发的运行，它什么都不发。
+- **关闭选项随同一次 `plugin-release/v1` 移动一起到来。** 从那时起，在
+  `with:` 下写 `wake-registry: false` 即可关闭唤醒，注册表之后仍会自己发现这个
+  标签。在你钉住的提交包含 `notify` 之前不要加它：早于这个 job 的工作流提交
+  没有声明这个输入，GitHub 会拒绝启动这次运行。`init-ci` 重写文件时会保留这一行，
+  但从不替你写入。
 
 ### 最终落在 Release 上的内容
 
