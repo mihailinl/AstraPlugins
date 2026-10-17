@@ -643,6 +643,21 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.SetConversationReasoningRequest.SerializeToString,
                 response_deserializer=plugin__pb2.SetConversationReasoningResponse.FromString,
                 _registered_method=True)
+        self.GetConversationPermissions = channel.unary_unary(
+                '/astra.ChatService/GetConversationPermissions',
+                request_serializer=plugin__pb2.ConversationPermissionsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ConversationPermissionsResponse.FromString,
+                _registered_method=True)
+        self.SetConversationPermissionMode = channel.unary_unary(
+                '/astra.ChatService/SetConversationPermissionMode',
+                request_serializer=plugin__pb2.SetConversationPermissionModeRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ConversationPermissionsResponse.FromString,
+                _registered_method=True)
+        self.RevokePermissionGrant = channel.unary_unary(
+                '/astra.ChatService/RevokePermissionGrant',
+                request_serializer=plugin__pb2.RevokePermissionGrantRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class ChatServiceServicer(object):
@@ -747,6 +762,24 @@ class ChatServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetConversationPermissions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetConversationPermissionMode(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RevokePermissionGrant(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -809,6 +842,21 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.SetConversationReasoning,
                     request_deserializer=plugin__pb2.SetConversationReasoningRequest.FromString,
                     response_serializer=plugin__pb2.SetConversationReasoningResponse.SerializeToString,
+            ),
+            'GetConversationPermissions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetConversationPermissions,
+                    request_deserializer=plugin__pb2.ConversationPermissionsRequest.FromString,
+                    response_serializer=plugin__pb2.ConversationPermissionsResponse.SerializeToString,
+            ),
+            'SetConversationPermissionMode': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetConversationPermissionMode,
+                    request_deserializer=plugin__pb2.SetConversationPermissionModeRequest.FromString,
+                    response_serializer=plugin__pb2.ConversationPermissionsResponse.SerializeToString,
+            ),
+            'RevokePermissionGrant': grpc.unary_unary_rpc_method_handler(
+                    servicer.RevokePermissionGrant,
+                    request_deserializer=plugin__pb2.RevokePermissionGrantRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1138,6 +1186,87 @@ class ChatService(object):
             '/astra.ChatService/SetConversationReasoning',
             plugin__pb2.SetConversationReasoningRequest.SerializeToString,
             plugin__pb2.SetConversationReasoningResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetConversationPermissions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/GetConversationPermissions',
+            plugin__pb2.ConversationPermissionsRequest.SerializeToString,
+            plugin__pb2.ConversationPermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetConversationPermissionMode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/SetConversationPermissionMode',
+            plugin__pb2.SetConversationPermissionModeRequest.SerializeToString,
+            plugin__pb2.ConversationPermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RevokePermissionGrant(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/RevokePermissionGrant',
+            plugin__pb2.RevokePermissionGrantRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3910,6 +4039,11 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.GetModelsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.GetModelsResponse.FromString,
                 _registered_method=True)
+        self.GetImageModels = channel.unary_unary(
+                '/astra.ConfigService/GetImageModels',
+                request_serializer=plugin__pb2.GetImageModelsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.GetImageModelsResponse.FromString,
+                _registered_method=True)
         self.GetAiProviders = channel.unary_unary(
                 '/astra.ConfigService/GetAiProviders',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -4069,6 +4203,17 @@ class ConfigServiceServicer(object):
 
     def GetModels(self, request, context):
         """Get available AI models for a provider
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetImageModels(self, request, context):
+        """The IMAGE models a provider draws with, for the image-generation picker —
+        a different list from GetModels, whose models are chat models. For
+        `astra` it is the server's own list with this account's prices and
+        entitlement; for any other provider, the well-known image models it
+        serves (the picker is free-entry).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -4285,6 +4430,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
                     servicer.GetModels,
                     request_deserializer=plugin__pb2.GetModelsRequest.FromString,
                     response_serializer=plugin__pb2.GetModelsResponse.SerializeToString,
+            ),
+            'GetImageModels': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetImageModels,
+                    request_deserializer=plugin__pb2.GetImageModelsRequest.FromString,
+                    response_serializer=plugin__pb2.GetImageModelsResponse.SerializeToString,
             ),
             'GetAiProviders': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAiProviders,
@@ -4625,6 +4775,33 @@ class ConfigService(object):
             '/astra.ConfigService/GetModels',
             plugin__pb2.GetModelsRequest.SerializeToString,
             plugin__pb2.GetModelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetImageModels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetImageModels',
+            plugin__pb2.GetImageModelsRequest.SerializeToString,
+            plugin__pb2.GetImageModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,
