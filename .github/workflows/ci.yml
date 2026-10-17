@@ -3526,26 +3526,41 @@ jobs:
       - name: C24 the documented workflow pin is the tag's commit
         run: python3 tools/check-registry-mirrors.py --rules C24
 
-      # C25 — no workflow here calls the plugins service.
+      # C25 — the plugins service is called from one place: the reusable
+      # workflow's `notify` job, exactly as contract ID-32 publishes
+      # `author.wake`.
       #
-      # There is no bug behind this one yet, and that is the reason to write
-      # it now. The contract records the author audience, `author.wake`'s path
-      # and its body, so a generated workflow may legally call the service —
-      # and a call added to the template `astra-plugin init-ci` writes is not
-      # a line in this repository, it is a line compiled into every author's
-      # repository, kept working for twelve months after the first CLI release
-      # that stops emitting that template (ID-73), inside a job holding
-      # `contents: write`, `id-token: write` and `attestations: write`. The
-      # notify job is deferred (DEC-3), so at launch there is no call at all,
-      # and FLOW-56 — no service answer, refusal or outage may fail an
-      # author's release run — holds by construction rather than by care.
+      # Until contract 5.8.0 this step said "no workflow here calls the
+      # plugins service", because DEC-3 deferred the notify job. The owner
+      # approved it on 2026-10-17 (OD-29) and ID-72 now permits that one call
+      # from `plugin-release.yml`. The generated caller `astra-plugin init-ci`
+      # writes still names nothing of the service: a line there is compiled
+      # into every author's repository and kept working for twelve months
+      # after the first CLI release that stops emitting it (ID-73), whereas
+      # `notify` reaches an author only through a commit the root ceremony
+      # lists in trust.json, and the next such commit can take it out.
       #
-      # This step is therefore a check on a promise, not a bug: the promise is
-      # only worth anything while something fails when it stops being true.
-      # `rule_C25`'s docstring is what a commit that adds a call must do, and
-      # it is written where the person deleting a clause will read it.
-      - name: C25 no workflow here calls the plugins service
+      # The rule holds the job's SHAPE: `needs: publish`, `id-token: write`
+      # and nothing else, no action used, `continue-on-error` on the job and
+      # the step, a time bound, the public/non-fork/tag-push/opt-out `if:`,
+      # ID-32's path, audience and body, and no other job but `publish` able
+      # to mint an OIDC token (FLOW-54, FLOW-55, FLOW-56).
+      - name: C25 the plugins service is called only from `notify`, as ID-32 publishes it
         run: python3 tools/check-registry-mirrors.py --rules C25
+
+      # FLOW-56 — no service answer, refusal or outage may fail an author's
+      # release run. A rule that reads the YAML cannot show that; this runs
+      # the `notify` job's own script under bash against a local stand-in for
+      # GitHub's token endpoint and the service: every refusal, a long and a
+      # short stated wait, a broken body, two redirects, a server that never
+      # answers, an unreachable port, a job without `id-token`, and a runner
+      # without python3 — all green, the token printed only inside its mask,
+      # a refusal's message never, and the one retry under a fresh token
+      # (ID-33). Its second class turns each break of the job's shape into a
+      # red C25, so the two halves cannot drift apart. One case waits out the
+      # script's 10-second request timeout, deliberately.
+      - name: FLOW-56 the wake never fails a release, against every answer
+        run: python3 tools/test_author_wake.py
 
       # C26 — the CLI holds no credential and calls no service.
       #

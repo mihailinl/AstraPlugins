@@ -1065,10 +1065,11 @@ mod tests {
     /// emitting this template (ID-73). So a call added here is a call we have
     /// promised to keep answering for a year, from a job holding
     /// `contents: write`, `id-token: write` and `attestations: write` in
-    /// somebody else's repository. DEC-3 defers the notify job; at launch
-    /// there is no call at all, which is how FLOW-56 — no service answer,
-    /// refusal or outage may fail an author's release run — holds by
-    /// construction rather than by care.
+    /// somebody else's repository. The one call there is, ID-32's
+    /// `author.wake`, lives in the reusable workflow's `notify` job (ID-72,
+    /// since contract 5.8.0), which reaches an author only through a commit
+    /// the root ceremony lists in trust.json — so this file never needs to
+    /// make it, and FLOW-56 holds here by construction rather than by care.
     ///
     /// C25 in `tools/check-registry-mirrors.py` asserts the same over the
     /// template as TEXT, so that it runs in `couplings`, where there is no
@@ -1092,13 +1093,13 @@ mod tests {
         ] {
             assert!(
                 !text.contains(literal),
-                "the generated caller names {literal:?}. Read `rule_C25` in \
-                 tools/check-registry-mirrors.py before deleting this \
-                 assertion: the matching C25 clause comes out, \
-                 `continue-on-error: true` goes on the calling step AND its \
-                 job, and FLOW-56's test — the job against a refusing endpoint \
-                 and against an unreachable one, both green — lands in the \
-                 same commit.",
+                "the generated caller names {literal:?}. The wake belongs to \
+                 the reusable workflow's `notify` job (ID-72); read `rule_C25` \
+                 in tools/check-registry-mirrors.py before deleting this \
+                 assertion: a second call is a contract change first, and \
+                 then the matching C25 clause comes out in the same commit as \
+                 a test that runs it against a refusing endpoint and an \
+                 unreachable one, both green (FLOW-56).",
             );
         }
 

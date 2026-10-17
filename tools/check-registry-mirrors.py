@@ -48,22 +48,29 @@ C24 — every commit SHA that claims to be `plugin-release/v1` is that tag's
     whoever moves this tag next may well annotate it again, and that is the
     day `init-ci`'s first bug comes back.
 
-C25 — no workflow in this repository calls the plugins service.
+C25 — the plugins service is called from one place: the reusable workflow's
+`notify` job, exactly as contract ID-32 publishes `author.wake`.
 
-    Neither `plugin-release.yml` nor the caller `astra-plugin init-ci`
-    generates names the service's host, path, author audience, wake path or
-    OIDC token-request variables, and neither fetches a host that is not
-    GitHub's. The reusable workflow keeps exactly the jobs `plan`, `build`
-    and `publish`.
+    The caller `astra-plugin init-ci` generates names none of the service's
+    host, path, author audience, wake path or OIDC token-request variables.
+    `plugin-release.yml` names them only inside `notify`, whose two compiled
+    values are ID-32's audience and path and whose body is ID-32's body.
+    Neither file fetches a host that is not GitHub's on a fetching line. The
+    reusable workflow keeps exactly the jobs `plan`, `build`, `publish` and
+    `notify`; `notify` needs `publish`, holds `id-token: write` and nothing
+    else, uses no action (so it checks out and downloads nothing, FLOW-54),
+    is `continue-on-error` on the job and the step (FLOW-56), is bounded in
+    time, and runs only for a public, non-fork tag push the author did not
+    opt out of. No job but `publish` and `notify` holds `id-token`.
 
-    The asymmetry is the point. A call in `plugin-release.yml` is a line we
-    can delete tomorrow; a call in the generated caller is compiled into
-    every author's repository and supported for twelve months after the
-    first CLI release that stops emitting it (ID-73). DEC-3 defers the notify
-    job, so at launch there is no call, and FLOW-56 — no service answer,
-    refusal or outage may fail an author's release run — holds by
-    construction. `rule_C25`'s docstring says what a commit that adds a call
-    has to do in the same commit.
+    The asymmetry is the point. A call in `plugin-release.yml` reaches an
+    author only through a commit the root ceremony lists in trust.json and
+    `plugin-release/v1` points at (ID-72), and the next such commit can take
+    it out; a call in the generated caller is compiled into every author's
+    repository and supported for twelve months after the first CLI release
+    that stops emitting it (ID-73). FLOW-56's behaviour — no service answer,
+    refusal or outage fails an author's release run — is tested by running
+    the job's own script, in tools/test_author_wake.py.
 
 C26 — the CLI holds no credential and calls no service.
 
@@ -808,9 +815,8 @@ PLUGIN_RELEASE = ROOT / ".github" / "workflows" / "plugin-release.yml"
 
 #: Every literal that would mean a release run talks to the plugins service,
 #: with what each one is. The audience and the wake path are the recorded
-#: values (contract 0.12.0, ID-32): a generated workflow could legally call
-#: them, which is exactly why their absence has to be checked rather than
-#: assumed.
+#: values (contract 0.12.0, ID-32). The generated caller may name none of
+#: them; `plugin-release.yml` may name them inside `notify` and nowhere else.
 SERVICE_LITERALS = [
     ("api.minice.ai", "the plugins service's host"),
     ("/plugins/v1", "the plugins service's path prefix"),
@@ -838,13 +844,168 @@ GITHUB_HOSTS = {
     "uploads.github.com",
 }
 
+#: A stdlib or PowerShell HTTP client: what `notify` fetches with, so a fetch
+#: that FETCHERS' command names would miss. Allowed inside `notify` only.
+HTTP_CLIENTS = [
+    ("urllib", "Python's HTTP client"),
+    ("http.client", "Python's lower-level HTTP client"),
+    ("urlopen", "a Python fetch"),
+    ("Invoke-RestMethod", "PowerShell's other fetcher"),
+]
+
 #: The jobs the reusable workflow has, and the reason the set is closed: the
 #: three-way split IS the security property the docs sell — `plan` reads the
 #: manifest with no token, `build` runs the author's code with no write token,
-#: `publish` holds `contents: write` and runs nothing of the author's. A fourth
-#: job is either a fourth trust boundary or the notify job DEC-3 defers.
-RELEASE_JOBS = {"plan", "build", "publish"}
-FLOOR_RELEASE_JOBS = 3
+#: `publish` holds `contents: write` and runs nothing of the author's. The
+#: fourth, `notify`, is the wake ID-72 permits since contract 5.8.0, and it is
+#: held below to being no fourth trust boundary. A fifth job is one.
+RELEASE_JOBS = {"plan", "build", "publish", "notify"}
+FLOOR_RELEASE_JOBS = 4
+
+#: `notify` and its one step, and what contract ID-32 publishes for
+#: `author.wake`: the path, the audience the token is minted for, and the
+#: whole body. The job compiles all three, so they are held to the text here.
+NOTIFY_JOB = "notify"
+WAKE_STEP = "wake"
+WAKE_URL = "https://api.minice.ai/plugins/v1/author/wake"
+WAKE_AUDIENCE = "https://api.minice.ai/plugins/v1/author"
+WAKE_BODY = '{"schema":"astra.plugins.author-wake/1"}'
+
+#: Every clause `notify`'s `if:` needs, with why. Each one is a case in which
+#: a wake would be sent for nothing, or for something that is not a release.
+NOTIFY_IF = [
+    ("needs.publish.result == 'success'", "the Release is public before anything is said about it"),
+    ("inputs.wake-registry", "the author's opt-out"),
+    ("github.event_name == 'push'", "ID-32 refuses any other event"),
+    ("startsWith(github.ref, 'refs/tags/')", "ID-32 refuses any ref but a tag"),
+    ("needs.publish.outputs.visibility == 'public'", "an unattested release is nothing the registry lists"),
+    ("github.event.repository.fork != true", "a fork's tag is not the plugin's release"),
+]
+
+#: The jobs that may mint an OIDC token: `publish` for the attestation's
+#: keyless signature, `notify` for the wake. `build` runs the author's code,
+#: and a token there is one the author's dependencies can mint.
+ID_TOKEN_JOBS = {"publish", "notify"}
+
+#: The longest `notify` may run. Its own budget is under a minute (two
+#: 10-second requests, one stated wait of at most 30 s, two more requests).
+MAX_NOTIFY_MINUTES = 5
+
+#: The fewest lines the wake step's script can have and still be the script.
+#: Finding fewer means the block reader broke, and an empty script satisfies
+#: every clause about what it must not do.
+FLOOR_WAKE_RUN_LINES = 40
+
+
+Line = tuple[int, str]
+
+
+def job_block(text: str, name: str) -> list[Line]:
+    """The lines of one top-level job, header included, numbered from 1."""
+    out: list[Line] = []
+    inside_jobs = inside = False
+    for n, line in enumerate(text.splitlines(), 1):
+        if re.match(r"^jobs:\s*$", line):
+            inside_jobs = True
+            continue
+        if not inside_jobs:
+            continue
+        if line.strip() and not line[:1].isspace():
+            break
+        m = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if m:
+            inside = m.group(1) == name
+        if inside:
+            out.append((n, line))
+    return out
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _scalar(v: str) -> str:
+    """A YAML plain or quoted scalar, its trailing comment dropped."""
+    v = v.strip()
+    if v and v[0] in "\"'":
+        q = v[0]
+        end = v.find(q, 1)
+        return v[1:end] if end > 0 else v
+    return re.sub(r"\s+#.*$", "", v).strip()
+
+
+def job_key(block: list[Line], key: str) -> str | None:
+    """`    key: value` directly under the job, or None."""
+    for _, line in block:
+        m = re.match(rf"^    {re.escape(key)}:(.*)$", line)
+        if m:
+            return _scalar(m.group(1))
+    return None
+
+
+def block_mapping(block: list[Line], key: str, indent: int) -> dict[str, str] | None:
+    """A nested mapping `key:` at `indent`, as {child: scalar}; None if absent.
+
+    An inline `{a: b}` is read too, and anything else (`read-all`, a
+    reference) comes back as {"": value} so that it compares unequal to every
+    mapping a rule expects.
+    """
+    lines = [l for _, l in block]
+    for i, line in enumerate(lines):
+        m = re.match(rf"^{' ' * indent}{re.escape(key)}:(.*)$", line)
+        if not m:
+            continue
+        rest = _scalar(m.group(1))
+        if rest.startswith("{") and rest.endswith("}"):
+            pairs = [p.split(":", 1) for p in rest[1:-1].split(",") if p.strip()]
+            return {k.strip(): _scalar(v) for k, v in pairs}
+        if rest:
+            return {"": rest}
+        out: dict[str, str] = {}
+        for nxt in lines[i + 1:]:
+            if not nxt.strip() or nxt.lstrip().startswith("#"):
+                continue
+            if _indent(nxt) <= indent:
+                break
+            k, _, v = nxt.strip().partition(":")
+            out[k.strip()] = _scalar(v)
+        return out
+    return None
+
+
+def step_block(block: list[Line], step_id: str) -> list[Line]:
+    """The lines of the step in `block` whose `id:` is `step_id`."""
+    steps: list[list[Line]] = []
+    for n, line in block:
+        if re.match(r"^      - ", line):
+            steps.append([])
+        if steps and (not line.strip() or _indent(line) >= 6):
+            steps[-1].append((n, line))
+    for step in steps:
+        for _, line in step:
+            if re.match(rf"^\s+(?:- )?id:\s*{re.escape(step_id)}\s*$", line):
+                return step
+    return []
+
+
+def step_run(step: list[Line]) -> str:
+    """A step's `run: |` block, dedented as YAML would; "" if it has none."""
+    lines = [l for _, l in step]
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s+)run:\s*\|\s*$", line)
+        if not m:
+            continue
+        body: list[str] = []
+        for nxt in lines[i + 1:]:
+            if nxt.strip() and _indent(nxt) <= len(m.group(1)):
+                break
+            body.append(nxt)
+        while body and not body[-1].strip():
+            body.pop()
+        first = next((l for l in body if l.strip()), "")
+        cut = _indent(first)
+        return "\n".join(l[cut:] for l in body) + "\n"
+    return ""
 
 
 def generated_caller() -> str:
@@ -894,26 +1055,33 @@ def top_level_jobs(text: str) -> list[str]:
 
 
 def rule_C25(fails: Fails) -> None:
-    """No workflow here calls the plugins service — neither ours nor theirs.
+    """The plugins service is called from `notify` alone, and as ID-32 says.
 
     Two files, and the second is the one with reach. `plugin-release.yml` is
-    a file in this repository that we can edit tomorrow; the caller
+    a file in this repository: a call in it reaches an author only through a
+    commit the root ceremony lists in trust.json and `plugin-release/v1`
+    points at (ID-72), and the next such commit can take it out. The caller
     `init-ci` generates is compiled into every author's repository and stays
     there, supported for twelve months after the first CLI release that stops
     emitting it (ID-73). A call added to the template is a call we are
-    promising to keep answering for a year, for a wake the poll already
-    provides.
+    promising to keep answering for a year, for a wake `notify` already sends.
 
-    DEC-3 defers the notify job to the owner's renewal decision, so at launch
-    there is no call at all — and FLOW-56, which says no service answer,
-    refusal or outage may fail an author's release run, holds by construction
-    rather than by care.
+    `notify` is the one call, since contract 5.8.0 (ID-72; the owner approved
+    it on 2026-10-17, OD-29). FLOW-54 confines it to a job that needs
+    `publish`, holds only `id-token: write`, checks out and downloads nothing
+    and runs no author code; FLOW-55 lets it send only the token and ID-32's
+    body; FLOW-56 says no service answer, refusal or outage may fail an
+    author's release run. The legs below hold the job's SHAPE to those.
+    Its BEHAVIOUR — every refusal, a broken answer, a redirect, a timeout and
+    an unreachable endpoint, all green — is tools/test_author_wake.py, which
+    runs the job's own script.
 
-    WHEN A CALL IS ADDED, the same commit must: delete the clause below that
-    it violates, set `continue-on-error: true` on the calling step AND its
-    job, and add FLOW-56's test — the job run against a refusing endpoint and
-    against an unreachable one, both green. Deleting the clause alone turns a
-    checked promise into an unchecked one.
+    WHEN A SECOND CALL IS PROPOSED — in another job, or in the generated
+    caller — it is a contract change first (ID-72 names this one), and then
+    the clause below that it violates comes out in the same commit as a test
+    that runs it against a refusing endpoint and an unreachable one, both
+    green. Deleting the clause alone turns a checked promise into an
+    unchecked one.
     """
     if not PLUGIN_RELEASE.is_file():
         fails.check(
@@ -924,33 +1092,39 @@ def rule_C25(fails: Fails) -> None:
         )
         return
 
+    release_name = str(PLUGIN_RELEASE.relative_to(ROOT))
     release_text = PLUGIN_RELEASE.read_text(encoding="utf-8")
-    subjects = [
-        (str(PLUGIN_RELEASE.relative_to(ROOT)), release_text),
-        (f"{INIT_CI.relative_to(ROOT)}::render()", generated_caller()),
-    ]
+    caller_name = f"{INIT_CI.relative_to(ROOT)}::render()"
+    caller_text = generated_caller()
+    notify = job_block(release_text, NOTIFY_JOB)
+    notify_lines = {n for n, _ in notify}
 
-    # ── leg 1: none of the service's own literals ────────────────────────────
+    # ── leg 1: the service's literals, and an HTTP client, only in `notify` ──
     hits: list[str] = []
-    for name, text in subjects:
+    for name, text, allowed in (
+        (release_name, release_text, notify_lines),
+        (caller_name, caller_text, set()),
+    ):
         for n, line in enumerate(text.splitlines(), 1):
-            for literal, what in SERVICE_LITERALS:
+            if n in allowed:
+                continue
+            for literal, what in SERVICE_LITERALS + HTTP_CLIENTS:
                 if literal in line:
                     hits.append(f"{name}:{n}: {literal!r} — {what}")
     fails.check(
         not hits,
-        "C25 neither workflow names the plugins service",
+        f"C25 only `{NOTIFY_JOB}` names the plugins service or holds an HTTP client",
         "\n".join(hits)
         + "\nA generated workflow that calls the service is compiled into authors'"
         + "\nrepositories and supported for 12 months after the CLI stops emitting"
-        + "\nit (ID-73). If this call is intended, read this rule's docstring: the"
-        + "\nclause comes out, `continue-on-error` goes on the step and the job, and"
-        + "\nFLOW-56's refusing-and-unreachable test lands in the same commit.",
+        + "\nit (ID-73); a second job that calls it is a second place a refusal can"
+        + "\nreach a release. ID-72 permits the one call, from `notify`. Read this"
+        + "\nrule's docstring before moving it.",
     )
 
     # ── leg 2: nothing fetches from a host that is not GitHub's ──────────────
     fetched: list[str] = []
-    for name, text in subjects:
+    for name, text in ((release_name, release_text), (caller_name, caller_text)):
         for n, line in enumerate(text.splitlines(), 1):
             if not FETCHERS.search(line):
                 continue
@@ -958,23 +1132,110 @@ def rule_C25(fails: Fails) -> None:
                 if host in GITHUB_HOSTS or host.endswith(".github.com"):
                     continue
                 fetched.append(f"{name}:{n}: fetches {host}")
+    # `notify` fetches with Python, which FETCHERS cannot see on one line, so
+    # its block is held to the stricter thing: no URL but ID-32's two.
+    for n, line in notify:
+        for url in re.findall(r"https?://[^\s'\"`)]+", line):
+            if url not in (WAKE_URL, WAKE_AUDIENCE):
+                fetched.append(f"{release_name}:{n}: `{NOTIFY_JOB}` names {url}")
     fails.check(
         not fetched,
-        "C25 neither workflow fetches a non-GitHub host",
+        "C25 nothing fetches a non-GitHub host, and `notify` names only ID-32's URLs",
         "\n".join(fetched)
         + "\nA release run holds `contents: write`, `id-token: write` and"
         + "\n`attestations: write`. Anything it downloads runs inside those.",
     )
 
-    # ── leg 3: the three-way split is still three ────────────────────────────
+    # ── leg 3: the three-way split, and the wake beside it ───────────────────
     jobs = top_level_jobs(release_text)
     fails.check(
         set(jobs) == RELEASE_JOBS and len(jobs) >= FLOOR_RELEASE_JOBS,
         f"C25 the reusable workflow's jobs are exactly {sorted(RELEASE_JOBS)}",
         f"read {jobs}\nThe split is the security property: `plan` holds no token,"
         + "\n`build` runs the author's code and cannot write, `publish` can write and"
-        + "\nruns none of it. A job that is neither is a fourth trust boundary — and"
-        + "\nthe notify job DEC-3 defers would arrive exactly here.",
+        + "\nruns none of it, `notify` holds only `id-token: write` and runs nothing"
+        + "\nof anyone's. A job that is none of those is a fifth trust boundary.",
+    )
+
+    # ── leg 4: `notify` is no trust boundary (FLOW-54) ───────────────────────
+    perms = block_mapping(notify, "permissions", 4)
+    uses = [f"{release_name}:{n}: {line.strip()}" for n, line in notify
+            if re.match(r"^\s+(?:- )?uses:", line)]
+    timeout = job_key(notify, "timeout-minutes") or ""
+    shape = [
+        (bool(notify), f"there is a `{NOTIFY_JOB}` job"),
+        (job_key(notify, "needs") in ("publish", "[publish]"),
+         f"it needs `publish` (read {job_key(notify, 'needs')!r})"),
+        (perms == {"id-token": "write"},
+         f"its permissions are exactly {{id-token: write}} (read {perms})"),
+        (not uses, "it uses no action, so it checks out and downloads nothing: "
+         + "; ".join(uses)),
+        (job_key(notify, "continue-on-error") == "true",
+         "the job is `continue-on-error: true` (FLOW-56)"),
+        (timeout.isdigit() and 0 < int(timeout) <= MAX_NOTIFY_MINUTES,
+         f"the job is bounded, 1..{MAX_NOTIFY_MINUTES} minutes (read {timeout!r})"),
+    ]
+    cond = " ".join(line.strip() for _, line in notify)
+    for clause, why in NOTIFY_IF:
+        shape.append((clause in cond, f"its `if:` holds `{clause}` — {why}"))
+    bad = [what for ok, what in shape if not ok]
+    fails.check(
+        not bad,
+        f"C25 `{NOTIFY_JOB}` holds only `id-token: write`, needs `publish`, runs nothing and cannot fail the run",
+        "\n".join(bad)
+        + "\nFLOW-54: a separate job that needs `publish`, holds only `id-token: write`,"
+        + "\nchecks out and downloads nothing and runs no author code. FLOW-56: no"
+        + "\nservice answer, refusal or outage may fail an author's release run.",
+    )
+
+    # ── leg 5: the wake step sends ID-32's call and nothing else (FLOW-55) ───
+    step = step_block(notify, WAKE_STEP)
+    env = block_mapping(step, "env", 8) or {}
+    run = step_run(step)
+    first = run.splitlines()[0] if run else ""
+    wake = [
+        (bool(step), f"the job has a step `id: {WAKE_STEP}`"),
+        (block_mapping(step, "continue-on-error", 8) == {"": "true"},
+         "the step is `continue-on-error: true` (FLOW-56)"),
+        (env.get("WAKE_URL") == WAKE_URL,
+         f"WAKE_URL is ID-32's path {WAKE_URL} (read {env.get('WAKE_URL')!r})"),
+        (env.get("WAKE_AUDIENCE") == WAKE_AUDIENCE,
+         f"WAKE_AUDIENCE is ID-32's audience {WAKE_AUDIENCE} (read {env.get('WAKE_AUDIENCE')!r})"),
+        (f"b'{WAKE_BODY}'" in run, f"the script's body is exactly {WAKE_BODY}"),
+        (first.startswith("python3 - <<'PY'") and first.rstrip().endswith("|| true"),
+         f"the script's shell line ends `|| true` (read {first!r})"),
+        (len(run.splitlines()) >= FLOOR_WAKE_RUN_LINES,
+         f"floor: the script read has {len(run.splitlines())} line(s), "
+         f">= {FLOOR_WAKE_RUN_LINES}"),
+    ]
+    bad = [what for ok, what in wake if not ok]
+    fails.check(
+        not bad,
+        f"C25 `{NOTIFY_JOB}` sends ID-32's `author.wake` exactly",
+        "\n".join(bad)
+        + "\nID-32 fixes the path, the audience and the body; FLOW-55 lets the job"
+        + "\nsend only its token and that body. These values are compiled into every"
+        + "\nallowlisted commit, so the service keeps them live while any is (ID-73).",
+    )
+
+    # ── leg 6: no other job can mint an OIDC token ───────────────────────────
+    holders: list[str] = []
+    top = block_mapping([(0, l) for l in release_text.split("\njobs:", 1)[0].splitlines()],
+                        "permissions", 0) or {}
+    if "id-token" in top or top.get("") in ("write-all", "read-all"):
+        holders.append(f"the workflow's own `permissions:` ({top})")
+    for job in jobs:
+        p = block_mapping(job_block(release_text, job), "permissions", 4)
+        if p is None or "id-token" in p or "" in p:
+            if job not in ID_TOKEN_JOBS:
+                holders.append(f"`{job}` ({p if p is not None else 'no permissions block: inherits'})")
+    fails.check(
+        not holders,
+        f"C25 only {sorted(ID_TOKEN_JOBS)} can mint an OIDC token",
+        "\n".join(holders)
+        + "\n`publish` mints one for the attestation's keyless signature and `notify`"
+        + "\nfor the wake. In `build` it would be a token the author's dependencies"
+        + "\ncould mint for any audience.",
     )
 
 

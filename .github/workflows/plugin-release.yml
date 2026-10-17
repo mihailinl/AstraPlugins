@@ -34,6 +34,17 @@ name: Astra plugin release
 # hand every transitive npm dependency of every plugin the ability to rewrite
 # the author's repository. That is the whole reason for the shape of this file.
 #
+# ── AND WHY A FOURTH, `notify`, IS NOT A FOURTH TRUST BOUNDARY ─────────────
+#
+# Once the Release is public, `notify` tells the Astra registry so, with one
+# POST carrying a GitHub OIDC token minted for the plugins service (contract
+# ID-72 permits exactly that call since 5.8.0; the owner approved the job on
+# 2026-10-17, OD-29). Before it, a tag alone did not start a registry release:
+# the registry found the tag only when it next looked. The job holds
+# `id-token: write` and nothing else, checks out nothing, downloads nothing and
+# runs nothing from the repository (FLOW-54), and no answer, refusal or outage
+# of the service can fail the run (FLOW-56). Its own block says how.
+#
 # ── WHY `plan` CREATES THE RELEASE ─────────────────────────────────────────
 #
 # Two matrix legs finishing at the same second both call `gh release create` on
@@ -56,6 +67,13 @@ name: Astra plugin release
 #     ci.yml's `proto-upstream` job carries the same note for the same reason.
 #
 #   * A step in `build` that touches `github.token` for anything but checkout.
+#
+#   * Anything in `notify` beyond the wake: a checkout, a download, a `uses:`,
+#     a second permission, a field in the body (FLOW-55: the tag reaches the
+#     service only as the token's `ref`), or a step that can turn a refusal
+#     into a red run (FLOW-56). C25 in tools/check-registry-mirrors.py fails on
+#     each of those, and tools/test_author_wake.py runs the job's script
+#     against refusing, broken and unreachable endpoints.
 #
 # ── WHAT THIS FILE CANNOT CHECK ────────────────────────────────────────────
 #
@@ -102,6 +120,16 @@ on:
         description: "Node version for TypeScript plugins."
         type: string
         default: "20"
+      wake-registry:
+        description: >-
+          Once a public release is published, tell the Astra registry at
+          once, so it starts on this tag now instead of when it next looks.
+          The `notify` job sends a GitHub OIDC token for the Minice plugins
+          service and a fixed one-line body, nothing else, and never fails
+          the release. false opts out: the registry still finds the tag on
+          its own, later. Forks and private repositories never send it.
+        type: boolean
+        default: true
     outputs:
       tag:
         description: "The release tag this run published."
@@ -866,6 +894,9 @@ jobs:
       attestations: write  # store the attestation on GitHub
     outputs:
       artifacts: ${{ steps.digests.outputs.artifacts }}
+      # Read by `notify`, which holds no token that could ask the API itself:
+      # it wakes the registry only for a release the registry could list.
+      visibility: ${{ steps.vis.outputs.visibility }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -1027,3 +1058,228 @@ jobs:
             cat dist/SHA256SUMS.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ══ NOTIFY ═════════════════════════════════════════════════════════════════
+  #
+  # Tells the Astra registry that this tag was just released, so a listed
+  # plugin's version starts through the registry now rather than when the
+  # registry next looks. Contract ID-72 permits this one call and nothing
+  # else, exactly as ID-32 publishes it; the owner approved the job on
+  # 2026-10-17 (OD-29). PrimeAi v0.2.4 is why it exists: its Release was
+  # public and it had no submission 21 hours later.
+  #
+  # A job of its own rather than a last step of `publish` (FLOW-54), because
+  # the token it mints is for the plugins service, and the place for it is
+  # not a job that also holds `contents: write` and `attestations: write`.
+  # This job checks out nothing, downloads nothing and runs nothing from the
+  # repository. Its only permission is `id-token: write`, and every scope a
+  # job-level `permissions:` leaves unlisted is `none`, so its GITHUB_TOKEN
+  # cannot even read the repository.
+  #
+  # What it sends (FLOW-55; ID-32): the OIDC token as the Bearer credential
+  # and ID-32's one-line body, which names its schema and nothing else (the
+  # script below holds it, and C25 holds the script to it). Nothing else —
+  # the tag, the repository and the commit reach the service only as the
+  # token's own claims (`ref`, `repository_id`, `sha`), which GitHub signed
+  # and nobody in this run can choose.
+  #
+  # Why nothing here can fail a release (FLOW-56): the Release is already
+  # public when this job starts, and the registry finds the tag on its own as
+  # well, so the wake is a shortcut and not a step of the release. The script
+  # exits 0 on every answer, refusal, timeout and crash; the step and the job
+  # are both `continue-on-error`; the job is bounded in time; and the shell
+  # line ends `|| true` in case python3 itself cannot start. A refusal is
+  # logged as its token and nothing more: `message` is the service's text,
+  # and an author's public log is not the place for it.
+  #
+  # When it sends nothing at all:
+  #   * `wake-registry: false` — the author's opt-out;
+  #   * a private or internal repository — `publish` attested nothing, and the
+  #     registry lists only attested releases, so there is nothing to wake;
+  #   * a fork — a tag pushed in somebody's fork is not the plugin's release,
+  #     and its token would name the fork's repository_id;
+  #   * any run a tag push did not start — ID-32 refuses every token whose
+  #     `event_name` is not `push` or whose `ref` is not a tag, and a refused
+  #     wake still spends one of the repository's ten an hour.
+  #
+  # `github.event.repository.fork` is inlined here, unlike the visibility
+  # `publish` resolves through the API: it is in every push payload, this job
+  # runs only for a push, and a missing field would only send a wake the
+  # service refuses — it cannot skip anything a user relies on.
+  notify:
+    name: Wake the registry
+    needs: publish
+    if: >-
+      needs.publish.result == 'success'
+      && inputs.wake-registry
+      && github.event_name == 'push'
+      && startsWith(github.ref, 'refs/tags/')
+      && needs.publish.outputs.visibility == 'public'
+      && github.event.repository.fork != true
+    runs-on: ubuntu-24.04
+    # Two 10-second requests, at most one stated wait of at most 30 s, and two
+    # more requests: well under a minute. The bound is for a server that
+    # trickles bytes forever, which a per-request socket timeout does not end.
+    timeout-minutes: 3
+    continue-on-error: true
+    permissions:
+      id-token: write   # mint the author OIDC token, and nothing else (FLOW-54)
+    steps:
+      # Python's stdlib rather than a command-line HTTP client, so that the
+      # token is never in argv (where `ps` shows it), never in a file and never
+      # in the environment: it lives in this one process and is masked the
+      # moment it exists. The two values below are ID-32's, compiled in; C25
+      # holds them to the contract's text.
+      - name: Send the author wake
+        id: wake
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          WAKE_URL: https://api.minice.ai/plugins/v1/author/wake
+          WAKE_AUDIENCE: https://api.minice.ai/plugins/v1/author
+        run: |
+          python3 - <<'PY' || true
+          import json, os, re, sys, time
+          import urllib.error, urllib.parse, urllib.request
+
+          BODY = b'{"schema":"astra.plugins.author-wake/1"}'
+          RESULT = {"schema": "astra.plugins.author-wake-result/1"}
+          # ID-32's refusals. Any other token, or a body that is not
+          # `astra.plugins.error/1`, is reported as such and never echoed.
+          REFUSALS = {"token_refused", "replay", "unavailable", "rate_limited", "invalid"}
+          TIMEOUT = 10   # seconds, per request
+          MAX_WAIT = 30  # the longest stated wait worth holding a runner for
+          JWT = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              # urllib re-sends every header, Authorization included, to
+              # wherever a 3xx points. Neither endpoint redirects; a 3xx is an
+              # answer, not an instruction to hand the token to another host.
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+
+          OPENER = urllib.request.build_opener(NoRedirect)
+
+
+          def say(line):
+              print(f"author wake: {line}", flush=True)
+
+
+          def mint():
+              url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+              ask = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+              if not url or not ask:
+                  say("this job cannot mint an OIDC token (no id-token: write); nothing sent")
+                  return None
+              aud = urllib.parse.quote(os.environ["WAKE_AUDIENCE"], safe="")
+              req = urllib.request.Request(
+                  url + ("&" if "?" in url else "?") + "audience=" + aud,
+                  headers={"Authorization": "Bearer " + ask, "Accept": "application/json"},
+              )
+              try:
+                  with OPENER.open(req, timeout=TIMEOUT) as r:
+                      value = json.loads(r.read(65536)).get("value")
+              except urllib.error.HTTPError as e:
+                  say(f"GitHub refused the OIDC token request (HTTP {e.code}); nothing sent")
+                  return None
+              except Exception as e:
+                  say(f"could not mint the OIDC token ({type(e).__name__}); nothing sent")
+                  return None
+              # Checked before it is printed in a mask command: a value with a
+              # newline in it would be a workflow command of its own.
+              if not isinstance(value, str) or not JWT.fullmatch(value):
+                  say("GitHub's answer held no token; nothing sent")
+                  return None
+              print(f"::add-mask::{value}", flush=True)
+              return value
+
+
+          def post(token):
+              req = urllib.request.Request(
+                  os.environ["WAKE_URL"],
+                  data=BODY,
+                  method="POST",
+                  headers={
+                      "Authorization": "Bearer " + token,
+                      "Content-Type": "application/json",
+                      "Accept": "application/json",
+                  },
+              )
+              try:
+                  with OPENER.open(req, timeout=TIMEOUT) as r:
+                      return r.status, r.headers, r.read(65536)
+              except urllib.error.HTTPError as e:
+                  try:
+                      raw = e.read(65536)
+                  except Exception:
+                      raw = b""
+                  return e.code, e.headers, raw
+
+
+          def document(raw):
+              try:
+                  doc = json.loads(raw)
+              except ValueError:
+                  return None
+              return doc if isinstance(doc, dict) else None
+
+
+          def stated_wait(doc, headers):
+              # §0.8: `rate_limited` carries an integer `retry_after`; anything
+              # else may state its wait only as a Retry-After of whole seconds.
+              # An HTTP-date, or no statement at all, is no wait: no retry.
+              v = doc.get("retry_after") if doc else None
+              if isinstance(v, int) and not isinstance(v, bool):
+                  return v
+              h = (headers.get("Retry-After") or "").strip() if headers else ""
+              return int(h) if h.isdigit() else None
+
+
+          def main():
+              for attempt in (1, 2):
+                  # A fresh token for the retry: the service keeps every `jti`
+                  # it accepted and answers a second use `replay` (ID-33).
+                  token = mint()
+                  if token is None:
+                      return
+                  try:
+                      status, headers, raw = post(token)
+                  except Exception as e:
+                      say(f"no answer ({type(e).__name__}); the registry will find the tag on its own")
+                      return
+                  doc = document(raw)
+                  if 200 <= status < 300:
+                      if doc == RESULT:
+                          say(f"HTTP {status}, {RESULT['schema']}")
+                      else:
+                          say(f"HTTP {status}, but not {RESULT['schema']}")
+                      return
+                  err = doc.get("error") if doc and doc.get("schema") == "astra.plugins.error/1" else None
+                  if err in REFUSALS:
+                      say(f"HTTP {status}, refused: {err}")
+                  elif isinstance(err, str):
+                      say(f"HTTP {status}, refused with a token this workflow does not know")
+                  else:
+                      say(f"HTTP {status}, with no refusal body")
+                  # One retry, only when the service said how long to wait and
+                  # it is short: the same rule the registry's bot keeps for its
+                  # own calls (TRUST-31 since 5.8.0). A long wait is the
+                  # registry's own schedule, which needs no wake.
+                  busy = err in ("unavailable", "rate_limited") or (
+                      err not in REFUSALS and status in (429, 503)
+                  )
+                  wait = stated_wait(doc, headers) if busy and attempt == 1 else None
+                  if wait is None or not 0 <= wait <= MAX_WAIT:
+                      return
+                  say(f"waiting the stated {wait} s, then once more")
+                  time.sleep(wait)
+
+
+          try:
+              main()
+          except BaseException as e:  # FLOW-56: nothing here may fail the release
+              say(f"stopped ({type(e).__name__}); the release is not affected")
+          sys.exit(0)
+          PY
