@@ -18,11 +18,13 @@ are removable in.
 
 Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
-(RU_MOVE_PLAN.md §12.11). Nothing in this crate's hand-written surface
+(RU_MOVE_PLAN.md §12.11), and — a second resync inside this same unreleased
+window, Astra main `4eac0f5fc` — per-conversation permission modes and the
+image-generation model picker. Nothing in this crate's hand-written surface
 changed.
 
-Between `sdk-v0.7.3` and this release the protocol gained 6 fields on 1
-message that already existed, 2 new messages and 3 new rpcs.
+Between `sdk-v0.7.3` and this release the protocol gained 16 fields on 6
+messages that already existed, 14 new messages and 7 new rpcs.
 
 Nothing in the authoring API was removed, narrowed or renamed, so this is the
 patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may
@@ -60,6 +62,26 @@ anything `astra-plugin new` writes:
   + echo cancellation + noise suppression) without changing the listening
   state; the check is leased and stops itself when unpolled. Generated-type
   changes only — this crate wraps no new hook for them.
+- **`ChatService` gained three rpcs for a conversation's permission mode** —
+  `GetConversationPermissions`, `SetConversationPermissionMode`,
+  `RevokePermissionGrant` — with `ConversationPermissionsRequest`/`Response`,
+  `SetConversationPermissionModeRequest`, `RevokePermissionGrantRequest`,
+  `PermissionModeOption` and `PermissionGrant`. A pinned mode overrides the
+  global one for one conversation; an empty mode clears the pin and inherits
+  it again. `ConversationEventMsg` gained a matching
+  `ToolPermissionEvaluatedEvt` oneof event, plus `AutomationToolTraceEvt` and
+  `AssistantImageEvt` (a bounded preview of a picture the assistant drew,
+  display-only — the cross-turn history rebuild skips it).
+  `ToolConfirmationRequestedEvt` gained `arguments` (the admitted arguments
+  after scope/path/shell binding). Generated-type changes only — this crate
+  wraps no new hook for any of them.
+- **`ConfigService` gained `GetImageModels`** for the image-generation model
+  picker, with `GetImageModelsRequest`/`Response` and `ImageModelInfo`.
+  `AiSettings` gained `approval_provider`/`approval_model` and
+  `image_provider`/`image_model`, all four `optional` so a client built before
+  this sync leaves them alone instead of writing `""` over a saved choice.
+  `SafetySettings` gained `permission_mode`; `TestAiProviderResponse` gained
+  `is_active_config`. Generated-type changes only.
 
 ## [0.7.3] — 2026-10-16
 

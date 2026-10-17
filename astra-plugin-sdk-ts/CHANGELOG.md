@@ -19,7 +19,9 @@ are removable in.
 
 Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
-(RU_MOVE_PLAN.md §12.11). Nothing in this package's hand-written surface
+(RU_MOVE_PLAN.md §12.11), and — a second resync inside this same unreleased
+window, Astra main `4eac0f5fc` — per-conversation permission modes and the
+image-generation model picker. Nothing in this package's hand-written surface
 changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
@@ -37,6 +39,22 @@ before the sync, no hit outside the generated descriptor itself.
   + echo cancellation + noise suppression) without changing the listening
   state; the check is leased and stops itself when unpolled. `src/generated/*`
   is regenerated from the re-synced slice.
+- **`ChatService` gained three rpcs for a conversation's permission mode** —
+  `GetConversationPermissions`, `SetConversationPermissionMode`,
+  `RevokePermissionGrant` — with `ConversationPermissionsRequest`/`Response`,
+  `SetConversationPermissionModeRequest`, `RevokePermissionGrantRequest`,
+  `PermissionModeOption` and `PermissionGrant`. A pinned mode overrides the
+  global one for one conversation; an empty mode clears the pin and inherits
+  it again. `ConversationEventMsg` gained a matching
+  `ToolPermissionEvaluatedEvt` oneof event, plus `AutomationToolTraceEvt` and
+  `AssistantImageEvt` (a bounded preview of a picture the assistant drew,
+  display-only). `ToolConfirmationRequestedEvt` gained `arguments`.
+- **`ConfigService` gained `GetImageModels`** for the image-generation model
+  picker, with `GetImageModelsRequest`/`Response` and `ImageModelInfo`.
+  `AiSettings` gained `approval_provider`/`approval_model` and
+  `image_provider`/`image_model`; `SafetySettings` gained `permission_mode`;
+  `TestAiProviderResponse` gained `is_active_config`. `src/generated/*` is
+  regenerated from the re-synced slice.
 
 ### Changed (generated code only)
 - **`CoreService.AcceptMove` / `StayInEdition` are gone**, with

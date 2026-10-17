@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 736afa8bbcdf30a7bb94a457965b313f33d8528ab0c392e8a1b45b17415cd6dc
+// surface-sha256: 99ae781afdfd7fb4994fc6c29db9ad7d09979c699fc09c9187c6ca123f816d26
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -779,6 +779,48 @@ service ChatService {
     // field on SubmitUserMessageRequest: the user must be able to change it
     // without sending a message, and Regenerate/Edit must replay under it.
     rpc SetConversationReasoning(SetConversationReasoningRequest) returns (SetConversationReasoningResponse);
+
+    rpc GetConversationPermissions(ConversationPermissionsRequest) returns (ConversationPermissionsResponse);
+
+    rpc SetConversationPermissionMode(SetConversationPermissionModeRequest) returns (ConversationPermissionsResponse);
+
+    rpc RevokePermissionGrant(RevokePermissionGrantRequest) returns (Empty);
+}
+
+message ConversationPermissionsRequest {
+    string conversation_id = 1;
+}
+
+message SetConversationPermissionModeRequest {
+    string conversation_id = 1;
+
+    // Empty clears the pin and inherits the global mode.
+    string mode = 2;
+}
+
+message RevokePermissionGrantRequest {
+    string conversation_id = 1;
+    string grant_id = 2;
+}
+
+message PermissionModeOption {
+    string id = 1;
+    string label_key = 2;
+    string description_key = 3;
+}
+
+message PermissionGrant {
+    string id = 1;
+    string tool_name = 2;
+    string description = 3;
+}
+
+message ConversationPermissionsResponse {
+    string pinned_mode = 1;
+    string effective_mode = 2;
+    string source = 3;
+    repeated PermissionModeOption modes = 4;
+    repeated PermissionGrant grants = 5;
 }
 
 message SetConversationReasoningRequest {
@@ -1091,7 +1133,38 @@ message ConversationEventMsg {
         TurnUsageEvt turn_usage = 28;
         ContextLoadEvt context_load = 29;
         HistoryCompactedEvt history_compacted = 30;
+        ToolPermissionEvaluatedEvt tool_permission_evaluated = 31;
+        AutomationToolTraceEvt automation_tool_trace = 32;
+        AssistantImageEvt assistant_image = 33;
     }
+}
+
+// A picture the assistant drew (`generate_image`), attached to its message.
+//
+// DISPLAY only: the model learns about it from the tool's own result, and the
+// cross-turn history rebuild skips this event. The full-size file is on the
+// user's disk at `path`; what travels is a bounded JPEG preview (at most 384 px
+// on its long side), base64 in a STRING rather than `bytes` so neither shell
+// has to re-encode it before the renderer draws it as a data URL.
+message AssistantImageEvt {
+    string message_id = 1;
+
+    // The `generate_image` call that drew it (or, inside a nested run, the
+    // parent's `run_agent` call).
+    string call_id = 2;
+
+    // Absolute path of the full-size file. May no longer exist.
+    string path = 3;
+
+    // MIME type of the file at `path`.
+    string mime_type = 4;
+    uint32 width = 5;
+    uint32 height = 6;
+    string thumbnail_mime_type = 7;
+    string thumbnail_base64 = 8;
+    string prompt = 9;
+    string provider = 10;
+    string model = 11;
 }
 
 // What the provider says one assistant turn cost.
@@ -1109,6 +1182,18 @@ message ConversationEventMsg {
 //
 // `cached_input_tokens` is a subset of `input_tokens`, and `reasoning_tokens` a
 // subset of `output_tokens`. Never add either as a separate term.
+message AutomationToolTraceEvt {
+    string message_id = 1;
+    string trace_json = 2;  // display-only saved automation lifecycle
+}
+
+message ToolPermissionEvaluatedEvt {
+    string call_id = 1;
+    string decision = 2;
+    string source = 3;
+    string reason = 4;
+}
+
 message TurnUsageEvt {
     string message_id = 1;
     uint32 input_tokens = 2;
@@ -1272,6 +1357,7 @@ message ToolCallStartEvt {
 }
 
 message ToolConfirmationRequestedEvt {
+    string arguments = 7;  // admitted arguments after scope/path/shell binding
     string call_id = 1;
     string request_id = 2;
     string danger_level = 3;
@@ -2210,6 +2296,13 @@ service ConfigService {
     // Get available AI models for a provider
     rpc GetModels(GetModelsRequest) returns (GetModelsResponse);
 
+    // The IMAGE models a provider draws with, for the image-generation picker —
+    // a different list from GetModels, whose models are chat models. For
+    // `astra` it is the server's own list with this account's prices and
+    // entitlement; for any other provider, the well-known image models it
+    // serves (the picker is free-entry).
+    rpc GetImageModels(GetImageModelsRequest) returns (GetImageModelsResponse);
+
     // Get available AI providers and their capabilities
     rpc GetAiProviders(Empty) returns (AiProvidersResponse);
 
@@ -3013,6 +3106,15 @@ message AiSettings {
     // list applied there deletes every saved model. Changes go through the
     // granular `ai.custom_models` path.
     repeated CustomAiModelMsg custom_models = 23;
+    optional string approval_provider = 24;
+    optional string approval_model = 25;
+
+    // Provider and model pictures are drawn on (`generate_image`). Empty = the
+    // chat's provider and that provider's default image model. `optional`, like
+    // the approval pair, so a client that predates the field leaves it alone
+    // instead of writing "" over a choice.
+    optional string image_provider = 26;
+    optional string image_model = 27;
 }
 
 // One provider's saved endpoint, as a CLIENT sees it.
@@ -3168,6 +3270,7 @@ message SafetySettings {
     // one would silently switch the opt-in back off. UpdateSettings maps it
     // ONLY when present.
     optional bool allow_unsigned_plugins = 6;
+    optional string permission_mode = 7;
 }
 
 message ExportSettingsRequest {
@@ -3192,6 +3295,43 @@ message GetModelsRequest {
 
 message GetModelsResponse {
     repeated ModelInfo models = 1;
+}
+
+message GetImageModelsRequest {
+    // Empty = the provider pictures are drawn on now (`ai.image_provider`, else
+    // the chat's).
+    string provider = 1;
+}
+
+message GetImageModelsResponse {
+    // The provider this answer is for (the resolved one when the request named none).
+    string provider = 1;
+
+    // Whether this provider can draw at all. False for Claude, Ollama, LM Studio
+    // and plugin backends — the picker then says so instead of listing nothing.
+    bool supported = 2;
+
+    // `astra` only: whether this account's plan includes image generation.
+    // False on the free plan. Always true for a provider the user pays directly.
+    bool entitled = 3;
+
+    // The model used when `ai.image_model` is empty ("" = the server decides).
+    string default_model = 4;
+    repeated ImageModelInfo models = 5;
+
+    // Why the list could not be fetched, when it could not (signed out, offline).
+    // Empty on success. An i18n-free English sentence for the log; the UI
+    // decides its own words from `supported` / `entitled`.
+    string error = 6;
+}
+
+message ImageModelInfo {
+    string id = 1;
+    string name = 2;
+
+    // `astra` only: what one picture costs this account, in credits. 0 = unknown
+    // (a provider the user pays directly).
+    int64 credits_per_image = 3;
 }
 
 message ModelInfo {
@@ -3250,6 +3390,7 @@ message TestAiProviderResponse {
     string error = 2;  // technical reason on failure (empty when ok)
     string model = 3;  // the model that was probed
     uint32 latency_ms = 4;  // round-trip time of the probe
+    bool is_active_config = 5;  // tested provider/model/endpoint/key still match the saved chat
 }
 
 // ============ Media Service ============
