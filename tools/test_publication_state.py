@@ -36,7 +36,7 @@ def registries_matching_this_tree() -> dict:
     Derived, never typed: a fixture written as "what the registries held on the
     day" goes red on the first correct post-release commit, which is the one
     moment this check must be green. Each package's newest version is README's
-    Published cell; the CLI row is a 404.
+    Published cell, the CLI row included since cli-v0.5.0 reached crates.io.
     """
     rows = cps.readme_rows(ROOT)
     out: dict = {}
@@ -177,14 +177,19 @@ class C23b(unittest.TestCase):
         self.assertIn("FAIL C23b README's Published cell for `astra-plugin-cli` (crates.io) is crates.io's newest", out)
 
     def test_a_cli_row_claiming_crates_io_while_it_answers_404_is_red(self):
-        """The other direction: the README says the CLI is on crates.io, and it is not."""
+        """The other direction: the README says the CLI is on crates.io, and it is not.
+
+        Since cli-v0.5.0 (2026-10-16) the real README says the CLI IS on crates.io,
+        so REGISTRIES (built to match this tree) carries it; the 404 is made here.
+        """
+        reg = {**REGISTRIES, "crates.io/astra-plugin-cli": None}
         with Tree() as t:
             text = (t.dir / "README.md").read_text(encoding="utf-8")
             row = next(l for l in text.splitlines() if l.startswith("| `astra-plugin-cli` (crates.io) |"))
             cells = row.split("|")
             cells[3] = " 0.4.0 "
             t.edit("README.md", row, "|".join(cells))
-            code, out = t.run(REGISTRIES)
+            code, out = t.run(reg)
         self.assertEqual(code, 1, out)
         self.assertIn("FAIL C23b README says astra-plugin-cli is not on crates.io, and crates.io answers 404", out)
 
