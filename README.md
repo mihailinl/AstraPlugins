@@ -81,17 +81,17 @@ someone you are willing to run code from.
 
 ### 1. Get the CLI
 
-**Download a binary.** Release [`cli-v0.4.0`][rel] carries
-`astra-plugin-0.4.0-linux-x64-musl.tar.gz`,
-`astra-plugin-0.4.0-linux-x64-gnu.tar.gz`,
-`astra-plugin-0.4.0-windows-x64.zip`, `SHA256SUMS.txt` and
-`astra-plugin-0.4.0.sigstore.jsonl`. No toolchain:
+**Download a binary.** Release [`cli-v0.5.0`][rel] carries
+`astra-plugin-0.5.0-linux-x64-musl.tar.gz`,
+`astra-plugin-0.5.0-linux-x64-gnu.tar.gz`,
+`astra-plugin-0.5.0-windows-x64.zip`, `SHA256SUMS.txt` and
+`astra-plugin-0.5.0.sigstore.jsonl`. No toolchain:
 
 ```bash
-curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.4.0/astra-plugin-0.4.0-linux-x64-musl.tar.gz
-curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.4.0/SHA256SUMS.txt
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.5.0/astra-plugin-0.5.0-linux-x64-musl.tar.gz
+curl -fsSLO https://github.com/mihailinl/AstraPlugins/releases/download/cli-v0.5.0/SHA256SUMS.txt
 sha256sum -c --ignore-missing SHA256SUMS.txt    # …-musl.tar.gz: OK
-tar xzf astra-plugin-0.4.0-linux-x64-musl.tar.gz
+tar xzf astra-plugin-0.5.0-linux-x64-musl.tar.gz
 ```
 
 Take **musl** on any Linux: the gnu build needs glibc 2.39 or newer, which
@@ -100,19 +100,21 @@ Ubuntu 22.04, Debian 12 and RHEL 9 do not have, while the musl build is
 `SHA256SUMS.txt` lists all three archives, so without it `sha256sum` exits 1
 over the two you did not download. To check who built it rather than only that
 the bytes match, `gh attestation verify <archive> --bundle
-astra-plugin-0.4.0.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow
+astra-plugin-0.5.0.sigstore.jsonl --repo mihailinl/AstraPlugins --signer-workflow
 mihailinl/AstraPlugins/.github/workflows/release-cli.yml`; it is silent and
 exits `0` on success.
 
-There is no macOS or ARM archive yet — build from source there.
+There is no macOS or ARM archive yet — install from crates.io or build from
+source there.
 
-**`cargo install astra-plugin-cli` does not work**, and will not until a
-separate crate ships: the CLI depends on a vendored `astra-plugin-manifest` by
-path, cargo never packages a path dependency's source, so the crate cannot be
-published (`https://index.crates.io/as/tr/astra-plugin-cli` answers `404` where
-`astra-plugin-sdk` answers `200`). No date is promised.
+**Or from crates.io**, from 0.5.0 on: `cargo install astra-plugin-cli --locked`.
+Through 0.4.0 it did not work: the CLI depended on its vendored
+`astra-plugin-manifest` by path alone, which `cargo publish` refuses, so
+`cli-v0.2.1`, `cli-v0.3.0` and `cli-v0.4.0` shipped binaries and nothing on
+crates.io. `cli-v0.5.0` uploaded `astra-plugin-manifest` 0.1.0 first and the
+CLI after it.
 
-[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.4.0
+[rel]: https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.5.0
 
 **Or build from source** — one line, no clone:
 
@@ -127,7 +129,7 @@ astra-plugin --version          # astra-plugin <version>
 chose.
 
 **On a source build, do not read the build's health off that number.** A
-downloaded `0.4.0` binary is built from the `cli-v0.4.0` tag and has the fix
+downloaded `0.5.0` binary is built from the `cli-v0.5.0` tag and has the fix
 below. `init-ci` used to pin an
 annotated tag's object SHA instead of the commit it names, so every first
 release died with `invalid value workflow reference` before a job started
@@ -311,7 +313,7 @@ directory to a listed plugin, with every command and its output.
 | `astra-plugin-sdk` (PyPI) | 0.6.4 | 0.6.3 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
 | `astra-plugin-sdk` (npm) | 0.7.3 | 0.7.2 | `npm install astra-plugin-sdk` |
 | `astra-plugin-macros` (crates.io) | 0.7.4 | 0.7.3 | arrives with the SDK |
-| `astra-plugin-cli` (crates.io) | 0.5.0 | **not on crates.io**; binaries released as [`cli-v0.4.0`](https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.4.0) (linux-x64 musl + gnu, windows-x64) | download an archive, or `cargo install --git https://github.com/mihailinl/AstraPlugins astra-plugin-cli --locked` |
+| `astra-plugin-cli` (crates.io) | 0.5.0 | 0.5.0; binaries released as [`cli-v0.5.0`](https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.5.0) (linux-x64 musl + gnu, windows-x64) | `cargo install astra-plugin-cli --locked`, or download an archive |
 
 **This column said npm was one publish behind for a month after it was not.**
 `sdk-v0.7.1` published `astra-plugin-macros` and `astra-plugin-sdk` to crates.io

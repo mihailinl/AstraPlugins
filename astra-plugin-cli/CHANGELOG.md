@@ -13,9 +13,11 @@ All notable changes to this crate. Format roughly follows
 [`.github/workflows/release-cli.yml`](../.github/workflows/release-cli.yml),
 which builds linux-x64 (musl + gnu) and windows-x64 archives, attests them and
 publishes a GitHub Release — separately from the three SDKs, which ship together
-from one `sdk-v<VERSION>` tag. It is **not** on crates.io and cannot be until the
-vendored `astra-plugin-manifest` crate is published; `cargo install --git` and
-the archives are the two supported paths
+from one `sdk-v<VERSION>` tag. Through `cli-v0.4.0` it was **not** on crates.io:
+the vendored `astra-plugin-manifest` crate was unpublished, and `cargo publish`
+refuses a path dependency's source. `cli-v0.5.0` published `astra-plugin-manifest`
+0.1.0 first and the CLI after it, so `cargo install astra-plugin-cli --locked`,
+the archives and `cargo install --git` are now three supported paths
 ([`docs/en/install-cli.md`](../docs/en/install-cli.md)). Either way **the version
 below is the only thing that tells one build from another**, which is why a
 one-line fix gets a version bump here.
@@ -26,7 +28,7 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
-## [0.5.0] — unreleased
+## [0.5.0] — 2026-10-16
 
 Release B of the registry's cutover: `publish` opens the panel for everybody.
 
