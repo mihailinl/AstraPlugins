@@ -2,13 +2,13 @@
 
 # Protokoll-Referenz
 
-Protokoll-Generation **1**. 10 Dienste, 182 RPCs. Quelle:
+Protokoll-Generation **1**. 10 Dienste, 186 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: 736afa8bbcdf30a7…`, der Digest des Plugin-zugewandten
+(`surface-sha256: 99ae781afdfd7fb4…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:96d8e7ba2a513169…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:7f14c76b3a4e0123…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
@@ -152,10 +152,10 @@ keine Capability impliziert sie.
 | Dienst | RPCs |
 |---|---|
 | `CoreService` | 11 |
-| `ChatService` | 12 |
+| `ChatService` | 15 |
 | `VoiceService` | 45 |
 | `CommandService` | 14 |
-| `ConfigService` | 27 |
+| `ConfigService` | 29 |
 | `MediaService` | 5 |
 | `MonitorService` | 3 |
 

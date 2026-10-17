@@ -155,6 +155,7 @@
     "--color-warning-border",
     "--color-widget-bg",
     "--color-widget-bg-hover",
+    "--control-focus",
     "--control-height",
     "--control-height-compact",
     "--control-sheen",
@@ -481,5 +482,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "98a2a27649f37d7f48a2b22e240c828de6316ea0184a2b1742e801d1d3a5d28f"
+  "sourceHash": "52c6fd93a8a230b36e25cec158cff46068ab90325876632014f95d678510ed91"
 }

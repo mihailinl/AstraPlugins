@@ -989,6 +989,108 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "SetConversationReasoning": {
               "requestType": "SetConversationReasoningRequest",
               "responseType": "SetConversationReasoningResponse"
+            },
+            "GetConversationPermissions": {
+              "requestType": "ConversationPermissionsRequest",
+              "responseType": "ConversationPermissionsResponse"
+            },
+            "SetConversationPermissionMode": {
+              "requestType": "SetConversationPermissionModeRequest",
+              "responseType": "ConversationPermissionsResponse"
+            },
+            "RevokePermissionGrant": {
+              "requestType": "RevokePermissionGrantRequest",
+              "responseType": "Empty"
+            }
+          }
+        },
+        "ConversationPermissionsRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetConversationPermissionModeRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "mode": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "RevokePermissionGrantRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "grantId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PermissionModeOption": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "labelKey": {
+              "type": "string",
+              "id": 2
+            },
+            "descriptionKey": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PermissionGrant": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "toolName": {
+              "type": "string",
+              "id": 2
+            },
+            "description": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "ConversationPermissionsResponse": {
+          "fields": {
+            "pinnedMode": {
+              "type": "string",
+              "id": 1
+            },
+            "effectiveMode": {
+              "type": "string",
+              "id": 2
+            },
+            "source": {
+              "type": "string",
+              "id": 3
+            },
+            "modes": {
+              "rule": "repeated",
+              "type": "PermissionModeOption",
+              "id": 4
+            },
+            "grants": {
+              "rule": "repeated",
+              "type": "PermissionGrant",
+              "id": 5
             }
           }
         },
@@ -1422,7 +1524,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "commandExecuted",
                 "turnUsage",
                 "contextLoad",
-                "historyCompacted"
+                "historyCompacted",
+                "toolPermissionEvaluated",
+                "automationToolTrace",
+                "assistantImage"
               ]
             }
           },
@@ -1526,6 +1631,98 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "historyCompacted": {
               "type": "HistoryCompactedEvt",
               "id": 30
+            },
+            "toolPermissionEvaluated": {
+              "type": "ToolPermissionEvaluatedEvt",
+              "id": 31
+            },
+            "automationToolTrace": {
+              "type": "AutomationToolTraceEvt",
+              "id": 32
+            },
+            "assistantImage": {
+              "type": "AssistantImageEvt",
+              "id": 33
+            }
+          }
+        },
+        "AssistantImageEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "callId": {
+              "type": "string",
+              "id": 2
+            },
+            "path": {
+              "type": "string",
+              "id": 3
+            },
+            "mimeType": {
+              "type": "string",
+              "id": 4
+            },
+            "width": {
+              "type": "uint32",
+              "id": 5
+            },
+            "height": {
+              "type": "uint32",
+              "id": 6
+            },
+            "thumbnailMimeType": {
+              "type": "string",
+              "id": 7
+            },
+            "thumbnailBase64": {
+              "type": "string",
+              "id": 8
+            },
+            "prompt": {
+              "type": "string",
+              "id": 9
+            },
+            "provider": {
+              "type": "string",
+              "id": 10
+            },
+            "model": {
+              "type": "string",
+              "id": 11
+            }
+          }
+        },
+        "AutomationToolTraceEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "traceJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "ToolPermissionEvaluatedEvt": {
+          "fields": {
+            "callId": {
+              "type": "string",
+              "id": 1
+            },
+            "decision": {
+              "type": "string",
+              "id": 2
+            },
+            "source": {
+              "type": "string",
+              "id": 3
+            },
+            "reason": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -1718,6 +1915,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "ToolConfirmationRequestedEvt": {
           "fields": {
+            "arguments": {
+              "type": "string",
+              "id": 7
+            },
             "callId": {
               "type": "string",
               "id": 1
@@ -3522,6 +3723,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "GetModelsRequest",
               "responseType": "GetModelsResponse"
             },
+            "GetImageModels": {
+              "requestType": "GetImageModelsRequest",
+              "responseType": "GetImageModelsResponse"
+            },
             "GetAiProviders": {
               "requestType": "Empty",
               "responseType": "AiProvidersResponse"
@@ -4861,6 +5066,28 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           ]
         },
         "AiSettings": {
+          "oneofs": {
+            "_approvalProvider": {
+              "oneof": [
+                "approvalProvider"
+              ]
+            },
+            "_approvalModel": {
+              "oneof": [
+                "approvalModel"
+              ]
+            },
+            "_imageProvider": {
+              "oneof": [
+                "imageProvider"
+              ]
+            },
+            "_imageModel": {
+              "oneof": [
+                "imageModel"
+              ]
+            }
+          },
           "fields": {
             "provider": {
               "type": "string",
@@ -4948,6 +5175,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "CustomAiModelMsg",
               "id": 23
+            },
+            "approvalProvider": {
+              "type": "string",
+              "id": 24,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "approvalModel": {
+              "type": "string",
+              "id": 25,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "imageProvider": {
+              "type": "string",
+              "id": 26,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "imageModel": {
+              "type": "string",
+              "id": 27,
+              "options": {
+                "proto3_optional": true
+              }
             }
           },
           "reserved": [
@@ -5311,6 +5566,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "allowUnsignedPlugins"
               ]
+            },
+            "_permissionMode": {
+              "oneof": [
+                "permissionMode"
+              ]
             }
           },
           "fields": {
@@ -5339,6 +5599,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "allowUnsignedPlugins": {
               "type": "bool",
               "id": 6,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "permissionMode": {
+              "type": "string",
+              "id": 7,
               "options": {
                 "proto3_optional": true
               }
@@ -5399,6 +5666,59 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "ModelInfo",
               "id": 1
+            }
+          }
+        },
+        "GetImageModelsRequest": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "GetImageModelsResponse": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "supported": {
+              "type": "bool",
+              "id": 2
+            },
+            "entitled": {
+              "type": "bool",
+              "id": 3
+            },
+            "defaultModel": {
+              "type": "string",
+              "id": 4
+            },
+            "models": {
+              "rule": "repeated",
+              "type": "ImageModelInfo",
+              "id": 5
+            },
+            "error": {
+              "type": "string",
+              "id": 6
+            }
+          }
+        },
+        "ImageModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "creditsPerImage": {
+              "type": "int64",
+              "id": 3
             }
           }
         },
@@ -5484,6 +5804,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "latencyMs": {
               "type": "uint32",
               "id": 4
+            },
+            "isActiveConfig": {
+              "type": "bool",
+              "id": 5
             }
           }
         },

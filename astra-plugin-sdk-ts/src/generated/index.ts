@@ -39,7 +39,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "96d8e7ba2a513169f419f302f3fd4eee69dae8c8ace2da2de103496179615e4b";
+export const PROTO_SHA256 = "7f14c76b3a4e01233ee145f34c3f0083f9f917a94609eaf6a4ed9f269cf9a197";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -51,10 +51,10 @@ export const PROTO_PACKAGE = "astra";
  */
 export const SERVICE_METHODS = {
   CoreService: ["GetState", "Start", "Stop", "Shutdown", "Restart", "SubscribeEvents", "ShowMainWindow", "ToggleOverlay", "GetLogLocation", "CollectLogs", "GetMoveOffer"],
-  ChatService: ["SubmitUserMessage", "StopGeneration", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning"],
+  ChatService: ["SubmitUserMessage", "StopGeneration", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning", "GetConversationPermissions", "SetConversationPermissionMode", "RevokePermissionGrant"],
   VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "StartMicCheck", "GetMicLevel", "StopMicCheck", "GetOutputDevices", "SetOutputDevice", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetSttProviders", "GetVoiceModels", "DownloadVoiceModel", "DeleteVoiceModel", "GetVoiceModelDownloadProgress", "CancelVoiceModelDownload", "SetVoiceModel", "GetWakewordProviders", "GetSupertonicStatus", "DownloadSupertonicModels", "GetSupertonicDownloadProgress", "CancelSupertonicDownload", "DeleteSupertonicModels", "ListSupertonicVoices", "ImportSupertonicVoice", "DeleteSupertonicVoice", "ActivateVoxVoice", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "SetVoiceConversation", "SetVoicePendingImages", "SetPushToTalk"],
   CommandService: ["List", "Get", "Create", "Update", "Delete", "Execute", "LaunchFile", "SetEnabled", "GetCursorPosition", "ListGroups", "CreateGroup", "UpdateGroup", "DeleteGroup", "MoveCommandToGroup"],
-  ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "SaveWidgetPanel", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers", "StartIndexer", "RescanIndex"],
+  ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "SaveWidgetPanel", "CompleteOobe", "ResetSettings", "ExportSettings", "ImportSettings", "GetModels", "GetImageModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers", "StartIndexer", "RescanIndex"],
   MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions", "CaptureScreen"],
   MonitorService: ["GetSystemStats", "SubscribeSystemStats", "SubscribeToolSearchEvents"],
   PluginService: ["ListPlugins", "InstallPlugin", "InstallPluginStream", "CancelPluginInstall", "UninstallPlugin", "ReportPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "InspectPluginFile", "ResolvePendingUpdate", "GetPluginLogs", "GetPluginProvenance", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
