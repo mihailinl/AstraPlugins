@@ -4,6 +4,9 @@ import { type ReactNode } from "react";
 export interface FloatingControlOption {
     value: string;
     label: string;
+    description?: string;
+    badge?: string;
+    tone?: "warning";
     disabled?: boolean;
 }
 export interface FloatingControlRequest {
@@ -14,6 +17,7 @@ export interface FloatingControlRequest {
     freeSolo?: boolean;
     search?: string;
     ownerId?: string;
+    variant?: "default" | "described";
 }
 export interface FloatingControls {
     open: (request: FloatingControlRequest, anchor: HTMLElement) => Promise<string | null>;

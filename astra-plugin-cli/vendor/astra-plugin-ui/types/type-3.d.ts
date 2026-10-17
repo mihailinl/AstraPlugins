@@ -13,7 +13,7 @@ export interface AnchoredMenuProps {
     ariaLabel?: string;
     maxHeight?: number;
     overflowRowSelector?: string;
-    matchAnchorWidth?: boolean;
+    matchAnchorWidth?: boolean | "minimum";
     align?: "start" | "end";
     side?: "bottom" | "top";
     onDismiss?: () => void;
