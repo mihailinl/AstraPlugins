@@ -11,16 +11,17 @@ runner starts it (`bash --noprofile --norc -eo pipefail`), against a local
 server standing in for both GitHub's OIDC token endpoint and the service.
 
 Every case must exit 0. Beyond that, each one checks what the brief for the
-job promised and what FLOW-55 and ID-32/ID-33 require:
+job promised and what FLOW-55 and ID-32/ID-72 require:
 
-* the body is exactly ID-32's bytes, the audience is exactly ID-32's, and the
-  credential is the token just minted;
+* the body is exactly ID-32's bytes, the audience is exactly ID-32's, the
+  credential is the token just minted, and the request carries no header
+  beyond what the wake needs and urllib adds (FLOW-55);
 * the token is never printed except inside the `::add-mask::` command, and a
   refusal's `message` is never printed at all;
-* at most one retry, only on a stated wait of at most 30 s, under a FRESH
-  token — the service answers a reused `jti` with `replay` (ID-33);
-* a 3xx is not followed, because urllib would carry the Authorization header
-  to wherever it points;
+* one POST, whatever the answer states: ID-72 permits one wake, and the
+  registry finds the tag on its own anyway;
+* a 3xx is not followed, from the service or from GitHub's token endpoint,
+  because urllib would carry the Authorization header to wherever it points;
 * refusing, broken, redirecting, hanging and unreachable endpoints, a job
   without `id-token: write`, and a runner without python3 all end green.
 
@@ -58,7 +59,7 @@ ROOT = HERE.parent
 
 #: The fewest tests a run may report before it is a broken file rather than a
 #: pass. The count of test methods below; raise it when you add one.
-MIN_TESTS = 37
+MIN_TESTS = 46
 
 
 def _load(name: str, file: str):
@@ -79,6 +80,13 @@ RESULT = b'{"schema":"astra.plugins.author-wake-result/1"}'
 #: Put in every refusal's `message`; the log must never carry it.
 CANARY = "MESSAGE-TEXT-THE-LOG-MUST-NOT-CARRY"
 
+#: Every header name the wake may carry (FLOW-55: the token and the body, and
+#: nothing else): the three the script sets and the five urllib adds itself.
+#: A sixth is data the service was never meant to receive — a tag, a commit,
+#: something read out of the repository.
+WAKE_HEADERS = {"authorization", "content-type", "accept", "content-length",
+                "host", "user-agent", "connection", "accept-encoding"}
+
 
 def refusal(token: str, **extra) -> bytes:
     doc = {"schema": "astra.plugins.error/1", "error": token, "message": CANARY}
@@ -95,7 +103,7 @@ class Mock:
 
     def __init__(self) -> None:
         self.answers: list = [(200, {}, RESULT)]
-        self.token_answer: tuple[int, bytes] | None = None
+        self.token_answer: tuple[int, dict, bytes] | None = None
         self.minted: list[str] = []
         self.audiences: list[str] = []
         self.token_auth: list[str] = []
@@ -124,8 +132,7 @@ class Mock:
                 mock_.token_auth.append(self.headers.get("Authorization", ""))
                 mock_.audiences.extend(parse_qs(url.query).get("audience", []))
                 if mock_.token_answer is not None:
-                    status, body = mock_.token_answer
-                    return self._send(status, {}, body)
+                    return self._send(*mock_.token_answer)
                 tok = f"eyJhbGciOiJSUzI1NiJ9.eyJqdGkiOiJ{len(mock_.minted)}fQ.c2lnbmF0dXJl{len(mock_.minted)}"
                 mock_.minted.append(tok)
                 self._send(200, {"Content-Type": "application/json"},
@@ -211,8 +218,11 @@ class WakeScriptBehaviour(unittest.TestCase):
                 if tok in line:
                     self.assertEqual(line, f"::add-mask::{tok}",
                                      f"the OIDC token was printed outside its mask command:\n{line}")
+        self.assertLessEqual(len(self.mock.posts), 1, "more than the one wake ID-72 permits")
         for post in self.mock.posts:
             self.assertEqual(post["body"], MIRRORS.WAKE_BODY.encode(), "the body is not ID-32's")
+            extra = {k.lower() for k in post["headers"]} - WAKE_HEADERS
+            self.assertFalse(extra, f"the wake carried headers FLOW-55 does not allow: {sorted(extra)}")
             self.assertEqual(post["headers"].get("Content-Type"), "application/json")
             auth = post["headers"].get("Authorization", "")
             self.assertTrue(auth.startswith("Bearer ") and auth[7:] in self.mock.minted,
@@ -275,51 +285,26 @@ class WakeScriptBehaviour(unittest.TestCase):
         self.assertNotIn("brand_new_token_x", self.log)
         self.assertIn("a token this workflow does not know", self.log)
 
-    # ── the one retry ────────────────────────────────────────────────────────
+    # ── one wake, never a retry ──────────────────────────────────────────────
 
-    def test_rate_limited_short_wait_retries_once_under_a_fresh_token(self) -> None:
-        self.mock.answers = [(429, {}, refusal("rate_limited", retry_after=1)), (200, {}, RESULT)]
+    def _not_retried(self, status: int, headers: dict, body: bytes) -> None:
+        self.mock.answers = [(status, headers, body), (200, {}, RESULT)]
         p = self.run_job()
         self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 2)
-        self.assertEqual(len(self.mock.minted), 2)
-        used = [x["headers"]["Authorization"] for x in self.mock.posts]
-        self.assertNotEqual(used[0], used[1], "the retry reused a token the service may have seen (ID-33)")
-        self.assertIn("waiting the stated 1 s", self.log)
-        self.assertIn("HTTP 200, astra.plugins.author-wake-result/1", self.log)
+        self.assertEqual(len(self.mock.posts), 1, "a stated wait was taken as leave to send again")
+        self.assertEqual(len(self.mock.minted), 1)
+        self.assertNotIn("HTTP 200", self.log)
 
-    def test_unavailable_with_retry_after_header_retries_at_most_once(self) -> None:
-        self.mock.answers = [(503, {"Retry-After": "1"}, refusal("unavailable"))]
-        p = self.run_job()
-        self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 2, "a second stated wait must end the job's calls")
+    def test_rate_limited_with_a_short_stated_wait_is_not_retried(self) -> None:
+        self._not_retried(429, {"Retry-After": "1"}, refusal("rate_limited", retry_after=1))
 
-    def test_503_without_a_body_but_a_short_retry_after_retries(self) -> None:
-        self.mock.answers = [(503, {"Retry-After": "0"}, b"<html>bad gateway</html>"), (200, {}, RESULT)]
-        p = self.run_job()
-        self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 2)
+    def test_unavailable_with_a_short_retry_after_is_not_retried(self) -> None:
+        self._not_retried(503, {"Retry-After": "0"}, refusal("unavailable"))
+
+    def test_503_without_a_body_is_not_retried(self) -> None:
+        self._not_retried(503, {"Retry-After": "0"}, b"<html>bad gateway</html>")
         self.assertIn("HTTP 503, with no refusal body", self.log)
         self.assertNotIn("bad gateway", self.log)
-
-    def test_a_long_stated_wait_is_not_waited(self) -> None:
-        self.mock.answers = [(429, {"Retry-After": "31"}, refusal("rate_limited", retry_after=31))]
-        p = self.run_job()
-        self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 1)
-        self.assertLess(self.elapsed, 20)
-
-    def test_an_http_date_retry_after_is_no_stated_wait(self) -> None:
-        self.mock.answers = [(503, {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}, b"")]
-        p = self.run_job()
-        self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 1)
-
-    def test_a_refusal_that_is_not_busy_is_not_retried_whatever_it_states(self) -> None:
-        self.mock.answers = [(422, {"Retry-After": "1"}, refusal("token_refused", retry_after=1))]
-        p = self.run_job()
-        self.assert_green(p)
-        self.assertEqual(len(self.mock.posts), 1)
 
     # ── broken and missing endpoints ─────────────────────────────────────────
 
@@ -363,19 +348,33 @@ class WakeScriptBehaviour(unittest.TestCase):
         self.assertIn("cannot mint an OIDC token", self.log)
 
     def test_github_refuses_the_token_request(self) -> None:
-        self.mock.token_answer = (403, b'{"message":"no"}')
+        self.mock.token_answer = (403, {}, b'{"message":"no"}')
         p = self.run_job()
         self.assert_green(p)
         self.assertEqual(self.mock.posts, [])
         self.assertIn("GitHub refused the OIDC token request (HTTP 403)", self.log)
 
     def test_a_token_answer_that_would_inject_a_workflow_command(self) -> None:
-        self.mock.token_answer = (200, json.dumps({"value": "a.b.c\n::set-env name=X::y"}).encode())
+        self.mock.token_answer = (200, {}, json.dumps({"value": "a.b.c\n::set-env name=X::y"}).encode())
         p = self.run_job()
         self.assert_green(p)
         self.assertEqual(self.mock.posts, [])
         self.assertNotIn("::set-env", self.log)
         self.assertNotIn("::add-mask::", self.log)
+
+    def test_a_token_endpoint_redirect_is_not_followed(self) -> None:
+        # The token request carries the runner's own request token, which can
+        # mint an OIDC token for any audience: following a 302 there would
+        # hand it to whoever the Location names.
+        for status in (302, 307):
+            with self.subTest(status=status):
+                self.mock.other.clear()
+                self.mock.token_answer = (status, {"Location": self.mock.url("/steal")}, b"")
+                p = self.run_job()
+                self.assertEqual(p.returncode, 0, self.log)
+                self.assertEqual(self.mock.other, [], f"the request token followed a {status}")
+                self.assertEqual(self.mock.posts, [])
+                self.assertIn(f"GitHub refused the OIDC token request (HTTP {status})", self.log)
 
     def test_no_python_on_the_runner(self) -> None:
         empty = self.tmp / "empty-bin"
@@ -428,8 +427,8 @@ class C25IsRedOnEachBreak(unittest.TestCase):
                         "holds only `id-token: write`")
 
     def test_the_job_can_fail(self) -> None:
-        self.assert_red(self.broken("    timeout-minutes: 3\n    continue-on-error: true\n",
-                                    "    timeout-minutes: 3\n"),
+        self.assert_red(self.broken("    timeout-minutes: 2\n    continue-on-error: true\n",
+                                    "    timeout-minutes: 2\n"),
                         "holds only `id-token: write`")
 
     def test_the_step_can_fail(self) -> None:
@@ -453,7 +452,7 @@ class C25IsRedOnEachBreak(unittest.TestCase):
 
     def test_no_fork_clause(self) -> None:
         self.assert_red(self.broken("      && github.event.repository.fork != true\n", ""),
-                        "holds only `id-token: write`")
+                        "`if:` is exactly")
 
     def test_build_gains_id_token(self) -> None:
         self.assert_red(self.broken("these two lines.\n      contents: read\n",
@@ -468,6 +467,71 @@ class C25IsRedOnEachBreak(unittest.TestCase):
         self.assert_red(self.broken("          echo \"Published $TAG\"\n",
                                     "          echo \"Published $TAG\"\n          python3 -c 'import urllib.request'\n"),
                         "only `notify` names the plugins service")
+
+    # ── the whole job is pinned, not only the parts above ───────────────────
+
+    STEP_TAIL = "          sys.exit(0)\n          PY\n"
+
+    def test_a_second_step_that_mints_and_prints_the_token(self) -> None:
+        self.assert_red(self.broken(self.STEP_TAIL, self.STEP_TAIL + (
+            "      - name: debug\n"
+            "        run: |\n"
+            "          curl -sH \"Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN\" \"$ACTIONS_ID_TOKEN_REQUEST_URL\"\n")),
+            "is one step that sends ID-32's `author.wake` exactly")
+
+    def test_a_second_run_step_that_clones_author_code(self) -> None:
+        self.assert_red(self.broken(self.STEP_TAIL, self.STEP_TAIL + (
+            "      - name: build\n"
+            "        run: |\n"
+            "          git clone \"https://github.com/$GITHUB_REPOSITORY\" src && make -C src\n")),
+            "is one step that sends ID-32's `author.wake` exactly")
+
+    def test_an_env_key_carrying_a_secret(self) -> None:
+        self.assert_red(self.broken(f"          WAKE_AUDIENCE: {MIRRORS.WAKE_AUDIENCE}\n",
+                                    f"          WAKE_AUDIENCE: {MIRRORS.WAKE_AUDIENCE}\n"
+                                    "          GH_TOKEN: ${{ github.token }}\n"),
+                        "is one step that sends ID-32's `author.wake` exactly")
+
+    def test_an_env_key_with_no_expression(self) -> None:
+        # Held by the env pin alone: no `${{` for the expression leg to see.
+        self.assert_red(self.broken(f"          WAKE_AUDIENCE: {MIRRORS.WAKE_AUDIENCE}\n",
+                                    f"          WAKE_AUDIENCE: {MIRRORS.WAKE_AUDIENCE}\n"
+                                    "          PYTHONSTARTUP: /tmp/anything.py\n"),
+                        "is one step that sends ID-32's `author.wake` exactly")
+
+    def test_an_expression_outside_the_if(self) -> None:
+        self.assert_red(self.broken("    runs-on: ubuntu-24.04\n    # Two 10-second",
+                                    "    runs-on: ${{ inputs.runner }}\n    # Two 10-second"),
+                        "is one step that sends ID-32's `author.wake` exactly")
+
+    def test_or_always(self) -> None:
+        self.assert_red(self.broken("      && github.event.repository.fork != true\n",
+                                    "      && github.event.repository.fork != true\n      || always()\n"),
+                        "`if:` is exactly")
+
+    def test_or_another_event(self) -> None:
+        self.assert_red(self.broken("      && github.event.repository.fork != true\n",
+                                    "      && github.event.repository.fork != true\n"
+                                    "      || github.event_name == 'workflow_dispatch'\n"),
+                        "`if:` is exactly")
+
+    def test_an_inverted_clause(self) -> None:
+        self.assert_red(self.broken("      && inputs.wake-registry\n", "      && !inputs.wake-registry\n"),
+                        "`if:` is exactly")
+
+    def test_a_status_function(self) -> None:
+        self.assert_red(self.broken("      needs.publish.result == 'success'\n",
+                                    "      always() && needs.publish.result == 'success'\n"),
+                        "`if:` is exactly")
+
+    def test_no_if(self) -> None:
+        block = WORKFLOW[WORKFLOW.index("    if: >-\n      needs.publish"):WORKFLOW.index("    runs-on: ubuntu-24.04\n    # Two")]
+        self.assert_red(self.broken(block, ""), "`if:` is exactly")
+
+    def test_a_container_beside_the_token(self) -> None:
+        self.assert_red(self.broken("    runs-on: ubuntu-24.04\n    # Two 10-second",
+                                    "    runs-on: ubuntu-24.04\n    container: someone/image:latest\n    # Two 10-second"),
+                        "holds only `id-token: write`")
 
     def test_the_generated_caller_names_the_service(self) -> None:
         self.assert_red(WORKFLOW, "only `notify` names the plugins service",

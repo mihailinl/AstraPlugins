@@ -157,7 +157,7 @@ Tres jobs, y la separación es la propiedad de seguridad.
 | **plan** | **no** | sí | Lee `plugin.toml` con `tomllib` de Python como *datos*, comprueba tag == version, decide la matriz de build, crea el Release en borrador |
 | **build** (matriz) | sí | **no** | `astra-plugin check --strict`, `astra-plugin build`, verify, desempaqueta, verifica el piso de glibc y que el paquete TypeScript sea autocontenido |
 | **publish** | no | sí | Vuelve a derivar cada digest por sí mismo, escribe `SHA256SUMS.txt`, certifica, sube, saca el Release del estado de borrador |
-| **notify** (aún no en `plugin-release/v1`) | no | **no** — solo `id-token: write` | Cuando el Release es público, se lo dice una vez al registro de Astra; nunca hace fallar la ejecución |
+| **notify** (aún no en `plugin-release/v1`) | no | **no** — solo `id-token: write` | Cuando el Release es público, envía un aviso al registro de Astra, sin reintentos; nunca hace fallar la ejecución |
 
 `plan` nunca ejecuta nada fuera del repositorio — sin submódulos, sin
 credenciales persistidas en `.git/config`. `build` ejecuta tu `build.rs`
@@ -191,8 +191,12 @@ token. Así el registro empieza con tu tag ya, en vez de cuando vuelva a mirar.
   la attestation, así que en él no cambia nada.
 - No envía nada desde un fork, desde un repositorio privado o interno, ni en una
   ejecución que no empezó con un push de tag.
-- Para desactivarlo, añade `wake-registry: false` bajo `with:`. El registro
-  encuentra el tag igualmente por su cuenta, más tarde.
+- **La desactivación llega con el mismo movimiento de `plugin-release/v1`.**
+  Desde entonces, `wake-registry: false` bajo `with:` apaga el aviso, y el
+  registro encuentra el tag igualmente por su cuenta, más tarde. No lo añadas
+  antes de que tu pin incluya `notify`: un commit del workflow anterior al job
+  no declara ese input, y GitHub se niega a arrancar la ejecución. `init-ci`
+  conserva la línea cuando reescribe el archivo, y nunca la escribe por ti.
 
 ### Qué termina en el Release
 

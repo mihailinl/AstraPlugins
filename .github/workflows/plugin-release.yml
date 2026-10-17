@@ -1117,10 +1117,10 @@ jobs:
       && needs.publish.outputs.visibility == 'public'
       && github.event.repository.fork != true
     runs-on: ubuntu-24.04
-    # Two 10-second requests, at most one stated wait of at most 30 s, and two
-    # more requests: well under a minute. The bound is for a server that
-    # trickles bytes forever, which a per-request socket timeout does not end.
-    timeout-minutes: 3
+    # Two 10-second requests, the mint and the wake: well under a minute. The
+    # bound is for a server that trickles bytes forever, which a per-request
+    # socket timeout does not end.
+    timeout-minutes: 2
     continue-on-error: true
     permissions:
       id-token: write   # mint the author OIDC token, and nothing else (FLOW-54)
@@ -1133,13 +1133,13 @@ jobs:
       - name: Send the author wake
         id: wake
         continue-on-error: true
-        timeout-minutes: 2
+        timeout-minutes: 1
         env:
           WAKE_URL: https://api.minice.ai/plugins/v1/author/wake
           WAKE_AUDIENCE: https://api.minice.ai/plugins/v1/author
         run: |
           python3 - <<'PY' || true
-          import json, os, re, sys, time
+          import json, os, re, sys
           import urllib.error, urllib.parse, urllib.request
 
           BODY = b'{"schema":"astra.plugins.author-wake/1"}'
@@ -1147,8 +1147,7 @@ jobs:
           # ID-32's refusals. Any other token, or a body that is not
           # `astra.plugins.error/1`, is reported as such and never echoed.
           REFUSALS = {"token_refused", "replay", "unavailable", "rate_limited", "invalid"}
-          TIMEOUT = 10   # seconds, per request
-          MAX_WAIT = 30  # the longest stated wait worth holding a runner for
+          TIMEOUT = 10  # seconds, per request
           JWT = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 
 
@@ -1209,13 +1208,13 @@ jobs:
               )
               try:
                   with OPENER.open(req, timeout=TIMEOUT) as r:
-                      return r.status, r.headers, r.read(65536)
+                      return r.status, r.read(65536)
               except urllib.error.HTTPError as e:
                   try:
                       raw = e.read(65536)
                   except Exception:
                       raw = b""
-                  return e.code, e.headers, raw
+                  return e.code, raw
 
 
           def document(raw):
@@ -1226,55 +1225,33 @@ jobs:
               return doc if isinstance(doc, dict) else None
 
 
-          def stated_wait(doc, headers):
-              # §0.8: `rate_limited` carries an integer `retry_after`; anything
-              # else may state its wait only as a Retry-After of whole seconds.
-              # An HTTP-date, or no statement at all, is no wait: no retry.
-              v = doc.get("retry_after") if doc else None
-              if isinstance(v, int) and not isinstance(v, bool):
-                  return v
-              h = (headers.get("Retry-After") or "").strip() if headers else ""
-              return int(h) if h.isdigit() else None
-
-
+          # One wake and no retry, whatever the answer states: ID-72 permits
+          # one POST, and the registry finds the tag on its own anyway, so a
+          # refused or unanswered wake costs a release nothing but the head
+          # start. A stated wait is logged as a refusal like any other.
           def main():
-              for attempt in (1, 2):
-                  # A fresh token for the retry: the service keeps every `jti`
-                  # it accepted and answers a second use `replay` (ID-33).
-                  token = mint()
-                  if token is None:
-                      return
-                  try:
-                      status, headers, raw = post(token)
-                  except Exception as e:
-                      say(f"no answer ({type(e).__name__}); the registry will find the tag on its own")
-                      return
-                  doc = document(raw)
-                  if 200 <= status < 300:
-                      if doc == RESULT:
-                          say(f"HTTP {status}, {RESULT['schema']}")
-                      else:
-                          say(f"HTTP {status}, but not {RESULT['schema']}")
-                      return
-                  err = doc.get("error") if doc and doc.get("schema") == "astra.plugins.error/1" else None
-                  if err in REFUSALS:
-                      say(f"HTTP {status}, refused: {err}")
-                  elif isinstance(err, str):
-                      say(f"HTTP {status}, refused with a token this workflow does not know")
+              token = mint()
+              if token is None:
+                  return
+              try:
+                  status, raw = post(token)
+              except Exception as e:
+                  say(f"no answer ({type(e).__name__}); the registry will find the tag on its own")
+                  return
+              doc = document(raw)
+              if 200 <= status < 300:
+                  if doc == RESULT:
+                      say(f"HTTP {status}, {RESULT['schema']}")
                   else:
-                      say(f"HTTP {status}, with no refusal body")
-                  # One retry, only when the service said how long to wait and
-                  # it is short: the same rule the registry's bot keeps for its
-                  # own calls (TRUST-31 since 5.8.0). A long wait is the
-                  # registry's own schedule, which needs no wake.
-                  busy = err in ("unavailable", "rate_limited") or (
-                      err not in REFUSALS and status in (429, 503)
-                  )
-                  wait = stated_wait(doc, headers) if busy and attempt == 1 else None
-                  if wait is None or not 0 <= wait <= MAX_WAIT:
-                      return
-                  say(f"waiting the stated {wait} s, then once more")
-                  time.sleep(wait)
+                      say(f"HTTP {status}, but not {RESULT['schema']}")
+                  return
+              err = doc.get("error") if doc and doc.get("schema") == "astra.plugins.error/1" else None
+              if err in REFUSALS:
+                  say(f"HTTP {status}, refused: {err}")
+              elif isinstance(err, str):
+                  say(f"HTTP {status}, refused with a token this workflow does not know")
+              else:
+                  say(f"HTTP {status}, with no refusal body")
 
 
           try:

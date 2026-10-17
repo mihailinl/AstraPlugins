@@ -151,7 +151,7 @@ Release it:
 | **plan** | **否** | 是 | 用 Python 的 `tomllib` 把 `plugin.toml` 当作*数据*读取，检查标签是否等于版本号，决定构建矩阵，创建草稿 Release |
 | **build**（矩阵） | 是 | **否** | `astra-plugin check --strict`、`astra-plugin build`、验证、解包，断言 glibc 下限和 TypeScript 包的自包含性 |
 | **publish** | 否 | 是 | 自己重新推导每一个摘要值，写出 `SHA256SUMS.txt`，出具证明，上传，把 Release 从草稿状态转正 |
-| **notify**（尚未进入 `plugin-release/v1`） | 否 | **否** — 只有 `id-token: write` | Release 公开后通知 Astra 注册表一次；从不让运行失败 |
+| **notify**（尚未进入 `plugin-release/v1`） | 否 | **否** — 只有 `id-token: write` | Release 公开后通知 Astra 注册表一次，不重试；从不让运行失败 |
 
 `plan` 从不执行仓库之外的任何东西 —— 没有子模块，没有持久化在
 `.git/config` 中的凭证。`build` 会运行你的 `build.rs` 和你的生命周期
@@ -179,8 +179,11 @@ Release it:
 - 它只持有 `id-token: write`，不 checkout、不下载任何东西，也不运行你的任何
   代码。你的 `release.yml` 已经为构建证明授予了 `id-token: write`，所以无需改动。
 - 来自 fork、私有或内部仓库、或者不是由推送标签触发的运行，它什么都不发。
-- 若要关闭，在 `with:` 下加上 `wake-registry: false`。注册表之后仍会自己发现
-  这个标签。
+- **关闭选项随同一次 `plugin-release/v1` 移动一起到来。** 从那时起，在
+  `with:` 下写 `wake-registry: false` 即可关闭唤醒，注册表之后仍会自己发现这个
+  标签。在你钉住的提交包含 `notify` 之前不要加它：早于这个 job 的工作流提交
+  没有声明这个输入，GitHub 会拒绝启动这次运行。`init-ci` 重写文件时会保留这一行，
+  但从不替你写入。
 
 ### 最终落在 Release 上的内容
 

@@ -3540,25 +3540,29 @@ jobs:
       # `notify` reaches an author only through a commit the root ceremony
       # lists in trust.json, and the next such commit can take it out.
       #
-      # The rule holds the job's SHAPE: `needs: publish`, `id-token: write`
-      # and nothing else, no action used, `continue-on-error` on the job and
-      # the step, a time bound, the public/non-fork/tag-push/opt-out `if:`,
-      # ID-32's path, audience and body, and no other job but `publish` able
-      # to mint an OIDC token (FLOW-54, FLOW-55, FLOW-56).
+      # The rule holds the WHOLE job: a closed set of job and step keys,
+      # `needs: publish`, `id-token: write` and nothing else, no action used,
+      # `continue-on-error` on the job and the step, a time bound, an `if:`
+      # equal to exactly the six public/non-fork/tag-push/opt-out clauses
+      # ANDed, one step with exactly ID-32's two env values and body, no
+      # `${{ }}` outside the `if:`, and no other job but `publish` able to
+      # mint an OIDC token (FLOW-54, FLOW-55, FLOW-56).
       - name: C25 the plugins service is called only from `notify`, as ID-32 publishes it
         run: python3 tools/check-registry-mirrors.py --rules C25
 
       # FLOW-56 — no service answer, refusal or outage may fail an author's
       # release run. A rule that reads the YAML cannot show that; this runs
       # the `notify` job's own script under bash against a local stand-in for
-      # GitHub's token endpoint and the service: every refusal, a long and a
-      # short stated wait, a broken body, two redirects, a server that never
+      # GitHub's token endpoint and the service: every refusal, stated waits,
+      # a broken body, redirects from either endpoint, a server that never
       # answers, an unreachable port, a job without `id-token`, and a runner
-      # without python3 — all green, the token printed only inside its mask,
-      # a refusal's message never, and the one retry under a fresh token
-      # (ID-33). Its second class turns each break of the job's shape into a
-      # red C25, so the two halves cannot drift apart. One case waits out the
-      # script's 10-second request timeout, deliberately.
+      # without python3 — all green, one POST and never a retry (ID-72), no
+      # header beyond the wake's own (FLOW-55), the token printed only inside
+      # its mask, and a refusal's message never. Its second class turns each
+      # break of the job's shape into a red C25 — a second step, an env key,
+      # an expression, an `||` or a dropped clause in the `if:` — so the two
+      # halves cannot drift apart. One case waits out the script's 10-second
+      # request timeout, deliberately.
       - name: FLOW-56 the wake never fails a release, against every answer
         run: python3 tools/test_author_wake.py
 

@@ -57,11 +57,14 @@ C25 — the plugins service is called from one place: the reusable workflow's
     values are ID-32's audience and path and whose body is ID-32's body.
     Neither file fetches a host that is not GitHub's on a fetching line. The
     reusable workflow keeps exactly the jobs `plan`, `build`, `publish` and
-    `notify`; `notify` needs `publish`, holds `id-token: write` and nothing
-    else, uses no action (so it checks out and downloads nothing, FLOW-54),
-    is `continue-on-error` on the job and the step (FLOW-56), is bounded in
-    time, and runs only for a public, non-fork tag push the author did not
-    opt out of. No job but `publish` and `notify` holds `id-token`.
+    `notify`; `notify` carries only the keys it needs, needs `publish`,
+    holds `id-token: write` and nothing else, uses no action (so it checks
+    out and downloads nothing, FLOW-54), is `continue-on-error` on the job
+    and the step (FLOW-56), and is bounded in time. Its `if:`, read whole, is
+    exactly the six clauses that make it run only after a successful publish
+    of a public, non-fork tag push the author did not opt out of. It is one
+    step, whose env is exactly ID-32's two values, and no `${{ }}` appears in
+    it outside that `if:`. No job but `publish` and `notify` holds `id-token`.
 
     The asymmetry is the point. A call in `plugin-release.yml` reaches an
     author only through a commit the root ceremony lists in trust.json and
@@ -887,9 +890,25 @@ NOTIFY_IF = [
 #: and a token there is one the author's dependencies can mint.
 ID_TOKEN_JOBS = {"publish", "notify"}
 
-#: The longest `notify` may run. Its own budget is under a minute (two
-#: 10-second requests, one stated wait of at most 30 s, two more requests).
-MAX_NOTIFY_MINUTES = 5
+#: The longest `notify` may run. Its own budget is under a minute: two
+#: 10-second requests, the mint and the one wake, and no retry.
+MAX_NOTIFY_MINUTES = 3
+
+#: Every key `notify` may carry, and every key its one step may carry. Closed
+#: sets, because each key left out is a door: `container:` or `services:` run
+#: somebody's image beside the token, `defaults:` or `shell:` swap the
+#: interpreter, `environment:` adds secrets, `outputs:` carries data out, and
+#: `strategy:` multiplies the wake.
+NOTIFY_KEYS = {"name", "needs", "if", "runs-on", "timeout-minutes",
+               "continue-on-error", "permissions", "steps"}
+WAKE_STEP_KEYS = {"name", "id", "continue-on-error", "timeout-minutes", "env", "run"}
+
+#: The step's environment, exactly: ID-32's two values and nothing else. A
+#: third key is the way a secret or an expression would reach the script.
+WAKE_ENV = {"WAKE_URL": WAKE_URL, "WAKE_AUDIENCE": WAKE_AUDIENCE}
+
+#: ID-32 refuses a token whose `runner_environment` is not `github-hosted`.
+NOTIFY_RUNNER = "ubuntu-24.04"
 
 #: The fewest lines the wake step's script can have and still be the script.
 #: Finding fewer means the block reader broke, and an empty script satisfies
@@ -932,6 +951,41 @@ def _scalar(v: str) -> str:
         end = v.find(q, 1)
         return v[1:end] if end > 0 else v
     return re.sub(r"\s+#.*$", "", v).strip()
+
+
+def job_keys(block: list[Line]) -> list[str]:
+    """The keys directly under a job, in order, comments skipped."""
+    return [m.group(1) for _, line in block
+            if (m := re.match(r"^    ([A-Za-z0-9_-]+):", line))]
+
+
+def job_if(block: list[Line]) -> tuple[str | None, set[int]]:
+    """A job's `if:`, read on its own, and the lines it spans.
+
+    A block scalar (`>-`, `|`) is joined and every run of whitespace collapsed
+    to one space, which is how GitHub reads an expression across lines. The
+    caller compares the result whole, so an `||`, a `!`, a status function or
+    a `${{ }}` wrapper is a difference rather than something to search for.
+    None when the job has no `if:`.
+    """
+    for i, (n, line) in enumerate(block):
+        m = re.match(r"^    if:(.*)$", line)
+        if not m:
+            continue
+        rest = m.group(1).strip()
+        spans = {n}
+        if re.fullmatch(r"[>|][+-]?", rest):
+            parts: list[str] = []
+            for n2, nxt in block[i + 1:]:
+                if nxt.strip() and _indent(nxt) <= 4:
+                    break
+                spans.add(n2)
+                parts.append(nxt.strip())
+            text = " ".join(parts)
+        else:
+            text = _scalar(rest) if rest[:1] in "\"'" else rest
+        return re.sub(r"\s+", " ", text).strip(), spans
+    return None, set()
 
 
 def job_key(block: list[Line], key: str) -> str | None:
@@ -1162,10 +1216,15 @@ def rule_C25(fails: Fails) -> None:
     uses = [f"{release_name}:{n}: {line.strip()}" for n, line in notify
             if re.match(r"^\s+(?:- )?uses:", line)]
     timeout = job_key(notify, "timeout-minutes") or ""
+    keys = job_keys(notify)
     shape = [
         (bool(notify), f"there is a `{NOTIFY_JOB}` job"),
+        (set(keys) <= NOTIFY_KEYS and len(keys) == len(set(keys)),
+         f"its keys are within {sorted(NOTIFY_KEYS)} (read {keys})"),
         (job_key(notify, "needs") in ("publish", "[publish]"),
          f"it needs `publish` (read {job_key(notify, 'needs')!r})"),
+        (job_key(notify, "runs-on") == NOTIFY_RUNNER,
+         f"it runs on `{NOTIFY_RUNNER}`, a GitHub-hosted runner (read {job_key(notify, 'runs-on')!r})"),
         (perms == {"id-token": "write"},
          f"its permissions are exactly {{id-token: write}} (read {perms})"),
         (not uses, "it uses no action, so it checks out and downloads nothing: "
@@ -1175,9 +1234,6 @@ def rule_C25(fails: Fails) -> None:
         (timeout.isdigit() and 0 < int(timeout) <= MAX_NOTIFY_MINUTES,
          f"the job is bounded, 1..{MAX_NOTIFY_MINUTES} minutes (read {timeout!r})"),
     ]
-    cond = " ".join(line.strip() for _, line in notify)
-    for clause, why in NOTIFY_IF:
-        shape.append((clause in cond, f"its `if:` holds `{clause}` — {why}"))
     bad = [what for ok, what in shape if not ok]
     fails.check(
         not bad,
@@ -1188,19 +1244,39 @@ def rule_C25(fails: Fails) -> None:
         + "\nservice answer, refusal or outage may fail an author's release run.",
     )
 
-    # ── leg 5: the wake step sends ID-32's call and nothing else (FLOW-55) ───
+    # ── leg 5: its `if:` is exactly the six clauses, ANDed ──────────────────
+    want_if = " && ".join(clause for clause, _ in NOTIFY_IF)
+    got_if, if_lines = job_if(notify)
+    fails.check(
+        got_if == want_if,
+        f"C25 `{NOTIFY_JOB}`'s `if:` is exactly its {len(NOTIFY_IF)} clauses, ANDed",
+        f"read: {got_if!r}\nwant: {want_if!r}\n"
+        + "\n".join(f"  {clause} — {why}" for clause, why in NOTIFY_IF)
+        + "\nCompared whole, not searched: an `|| always()`, an `|| <another event>`, a"
+        + "\n`!`, a status function or a missing `if:` each sends a wake for something"
+        + "\nthat is not a public release of this plugin, or after a failed publish.",
+    )
+
+    # ── leg 6: one step, ID-32's call and nothing else (FLOW-55) ─────────────
+    step_starts = [n for n, line in notify if re.match(r"^      - ", line)]
     step = step_block(notify, WAKE_STEP)
+    step_keys = [m.group(1) for _, line in step
+                 if (m := re.match(r"^      (?:- |  )([A-Za-z0-9_-]+):", line))]
     env = block_mapping(step, "env", 8) or {}
     run = step_run(step)
     first = run.splitlines()[0] if run else ""
+    exprs = [f"{release_name}:{n}: {line.strip()}" for n, line in notify
+             if "${{" in line and n not in if_lines]
     wake = [
-        (bool(step), f"the job has a step `id: {WAKE_STEP}`"),
+        (len(step_starts) == 1 and bool(step),
+         f"the job has exactly one step, `id: {WAKE_STEP}` (read {len(step_starts)} step(s))"),
+        (set(step_keys) <= WAKE_STEP_KEYS and len(step_keys) == len(set(step_keys)),
+         f"the step's keys are within {sorted(WAKE_STEP_KEYS)} (read {step_keys})"),
         (block_mapping(step, "continue-on-error", 8) == {"": "true"},
          "the step is `continue-on-error: true` (FLOW-56)"),
-        (env.get("WAKE_URL") == WAKE_URL,
-         f"WAKE_URL is ID-32's path {WAKE_URL} (read {env.get('WAKE_URL')!r})"),
-        (env.get("WAKE_AUDIENCE") == WAKE_AUDIENCE,
-         f"WAKE_AUDIENCE is ID-32's audience {WAKE_AUDIENCE} (read {env.get('WAKE_AUDIENCE')!r})"),
+        (env == WAKE_ENV,
+         f"the step's env is exactly {WAKE_ENV} (read {env})"),
+        (not exprs, "no `${{ }}` in the job outside its `if:`: " + "; ".join(exprs)),
         (f"b'{WAKE_BODY}'" in run, f"the script's body is exactly {WAKE_BODY}"),
         (first.startswith("python3 - <<'PY'") and first.rstrip().endswith("|| true"),
          f"the script's shell line ends `|| true` (read {first!r})"),
@@ -1211,14 +1287,16 @@ def rule_C25(fails: Fails) -> None:
     bad = [what for ok, what in wake if not ok]
     fails.check(
         not bad,
-        f"C25 `{NOTIFY_JOB}` sends ID-32's `author.wake` exactly",
+        f"C25 `{NOTIFY_JOB}` is one step that sends ID-32's `author.wake` exactly",
         "\n".join(bad)
         + "\nID-32 fixes the path, the audience and the body; FLOW-55 lets the job"
-        + "\nsend only its token and that body. These values are compiled into every"
-        + "\nallowlisted commit, so the service keeps them live while any is (ID-73).",
+        + "\nsend only its token and that body. A second step, an env key or an"
+        + "\nexpression is a way for something else to run beside the token or to"
+        + "\nreach the script. These values are compiled into every allowlisted"
+        + "\ncommit, so the service keeps them live while any is (ID-73).",
     )
 
-    # ── leg 6: no other job can mint an OIDC token ───────────────────────────
+    # ── leg 7: no other job can mint an OIDC token ───────────────────────────
     holders: list[str] = []
     top = block_mapping([(0, l) for l in release_text.split("\njobs:", 1)[0].splitlines()],
                         "permissions", 0) or {}

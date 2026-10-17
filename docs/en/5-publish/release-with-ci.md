@@ -150,7 +150,7 @@ Three jobs, and the split is the security property.
 | **plan** | **no** | yes | Reads `plugin.toml` with Python's `tomllib` as *data*, checks tag == version, decides the build matrix, creates the draft Release |
 | **build** (matrix) | yes | **no** | `astra-plugin check --strict`, `astra-plugin build`, verify, unpack, assert the glibc floor and the TypeScript bundle's self-containment |
 | **publish** | no | yes | Re-derives every digest itself, writes `SHA256SUMS.txt`, attests, uploads, un-drafts the Release |
-| **notify** (not yet in `plugin-release/v1`) | no | **no** — only `id-token: write` | Once the Release is public, tells the Astra registry so, once; never fails the run |
+| **notify** (not yet in `plugin-release/v1`) | no | **no** — only `id-token: write` | Once the Release is public, sends the Astra registry one wake, never retried; never fails the run |
 
 `plan` never executes anything out of the repository — no submodules, no
 credentials persisted in `.git/config`. `build` runs your `build.rs` and your
@@ -183,8 +183,12 @@ looks.
   `id-token: write` for the attestation, so nothing in it changes.
 - It sends nothing from a fork, from a private or internal repository, or in a
   run a tag push did not start.
-- To opt out, add `wake-registry: false` under `with:`. The registry still finds
-  the tag on its own, later.
+- **The opt-out arrives with the same `plugin-release/v1` move.** From then
+  on, `wake-registry: false` under `with:` turns the wake off, and the
+  registry still finds the tag on its own, later. Do not add it before your
+  pin carries `notify`: a workflow commit older than the job does not declare
+  the input, and GitHub refuses to start the run. `init-ci` keeps the line
+  when it rewrites the file, and never writes it for you.
 
 ### What lands on the Release
 

@@ -161,7 +161,7 @@ Drei Jobs, und die Aufteilung ist die Sicherheitseigenschaft.
 | **plan** | **nein** | ja | Liest `plugin.toml` mit Pythons `tomllib` als *Daten*, prüft tag == version, entscheidet die Build-Matrix, erstellt das Entwurfs-Release |
 | **build** (Matrix) | ja | **nein** | `astra-plugin check --strict`, `astra-plugin build`, verify, entpacken, prüft die glibc-Untergrenze und die Eigenständigkeit des TypeScript-Bundles |
 | **publish** | nein | ja | Leitet jeden Digest selbst neu ab, schreibt `SHA256SUMS.txt`, bezeugt, lädt hoch, hebt den Entwurfsstatus des Release auf |
-| **notify** (noch nicht in `plugin-release/v1`) | nein | **nein** — nur `id-token: write` | Sagt der Astra-Registry einmal Bescheid, sobald das Release öffentlich ist; lässt den Lauf nie scheitern |
+| **notify** (noch nicht in `plugin-release/v1`) | nein | **nein** — nur `id-token: write` | Schickt der Astra-Registry ein Wecksignal, sobald das Release öffentlich ist, ohne Wiederholung; lässt den Lauf nie scheitern |
 
 `plan` führt nie etwas außerhalb des Repositorys aus — keine
 Submodule, keine in `.git/config` persistierten Zugangsdaten. `build`
@@ -197,8 +197,13 @@ nächsten Nachsehen.
   `id-token: write` schon für die Attestation, an ihr ändert sich also nichts.
 - Aus einem Fork, aus einem privaten oder internen Repository und in einem Lauf,
   den kein Tag-Push gestartet hat, sendet er nichts.
-- Abmelden: `wake-registry: false` unter `with:` eintragen. Die Registry findet
-  den Tag trotzdem selbst, nur später.
+- **Abmelden kommt mit demselben Umzug von `plugin-release/v1`.** Ab dann
+  schaltet `wake-registry: false` unter `with:` das Wecksignal ab, und die
+  Registry findet den Tag trotzdem selbst, nur später. Tragen Sie es nicht ein,
+  bevor Ihr Pin `notify` enthält: ein Workflow-Commit, der älter ist als der
+  Job, deklariert diesen Input nicht, und GitHub startet den Lauf gar nicht
+  erst. `init-ci` behält die Zeile, wenn es die Datei neu schreibt, und trägt
+  sie nie von sich aus ein.
 
 ### Was auf dem Release landet
 
