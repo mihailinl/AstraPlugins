@@ -161,6 +161,7 @@ Drei Jobs, und die Aufteilung ist die Sicherheitseigenschaft.
 | **plan** | **nein** | ja | Liest `plugin.toml` mit Pythons `tomllib` als *Daten*, prüft tag == version, entscheidet die Build-Matrix, erstellt das Entwurfs-Release |
 | **build** (Matrix) | ja | **nein** | `astra-plugin check --strict`, `astra-plugin build`, verify, entpacken, prüft die glibc-Untergrenze und die Eigenständigkeit des TypeScript-Bundles |
 | **publish** | nein | ja | Leitet jeden Digest selbst neu ab, schreibt `SHA256SUMS.txt`, bezeugt, lädt hoch, hebt den Entwurfsstatus des Release auf |
+| **notify** (noch nicht in `plugin-release/v1`) | nein | **nein** — nur `id-token: write` | Sagt der Astra-Registry einmal Bescheid, sobald das Release öffentlich ist; lässt den Lauf nie scheitern |
 
 `plan` führt nie etwas außerhalb des Repositorys aus — keine
 Submodule, keine in `.git/config` persistierten Zugangsdaten. `build`
@@ -171,6 +172,33 @@ bezeugt, was es gehasht hat.
 Die Matrix wird aus der Sprache deines Plugins bestimmt: `linux-x64` +
 `windows-x64` für Rust, ein einzelner `noarch`-Zweig für TypeScript und
 Python.
+
+### Das Wecksignal an die Registry: `notify`
+
+Auf `master` hat `plugin-release.yml` einen vierten Job, und er ist **noch nicht
+in `plugin-release/v1`**. Die Registry nimmt einen Build nur von einem
+Workflow-Commit an, den `trust.json` aufführt; ein Commit wird nur durch die
+Root-Signaturzeremonie aufgenommen, und der Tag zieht erst danach auf ihn um.
+`init-ci` pinnt ihn dann wie gewohnt.
+
+Sobald Ihr Release öffentlich ist, sendet `notify` eine Anfrage an den
+Minice-Plugin-Dienst: ein GitHub-OIDC-Token für die Audience
+`https://api.minice.ai/plugins/v1/author` und den festen Body
+`{"schema":"astra.plugins.author-wake/1"}`. Sonst nichts — Tag,
+Repository und Commit erfährt der Dienst nur aus den signierten Claims des
+Tokens selbst. So beginnt die Registry sofort mit Ihrem Tag, statt erst beim
+nächsten Nachsehen.
+
+- Er **kann Ihr Release nicht scheitern lassen.** Jede Ablehnung, jeder Ausfall
+  und jedes Timeout endet grün; das Log zeigt nur den HTTP-Status und das Schema
+  der Antwort oder das Ablehnungs-Token, mehr nicht.
+- Er hält `id-token: write` und sonst nichts, checkt nichts aus, lädt nichts
+  herunter und führt nichts von Ihrem Code aus. Ihre `release.yml` gewährt
+  `id-token: write` schon für die Attestation, an ihr ändert sich also nichts.
+- Aus einem Fork, aus einem privaten oder internen Repository und in einem Lauf,
+  den kein Tag-Push gestartet hat, sendet er nichts.
+- Abmelden: `wake-registry: false` unter `with:` eintragen. Die Registry findet
+  den Tag trotzdem selbst, nur später.
 
 ### Was auf dem Release landet
 
