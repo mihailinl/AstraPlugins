@@ -258,6 +258,7 @@
     "--line-height-body",
     "--line-height-chat",
     "--line-height-heading",
+    "--link",
     "--mask-opaque",
     "--menu-enter-y",
     "--native-window-buttons-width",
@@ -482,5 +483,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "52c6fd93a8a230b36e25cec158cff46068ab90325876632014f95d678510ed91"
+  "sourceHash": "da61a75fceb9c24edfe67aad04a13216a163917709f099ebf307b5111cf35ed0"
 }
