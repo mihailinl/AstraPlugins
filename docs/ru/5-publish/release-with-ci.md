@@ -38,7 +38,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned 9864f03bafb52a7de5215ff92376eeefa7331431 (plugin-release/v1)
+    pinned b6e9140d53060585c70280e979b58202f34966ba (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
@@ -93,7 +93,7 @@ jobs:
     # `plugin-release/v1` in mihailinl/AstraPlugins would otherwise own the build
     # step of every plugin that trusts it — and that build step runs in YOUR
     # repository with the token above. `astra-plugin init-ci` keeps this current.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@9864f03bafb52a7de5215ff92376eeefa7331431  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@b6e9140d53060585c70280e979b58202f34966ba  # plugin-release/v1
     with:
       plugin-dir: .
       tag-prefix: "v"
