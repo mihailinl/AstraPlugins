@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 99ae781afdfd7fb4994fc6c29db9ad7d09979c699fc09c9187c6ca123f816d26
+// surface-sha256: e06f9b929d3ab9ace262f67b83eb0b6aec080e8369b324fbfe0c412b866b0a77
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -123,6 +123,12 @@ message MoveOfferResponse {
     // The moved-to edition's download page, for an install that cannot install itself
     // (portable, Steam, a package on an unknown machine); "" otherwise.
     string download_url = 17;
+
+    // The label of the notice's text link to the full move notice («Подробнее о переносе»), in
+    // the notice's language: the signed manifest's, else the compiled one. One line. The link's
+    // ADDRESS is never here: the client opens it by name (`OpenSitePage`, page "move-notice"),
+    // and the daemon's compiled edition table answers (`edition::LegalPage::MoveNotice`).
+    string more_label = 18;
 
     // Ask mode's fields, retired with it (§12.11): the mode, the offer and consent texts, the
     // load problem, the recorded press and the two digests.
@@ -311,6 +317,14 @@ message CoreStateResponse {
     // island is never started, its hotkey never registered, and the UI hides everything that
     // configures it — the island settings section and the onboarding's overlay step.
     bool island_compiled_in = 28;
+
+    // The legal documents this EDITION links on its site, by their `OpenSitePage` names, in the
+    // order a screen lists them: ["eula", "privacy", "offer"] in the RU edition, which ships links
+    // and no bundled texts (the owner, 2026-10-16), and empty in INTL, whose EULA.md and
+    // PRIVACY.md ship beside the program. Settings -> About shows one link per name and opens it
+    // through `OpenSitePage`; the UI never spells the address. Read straight off
+    // `edition::Edition::legal_page`, so a name here is always one the daemon can open.
+    repeated string legal_pages = 29;
 }
 
 enum CoreState {
@@ -5002,6 +5016,27 @@ message PluginBrowseResponse {
     // Why the live fetch failed, one line, for the banner's detail line and the
     // logs. Empty when `from_cache` is false.
     string refresh_error = 5;
+
+    // ── The Workshop's door (Workshop plan C3, C4). ──
+    //
+    // What the store shows, decided by the catalogue HOST's answer and refined
+    // by the ticket mint's. Empty: the catalogue (the host admitted, whatever the
+    // mint said, or an older daemon). "sign_in": the host refused and there is
+    // no account to mint from, or the mint said `unauthenticated`. "not_owner":
+    // the host refused and the mint said this account does not own Astra. With
+    // either of the two, `entries` is empty and no copy on disk stands in; our
+    // own outage (the mint or the host unavailable, rate limited, unreachable) is
+    // never one of these, and stays the `from_cache` banner over the verified
+    // copy. A string and not an enum, so the Electron shell forwards it through
+    // its generic proxy unchanged.
+    string access = 6;
+
+    // The Workshop's Retry ("Just bought? Retry", a refresh) could not renew the
+    // account's token yet: the renewal runs at most once a minute, and its window
+    // opens in this many milliseconds. Nothing was re-checked, so `access` is the
+    // answer the Retry was pressed on, and the screen says "try again in a
+    // minute" rather than spin and show it again. 0 otherwise.
+    int64 access_retry_after_ms = 7;
 }
 
 message PluginRegistryEntry {

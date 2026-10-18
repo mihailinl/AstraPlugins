@@ -18,12 +18,13 @@ are removable in.
 
 Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
-(RU_MOVE_PLAN.md §12.11), and — a second resync inside this same unreleased
-window, Astra main `4eac0f5fc` — per-conversation permission modes and the
-image-generation model picker. Nothing in this crate's hand-written surface
-changed.
+(RU_MOVE_PLAN.md §12.11), a second resync inside this same unreleased window,
+Astra main `4eac0f5fc` — per-conversation permission modes and the
+image-generation model picker — and a third, Astra main `cdd9bf6d3` — the
+Workshop door's retry state and the edition's legal-page links. Nothing in
+this crate's hand-written surface changed.
 
-Between `sdk-v0.7.3` and this release the protocol gained 16 fields on 6
+Between `sdk-v0.7.3` and this release the protocol gained 20 fields on 8
 messages that already existed, 14 new messages and 7 new rpcs.
 
 Nothing in the authoring API was removed, narrowed or renamed, so this is the
@@ -82,6 +83,14 @@ anything `astra-plugin new` writes:
   this sync leaves them alone instead of writing `""` over a saved choice.
   `SafetySettings` gained `permission_mode`; `TestAiProviderResponse` gained
   `is_active_config`. Generated-type changes only.
+- **`PluginBrowseResponse` gained `access`/`access_retry_after_ms`** for the
+  Workshop door's catalogue-refusal state (`""` open, `"sign_in"`,
+  `"not_owner"`) and the Retry button's one-per-minute renewal backoff in
+  milliseconds. `CoreStateResponse` gained `legal_pages`, the edition's
+  `OpenSitePage` names for Settings → About (`["eula","privacy","offer"]` in
+  the RU edition, empty in INTL). `MoveOfferResponse` gained `more_label`,
+  the move notice's "more about the move" link text. Generated-type changes
+  only — this crate wraps no new hook for any of them.
 
 ## [0.7.3] — 2026-10-16
 

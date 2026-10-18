@@ -115,6 +115,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "downloadUrl": {
               "type": "string",
               "id": 17
+            },
+            "moreLabel": {
+              "type": "string",
+              "id": 18
             }
           },
           "reserved": [
@@ -304,6 +308,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "islandCompiledIn": {
               "type": "bool",
               "id": 28
+            },
+            "legalPages": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 29
             }
           }
         },
@@ -8132,6 +8141,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "refreshError": {
               "type": "string",
               "id": 5
+            },
+            "access": {
+              "type": "string",
+              "id": 6
+            },
+            "accessRetryAfterMs": {
+              "type": "int64",
+              "id": 7
             }
           }
         },

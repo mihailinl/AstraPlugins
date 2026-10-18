@@ -19,10 +19,11 @@ are removable in.
 
 Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
-(RU_MOVE_PLAN.md §12.11), and — a second resync inside this same unreleased
-window, Astra main `4eac0f5fc` — per-conversation permission modes and the
-image-generation model picker. Nothing in this package's hand-written surface
-changed.
+(RU_MOVE_PLAN.md §12.11), a second resync inside this same unreleased window,
+Astra main `4eac0f5fc` — per-conversation permission modes and the
+image-generation model picker — and a third, Astra main `cdd9bf6d3` — the
+Workshop door's retry state and the edition's legal-page links. Nothing in
+this package's hand-written surface changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
@@ -54,6 +55,14 @@ before the sync, no hit outside the generated descriptor itself.
   `AiSettings` gained `approval_provider`/`approval_model` and
   `image_provider`/`image_model`; `SafetySettings` gained `permission_mode`;
   `TestAiProviderResponse` gained `is_active_config`. `src/generated/*` is
+  regenerated from the re-synced slice.
+- **`PluginBrowseResponse` gained `access`/`accessRetryAfterMs`** for the
+  Workshop door's catalogue-refusal state (`""` open, `"sign_in"`,
+  `"not_owner"`) and the Retry button's one-per-minute renewal backoff in
+  milliseconds. `CoreStateResponse` gained `legalPages`, the edition's
+  `OpenSitePage` names for Settings → About (`["eula","privacy","offer"]` in
+  the RU edition, empty in INTL). `MoveOfferResponse` gained `moreLabel`, the
+  move notice's "more about the move" link text. `src/generated/*` is
   regenerated from the re-synced slice.
 
 ### Changed (generated code only)
