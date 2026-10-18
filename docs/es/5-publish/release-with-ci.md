@@ -157,6 +157,7 @@ Tres jobs, y la separación es la propiedad de seguridad.
 | **plan** | **no** | sí | Lee `plugin.toml` con `tomllib` de Python como *datos*, comprueba tag == version, decide la matriz de build, crea el Release en borrador |
 | **build** (matriz) | sí | **no** | `astra-plugin check --strict`, `astra-plugin build`, verify, desempaqueta, verifica el piso de glibc y que el paquete TypeScript sea autocontenido |
 | **publish** | no | sí | Vuelve a derivar cada digest por sí mismo, escribe `SHA256SUMS.txt`, certifica, sube, saca el Release del estado de borrador |
+| **notify** (aún no en `plugin-release/v1`) | no | **no** — solo `id-token: write` | Cuando el Release es público, envía un aviso al registro de Astra, sin reintentos; nunca hace fallar la ejecución |
 
 `plan` nunca ejecuta nada fuera del repositorio — sin submódulos, sin
 credenciales persistidas en `.git/config`. `build` ejecuta tu `build.rs`
@@ -166,6 +167,36 @@ que hasheó.
 
 La matriz se decide a partir del lenguaje de tu plugin: `linux-x64` +
 `windows-x64` para Rust, una sola rama `noarch` para TypeScript y Python.
+
+### El aviso al registro: `notify`
+
+En `master`, `plugin-release.yml` tiene un cuarto job, y **aún no está en
+`plugin-release/v1`**. El registro acepta un build solo de un commit del
+workflow que `trust.json` enumera; un commit entra ahí solo por la ceremonia de
+firma raíz, y el tag se mueve a él después. Luego `init-ci` lo fija como
+siempre.
+
+Cuando tu Release es público, `notify` envía una petición al servicio de
+plugins de Minice: un token OIDC de GitHub emitido para la audiencia
+`https://api.minice.ai/plugins/v1/author` y el cuerpo fijo
+`{"schema":"astra.plugins.author-wake/1"}`. Nada más — el tag, el
+repositorio y el commit llegan al servicio solo como claims firmados del propio
+token. Así el registro empieza con tu tag ya, en vez de cuando vuelva a mirar.
+
+- **No puede hacer fallar tu release.** Cada rechazo, caída o timeout termina
+  el job en verde; el log muestra solo el estado HTTP y el schema de la
+  respuesta o el token de rechazo, nada más.
+- Tiene `id-token: write` y nada más, no hace checkout, no descarga nada y no
+  ejecuta nada de tu código. Tu `release.yml` ya concede `id-token: write` para
+  la attestation, así que en él no cambia nada.
+- No envía nada desde un fork, desde un repositorio privado o interno, ni en una
+  ejecución que no empezó con un push de tag.
+- **La desactivación llega con el mismo movimiento de `plugin-release/v1`.**
+  Desde entonces, `wake-registry: false` bajo `with:` apaga el aviso, y el
+  registro encuentra el tag igualmente por su cuenta, más tarde. No lo añadas
+  antes de que tu pin incluya `notify`: un commit del workflow anterior al job
+  no declara ese input, y GitHub se niega a arrancar la ejecución. `init-ci`
+  conserva la línea cuando reescribe el archivo, y nunca la escribe por ti.
 
 ### Qué termina en el Release
 
