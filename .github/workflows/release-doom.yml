@@ -24,7 +24,7 @@ jobs:
     # Pinned by commit SHA, and it must be a sha `trust.json` allowlists — the
     # registry verifies the attestation names exactly this workflow at exactly
     # this commit, and refuses a build signed by anything else.
-    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@9864f03bafb52a7de5215ff92376eeefa7331431  # plugin-release/v1
+    uses: mihailinl/AstraPlugins/.github/workflows/plugin-release.yml@b6e9140d53060585c70280e979b58202f34966ba  # plugin-release/v1
     with:
       plugin-dir: examples/doom
       tag-prefix: "doom-v"
