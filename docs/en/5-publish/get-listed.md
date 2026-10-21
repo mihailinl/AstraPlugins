@@ -195,11 +195,13 @@ branch mints again, and one whose line is still on that branch when the rule is
 applied does not. A line committed and later removed does not keep a token
 alive.
 
-**Signing in.** The registry reads the account's eligibility from its last
-verified sign-in, which counts for 12 hours. A release of a bound repository
-waits while the account has not signed in within that time; the panel says so,
-and a `notice.sign_in` notice asks you to sign in. Nothing publishes until you
-do.
+**Eligibility.** Publishing needs the author's Minice account to hold the
+publish permission, which every Astra owner has. The registry checks this with
+minice-id directly, holding its answer for up to 7 days before asking again —
+a release of a bound repository does not wait on a fresh panel sign-in, and
+needs nobody signed in at all. If minice-id cannot be reached and the registry
+has no answer recent enough to rely on, the release waits on its own until it
+can ask again; nothing is asked of you.
 
 **Where notices go.** To the Minice account's verified e-mail address, and to
 the panel. Telegram is an optional extra channel you may link; nothing requires
@@ -364,7 +366,7 @@ Two waits look like a stuck submission and are not:
 
 | Code | What it means |
 |---|---|
-| `W_ELIGIBILITY_UNREADABLE` | The registry reads your account's eligibility from its last verified sign-in, which counts for 12 hours. Sign in to the panel and the release goes on; a `notice.sign_in` notice says the same |
+| `W_ELIGIBILITY_UNREADABLE` | The registry asks minice-id directly whether your account holds the publish permission, and holds that answer for up to 7 days. It could not get one this time; it retries on its own, and nothing is asked of you |
 | `W_REGISTRY_UNACKNOWLEDGED` | The registry's bot changed and awaits an operator's acknowledgement. Nothing is wrong with your release, and nothing is asked of you |
 
 ### What waits for a person
