@@ -9,5 +9,6 @@ export interface PopoverProps {
     placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
     matchTriggerWidth?: boolean;
     className?: string;
+    ariaLabel?: string;
 }
-export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, }: PopoverProps): import("react/jsx-runtime").JSX.Element;
+export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, ariaLabel, }: PopoverProps): import("react/jsx-runtime").JSX.Element;

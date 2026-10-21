@@ -958,6 +958,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "StopGenerationRequest",
               "responseType": "Empty"
             },
+            "StopAgentRun": {
+              "requestType": "StopAgentRunRequest",
+              "responseType": "StopAgentRunResponse"
+            },
             "RespondToConfirmation": {
               "requestType": "ConfirmationResponse",
               "responseType": "Empty"
@@ -1309,6 +1313,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "fields": {
             "conversationId": {
               "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "StopAgentRunRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "runId": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "StopAgentRunResponse": {
+          "fields": {
+            "stopped": {
+              "type": "bool",
               "id": 1
             }
           }
@@ -2242,6 +2266,34 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "truncated": {
               "type": "bool",
               "id": 10
+            },
+            "runId": {
+              "type": "string",
+              "id": 11
+            },
+            "label": {
+              "type": "string",
+              "id": 12
+            },
+            "inputTokens": {
+              "type": "uint32",
+              "id": 13
+            },
+            "outputTokens": {
+              "type": "uint32",
+              "id": 14
+            },
+            "cachedInputTokens": {
+              "type": "uint32",
+              "id": 15
+            },
+            "reasoningTokens": {
+              "type": "uint32",
+              "id": 16
+            },
+            "roundsMeasured": {
+              "type": "uint32",
+              "id": 17
             }
           }
         },

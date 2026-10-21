@@ -593,6 +593,11 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.StopGenerationRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.StopAgentRun = channel.unary_unary(
+                '/astra.ChatService/StopAgentRun',
+                request_serializer=plugin__pb2.StopAgentRunRequest.SerializeToString,
+                response_deserializer=plugin__pb2.StopAgentRunResponse.FromString,
+                _registered_method=True)
         self.RespondToConfirmation = channel.unary_unary(
                 '/astra.ChatService/RespondToConfirmation',
                 request_serializer=plugin__pb2.ConfirmationResponse.SerializeToString,
@@ -678,6 +683,15 @@ class ChatServiceServicer(object):
 
     def StopGeneration(self, request, context):
         """Stop AI generation (scoped to conversation, or all if empty).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopAgentRun(self, request, context):
+        """Stop ONE delegated agent run, at once — the Stop on its card. A turn's
+        StopGeneration never reaches a run: the run outlives the turn that
+        started it.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -792,6 +806,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.StopGeneration,
                     request_deserializer=plugin__pb2.StopGenerationRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'StopAgentRun': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopAgentRun,
+                    request_deserializer=plugin__pb2.StopAgentRunRequest.FromString,
+                    response_serializer=plugin__pb2.StopAgentRunResponse.SerializeToString,
             ),
             'RespondToConfirmation': grpc.unary_unary_rpc_method_handler(
                     servicer.RespondToConfirmation,
@@ -916,6 +935,33 @@ class ChatService(object):
             '/astra.ChatService/StopGeneration',
             plugin__pb2.StopGenerationRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopAgentRun(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/StopAgentRun',
+            plugin__pb2.StopAgentRunRequest.SerializeToString,
+            plugin__pb2.StopAgentRunResponse.FromString,
             options,
             channel_credentials,
             insecure,

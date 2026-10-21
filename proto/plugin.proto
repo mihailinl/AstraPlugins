@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: e06f9b929d3ab9ace262f67b83eb0b6aec080e8369b324fbfe0c412b866b0a77
+// surface-sha256: 8b54cadda6ae306ad7810597a23884ab31505bf3bceb840c4454306cf5f8cb96
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -755,6 +755,11 @@ service ChatService {
     // Stop AI generation (scoped to conversation, or all if empty).
     rpc StopGeneration(StopGenerationRequest) returns (Empty);
 
+    // Stop ONE delegated agent run, at once — the Stop on its card. A turn's
+    // StopGeneration never reaches a run: the run outlives the turn that
+    // started it.
+    rpc StopAgentRun(StopAgentRunRequest) returns (StopAgentRunResponse);
+
     // Respond to a dangerous action confirmation request.
     rpc RespondToConfirmation(ConfirmationResponse) returns (Empty);
 
@@ -979,6 +984,15 @@ message DeleteConversationRequest {
 
 message StopGenerationRequest {
     string conversation_id = 1;  // Empty = cancel all active generations
+}
+
+message StopAgentRunRequest {
+    string conversation_id = 1;  // the conversation it reports into; "" = any (ids are unique)
+    string run_id = 2;  // ag_k3f9
+}
+
+message StopAgentRunResponse {
+    bool stopped = 1;  // false: it had already ended, or is unknown
 }
 
 // ============ Event-sourcing (Chat) ============
@@ -1573,7 +1587,7 @@ message PlanUpdatedEvt {
 message SubagentActivityEvt {
     string parent_call_id = 1;  // the parent's own run_agent call
     string agent_id = 2;  // which profile is running
-    string phase = 3;  // "started" | "tool" | "awaiting_confirmation" | "finished"
+    string phase = 3;  // "queued" | "started" | "tool" | "awaiting_confirmation" | "finished"
     string tool = 4;  // for phase=tool / awaiting_confirmation
     string call_id = 5;  // the subagent's own call id (awaiting_confirmation)
     uint32 iterations = 6;
@@ -1581,6 +1595,16 @@ message SubagentActivityEvt {
     string stop = 8;  // for phase=finished
     uint32 report_bytes = 9;
     bool truncated = 10;
+    string run_id = 11;  // the run's own id (ag_k3f9) — what the card's Stop sends
+    string label = 12;  // the short title the assistant gave the run
+
+    // What the run cost, on phase=finished only (rounds_measured = 0: unmeasured).
+    // A delegated run works past the turn that started it, so its bill rides here.
+    uint32 input_tokens = 13;
+    uint32 output_tokens = 14;
+    uint32 cached_input_tokens = 15;
+    uint32 reasoning_tokens = 16;
+    uint32 rounds_measured = 17;
 }
 
 // One line of a plan. `status` is the wire spelling of
