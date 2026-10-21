@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Minice
 import { type ReactNode } from "react";
 
+export declare const SECTION_NAVIGATE_EVENT = "astra-section-navigate";
 export interface AdvancedProps {
     variant?: "knobs" | "whole";
     label?: string;

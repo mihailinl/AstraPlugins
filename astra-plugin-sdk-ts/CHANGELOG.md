@@ -21,9 +21,11 @@ Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
 (RU_MOVE_PLAN.md §12.11), a second resync inside this same unreleased window,
 Astra main `4eac0f5fc` — per-conversation permission modes and the
-image-generation model picker — and a third, Astra main `cdd9bf6d3` — the
-Workshop door's retry state and the edition's legal-page links. Nothing in
-this package's hand-written surface changed.
+image-generation model picker — a third, Astra main `cdd9bf6d3` — the
+Workshop door's retry state and the edition's legal-page links — and a
+fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
+card and that run's token cost once it finishes. Nothing in this package's
+hand-written surface changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
@@ -64,6 +66,16 @@ before the sync, no hit outside the generated descriptor itself.
   the RU edition, empty in INTL). `MoveOfferResponse` gained `moreLabel`, the
   move notice's "more about the move" link text. `src/generated/*` is
   regenerated from the re-synced slice.
+- **`ChatService` gained `StopAgentRun`** — the Stop button on one delegated
+  agent run's own card, independent of `StopGeneration`: a run outlives the
+  turn that started it, so the turn's Stop never reaches it. New messages
+  `StopAgentRunRequest`/`StopAgentRunResponse`. `SubagentActivityEvt` gained
+  `runId` (what the card's Stop sends), `label` (the run's short title) and,
+  on `phase="finished"` only, its measured cost —
+  `inputTokens`/`outputTokens`/`cachedInputTokens`/`reasoningTokens`/
+  `roundsMeasured` (`roundsMeasured === 0` means unmeasured). `phase` also
+  gained the value `"queued"` (doc comment only — still a plain string on
+  the wire). `src/generated/*` is regenerated from the re-synced slice.
 
 ### Changed (generated code only)
 - **`CoreService.AcceptMove` / `StayInEdition` are gone**, with

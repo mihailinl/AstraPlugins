@@ -21,9 +21,11 @@ Generated code only: the protocol slice is re-synced with Astra's
 microphone-check screen and the M5 reshape of the edition move
 (RU_MOVE_PLAN.md §12.11), a second resync inside this same unreleased window,
 Astra main `4eac0f5fc` — per-conversation permission modes and the
-image-generation model picker — and a third, Astra main `cdd9bf6d3` — the
-Workshop door's retry state and the edition's legal-page links. Nothing in
-this package's hand-written surface changed.
+image-generation model picker — a third, Astra main `cdd9bf6d3` — the
+Workshop door's retry state and the edition's legal-page links — and a
+fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
+card and that run's token cost once it finishes. Nothing in this package's
+hand-written surface changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
@@ -66,6 +68,17 @@ package before the sync, no hit outside the generated stub itself.
   the RU edition, empty in INTL). `MoveOfferResponse` gained `more_label`,
   the move notice's "more about the move" link text. `plugin_pb2.py` is
   regenerated (grpcio-tools 1.75.1) from the re-synced slice.
+- **`ChatServiceStub` gained `StopAgentRun`** — the Stop button on one
+  delegated agent run's own card, independent of `StopGeneration`: a run
+  outlives the turn that started it, so the turn's Stop never reaches it.
+  New messages `StopAgentRunRequest`/`StopAgentRunResponse`.
+  `SubagentActivityEvt` gained `run_id` (what the card's Stop sends), `label`
+  (the run's short title) and, on `phase="finished"` only, its measured cost
+  — `input_tokens`/`output_tokens`/`cached_input_tokens`/`reasoning_tokens`/
+  `rounds_measured` (`rounds_measured == 0` means unmeasured). `phase` also
+  gained the value `"queued"` (doc comment only — still a plain string on
+  the wire). `plugin_pb2{,_grpc}.py` are regenerated (grpcio-tools 1.75.1)
+  from the re-synced slice.
 
 ### Changed (generated code only)
 - **`CoreServiceStub.AcceptMove` / `StayInEdition` are gone**, with
