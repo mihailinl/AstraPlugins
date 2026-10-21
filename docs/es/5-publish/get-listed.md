@@ -212,11 +212,14 @@ mucho más tarde sin la línea en la rama por defecto genera otro, y uno cuya l�
 sigue en esa rama cuando se aplica la regla no. Una línea con commit y quitada
 después no mantiene vivo un token.
 
-**Iniciar sesión.** El registro lee la elegibilidad de la cuenta de su último
-inicio de sesión verificado, que cuenta durante 12 horas. Un release de un
-repositorio vinculado espera mientras la cuenta no haya iniciado sesión en ese
-tiempo; el panel lo dice, y un aviso `notice.sign_in` te pide que inicies
-sesión. Nada se publica hasta que lo hagas.
+**Elegibilidad.** Publicar exige que la cuenta de Minice del autor tenga el
+permiso de publicación, que todo propietario de Astra tiene. El registro lo
+comprueba directamente con minice-id, y guarda esa respuesta hasta 7 días antes
+de volver a preguntar — un release de un repositorio vinculado no espera a un
+inicio de sesión reciente en el panel, y no necesita a nadie conectado en
+absoluto. Si no puede contactar con minice-id y no tiene una respuesta lo
+bastante reciente a mano, el release espera por su cuenta hasta poder preguntar
+de nuevo; no se te pide nada.
 
 **Adónde van los avisos.** A la dirección de correo verificada de la cuenta de
 Minice, y al panel. Telegram es un canal adicional opcional que puedes vincular;
@@ -390,7 +393,7 @@ Dos esperas parecen un envío atascado y no lo son:
 
 | Código | Qué significa |
 |---|---|
-| `W_ELIGIBILITY_UNREADABLE` | El registro lee la elegibilidad de tu cuenta de su último inicio de sesión verificado, que cuenta durante 12 horas. Inicia sesión en el panel y el release sigue adelante; un aviso `notice.sign_in` dice lo mismo |
+| `W_ELIGIBILITY_UNREADABLE` | El registro pregunta directamente a minice-id si tu cuenta tiene el permiso de publicación, y guarda esa respuesta hasta 7 días. Esta vez no obtuvo ninguna; lo reintenta por su cuenta, y no se te pide nada |
 | `W_REGISTRY_UNACKNOWLEDGED` | El bot del registro cambió y espera la confirmación de un operador. A tu release no le pasa nada, y no se te pide nada |
 
 ### Lo que espera a una persona

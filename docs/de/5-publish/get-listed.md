@@ -220,11 +220,14 @@ also ein neues, und einer, dessen Zeile noch auf diesem Branch steht, wenn die
 Regel angewendet wird, nicht. Eine Zeile, die committet und später entfernt
 wurde, hält kein Token am Leben.
 
-**Anmelden.** Die Registry liest die Berechtigung des Kontos aus seiner letzten
-verifizierten Anmeldung, und die zählt 12 Stunden. Ein Release eines gebundenen
-Repositorys wartet, solange sich das Konto in dieser Zeit nicht angemeldet hat;
-das Panel sagt es, und eine `notice.sign_in`-Benachrichtigung bittet dich, dich
-anzumelden. Nichts wird veröffentlicht, bis du es tust.
+**Berechtigung.** Zum Veröffentlichen muss das Minice-Konto des Autors die
+Publish-Berechtigung halten, die jeder Astra-Besitzer hat. Die Registry prüft
+das direkt bei minice-id und hält die Antwort bis zu 7 Tage, bevor sie erneut
+fragt — ein Release eines gebundenen Repositorys wartet nicht auf eine frische
+Anmeldung im Panel, und niemand muss überhaupt angemeldet sein. Ist minice-id
+nicht erreichbar und hat die Registry keine aktuelle genug Antwort zur Hand,
+wartet das Release von selbst, bis sie erneut fragen kann; von dir wird nichts
+verlangt.
 
 **Wohin Benachrichtigungen gehen.** An die verifizierte E-Mail-Adresse des
 Minice-Kontos und ins Panel. Telegram ist ein optionaler zusätzlicher Kanal, den
@@ -400,7 +403,7 @@ Zwei Wartezustände sehen aus wie eine hängende Einreichung und sind keine:
 
 | Code | Was er bedeutet |
 |---|---|
-| `W_ELIGIBILITY_UNREADABLE` | Die Registry liest die Berechtigung deines Kontos aus seiner letzten verifizierten Anmeldung, und die zählt 12 Stunden. Melde dich im Panel an, und das Release geht weiter; eine `notice.sign_in`-Benachrichtigung sagt dasselbe |
+| `W_ELIGIBILITY_UNREADABLE` | Die Registry fragt direkt bei minice-id, ob dein Konto die Publish-Berechtigung hält, und hält die Antwort bis zu 7 Tage. Diesmal kam keine; die Registry versucht es von selbst erneut, und von dir wird nichts verlangt |
 | `W_REGISTRY_UNACKNOWLEDGED` | Der Bot der Registry hat sich geändert und wartet auf die Bestätigung eines Operators. Mit deinem Release ist nichts falsch, und von dir wird nichts verlangt |
 
 ### Was auf eine Person wartet
