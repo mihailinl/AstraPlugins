@@ -3772,6 +3772,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "Empty",
               "responseType": "Empty"
             },
+            "ResetSettingsGroup": {
+              "requestType": "ResetSettingsGroupRequest",
+              "responseType": "Empty"
+            },
             "ExportSettings": {
               "requestType": "ExportSettingsRequest",
               "responseType": "ExportSettingsResponse"
@@ -4517,6 +4521,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "ResetSettingsGroupRequest": {
+          "fields": {
+            "group": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
         "UpdateSettingsRequest": {
           "oneofs": {
             "_general": {
@@ -5101,6 +5113,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "wakeChimeEnabled": {
               "type": "bool",
               "id": 29
+            },
+            "wakeChimeVolume": {
+              "type": "uint32",
+              "id": 32
             },
             "wakeWordListenSecs": {
               "type": "uint32",
@@ -8299,6 +8315,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "review": {
               "type": "string",
               "id": 23
+            },
+            "ratingHistogram": {
+              "rule": "repeated",
+              "type": "int32",
+              "id": 24
             }
           }
         },

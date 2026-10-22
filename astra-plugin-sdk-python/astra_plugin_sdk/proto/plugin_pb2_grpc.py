@@ -4070,6 +4070,11 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.ResetSettingsGroup = channel.unary_unary(
+                '/astra.ConfigService/ResetSettingsGroup',
+                request_serializer=plugin__pb2.ResetSettingsGroupRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
         self.ExportSettings = channel.unary_unary(
                 '/astra.ConfigService/ExportSettings',
                 request_serializer=plugin__pb2.ExportSettingsRequest.SerializeToString,
@@ -4228,6 +4233,16 @@ class ConfigServiceServicer(object):
 
     def ResetSettings(self, request, context):
         """Reset settings to defaults
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResetSettingsGroup(self, request, context):
+        """Put ONE group of settings back to this build's defaults (the reset
+        button on a Voice page section: "voice.stt", "voice.wakeword"). Goes
+        through the same write transaction as SetSetting; emits SettingsChanged
+        for the group's section.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -4460,6 +4475,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
             'ResetSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.ResetSettings,
                     request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'ResetSettingsGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResetSettingsGroup,
+                    request_deserializer=plugin__pb2.ResetSettingsGroupRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
             'ExportSettings': grpc.unary_unary_rpc_method_handler(
@@ -4739,6 +4759,33 @@ class ConfigService(object):
             target,
             '/astra.ConfigService/ResetSettings',
             plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResetSettingsGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/ResetSettingsGroup',
+            plugin__pb2.ResetSettingsGroupRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,

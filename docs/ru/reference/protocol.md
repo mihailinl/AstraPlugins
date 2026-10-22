@@ -2,12 +2,12 @@
 
 # Справочник протокола
 
-Поколение протокола **1**. 10 сервисов, 186 RPC. Источник:
+Поколение протокола **1**. 10 сервисов, 188 RPC. Источник:
 [`proto/plugin.proto`](../../../proto/plugin.proto), сгенерированный срез
-`astra.proto` Astra (`surface-sha256: 8b54cadda6ae306a…` — дайджест
+`astra.proto` Astra (`surface-sha256: 8ca1bb0c6d5ebc83…` — дайджест
 обращённого к плагинам тела, о котором и идёт речь), закреплённый
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:57c9a92448db16fa…`. У каждой завендоренной копии в трёх SDK тот же
+`sha256:b0482d147a73cb9a…`. У каждой завендоренной копии в трёх SDK тот же
 самый хеш; `tools/check-proto.sh` — то, что это подтверждает.
 
 ## Три сервиса плагина
@@ -151,7 +151,7 @@ Astra нет, как пример с Telegram, — управляет демон
 | `ChatService` | 15 |
 | `VoiceService` | 45 |
 | `CommandService` | 14 |
-| `ConfigService` | 29 |
+| `ConfigService` | 30 |
 | `MediaService` | 5 |
 | `MonitorService` | 3 |
 

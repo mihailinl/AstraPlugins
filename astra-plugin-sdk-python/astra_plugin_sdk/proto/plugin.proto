@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 8b54cadda6ae306ad7810597a23884ab31505bf3bceb840c4454306cf5f8cb96
+// surface-sha256: 8ca1bb0c6d5ebc83bea0d2f068ee8b529cbd12b56431e806b84e86bf8b1133be
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2325,6 +2325,12 @@ service ConfigService {
     // Reset settings to defaults
     rpc ResetSettings(Empty) returns (Empty);
 
+    // Put ONE group of settings back to this build's defaults (the reset
+    // button on a Voice page section: "voice.stt", "voice.wakeword"). Goes
+    // through the same write transaction as SetSetting; emits SettingsChanged
+    // for the group's section.
+    rpc ResetSettingsGroup(ResetSettingsGroupRequest) returns (Empty);
+
     // Export settings to file
     rpc ExportSettings(ExportSettingsRequest) returns (ExportSettingsResponse);
 
@@ -2781,6 +2787,11 @@ message SetSettingRequest {
     string value_json = 2;
 }
 
+message ResetSettingsGroupRequest {
+    // The group's id, e.g. "voice.stt" (`astra_core::config::VoiceSettingsGroup`).
+    string group = 1;
+}
+
 message UpdateSettingsRequest {
     optional GeneralSettings general = 1;
     optional VoiceSettings voice = 2;
@@ -3020,6 +3031,10 @@ message VoiceSettings {
     // the cue also sounds on a false positive, and a beep from a machine
     // nobody spoke to is worse than the silence it replaces.
     bool wake_chime_enabled = 29;
+
+    // Wake chime loudness, percent (0-100) of the sound's own level, on top
+    // of output_volume. Default 70.
+    uint32 wake_chime_volume = 32;
 
     // Seconds to accept subsequent requests without another wake word.
     // Starts after each request's command/AI turn finishes, suspended while
@@ -5220,6 +5235,16 @@ message PluginRegistryEntry {
     // hides an advisory, a yank or a delist, and no copy calls a reviewed
     // release safe.
     string review = 23;
+
+    // **CLIENT-38/39.** The listing's star histogram from the catalogue host's
+    // stats document (contract Table 5-D): EXACTLY five counts, bucket i
+    // counting ratings of i + 1 stars, so index 0 is one star. EMPTY while stats
+    // are unknown, when the document carries no `ratings` for the listing (the
+    // service omits it below k = 5 ratings, SERVE-58), and in every other case
+    // the daemon could not read five. A client shows the average and the count
+    // only from five ratings (the owner, 2026-10-21; OPEN-OWNER-29's k), and
+    // nothing for any other shape. `stars` (10) stays retired, always 0.
+    repeated int32 rating_histogram = 24;
 }
 
 // Which plugin's provenance to report.

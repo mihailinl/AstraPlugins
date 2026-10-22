@@ -23,11 +23,13 @@ Astra main `4eac0f5fc` — per-conversation permission modes and the
 image-generation model picker — a third, Astra main `cdd9bf6d3` — the
 Workshop door's retry state and the edition's legal-page links — and a
 fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
-card and that run's token cost once it finishes. Nothing in this crate's
+card and that run's token cost once it finishes — and a fifth: the reset
+button on a Voice settings section (`ConfigService.ResetSettingsGroup`), the
+wake chime's volume and a catalogue listing's star histogram. Nothing in this crate's
 hand-written surface changed.
 
-Between `sdk-v0.7.3` and this release the protocol gained 27 fields on 9
-messages that already existed, 16 new messages and 8 new rpcs.
+Between `sdk-v0.7.3` and this release the protocol gained 29 fields on 11
+messages that already existed, 17 new messages and 9 new rpcs.
 
 Nothing in the authoring API was removed, narrowed or renamed, so this is the
 patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may

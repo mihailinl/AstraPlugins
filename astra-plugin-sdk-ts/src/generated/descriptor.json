@@ -3764,6 +3764,10 @@
               "requestType": "Empty",
               "responseType": "Empty"
             },
+            "ResetSettingsGroup": {
+              "requestType": "ResetSettingsGroupRequest",
+              "responseType": "Empty"
+            },
             "ExportSettings": {
               "requestType": "ExportSettingsRequest",
               "responseType": "ExportSettingsResponse"
@@ -4509,6 +4513,14 @@
             }
           }
         },
+        "ResetSettingsGroupRequest": {
+          "fields": {
+            "group": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
         "UpdateSettingsRequest": {
           "oneofs": {
             "_general": {
@@ -5093,6 +5105,10 @@
             "wakeChimeEnabled": {
               "type": "bool",
               "id": 29
+            },
+            "wakeChimeVolume": {
+              "type": "uint32",
+              "id": 32
             },
             "wakeWordListenSecs": {
               "type": "uint32",
@@ -8291,6 +8307,11 @@
             "review": {
               "type": "string",
               "id": 23
+            },
+            "ratingHistogram": {
+              "rule": "repeated",
+              "type": "int32",
+              "id": 24
             }
           }
         },

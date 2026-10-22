@@ -24,7 +24,9 @@ Astra main `4eac0f5fc` — per-conversation permission modes and the
 image-generation model picker — a third, Astra main `cdd9bf6d3` — the
 Workshop door's retry state and the edition's legal-page links — and a
 fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
-card and that run's token cost once it finishes. Nothing in this package's
+card and that run's token cost once it finishes — and a fifth: the reset
+button on a Voice settings section (`ConfigService.ResetSettingsGroup`), the
+wake chime's volume and a catalogue listing's star histogram. Nothing in this package's
 hand-written surface changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
