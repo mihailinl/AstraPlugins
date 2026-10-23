@@ -313,6 +313,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "string",
               "id": 29
+            },
+            "overlayBackend": {
+              "type": "string",
+              "id": 30
             }
           }
         },
@@ -4376,6 +4380,28 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "suppressWhileSpeaking": {
               "type": "bool",
               "id": 7
+            },
+            "sourceRules": {
+              "keyType": "string",
+              "type": "string",
+              "id": 8
+            },
+            "seenSources": {
+              "rule": "repeated",
+              "type": "CompanionMusicSource",
+              "id": 9
+            }
+          }
+        },
+        "CompanionMusicSource": {
+          "fields": {
+            "key": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
             }
           }
         },

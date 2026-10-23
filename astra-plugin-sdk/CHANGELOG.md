@@ -23,13 +23,15 @@ Astra main `4eac0f5fc` — per-conversation permission modes and the
 image-generation model picker — a third, Astra main `cdd9bf6d3` — the
 Workshop door's retry state and the edition's legal-page links — and a
 fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
-card and that run's token cost once it finishes — and a fifth: the reset
+card and that run's token cost once it finishes — a fifth: the reset
 button on a Voice settings section (`ConfigService.ResetSettingsGroup`), the
-wake chime's volume and a catalogue listing's star histogram. Nothing in this crate's
-hand-written surface changed.
+wake chime's volume and a catalogue listing's star histogram — and a sixth,
+Astra main `3dc097c5e` (`origin/release/0.2.7-final`) — the native overlay's
+build-selected backend and the companion music sensor's per-source
+music/not-music rules. Nothing in this crate's hand-written surface changed.
 
-Between `sdk-v0.7.3` and this release the protocol gained 29 fields on 11
-messages that already existed, 17 new messages and 9 new rpcs.
+Between `sdk-v0.7.3` and this release the protocol gained 32 fields on 12
+messages that already existed, 18 new messages and 9 new rpcs.
 
 Nothing in the authoring API was removed, narrowed or renamed, so this is the
 patch slot per [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may
@@ -106,6 +108,15 @@ anything `astra-plugin new` writes:
   gained the value `"queued"` (doc comment only — still a plain string on the
   wire). Generated-type changes only — this crate wraps no new hook for any
   of them.
+- **`CoreStateResponse` gained `overlay_backend`** — the native overlay's
+  build-selected implementation (`"slint"` in ordinary builds, `"island"`
+  only with the explicit island build feature), independent of the user's
+  overlay enable setting. `CompanionMusicSettings` gained `source_rules`
+  (a `map<string, string>` of source key -> `"music"`/`"not_music"`, written
+  only by the UI; absent means `"auto"`) and `seen_sources` (the players
+  that have actually played while the sensor listened, written only by the
+  daemon), with the new message `CompanionMusicSource`. Generated-type
+  changes only — this crate wraps no new hook for any of them.
 
 ## [0.7.3] — 2026-10-16
 

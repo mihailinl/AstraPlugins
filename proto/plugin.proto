@@ -12,7 +12,7 @@
 // Output: astra-rs/astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 8ca1bb0c6d5ebc83bea0d2f068ee8b529cbd12b56431e806b84e86bf8b1133be
+// surface-sha256: 430bfe26f2772071aad485e6fb6272963532bcd87694cf9ea005c84972968656
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -314,8 +314,8 @@ message CoreStateResponse {
     string update_edition = 27;
 
     // Whether this build has the Dynamic Island at all (the `island` build feature). False: the
-    // island is never started, its hotkey never registered, and the UI hides everything that
-    // configures it — the island settings section and the onboarding's overlay step.
+    // island is never started. The native Slint overlay still honours the user's hotkey;
+    // overlay_backend selects the common settings and the island-specific rows.
     bool island_compiled_in = 28;
 
     // The legal documents this EDITION links on its site, by their `OpenSitePage` names, in the
@@ -325,6 +325,10 @@ message CoreStateResponse {
     // through `OpenSitePage`; the UI never spells the address. Read straight off
     // `edition::Edition::legal_page`, so a name here is always one the daemon can open.
     repeated string legal_pages = 29;
+
+    // Build-selected implementation, independent of the user's overlay enable setting.
+    // "slint" in ordinary builds; "island" only with the explicit island build feature.
+    string overlay_backend = 30;
 }
 
 enum CoreState {
@@ -2685,6 +2689,26 @@ message CompanionMusicSettings {
     // into it. What this prevents is a real lock being LOST for the length of
     // an answer.
     bool suppress_while_speaking = 7;
+
+    // What the USER said about a source of sound: the source's key (see
+    // CompanionMusicSource.key) -> "music" | "not_music". A key absent is
+    // "auto": the daemon's catalogue of players and a browser tab's metadata
+    // decide. Written only by the UI, as a whole map.
+    map<string, string> source_rules = 8;
+
+    // The players that have actually played while the sensor listened, newest
+    // last — what the settings list offers. Written only by the daemon.
+    repeated CompanionMusicSource seen_sources = 9;
+}
+
+// One player that has played while the music sensor listened.
+message CompanionMusicSource {
+    // A stable key for its OS media-session source id ("spotify", "chrome",
+    // "a025c540.yandex.music") — what a rule in source_rules is stored under.
+    string key = 1;
+
+    // What the OS calls it ("Spotify", "Google Chrome").
+    string name = 2;
 }
 
 // Whether the pet shows the ICON of an application Astra has just launched
