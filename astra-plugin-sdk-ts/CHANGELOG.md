@@ -24,10 +24,13 @@ Astra main `4eac0f5fc` — per-conversation permission modes and the
 image-generation model picker — a third, Astra main `cdd9bf6d3` — the
 Workshop door's retry state and the edition's legal-page links — and a
 fourth, Astra main `489bb03be` — the Stop button on a delegated agent's own
-card and that run's token cost once it finishes — and a fifth: the reset
+card and that run's token cost once it finishes — a fifth: the reset
 button on a Voice settings section (`ConfigService.ResetSettingsGroup`), the
-wake chime's volume and a catalogue listing's star histogram. Nothing in this package's
-hand-written surface changed.
+wake chime's volume and a catalogue listing's star histogram — and a sixth,
+Astra main `3dc097c5e` (`origin/release/0.2.7-final`) — the native overlay's
+build-selected backend and the companion music sensor's per-source
+music/not-music rules. Nothing in this package's hand-written surface
+changed.
 
 Nothing was removed, narrowed or renamed, so this is the patch slot per
 [`docs/en/versioning.md`](../docs/en/versioning.md): *minor may break source
@@ -78,6 +81,15 @@ before the sync, no hit outside the generated descriptor itself.
   `roundsMeasured` (`roundsMeasured === 0` means unmeasured). `phase` also
   gained the value `"queued"` (doc comment only — still a plain string on
   the wire). `src/generated/*` is regenerated from the re-synced slice.
+- **`CoreStateResponse` gained `overlayBackend`** — the native overlay's
+  build-selected implementation (`"slint"` in ordinary builds, `"island"`
+  only with the explicit island build feature), independent of the user's
+  overlay enable setting. `CompanionMusicSettings` gained `sourceRules` (a
+  `Record<string, string>` of source key -> `"music"`/`"not_music"`,
+  written only by the UI; absent means `"auto"`) and `seenSources` (the
+  players that have actually played while the sensor listened, written
+  only by the daemon), with the new message `CompanionMusicSource`.
+  `src/generated/*` is regenerated from the re-synced slice.
 
 ### Changed (generated code only)
 - **`CoreService.AcceptMove` / `StayInEdition` are gone**, with
