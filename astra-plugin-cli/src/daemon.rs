@@ -8,8 +8,9 @@
 //! eight small messages. Generating them would mean vendoring a fourth copy of
 //! the 2 500-line `plugin.proto` into this crate plus a `tonic-build` step —
 //! exactly the duplication the rest of this change deletes. Every field below
-//! is transcribed from `Astra/astra-rs/astra-proto/src/astra.proto`
-//! (`service PluginService`, `service ClientAuthService`) and carries its tag,
+//! is transcribed from `Astra/astra-proto/src/astra.proto`
+//! (`astra-rs/astra-proto/src/astra.proto` on an Astra checkout at v0.2.7 or
+//! earlier; `service PluginService`, `service ClientAuthService`) and carries its tag,
 //! so a drift is a one-line diff rather than a regenerated tree. Fields the CLI
 //! does not read are omitted on purpose: prost skips unknown fields on decode.
 
@@ -25,7 +26,8 @@ use tonic::transport::{Channel, Endpoint};
 use tonic::{Request, Status};
 
 /// Where the daemon listens when no port file exists.
-/// Mirrors `NetworkSettings::default()` in `Astra/astra-rs/astra-core/src/config.rs`.
+/// Mirrors `NetworkSettings::default()` in `Astra/astra-core/src/config.rs`
+/// (`astra-rs/astra-core/src/config.rs` on an Astra checkout at v0.2.7 or earlier).
 pub const DEFAULT_DAEMON_ADDR: &str = "127.0.0.1:32000";
 
 /// Daemon-written file carrying the actually-bound gRPC port.

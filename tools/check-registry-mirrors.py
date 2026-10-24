@@ -430,7 +430,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # The own-checkout rule, shared with tools/check-locales.py's C22: the daemon's tree
 # for C35's label, and (with `in_repo = ""`) the registry's for every pinned leg.
-from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
+from checkouts import DAEMON_IN_REPO, checkout_top, daemon_checkout_top  # noqa: E402  (sys.path is set above)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -1722,14 +1722,23 @@ def _own_checkout(tree: Path) -> bool:
 PINNED_NEEDS_GIT = "the pinned leg reads a commit"
 
 
-def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool | str = False) -> Path:
+def _explicit_checkout(flag: str, given: str, anchor: str, need_git: bool | str = False,
+                        astra_layout: bool = False) -> Path:
     p = Path(given)
     if not p.is_absolute():
         p = (ROOT / p).resolve()
     if not (p / anchor).is_file():
-        print(f"{flag} {given!r} holds no {anchor}. It was passed explicitly, so this is "
-              "an error and not a skip.", file=sys.stderr)
-        raise SystemExit(2)
+        nested = p / DAEMON_IN_REPO
+        if astra_layout and (nested / anchor).is_file():
+            # Every ref after Astra's 2026-10-23 flatten (c703cabb6) is flat;
+            # `given` may still name the checkout's top rather than astra-rs/
+            # itself, the only shape every tag through v0.2.7 has.
+            p = nested
+        else:
+            hint = f" at its top or under {DAEMON_IN_REPO}/" if astra_layout else ""
+            print(f"{flag} {given!r} holds no {anchor}{hint}. It was passed explicitly, so "
+                  "this is an error and not a skip.", file=sys.stderr)
+            raise SystemExit(2)
     if need_git and not _own_checkout(p):
         # C27's and C31's PINNED legs read a commit, not the files on disk, so
         # a copy of the files is not a checkout they can use. Refused here, by
@@ -2409,7 +2418,8 @@ C32_STEP = "- name: C32 (full)"
 #: astra-registry's emitter, relative to a checkout of it.
 ICON_EMITTER = "bot/lib/assets.mjs"
 
-#: The daemon's copy, relative to `astra-rs/`.
+#: The daemon's copy, relative to the daemon's tree (`_astra_dir`'s result —
+#: flat, or `astra-rs/`, whichever is really there).
 CATALOGUE_ICONS = "astra-daemon/src/plugins/authoring/publishing.rs"
 
 #: `"ext": ("type/subtype", ("alias", ...)),` — one row of `EMITTED`.
@@ -2454,24 +2464,30 @@ def _git_head(tree: Path, in_repo: str = "") -> str:
       git would answer with THIS repository's HEAD and the transcript would name
       it as the registry's. Where a rule needs the commit and not only a label,
       `--registry-dir` refuses such a directory outright (`_explicit_checkout`).
-    * the daemon (`DAEMON_IN_REPO`): `astra-rs/` is a directory at the top of
-      the Astra repository, so the toplevel is `tree`'s parent and never `tree`.
+    * the daemon (`DAEMON_IN_REPO`): through tag v0.2.7, `astra-rs/` was a
+      directory at the top of the Astra repository, so the toplevel was
+      `tree`'s parent and never `tree`; since Astra's 2026-10-23 flatten
+      (c703cabb6), `tree` IS the top. Both are tried (`daemon_checkout_top`).
       Holding it to the registry's rule printed `HEAD unknown: not a git
       checkout` on the daemon line of every full-mode run from #53 on (ops
       register, entry 108). Holding it to "whatever repository encloses it"
       instead would bring back the registry's hazard one level down: an `_astra`
       whose `.git` went missing is enclosed by the AstraPlugins checkout, as
       `_astra/astra-rs`, and would be labelled with this repository's commit.
-      That rule is `checkout_top` in tools/checkouts.py, and C22 in
-      tools/check-locales.py calls it too: there the enclosing repository would
-      not be a label but the source of the release tags the rule reads (entry
-      115).
+      That rule is `daemon_checkout_top` in tools/checkouts.py, and C22 in
+      tools/check-locales.py calls its own flavour of it too: there the
+      enclosing repository would not be a label but the source of the release
+      tags the rule reads (entry 115).
 
     A directory that is in no git checkout at all names no commit either way.
     """
     if not in_repo:
         if not _own_checkout(tree):
             return "HEAD unknown: not a git checkout"
+    elif in_repo == DAEMON_IN_REPO:
+        top, why = daemon_checkout_top(tree)
+        if top is None:
+            return f"HEAD unknown: {why}"
     else:
         top, why = checkout_top(tree, in_repo)
         if top is None:
@@ -2484,24 +2500,30 @@ def _git_head(tree: Path, in_repo: str = "") -> str:
 
 
 def _astra_dir(anchor: str) -> Path | None:
-    """An `astra-rs/` checkout holding `anchor`, or None.
+    """An Astra checkout holding `anchor`, flat or at its `astra-rs/`, or None.
 
     `--astra-dir` first, and never a skip. Then `$ASTRA_RS_DIR` — set but wrong
     is the skip, with no fall-through, which is how CONTRIBUTING.md tells a
-    maintainer to force it — and then `../Astra/astra-rs`. The same three steps
-    as `tools/check-locales.py`'s `resolve_astra`.
+    maintainer to force it — and then `../Astra`. The same three steps as
+    `tools/check-locales.py`'s `resolve_astra`. Every candidate is tried as
+    given first — every ref after Astra's 2026-10-23 flatten (c703cabb6) is
+    flat — and, failing that, with `astra-rs/` appended, the only shape every
+    tag through v0.2.7 has.
     """
     explicit = EXPLICIT["astra"]
     if explicit is not None:
-        return _explicit_checkout("--astra-dir", explicit, anchor)
+        return _explicit_checkout("--astra-dir", explicit, anchor, astra_layout=True)
     env = os.environ.get("ASTRA_RS_DIR")
-    given = env if env is not None else "../Astra/astra-rs"
+    given = env if env is not None else "../Astra"
     if not given:
         return None
     p = Path(given)
     if not p.is_absolute():
         p = (ROOT / p).resolve()
-    return p if (p / anchor).is_file() else None
+    if (p / anchor).is_file():
+        return p
+    nested = p / DAEMON_IN_REPO
+    return nested if (nested / anchor).is_file() else None
 
 
 def read_emitted() -> dict[str, tuple[str, tuple[str, ...]]]:
@@ -2606,19 +2628,23 @@ def read_icon_formats(registry: Path) -> dict[str, tuple[str, str]]:
     return rows
 
 
-def read_catalogue_icon_files(astra_rs: Path) -> dict[str, str]:
-    """filename -> media type, out of the daemon's `CATALOGUE_ICON_FILES`, as text."""
-    text = (astra_rs / CATALOGUE_ICONS).read_text(encoding="utf-8")
+def read_catalogue_icon_files(astra: Path) -> dict[str, str]:
+    """filename -> media type, out of the daemon's `CATALOGUE_ICON_FILES`, as text.
+
+    `astra` is the daemon's tree itself — resolved by `_astra_dir`, flat or at
+    `astra-rs/`, whichever is really there.
+    """
+    text = (astra / CATALOGUE_ICONS).read_text(encoding="utf-8")
     declared = text.count("pub const CATALOGUE_ICON_FILES")
     if declared != 1:
         raise LookupError(
-            f"astra-rs/{CATALOGUE_ICONS} declares `pub const CATALOGUE_ICON_FILES` {declared} "
+            f"{CATALOGUE_ICONS} declares `pub const CATALOGUE_ICON_FILES` {declared} "
             f"time(s), want exactly 1. If the table moved, point CATALOGUE_ICONS at it."
         )
     m = CATALOGUE_CONST.search(text)
     if not m:
         raise LookupError(
-            f"`CATALOGUE_ICON_FILES` in astra-rs/{CATALOGUE_ICONS} is no longer "
+            f"`CATALOGUE_ICON_FILES` in {CATALOGUE_ICONS} is no longer "
             f"`&[(&str, &str)] = &[ … ];`. Teach CATALOGUE_CONST the new shape."
         )
     body = m.group(1)
@@ -2722,7 +2748,8 @@ def rule_C35(fails: Fails) -> None:
     astra = _astra_dir(CATALOGUE_ICONS)
     if astra is None:
         print("C35 NOT VERIFIED: no Astra checkout holding "
-              f"astra-rs/{CATALOGUE_ICONS} at --astra-dir, $ASTRA_RS_DIR or ../Astra/astra-rs.")
+              f"{CATALOGUE_ICONS} (flat, or under astra-rs/) at --astra-dir, $ASTRA_RS_DIR or "
+              "../Astra.")
         print("        The daemon's publishing document names icon files with the media type it")
         print("        says the registry inlines each one under, and the daemon's own canary holds")
         print("        those types against the renderer. Whether they are still the registry's was")
@@ -2767,7 +2794,7 @@ def rule_C35(fails: Fails) -> None:
         "\n".join(problems) + "\n"
         "The daemon's table is deliberately shorter than the registry's (its own comment says\n"
         "why), so this is a subset, never an equality. The repair is in Astra's\n"
-        f"astra-rs/{CATALOGUE_ICONS}, unless the registry's change was the mistake.",
+        f"{CATALOGUE_ICONS}, unless the registry's change was the mistake.",
     )
 
 
@@ -4338,8 +4365,9 @@ def main() -> int:
     ap.add_argument(
         "--astra-dir",
         default=None,
-        help="an Astra/astra-rs checkout for C35's daemon leg; else $ASTRA_RS_DIR, else "
-             "../Astra/astra-rs. Passed explicitly, a directory that is not one is exit 2.",
+        help="an Astra checkout for C35's daemon leg, flat (since 2026-10-23) or at its "
+             "astra-rs/ (through v0.2.7) — either shape is accepted; else $ASTRA_RS_DIR, "
+             "else ../Astra. Passed explicitly, a directory that is not one is exit 2.",
     )
     ap.add_argument(
         "--pins",

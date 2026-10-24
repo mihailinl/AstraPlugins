@@ -1427,7 +1427,8 @@ pub(crate) fn glob_can_match(glob: &str, prefix: &str) -> bool {
 // vocabulary drifted to include a `ui_panels` the daemon has never had.
 //
 // The type now comes from `astra-plugin-manifest`, vendored from
-// `Astra/astra-rs/astra-plugin-manifest` and kept byte-identical by
+// `Astra/astra-plugin-manifest` (`Astra/astra-rs/astra-plugin-manifest` on an
+// Astra checkout at v0.2.7 or earlier) and kept byte-identical by
 // `tools/check-manifest-crate.sh`. Do not add a local mirror back.
 
 #[cfg(test)]

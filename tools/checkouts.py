@@ -36,12 +36,67 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-#: Where the daemon's tree sits inside the Astra repository: `astra-rs/`, at
-#: its top. CI checks Astra out at `_astra` and passes `--astra-dir
-#: _astra/astra-rs`; a maintainer's default is `../Astra/astra-rs`. Either way
-#: the directory the rules read is never a checkout's top, which is what
-#: `checkout_top` has to be told.
+#: Where the daemon's tree sat inside the Astra repository through tag
+#: `v0.2.7`: `astra-rs/`, one level below the checkout's top. Astra c703cabb6
+#: (2026-10-23), "Flatten astra-rs/ into the repository root" — confirmed
+#: final, nothing else is moving — put it AT the top instead, for every
+#: commit after that one. A tag through v0.2.7 keeps the old shape forever,
+#: so both are live: `astra_dir` and `daemon_checkout_top` below are how a
+#: caller stops having to assume either one.
 DAEMON_IN_REPO = "astra-rs"
+
+
+def astra_dir(candidate: Path) -> Path | None:
+    """Which of `candidate` or `candidate/astra-rs` is really the daemon's
+    tree — `astra-core/`, `astra-daemon/` and the rest, directly inside it.
+
+    `candidate` is tried first: every ref after Astra's 2026-10-23 flatten
+    (c703cabb6) is flat, and a caller that still appends `/astra-rs` to an
+    already-flat checkout (the old convention every caller here used) would
+    otherwise build a path that does not exist. `candidate/astra-rs` is
+    tried next, for every tag through v0.2.7 and for a caller who, as before
+    the flatten, already pointed `candidate` at the checkout's top rather
+    than at `astra-rs/` itself.
+
+    `None` if neither holds `astra-core/` — `candidate` is not an Astra
+    checkout at all, under either layout.
+    """
+    if (candidate / "astra-core").is_dir():
+        return candidate
+    nested = candidate / DAEMON_IN_REPO
+    return nested if (nested / "astra-core").is_dir() else None
+
+
+def daemon_checkout_top(tree: Path) -> tuple[Path | None, str]:
+    """`checkout_top`, tried at both `in_repo` the daemon's tree can sit at.
+
+    `tree` must already be resolved — e.g. by `astra_dir` above — to the
+    directory `astra-core/` actually lives in; this only asks whether THAT
+    directory is really its own checkout's top (flat, `in_repo=""`, every
+    commit after Astra's 2026-10-23 flatten) or sits exactly `astra-rs/`
+    below one (nested, every tag through v0.2.7). Trying both means this
+    does not need to know which shape produced `tree` — a directory is
+    either one or the other, never both, so at most one attempt can
+    succeed.
+    """
+    found, why = checkout_top(tree, "")
+    if found is not None:
+        return found, ""
+    return checkout_top(tree, DAEMON_IN_REPO)
+
+
+def daemon_ref_paths(relative: str) -> tuple[str, str]:
+    """Where `relative` (a path below the daemon's tree) sits in a
+    `git show <ref>:<path>`, flat first then nested.
+
+    A REF's layout depends on whether it predates Astra's 2026-10-23 flatten
+    (c703cabb6), never on whatever layout the working tree on disk happens
+    to have — `origin/main` is flat and a `v0.2.7` tag is nested, in the same
+    checkout, at the same time. Flat is tried first because every ref from
+    the flatten on is flat and every ref this is kept working for is a
+    specific named exception (`v0.2.7` and earlier).
+    """
+    return (relative, f"{DAEMON_IN_REPO}/{relative}")
 
 
 def checkout_top(tree: Path, in_repo: str) -> tuple[Path | None, str]:

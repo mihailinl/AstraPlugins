@@ -56,11 +56,17 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
-from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
+from checkouts import (  # noqa: E402  (sys.path is set above)
+    DAEMON_IN_REPO,
+    astra_dir,
+    checkout_top,
+    daemon_checkout_top,
+    daemon_ref_paths,
+)
 
 #: The fewest tests a run may report before it is a broken file rather than a
 #: pass. The count of test methods below; raise it when you add one.
-MIN_TESTS = 23
+MIN_TESTS = 29
 
 #: What C22's refusal says about a tree inside some other checkout.
 NOT_TOP = f"in a git checkout, but not as its top-level {DAEMON_IN_REPO}/"
@@ -79,6 +85,64 @@ def _load(name: str, file: str):
 
 LOCALES = _load("check_locales", "check-locales.py")
 MIRRORS = _load("check_registry_mirrors", "check-registry-mirrors.py")
+
+
+class AstraDirAndRefPaths(unittest.TestCase):
+    """Direct, no-subprocess tests of `checkouts.astra_dir`/`daemon_ref_paths` —
+    the primitives every Python tool's astra-dir resolution shares, below the
+    subprocess-level coverage in `DaemonTreeIsItsOwnCheckout`."""
+
+    def test_prefers_flat_when_both_exist(self) -> None:
+        # Astra c703cabb6, 2026-10-23, "Flatten astra-rs/ into the repository
+        # root": a checkout carrying astra-core/ directly is read as-is, even
+        # if it ALSO happens to carry a vendored astra-rs/ copy somewhere —
+        # the flat shape is never misread as nested.
+        with tempfile.TemporaryDirectory() as tmp:
+            top = Path(tmp)
+            (top / "astra-core").mkdir()
+            (top / DAEMON_IN_REPO / "astra-core").mkdir(parents=True)
+            self.assertEqual(astra_dir(top), top)
+
+    def test_falls_back_to_nested(self) -> None:
+        # Every tag through v0.2.7.
+        with tempfile.TemporaryDirectory() as tmp:
+            top = Path(tmp)
+            (top / DAEMON_IN_REPO / "astra-core").mkdir(parents=True)
+            self.assertEqual(astra_dir(top), top / DAEMON_IN_REPO)
+
+    def test_neither_layout_is_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(astra_dir(Path(tmp)))
+
+    def test_daemon_ref_paths_is_flat_then_nested(self) -> None:
+        self.assertEqual(
+            daemon_ref_paths("astra-daemon/src/plugins/i18n.rs"),
+            ("astra-daemon/src/plugins/i18n.rs",
+             f"{DAEMON_IN_REPO}/astra-daemon/src/plugins/i18n.rs"),
+        )
+
+    def test_daemon_checkout_top_accepts_flat_and_nested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = _fixture_env(Path(tmp))
+            flat = Path(tmp) / "flat"
+            (flat / "astra-core").mkdir(parents=True)
+            (flat / "astra-core" / "README").write_text("fixture\n")
+            _git(env, "init", "-q", "-b", "main", str(flat))
+            _git(env, "-C", str(flat), "add", "-A")
+            _git(env, "-C", str(flat), "commit", "-q", "-m", "flat")
+            with mock.patch.dict(os.environ, env, clear=True):
+                top, why = daemon_checkout_top(flat)
+            self.assertEqual((top, why), (flat, ""))
+
+            nested_top = Path(tmp) / "nested"
+            (nested_top / DAEMON_IN_REPO / "astra-core").mkdir(parents=True)
+            (nested_top / DAEMON_IN_REPO / "astra-core" / "README").write_text("fixture\n")
+            _git(env, "init", "-q", "-b", "main", str(nested_top))
+            _git(env, "-C", str(nested_top), "add", "-A")
+            _git(env, "-C", str(nested_top), "commit", "-q", "-m", "nested")
+            with mock.patch.dict(os.environ, env, clear=True):
+                top, why = daemon_checkout_top(nested_top / DAEMON_IN_REPO)
+            self.assertEqual((top, why), (nested_top, ""))
 
 
 def _fixture_env(tmp: Path) -> dict[str, str]:
@@ -124,12 +188,13 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
         assert floor, f"no LABEL_RESOLVER_RELEASE in {LOCALES.SCAFFOLD_FLOOR_FILE}"
         cls.tag = f"v{floor.group(1)}"
 
-        # An Astra: astra-rs/ at its top, the resolver in the release the
-        # scaffold names, and the named ref C22 anchors on.
+        # An Astra at the pre-flatten layout: astra-rs/ at its top (every tag
+        # through v0.2.7), the resolver nested under it, and the named ref
+        # C22 anchors on.
         astra = cls.tmp / "astra"
         (astra / DAEMON_IN_REPO / "astra-core").mkdir(parents=True)
         (astra / DAEMON_IN_REPO / "astra-core" / "README").write_text("fixture\n")
-        resolver = astra / LOCALES.RESOLVER_FILE
+        resolver = astra / DAEMON_IN_REPO / LOCALES.RESOLVER_FILE
         resolver.parent.mkdir(parents=True)
         resolver.write_text(f"pub fn {LOCALES.RESOLVER_SYMBOL}() {{}}\n")
         cls.git("init", "-q", "-b", "main", str(astra))
@@ -137,6 +202,23 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
         cls.git("-C", str(astra), "commit", "-q", "-m", "an Astra")
         cls.git("-C", str(astra), "tag", "-a", cls.tag, "-m", cls.tag)
         cls.git("-C", str(astra), "update-ref", "refs/remotes/origin/main", "HEAD")
+
+        # The same Astra, flat at the top instead — Astra c703cabb6,
+        # 2026-10-23, "Flatten astra-rs/ into the repository root", and every
+        # commit after it. Proves `astra_dir`/`daemon_checkout_top`/
+        # `daemon_ref_paths` the other way: C22 must find the resolver with
+        # NO astra-rs/ prefix at all, not just tolerate one.
+        astra_flat = cls.tmp / "astra-flat"
+        (astra_flat / "astra-core").mkdir(parents=True)
+        (astra_flat / "astra-core" / "README").write_text("fixture\n")
+        resolver_flat = astra_flat / LOCALES.RESOLVER_FILE
+        resolver_flat.parent.mkdir(parents=True)
+        resolver_flat.write_text(f"pub fn {LOCALES.RESOLVER_SYMBOL}() {{}}\n")
+        cls.git("init", "-q", "-b", "main", str(astra_flat))
+        cls.git("-C", str(astra_flat), "add", "-A")
+        cls.git("-C", str(astra_flat), "commit", "-q", "-m", "a flat Astra")
+        cls.git("-C", str(astra_flat), "tag", "-a", cls.tag, "-m", cls.tag)
+        cls.git("-C", str(astra_flat), "update-ref", "refs/remotes/origin/main", "HEAD")
 
         # The AstraPlugins checkout, with an `_astra` inside it that has no `.git`.
         outer = cls.tmp / "astraplugins"
@@ -149,12 +231,19 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
 
         # A copy of astra-rs/ one level deeper inside a real Astra checkout.
         shutil.copytree(astra / DAEMON_IN_REPO, astra / "vendor" / DAEMON_IN_REPO)
-        # A clone whose top IS astra-rs/.
+        # A clone whose top IS astra-rs/ — by NAME only. Its own git checkout
+        # has astra-core/ and the resolver directly inside it (copied from
+        # `astra`'s astra-rs/, which holds them the same way), so structurally
+        # this is a flat Astra checkout that happens to be confusingly named,
+        # and since the 2026-10-23 flatten that is a shape this rule must
+        # ACCEPT, not refuse — content decides the layout, never the name.
         own_top = cls.tmp / "own-top" / DAEMON_IN_REPO
         shutil.copytree(astra / DAEMON_IN_REPO, own_top)
         cls.git("init", "-q", "-b", "main", str(own_top))
         cls.git("-C", str(own_top), "add", "-A")
         cls.git("-C", str(own_top), "commit", "-q", "-m", "astra-rs as its own top")
+        cls.git("-C", str(own_top), "tag", "-a", cls.tag, "-m", cls.tag)
+        cls.git("-C", str(own_top), "update-ref", "refs/remotes/origin/main", "HEAD")
         # In no checkout at all.
         shutil.copytree(astra / DAEMON_IN_REPO, cls.tmp / "loose" / DAEMON_IN_REPO)
         # A symlink to the real one.
@@ -162,13 +251,15 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
 
         cls.trees = {
             "own": astra / DAEMON_IN_REPO,
+            "flat": astra_flat,
             "enclosed": outer / "_astra" / DAEMON_IN_REPO,
             "nested": astra / "vendor" / DAEMON_IN_REPO,
             "own_top": own_top,
             "loose": cls.tmp / "loose" / DAEMON_IN_REPO,
             "link": cls.tmp / "link",
         }
-        _assert_layouts(cls.env, cls.trees, {"own": astra, "enclosed": outer, "nested": astra,
+        _assert_layouts(cls.env, cls.trees, {"own": astra, "flat": astra_flat,
+                                             "enclosed": outer, "nested": astra,
                                              "own_top": own_top, "loose": None, "link": astra})
         assert not (outer / "_astra" / ".git").exists()
 
@@ -208,6 +299,13 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
     def test_own_checkout_is_read(self) -> None:
         self.passes(self.trees["own"])
 
+    def test_flat_checkout_is_read(self) -> None:
+        # Astra c703cabb6, 2026-10-23, "Flatten astra-rs/ into the repository
+        # root": astra-core/ and the resolver AT the top, no astra-rs/ at
+        # all. `daemon_checkout_top`/`daemon_ref_paths` must find both with
+        # no prefix, not merely tolerate one that happens to be there.
+        self.passes(self.trees["flat"])
+
     def test_symlink_to_own_checkout_is_that_checkout(self) -> None:
         self.passes(self.trees["link"])
 
@@ -219,8 +317,14 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
         # Before the fix this one was GREEN: it read the enclosing Astra's tags.
         self.refused(self.trees["nested"], NOT_TOP)
 
-    def test_astra_rs_as_its_own_checkout_top_is_refused(self) -> None:
-        self.refused(self.trees["own_top"], NOT_TOP)
+    def test_astra_rs_as_its_own_checkout_top_passes(self) -> None:
+        # Before Astra's 2026-10-23 flatten this was refused: a clone whose
+        # top is itself named astra-rs/ was indistinguishable from a copy
+        # nested one level into some other checkout. It no longer is —
+        # content decides the layout now, never the name — and this
+        # directory's content (astra-core/ and the resolver directly inside
+        # it) is exactly what a legitimate flat Astra checkout looks like.
+        self.passes(self.trees["own_top"])
 
     def test_tree_in_no_checkout_is_refused(self) -> None:
         self.refused(self.trees["loose"], "not in a git checkout")
@@ -242,10 +346,16 @@ class DaemonTreeIsItsOwnCheckout(unittest.TestCase):
         os.environ.update(self.env)
         try:
             head = self.git("-C", str(self.tmp / "astra"), "rev-parse", "--short=12", "HEAD")
+            flat_head = self.git("-C", str(self.tmp / "astra-flat"), "rev-parse", "--short=12", "HEAD")
+            own_top_head = self.git("-C", str(self.trees["own_top"]), "rev-parse", "--short=12", "HEAD")
             label = lambda name: MIRRORS._git_head(self.trees[name], DAEMON_IN_REPO)  # noqa: E731
             self.assertEqual(label("own"), head)
             self.assertEqual(label("link"), head)
-            for name in ("enclosed", "nested", "own_top"):
+            self.assertEqual(label("flat"), flat_head)
+            # Legitimately flat (see test_astra_rs_as_its_own_checkout_top_passes),
+            # so its own commit is the right label now, not NOT_TOP.
+            self.assertEqual(label("own_top"), own_top_head)
+            for name in ("enclosed", "nested"):
                 self.assertEqual(label(name), f"HEAD unknown: {NOT_TOP}", name)
             self.assertEqual(label("loose"), "HEAD unknown: not in a git checkout")
         finally:

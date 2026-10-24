@@ -57,7 +57,8 @@ sha256_of() {
 canonical="$REPO_ROOT/$CANONICAL_REL"
 if [ ! -f "$canonical" ]; then
     printf 'check-proto: FAIL %s does not exist. It is the source of every copy;\n' "$CANONICAL_REL" >&2
-    printf '                  regenerate it in the Astra repo with astra-rs/tools/proto-slice.\n' >&2
+    printf '                  regenerate it in the Astra repo with tools/proto-slice (astra-rs/tools/proto-slice\n' >&2
+    printf '                  on an Astra checkout at v0.2.7 or earlier).\n' >&2
     exit 1
 fi
 
@@ -66,7 +67,8 @@ if grep -q 'DO NOT EDIT' "$canonical"; then
     ok "$CANONICAL_REL carries its DO NOT EDIT banner"
 else
     fail "$CANONICAL_REL has lost its \`GENERATED FILE — DO NOT EDIT\` banner." \
-        "It is produced by astra-rs/tools/proto-slice; hand edits belong in" \
+        "It is produced by tools/proto-slice (astra-rs/tools/proto-slice through v0.2.7);" \
+        "hand edits belong in" \
         "astra-proto/src/astra.proto or plugin-surface.toml, never here."
 fi
 

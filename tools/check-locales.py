@@ -4,7 +4,7 @@
     python3 tools/check-locales.py                       # all five
     python3 tools/check-locales.py --rules C14,C20       # what the couplings job runs
     python3 tools/check-locales.py --rules C12,C22 --require C22 \\
-        --astra-dir _astra/astra-rs --astra-ref origin/main   # proto-upstream, full mode
+        --astra-dir "$ASTRA_ROOT" --astra-ref origin/main   # proto-upstream, full mode
     python3 tools/check-locales.py --rules C20 --require C20 \\
         --registry-dir _registry                         # proto-upstream, both modes
 
@@ -106,17 +106,19 @@ C22 — does the release the scaffold requires actually resolve plugin labels?
     carries the resolver. Read the tag name in the evidence line rather than
     assuming the two agree.
 
-    **The tags come from the checkout whose top-level `astra-rs/` the tree is,
-    and from no other repository.** `git -C <dir>` searches upward, and in CI
-    Astra is checked out INSIDE this repository, at `_astra`. Until entry 115 in
-    the ops register this rule took whatever top-level git found, so (measured on
-    fixtures laid out as `proto-upstream` lays them out) an `_astra` that lost its
-    `.git` had its tags read from the AstraPlugins checkout, which went red for a
-    reason it misnamed — "the Astra checkout has no `origin/main`" — and a copy of
-    `astra-rs/` nested inside another Astra checkout read THAT checkout's tags and
-    went green. `checkout_top` in `tools/checkouts.py`, the rule C35's daemon
-    label is held to, now refuses both before a tag is read: exit 2 for an
-    explicit `--astra-dir`, NOT VERIFIED for `$ASTRA_RS_DIR` or the default.
+    **The tags come from the checkout whose own top the tree is (flat, since
+    Astra's 2026-10-23 flatten) or whose top-level `astra-rs/` it is (every tag
+    through v0.2.7), and from no other repository.** `git -C <dir>` searches
+    upward, and in CI Astra is checked out INSIDE this repository, at `_astra`.
+    Until entry 115 in the ops register this rule took whatever top-level git
+    found, so (measured on fixtures laid out as `proto-upstream` lays them out)
+    an `_astra` that lost its `.git` had its tags read from the AstraPlugins
+    checkout, which went red for a reason it misnamed — "the Astra checkout has
+    no `origin/main`" — and a copy of `astra-rs/` nested inside another Astra
+    checkout read THAT checkout's tags and went green. `daemon_checkout_top` in
+    `tools/checkouts.py`, the rule C35's daemon label is held to, now refuses
+    both before a tag is read, at either depth: exit 2 for an explicit
+    `--astra-dir`, NOT VERIFIED for `$ASTRA_RS_DIR` or the default.
 
 C14 — spec/locales.yaml vs docs/tools/locales.py vs the directories under docs/.
     A translated documentation directory is the most likely place an author
@@ -176,7 +178,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # The daemon tree's own-checkout rule, shared with tools/check-registry-mirrors.py's C35.
-from checkouts import DAEMON_IN_REPO, checkout_top  # noqa: E402  (sys.path is set above)
+from checkouts import (  # noqa: E402  (sys.path is set above)
+    astra_dir,
+    daemon_checkout_top,
+    daemon_ref_paths,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "spec" / "locales.yaml"
@@ -421,7 +427,7 @@ def rule_C12(fails: Fails, astra: Path | None) -> None:
 
 def _default_astra_hint() -> str:
     env = os.environ.get("ASTRA_RS_DIR")
-    return env if env else "../Astra/astra-rs (or $ASTRA_RS_DIR, or --astra-dir)"
+    return env if env else "../Astra (or $ASTRA_RS_DIR, or --astra-dir)"
 
 
 # ── C14 ──────────────────────────────────────────────────────────────────────
@@ -886,16 +892,37 @@ def _c20_reverse(fails: Fails, policy: dict, ours: dict[str, int], head: str) ->
 #: Serve-time resolution of a plugin's action labels — `get_config_schema` has
 #: resolved config schemas for far longer, and that is not what this watches.
 RESOLVER_SYMBOL = "resolve_action_type"
-#: Read with `git show <ref>:<path>` from the top of the checkout, so its first
-#: component is where the daemon's tree sits in that checkout — the same fact
-#: `checkout_top` holds `--astra-dir` to, and one constant for both.
-RESOLVER_FILE = f"{DAEMON_IN_REPO}/astra-daemon/src/plugins/i18n.rs"
+#: Read with `git show <ref>:<path>` from the top of the checkout. Given as
+#: it sits on every ref after Astra's 2026-10-23 flatten (c703cabb6); on a
+#: tag through v0.2.7 the same file is one level down, at
+#: `astra-rs/astra-daemon/src/plugins/i18n.rs` — `daemon_ref_paths` is how
+#: every `git show` below tries both without caring which ref it was given.
+RESOLVER_FILE = "astra-daemon/src/plugins/i18n.rs"
 
-#: Why C22 refuses a tree that is not the top-level `astra-rs/` of its own
-#: checkout, where C12 (which reads files) does not: `git -C` searches upward,
-#: so anything else would have C22 read the tags of whatever repository
-#: encloses the tree — in CI, an `_astra` that lost its `.git` is enclosed by
-#: this one.
+
+def _show_daemon_path(
+    top: str, ref: str, relative: str
+) -> tuple[subprocess.CompletedProcess[str] | None, tuple[str, ...]]:
+    """`git show <ref>:<path>` for `relative`, flat then `astra-rs/`-nested.
+
+    Returns the first successful result together with the ONE path that
+    produced it, or `(None, candidates)` naming both paths tried — a ref's
+    layout depends on which side of Astra's 2026-10-23 flatten it is on, not
+    on anything this checkout's working tree looks like.
+    """
+    candidates = daemon_ref_paths(relative)
+    for path in candidates:
+        blob = subprocess.run(["git", "-C", top, "show", f"{ref}:{path}"],
+                              capture_output=True, text=True)
+        if blob.returncode == 0:
+            return blob, (path,)
+    return None, candidates
+
+#: Why C22 refuses a tree that is not — at whichever depth it was found, flat
+#: or `astra-rs/` — the top of its own checkout, where C12 (which reads files)
+#: does not: `git -C` searches upward, so anything else would have C22 read
+#: the tags of whatever repository encloses the tree — in CI, an `_astra`
+#: that lost its `.git` is enclosed by this one.
 C22_NEEDS_GIT = "C22 reads release tags only from the daemon's own checkout"
 
 #: The NAMED ref this rule proves its own anchor against before it believes a
@@ -924,8 +951,11 @@ ANCHOR_REF = "origin/main"
 MIN_RELEASE_TAGS = 1
 
 
-def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
+def _anchor_holds(fails: Fails, top: str, ref: str) -> str | None:
     """Is `RESOLVER_FILE` still where this rule thinks, with the symbol in it?
+
+    Returns the path that carried it (flat or `astra-rs/`-nested — see
+    `_show_daemon_path`), or `None` on failure.
 
     **This runs BEFORE the tag is read, and its absence is a FAILURE and never a
     skip or a pass** — `rule_C12` above says why in its own words, and C22 is the
@@ -942,7 +972,7 @@ def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
     have = subprocess.run(["git", "-C", top, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"],
                           capture_output=True, text=True)
     if have.returncode != 0:
-        return fails.check(
+        fails.check(
             False,
             f"C22 the Astra checkout has `{ref}` to anchor on",
             f"`git rev-parse {ref}` failed in {top}.\n"
@@ -953,14 +983,15 @@ def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
             "Pass the right one with --astra-ref (CI passes origin/$ASTRA_REF), or fetch\n"
             "it. This is a FAILURE and not a skip: a checkout was supplied.",
         )
+        return None
 
-    blob = subprocess.run(["git", "-C", top, "show", f"{ref}:{RESOLVER_FILE}"],
-                          capture_output=True, text=True)
-    if blob.returncode != 0:
-        return fails.check(
+    blob, tried = _show_daemon_path(top, ref, RESOLVER_FILE)
+    if blob is None:
+        fails.check(
             False,
             f"C22 {RESOLVER_FILE} is still there on {ref}",
-            f"`git show {ref}:{RESOLVER_FILE}` failed.\n"
+            f"`git show {ref}:<path>` failed for every path this rule knows for it:\n"
+            + "\n".join(f"  {p}" for p in tried) + "\n"
             "The path this rule greps a release for has moved, so every verdict it could\n"
             "reach about a tag is about a file that is not the thing under test — and the\n"
             "shape of that mistake is a GREEN one: a `git show` that fails because the\n"
@@ -968,18 +999,20 @@ def _anchor_holds(fails: Fails, top: str, ref: str) -> bool:
             "Point RESOLVER_FILE at wherever the daemon resolves labels now. Do not\n"
             "silence this by pointing it at something that is still absent.",
         )
+        return None
     if RESOLVER_SYMBOL not in blob.stdout:
-        return fails.check(
+        fails.check(
             False,
             f"C22 `{RESOLVER_SYMBOL}` is still the symbol to watch for, on {ref}",
-            f"{RESOLVER_FILE} exists on {ref} and does not contain `{RESOLVER_SYMBOL}`.\n"
+            f"{tried[0]} exists on {ref} and does not contain `{RESOLVER_SYMBOL}`.\n"
             "Either the daemon renamed it, or serve-time label resolution moved somewhere\n"
             "else. Until RESOLVER_SYMBOL names the real thing, `this tag does not carry\n"
             "it` is a sentence about a string nobody uses, printed as evidence.\n"
             "This is a FAILURE and not a skip: a checkout was supplied, so the anchor\n"
             "moved rather than being absent.",
         )
-    return True
+        return None
+    return tried[0]
 
 
 def _tag_tree_readable(fails: Fails, top: str, tag: str) -> bool:
@@ -1058,10 +1091,12 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF,
         fails.skip("C22", "no Astra checkout")
         return
 
-    # Whose tags, BEFORE any are read: the checkout whose top-level astra-rs/
-    # this tree is, and never whatever repository happens to enclose it.
+    # Whose tags, BEFORE any are read: the checkout whose own top this tree
+    # is (Astra's layout since the 2026-10-23 flatten) or whose top-level
+    # astra-rs/ it is (every tag through v0.2.7) — and never whatever
+    # repository happens to enclose it.
     try:
-        found, why = checkout_top(astra, DAEMON_IN_REPO)
+        found, why = daemon_checkout_top(astra)
     except OSError as exc:
         fails.check(False, "C22 the Astra checkout's tags are readable", str(exc))
         return
@@ -1074,9 +1109,10 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF,
         print("        so it is not a checkout this rule can read release tags from. `git`")
         print("        searches upward from a directory, and asked about an `_astra` whose")
         print("        `.git` went missing it answers for the AstraPlugins checkout around")
-        print("        it; asked about a copy of astra-rs/ it answers for wherever the copy")
-        print("        sits. Either way the tags would be some other repository's, read as")
-        print("        the daemon's. Point $ASTRA_RS_DIR at the astra-rs/ of an Astra clone.")
+        print("        it; asked about a copy of astra-rs/ (or of a flat checkout) it")
+        print("        answers for wherever the copy sits. Either way the tags would be some")
+        print("        other repository's, read as the daemon's. Point $ASTRA_RS_DIR at an")
+        print("        Astra clone's own top (flat) or its astra-rs/ (through v0.2.7).")
         fails.skip("C22", f"the Astra tree is {why}")
         return
 
@@ -1092,9 +1128,10 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF,
     # The anchor FIRST. Everything below reads `git show <tag>:<path>` and asks
     # whether a symbol is in it, and both halves of that question are worthless
     # if the path or the symbol has moved.
-    if not _anchor_holds(fails, top, anchor_ref):
+    anchor_path = _anchor_holds(fails, top, anchor_ref)
+    if anchor_path is None:
         return
-    print(f"        anchor: `{RESOLVER_SYMBOL}` is in {RESOLVER_FILE} on {anchor_ref}, so a tag "
+    print(f"        anchor: `{RESOLVER_SYMBOL}` is in {anchor_path} on {anchor_ref}, so a tag "
           "that lacks it lacks the resolver and not the file.")
 
     if len(tags) < MIN_RELEASE_TAGS:
@@ -1134,14 +1171,13 @@ def rule_C22(fails: Fails, astra: Path | None, anchor_ref: str = ANCHOR_REF,
 
     if not _tag_tree_readable(fails, top, tag):
         return
-    blob = subprocess.run(["git", "-C", top, "show", f"{tag}:{RESOLVER_FILE}"],
-                          capture_output=True, text=True)
-    resolves = blob.returncode == 0 and RESOLVER_SYMBOL in blob.stdout
+    blob, tried = _show_daemon_path(top, tag, RESOLVER_FILE)
+    resolves = blob is not None and RESOLVER_SYMBOL in blob.stdout
 
     fails.check(
         resolves,
         f"C22 the release the scaffold requires resolves plugin labels ({tag})",
-        f"{tag} does NOT carry `{RESOLVER_SYMBOL}` in {RESOLVER_FILE}, and it is the\n"
+        f"{tag} does NOT carry `{RESOLVER_SYMBOL}` in {tried[0]}, and it is the\n"
         f"version {SCAFFOLD_FLOOR_FILE} writes into every scaffolded\n"
         "`min_astra_version`.\n"
         "So `astra-plugin new` currently produces a plugin whose action and trigger\n"
@@ -1165,7 +1201,7 @@ def _as_checkout(candidate: str) -> Path | None:
     p = Path(candidate)
     if not p.is_absolute():
         p = (ROOT / p).resolve()
-    return p if (p / "astra-core").is_dir() else None
+    return astra_dir(p)
 
 
 def resolve_astra(arg: str | None) -> Path | None:
@@ -1173,11 +1209,12 @@ def resolve_astra(arg: str | None) -> Path | None:
 
     An explicit `--astra-dir` is a caller asserting the tree is there, so a bad
     one is a hard error rather than a skip. That distinction is the whole point:
-    the full-mode CI step passes `--astra-dir _astra/astra-rs` after checking
-    Astra out, and if that path ever stops being a checkout the step must go red
-    instead of quietly degrading into the skip it shares a script with. A check
-    that turns itself off when its input moves is the shape this repository has
-    now been bitten by three times.
+    the full-mode CI step passes `--astra-dir "$ASTRA_ROOT"` (resolved once,
+    right after checking Astra out, to whichever of `_astra` or `_astra/astra-rs`
+    really holds it) and if that path ever stops being a checkout the step must
+    go red instead of quietly degrading into the skip it shares a script with. A
+    check that turns itself off when its input moves is the shape this
+    repository has now been bitten by three times.
 
     `$ASTRA_RS_DIR` is the opposite case by convention: `ASTRA_RS_DIR=/nonexistent`
     is how CONTRIBUTING.md tells you to force the skip and see what it prints.
@@ -1196,7 +1233,7 @@ def resolve_astra(arg: str | None) -> Path | None:
         # checkout on a maintainer's machine and quietly not find one in CI —
         # the two runs would print different things for the same command.
         return _as_checkout(env)
-    return _as_checkout("../Astra/astra-rs")
+    return _as_checkout("../Astra")
 
 
 # ── C38 ──────────────────────────────────────────────────────────────────────
@@ -1313,11 +1350,12 @@ def main() -> int:
     ap.add_argument("--rules", default="C12,C14,C20,C22,C38",
                     help="comma-separated subset of C12,C14,C20,C22,C38 (default: all)")
     ap.add_argument("--astra-dir", default=None,
-                    help="an Astra/astra-rs checkout; else $ASTRA_RS_DIR, else "
-                         "../Astra/astra-rs. C12 says so out loud when there is none. C22 "
-                         "also needs it to be the top-level astra-rs/ of its own git "
-                         "checkout: passed explicitly, one that is not is exit 2, never NOT "
-                         "VERIFIED.")
+                    help="an Astra checkout, flat (since 2026-10-23) or at its astra-rs/ "
+                         "(through v0.2.7) — either shape is accepted; else $ASTRA_RS_DIR, "
+                         "else ../Astra. C12 says so out loud when there is none. C22 also "
+                         "needs it to be, at whichever depth it was found, the top of its "
+                         "own git checkout: passed explicitly, one that is not is exit 2, "
+                         "never NOT VERIFIED.")
     ap.add_argument("--registry-dir", default=None,
                     help="an astra-registry checkout for C20 and C38; else $ASTRA_REGISTRY_DIR, else "
                          "../astra-registry. Passed explicitly, a directory that holds no "

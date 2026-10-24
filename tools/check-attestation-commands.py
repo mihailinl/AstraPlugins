@@ -93,7 +93,8 @@ SELF = {"tools/check-attestation-commands.py", "tools/test_attestation_commands.
 EXEMPT: dict[str, tuple[str, str]] = {
     path: (
         "<file> --repo you/dice-roller",
-        "generated in Astra (astra-rs/tools/proto-slice) and held byte-identical "
+        "generated in Astra (tools/proto-slice; astra-rs/tools/proto-slice through "
+        "v0.2.7) and held byte-identical "
         "here by tools/check-proto.sh and proto-upstream; the comment describes "
         "the string the daemon builds for `verify_command`, so the fix is the "
         "daemon's, and syncing it makes this exemption stale",
