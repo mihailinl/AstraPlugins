@@ -28,6 +28,30 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [0.5.1] — unreleased
+
+Additions only, so the patch slot ([`docs/en/versioning.md`](../docs/en/versioning.md)).
+
+### Added
+
+- **The UI Kit matches Astra 0.2.7.** `astra-plugin new` vendors the kit's
+  declarations into `frontend/vendor/astra-plugin-ui/`, and they were the
+  0.2.6-era snapshot. A frontend typed against them could not use what the
+  0.2.7 runtime renders. The snapshot is now Astra `489bb03be`:
+  - `Select` takes `variant: "described"`, `width` (`"longest" | "content" | "full"`)
+    and `title`;
+  - an option takes `description`, `badge` and `tone: "warning"`;
+  - `SelectLayout` is new;
+  - the theme exposes `--control-focus` and `--link`.
+  Nothing was removed or renamed.
+- **`init-ci` keeps an author's `wake-registry:` choice.** The reusable
+  `plugin-release.yml` now has a `notify` job. Once a public release is out, it
+  sends the registry one `author.wake`, so the registry takes the tag up at its
+  next run instead of when it next polls. Before, a tag could wait up to
+  30 minutes, and a public release once had no submission 21 hours later.
+  `init-ci` pins the workflow by commit and rewrites that pin. It now carries
+  over a `wake-registry: false` the author set, and never adds the key itself.
+
 ## [0.5.0] — 2026-10-16
 
 Release B of the registry's cutover: `publish` opens the panel for everybody.
