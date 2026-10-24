@@ -180,6 +180,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # The daemon tree's own-checkout rule, shared with tools/check-registry-mirrors.py's C35.
 from checkouts import (  # noqa: E402  (sys.path is set above)
     astra_dir,
+    checkout_top,
     daemon_checkout_top,
     daemon_ref_paths,
 )
