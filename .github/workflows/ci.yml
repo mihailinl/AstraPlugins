@@ -97,8 +97,9 @@ on:
   # and both of them can break without a commit here:
   #
   #   * the proto slice. `tools/sync-proto.sh` treats proto/plugin.proto as
-  #     canonical and propagates it inward; the hop OUT of
-  #     astra-rs/astra-proto/generated/plugin.proto into this repo is a manual
+  #     canonical and propagates it inward; the hop OUT of Astra's
+  #     astra-proto/generated/plugin.proto (astra-rs/astra-proto/generated/
+  #     plugin.proto through v0.2.7) into this repo is a manual
   #     `cp`. `gen-proto-lock.sh --check` and the byte-for-byte regeneration
   #     below catch a stale copy — and only in full mode.
   #   * spec/{limits,wire}.yaml -> the daemon. The `couplings` job runs
@@ -576,7 +577,7 @@ jobs:
           astra.proto, confirm it is byte-identical to proto/plugin.proto, and
           rewrite proto/ASTRA_PROTO.lock. Two ways, same code:
 
-              tools/gen-proto-lock.sh --astra-dir ../Astra/astra-rs
+              tools/gen-proto-lock.sh --astra-dir ../Astra
 
           from a maintainer's checkout, or re-run this job with the token, which
           runs that script with --check.
@@ -613,8 +614,9 @@ jobs:
       # ── full mode ────────────────────────────────────────────────────────
       #
       # `ref` is a repository variable, not a hard-coded branch. The slicer
-      # (`astra-rs/tools/proto-slice`) and the surface file it reads land in
-      # Astra on `feat/plugin-production` and reach `main` only when that merges
+      # (`tools/proto-slice`, `astra-rs/tools/proto-slice` through v0.2.7) and
+      # the surface file it reads land in Astra on `feat/plugin-production`
+      # and reach `main` only when that merges
       # — so between the two events, a checkout pinned to `main` gives this job
       # a tree with no slicer in it. Set `vars.ASTRA_REF` to the branch during
       # that window and DELETE the variable once it is on main; the default is
@@ -633,6 +635,26 @@ jobs:
           # The slicer reads astra.proto and plugin-surface.toml only; no history
           # is needed and the repo is large.
           fetch-depth: 1
+
+      # Astra c703cabb6 (2026-10-23), "Flatten astra-rs/ into the repository
+      # root" — confirmed final, nothing else is moving — put every file this
+      # job reads at the top of the checkout instead of under astra-rs/.
+      # `vars.ASTRA_REF` can still name a ref from before that commit (a
+      # release branch, or a maintainer testing against an old tag), so the
+      # layout is a fact about the CHECKOUT, decided once, here, rather than
+      # assumed by every later step. `ASTRA_ROOT` is exported for the rest of
+      # this job; nothing after this step repeats the `-d astra-rs` test.
+      - name: locate the daemon's tree in that checkout
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          if [ -d "_astra/astra-rs" ]; then
+            root="_astra/astra-rs"
+          else
+            root="_astra"
+          fi
+          echo "ASTRA_ROOT=$root" >> "$GITHUB_ENV"
+          echo "the daemon's tree is at $root"
 
       # C22 below reads a RELEASE — `git show <newest v* tag>:<path>` — and the
       # checkout above brings no tags. That is why C22 has never once read one:
@@ -679,8 +701,8 @@ jobs:
         if: env.MODE == 'full'
         run: |
           set -euo pipefail
-          (cd _astra/astra-rs/astra-ui && bun install --frozen-lockfile)
-          node tools/sync-ui-kit.mjs --check --astra-dir _astra/astra-rs \
+          (cd "$ASTRA_ROOT/astra-ui" && bun install --frozen-lockfile)
+          node tools/sync-ui-kit.mjs --check --astra-dir "$ASTRA_ROOT" \
             --astra-ref "$(git -C _astra rev-parse HEAD)" --plugins-ref "$(git rev-parse HEAD)"
 
       - name: fetch Astra's release tags (C22 reads the newest one)
@@ -707,17 +729,18 @@ jobs:
         run: |
           set -euo pipefail
           ref="$ASTRA_REF"
-          for p in astra-rs/tools/proto-slice/Cargo.toml \
-                   astra-rs/astra-proto/plugin-surface.toml \
-                   astra-rs/astra-proto/src/astra.proto; do
-            [ -f "_astra/$p" ] || {
-              echo "FAIL Astra@$ref has no $p" >&2
+          for p in tools/proto-slice/Cargo.toml \
+                   astra-proto/plugin-surface.toml \
+                   astra-proto/src/astra.proto; do
+            [ -f "$ASTRA_ROOT/$p" ] || {
+              echo "FAIL Astra@$ref has no $p under $ASTRA_ROOT" >&2
               cat >&2 <<MSG
 
           proto/plugin.proto is CUT from Astra's astra.proto by
-          astra-rs/tools/proto-slice, using astra-proto/plugin-surface.toml as
-          the list of what crosses the boundary. This job regenerates that slice
-          and diffs it, so both files must exist in the Astra ref it checks out.
+          tools/proto-slice (astra-rs/tools/proto-slice through v0.2.7), using
+          astra-proto/plugin-surface.toml as the list of what crosses the
+          boundary. This job regenerates that slice and diffs it, so both
+          files must exist in the Astra ref it checks out.
 
           Checked out: mihailinl/Astra@$ref
           If the slicer is not on that branch yet, set the repository variable
@@ -780,10 +803,12 @@ jobs:
       # through `env` and never through `${{ }}` interpolated into the script,
       # for the reason the slicer step above states at length.
       #
-      # C22 reads tags from `_astra` only while `_astra/astra-rs` is the
-      # top-level `astra-rs/` of `_astra`'s own checkout. An `_astra` without its
-      # `.git` sits inside this checkout, whose tags C22 once read as Astra's;
-      # it is now exit 2, by name (entry 115; `couplings` proves it on fixtures).
+      # C22 reads tags from `_astra` only while `$ASTRA_ROOT` is the top-level
+      # of `_astra`'s own checkout (flat, since Astra's 2026-10-23 flatten) or
+      # its `astra-rs/` (nested, every ref through v0.2.7) — `daemon_checkout_top`
+      # in tools/checkouts.py tries both. An `_astra` without its `.git` sits
+      # inside this checkout, whose tags C22 once read as Astra's; it is now
+      # exit 2, by name (entry 115; `couplings` proves it on fixtures).
       - name: C12, C22 (full) the vocabulary, and whether the scaffold's flip is due
         if: env.MODE == 'full'
         env:
@@ -791,7 +816,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/check-locales.py --rules C12,C22 --require C22 \
-            --astra-dir _astra/astra-rs --astra-ref "origin/${ASTRA_REF}"
+            --astra-dir "$ASTRA_ROOT" --astra-ref "origin/${ASTRA_REF}"
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary, and C22 read a real release tag
           MSG
@@ -812,7 +837,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: env.MODE == 'full'
         with:
-          workspaces: _astra/astra-rs/tools/proto-slice
+          workspaces: ${{ env.ASTRA_ROOT }}/tools/proto-slice
           key: proto-slice
 
       # The slicer's `--stdout` regenerates the slice in memory, so this compares
@@ -831,7 +856,7 @@ jobs:
       # cannot disagree about the file's contents.
       - name: the slice is current, and so is proto/ASTRA_PROTO.lock
         if: env.MODE == 'full'
-        run: bash tools/gen-proto-lock.sh --astra-dir _astra/astra-rs --check
+        run: bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check
 
       # C1 with the other half attached. The `couplings` job runs
       # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the
@@ -849,7 +874,7 @@ jobs:
       - name: C1 (full) spec/{limits,wire}.yaml == the daemon's mirror
         if: env.MODE == 'full'
         env:
-          ASTRA_RS_DIR: _astra/astra-rs
+          ASTRA_RS_DIR: ${{ env.ASTRA_ROOT }}
         run: |
           set -euo pipefail
           node tools/gen-limits.mjs --check
@@ -868,7 +893,7 @@ jobs:
       # cannot see its other half is worse than no rule.
       - name: parity R5, R6 (daemon_calls provenance, permission gates)
         if: env.MODE == 'full'
-        run: python3 tools/parity/check.py --rules R5,R6 --astra-dir _astra/astra-rs
+        run: python3 tools/parity/check.py --rules R5,R6 --astra-dir "$ASTRA_ROOT"
 
       # `plugin.toml` has exactly one definition, and the CLI's copy of it is
       # byte-identical to Astra's.
@@ -920,8 +945,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import pathlib, sys
-          p = pathlib.Path("_astra/astra-rs/astra-daemon/src/plugins/manifest.rs")
+          import os, pathlib, sys
+          p = pathlib.Path(os.environ["ASTRA_ROOT"]) / "astra-daemon/src/plugins/manifest.rs"
           text = p.read_text()
           if "pub use astra_plugin_manifest::" not in text:
               print("FAIL the daemon's plugins/manifest.rs no longer re-exports", file=sys.stderr)
@@ -1008,16 +1033,17 @@ jobs:
       # itself: from #53 until entry 108's fix it printed `HEAD unknown: not a
       # git checkout` on the daemon line of every run of this step, and the
       # step was green over it, because a label is not an input and nothing
-      # compared it with anything. `_astra/astra-rs` is a directory inside the
-      # Astra checkout, never a checkout's top, and the rule had been taught
-      # only the registry's layout. So the step holds each label to the commit
-      # it checked out: a checkout path that moves, or a label rule that
-      # changes, goes red here instead of blank.
+      # compared it with anything. Through v0.2.7, `_astra/astra-rs` was a
+      # directory inside the Astra checkout, never a checkout's top; since
+      # Astra's 2026-10-23 flatten, `_astra` IS the top (`daemon_checkout_top`
+      # in tools/checkouts.py tries both). So the step holds each label to the
+      # commit it checked out: a checkout path that moves, or a label rule
+      # that changes, goes red here instead of blank.
       - name: C35 (full) C32's EMITTED and the daemon's CATALOGUE_ICON_FILES are astra-registry's ICON_FORMATS
         if: env.MODE == 'full'
         run: |
           set -euo pipefail
-          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry --astra-dir _astra/astra-rs \
+          python3 tools/check-registry-mirrors.py --rules C35 --registry-dir _registry --astra-dir "$ASTRA_ROOT" \
             | tee "$RUNNER_TEMP/c35.txt"
           # `--git-dir`, not `-C`: `-C` searches upward, and a checkout that lost
           # its `.git` would be answered for by this repository, which is the
@@ -1085,10 +1111,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import pathlib, re, sys
+          import os, pathlib, re, sys
 
           SPEC = pathlib.Path("spec/icon-formats.yaml")
-          UI = pathlib.Path("_astra/astra-rs/astra-ui/src/lib/listingMedia.ts")
+          UI = pathlib.Path(os.environ["ASTRA_ROOT"]) / "astra-ui/src/lib/listingMedia.ts"
 
           # FLOOR. A guard that reaches nothing must not be able to print PASS, and the
           # cheapest way to reach nothing here is a parser that quietly stops understanding
@@ -3464,7 +3490,9 @@ jobs:
       - name: C14, C20 (in-repo legs) the docs locales, and the listing caps parse and name their sources; proto-upstream compares them
         run: python3 tools/check-locales.py --rules C14,C20
 
-      # C22 and C35 read Astra's `astra-rs/`, and both ask git about it. In
+      # C22 and C35 read Astra's daemon tree — flat at the checkout's own top
+      # since Astra's 2026-10-23 flatten (c703cabb6), under `astra-rs/` on
+      # every ref through v0.2.7 — and both ask git about it. In
       # `proto-upstream` Astra is checked out INSIDE this repository, at
       # `_astra`, and `git -C` searches upward: an `_astra` that lost its `.git`
       # is answered for by this checkout. For C35 that was a label naming the
@@ -3474,8 +3502,10 @@ jobs:
       # `astra-rs/` nested inside another Astra checkout read that checkout's
       # tags and went green (entry 115, both measured on fixtures).
       #
-      # `tools/checkouts.py` is now the one rule both call: the tree must be the
-      # top-level `astra-rs/` of its own checkout. This proves it end to end on
+      # `tools/checkouts.py` is now the one rule both call: the tree must be
+      # the top of its own checkout (flat) or its top-level `astra-rs/`
+      # (nested) — `daemon_checkout_top` tries both, so a ref on either side
+      # of the flatten is held to the same rule. This proves it end to end on
       # fixtures, because the case exists nowhere else — no run of
       # `proto-upstream` has had an `_astra` without its `.git` — and it needs
       # no Astra and no token, so it runs here, on every pull request.

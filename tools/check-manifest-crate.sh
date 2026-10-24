@@ -101,8 +101,14 @@ VENDORED="$REPO_ROOT/astra-plugin-cli/vendor/astra-plugin-manifest"
 
 # Where Astra is checked out. Sibling of this repository unless told otherwise.
 ASTRA_REPO="${ASTRA_REPO:-$(cd -- "$REPO_ROOT/.." && pwd)/Astra}"
-# The crate's path INSIDE that repository, at whatever ref we end up reading.
-UPSTREAM_REL="astra-rs/astra-plugin-manifest"
+# The crate's path INSIDE that repository, at whatever ref we end up reading —
+# AT THE TOP since Astra c703cabb6 (2026-10-23), "Flatten astra-rs/ into the
+# repository root" (confirmed final); one level down, under astra-rs/, on
+# every tag through v0.2.7. A REF's layout depends on which side of that
+# commit it is on, never on whatever the checkout's own HEAD happens to be —
+# `resolve_upstream_rel` below picks per read, not once for the whole script.
+UPSTREAM_REL_FLAT="astra-plugin-manifest"
+UPSTREAM_REL_NESTED="astra-rs/astra-plugin-manifest"
 ASTRA_REF="${ASTRA_REF:-origin/main}"
 
 SYNC_CMD="tools/check-manifest-crate.sh --sync"
@@ -150,7 +156,7 @@ if [ ! -d "$VENDORED" ]; then
     exit 1
 fi
 
-if [ ! -d "$ASTRA_REPO/$UPSTREAM_REL" ]; then
+if [ ! -d "$ASTRA_REPO/$UPSTREAM_REL_FLAT" ] && [ ! -d "$ASTRA_REPO/$UPSTREAM_REL_NESTED" ]; then
     printf 'check-manifest-crate: SKIP the Astra checkout is not at %s.\n' "$ASTRA_REPO"
     printf '                           `plugin.toml` is defined in Astra and vendored here; without\n'
     printf '                           that checkout there is nothing to compare against. Set\n'
@@ -164,9 +170,18 @@ fi
 # WHICH bytes that directory holds, and the answer is printed either way, because
 # the whole defect this section exists for was a comparison whose input nobody
 # had looked at. See the header.
-WORKTREE_CRATE="$ASTRA_REPO/$UPSTREAM_REL"
-
 git_astra() { git -C "$ASTRA_REPO" "$@"; }
+
+# The disk-based guess: whichever shape is actually there right now. Correct
+# for ASTRA_REF=worktree (which reads this same working tree) and for section
+# 0 above; a NAMED ref re-resolves this for itself below, because a ref's own
+# layout — not the checkout's current HEAD — is what decides it there.
+if [ -d "$ASTRA_REPO/$UPSTREAM_REL_FLAT" ]; then
+    UPSTREAM_REL="$UPSTREAM_REL_FLAT"
+else
+    UPSTREAM_REL="$UPSTREAM_REL_NESTED"
+fi
+WORKTREE_CRATE="$ASTRA_REPO/$UPSTREAM_REL"
 
 # Whether `$ASTRA_REPO` is a git checkout OF ITS OWN — the top of the work tree
 # git finds for it — and not merely a directory INSIDE some other repository.
@@ -259,6 +274,20 @@ else
         exit 1
     fi
 
+    # Which shape THIS ref holds — never the checkout's current HEAD, which is
+    # `_astra_dir`/`astra_dir`'s question, not this one. `origin/main` is flat
+    # (Astra c703cabb6, 2026-10-23, "Flatten astra-rs/ into the repository
+    # root") and `v0.2.7` is nested, in the very same checkout; the disk-based
+    # guess from section 0b is only ever right by coincidence here.
+    if git_astra cat-file -e "$ref_sha:$UPSTREAM_REL_FLAT" 2>/dev/null; then
+        UPSTREAM_REL="$UPSTREAM_REL_FLAT"
+    elif git_astra cat-file -e "$ref_sha:$UPSTREAM_REL_NESTED" 2>/dev/null; then
+        UPSTREAM_REL="$UPSTREAM_REL_NESTED"
+    fi
+    # Neither existing falls through with the disk-based guess still in
+    # place, so the ls-tree check right below fails and names it — the
+    # correct failure either way: this ref carries the crate at neither path.
+
     # Materialised from the object database, so the index, the worktree and the
     # branch the checkout sits on are all out of the picture.
     UPSTREAM="$TMPROOT/upstream"
@@ -270,8 +299,9 @@ else
     # whose reach shrank to exactly what it already knew about.
     tracked="$(git_astra ls-tree -r --name-only "$ref_sha" -- "$UPSTREAM_REL/" || true)"
     if [ -z "$tracked" ]; then
-        printf 'check-manifest-crate: FAIL %s carries no %s.\n' "$ASTRA_REF" "$UPSTREAM_REL" >&2
-        printf '                           Either the crate moved upstream (re-point UPSTREAM_REL) or\n' >&2
+        printf 'check-manifest-crate: FAIL %s carries no %s or %s.\n' \
+            "$ASTRA_REF" "$UPSTREAM_REL_FLAT" "$UPSTREAM_REL_NESTED" >&2
+        printf '                           Either the crate moved upstream (re-point UPSTREAM_REL_FLAT) or\n' >&2
         printf '                           this ref predates it.\n' >&2
         exit 1
     fi
@@ -342,8 +372,16 @@ if [ "$ASTRA_REF" = "worktree" ]; then
             "fix:  git -C '$ASTRA_REPO' fetch origin && git -C '$ASTRA_REPO' status"
             "or:   drop ASTRA_REF=worktree and let this script read origin/main directly"
         )
+        # origin/main's OWN layout, never the disk-based guess: that guess is
+        # this checkout's HEAD, which ASTRA_REF=worktree exists precisely
+        # because it differs from origin/main.
+        if git_astra cat-file -e "$third_sha:$UPSTREAM_REL_FLAT" 2>/dev/null; then
+            third_rel="$UPSTREAM_REL_FLAT"
+        else
+            third_rel="$UPSTREAM_REL_NESTED"
+        fi
         third_bytes() {
-            git_astra show "$third_sha:$UPSTREAM_REL/$1" > "$2" 2>/dev/null
+            git_astra show "$third_sha:$third_rel/$1" > "$2" 2>/dev/null
         }
     else
         third_bytes() { return 1; }
