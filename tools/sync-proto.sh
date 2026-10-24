@@ -4,7 +4,8 @@
 # cannot reach out of, and re-pin proto/PROTO_VERSION.
 #
 # There is exactly one protocol file in this repo: proto/plugin.proto. It is
-# generated in the Astra repo by astra-rs/tools/proto-slice and copied here; do
+# generated in the Astra repo by tools/proto-slice (astra-rs/tools/proto-slice
+# through v0.2.7) and copied here; do
 # not hand-edit it, and do not hand-edit the vendored copies this script writes.
 #
 # Why copies exist at all — packaging, and nothing else:

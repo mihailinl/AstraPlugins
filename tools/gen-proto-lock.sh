@@ -3,8 +3,8 @@
 # gen-proto-lock.sh — compare proto/plugin.proto against the daemon's astra.proto
 #                     and write proto/ASTRA_PROTO.lock from what it found.
 #
-#   tools/gen-proto-lock.sh --astra-dir ../Astra/astra-rs            # write
-#   tools/gen-proto-lock.sh --astra-dir _astra/astra-rs --check      # verify only
+#   tools/gen-proto-lock.sh --astra-dir ../Astra                     # write
+#   tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check        # verify only
 #
 # ── what the lock is for ───────────────────────────────────────────────────
 #
@@ -56,11 +56,14 @@ check_only=0
 
 usage() {
     cat <<'USAGE'
-usage: tools/gen-proto-lock.sh --astra-dir <path-to-astra-rs> [--check]
+usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check]
 
-  --astra-dir <path>  an Astra checkout's astra-rs/ directory. It must carry
-                      tools/proto-slice, astra-proto/plugin-surface.toml and
-                      astra-proto/src/astra.proto.
+  --astra-dir <path>  the daemon's tree: the top of a flat Astra checkout
+                      (since 2026-10-23), or its astra-rs/ directory on a
+                      checkout still at v0.2.7 or earlier. Either way it must
+                      carry tools/proto-slice, astra-proto/plugin-surface.toml
+                      and astra-proto/src/astra.proto directly. The caller
+                      resolves which shape it is — this script does not guess.
   --check             do not write; fail if proto/ASTRA_PROTO.lock differs from
                       what this run would have written.
 
@@ -126,9 +129,10 @@ for p in "$SLICER" "$SURFACE" "$ASTRA_PROTO"; do
 gen-proto-lock: FAIL $p does not exist.
 
 $PROTO_REL is CUT from Astra's astra-proto/src/astra.proto by
-astra-rs/tools/proto-slice, using astra-proto/plugin-surface.toml as the list of
-what crosses the plugin boundary. This script regenerates that slice and diffs
-it, so all three files must exist in the checkout it is pointed at.
+tools/proto-slice (astra-rs/tools/proto-slice on a checkout at v0.2.7 or
+earlier), using astra-proto/plugin-surface.toml as the list of what crosses
+the plugin boundary. This script regenerates that slice and diffs it, so all
+three files must exist directly under the directory --astra-dir names.
 
 Looked in: $astra_dir
 If the slicer is not on that branch yet, check out the branch carrying it
@@ -154,7 +158,8 @@ if ! cmp -s "$tmp/upstream-plugin.proto" "$REPO_ROOT/$PROTO_REL"; then
     cat >&2 <<'MSG'
 
 Fix in the Astra repo, never here:
-    cargo run --manifest-path astra-rs/tools/proto-slice/Cargo.toml
+    cargo run --manifest-path tools/proto-slice/Cargo.toml
+    (astra-rs/tools/proto-slice/Cargo.toml on a checkout at v0.2.7 or earlier)
 then copy astra-proto/generated/plugin.proto to AstraPlugins/proto/plugin.proto
 and run tools/sync-proto.sh.
 MSG

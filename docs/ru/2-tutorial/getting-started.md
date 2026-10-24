@@ -145,9 +145,9 @@ dice-roller/
 
 | Язык | Заготовка закрепляет | Опубликовано |
 |---|---|---|
-| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.3 |
-| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.3 |
-| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.2 |
+| Rust | `astra-plugin-sdk = "0.7"` | crates.io 0.7.4 |
+| Python | `astra-plugin-sdk>=0.6,<0.7` | PyPI 0.6.4 |
+| TypeScript | `"astra-plugin-sdk": "^0.7.0"` | npm 0.7.3 |
 
 Это разрешается из реестров пакетов, так что `cargo build`, `pip install -r
 requirements.txt` и `bun install` работают в свежем проекте без какой-либо

@@ -366,6 +366,24 @@ jobs:
           token: ${{ secrets.ASTRA_REPO_TOKEN }}
           path: _astra
           fetch-depth: 1
+
+      # Astra c703cabb6 (2026-10-23), "Flatten astra-rs/ into the repository
+      # root" — confirmed final — put every file this job reads at the top
+      # of the checkout instead of under astra-rs/. `vars.ASTRA_REF` can
+      # still name a ref from before that commit, so the layout is a fact
+      # about THIS checkout, decided once, here — see the same step in
+      # ci.yml. `ASTRA_ROOT` is exported for the rest of this job.
+      - name: locate the daemon's tree in that checkout
+        run: |
+          set -euo pipefail
+          if [ -d "_astra/astra-rs" ]; then
+            root="_astra/astra-rs"
+          else
+            root="_astra"
+          fi
+          echo "ASTRA_ROOT=$root" >> "$GITHUB_ENV"
+          echo "the daemon's tree is at $root"
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: arduino/setup-protoc@v3
         with:
@@ -383,14 +401,14 @@ jobs:
         run: |
           set -euo pipefail
           ref="$ASTRA_REF"
-          for p in astra-rs/tools/proto-slice/Cargo.toml \
-                   astra-rs/astra-proto/plugin-surface.toml \
-                   astra-rs/astra-proto/src/astra.proto; do
-            [ -f "_astra/$p" ] || {
-              echo "FAIL mihailinl/Astra@$ref has no $p" >&2
+          for p in tools/proto-slice/Cargo.toml \
+                   astra-proto/plugin-surface.toml \
+                   astra-proto/src/astra.proto; do
+            [ -f "$ASTRA_ROOT/$p" ] || {
+              echo "FAIL mihailinl/Astra@$ref has no $p under $ASTRA_ROOT" >&2
               echo "     This gate regenerates proto/plugin.proto from Astra's astra.proto." >&2
               echo "     Set the repository variable ASTRA_REF to the branch carrying" >&2
-              echo "     astra-rs/tools/proto-slice, and delete it once that has merged." >&2
+              echo "     tools/proto-slice, and delete it once that has merged." >&2
               exit 1
             }
           done
@@ -400,7 +418,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo run --quiet \
-            --manifest-path _astra/astra-rs/tools/proto-slice/Cargo.toml \
+            --manifest-path "$ASTRA_ROOT/tools/proto-slice/Cargo.toml" \
             -- --stdout > /tmp/upstream-plugin.proto
           if ! cmp -s /tmp/upstream-plugin.proto proto/plugin.proto; then
             echo "FAIL proto/plugin.proto is not what the daemon's proto slices to." >&2
@@ -410,7 +428,7 @@ jobs:
           echo "ok   proto/plugin.proto == the regenerated slice"
 
       - name: parity R5 (daemon_calls provenance)
-        run: python3 tools/parity/check.py --rules R5 --astra-dir _astra/astra-rs
+        run: python3 tools/parity/check.py --rules R5 --astra-dir "$ASTRA_ROOT"
 
   # ══ GATE 4 ═════════════════════════════════════════════════════════════════
   parity:

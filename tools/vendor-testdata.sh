@@ -23,7 +23,10 @@
 #
 # ── where the copies go ────────────────────────────────────────────────────
 #
-#   Astra          astra-rs/astra-daemon/testdata/bundles/
+#   Astra          astra-daemon/testdata/bundles/, at the checkout's top since
+#                  Astra's 2026-10-23 flatten (c703cabb6); astra-rs/astra-daemon/
+#                  testdata/bundles/ on a checkout still at v0.2.7 or earlier.
+#                  Whichever of the two `$astra_repo/astra-rs` existing picks.
 #   astra-registry tests/vectors/
 #
 # Both repos are found beside this one by default. Override with
@@ -40,7 +43,11 @@ siblings="$(cd -- "$here/.." && pwd)"
 astra_repo="${ASTRA_REPO:-$siblings/Astra}"
 registry_repo="${ASTRA_REGISTRY_REPO:-$siblings/astra-registry}"
 
-astra_dest="$astra_repo/astra-rs/astra-daemon/testdata/bundles"
+if [ -d "$astra_repo/astra-rs" ]; then
+  astra_dest="$astra_repo/astra-rs/astra-daemon/testdata/bundles"
+else
+  astra_dest="$astra_repo/astra-daemon/testdata/bundles"
+fi
 registry_dest="$registry_repo/tests/vectors"
 
 check_only=0
