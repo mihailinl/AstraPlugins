@@ -28,7 +28,7 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
-## [0.5.1] — unreleased
+## [0.5.1] — 2026-10-25
 
 Additions only, so the patch slot ([`docs/en/versioning.md`](../docs/en/versioning.md)).
 
