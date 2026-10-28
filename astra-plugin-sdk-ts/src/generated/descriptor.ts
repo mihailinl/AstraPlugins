@@ -2343,6 +2343,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "Empty",
               "responseType": "Empty"
             },
+            "StartWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
+            },
+            "GetWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
+            },
+            "StopWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
+            },
             "GetOutputDevices": {
               "requestType": "Empty",
               "responseType": "OutputDeviceListResponse"
@@ -2563,6 +2575,63 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "problemKey": {
               "type": "string",
               "id": 6
+            }
+          }
+        },
+        "WakeWordProbeStatus": {
+          "fields": {
+            "recording": {
+              "type": "bool",
+              "id": 1
+            },
+            "transcribing": {
+              "type": "bool",
+              "id": 2
+            },
+            "finished": {
+              "type": "bool",
+              "id": 3
+            },
+            "remainingMs": {
+              "type": "uint32",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint32",
+              "id": 5
+            },
+            "heard": {
+              "rule": "repeated",
+              "type": "WakeWordHeard",
+              "id": 6
+            },
+            "unclear": {
+              "type": "uint32",
+              "id": 7
+            },
+            "processedRms": {
+              "type": "float",
+              "id": 8
+            },
+            "problemKey": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "WakeWordHeard": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "count": {
+              "type": "uint32",
+              "id": 2
+            },
+            "recognized": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -5034,6 +5103,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "VoiceSettings": {
+          "oneofs": {
+            "_echoCancellation": {
+              "oneof": [
+                "echoCancellation"
+              ]
+            }
+          },
           "fields": {
             "sttModel": {
               "type": "string",
@@ -5159,6 +5235,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "audioDuckingLevel": {
               "type": "int32",
               "id": 28
+            },
+            "echoCancellation": {
+              "type": "bool",
+              "id": 33,
+              "options": {
+                "proto3_optional": true
+              }
             }
           },
           "reserved": [
@@ -7105,6 +7188,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "configSource": {
               "type": "string",
               "id": 5
+            },
+            "requiresSttProvider": {
+              "type": "string",
+              "id": 6
             }
           }
         },
@@ -9215,6 +9302,15 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "initialPrompt": {
               "type": "string",
               "id": 2
+            },
+            "hotwords": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "hotwordBoost": {
+              "type": "float",
+              "id": 4
             }
           }
         },

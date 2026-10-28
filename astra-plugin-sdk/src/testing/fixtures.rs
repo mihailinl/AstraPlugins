@@ -92,10 +92,15 @@ pub fn channel_saturating_burst() -> Vec<Vec<u8>> {
 
 /// The per-utterance decoding hints the daemon puts on the first chunk:
 /// a language and the configured wake-word spellings as decoding bias.
+///
+/// `hotwords` / `hotword_boost` stay empty, as a third-party recognizer gets
+/// them: the daemon fills them only for the transcript wake word, which runs
+/// on Astra's own local STT.
 pub fn stt_options() -> SttOptions {
     SttOptions {
         language: "en".into(),
         initial_prompt: "Astra, hey Astra".into(),
+        ..Default::default()
     }
 }
 

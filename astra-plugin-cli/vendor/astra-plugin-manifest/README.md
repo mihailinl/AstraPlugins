@@ -58,7 +58,7 @@ door stays open: if the CLI is ever published to crates.io it will need a
 published dependency anyway, and at that point the vendored copy becomes a
 `version = "…"` line and `check-manifest-crate.sh` is deleted.
 
-**Direction of the copy is one-way.** `Astra/astra-rs/astra-plugin-manifest` is
+**Direction of the copy is one-way.** `Astra/astra-plugin-manifest` is
 the source. Edit it there; run the sync; never the reverse.
 
 ## The one intentional difference between the copies
