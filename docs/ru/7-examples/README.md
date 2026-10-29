@@ -41,6 +41,8 @@
 
 | | Язык | Возможности | Почему именно этот |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | Plugin UI Kit: все элементы управления Astra на странице и в разделе настроек. **Начинайте с него, если нужен интерфейс** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | Карточка на «Главной» из деталей виджета Kit, со своими настройками и всплывающей поверхностью |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`, `dom_access` | Кошка, летающая по окну и что-то говорящая. Наименьший полный UI-вклад |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`, `dom_access` | Анимация *Bad Apple!!* в четырёх режимах отрисовки. Поставляет собственные данные кадров; см. её `SETUP.md` |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`, `dom_access` | Страница с Doom, работающая на WebAssembly-движке. Самое крайнее, чем может быть UI-вклад |

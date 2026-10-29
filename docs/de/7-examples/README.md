@@ -42,6 +42,8 @@ Diese führen Code im Astra-Fenster aus. Sie sind der Grund, warum
 
 | | Sprache | Capabilities | Warum dieses |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | Das Plugin UI Kit: alle Steuerelemente von Astra auf einer Seite und in einem Einstellungsabschnitt. **Hier beginnen, wenn Sie eine Oberfläche brauchen** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | Eine Karte im Home-Raster aus den Widget-Teilen des Kits, mit eigenen Einstellungen und einer Pop-up-Oberfläche |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`, `dom_access` | Eine Katze, die durchs Fenster fliegt und Dinge sagt. Die kleinste vollständige UI-Contribution |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`, `dom_access` | Die *Bad Apple!!*-Animation in vier Render-Modi. Liefert eigene Frame-Daten mit; siehe die `SETUP.md` |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`, `dom_access` | Eine Doom-Seite, die eine WebAssembly-Engine ausführt. Das Extremste, was eine UI-Contribution sein kann |

@@ -43,7 +43,7 @@ Nutze @astra/plugin-ui/build: Der Adapter leitet UI-, React-, ReactDOM- und JSX-
 
 API v1 behält Exportnamen und Signaturen; das Aussehen folgt Astra. Menüs und Modals normaler Seiten bleiben im iframe; Widget-Select/Tooltip und deklarierte Oberflächen rendert der Host außerhalb der Karte. Eigene Oberflächen und alte Plugins bleiben unterstützt. Prüfe Select in Modal, Escape, Fokusrückgabe, Paletten, schmale Frames und Glas in echten Tauri/Windows- und Electron/Linux-Fenstern, auch im installierten Offline-Bundle.
 
-Die Mindestversion im Snapshot benennt den vorbereiteten Astra-Build mit Kit; {{MIN_ASTRA_VERSION}} ist noch unveröffentlicht. CLI 0.5.0 ebenfalls. Bezeichne beide nicht als bereits ausgeliefert.
+Erfordert Astra {{MIN_ASTRA_VERSION}} oder neuer und CLI 0.5.1 oder neuer (`cargo install astra-plugin-cli`). In einem älteren Astra zeigt das Template statt der Steuerelemente einen Hinweis zum Aktualisieren.
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
@@ -56,7 +56,7 @@ Das Aussehen ist Astras Graphite: Clay-Flächen (mattiert, wenn Glass eingeschal
 
 ## Desktop widgets (development contract)
 
-Das `desktop-widget`-Template verwendet dieses Kit in den Clay-Karten und Oberflächen des Hosts. Die [vollständige Anleitung](desktop-widgets.md) beschreibt exakte SDK-Felder, Wert-Callbacks, `context.params`, Rückgabe-Token, den vom Host geöffneten Einstellungsentwurf und schreibgeschützte Vorschauen. Verwenden Sie passende bereitgestellte CLI/SDK-Artefakte; diese Funktionen sind noch nicht veröffentlicht. Bauen Sie die Kartenfläche aus `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` und `WidgetPlateButton` — der Anatomie von Astras eigenen Widgets; der Rahmen ist ihr Größencontainer `desktop-widget`.
+Das `desktop-widget`-Template verwendet dieses Kit in den Clay-Karten und Oberflächen des Hosts. Die [vollständige Anleitung](desktop-widgets.md) beschreibt exakte SDK-Felder, Wert-Callbacks, `context.params`, Rückgabe-Token, den vom Host geöffneten Einstellungsentwurf und schreibgeschützte Vorschauen. Widgets sind in Astra {{MIN_ASTRA_VERSION}} enthalten; die veröffentlichten SDKs (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) und CLI 0.5.1 unterstützen sie. Bauen Sie die Kartenfläche aus `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` und `WidgetPlateButton` — der Anatomie von Astras eigenen Widgets; der Rahmen ist ihr Größencontainer `desktop-widget`.
 
 ## Shared scrollbars
 

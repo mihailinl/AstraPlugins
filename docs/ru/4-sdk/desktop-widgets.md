@@ -5,7 +5,7 @@
 
 Виджеты размещает пользователь в сетке «Главной». Используйте существующую capability `ui_contributions` и слот `desktop.widget`; новое разрешение и `dom_access` не нужны. Astra рисует clay-карточку, её край, шрифт и всплывающие поверхности, управляет размещением. Плагин создаёт прозрачное содержимое. Оверлей остаётся отдельной системой.
 
-Контракт пока не выпущен. Используйте предоставленные для вашей сборки Astra артефакты CLI и SDK: пакет из реестра с таким же номером версии может ещё не содержать эти возможности. Чтобы собрать публичный репозиторий инструментов, выполните `cargo build --release --manifest-path astra-plugin-cli/Cargo.toml` (нужны Rust и protoc) и используйте полученный бинарный файл. Исходники самой Astra для этого не нужны.
+Виджеты рабочего стола входят в Astra 0.2.7. Нужны CLI 0.5.1 или новее (`cargo install astra-plugin-cli`) и опубликованные SDK — Rust `astra-plugin-sdk` 0.7.4, Python 0.6.4, TypeScript 0.7.3 или новее. `astra-plugin new my-widget --template desktop-widget` создаёт работающий виджет.
 
 <!-- doctest: cli -->
 ```bash
@@ -19,7 +19,7 @@ astra-plugin new my-counter-react --lang rust --template desktop-widget --ui rea
 
 ## Подключите совместимый SDK
 
-Для локальной невыпущенной сборки замените зависимость из реестра в шаблоне предоставленным артефактом SDK. Rust: укажите `astra-plugin-sdk = { path = "<relative-sdk-directory>" }` в Cargo.toml или подключите предоставленный vendored crate. Python: установите wheel SDK или его каталог в отдельное окружение и согласуйте requirements с этим артефактом. TypeScript: укажите `"astra-plugin-sdk": "file:<relative-sdk-directory-or-tgz>"` и установите зависимости; каталог исходников SDK сначала требует своего `bun run build`, создающего dist. Это входы сборки, а не пути, необходимые установленному плагину.
+Шаблон уже зависит от опубликованного SDK. Только чтобы попробовать невыпущенное изменение SDK, замените зависимость из реестра в шаблоне локальной сборкой SDK. Rust: укажите `astra-plugin-sdk = { path = "<relative-sdk-directory>" }` в Cargo.toml или подключите предоставленный vendored crate. Python: установите wheel SDK или его каталог в отдельное окружение и согласуйте requirements с этим артефактом. TypeScript: укажите `"astra-plugin-sdk": "file:<relative-sdk-directory-or-tgz>"` и установите зависимости; каталог исходников SDK сначала требует своего `bun run build`, создающего dist. Это входы сборки, а не пути, необходимые установленному плагину.
 
 Для React установите зависимости в `frontend/` командой `bun install --frozen-lockfile`, независимо от языка backend. Используйте `@astra/plugin-ui/build`, не включайте вторую копию React. Готовый Rust backend или собранный в bundle TypeScript backend не требует каталога исходников SDK на машине получателя. Для Python нужны объявленный интерпретатор и установленные runtime-зависимости SDK; его исходники не включаются в bundle автоматически.
 

@@ -43,7 +43,7 @@ render();
 
 API v1 зберігає назви експортів і сигнатури; оформлення оновлюється з Astra. Меню/модальні вікна звичайних сторінок залишаються в iframe; Select/Tooltip віджета та оголошені поверхні малює host за межами картки. Власні інтерфейси та старі плагіни підтримуються. Перевіряйте Select у Modal, Escape, повернення фокуса, палітри, вузькі iframe та скло у справжніх вікнах Tauri/Windows і Electron/Linux, включно зі встановленим bundle без мережі.
 
-Мінімальна версія snapshot указує підготовлену збірку Astra з Kit; {{MIN_ASTRA_VERSION}} ще не випущено. CLI 0.5.0 також не випущено. Не називайте їх уже поставленими.
+Потрібна Astra {{MIN_ASTRA_VERSION}} або новіша та CLI 0.5.1 або новіший (`cargo install astra-plugin-cli`). У старішій Astra шаблон замість елементів керування показує прохання оновитися.
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
@@ -56,7 +56,7 @@ Contribution у `settings.custom`, `ai.custom` або `voice.custom` стає с
 
 ## Desktop widgets (development contract)
 
-Шаблон `desktop-widget` використовує цей Kit у clay-картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Використовуйте надані сумісні артефакти CLI/SDK; можливості ще не випущені. Лицьовий бік картки складайте з `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` і `WidgetPlateButton` — з них побудовано вбудовані віджети Astra; рамка є для них контейнером розмірів `desktop-widget`.
+Шаблон `desktop-widget` використовує цей Kit у clay-картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Віджети входять до Astra {{MIN_ASTRA_VERSION}}; їх підтримують опубліковані SDK (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) і CLI 0.5.1. Лицьовий бік картки складайте з `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` і `WidgetPlateButton` — з них побудовано вбудовані віджети Astra; рамка є для них контейнером розмірів `desktop-widget`.
 
 ## Shared scrollbars
 

@@ -497,6 +497,28 @@ push してもあなたのプラグインは公開されませんし、たった
 [CI でリリースする](../5-publish/release-with-ci.md) ·
 [リストに掲載してもらう](../5-publish/get-listed.md)
 
+## UI を追加する
+
+プラグインのページ、設定のセクション、ホームのカードは、独自のボタン・入力欄・リストを描画すべきではありません。Astra 0.2.7 以降、すべてのプラグインが **Plugin UI Kit** を使えます。Astra 自身が使うコントロールで、CSS を書かなくてもユーザーの言語・パレット・ガラス設定に従います。CLI 0.5.1 以降が必要です。
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+フロントエンドはバックエンドに依存しません。`--lang python` や `--lang typescript` を付けても UI は同じです。ページでは Kit の読み込みを待ってからコントロールをマウントします。
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+すべてのコンポーネントは [Plugin UI Kit ガイド](../4-sdk/ui-kit.md) に、ウィジェットは [デスクトップウィジェット](../4-sdk/desktop-widgets.md) にあります。独自の HTML と CSS も使えますが、Kit にないものだけにしてください。
+
 ## Python での同じもの
 
 <!-- doctest: cli -->

@@ -41,6 +41,8 @@ que [el sideload no tiene techo de permisos](../5-publish/sideload.md):
 
 | | Lenguaje | Capabilities | Por qué este |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | El Plugin UI Kit: todos los controles de Astra en una página y en una sección de Ajustes. **Empieza aquí si necesitas interfaz** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | Una tarjeta en la cuadrícula de Inicio hecha con las piezas de widget del Kit, con sus propios ajustes y una superficie emergente |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`, `dom_access` | Un gato que vuela por la ventana y dice cosas. La contribución de UI completa más pequeña |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`, `dom_access` | La animación de *Bad Apple!!* en cuatro modos de renderizado. Incluye sus propios datos de frames; ver su `SETUP.md` |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`, `dom_access` | Una página de Doom ejecutando un motor de WebAssembly. Lo más extremo que puede ser una contribución de UI |

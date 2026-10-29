@@ -466,6 +466,28 @@ from here to a listed plugin, with every command and its expected output. The
 tier pages behind it: [Release with CI](../5-publish/release-with-ci.md) ·
 [Get listed](../5-publish/get-listed.md)
 
+## Give it a UI
+
+A plugin page, a section in Settings or a card on the Home grid should not draw its own buttons, inputs and lists. Since Astra 0.2.7 every plugin can use the **Plugin UI Kit**: the controls Astra itself uses, which follow the user's language, palette and Glass setting with no CSS from you. You need CLI 0.5.1 or later.
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+The frontend does not depend on the backend: add `--lang python` or `--lang typescript` and the UI stays the same. Inside the page, wait for the Kit, then mount its controls:
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+The [Plugin UI Kit guide](../4-sdk/ui-kit.md) lists every component, and [Desktop widgets](../4-sdk/desktop-widgets.md) covers widgets. Your own HTML and CSS are still allowed, but only for what the Kit has no control for.
+
 ## The same thing in Python
 
 <!-- doctest: cli -->

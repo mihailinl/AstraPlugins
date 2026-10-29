@@ -496,6 +496,28 @@ seiner erwarteten Ausgabe. Die Stufenseiten dahinter:
 [Mit CI veröffentlichen](../5-publish/release-with-ci.md) ·
 [Gelistet werden](../5-publish/get-listed.md)
 
+## Eine Oberfläche hinzufügen
+
+Eine Plugin-Seite, ein Abschnitt in den Einstellungen oder eine Karte im Home-Raster sollte keine eigenen Buttons, Eingabefelder und Listen zeichnen. Seit Astra 0.2.7 kann jedes Plugin das **Plugin UI Kit** verwenden: die Steuerelemente, die Astra selbst nutzt. Sie folgen Sprache, Palette und Glas-Einstellung des Nutzers ohne eigenes CSS. Benötigt wird CLI 0.5.1 oder neuer.
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+Das Frontend hängt nicht vom Backend ab: Mit `--lang python` oder `--lang typescript` bleibt die Oberfläche gleich. Warten Sie auf der Seite auf das Kit und binden Sie dann seine Steuerelemente ein:
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+Die [Anleitung zum Plugin UI Kit](../4-sdk/ui-kit.md) listet alle Komponenten auf, [Desktop-Widgets](../4-sdk/desktop-widgets.md) beschreibt Widgets. Eigenes HTML und CSS ist weiterhin erlaubt, aber nur für das, wofür das Kit kein Steuerelement hat.
+
 ## Dasselbe in Python
 
 <!-- doctest: cli -->

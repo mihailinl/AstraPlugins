@@ -38,6 +38,8 @@ cannot be developed any other way.
 
 | | Language | Capabilities | Why this one |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | The Plugin UI Kit: every control Astra uses, in a page and a Settings section. **Start here for any UI** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | A card on the Home grid built from the Kit's widget parts, with its own settings and a pop-up surface |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`, `dom_access` | A cat that flies around the window and says things. The smallest complete UI contribution |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`, `dom_access` | The *Bad Apple!!* animation in four render modes. Ships its own frame data; see its `SETUP.md` |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`, `dom_access` | A Doom page running a WebAssembly engine. The most extreme thing a UI contribution can be |

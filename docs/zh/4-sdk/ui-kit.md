@@ -43,7 +43,7 @@ render();
 
 API v1 保持导出名和签名，外观随 Astra 更新。普通页面的菜单和模态框保留在 iframe 内；小组件的 Select/Tooltip 与声明的浮动界面由主机在卡片外渲染。自定义界面和旧插件仍受支持。在真实 Tauri/Windows 和 Electron/Linux 窗口中检查 Modal 内的 Select、Escape、焦点恢复、调色板、窄 iframe 与玻璃效果，并在离线安装的 bundle 中重复检查。
 
-Snapshot 的最低版本指向含 Kit 的待发布 Astra 构建。0.2.7 与 CLI 0.5.0 尚未发布，不应描述为已经交付。
+需要 Astra 0.2.7 或更高版本，以及 CLI 0.5.1 或更高版本（`cargo install astra-plugin-cli`）。在较旧的 Astra 中，模板会显示更新提示，而不是控件。
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
@@ -56,7 +56,7 @@ Snapshot 的最低版本指向含 Kit 的待发布 Astra 构建。0.2.7 与 CLI 
 
 ## Desktop widgets (development contract)
 
-`desktop-widget` 模板在主机黏土（clay）卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。请使用提供的匹配 CLI/SDK 构建产物；这些功能尚未发布。 请用 `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter` 和 `WidgetPlateButton` 组成卡片正面——这正是 Astra 自带小组件的结构；框架即它们的尺寸容器 `desktop-widget`。
+`desktop-widget` 模板在主机黏土（clay）卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。小组件已包含在 Astra 0.2.7 中；已发布的 SDK（Rust 0.7.4、Python 0.6.4、TypeScript 0.7.3）和 CLI 0.5.1 均支持。 请用 `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter` 和 `WidgetPlateButton` 组成卡片正面——这正是 Astra 自带小组件的结构；框架即它们的尺寸容器 `desktop-widget`。
 
 ## Shared scrollbars
 
