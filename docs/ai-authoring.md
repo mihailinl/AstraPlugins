@@ -54,7 +54,7 @@ table. A public branch can be ahead of or behind that build. Compare its
 manifest and hooks with the build information in the copied assignment.
 If a needed capability or hook is absent from the public docs, obtain the
 matching checkout or the build's offline instructions before implementing it.
-Do not guess based on another capability. For unreleased desktop widgets, use the supplied matching CLI and SDK artifacts rather than assuming a registry version contains the feature. The [widget guide](en/4-sdk/desktop-widgets.md) provides local dependency setup, exact modules in all SDKs and compiled Kit props; runtime source is not needed for authoring. In particular, a local development
+Do not guess based on another capability. For any page, settings section or desktop widget, use the Plugin UI Kit (`astra.loadUi`, scaffolded by `astra-plugin new --template ui` or `--template desktop-widget`, CLI 0.5.1+, Astra 0.2.7+) instead of hand-drawn controls; the published SDKs (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) include widgets. The [widget guide](en/4-sdk/desktop-widgets.md) provides local dependency setup, exact modules in all SDKs and compiled Kit props; runtime source is not needed for authoring. In particular, a local development
 build may expose wake-word support before this page is published.
 
 ## 3. Build and prove it

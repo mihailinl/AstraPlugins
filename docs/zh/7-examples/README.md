@@ -41,6 +41,8 @@
 
 | | 语言 | 能力 | 为什么读这个 |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | Plugin UI Kit：在页面和设置分区中使用 Astra 的全部控件。**需要界面时从这里开始** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | 用 Kit 的小组件部件构成的主页卡片，带自己的设置和弹出界面 |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`、`dom_access` | 一只在窗口里飞来飞去说话的猫。最小的完整 UI 贡献 |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`、`dom_access` | 四种渲染模式下的《Bad Apple!!》动画。自带帧数据；参见它的 `SETUP.md` |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`、`dom_access` | 一个运行 WebAssembly 引擎的 Doom 页面。一个 UI 贡献所能达到的最极端形态 |

@@ -7,7 +7,7 @@ Die vollständigen, überprüfbaren Beispiele stehen auf dieser Seite. Ausführl
 
 Desktop widgets are user-placed cards on Astra’s Home grid. Use the existing capability `ui_contributions` and slot `desktop.widget`; no new permission or `dom_access` is needed. Astra renders the clay card, its edge, fonts, placement and floating surfaces. The plugin renders transparent content. The overlay remains separate.
 
-This contract is unreleased. Use the development CLI and SDK artifacts supplied for your Astra build; do not assume a registry package with the same version contains it. If building the public authoring checkout, run `cargo build --release --manifest-path astra-plugin-cli/Cargo.toml` (Rust and protoc required), then use that binary. You do not need Astra’s private source.
+Desktop widgets ship in Astra 0.2.7. Use CLI 0.5.1 or later (`cargo install astra-plugin-cli`) and the published SDKs — Rust `astra-plugin-sdk` 0.7.4, Python 0.6.4, TypeScript 0.7.3, or later. `astra-plugin new my-widget --template desktop-widget` creates a working widget.
 
 <!-- doctest: cli -->
 ```bash
@@ -23,7 +23,7 @@ Manifest metadata has an English base: write plugin.description in English; list
 
 Die vollständigen, überprüfbaren Beispiele stehen auf dieser Seite. Ausführliche Erläuterungen sind in der [englischen](../../en/4-sdk/desktop-widgets.md) und [russischen Anleitung](../../ru/4-sdk/desktop-widgets.md) verfügbar.
 
-For an unreleased local build, replace the scaffold’s registry dependency with the supplied matching artifact. Rust: set `astra-plugin-sdk = { path = "<relative-sdk-directory>" }` in Cargo.toml, or use the supplied vendored crate. Python: install the supplied SDK wheel or directory into an isolated environment and align requirements with it. TypeScript: use `"astra-plugin-sdk": "file:<relative-sdk-directory-or-tgz>"`, then install; a source SDK directory needs its own `bun run build` first to generate dist. These are build inputs, not installed-plugin paths.
+The scaffold already depends on the published SDK. Only to try an unreleased SDK change, replace the scaffold’s registry dependency with a local build of it. Rust: set `astra-plugin-sdk = { path = "<relative-sdk-directory>" }` in Cargo.toml, or use the supplied vendored crate. Python: install the supplied SDK wheel or directory into an isolated environment and align requirements with it. TypeScript: use `"astra-plugin-sdk": "file:<relative-sdk-directory-or-tgz>"`, then install; a source SDK directory needs its own `bun run build` first to generate dist. These are build inputs, not installed-plugin paths.
 
 For React, install `frontend/` dependencies with `bun install --frozen-lockfile`, for every backend. The frontend uses `@astra/plugin-ui/build`; do not bundle a second React. A built Rust or bundled TypeScript backend does not require an SDK source checkout on the receiving machine. Python needs the declared interpreter and installed runtime SDK dependencies; do not claim the SDK source directory is bundled automatically.
 

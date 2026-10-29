@@ -43,7 +43,7 @@ render();
 
 API v1 のエクスポート名とシグネチャは維持され、外観は Astra と更新されます。通常ページのメニューとモーダルは iframe 内にあります。ウィジェットの Select/Tooltip と宣言済みサーフェスはカードの外でホストが描画します。独自 UI と既存プラグインも利用できます。Tauri/Windows と Electron/Linux の実際のウィンドウで、Modal 内の Select、Escape、フォーカス復帰、パレット、狭い iframe、ガラスを確認し、ネットワークなしのインストール済み bundle でも繰り返します。
 
-Snapshot の最低バージョンは Kit を含む準備中の Astra ビルドです。{{MIN_ASTRA_VERSION}} と CLI 0.5.0 は未公開です。配布済みと記述しないでください。
+Astra {{MIN_ASTRA_VERSION}} 以降と CLI 0.5.1 以降が必要です（`cargo install astra-plugin-cli`）。古い Astra では、テンプレートはコントロールの代わりに更新を促すメッセージを表示します。
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
@@ -56,7 +56,7 @@ Snapshot の最低バージョンは Kit を含む準備中の Astra ビルド�
 
 ## Desktop widgets (development contract)
 
-`desktop-widget` テンプレートはホストのクレイ（clay）カードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。対応する提供済み CLI/SDK を使用してください。これらは未公開です。 カードの表面は `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter`、`WidgetPlateButton` で組み立ててください。Astra 自身のウィジェットと同じ構成で、枠がそのサイズコンテナ `desktop-widget` になります。
+`desktop-widget` テンプレートはホストのクレイ（clay）カードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。ウィジェットは Astra {{MIN_ASTRA_VERSION}} に含まれ、公開済みの SDK（Rust 0.7.4、Python 0.6.4、TypeScript 0.7.3）と CLI 0.5.1 が対応しています。 カードの表面は `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter`、`WidgetPlateButton` で組み立ててください。Astra 自身のウィジェットと同じ構成で、枠がそのサイズコンテナ `desktop-widget` になります。
 
 ## Shared scrollbars
 

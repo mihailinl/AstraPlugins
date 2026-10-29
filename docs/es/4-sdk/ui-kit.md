@@ -43,7 +43,7 @@ Usa @astra/plugin-ui/build: el adaptador redirige UI, React, ReactDOM y JSX a ru
 
 API v1 conserva nombres y firmas; el aspecto evoluciona con Astra. Los menús/modales de páginas normales quedan en el iframe; Select/Tooltip y las superficies declaradas del widget se dibujan en el host fuera de la tarjeta. Se admiten interfaces propias y plugins antiguos. Prueba Select dentro de Modal, Escape, retorno del foco, paletas, frames estrechos y vidrio en ventanas reales de Tauri/Windows y Electron/Linux, incluido el bundle instalado sin red.
 
-La versión mínima del snapshot identifica el build preparado de Astra con Kit; 0.2.7 aún no está publicado. CLI 0.5.0 tampoco. No los describas como ya distribuidos.
+Requiere Astra 0.2.7 o posterior y CLI 0.5.1 o posterior (`cargo install astra-plugin-cli`). En un Astra anterior, la plantilla muestra un aviso de actualización en lugar de los controles.
 
 [Showcase](../../../examples/ui-kit-showcase/README.md) · [CLI](../reference/cli.md)
 
@@ -56,7 +56,7 @@ El aspecto es el Graphite de Astra: superficies de arcilla (esmeriladas si el us
 
 ## Desktop widgets (development contract)
 
-La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de arcilla (clay) del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Use los artefactos CLI/SDK compatibles proporcionados; estas funciones todavía no están publicadas. Construya la cara de la tarjeta con `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` y `WidgetPlateButton`, la anatomía de los widgets propios de Astra; el marco es su contenedor de tamaño `desktop-widget`.
+La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de arcilla (clay) del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Los widgets vienen en Astra 0.2.7; los SDK publicados (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) y CLI 0.5.1 los admiten. Construya la cara de la tarjeta con `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` y `WidgetPlateButton`, la anatomía de los widgets propios de Astra; el marco es su contenedor de tamaño `desktop-widget`.
 
 ## Shared scrollbars
 

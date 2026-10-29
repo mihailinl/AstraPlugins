@@ -463,6 +463,28 @@ astra-plugin init-ci --binding <token>
 [用 CI 发布](../5-publish/release-with-ci.md) ·
 [申请上架](../5-publish/get-listed.md)
 
+## 添加界面
+
+插件页面、设置中的分区或主页网格上的卡片不应自己绘制按钮、输入框和列表。从 Astra 0.2.7 起，所有插件都可以使用 **Plugin UI Kit**：即 Astra 自身使用的控件，无需编写 CSS 就会跟随用户的语言、配色和玻璃效果设置。需要 CLI 0.5.1 或更高版本。
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+前端与后端无关：加上 `--lang python` 或 `--lang typescript`，界面保持不变。在页面中先等待 Kit 加载，再挂载其控件：
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+[Plugin UI Kit 指南](../4-sdk/ui-kit.md) 列出了全部组件，[桌面小组件](../4-sdk/desktop-widgets.md) 介绍小组件。仍然可以使用自己的 HTML 和 CSS，但只用于 Kit 中没有的控件。
+
 ## 用 Python 做同样的事
 
 <!-- doctest: cli -->

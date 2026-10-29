@@ -484,6 +484,28 @@ GitHub не публикует ваш плагин, и отправка кому
 Страницы по ступеням за ней: [релиз через CI](../5-publish/release-with-ci.md) ·
 [попасть в каталог](../5-publish/get-listed.md)
 
+## Добавьте интерфейс
+
+Страница плагина, раздел в настройках или карточка на «Главной» не должны рисовать свои кнопки, поля и списки. Начиная с Astra 0.2.7 любой плагин может использовать **Plugin UI Kit** — те же элементы управления, что и в самой Astra. Они сами следуют языку, палитре и настройке «Стекло» пользователя, без вашего CSS. Нужен CLI 0.5.1 или новее.
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+Интерфейс не зависит от языка бэкенда: добавьте `--lang python` или `--lang typescript`, и UI останется тем же. На странице дождитесь Kit и смонтируйте его элементы:
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+В [руководстве по Plugin UI Kit](../4-sdk/ui-kit.md) перечислены все компоненты, а [виджеты рабочего стола](../4-sdk/desktop-widgets.md) описаны отдельно. Свои HTML и CSS по-прежнему можно использовать, но только там, где в Kit нет подходящего элемента.
+
 ## То же самое на Python
 
 <!-- doctest: cli -->

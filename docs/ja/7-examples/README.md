@@ -44,6 +44,8 @@ SDK で利用可能です。
 
 | | 言語 | ケーパビリティ | これを読む理由 |
 |---|---|---|---|
+| [`ui-kit-showcase`](../../../examples/ui-kit-showcase/) | TypeScript | `ui_contributions` | Plugin UI Kit：Astra のすべてのコントロールをページと設定セクションで使う例。**UI が必要ならここから始めてください** |
+| [`desktop-widget`](../../../examples/desktop-widget/) | Rust | `ui_contributions` | Kit のウィジェット部品で作るホームのカード。独自の設定とポップアップを持つ |
 | [`companion`](../../../examples/companion/) | Rust | `ui_contributions`、`dom_access` | ウィンドウの周りを飛び回って何か言う猫。最小の完全な UI コントリビューション |
 | [`bad-apple`](../../../examples/bad-apple/) | Rust | `ui_contributions`、`dom_access` | 4 つのレンダリングモードによる *Bad Apple!!* アニメーション。独自のフレームデータを出荷します; `SETUP.md` を参照してください |
 | [`doom`](../../../examples/doom/) | Rust | `ui_contributions`、`dom_access` | WebAssembly エンジンを実行する Doom ページ。UI コントリビューションが取り得る最も極端な形です |

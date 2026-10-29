@@ -481,6 +481,28 @@ astra-plugin init-ci --binding <token>
 [реліз через CI](../5-publish/release-with-ci.md) ·
 [потрапити до каталогу](../5-publish/get-listed.md)
 
+## Додайте інтерфейс
+
+Сторінка плагіна, розділ у налаштуваннях або картка на «Головній» не повинні малювати власні кнопки, поля та списки. Починаючи з Astra 0.2.7 будь-який плагін може використовувати **Plugin UI Kit** — ті самі елементи керування, що й у самій Astra. Вони самі підлаштовуються під мову, палітру та налаштування «Скло» користувача, без вашого CSS. Потрібен CLI 0.5.1 або новіший.
+
+<!-- doctest: illustrative reason="scaffold commands for UI plugins; the tool scaffold in step 2 is the one this page runs" -->
+```bash
+astra-plugin new my-panel --template ui                # vanilla JavaScript frontend
+astra-plugin new my-panel --template ui --ui react     # React frontend
+astra-plugin new my-widget --template desktop-widget   # a card on the Home grid
+```
+
+Інтерфейс не залежить від мови бекенду: додайте `--lang python` або `--lang typescript`, і UI залишиться тим самим. На сторінці дочекайтеся Kit і змонтуйте його елементи:
+
+<!-- doctest: illustrative reason="runs only inside the Astra window, where the host provides astra.loadUi" -->
+```js
+const ui = await astra.loadUi({apiVersion: 1});
+ui.mount(document.getElementById('app'),
+  ui.h(ui.Button, {onClick: () => console.log('clicked')}, 'Hello'));
+```
+
+У [посібнику з Plugin UI Kit](../4-sdk/ui-kit.md) перелічено всі компоненти, а [віджети робочого столу](../4-sdk/desktop-widgets.md) описано окремо. Власні HTML і CSS усе ще можна використовувати, але лише там, де в Kit немає потрібного елемента.
+
 ## Те саме на Python
 
 <!-- doctest: cli -->
