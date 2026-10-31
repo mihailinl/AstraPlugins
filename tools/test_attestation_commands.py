@@ -86,6 +86,7 @@ class TheBugsTree(unittest.TestCase):
             "docs/en/5-publish/release-with-ci.md",
             "docs/en/install-cli.md",
             "docs/zh/publishing.md",
+            "templates/gi-release.yml",
         ):
             self.assertIn(must, seen)
 
@@ -139,6 +140,81 @@ class NearMisses(unittest.TestCase):
 
     def test_no_value(self):
         self.red("gh attestation verify x.astraplugin --repo you/x --signer-workflow", "has no value")
+
+
+class SelfSigningTemplates(unittest.TestCase):
+    """templates/gi-release.yml (spec/games, lane S) is copied into an AUTHOR's
+    own repository and becomes their own top-level workflow — the opposite
+    shape from plugin-release.yml/release-cli.yml, which stay here and sign on
+    a caller's behalf. `${GITHUB_WORKFLOW_REF%@*}` self-identifies whichever
+    workflow is actually running, which for a copied template IS the signer.
+    Each test below is paired with the near miss it must still catch, so the
+    narrowing (to this one variable, inside templates/ only) is proven to
+    matter rather than merely asserted."""
+
+    SELF_REF = "--signer-workflow ${GITHUB_WORKFLOW_REF%@*}"
+
+    def test_the_self_reference_is_green_inside_templates(self):
+        _, fails = scan({
+            "templates/gi-release.yml": f"gh attestation verify $ASSET --repo ${{GITHUB_REPOSITORY}} {self.SELF_REF}\n"
+        })
+        self.assertEqual(fails, [])
+
+    def test_the_greedy_strip_is_accepted_too(self):
+        _, fails = scan({
+            "templates/gi-release.yml": "gh attestation verify $ASSET --repo ${GITHUB_REPOSITORY} "
+                                         "--signer-workflow ${GITHUB_WORKFLOW_REF%%@*}\n"
+        })
+        self.assertEqual(fails, [])
+
+    def test_the_same_line_outside_templates_is_still_the_original_bug(self):
+        """Proves the rule is narrowed to templates/, not to the variable: the
+        exact same command, one directory up, must still be refused -- a
+        plugin-facing page that copied this trick would be the original bug
+        wearing the new flag."""
+        _, fails = scan({
+            "README.md": f"```bash\ngh attestation verify $ASSET --repo ${{GITHUB_REPOSITORY}} {self.SELF_REF}\n```\n"
+        })
+        self.assertEqual(len(fails), 1, fails)
+        self.assertIn("is the CALLER", fails[0])
+
+    def test_the_unstripped_variable_inside_templates_still_fails(self):
+        """GITHUB_WORKFLOW_REF without `%@*` still carries '@ref', which fails
+        even a correctly-pinned literal (the module docstring's own note) --
+        so templates/ does not mean "any self-reference passes", only this
+        one, exact, already-stripped form does."""
+        _, fails = scan({
+            "templates/gi-release.yml": "gh attestation verify $ASSET --repo ${GITHUB_REPOSITORY} "
+                                         "--signer-workflow ${GITHUB_WORKFLOW_REF}\n"
+        })
+        self.assertEqual(len(fails), 1, fails)
+        self.assertIn("is a shell variable", fails[0])
+
+    def test_a_different_variable_inside_templates_still_fails(self):
+        """templates/ is not a blanket exemption: ${GITHUB_REPOSITORY} alone
+        is still the wrong fact (no workflow path at all) even here."""
+        _, fails = scan({
+            "templates/gi-release.yml": "gh attestation verify $ASSET "
+                                         "--signer-workflow ${GITHUB_REPOSITORY}\n"
+        })
+        self.assertEqual(len(fails), 1, fails)
+        self.assertIn("is a shell variable", fails[0])
+
+    def test_this_repositorys_own_template_is_the_real_case(self):
+        """The actual file, not a synthetic stand-in: templates/gi-release.yml
+        as committed must be exactly this shape, so a future edit that
+        reintroduces a bare literal (which no single value could ever name,
+        since every author's repository differs) or drops the flag entirely
+        is caught here, not only by the whole-tree smoke test."""
+        with redirect_stdout(io.StringIO()):
+            cmds, fails = c40.scan(ROOT)
+        taught = [c for c in cmds if c.path == "templates/gi-release.yml"]
+        self.assertEqual(len(taught), 1, [c.text for c in cmds])
+        self.assertEqual(
+            c40.flag_value(taught[0].tokens, "--signer-workflow"),
+            "${GITHUB_WORKFLOW_REF%@*}",
+        )
+        self.assertEqual([f for f in fails if f.startswith("templates/gi-release.yml")], [])
 
 
 class Shapes(unittest.TestCase):

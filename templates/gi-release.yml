@@ -205,7 +205,7 @@ jobs:
           repository and this commit as the source. Verify it yourself:
 
           \`\`\`
-          gh attestation verify $ASSET --repo ${GITHUB_REPOSITORY}
+          gh attestation verify $ASSET --repo ${GITHUB_REPOSITORY} --signer-workflow ${GITHUB_WORKFLOW_REF%@*}
           \`\`\`
 
           An attestation proves where this file came from. It does not prove the
