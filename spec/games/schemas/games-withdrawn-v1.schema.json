@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraplugins.minice.ai/spec/games/schemas/games-withdrawn-v1.schema.json",
+  "title": "astra.games.withdrawn/1",
+  "description": "games-withdrawn-v1.md. The security+revoke pairing rule is cross-field and checked by tools/check-games-goldens.py, not by this schema.",
+  "type": "object",
+  "required": ["schema", "serial", "issued_at", "expires_at", "key_id", "rows"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "astra.games.withdrawn/1" },
+    "serial": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
+    "key_id": { "enum": ["games-current", "games-next"] },
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "required": ["repo_id", "versions", "act", "floor_effect", "reason_code", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "repo_id": { "type": "integer", "minimum": 1 },
+        "versions": { "type": "string", "minLength": 1 },
+        "entry_id": { "type": "string" },
+        "act": { "enum": ["yank", "delist", "deprecate", "revoke"] },
+        "floor_effect": { "enum": ["no-offer", "no-update", "no-play"] },
+        "reason_code": { "enum": ["security", "broken", "author-request", "rights-holder", "policy"] },
+        "reason_text": { "type": "string" },
+        "at": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
