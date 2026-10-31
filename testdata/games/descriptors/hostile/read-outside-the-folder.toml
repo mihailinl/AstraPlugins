@@ -1,0 +1,26 @@
+# Hostile fixture for B§3 row "Read outside the folder".
+# Bound: lookups resolve one path component at a time, refusing a symlink
+# at every step; a probe opens with O_NOFOLLOW|O_NONBLOCK (or Windows'
+# FILE_FLAG_OPEN_REPARSE_POINT) plus a regular-file type check.
+#
+# Every `listed`/`child`/`stat` path below tries to walk upward or sideways
+# out of the matched folder using `..` or a placeholder expansion that
+# would need to -- engine-descriptor-v1.md's grammar (§2.2-§2.4) allows no
+# `..` and no absolute path ANYWHERE, so this fixture is refused at parse
+# time, unlike the others in this directory, which are schema-valid and
+# refused only by evaluation-time checks.
+schema = "astra.engine/1"
+
+[engine]
+codes = { escape-engine = "Escape Engine" }
+
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [
+  { listed = "../../../../etc/passwd", kind = "file" },
+]
+code = "escape-engine"
+confidence = "low"
+binary = "windows"
+evidence = "{project}"

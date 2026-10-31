@@ -1,0 +1,35 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798675200,
+  "issued_at": 1798675200,
+  "expires_at": 1799280000,
+  "key_id": "games-current",
+  "rows": [
+    {
+      "versions": "<=1.1.9",
+      "entry_id": "someone/peak-astra",
+      "act": "revoke",
+      "floor_effect": "no-play",
+      "reason_code": "security",
+      "reason_text": "A dependency pulled in a credential stealer; see advisory GHSA-xxxx.",
+      "at": 1798675100
+    },
+    {
+      "repo_id": 300000003,
+      "versions": "<2.0.0",
+      "act": "yank",
+      "floor_effect": "no-offer",
+      "reason_code": "broken",
+      "reason_text": "Crashes every Unity 2023.x install; fix pending.",
+      "at": 1798675050
+    },
+    {
+      "repo_id": 300000004,
+      "versions": "*",
+      "act": "delist",
+      "floor_effect": "no-offer",
+      "reason_code": "author-request",
+      "at": 1798674900
+    }
+  ]
+}

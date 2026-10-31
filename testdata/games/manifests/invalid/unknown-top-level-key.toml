@@ -1,0 +1,18 @@
+# Invalid: an unknown top-level key. GAME-INTEGRATION-MANIFEST.md §3 and
+# src/manifest.rs's TOP_KEYS refuse this outright, unrelated to any
+# [integration.*] addition -- kept as the control case.
+schema = 1
+
+[integration]
+id = "someone.unknown-top-level"
+name = "Unknown Top Level"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"
+
+[mods]
+loader = "bepinex5"

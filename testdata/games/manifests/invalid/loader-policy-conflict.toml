@@ -1,0 +1,20 @@
+# Invalid: loader-policy-conflict. "dinput8.dll" is listed as both a proxy
+# this foundation hijack-loads and a name its own uninstall should keep if
+# present -- the two lists must be disjoint (manifest.md §2.2).
+schema = 1
+
+[integration]
+id = "someone.conflicting-loader"
+name = "Conflicting Loader Example"
+version = "0.1.0"
+license = "MIT"
+
+[integration.loader]
+proxies = ["dinput8.dll"]
+keep_if_present = ["dinput8.dll"]
+
+[target]
+engine = "source2"
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

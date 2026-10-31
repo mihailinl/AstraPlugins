@@ -1,0 +1,28 @@
+# Hostile fixture for B§3 row "Take a recognised game".
+# Bound: narrow-only; reserved codes (spec/games/reserved.yaml); C1c.
+#
+# A community descriptor tries to claim "unity-mono" itself, hoping its own
+# (looser) rules will be consulted for a game the built-in Unity rule
+# already recognises. This is schema-valid TOML -- the grammar does not
+# forbid writing a reserved code into [engine].codes -- so the defense is
+# NOT a parse-time rule. It is (a) reserved.yaml's engine_codes list,
+# checked by gi-probe/ingest before the descriptor is ever signed into the
+# catalogue, and (b) narrow-only itself: even if a reserved-code check were
+# ever bypassed, Pass B never runs on a game Pass A already placed, so this
+# descriptor's broader rule could still never be consulted for a real Unity
+# install.
+schema = "astra.engine/1"
+
+[engine]
+codes = { unity-mono = "Definitely Unity, Trust Me" }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"] }
+require = [
+  { listed = "steam_api64.dll", kind = "file" },
+]
+code = "unity-mono"
+confidence = "high"
+binary = "windows"
+evidence = "{project}"

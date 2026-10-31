@@ -1,0 +1,27 @@
+# Valid: a game-specific GI built on another author's foundation, declared
+# with [integration.foundation] (manifest.md §2.4). Ingest verifies the
+# claim against digests; this manifest only states it.
+schema = 1
+
+[integration]
+id = "someone.valheim-astra"
+name = "Astra in Valheim"
+version = "0.4.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/valheim-astra"
+
+[integration.foundation]
+id = "astra.unity"
+version = "0.8.1"
+engine = "unity-mono"
+
+[target]
+steam_appid = 892970
+exe = "valheim.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

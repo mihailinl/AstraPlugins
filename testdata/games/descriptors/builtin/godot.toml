@@ -1,0 +1,33 @@
+# The first-party Godot descriptor, expressed as astra.engine/1. Copied
+# from dev/game-integrations-launcher-client-plan.md §1
+# ("builtin/godot.toml -- :565-581, 1036-1053, 1069-1081").
+schema = "astra.engine/1"
+
+[engine]
+codes = { godot = "Godot" }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe", "x86_64", "x86"], skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { listed = "{stem}.pck", kind = "file", as = "pck" },
+]
+code = "godot"
+confidence = "high"
+evidence = "{pck}"
+binary = "by-ext"
+named_alike = true
+
+[[rule]]
+tier = "weak"
+weak_order = 130
+programs = { ext = ["exe", "x86_64", "x86"], at = "", first = 8, skip_wrappers = false }
+require = [
+  { tail = "{program}", bytes = 4, equals = "GDPC", min_len = 12 },
+]
+code = "godot"
+confidence = "low"
+passes = false
+evidence = "{program}"
+binary = "by-ext"
+named_alike = true

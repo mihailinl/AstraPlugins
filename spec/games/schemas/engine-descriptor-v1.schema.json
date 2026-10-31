@@ -41,7 +41,11 @@
     }
   },
   "$defs": {
-    "placeholderString": { "type": "string" },
+    "placeholderString": {
+      "type": "string",
+      "description": "engine-descriptor-v1.md §2.2-§2.4: no '..', no absolute paths. A glob (`*`) is still allowed -- only the anchor rule (§2.4, checked by tools/check-games-goldens.py, not this schema) forbids one in a top-level anchor specifically.",
+      "pattern": "^(?!/)(?!.*\\.\\.).*$"
+    },
 
     "programs": {
       "oneOf": [
@@ -177,7 +181,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "listed": { "type": "string" },
+        "listed": { "$ref": "#/$defs/placeholderString" },
         "hint_stem": { "type": "string" }
       }
     },
@@ -209,7 +213,17 @@
         },
         "version": { "$ref": "#/$defs/version" },
         "bootstrap": { "$ref": "#/$defs/bootstrap" },
-        "pick": { "const": "hint-else-largest" }
+        "pick": { "const": "hint-else-largest" },
+        "anti_cheat": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "engine-descriptor-v1.md §2.7: this rule's OWN anti-cheat marker claims; never affects another rule's matching."
+        },
+        "wrappers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "engine-descriptor-v1.md §2.7: wrapper-shaped names scoped to this rule's own candidate filtering only."
+        }
       }
     }
   }

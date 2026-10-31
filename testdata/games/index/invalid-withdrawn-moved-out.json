@@ -1,0 +1,184 @@
+{
+  "schema": "astra.games.index/1",
+  "serial": 1798675200,
+  "issued_at": 1798675200,
+  "expires_at": 1799280000,
+  "key_id": "games-current",
+  "entries": [
+    {
+      "id": "someone/astra-source2",
+      "kind": "foundation",
+      "publisher": {
+        "account": "someone",
+        "repo_id": 200000001,
+        "repo_owner_id": 100000001
+      },
+      "source": {
+        "host": "github.com",
+        "repo": "someone/astra-source2",
+        "repo_id": 200000001,
+        "repo_owner_id": 100000001,
+        "release_tag": "v0.1.0",
+        "asset": "astra-gi.zip",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "size": 1048576,
+        "commit": "2222222222222222222222222222222222222222",
+        "workflow_path": ".github/workflows/gi-release.yml",
+        "event": "push"
+      },
+      "version": "0.1.0",
+      "schema": 1,
+      "min_astra": "0.2.8",
+      "target": {
+        "exe": "*",
+        "engine": "source2"
+      },
+      "descriptor": {
+        "schema": "astra.engine/1",
+        "engine": {
+          "codes": {
+            "source2": "Source 2"
+          }
+        },
+        "rule": []
+      },
+      "descriptor_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "sdk": null,
+      "foundation": null,
+      "built_on": null,
+      "engine_versions": null,
+      "link": null,
+      "schema_digests": {},
+      "capabilities": [
+        "companion.presentation"
+      ],
+      "shares_other_players": false,
+      "changes": {
+        "profile_files": true,
+        "game_files": [],
+        "launch": false,
+        "config_writes": false
+      },
+      "code_changed": false,
+      "licence": "MIT",
+      "review": "unchecked",
+      "supersedes": [],
+      "flags": [],
+      "notes": {
+        "en": "First release."
+      }
+    },
+    {
+      "id": "someone/peak-astra",
+      "kind": "integration",
+      "publisher": {
+        "account": "someone",
+        "repo_id": 300000001,
+        "repo_owner_id": 100000001
+      },
+      "source": {
+        "host": "github.com",
+        "repo": "someone/peak-astra",
+        "repo_id": 300000001,
+        "repo_owner_id": 100000001,
+        "release_tag": "v1.2.0",
+        "asset": "astra-gi.zip",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "size": 2048576,
+        "commit": "5555555555555555555555555555555555555555",
+        "workflow_path": ".github/workflows/gi-release.yml",
+        "event": "push"
+      },
+      "version": "1.2.0",
+      "schema": 1,
+      "min_astra": "0.2.8",
+      "target": {
+        "store": "steam",
+        "id": 3527290,
+        "exe": "PEAK.exe"
+      },
+      "descriptor": null,
+      "descriptor_sha256": null,
+      "sdk": null,
+      "foundation": {
+        "id": "astra.unity",
+        "version": "0.8.1",
+        "engine": "unity-mono"
+      },
+      "built_on": {
+        "entry": "mihailinl/astra-unity",
+        "version": "0.8.1",
+        "verified": true
+      },
+      "engine_versions": null,
+      "link": {
+        "context": true,
+        "shares_other_players": false,
+        "skill_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "digest": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "schema_digests": {
+        "tools/drop_item.json": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "capabilities": [
+        "companion.presentation"
+      ],
+      "shares_other_players": false,
+      "changes": {
+        "profile_files": true,
+        "game_files": [
+          {
+            "path": "winhttp.dll",
+            "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+            "loader": "allowlisted"
+          }
+        ],
+        "launch": true,
+        "config_writes": true
+      },
+      "code_changed": false,
+      "licence": "MIT",
+      "review": "unchecked",
+      "supersedes": [],
+      "flags": [],
+      "notes": {
+        "en": "First release.",
+        "ru": "\u041f\u0435\u0440\u0432\u044b\u0439 \u0440\u0435\u043b\u0438\u0437."
+      }
+    }
+  ],
+  "games": [
+    {
+      "store": "steam",
+      "id": 3527290,
+      "engine": null,
+      "prefer": [],
+      "deny": [],
+      "refuse": null,
+      "allow_foundations": false,
+      "note": ""
+    }
+  ],
+  "anticheat": [
+    {
+      "name": "Easy Anti-Cheat (extended)",
+      "kind": "folder-marker",
+      "value": "EasyAntiCheat"
+    }
+  ],
+  "loaders": [
+    {
+      "name": "doorstop-winhttp",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "default_enabled": false
+    }
+  ],
+  "engine_codes": {
+    "source2": {
+      "account": "someone",
+      "repo_id": 200000001,
+      "repo_owner_id": 100000001
+    }
+  },
+  "withdrawn": []
+}

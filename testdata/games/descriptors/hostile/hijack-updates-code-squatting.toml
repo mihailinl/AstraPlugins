@@ -1,0 +1,27 @@
+# Hostile fixture for B§3 row "Hijack updates".
+# Bound: ids and repos are owned by the signed envelope's publisher
+# identity, never by entry text (engine-descriptor-v1.md §2.1); squatting
+# entries are dropped (engine-code-taken).
+#
+# tools/check-games-goldens.py pairs this fixture with a second publisher
+# claiming the SAME code "source2" that
+# testdata/games/manifests/valid/foundation-owns-engine.toml already
+# claims (as publisher "someone") -- here claimed again by "another". Both
+# descriptors parse; ingest's engine_codes{} ownership map (games-index-v1.md
+# §2) is what refuses the second claim with engine-code-taken, not the
+# grammar.
+schema = "astra.engine/1"
+
+[engine]
+codes = { source2 = "Source 2 (but mine now)" }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{project}"

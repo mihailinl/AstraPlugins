@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "a": { "type": "string", "maxLength": 8 },
+    "b": { "type": "string", "maxLength": 8 },
+    "c": { "type": "string", "maxLength": 8 },
+    "d": { "type": "string", "maxLength": 8 },
+    "e": { "type": "string", "maxLength": 8 },
+    "f": { "type": "string", "maxLength": 8 },
+    "g": { "type": "string", "maxLength": 8 },
+    "h": { "type": "string", "maxLength": 8 },
+    "i": { "type": "string", "maxLength": 8 }
+  }
+}
