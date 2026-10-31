@@ -648,6 +648,11 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.SetConversationReasoningRequest.SerializeToString,
                 response_deserializer=plugin__pb2.SetConversationReasoningResponse.FromString,
                 _registered_method=True)
+        self.SetConversationMode = channel.unary_unary(
+                '/astra.ChatService/SetConversationMode',
+                request_serializer=plugin__pb2.SetConversationModeRequest.SerializeToString,
+                response_deserializer=plugin__pb2.SetConversationModeResponse.FromString,
+                _registered_method=True)
         self.GetConversationPermissions = channel.unary_unary(
                 '/astra.ChatService/GetConversationPermissions',
                 request_serializer=plugin__pb2.ConversationPermissionsRequest.SerializeToString,
@@ -776,6 +781,17 @@ class ChatServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetConversationMode(self, request, context):
+        """Choose (or clear) the assistant mode a conversation runs in — "fast" or "work". A standing
+        choice, like the reasoning pin and for its reasons; unlike the «Код» binding it may change
+        at any point, because both modes are Astra's own assistant reading the same history.
+        Refused (FAILED_PRECONDITION, `error.assistantMode.notCompiled`) in a build without the
+        `work-mode` feature, and for a «Код» conversation (`error.assistantMode.coding`).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetConversationPermissions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -861,6 +877,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.SetConversationReasoning,
                     request_deserializer=plugin__pb2.SetConversationReasoningRequest.FromString,
                     response_serializer=plugin__pb2.SetConversationReasoningResponse.SerializeToString,
+            ),
+            'SetConversationMode': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetConversationMode,
+                    request_deserializer=plugin__pb2.SetConversationModeRequest.FromString,
+                    response_serializer=plugin__pb2.SetConversationModeResponse.SerializeToString,
             ),
             'GetConversationPermissions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetConversationPermissions,
@@ -1243,6 +1264,33 @@ class ChatService(object):
             _registered_method=True)
 
     @staticmethod
+    def SetConversationMode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/SetConversationMode',
+            plugin__pb2.SetConversationModeRequest.SerializeToString,
+            plugin__pb2.SetConversationModeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetConversationPermissions(request,
             target,
             options=(),
@@ -1369,6 +1417,21 @@ class VoiceServiceStub(object):
                 '/astra.VoiceService/StopMicCheck',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.StartWakeWordProbe = channel.unary_unary(
+                '/astra.VoiceService/StartWakeWordProbe',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.WakeWordProbeStatus.FromString,
+                _registered_method=True)
+        self.GetWakeWordProbe = channel.unary_unary(
+                '/astra.VoiceService/GetWakeWordProbe',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.WakeWordProbeStatus.FromString,
+                _registered_method=True)
+        self.StopWakeWordProbe = channel.unary_unary(
+                '/astra.VoiceService/StopWakeWordProbe',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.WakeWordProbeStatus.FromString,
                 _registered_method=True)
         self.GetOutputDevices = channel.unary_unary(
                 '/astra.VoiceService/GetOutputDevices',
@@ -1620,6 +1683,39 @@ class VoiceServiceServicer(object):
 
     def StopMicCheck(self, request, context):
         """End the check. Leaves listening alone.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartWakeWordProbe(self, request, context):
+        """===== Wake-word probe ("How I hear the word") =====
+        Records the microphone for a few seconds and transcribes every attempt
+        with the local recogniser the transcript wake word uses, so the person
+        sees how Astra hears their word and can add what she heard to the wake
+        words. Nothing reaches the chat and nothing wakes her while it records:
+        a listening session's audio goes to the probe. Like the microphone check
+        it does not change the listening state, and it ends by itself after
+        `WakeWordProbeStatus.duration_ms`. The last result is kept until the
+        next start. Only for the transcript wake-word mode on the local STT;
+        a refusal answers recording = false with an i18n key in problem_key.
+
+        Start recording (or report the probe already running).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWakeWordProbe(self, request, context):
+        """Where the probe is and what it heard. Poll it while it records and
+        transcribes; `recognized` is judged against the wake words saved now.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopWakeWordProbe(self, request, context):
+        """End the recording now; what was said so far is still transcribed.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1957,6 +2053,21 @@ def add_VoiceServiceServicer_to_server(servicer, server):
                     servicer.StopMicCheck,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'StartWakeWordProbe': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartWakeWordProbe,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.WakeWordProbeStatus.SerializeToString,
+            ),
+            'GetWakeWordProbe': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWakeWordProbe,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.WakeWordProbeStatus.SerializeToString,
+            ),
+            'StopWakeWordProbe': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopWakeWordProbe,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.WakeWordProbeStatus.SerializeToString,
             ),
             'GetOutputDevices': grpc.unary_unary_rpc_method_handler(
                     servicer.GetOutputDevices,
@@ -2340,6 +2451,87 @@ class VoiceService(object):
             '/astra.VoiceService/StopMicCheck',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartWakeWordProbe(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/StartWakeWordProbe',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.WakeWordProbeStatus.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWakeWordProbe(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/GetWakeWordProbe',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.WakeWordProbeStatus.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopWakeWordProbe(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.VoiceService/StopWakeWordProbe',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.WakeWordProbeStatus.FromString,
             options,
             channel_credentials,
             insecure,

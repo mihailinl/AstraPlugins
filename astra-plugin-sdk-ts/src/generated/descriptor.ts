@@ -317,6 +317,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "overlayBackend": {
               "type": "string",
               "id": 30
+            },
+            "assistantModesCompiledIn": {
+              "type": "bool",
+              "id": 31
             }
           }
         },
@@ -369,7 +373,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "gamesChanged",
                 "islandPresenceChanged",
                 "clipboardHistoryChanged",
-                "shelfChanged"
+                "shelfChanged",
+                "pluginConfigUpdated",
+                "pttCaptureChanged",
+                "voiceDictated"
               ]
             }
           },
@@ -522,9 +529,33 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "ShelfChangedEvent",
               "id": 41
             },
+            "pluginConfigUpdated": {
+              "type": "PluginConfigUpdatedEvent",
+              "id": 42
+            },
+            "pttCaptureChanged": {
+              "type": "PttCaptureChangedEvent",
+              "id": 43
+            },
+            "voiceDictated": {
+              "type": "VoiceDictatedEvent",
+              "id": 44
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
+            }
+          }
+        },
+        "PttCaptureChangedEvent": {
+          "fields": {
+            "active": {
+              "type": "bool",
+              "id": 1
+            },
+            "captureId": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -736,6 +767,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "VoiceDictatedEvent": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "text": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
         "AuthStatusEvent": {
           "fields": {
             "authenticated": {
@@ -924,6 +967,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "overlayCaptureCount"
               ]
+            },
+            "_target": {
+              "oneof": [
+                "target"
+              ]
             }
           },
           "fields": {
@@ -946,6 +994,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "overlayCaptureCount": {
               "type": "uint32",
               "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "target": {
+              "type": "string",
+              "id": 6,
               "options": {
                 "proto3_optional": true
               }
@@ -1006,6 +1061,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "SetConversationReasoning": {
               "requestType": "SetConversationReasoningRequest",
               "responseType": "SetConversationReasoningResponse"
+            },
+            "SetConversationMode": {
+              "requestType": "SetConversationModeRequest",
+              "responseType": "SetConversationModeResponse"
             },
             "GetConversationPermissions": {
               "requestType": "ConversationPermissionsRequest",
@@ -1126,6 +1185,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         "SetConversationReasoningResponse": {
           "fields": {
             "reasoningEffort": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetConversationModeRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SetConversationModeResponse": {
+          "fields": {
+            "assistantMode": {
               "type": "string",
               "id": 1
             }
@@ -1278,6 +1357,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "isGenerating": {
               "type": "bool",
               "id": 10
+            },
+            "codingAgent": {
+              "type": "string",
+              "id": 11
+            },
+            "codingCwd": {
+              "type": "string",
+              "id": 12
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 13
+            },
+            "handoffFrom": {
+              "type": "string",
+              "id": 14
             }
           }
         },
@@ -1302,6 +1397,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "reasoningEffort": {
               "type": "string",
               "id": 5
+            },
+            "codingAgent": {
+              "type": "string",
+              "id": 6
+            },
+            "codingCwd": {
+              "type": "string",
+              "id": 7
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 8
             }
           }
         },
@@ -1564,7 +1671,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "historyCompacted",
                 "toolPermissionEvaluated",
                 "automationToolTrace",
-                "assistantImage"
+                "assistantImage",
+                "assistantNotice"
               ]
             }
           },
@@ -1680,6 +1788,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "assistantImage": {
               "type": "AssistantImageEvt",
               "id": 33
+            },
+            "assistantNotice": {
+              "type": "AssistantNoticeEvt",
+              "id": 34
+            }
+          }
+        },
+        "AssistantNoticeEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "content": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -1856,6 +1980,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "summary": {
               "type": "string",
               "id": 5
+            },
+            "withinTurn": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
@@ -2298,6 +2426,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "roundsMeasured": {
               "type": "uint32",
               "id": 17
+            },
+            "threadConversationId": {
+              "type": "string",
+              "id": 18
             }
           }
         },
@@ -2342,6 +2474,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "StopMicCheck": {
               "requestType": "Empty",
               "responseType": "Empty"
+            },
+            "StartWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
+            },
+            "GetWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
+            },
+            "StopWakeWordProbe": {
+              "requestType": "Empty",
+              "responseType": "WakeWordProbeStatus"
             },
             "GetOutputDevices": {
               "requestType": "Empty",
@@ -2563,6 +2707,63 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "problemKey": {
               "type": "string",
               "id": 6
+            }
+          }
+        },
+        "WakeWordProbeStatus": {
+          "fields": {
+            "recording": {
+              "type": "bool",
+              "id": 1
+            },
+            "transcribing": {
+              "type": "bool",
+              "id": 2
+            },
+            "finished": {
+              "type": "bool",
+              "id": 3
+            },
+            "remainingMs": {
+              "type": "uint32",
+              "id": 4
+            },
+            "durationMs": {
+              "type": "uint32",
+              "id": 5
+            },
+            "heard": {
+              "rule": "repeated",
+              "type": "WakeWordHeard",
+              "id": 6
+            },
+            "unclear": {
+              "type": "uint32",
+              "id": 7
+            },
+            "processedRms": {
+              "type": "float",
+              "id": 8
+            },
+            "problemKey": {
+              "type": "string",
+              "id": 9
+            }
+          }
+        },
+        "WakeWordHeard": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            },
+            "count": {
+              "type": "uint32",
+              "id": 2
+            },
+            "recognized": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -2892,6 +3093,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "discard": {
               "type": "bool",
               "id": 2
+            },
+            "captureId": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -5034,6 +5239,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           }
         },
         "VoiceSettings": {
+          "oneofs": {
+            "_echoCancellation": {
+              "oneof": [
+                "echoCancellation"
+              ]
+            },
+            "_wakeWordLookback": {
+              "oneof": [
+                "wakeWordLookback"
+              ]
+            }
+          },
           "fields": {
             "sttModel": {
               "type": "string",
@@ -5159,6 +5376,20 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "audioDuckingLevel": {
               "type": "int32",
               "id": 28
+            },
+            "echoCancellation": {
+              "type": "bool",
+              "id": 33,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "wakeWordLookback": {
+              "type": "bool",
+              "id": 34,
+              "options": {
+                "proto3_optional": true
+              }
             }
           },
           "reserved": [
@@ -5188,6 +5419,46 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "_imageModel": {
               "oneof": [
                 "imageModel"
+              ]
+            },
+            "_codingProvider": {
+              "oneof": [
+                "codingProvider"
+              ]
+            },
+            "_codingModel": {
+              "oneof": [
+                "codingModel"
+              ]
+            },
+            "_workProvider": {
+              "oneof": [
+                "workProvider"
+              ]
+            },
+            "_workModel": {
+              "oneof": [
+                "workModel"
+              ]
+            },
+            "_workMaxToolRounds": {
+              "oneof": [
+                "workMaxToolRounds"
+              ]
+            },
+            "_workTurnDeadlineSecs": {
+              "oneof": [
+                "workTurnDeadlineSecs"
+              ]
+            },
+            "_workWorkerProvider": {
+              "oneof": [
+                "workWorkerProvider"
+              ]
+            },
+            "_workWorkerModel": {
+              "oneof": [
+                "workWorkerModel"
               ]
             }
           },
@@ -5303,6 +5574,62 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "imageModel": {
               "type": "string",
               "id": 27,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "codingProvider": {
+              "type": "string",
+              "id": 28,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "codingModel": {
+              "type": "string",
+              "id": 29,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workProvider": {
+              "type": "string",
+              "id": 30,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workModel": {
+              "type": "string",
+              "id": 31,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workMaxToolRounds": {
+              "type": "uint32",
+              "id": 32,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workTurnDeadlineSecs": {
+              "type": "uint64",
+              "id": 33,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workWorkerProvider": {
+              "type": "string",
+              "id": 34,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workWorkerModel": {
+              "type": "string",
+              "id": 35,
               "options": {
                 "proto3_optional": true
               }
@@ -5459,6 +5786,21 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "uiAccent"
               ]
+            },
+            "_islandStyle": {
+              "oneof": [
+                "islandStyle"
+              ]
+            },
+            "_islandPillX": {
+              "oneof": [
+                "islandPillX"
+              ]
+            },
+            "_islandPillY": {
+              "oneof": [
+                "islandPillY"
+              ]
             }
           },
           "fields": {
@@ -5520,6 +5862,27 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "uiAccent": {
               "type": "string",
               "id": 11,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "islandStyle": {
+              "type": "string",
+              "id": 12,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "islandPillX": {
+              "type": "float",
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "islandPillY": {
+              "type": "float",
+              "id": 14,
               "options": {
                 "proto3_optional": true
               }
@@ -7105,6 +7468,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "configSource": {
               "type": "string",
               "id": 5
+            },
+            "requiresSttProvider": {
+              "type": "string",
+              "id": 6
             }
           }
         },
@@ -9215,6 +9582,15 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "initialPrompt": {
               "type": "string",
               "id": 2
+            },
+            "hotwords": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "hotwordBoost": {
+              "type": "float",
+              "id": 4
             }
           }
         },
@@ -10322,6 +10698,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           "fields": {
             "revision": {
               "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "PluginConfigUpdatedEvent": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
               "id": 1
             }
           }

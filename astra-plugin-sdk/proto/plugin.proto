@@ -1,18 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // GENERATED FILE — DO NOT EDIT.
 //
-// The plugin-facing slice of astra-rs/astra-proto/src/astra.proto, cut by
-// astra-rs/tools/proto-slice from the allowlist in
-// astra-rs/astra-proto/plugin-surface.toml.
+// The plugin-facing slice of astra-proto/src/astra.proto, cut by
+// tools/proto-slice from the allowlist in
+// astra-proto/plugin-surface.toml.
 //
 // Edit astra.proto or the surface list, then regenerate:
 //
-//     cargo run --manifest-path astra-rs/tools/proto-slice/Cargo.toml
+//     cargo run --manifest-path tools/proto-slice/Cargo.toml
 //
-// Output: astra-rs/astra-proto/generated/plugin.proto
+// Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 430bfe26f2772071aad485e6fb6272963532bcd87694cf9ea005c84972968656
+// surface-sha256: 18f46f438afa12f64d85a24a157ac202512cad1fc30637d533d25a418e4a2ade
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -313,9 +313,8 @@ message CoreStateResponse {
     // (`GetMoveOffer`) instead of "an update"; its one button is the install.
     string update_edition = 27;
 
-    // Whether this build has the Dynamic Island at all (the `island` build feature). False: the
-    // island is never started. The native Slint overlay still honours the user's hotkey;
-    // overlay_backend selects the common settings and the island-specific rows.
+    // Dynamic Island availability: true in every current build.
+    // Retained with overlay_backend for compatibility with existing clients.
     bool island_compiled_in = 28;
 
     // The legal documents this EDITION links on its site, by their `OpenSitePage` names, in the
@@ -326,9 +325,14 @@ message CoreStateResponse {
     // `edition::Edition::legal_page`, so a name here is always one the daemon can open.
     repeated string legal_pages = 29;
 
-    // Build-selected implementation, independent of the user's overlay enable setting.
-    // "slint" in ordinary builds; "island" only with the explicit island build feature.
+    // Overlay implementation, independent of the user's overlay enable setting.
+    // "island" in every build; retained for client compatibility.
     string overlay_backend = 30;
+
+    // Whether this build offers the assistant's Fast / Work modes (build feature `work-mode`,
+    // `ai::assistant_mode::COMPILED_IN`). False: the composer offers no mode switch, the AI page
+    // no Work model, and every conversation is the one assistant whatever its row says.
+    bool assistant_modes_compiled_in = 31;
 }
 
 enum CoreState {
@@ -403,6 +407,12 @@ message AstraEvent {
         // `ClipboardHistoryChangedEvent`.
         ClipboardHistoryChangedEvent clipboard_history_changed = 40;
         ShelfChangedEvent shelf_changed = 41;
+        // A plugin's [config] was written (its form, its page, or the assistant).
+        PluginConfigUpdatedEvent plugin_config_updated = 42;
+        PttCaptureChangedEvent ptt_capture_changed = 43;
+        // An utterance bound to a «Код» conversation, dictated into its composer
+        // instead of sent. See `VoiceDictatedEvent`.
+        VoiceDictatedEvent voice_dictated = 44;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -420,6 +430,15 @@ message AstraEvent {
     // mints an id the client has never seen, so every capability document the
     // client cached is stale by the ordinary rule.
     string capability_epoch = 28;
+}
+
+// false settles push-to-talk on EVERY outcome: text, silence, failure or a tap.
+// It follows transcription, rather than merely the release of the mic button.
+message PttCaptureChangedEvent {
+    bool active = 1;
+
+    // Echoed from SetPushToTalk; empty for a hotkey / older client.
+    string capture_id = 2;
 }
 
 // An MCP server started, stopped or failed. Reaches clients because an MCP
@@ -622,6 +641,17 @@ message SpeechRecognizedEvent {
     float confidence = 3;
 }
 
+// Speech is never what makes a coding agent act: an utterance whose voice
+// binding names a «Код» conversation starts no turn (a false wake-word accept,
+// a video, a call participant must not edit files). The daemon publishes the
+// words here instead, and the composer of `conversation_id` puts them in front
+// of the person, who sends them — or does not. `text` is what a turn would
+// have carried (the wake word already cut off), unlike `SpeechRecognized`.
+message VoiceDictatedEvent {
+    string conversation_id = 1;
+    string text = 2;
+}
+
 message AuthStatusEvent {
     bool authenticated = 1;
     string user_id = 2;
@@ -738,12 +768,16 @@ message PluginStatusChangedEvent {
 // `request_id` correlates the optional ack reply (ClientControlService).
 message ClientControlRequestEvent {
     string request_id = 1;
-    string kind = 2;  // "hide_overlay" | "restore_overlay"
+    string kind = 2;  // "hide_overlay" | "restore_overlay" | "show_main_window" | "navigate"
     bool ack_required = 3;
     uint32 timeout_ms = 4;
 
     // Present on new daemons: authoritative holds, including stream resync.
     optional uint32 overlay_capture_count = 5;
+
+    // "navigate" only: the place to open, as an astra:// link
+    // ("astra://tab/voice", "astra://settings/updates", "astra://plugin/<id>[/<contribution>]").
+    optional string target = 6;
 }
 
 // ============ Chat Service ============
@@ -803,6 +837,13 @@ service ChatService {
     // without sending a message, and Regenerate/Edit must replay under it.
     rpc SetConversationReasoning(SetConversationReasoningRequest) returns (SetConversationReasoningResponse);
 
+    // Choose (or clear) the assistant mode a conversation runs in — "fast" or "work". A standing
+    // choice, like the reasoning pin and for its reasons; unlike the «Код» binding it may change
+    // at any point, because both modes are Astra's own assistant reading the same history.
+    // Refused (FAILED_PRECONDITION, `error.assistantMode.notCompiled`) in a build without the
+    // `work-mode` feature, and for a «Код» conversation (`error.assistantMode.coding`).
+    rpc SetConversationMode(SetConversationModeRequest) returns (SetConversationModeResponse);
+
     rpc GetConversationPermissions(ConversationPermissionsRequest) returns (ConversationPermissionsResponse);
 
     rpc SetConversationPermissionMode(SetConversationPermissionModeRequest) returns (ConversationPermissionsResponse);
@@ -859,6 +900,20 @@ message SetConversationReasoningResponse {
     // What was actually stored — echoed back so a client never has to guess
     // whether its value survived.
     string reasoning_effort = 1;
+}
+
+message SetConversationModeRequest {
+    string conversation_id = 1;
+
+    // "fast" | "work"; "" clears the choice (the default mode). Anything else is refused
+    // (INVALID_ARGUMENT, `error.assistantMode.unknown`), never coerced.
+    string assistant_mode = 2;
+}
+
+message SetConversationModeResponse {
+    // The mode the conversation's next turn runs in — "fast" or "work", never "" — echoed so a
+    // client shows what is true rather than what it asked for.
+    string assistant_mode = 1;
 }
 
 message ImageAttachment {
@@ -963,6 +1018,24 @@ message Conversation {
     // This lets a freshly opened UI offer Stop even when it missed the turn's
     // AssistantStart event while its process was not running.
     bool is_generating = 10;
+
+    // The «Код» mode: the external coding agent this conversation is driven by
+    // (a CodingService agent id) and the folder it works in. Both "" for an
+    // ordinary chat. Set at creation and never changed — the agent's own
+    // session is half the conversation's history.
+    string coding_agent = 11;
+    string coding_cwd = 12;
+
+    // The assistant mode this conversation's next turn runs in — "fast" or "work" — when the
+    // build offers modes (CoreStateResponse.assistant_modes_compiled_in); "" in a build without
+    // them and for a «Код» conversation, which is in no mode. The EFFECTIVE mode, never "" for
+    // an ordinary chat of a build with modes: a row that never chose reads as the default.
+    string assistant_mode = 13;
+
+    // The conversation a «Рабочий» handoff (start_work) came from, when this one
+    // is its thread; "" otherwise. A client keeps a blank chat from following
+    // the thread's turns by it, and says where the work came from.
+    string handoff_from = 14;
 }
 
 message CreateConversationRequest {
@@ -980,6 +1053,19 @@ message CreateConversationRequest {
     // picked a level in an empty chat must not race the conversation into
     // existence and have its FIRST message run at the inherited level.
     string reasoning_effort = 5;
+
+    // Bind the new conversation to an external coding agent (the «Код» mode):
+    // every turn of it then goes to that agent, never to Astra's own model.
+    // `coding_cwd` is required with it — an absolute, existing folder. Refused
+    // (`error.coding.*`) in a build without the `coding` feature. Set here and
+    // only here, for the scope's reason: the first message must not race it.
+    string coding_agent = 6;
+    string coding_cwd = 7;
+
+    // Choose the assistant mode at birth ("fast" | "work"; "" = the default), for the reasoning
+    // pin's reason: a chat opened in «Рабочий» must not answer its first message as «Быстрый».
+    // Ignored in a build without the `work-mode` feature; refused beside `coding_agent`.
+    string assistant_mode = 8;
 }
 
 message DeleteConversationRequest {
@@ -1168,7 +1254,14 @@ message ConversationEventMsg {
         ToolPermissionEvaluatedEvt tool_permission_evaluated = 31;
         AutomationToolTraceEvt automation_tool_trace = 32;
         AssistantImageEvt assistant_image = 33;
+        AssistantNoticeEvt assistant_notice = 34;
     }
+}
+
+// A display-only explanation attached to a reply, retained even if AI fails.
+message AssistantNoticeEvt {
+    string message_id = 1;
+    string content = 2;
 }
 
 // A picture the assistant drew (`generate_image`), attached to its message.
@@ -1336,6 +1429,11 @@ message HistoryCompactedEvt {
     // The summary the model reads instead of those turns. Bounded at 4000 chars
     // by the daemon.
     string summary = 5;
+
+    // True when what was summarized is THIS reply's own earlier tool rounds
+    // (in-turn compaction, the «Рабочий» mode), not the conversation's older
+    // turns: the counts are then messages of the in-flight request.
+    bool within_turn = 6;
 }
 
 // Marks every event with seq > after_seq as removed from the conversation.
@@ -1609,6 +1707,10 @@ message SubagentActivityEvt {
     uint32 cached_input_tokens = 15;
     uint32 reasoning_tokens = 16;
     uint32 rounds_measured = 17;
+
+    // The conversation a «Рабочий» handoff (start_work) works in — what the
+    // card's "Open" goes to. Empty for a sub-agent, which has none of its own.
+    string thread_conversation_id = 18;
 }
 
 // One line of a plan. `status` is the wire spelling of
@@ -1652,6 +1754,27 @@ service VoiceService {
 
     // End the check. Leaves listening alone.
     rpc StopMicCheck(Empty) returns (Empty);
+
+    // ===== Wake-word probe ("How I hear the word") =====
+    // Records the microphone for a few seconds and transcribes every attempt
+    // with the local recogniser the transcript wake word uses, so the person
+    // sees how Astra hears their word and can add what she heard to the wake
+    // words. Nothing reaches the chat and nothing wakes her while it records:
+    // a listening session's audio goes to the probe. Like the microphone check
+    // it does not change the listening state, and it ends by itself after
+    // `WakeWordProbeStatus.duration_ms`. The last result is kept until the
+    // next start. Only for the transcript wake-word mode on the local STT;
+    // a refusal answers recording = false with an i18n key in problem_key.
+
+    // Start recording (or report the probe already running).
+    rpc StartWakeWordProbe(Empty) returns (WakeWordProbeStatus);
+
+    // Where the probe is and what it heard. Poll it while it records and
+    // transcribes; `recognized` is judged against the wake words saved now.
+    rpc GetWakeWordProbe(Empty) returns (WakeWordProbeStatus);
+
+    // End the recording now; what was said so far is still transcribed.
+    rpc StopWakeWordProbe(Empty) returns (WakeWordProbeStatus);
 
     // Get available audio output devices (speakers, headphones, etc.)
     rpc GetOutputDevices(Empty) returns (OutputDeviceListResponse);
@@ -1836,6 +1959,47 @@ message MicLevelResponse {
     string problem_key = 6;
 }
 
+message WakeWordProbeStatus {
+    // The microphone is being recorded now.
+    bool recording = 1;
+
+    // The recording is over and its last attempts are being transcribed.
+    bool transcribing = 2;
+
+    // A probe ran to its end; `heard` and `unclear` are final.
+    bool finished = 3;
+
+    // Recording time left, while recording.
+    uint32 remaining_ms = 4;
+
+    // How long a probe records.
+    uint32 duration_ms = 5;
+
+    // Every spelling the recogniser wrote, in the order first heard.
+    repeated WakeWordHeard heard = 6;
+
+    // Attempts the recogniser made nothing of.
+    uint32 unclear = 7;
+
+    // RMS after echo cancellation + noise suppression while recording, for a
+    // meter; 0 otherwise.
+    float processed_rms = 8;
+
+    // Why the probe was refused or ended early: an i18n key. Empty otherwise.
+    string problem_key = 9;
+}
+
+message WakeWordHeard {
+    // What the recogniser wrote, as it would be typed into the wake words.
+    string text = 1;
+
+    // How many attempts came back this way.
+    uint32 count = 2;
+
+    // The saved wake words already wake Astra on this transcript.
+    bool recognized = 3;
+}
+
 message SetMicrophoneRequest {
     string microphone_id = 1;
 }
@@ -1978,6 +2142,9 @@ message SetPushToTalkRequest {
     // transcribing it — the user withdrew the message. Nothing is recognised,
     // nothing reaches the conversation, no SpeechRecognized is published.
     bool discard = 2;
+
+    // Client-generated UUID, echoed on capture events. Empty for older clients.
+    string capture_id = 3;
 }
 
 // ============ Command Service ============
@@ -2995,7 +3162,7 @@ message VoiceSettings {
     float tts_pitch = 8;  // 0.5 to 2.0
 
     // Wake word settings
-    string wake_word_mode = 20;  // "astra" (OWW neural) or "custom" (text match)
+    string wake_word_mode = 20;  // "astra" (OWW neural), "plugin__<id>", or "transcript" (local STT match)
     repeated string wake_words = 14;
     bool wake_word_enabled = 9;
     float wake_word_sensitivity = 10;
@@ -3074,6 +3241,17 @@ message VoiceSettings {
 
     // Background volume level (percent, 0-100) while ducking is active. Default 25.
     int32 audio_ducking_level = 28;
+
+    // Remove what the computer plays from the microphone (echo cancellation).
+    // On by default; off is for headphones. Optional so that UpdateSettings
+    // from a client that predates the field leaves it alone rather than
+    // turning it off; GetSettings always sets it.
+    optional bool echo_cancellation = 33;
+
+    // Hear a request said BEFORE the wake word («Включи музыку, Астра»). On by
+    // default; off, only what follows the wake word is the request. Optional
+    // for the reason echo_cancellation is; GetSettings always sets it.
+    optional bool wake_word_lookback = 34;
     reserved 17;  // was tts_base_url (now hardcoded)
 }
 
@@ -3192,6 +3370,31 @@ message AiSettings {
     // instead of writing "" over a choice.
     optional string image_provider = 26;
     optional string image_model = 27;
+
+    // Provider and model the «Код» mode's agent runs on when it takes Astra's
+    // model (AiRole::Coding). Empty = the chat's. `optional`, like the approval
+    // pair, so a client that predates the field leaves a choice alone.
+    optional string coding_provider = 28;
+    optional string coding_model = 29;
+
+    // Provider and model the «Рабочий» (Work) assistant mode runs on (AiRole::Work). Empty = the
+    // chat's. `optional`, like the coding pair, so a client that predates the field leaves a
+    // choice alone.
+    optional string work_provider = 30;
+    optional string work_model = 31;
+
+    // The «Рабочий» mode's own turn budget (ai.work_max_tool_rounds / work_turn_deadline_secs),
+    // read in place of max_tool_rounds / turn_deadline_secs above. 0 = unlimited, as there — which
+    // is exactly why these are `optional`: a client that predates them (OOBE, astra-tui, an older
+    // UI) would otherwise send 0 and lift the limit off a person's long work.
+    optional uint32 work_max_tool_rounds = 32;
+    optional uint64 work_turn_deadline_secs = 33;
+
+    // The «Рабочий» mode's worker model (AiRole::WorkWorker, ai.work_worker_*): the cheaper model
+    // that carries the steps of the Work model's plan. An empty model = off; an empty provider
+    // follows work_provider. `optional`, like the work pair.
+    optional string work_worker_provider = 34;
+    optional string work_worker_model = 35;
 }
 
 // One provider's saved endpoint, as a CLIENT sees it.
@@ -3284,6 +3487,16 @@ message AppearanceSettings {
     // presence reason above.
     optional string ui_theme = 10;
     optional string ui_accent = 11;
+
+    // The overlay island's shape: "notch" (hanging from the top edge) or
+    // "pill" (floating, moved with the mouse) — `ISLAND_STYLES`. Presence for
+    // the reason above.
+    optional string island_style = 12;
+
+    // Where the floating pill's centre sits, as fractions (0..1) of the primary
+    // monitor's work area. Presence for the reason above.
+    optional float island_pill_x = 13;
+    optional float island_pill_y = 14;
 }
 
 message WidgetVisibilitySettings {
@@ -4047,6 +4260,11 @@ message WakewordProviderInfo {
     repeated FieldDefinitionMsg config_fields = 3;
     string model_manager = 4;
     string config_source = 5;
+
+    // The STT provider id this wake word cannot run without (the transcript
+    // mode needs the local recogniser); empty when it runs on any. The Voice
+    // page disables the choice and warns before the STT is switched away.
+    string requires_stt_provider = 6;
 }
 
 message WakewordProvidersResponse {
@@ -6000,6 +6218,12 @@ message PluginSttLanguagesResponse {
 message SttTranscribeOptions {
     string language = 1;  // "" = auto-detect
     string initial_prompt = 2;  // decoding bias, e.g. wake-word spellings
+
+    // Phrases a decoder that supports contextual biasing (sherpa's hotwords)
+    // favours, each by `hotword_boost`; the transcript wake word's phrases.
+    // Empty, or a boost of 0, asks for none; a provider without it ignores both.
+    repeated string hotwords = 3;
+    float hotword_boost = 4;
 }
 
 // Load request for `SttLoad`. The daemon resolves the concrete model (from its
@@ -6486,6 +6710,10 @@ message ClipboardHistoryChangedEvent {}
 
 message ShelfChangedEvent {
     uint64 revision = 1;
+}
+
+message PluginConfigUpdatedEvent {
+    string plugin_id = 1;
 }
 
 // Emitted whenever the update block of `CoreStateResponse` changes — one
