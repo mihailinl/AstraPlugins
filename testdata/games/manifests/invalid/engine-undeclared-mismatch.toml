@@ -1,0 +1,29 @@
+# Invalid: engine-undeclared (mismatch form). [integration.engine] claims
+# "source2" but [target].engine names a different code -- the two must be
+# the SAME code, not merely both present.
+schema = 1
+
+[integration]
+id = "someone.source2-foundation"
+name = "Astra for Source 2"
+version = "0.1.0"
+license = "MIT"
+
+[integration.engine]
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[integration.engine.rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [ { listed = "engine2.dll", kind = "file" } ]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[target]
+engine = "not-source2"
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

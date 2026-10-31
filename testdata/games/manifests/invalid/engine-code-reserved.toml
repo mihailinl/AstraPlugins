@@ -1,0 +1,29 @@
+# Invalid: engine-code-reserved. A foundation tries to claim "unity-mono",
+# a built-in code (spec/games/reserved.yaml engine_codes) -- refused at
+# ingest even though it parses and the target/engine pair agree.
+schema = 1
+
+[integration]
+id = "someone.not-really-unity"
+name = "Not Really Unity"
+version = "0.1.0"
+license = "MIT"
+
+[integration.engine]
+schema = "astra.engine/1"
+engine = { codes = { unity-mono = "Definitely Unity" } }
+
+[[integration.engine.rule]]
+tier = "strong"
+programs = { ext = ["exe"] }
+require = [ { listed = "totally-not-a-giveaway.dll", kind = "file" } ]
+code = "unity-mono"
+confidence = "high"
+binary = "windows"
+evidence = "{project}"
+
+[target]
+engine = "unity-mono"
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

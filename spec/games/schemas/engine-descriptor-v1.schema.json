@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraplugins.minice.ai/spec/games/schemas/engine-descriptor-v1.schema.json",
+  "title": "astra.engine/1 descriptor",
+  "description": "Structural shape of engine-descriptor-v1.md. Cannot express: the anchor rule (2.4), the budgets (4), or E_DESCRIPTOR_TOO_BROAD (5) -- those are evaluation-time facts about a real folder tree, checked separately by tools/check-games-goldens.py against testdata/games/descriptors/hostile/.",
+  "type": "object",
+  "required": ["schema", "engine", "rule"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "astra.engine/1" },
+    "engine": {
+      "type": "object",
+      "required": ["codes"],
+      "additionalProperties": false,
+      "properties": {
+        "codes": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 4,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 48
+          }
+        }
+      }
+    },
+    "walk": {
+      "type": "object",
+      "description": "First-party only (engine-descriptor-v1.md 2.6). A community descriptor with this table is still schema-valid; the lint, not this schema, refuses it for an unchecked publisher.",
+      "additionalProperties": false,
+      "properties": {
+        "list_at_limit": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "rule": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "placeholderString": {
+      "type": "string",
+      "description": "engine-descriptor-v1.md §2.2-§2.4: no '..', no absolute paths. A glob (`*`) is still allowed -- only the anchor rule (§2.4, checked by tools/check-games-goldens.py, not this schema) forbids one in a top-level anchor specifically.",
+      "pattern": "^(?!/)(?!.*\\.\\.).*$"
+    },
+
+    "programs": {
+      "oneOf": [
+        { "const": "none" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ext": { "type": "array", "items": { "type": "string" } },
+            "suffix": { "type": "string" },
+            "at": { "type": "string" },
+            "first": { "type": "integer", "minimum": 1, "maximum": 8 },
+            "also_if": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "dir": { "type": "string" } }
+            },
+            "skip_dirs": { "type": "array", "items": { "type": "string" } },
+            "skip_wrappers": { "type": "boolean" },
+            "scope": { "const": "anywhere" }
+          }
+        }
+      ]
+    },
+
+    "requireEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["listed", "kind"],
+          "additionalProperties": false,
+          "properties": {
+            "listed": { "$ref": "#/$defs/placeholderString" },
+            "kind": { "enum": ["file", "dir"] },
+            "as": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["child", "kind"],
+          "additionalProperties": false,
+          "properties": {
+            "child": { "$ref": "#/$defs/placeholderString" },
+            "kind": { "enum": ["file", "dir"] },
+            "as": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["stat", "kind"],
+          "additionalProperties": false,
+          "properties": {
+            "stat": { "$ref": "#/$defs/placeholderString" },
+            "kind": { "enum": ["file", "dir"] },
+            "as": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["tail"],
+          "additionalProperties": false,
+          "properties": {
+            "tail": { "$ref": "#/$defs/placeholderString" },
+            "bytes": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "equals": { "type": "string" },
+            "min_len": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["any"],
+          "additionalProperties": false,
+          "properties": {
+            "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/requireEntry" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "additionalProperties": false,
+          "properties": {
+            "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/requireEntry" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["none"],
+          "additionalProperties": false,
+          "properties": {
+            "none": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/requireEntry" } }
+          }
+        }
+      ]
+    },
+
+    "classifyEntry": {
+      "type": "object",
+      "required": ["code"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/requireEntry" },
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "confidence": { "enum": ["high", "low"] }
+      }
+    },
+
+    "binary": {
+      "oneOf": [
+        { "enum": ["windows", "linux", "by-ext"] },
+        {
+          "type": "object",
+          "required": ["from_name", "map"],
+          "additionalProperties": false,
+          "properties": {
+            "from_name": { "type": "string" },
+            "map": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      ]
+    },
+
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "head": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "string" } },
+        "template": { "type": "string" },
+        "versions": { "type": "string" }
+      }
+    },
+
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "listed": { "$ref": "#/$defs/placeholderString" },
+        "hint_stem": { "type": "string" }
+      }
+    },
+
+    "rule": {
+      "type": "object",
+      "required": ["tier", "programs"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": { "enum": ["strong", "strong-fallback", "weak"] },
+        "weak_order": { "type": "integer", "minimum": 0 },
+        "programs": { "$ref": "#/$defs/programs" },
+        "require": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/requireEntry" }
+        },
+        "classify": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classifyEntry" }
+        },
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "confidence": { "enum": ["high", "low"] },
+        "passes": { "type": "boolean" },
+        "evidence": { "type": "string" },
+        "binary": { "$ref": "#/$defs/binary" },
+        "named_alike": {
+          "oneOf": [{ "type": "boolean" }, { "type": "string" }]
+        },
+        "version": { "$ref": "#/$defs/version" },
+        "bootstrap": { "$ref": "#/$defs/bootstrap" },
+        "pick": { "const": "hint-else-largest" },
+        "anti_cheat": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "engine-descriptor-v1.md §2.7: this rule's OWN anti-cheat marker claims; never affects another rule's matching."
+        },
+        "wrappers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "engine-descriptor-v1.md §2.7: wrapper-shaped names scoped to this rule's own candidate filtering only."
+        }
+      }
+    }
+  }
+}

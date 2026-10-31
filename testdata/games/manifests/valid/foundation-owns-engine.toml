@@ -1,0 +1,45 @@
+# Valid: a runner foundation that OWNS a new, non-built-in engine code --
+# the only kind of manifest that may carry [integration.engine]. Matches
+# the "community.source2" example in engine-descriptor-v1.md and B§1.
+schema = 1
+
+[integration]
+id = "someone.source2-foundation"
+name = "Astra for Source 2"
+version = "0.1.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/astra-source2"
+
+[integration.engine]
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[integration.engine.rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[integration.loader]
+proxies = ["dinput8.dll"]
+keep_if_present = ["s2bridge.ini"]
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[target]
+engine = "source2"
+exe = "*"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "**"
+to = "${profile}/"

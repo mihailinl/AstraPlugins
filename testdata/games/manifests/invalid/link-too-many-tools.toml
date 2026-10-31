@@ -1,0 +1,87 @@
+# Invalid: a [integration.link] table with 17 tools, one over the manifest
+# schema's maxItems: 16 (manifest.md §2.6).
+schema = 1
+
+[integration]
+id = "someone.too-many-tools"
+name = "Too Many Tools"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+context = false
+shares_other_players = false
+
+[[integration.link.tools]]
+name = "tool_01"
+description = "tool 1"
+params = "astra/tools/01.json"
+[[integration.link.tools]]
+name = "tool_02"
+description = "tool 2"
+params = "astra/tools/02.json"
+[[integration.link.tools]]
+name = "tool_03"
+description = "tool 3"
+params = "astra/tools/03.json"
+[[integration.link.tools]]
+name = "tool_04"
+description = "tool 4"
+params = "astra/tools/04.json"
+[[integration.link.tools]]
+name = "tool_05"
+description = "tool 5"
+params = "astra/tools/05.json"
+[[integration.link.tools]]
+name = "tool_06"
+description = "tool 6"
+params = "astra/tools/06.json"
+[[integration.link.tools]]
+name = "tool_07"
+description = "tool 7"
+params = "astra/tools/07.json"
+[[integration.link.tools]]
+name = "tool_08"
+description = "tool 8"
+params = "astra/tools/08.json"
+[[integration.link.tools]]
+name = "tool_09"
+description = "tool 9"
+params = "astra/tools/09.json"
+[[integration.link.tools]]
+name = "tool_10"
+description = "tool 10"
+params = "astra/tools/10.json"
+[[integration.link.tools]]
+name = "tool_11"
+description = "tool 11"
+params = "astra/tools/11.json"
+[[integration.link.tools]]
+name = "tool_12"
+description = "tool 12"
+params = "astra/tools/12.json"
+[[integration.link.tools]]
+name = "tool_13"
+description = "tool 13"
+params = "astra/tools/13.json"
+[[integration.link.tools]]
+name = "tool_14"
+description = "tool 14"
+params = "astra/tools/14.json"
+[[integration.link.tools]]
+name = "tool_15"
+description = "tool 15"
+params = "astra/tools/15.json"
+[[integration.link.tools]]
+name = "tool_16"
+description = "tool 16"
+params = "astra/tools/16.json"
+[[integration.link.tools]]
+name = "tool_17"
+description = "tool 17"
+params = "astra/tools/17.json"
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -1,0 +1,222 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (C) 2026 Minice — https://minice.ai
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# A GAME INTEGRATION's release workflow — a TEMPLATE, not a reusable one.
+#
+# Copy this file into your own repository as
+# `.github/workflows/gi-release.yml` and fill in the one marked section
+# below. Unlike AstraPlugins' `plugin-release.yml`, this is never
+# `uses:`-referenced: a game integration's build is not one shape the way a
+# plugin's is — BepInEx, ReShade, UE4SS, a bare Lua script, and whatever a
+# future engine's foundation needs all build differently, so there is
+# nothing a single reusable workflow could usefully own on your behalf.
+# What stays fixed, and what you should not need to touch, is everything
+# AROUND your build: the tag-push trigger, the zip, the attestation, and the
+# Release.
+#
+# ── WHAT THIS WORKFLOW GUARANTEES, AND TO WHOM ─────────────────────────────
+#
+# `astra-games-catalogue`'s ingest (dev/game-integrations-plan-merged.md
+# §3.2, lane C, in astra-plugins-ops) fetches your release's `astra-gi.zip`,
+# verifies `gh attestation verify` against THIS workflow as the signer, and
+# re-checks everything structural itself with `gi-probe` — the same parser
+# `astra-game-launcher` uses. This workflow's job is to make that
+# attestation TRUE: the zip it publishes is built, by GitHub, from exactly
+# this commit, with no step able to smuggle in a byte ingest did not see
+# built. It is not a substitute for that check, and it deliberately runs
+# none of it:
+#
+#   * it does NOT sign anything — there is no local key to leak, because
+#     "local signing keys confer no trust" (CLAUDE.md) in this system; trust
+#     comes from the attestation below plus the catalogue's own signature
+#     over the ingested result, not from a key this workflow could hold;
+#   * it does NOT run `gi-probe` — a hostile build step could fake a clean
+#     result against its own zip, so the real check runs at ingest, against
+#     the artifact THIS workflow published and GitHub attested, not against
+#     whatever this job claims about itself;
+#   * it does NOT resolve or vendor any of your dependencies — that is your
+#     build step's job, below, exactly as it would be for any other release.
+#
+# ── WHY THE ACTIONS BELOW ARE PINNED BY COMMIT SHA ─────────────────────────
+#
+# A floating tag (`@v4`) can be moved by whoever controls that action's
+# repository, after your workflow is already trusted by every player who
+# installed your integration. A pin is a promise that stays true: these are
+# the exact commits this template was published with; `v4` and `v2` are
+# noted only as sanity comments, never as the thing that is trusted.
+#
+# ── WHAT TO EDIT ────────────────────────────────────────────────────────
+#
+#   1. The "BUILD YOUR INTEGRATION HERE" step: replace the placeholder with
+#      whatever produces `astra-gi.toml` and the files it names, laid out
+#      exactly as the zip below expects them (see spec/games/manifest.md).
+#   2. `ZIP_ROOT`, if your build's output directory is not `dist/gi`.
+# Nothing else here should need a change for an ordinary release.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Astra game-integration release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build, attest and publish astra-gi.zip
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write      # create the Release and upload the asset
+      id-token: write      # mint the OIDC token that makes attestation keyless
+      attestations: write  # store the attestation on GitHub
+    env:
+      # Where your build step (below) must leave astra-gi.toml and every
+      # file it names, laid out exactly as they belong inside the zip.
+      ZIP_ROOT: dist/gi
+      ASSET: astra-gi.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (v4.4.0)
+        with:
+          persist-credentials: false
+
+      # ── BUILD YOUR INTEGRATION HERE ───────────────────────────────────
+      #
+      # Replace this whole step. Whatever you run, its only job is to
+      # leave $ZIP_ROOT holding astra-gi.toml at its root plus every file
+      # your manifest's [[files]]/[[game_files]] name (spec/games/
+      # manifest.md). A worked BepInEx example:
+      #
+      #   - uses: actions/setup-dotnet@<pin this action's SHA too>
+      #     with:
+      #       dotnet-version: "8.0.x"
+      #   - run: dotnet build --configuration Release
+      #   - run: |
+      #       mkdir -p "$ZIP_ROOT"
+      #       cp astra-gi.toml "$ZIP_ROOT/"
+      #       cp -r BepInEx "$ZIP_ROOT/BepInEx"
+      #
+      - name: Build your integration
+        run: |
+          set -euo pipefail
+          echo "::error::replace the 'Build your integration' step in gi-release.yml before releasing"
+          exit 1
+
+      # ── zip hygiene, checked before you ever ship it ──────────────────
+      #
+      # Ingest runs this exact check again, against the zip it downloads
+      # from your Release — not to decide whether to trust you, but
+      # because an author's own CI is the cheapest place to catch a
+      # symlink or a traversal path left behind by a careless build step,
+      # long before a stranger's ingest run does (spec/games/manifest.md
+      # §2, "The zip").
+      - name: Lay out and hygiene-check the zip
+        run: |
+          set -euo pipefail
+          test -f "$ZIP_ROOT/astra-gi.toml" || {
+            echo "::error::$ZIP_ROOT/astra-gi.toml is missing -- did the build step above run?"
+            exit 1
+          }
+          python3 - "$ZIP_ROOT" "$ASSET" <<'PY'
+          import os
+          import sys
+          import zipfile
+
+          root, asset = sys.argv[1], sys.argv[2]
+          entries = []
+          for dirpath, _dirnames, filenames in os.walk(root):
+              for name in sorted(filenames):
+                  full = os.path.join(dirpath, name)
+                  rel = os.path.relpath(full, root)
+                  if os.path.islink(full):
+                      print(f"::error::{rel} is a symbolic link; astra-gi.zip may not contain one")
+                      sys.exit(1)
+                  if rel.startswith("..") or os.path.isabs(rel):
+                      print(f"::error::{rel} escapes the zip root")
+                      sys.exit(1)
+                  entries.append((rel.replace(os.sep, "/"), full))
+
+          entries.sort(key=lambda e: e[0])
+          with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as z:
+              for rel, full in entries:
+                  z.write(full, rel)
+
+          size = os.path.getsize(asset)
+          print(f"{asset}: {len(entries)} entries, {size} bytes")
+          PY
+
+      # A structural sanity check only -- NOT gi-probe (see the header
+      # comment above for why that check belongs at ingest, not here).
+      # tomllib is Python's standard library: no dependency to install.
+      - name: Confirm astra-gi.toml at least parses as TOML
+        run: |
+          set -euo pipefail
+          python3 -c "
+          import tomllib
+          with open('$ZIP_ROOT/astra-gi.toml', 'rb') as f:
+              doc = tomllib.load(f)
+          assert doc.get('schema') == 1, 'schema must be 1'
+          assert 'integration' in doc and 'target' in doc, 'missing [integration] or [target]'
+          print('astra-gi.toml: schema 1, id', doc['integration'].get('id'))
+          "
+
+      # Runs only once astra-link-mock exists (spec/games/link-v1.md §7,
+      # 0.2.8.x) AND this integration declares [integration.link]. Guarded
+      # on both so this template is usable today and gains the check later
+      # with no edit required here.
+      - name: Conformance-test Astra Link, if declared and the mock is available
+        run: |
+          set -euo pipefail
+          if ! grep -q '^\[integration\.link\]' "$ZIP_ROOT/astra-gi.toml" 2>/dev/null; then
+            echo "no [integration.link] table -- nothing to conformance-test"
+          elif ! command -v astra-link-mock >/dev/null 2>&1; then
+            echo "astra-link-mock is not yet published (spec/games/link-v1.md §7, 0.2.8.x) -- skipping"
+          else
+            astra-link-mock --manifest "$ZIP_ROOT/astra-gi.toml"
+          fi
+
+      - name: Attest the build
+        id: attest
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2 (v2.4.0)
+        with:
+          subject-path: ${{ env.ASSET }}
+
+      - name: Record the digest
+        id: digest
+        run: |
+          set -euo pipefail
+          sha256sum "$ASSET" | tee SHA256SUMS.txt
+
+      - name: Create the Release and upload the asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes=$(cat <<EOF
+          Built by GitHub Actions from \`${GITHUB_SHA}\`.
+
+          \`$ASSET\` is attested over its own sha256: the attestation names this
+          repository and this commit as the source. Verify it yourself:
+
+          \`\`\`
+          gh attestation verify $ASSET --repo ${GITHUB_REPOSITORY}
+          \`\`\`
+
+          An attestation proves where this file came from. It does not prove the
+          code inside it is safe: a game integration runs inside your game with
+          your own account's full privileges, exactly like any other mod.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists -- uploading to it."
+          else
+            gh release create "$TAG" --title "$TAG" --notes "$notes" --verify-tag
+          fi
+          gh release upload "$TAG" "$ASSET" SHA256SUMS.txt --clobber
+          echo "Published $TAG"

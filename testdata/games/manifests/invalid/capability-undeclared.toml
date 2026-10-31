@@ -1,0 +1,21 @@
+# Invalid: capability-undeclared. [[config_writes]] writes ${bridge_token}
+# but no [integration.capabilities] table grants "companion.presentation"
+# -- manifest.md §2.3 requires the explicit declaration.
+schema = 1
+
+[integration]
+id = "someone.undeclared-bridge"
+name = "Undeclared Bridge Example"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+steam_appid = 1966720
+exe = "Lethal Company.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"
+
+[[config_writes]]
+file = "${profile}/BepInEx/config/astra.cfg"
+section = "Connection"
+set = { Port = "${bridge_port}", Token = "${bridge_token}" }

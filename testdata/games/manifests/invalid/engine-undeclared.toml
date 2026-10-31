@@ -1,0 +1,27 @@
+# Invalid: engine-undeclared. [integration.engine] claims a code, but
+# [target].engine is missing -- manifest.md §2.1 requires the two to agree.
+schema = 1
+
+[integration]
+id = "someone.source2-foundation"
+name = "Astra for Source 2"
+version = "0.1.0"
+license = "MIT"
+
+[integration.engine]
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[integration.engine.rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [ { listed = "engine2.dll", kind = "file" } ]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
