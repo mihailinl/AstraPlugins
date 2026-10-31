@@ -3208,6 +3208,46 @@ jobs:
           path: _conformance/
           if-no-files-found: warn
 
+  # ── games-spec ───────────────────────────────────────────────────────────
+  #
+  # spec/games/ is lane S of the game-integrations plan (astra-plugins-ops's
+  # dev/game-integrations-plan-merged.md §3.2) — the specs and goldens every
+  # other lane (the launcher, the daemon, the games catalogue) pins by this
+  # repository's SHA. This job is the spec-side half of canaries K11 and K17:
+  # every goldens validates or fails exactly as testdata/games/vectors.json
+  # records, against spec/games/schemas/*.json, using no dependency beyond
+  # Python's stdlib (tools/schemalite.py, the same "no pip install" rule
+  # spec/limits.yaml and spec/wire.yaml already follow for this reason).
+  #
+  # Three steps, each able to fail on its own:
+  #   1. schemalite.py itself is exercised and its self-check confirms every
+  #      schema file in spec/games/schemas/ uses only the keyword subset it
+  #      implements (tools/test_schemalite.py) -- so an unsupported keyword
+  #      added to a schema fails loudly here, not silently the first time a
+  #      golden happens to reach it.
+  #   2. Every golden in testdata/games/ is checked against vectors.json's
+  #      recorded verdict (tools/check-games-goldens.py).
+  #   3. The checker's own rules are proven non-trivial by mutation
+  #      (tools/test_check_games_goldens.py) -- the same shape C40's
+  #      tools/test_attestation_commands.py uses.
+  games-spec:
+    name: games-spec (K11, K17 -- spec side)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: schemalite self-check (every spec/games/schemas/*.json uses only supported keywords)
+        run: python3 tools/test_schemalite.py -v
+
+      - name: every testdata/games/ golden validates or fails as vectors.json says
+        run: python3 tools/check-games-goldens.py
+
+      - name: the checker's rules are not trivially green (mutation self-test)
+        run: python3 tools/test_check_games_goldens.py -v
+
   couplings:
     name: couplings
     runs-on: ubuntu-24.04
@@ -4358,6 +4398,7 @@ jobs:
       - docgen
       - docs
       - conformance
+      - games-spec
       - couplings
     runs-on: ubuntu-24.04
     steps:
