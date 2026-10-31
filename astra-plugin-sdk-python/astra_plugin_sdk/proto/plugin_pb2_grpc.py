@@ -648,6 +648,11 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.SetConversationReasoningRequest.SerializeToString,
                 response_deserializer=plugin__pb2.SetConversationReasoningResponse.FromString,
                 _registered_method=True)
+        self.SetConversationMode = channel.unary_unary(
+                '/astra.ChatService/SetConversationMode',
+                request_serializer=plugin__pb2.SetConversationModeRequest.SerializeToString,
+                response_deserializer=plugin__pb2.SetConversationModeResponse.FromString,
+                _registered_method=True)
         self.GetConversationPermissions = channel.unary_unary(
                 '/astra.ChatService/GetConversationPermissions',
                 request_serializer=plugin__pb2.ConversationPermissionsRequest.SerializeToString,
@@ -776,6 +781,17 @@ class ChatServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetConversationMode(self, request, context):
+        """Choose (or clear) the assistant mode a conversation runs in — "fast" or "work". A standing
+        choice, like the reasoning pin and for its reasons; unlike the «Код» binding it may change
+        at any point, because both modes are Astra's own assistant reading the same history.
+        Refused (FAILED_PRECONDITION, `error.assistantMode.notCompiled`) in a build without the
+        `work-mode` feature, and for a «Код» conversation (`error.assistantMode.coding`).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetConversationPermissions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -861,6 +877,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.SetConversationReasoning,
                     request_deserializer=plugin__pb2.SetConversationReasoningRequest.FromString,
                     response_serializer=plugin__pb2.SetConversationReasoningResponse.SerializeToString,
+            ),
+            'SetConversationMode': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetConversationMode,
+                    request_deserializer=plugin__pb2.SetConversationModeRequest.FromString,
+                    response_serializer=plugin__pb2.SetConversationModeResponse.SerializeToString,
             ),
             'GetConversationPermissions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetConversationPermissions,
@@ -1232,6 +1253,33 @@ class ChatService(object):
             '/astra.ChatService/SetConversationReasoning',
             plugin__pb2.SetConversationReasoningRequest.SerializeToString,
             plugin__pb2.SetConversationReasoningResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetConversationMode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/SetConversationMode',
+            plugin__pb2.SetConversationModeRequest.SerializeToString,
+            plugin__pb2.SetConversationModeResponse.FromString,
             options,
             channel_credentials,
             insecure,

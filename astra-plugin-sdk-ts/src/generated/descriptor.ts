@@ -317,6 +317,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "overlayBackend": {
               "type": "string",
               "id": 30
+            },
+            "assistantModesCompiledIn": {
+              "type": "bool",
+              "id": 31
             }
           }
         },
@@ -1058,6 +1062,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "SetConversationReasoningRequest",
               "responseType": "SetConversationReasoningResponse"
             },
+            "SetConversationMode": {
+              "requestType": "SetConversationModeRequest",
+              "responseType": "SetConversationModeResponse"
+            },
             "GetConversationPermissions": {
               "requestType": "ConversationPermissionsRequest",
               "responseType": "ConversationPermissionsResponse"
@@ -1177,6 +1185,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         "SetConversationReasoningResponse": {
           "fields": {
             "reasoningEffort": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "SetConversationModeRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SetConversationModeResponse": {
+          "fields": {
+            "assistantMode": {
               "type": "string",
               "id": 1
             }
@@ -1337,6 +1365,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "codingCwd": {
               "type": "string",
               "id": 12
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 13
+            },
+            "handoffFrom": {
+              "type": "string",
+              "id": 14
             }
           }
         },
@@ -1369,6 +1405,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "codingCwd": {
               "type": "string",
               "id": 7
+            },
+            "assistantMode": {
+              "type": "string",
+              "id": 8
             }
           }
         },
@@ -1940,6 +1980,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "summary": {
               "type": "string",
               "id": 5
+            },
+            "withinTurn": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
@@ -2382,6 +2426,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "roundsMeasured": {
               "type": "uint32",
               "id": 17
+            },
+            "threadConversationId": {
+              "type": "string",
+              "id": 18
             }
           }
         },
@@ -5382,6 +5430,36 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "codingModel"
               ]
+            },
+            "_workProvider": {
+              "oneof": [
+                "workProvider"
+              ]
+            },
+            "_workModel": {
+              "oneof": [
+                "workModel"
+              ]
+            },
+            "_workMaxToolRounds": {
+              "oneof": [
+                "workMaxToolRounds"
+              ]
+            },
+            "_workTurnDeadlineSecs": {
+              "oneof": [
+                "workTurnDeadlineSecs"
+              ]
+            },
+            "_workWorkerProvider": {
+              "oneof": [
+                "workWorkerProvider"
+              ]
+            },
+            "_workWorkerModel": {
+              "oneof": [
+                "workWorkerModel"
+              ]
             }
           },
           "fields": {
@@ -5510,6 +5588,48 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "codingModel": {
               "type": "string",
               "id": 29,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workProvider": {
+              "type": "string",
+              "id": 30,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workModel": {
+              "type": "string",
+              "id": 31,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workMaxToolRounds": {
+              "type": "uint32",
+              "id": 32,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workTurnDeadlineSecs": {
+              "type": "uint64",
+              "id": 33,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workWorkerProvider": {
+              "type": "string",
+              "id": 34,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "workWorkerModel": {
+              "type": "string",
+              "id": 35,
               "options": {
                 "proto3_optional": true
               }

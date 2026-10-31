@@ -39,7 +39,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "f0bb5c0f1d3095996850b1afc30d9d33b7596aab439aa3bc5966434892a1dc15";
+export const PROTO_SHA256 = "b15b0c45d21c63461175754487d492ff27da5dda3470bb0ae00790e09f359144";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -51,7 +51,7 @@ export const PROTO_PACKAGE = "astra";
  */
 export const SERVICE_METHODS = {
   CoreService: ["GetState", "Start", "Stop", "Shutdown", "Restart", "SubscribeEvents", "ShowMainWindow", "ToggleOverlay", "GetLogLocation", "CollectLogs", "GetMoveOffer"],
-  ChatService: ["SubmitUserMessage", "StopGeneration", "StopAgentRun", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning", "GetConversationPermissions", "SetConversationPermissionMode", "RevokePermissionGrant"],
+  ChatService: ["SubmitUserMessage", "StopGeneration", "StopAgentRun", "RespondToConfirmation", "ListConversations", "CreateConversation", "DeleteConversation", "ClearConversation", "SubscribeEvents", "FetchConversationBacklog", "RegenerateAssistantMessage", "EditUserMessage", "SetConversationReasoning", "SetConversationMode", "GetConversationPermissions", "SetConversationPermissionMode", "RevokePermissionGrant"],
   VoiceService: ["StartListening", "StopListening", "GetMicrophones", "SetMicrophone", "StartMicCheck", "GetMicLevel", "StopMicCheck", "StartWakeWordProbe", "GetWakeWordProbe", "StopWakeWordProbe", "GetOutputDevices", "SetOutputDevice", "Speak", "StopSpeaking", "GetVoices", "SetVoice", "GetWhisperModels", "DownloadWhisperModel", "GetDownloadProgress", "CancelDownload", "DeleteWhisperModel", "SearchVoices", "GetTtsProviders", "GetSttProviders", "GetVoiceModels", "DownloadVoiceModel", "DeleteVoiceModel", "GetVoiceModelDownloadProgress", "CancelVoiceModelDownload", "SetVoiceModel", "GetWakewordProviders", "GetSupertonicStatus", "DownloadSupertonicModels", "GetSupertonicDownloadProgress", "CancelSupertonicDownload", "DeleteSupertonicModels", "ListSupertonicVoices", "ImportSupertonicVoice", "DeleteSupertonicVoice", "ActivateVoxVoice", "GetEmbeddingModels", "DownloadEmbeddingModel", "GetEmbeddingDownloadProgress", "CancelEmbeddingDownload", "DeleteEmbeddingModel", "SetVoiceConversation", "SetVoicePendingImages", "SetPushToTalk"],
   CommandService: ["List", "Get", "Create", "Update", "Delete", "Execute", "LaunchFile", "SetEnabled", "GetCursorPosition", "ListGroups", "CreateGroup", "UpdateGroup", "DeleteGroup", "MoveCommandToGroup"],
   ConfigService: ["GetSettings", "UpdateSettings", "SetSetting", "SaveWidgetPanel", "CompleteOobe", "ResetSettings", "ResetSettingsGroup", "ExportSettings", "ImportSettings", "GetModels", "GetImageModels", "GetAiProviders", "TestAiProvider", "GetWidgetData", "SaveWidgetData", "ActOnReminder", "GetWidgetDescriptors", "GetIndexerStatus", "GetHotkeyBindings", "ConfigureHotkey", "GetCurrentWeather", "GetWeatherForecast", "DetectLocation", "GetCurrencyRate", "GetCurrencySeries", "GetCryptoRate", "GetCryptoSeries", "ListBrowsers", "StartIndexer", "RescanIndex"],

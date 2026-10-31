@@ -2,12 +2,12 @@
 
 # Довідник протоколу
 
-Покоління протоколу **1**. 10 сервісів, 191 RPC. Джерело:
+Покоління протоколу **1**. 10 сервісів, 192 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: 8df7ce41de4b5cea…` — дайджест
+`astra.proto` Astra (`surface-sha256: 18f46f438afa12f6…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:f0bb5c0f1d309599…`. У кожної завендореної копії в трьох SDK той
+`sha256:b15b0c45d21c6346…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
@@ -146,7 +146,7 @@ Proto плагіна несе також власні звернені до кл
 | Сервіс | RPC |
 |---|---|
 | `CoreService` | 11 |
-| `ChatService` | 15 |
+| `ChatService` | 17 |
 | `VoiceService` | 48 |
 | `CommandService` | 14 |
 | `ConfigService` | 30 |
