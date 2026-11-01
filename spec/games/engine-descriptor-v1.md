@@ -475,12 +475,24 @@ descriptor placed. And a folder name (`Plugins`, `Mods`) is in countless
 games. So each may appear in a loader's `require`, but never as its only
 anchor.
 
-The one exception is a **passive** loader: one whose `coexist` holds no
-`chain` and no `tell`, so that Astra never loads or tells anything of it.
-A passive loader may instead be anchored by a top-level `child` or `stat`
-of kind `dir` whose path is exactly its own `root`. The `~mods` paks are
-that case: no file says they are there, and Astra only lists them. A
-loader with no anchor is reason `loader-anchor-invalid`.
+**The one exception: a root-anchored loader, which must be passive.** A
+loader is **passive** when, exactly, its `coexist` holds no `chain`
+strategy and no strategy with a `tell`. A passive loader may be anchored
+by a top-level `child` or `stat` of kind `dir` whose path is exactly its
+own `root`, instead of by a file. It is then **root-anchored**: it has no
+file anchor, and its own mods folder is what recognises it.
+
+The reason this is safe: a false "recognised" for a root-anchored loader
+changes only what the player sees on their own machine (a folder's files
+listed as their mods), and Astra loads nothing of it and tells it nothing.
+The `~mods` paks are that case: no file says they are there, and Astra
+only lists them.
+
+A root-anchored loader that also declares `chain` or a `tell` is reason
+`root-anchor-not-passive`. So a later member can never quietly turn a
+root-anchored loader active: an active loader needs a file anchor. A
+loader with no anchor at all, neither a file nor its own root, is reason
+`loader-anchor-invalid`.
 
 **`codes`** (optional) limits a loader to games this descriptor placed under
 one of the listed codes. Every one must be among this descriptor's own
@@ -641,7 +653,7 @@ member's path, such as `mods.loader[1].root`) and one `reason`:
 | `shape` | a missing member, a wrong type, or a count outside the schema's bounds |
 | `path-outside-jail`, `path-escapes`, `path-invalid`, `placeholder-unknown` | §7.3 |
 | `glob-over-budget` | §7.5 |
-| `loader-anchor-invalid`, `code-undeclared`, `version-invalid` | §7.4 |
+| `loader-anchor-invalid`, `root-anchor-not-passive`, `code-undeclared`, `version-invalid` | §7.4 |
 | `chain-entry-invalid` | §7.6 |
 | `loader-id-duplicate` | §7.2 |
 | `over-budget` | §7.8, and §7.1's nesting |
@@ -709,10 +721,11 @@ launcher 0.5.0's K17 reads:
 | `compat/source2-with-mods.toml` | condition 1: a descriptor with `mods` that a reader ignoring it still accepts for detection. Without `mods`, it is `manifests/valid/foundation-owns-engine.toml`'s `[integration.engine]`, member for member |
 | `compat/source2-with-future-mods.toml` | a `mods` table from a later version: this schema refuses it, while detection and the 0.5.0 reader's view accept the same descriptor |
 | `paths.json` | §7.3: every path's schema verdict and reason, `..` alone and the device names included, and each substitution's re-checked components |
-| `hostile/mods-*.toml` | one per rule, each asserted for exactly its §7.9 reasons: `path-escape`, `absolute-path`, `device-name`, `unknown-placeholder`, `over-budget-glob`, `unknown-enum`, `template-reversed`, `manager-as-data`, `anchor-on-a-proxy`, `anchor-on-the-program`, `anchor-on-a-folder`, `chain-entry-on-a-proxy`, `loader-for-another-engine`, `loader-id-duplicate`, `over-budget-lookups`, `over-budget-probes`, `deep-nesting`, `not-a-table` |
+| `hostile/mods-*.toml` | one per rule, each asserted for exactly its §7.9 reasons: `path-escape`, `absolute-path`, `device-name`, `unknown-placeholder`, `over-budget-glob`, `unknown-enum`, `template-reversed`, `manager-as-data`, `anchor-on-a-proxy`, `anchor-on-the-program`, `anchor-on-a-folder`, `root-anchor-not-passive`, `chain-entry-on-a-proxy`, `loader-for-another-engine`, `loader-id-duplicate`, `over-budget-lookups`, `over-budget-probes`, `deep-nesting`, `not-a-table` |
 
 `tools/check-games-goldens.py` checks `$defs/mods` and the rules a schema
-cannot express: the loader anchor, the chain entry, placeholders, `codes`,
+cannot express: the loader anchor, a root-anchored loader being passive,
+the chain entry, placeholders, `codes`,
 ids, the §7.8 per-member budget and §7.1's nesting, and `manager-as-data`.
 It derives each golden's §7.9 reasons from the grammar and asserts them,
 and it walks no document recursively, so even a `mods` nested far past any

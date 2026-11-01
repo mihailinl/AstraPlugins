@@ -934,25 +934,40 @@ def _top_lookups(loader: dict, kind: str):
 
 
 def _passive(loader: dict) -> bool:
-    """§7.4: a loader that never makes Astra load or tell anything."""
+    """§7.4, exactly: no `chain` strategy in `coexist`, and no `tell` in any
+    strategy. A passive loader never makes Astra load or tell anything."""
     co = loader.get("coexist")
     return isinstance(co, list) and all(
         isinstance(s, dict) and s.get("strategy") != "chain" and "tell" not in s for s in co)
 
 
+def _file_anchors(loader: dict) -> list[str]:
+    """§7.4: top-level `file` lookups whose last component holds a literal
+    name that is not a proxy, not a ubiquitous runtime and not the game's
+    own program."""
+    return [p for p in _top_lookups(loader, "file")
+            if _anchor_name(p) and not _proxy_or_runtime(p) and not _program_shaped(p)]
+
+
+def _root_anchored(loader: dict) -> bool:
+    """§7.4: anchored on its root -- no file anchor, and a top-level `dir`
+    lookup of exactly its own `root`."""
+    return not _file_anchors(loader) and any(
+        p == loader.get("root") and _anchor_name(p) for p in _top_lookups(loader, "dir"))
+
+
 def rule_mods_loader_anchor_invalid(doc: dict) -> bool:
-    """True = OK. §7.4: every loader has a top-level `file` lookup whose last
-    component holds a literal name that is not a proxy, not a ubiquitous
-    runtime and not the game's own program -- or, for a passive loader only,
-    a top-level `dir` lookup of exactly its own `root`."""
-    for loader in mods_loaders(doc):
-        files = [p for p in _top_lookups(loader, "file")
-                 if _anchor_name(p) and not _proxy_or_runtime(p) and not _program_shaped(p)]
-        own_root = _passive(loader) and any(
-            p == loader.get("root") and _anchor_name(p) for p in _top_lookups(loader, "dir"))
-        if not files and not own_root:
-            return False
-    return True
+    """True = OK. §7.4: every loader is anchored -- by a file, or on its own
+    root. Whether a root-anchored loader may be so is the next rule's."""
+    return all(_file_anchors(l) or _root_anchored(l) for l in mods_loaders(doc))
+
+
+def rule_mods_root_anchor_not_passive(doc: dict) -> bool:
+    """True = OK. §7.4: a root-anchored loader is passive. One that also
+    declares `chain` or a `tell` is refused, so that a later member can never
+    quietly make a root-anchored loader active: an active loader needs a
+    file anchor."""
+    return all(_passive(l) for l in mods_loaders(doc) if _root_anchored(l))
 
 
 def rule_mods_chain_entry_invalid(doc: dict) -> bool:
@@ -1042,6 +1057,7 @@ def rule_mods_manager_as_data(doc: dict) -> bool:
 
 SEMANTIC_MODS_RULES = {
     "mods-loader-anchor-invalid": rule_mods_loader_anchor_invalid,
+    "mods-root-anchor-not-passive": rule_mods_root_anchor_not_passive,
     "mods-chain-entry-invalid": rule_mods_chain_entry_invalid,
     "mods-placeholder-unknown": rule_mods_placeholder_unknown,
     "mods-code-undeclared": rule_mods_code_undeclared,
@@ -1053,6 +1069,7 @@ SEMANTIC_MODS_RULES = {
 # §7.9's reason for each semantic rule.
 SEMANTIC_MODS_REASONS = {
     "mods-loader-anchor-invalid": "loader-anchor-invalid",
+    "mods-root-anchor-not-passive": "root-anchor-not-passive",
     "mods-chain-entry-invalid": "chain-entry-invalid",
     "mods-placeholder-unknown": "placeholder-unknown",
     "mods-code-undeclared": "code-undeclared",

@@ -1027,13 +1027,12 @@ class ModsAnchorIsAFile(unittest.TestCase):
                 doc["mods"]["loader"][0]["require"] = [{"stat": path, "kind": "file"}]
                 self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
 
-    def test_the_folder_golden_passes_only_as_a_passive_loader_anchored_by_its_root(self):
+    def test_the_folder_golden_passes_only_once_the_folder_is_its_own_root(self):
         doc = mods_hostile("anchor-on-a-folder")
-        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "it tells, so it is not passive")
-        del doc["mods"]["loader"][0]["coexist"][0]["tell"]
-        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "passive, anchored by its own root")
-        doc["mods"]["loader"][0]["root"] = "{source}/{project}/Plugins/mods"
         self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "a folder that is not its root anchors nothing")
+        doc["mods"]["loader"][0]["root"] = "{source}/{project}/Plugins"
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "passive, anchored on its own root")
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
 
     def test_a_file_name_of_kind_dir_is_not_a_file_anchor(self):
         doc = mods_valid()
@@ -1044,8 +1043,60 @@ class ModsAnchorIsAFile(unittest.TestCase):
         doc = builtin_with_mods("unreal")
         paks = next(l for l in doc["mods"]["loader"] if l["id"] == "unreal-paks")
         self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc))
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
         paks["coexist"] = [{"strategy": "side-by-side", "tell": "ue4ss-mods-paths"}]
-        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "a dir anchor holds only while Astra tells nothing")
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc), "a root anchor holds only while Astra tells nothing")
+
+
+class ModsRootAnchoredIsPassive(unittest.TestCase):
+    """ops-42's follow-up: "passive" is exactly no `chain` and no `tell`, and
+    a root-anchored loader that declares either is refused on its own rule."""
+
+    def test_the_golden_passes_once_its_tell_goes(self):
+        doc = mods_hostile("root-anchor-not-passive")
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "it IS anchored, on its root")
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc))
+        del doc["mods"]["loader"][0]["coexist"][0]["tell"]
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+        self.assertTrue(mods_ok(doc))
+
+    def test_chain_makes_a_root_anchored_loader_active_too(self):
+        doc = mods_hostile("root-anchor-not-passive")
+        loader = doc["mods"]["loader"][0]
+        loader["require"].append({"stat": "{source}/winhttp.dll", "kind": "file"})  # a proxy: no file anchor
+        loader["coexist"] = [{"strategy": "chain", "entry": "{source}/winhttp.dll"}]
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc))
+
+    def test_passive_is_exactly_no_chain_and_no_tell(self):
+        for coexist, passive in [
+            ([], True),
+            ([{"strategy": "side-by-side"}], True),
+            ([{"strategy": "via-manager"}], True),
+            ([{"strategy": "side-by-side", "tell": "ue4ss-mods-paths"}], False),
+            ([{"strategy": "chain", "entry": "{source}/x.dll"}], False),
+            ([{"strategy": "via-manager"}, {"strategy": "side-by-side", "tell": "ue4ss-mods-paths"}], False),
+        ]:
+            with self.subTest(coexist=coexist):
+                self.assertEqual(ggold._passive({"coexist": coexist}), passive)
+
+    def test_the_spec_states_the_definition_the_reason_and_the_refusal(self):
+        s = " ".join(spec_section("### 7.4 Recognising a loader").split())
+        for needle in [
+            "A loader is **passive** when, exactly, its `coexist` holds no `chain` strategy and no strategy with a `tell`.",
+            "a false \"recognised\" for a root-anchored loader changes only what the player sees on their own machine",
+            "Astra loads nothing of it and tells it nothing",
+            "A root-anchored loader that also declares `chain` or a `tell` is reason `root-anchor-not-passive`.",
+        ]:
+            with self.subTest(needle=needle):
+                self.assertIn(needle, s)
+
+    def test_an_active_loader_with_a_file_anchor_may_also_require_its_root(self):
+        # Not root-anchored: its file anchors it, so the root lookup is just a requirement.
+        doc = builtin_with_mods("unreal")
+        ue3 = next(l for l in doc["mods"]["loader"] if l["id"] == "ue4ss3")
+        ue3["require"].append({"child": ue3["root"], "kind": "dir"})
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+        self.assertTrue(mods_ok(doc))
 
 
 class ModsDeviceNamesAndReservedCharacters(unittest.TestCase):

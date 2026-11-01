@@ -1,0 +1,37 @@
+# Hostile `mods` golden: a ROOT-ANCHORED loader made ACTIVE
+# (engine-descriptor-v1.md §7.4). A loader may be anchored on its own mods
+# root only while it is passive -- no `chain`, no `tell` -- because then a
+# false "recognised" changes only what the player sees on their own PC.
+# This is the ~mods-paks shape with one member added later, a `tell`, which
+# would make Astra set an environment variable for whatever that folder
+# turns out to be. An active loader needs a file anchor. Schema-valid; the
+# checker's root-anchor rule refuses it: mods-invalid, reason
+# root-anchor-not-passive.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { child = "{source}/{project}/Content/Paks/~mods", kind = "dir" } ]
+root = "{source}/{project}/Content/Paks/~mods"
+enabled = [ { format = "file-glob", glob = "*.pak" } ]
+coexist = [ { strategy = "side-by-side", tell = "ue4ss-mods-paths" } ]

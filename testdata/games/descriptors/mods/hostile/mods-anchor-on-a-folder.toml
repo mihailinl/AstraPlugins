@@ -1,10 +1,10 @@
 # Hostile `mods` golden: a loader ANCHORED ON A FOLDER (engine-descriptor-v1.md
 # §7.4). A folder name such as Plugins is in countless games, so it says
 # nothing about a loader; an anchor is a FILE. The one exception is a
-# passive loader -- no `chain`, no `tell` -- anchored by its own `root`
-# (the ~mods paks). This loader tells (`ue4ss-mods-paths`), so it is not
-# passive. Schema-valid; the checker's anchor rule refuses it: mods-invalid,
-# reason loader-anchor-invalid.
+# passive loader anchored on its own `root` -- and this folder is not its
+# root (the root is Plugins/mods), so even passive it anchors nothing.
+# Schema-valid; the checker's anchor rule refuses it: mods-invalid, reason
+# loader-anchor-invalid.
 #
 # Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
 # CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
@@ -30,6 +30,6 @@ name = "S2 Loader"
 codes = ["source2"]
 source = ["game", "picked"]
 require = [ { child = "{source}/{project}/Plugins", kind = "dir" } ]
-root = "{source}/{project}/Plugins"
+root = "{source}/{project}/Plugins/mods"
 enabled = [ { format = "dir-per-mod" } ]
-coexist = [ { strategy = "side-by-side", tell = "ue4ss-mods-paths" } ]
+coexist = [ { strategy = "side-by-side" } ]
