@@ -24,8 +24,8 @@
           "size": 22
         },
         "artefact": {
-          "sha256": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359",
-          "size": 1063,
+          "sha256": "6329c9b36a5d96adf2776345974501898e7b31d19dd6d525ef7006aa56013350",
+          "size": 1124,
           "media_type": "application/vnd.astra.character+zip"
         },
         "review": "unchecked",
@@ -74,7 +74,7 @@
   "signatures": [
     {
       "key_id": "astra-models-2026a",
-      "sig": "P76Dv1xbTOzvsiVy5TDbggHrt+BcBiR6gkKFPa6vljPY1wZ3XEuKUbqwWwSknBWm7GUzJ7JmEqIzNOx5RAgiCw=="
+      "sig": "YpRAO8ASaTGptWITEP2V0jzxc9zYApXvXICy5ErP0GBwRoUUFndC1mY7YUMp1osc3OW+cgunHyKMK5jGldYABw=="
     }
   ]
 }

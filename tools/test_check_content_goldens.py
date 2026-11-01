@@ -847,5 +847,74 @@ class ReasonCodes(unittest.TestCase):
         self.assertTrue(any("cite is in reason-codes.yaml" in f for f in failed(out)), failed(out))
 
 
+class GenDotPyIsZlibImplementationFree(unittest.TestCase):
+    """testdata/content/gen.py must never again depend on which zlib the
+    interpreter links — that dependency is exactly what turned content-spec
+    red on master (#127/c596522: CI's stock zlib and every workstation's
+    zlib-ng compress identical bytes differently, so `zlib.compressobj`
+    output drifted from the committed goldens). `zlib.crc32` stays: a CRC is
+    a pure function with one answer, unlike a compressor's chosen encoding."""
+
+    FORBIDDEN = re.compile(
+        r"\bzlib\.(compress|compressobj)\s*\(|\bzipfile\.ZIP_DEFLATED\b"
+        r"|\bzipfile\.ZipFile\([^)]*compress_type\s*=\s*zipfile\.ZIP_DEFLATED",
+        re.MULTILINE,
+    )
+
+    def _sources(self) -> dict[str, str]:
+        gen_py = ROOT / "testdata/content/gen.py"
+        out = {str(gen_py): gen_py.read_text()}
+        # every module gen.py imports from tools/ (today: contentlite)
+        for line in out[str(gen_py)].splitlines():
+            m = re.match(r"\s*import\s+(\w+)\s+as\s+\w+", line) or re.match(r"\s*import\s+(\w+)\s*$", line)
+            if not m:
+                continue
+            candidate = ROOT / "tools" / f"{m.group(1)}.py"
+            if candidate.is_file():
+                out[str(candidate)] = candidate.read_text()
+        return out
+
+    def test_no_implementation_dependent_compressor_call(self):
+        hits = []
+        for path, text in self._sources().items():
+            for m in self.FORBIDDEN.finditer(text):
+                hits.append(f"{path}: {m.group(0)!r}")
+        self.assertEqual(hits, [], "zlib/zipfile DEFLATE call found: " + "; ".join(hits))
+
+    def test_the_scan_itself_catches_a_reintroduced_call(self):
+        # mutation-verify the guard above: a `zlib.compressobj` call in the
+        # scanned text must be caught, not waved through by a loose regex.
+        poisoned = "def deflate(b):\n    c = zlib.compressobj(9, zlib.DEFLATED, -15, 9)\n    return c.compress(b)\n"
+        self.assertTrue(self.FORBIDDEN.search(poisoned), "the guard regex failed to catch a reintroduced zlib.compressobj call")
+        poisoned2 = 'zipfile.ZipFile(buf, "w", compress_type=zipfile.ZIP_DEFLATED)'
+        self.assertTrue(self.FORBIDDEN.search(poisoned2), "the guard regex failed to catch a reintroduced zipfile DEFLATED writer")
+
+
+class GenDeflateRoundTrips(unittest.TestCase):
+    """gen.py's own `deflate()` round-trips through the real `zlib.decompress`
+    (not its own inverse) and matches a fixed vector — see gen.py's
+    `_self_test_deflate`, which also runs on every `gen.py` invocation."""
+
+    def setUp(self):
+        gen_spec = importlib.util.spec_from_file_location("gendotpy_for_test", ROOT / "testdata/content/gen.py")
+        self.gen = importlib.util.module_from_spec(gen_spec)
+        gen_spec.loader.exec_module(self.gen)
+
+    def test_round_trips_varied_inputs(self):
+        import zlib as _zlib
+        for sample in (b"", b"x", b"\x00" * 1024 * 1024, bytes(range(256)) * 7, b"abcabcabcabc" * 30):
+            comp = self.gen.deflate(sample)
+            self.assertEqual(_zlib.decompress(comp, -15), sample)
+
+    def test_fixed_vector_is_pinned(self):
+        self.assertEqual(self.gen.deflate(self.gen._VECTOR_INPUT).hex(), self.gen._VECTOR_OUTPUT_HEX)
+
+    def test_ratio_bomb_input_exceeds_the_100_to_1_guard(self):
+        # the golden this encoder exists to keep buildable: 1 MiB of zeros,
+        # deflated well past MAX_RATIO (100) so E_ARCHIVE_RATIO still fires
+        comp = self.gen.deflate(b"\x00" * (1024 * 1024))
+        self.assertGreater(len(b"\x00" * (1024 * 1024)), 100 * len(comp))
+
+
 if __name__ == "__main__":
     unittest.main()

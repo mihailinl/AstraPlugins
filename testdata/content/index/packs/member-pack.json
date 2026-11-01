@@ -30,13 +30,13 @@
             "kind": "model",
             "id": "aiko-body",
             "version": "1.0.0",
-            "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+            "digest": "6329c9b36a5d96adf2776345974501898e7b31d19dd6d525ef7006aa56013350"
           },
           {
             "kind": "animset",
             "id": "wave-set",
             "version": "1.0.0",
-            "digest": "54f8b94b08af2e4dd7e7ecc2b9fbbe7d37022c17616382da83089d7b2a52264c"
+            "digest": "d62801676d72233384515d7662b7f2fc602f2d10f02ae65c441870d572d49cad"
           },
           {
             "kind": "command",
@@ -57,7 +57,7 @@
   "signatures": [
     {
       "key_id": "astra-packs-2026a",
-      "sig": "VFXke94b5eZFQvCkFsoGswu8SLCODmHAOx5lSlCDtJqMwRZQDnZoyrsSAw9FMdq8/B7h7CraTfN80aqmL+nFCw=="
+      "sig": "UQfVa7cPj+rJJ7Lsr908J++1HMhusJz0+Xk4e1u54PYbrc/mOgdLUW1OTayeYhX6StEPnUO4afRHFV/tniaABQ=="
     }
   ]
 }
