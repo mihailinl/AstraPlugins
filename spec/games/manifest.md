@@ -445,7 +445,13 @@ content's own code** (`E_ZIP_HEADERS_INCONSISTENT`, `E_BUNDLE_MANIFEST`,
 byte for byte, which `gen.py --check` keeps equal to `testdata/content/`). A
 bundle shape content's reader raises on instead of refusing (an
 `astrachar.json` that is an array, say) is refused `E_CONTENT_FORMAT` here,
-never a crash. The part's declared `licence` stands for every part of the
+never a crash. **A bundle is unzipped once, and its glTF JSON counts toward
+the release's 32 MiB** (§2.7.3's caps): the sum of its GLB chunk lengths and
+`.gltf` sizes, from the walk's headers, is charged before anything in it is
+parsed, and the bundle that would take the release past 32 MiB is refused
+`E_CONTENT_FORMAT` unparsed (golden `bundle-gltf-total-over-32mib`: three
+bundles of 11 MiB each; four of 32 MiB once cost 787 MB and 31 s, and were
+accepted). The part's declared `licence` stands for every part of the
 bundle (content's `declared_licence`); without one, each part needs its own
 allowed VRM meta (golden `bundle-audio-licence-undeclared`, refused by
 content's step 11; `bundle-model-aiko`, accepted with `licence_source =

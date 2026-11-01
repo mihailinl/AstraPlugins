@@ -199,6 +199,20 @@ for _rel, _src in BUNDLE_COPIES.items():
     RELEASE_FILES[_rel] = (lambda src: lambda: (CONTENT_ARCHIVES / src).read_bytes())(_src)
 
 
+@functools.lru_cache(maxsize=1)
+def content_gen():
+    """testdata/content/gen.py, whose bundle builders make the embedded bundles below."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("content_gen", HERE.parents[2] / "content" / "gen.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+SYNTH["astrapack-gltf-11mib"] = lambda: content_gen()._pack(
+    {"clips/g.gltf": content_gen()._big_json(11 * MIB)}, stored=["clips/g.gltf"])  # three of them: 33 MiB
+
+
 @functools.lru_cache(maxsize=4)
 def synth(name: str) -> bytes:
     """The release goldens too large to commit, built in memory (one copy of

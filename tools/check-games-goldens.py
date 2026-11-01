@@ -427,10 +427,12 @@ SNIFF_BUDGET = 64 * 1024 * 1024
 
 class ReleaseBudget:
     """What one release may make the gate spend: the bytes the per-character
-    sniff reads (SNIFF_BUDGET)."""
+    sniff reads (SNIFF_BUDGET), and the glTF JSON it may parse -- content's
+    32 MiB per archive, here per RELEASE, embedded bundles included."""
 
     def __init__(self):
         self.sniffed = 0
+        self.gltf_json = 0
 
 
 def _json_looking(raw: bytes) -> bool:
@@ -499,13 +501,12 @@ def is_bundle_bytes(raw: bytes) -> bool:
     return bool(order) and order[-1] == "astrachar.json"
 
 
-def _bundle_layout(raw: bytes):
-    """(part roots, body path, body bytes) by content's own reading, or
-    ([], None, None) when it cannot read that far -- `ingest_bundle` then
-    refuses the bundle with the step that failed."""
+def _bundle_layout(files: dict[str, bytes]):
+    """(part roots, body path, body bytes) by content's own reading of the
+    walked files, or ([], None, None) when it cannot read that far --
+    `ingest_bundle` then refuses the bundle with the step that failed."""
     try:
-        files = CG.walk_zip(raw)
-        files.pop("\0order", None)
+        files = {p: b for p, b in files.items() if not p.startswith("\0")}
         man = CG.C.strict_loads(files["astrachar.json"])
         body = (man.get("body") or {}).get("file")
         settings = (man.get("character") or {}).get("dir")
@@ -515,14 +516,45 @@ def _bundle_layout(raw: bytes):
         return [], None, None
 
 
-def bundle_verdict(path: str, raw: bytes, licence) -> dict:
+def _ingest_walked(raw: bytes, files: dict[str, bytes], ctx: dict) -> dict:
+    """Content's `ingest_bundle` over a bundle ALREADY walked: its own call
+    to `walk_zip` is answered with that walk, so a bundle is unzipped once."""
+    real = CG.walk_zip
+    CG.walk_zip = lambda b: dict(files) if b is raw else real(b)
+    try:
+        return CG.ingest_bundle(raw, ctx)
+    finally:
+        CG.walk_zip = real
+
+
+def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None = None) -> dict:
     """Content's verdict on one embedded bundle: {"status": "ok" | "unknown"
     | "bundle", "refusal": {"code", "detail"} | None, "body": (path, bytes) |
     None}. A refusal keeps content's own code; its detail is content's,
-    prefixed `<path>!`, so a per-file one reads `<gi path>!<inner path>`."""
-    roots, body_path, body = _bundle_layout(raw)
+    prefixed `<path>!`, so a per-file one reads `<gi path>!<inner path>`.
+
+    The bundle is unzipped ONCE, by content's walk_zip (whose failure is the
+    first failing step ingest_bundle itself would report). Its glTF JSON,
+    from the walk's headers, is charged to the release's budget before
+    anything in it is parsed: four bundles of 32 MiB each once made the gate
+    parse 128 MiB of JSON (787 MB, 31 s) and accepted them."""
+    budget = budget if budget is not None else ReleaseBudget()
     try:
-        got = CG.ingest_bundle(raw, {"declared_licence": roots if licence else []})
+        files = CG.walk_zip(raw)
+    except CG.Refusal as r:
+        return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
+    except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
+        return {"status": "bundle", "body": None, "refusal": {
+            "code": "E_CONTENT_FORMAT", "detail": f"{path}!: the content checker cannot read it ({type(e).__name__}: {e})"}}
+    own = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items() if not p.startswith("\0"))
+    if budget.gltf_json + own > CG.MAX_GLTF_JSON_TOTAL:
+        return {"status": "bundle", "body": None, "refusal": {"code": "E_CONTENT_FORMAT", "detail":
+                f"{path}!: {budget.gltf_json + own} bytes of glTF JSON in the release with this bundle, "
+                f"over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)"}}
+    budget.gltf_json += own
+    roots, body_path, body = _bundle_layout(files)
+    try:
+        got = _ingest_walked(raw, files, {"declared_licence": roots if licence else []})
     except CG.Refusal as r:
         return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
     except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
@@ -849,7 +881,7 @@ def gltf_class(doc) -> str:
     return "plain"
 
 
-def part_licence(entry: dict, raw, present=None) -> dict:
+def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = None) -> dict:
     """legal DRAFT-v3.md Part 6 G5: the licence_source decision for one
     covered [[integration.content]] entry, given the real bytes at its
     path (or None when nothing covers it). `licence_source` is `"vrm"`
@@ -884,7 +916,7 @@ def part_licence(entry: dict, raw, present=None) -> dict:
     if spath is not None and raw is not None and spath.lower().endswith(BUNDLE_EXTS) and _is_zip(raw[:4]):
         # an embedded bundle: the content contract's own verdict decides; its
         # body's readable VRM licence, when it has one, is the part's licence
-        bv = bundle_verdict(spath, raw, entry.get("licence"))
+        bv = bundle_verdict(spath, raw, entry.get("licence"), budget)
         gate_status, refusal = bv["status"], bv["refusal"]
         if bv["status"] == "ok" and bv["body"] is not None:
             body_gate = vrm_gate(bv["body"][1], bv["body"][0])
@@ -929,9 +961,9 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
     budget = ReleaseBudget()
     # the release's glTF JSON budget, from headers before anything is parsed:
     # the content catalogue's 32 MiB per archive (ingest-v1.md §3 step 5, B1)
-    gltf_total = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
-    if gltf_total > CG.MAX_GLTF_JSON_TOTAL:
-        refuse("E_CONTENT_FORMAT", "", f"{gltf_total} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
+    budget.gltf_json = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
+    if budget.gltf_json > CG.MAX_GLTF_JSON_TOTAL:
+        refuse("E_CONTENT_FORMAT", "", f"{budget.gltf_json} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
     for p, b in sorted(files.items()):
         why = name_problem(p, b, budget)
         if why:
@@ -956,7 +988,7 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
         raw = found.get(p) if isinstance(p, str) else None
         if raw is None:
             continue
-        pl = part_licence(entry, raw, present)
+        pl = part_licence(entry, raw, present, budget)
         status = pl["gate_status"]
         if status in GATE_CODES:
             refuse(GATE_CODES[status], p, _refusal_detail(pl["refusal"]))

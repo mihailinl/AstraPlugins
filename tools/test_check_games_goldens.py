@@ -752,6 +752,32 @@ class EmbeddedBundles(unittest.TestCase):
         doc["integration"]["content"][0]["licence"] = ""
         self.assertEqual(codes_of(files, doc), ["E_CONTENT_LICENCE_UNDECLARED"])
 
+    def test_each_bundle_is_unzipped_once(self):
+        files, doc = release("bundle-model-aiko")
+        calls = []
+        real = ggold.CG.walk_zip
+        ggold.CG.walk_zip = lambda b: calls.append(len(b)) or real(b)
+        try:
+            self.assertEqual(codes_of(files, doc), [])
+        finally:
+            ggold.CG.walk_zip = real
+        self.assertEqual(len(calls), 1, "content's walk_zip ran once for the one bundle")
+
+    def test_a_bundles_gltf_json_is_charged_to_the_release_before_it_is_parsed(self):
+        files, doc = release("bundle-gltf-total-over-32mib")
+        parsed = []
+        real = ggold.CG.gltf_problem
+        ggold.CG.gltf_problem = lambda p, b: parsed.append(p) or real(p, b)
+        try:
+            (f,) = ggold.release_findings(files, doc)["findings"]
+        finally:
+            ggold.CG.gltf_problem = real
+        self.assertEqual(f["path"], "packs/c.astrapack", "the bundle that takes the release past 32 MiB")
+        self.assertEqual(len(parsed), 2, "the third bundle's .gltf is never parsed")
+        del files["packs/c.astrapack"]
+        doc["integration"]["content"].pop()
+        self.assertEqual(codes_of(files, doc), [], "two of them are 22 MiB")
+
     def test_the_cloaked_bundle_turns_green_for_the_wrong_reason_under_a_lenient_reader(self):
         import io
         import zipfile
