@@ -753,6 +753,11 @@ class UnreadableIsRefused(unittest.TestCase):
         self.assertRedOn(Mutation("MAX_JSON_DEPTH", 127), "archives/animset-gltf-depth-128")
 
 
+class B1GltfJsonTotal(unittest.TestCase):
+    def test_no_archive_total(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("MAX_GLTF_JSON_TOTAL", 1 << 40), "archives/gltf-total-over-32mib")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

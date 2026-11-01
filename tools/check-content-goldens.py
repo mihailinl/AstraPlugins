@@ -700,6 +700,10 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         if len(data) != usize or (zlib.crc32(data) & 0xFFFFFFFF) != crc:
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: size or CRC")
         files[name] = data
+    # step 5's archive-wide glTF JSON budget (B1): the server once held 1.9 GB for seven 16 MiB .gltf
+    total = sum(gltf_json_bytes(p, d) for p, d in files.items())
+    if total > MAX_GLTF_JSON_TOTAL:
+        raise Refusal("E_ARCHIVE_TOO_LARGE", f"{total} bytes of glTF JSON, over {MAX_GLTF_JSON_TOTAL}")
     files["\0order"] = json.dumps([e[0] for e in entries]).encode()
     return files
 
@@ -838,6 +842,15 @@ def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None
 
 MAX_GLTF_JSON = 16 * 1024 * 1024  # one GLB JSON chunk, or one .gltf
 MAX_JSON_DEPTH = 128
+MAX_GLTF_JSON_TOTAL = 32 * 1024 * 1024  # B1: all GLB JSON chunks plus all .gltf in ONE archive
+
+
+def gltf_json_bytes(p: str, b: bytes) -> int:
+    """The glTF JSON a reader would hold for this entry: a GLB's declared first-chunk length,
+    or a .gltf's whole size -- read from headers, before anything is parsed."""
+    if b[:4] == GLB_MAGIC:
+        return int.from_bytes(b[12:16], "little") if len(b) >= 16 else 0
+    return len(b) if p.lower().endswith(".gltf") else 0
 
 
 def json_depth(doc) -> int:

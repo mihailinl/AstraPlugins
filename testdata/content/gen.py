@@ -1011,6 +1011,9 @@ SYNTH = {
     "glb-json-over-16mib": lambda: _pack({"clips/big.glb": _glb_of(_big_json(MIB16 + 4))}),
     # a .gltf over 16 MiB
     "gltf-over-16mib": lambda: _pack({"clips/big.gltf": _big_json(MIB16 + 1)}, stored=["clips/big.gltf"]),
+    # B1: three .gltf, each readable (11 MiB), 33 MiB together: over the 32 MiB archive total
+    "gltf-total-over-32mib": lambda: _pack({f"clips/g{i}.gltf": _big_json(11 * 1024 * 1024) for i in range(3)},
+                                           stored=[f"clips/g{i}.gltf" for i in range(3)]),
 }
 
 

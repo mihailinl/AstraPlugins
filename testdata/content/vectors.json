@@ -2492,6 +2492,17 @@
         ""
       ],
       "note": "nesting exactly 128 deep is readable"
+    },
+    {
+      "name": "gltf-total-over-32mib",
+      "synth": "gltf-total-over-32mib",
+      "sha256": "756aed776cdd780b726892a6a9407d2c4d2ee049decd8e991ff0d60bb61c9426",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_TOO_LARGE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "B1: three readable 11 MiB .gltf, 33 MiB of glTF JSON in one archive (built in memory, 33 MiB)"
     }
   ],
   "scenarios": [
@@ -3793,7 +3804,6 @@
     }
   ],
   "l1_only": {
-    "E_ARCHIVE_TOO_LARGE": "128 MiB uncompressed under the 100:1 per-entry cap needs >= 1.3 MiB of compressed fixture; L1 builds it at test time from a seed",
     "E_CONTENT_DIGEST_MISMATCH": "a door check: the assembled upload against the sha256 and size `begin` declared; there is no bundle to commit",
     "E_CONTENT_TOO_LARGE": "the caps are 50 MiB (VRM), 64 MiB (bundle) and 1 MiB (command); L1 generates the over-cap fixtures at test time",
     "E_CONTENT_QUOTA": "the author's quota is service state (live objects plus staging sessions), not a property of a file",
@@ -3801,5 +3811,5 @@
     "E_CONTENT_MEDIA_TYPE": "the audio allowlist is an L1 knob, not a contract constant",
     "E_ID_RESERVED_PREFIX": "the reserved prefixes are spec/reserved-ids.yaml (the registry's mirror, held by C27); the slug door is L1's"
   },
-  "expected_checks": 333
+  "expected_checks": 335
 }
