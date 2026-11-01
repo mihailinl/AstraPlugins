@@ -833,7 +833,12 @@ pub fn legacy_digest<R: Read + Seek>(archive: &mut zip::ZipArchive<R>) -> Result
         let mut entry = archive
             .by_index(i)
             .with_context(|| format!("Failed to read archive entry {i}"))?;
-        let name = entry.name().to_string();
+        // zip 9's `name()` is fallible (the raw bytes need not be UTF-8); a
+        // name this reader cannot decode is as disqualifying as a wrong one.
+        let name = entry
+            .name()
+            .with_context(|| format!("Archive entry {i} has an unreadable name"))?
+            .into_owned();
         // The daemon skips the pair when it verifies, so the writer must skip it
         // when it signs — otherwise re-signing an already-signed bundle would
         // produce a signature over a message nothing ever checks.
@@ -1061,6 +1066,25 @@ impl Bundle {
         let mut archive = zip::ZipArchive::new(BufReader::new(file))
             .with_context(|| format!("Failed to read {} as a ZIP archive", path.display()))?;
 
+        // "Zip cloaking" (the CRITICAL Dependabot advisory zip < 9.0.5 carries):
+        // a crafted archive whose local file headers disagree with the central
+        // directory — a different name, a different size, a different offset —
+        // makes a validator that trusts one view and an extractor that trusts
+        // the other see two different sets of files. zip 9 does not refuse this
+        // on its own; `by_index` below still reads off the central directory
+        // alone. This explicit pass is what the daemon's own installer runs
+        // before it trusts anything read from an archive, and it must run here
+        // too: every entry's bytes and name below come from `by_index`, which
+        // is exactly the read this call guards.
+        archive.validate_header_consistency().with_context(|| {
+            format!(
+                "{} fails header-consistency checks: its local file headers disagree with its \
+                 central directory. A reader that trusted one and an installer that trusted the \
+                 other could extract or verify different contents from the same bytes.",
+                path.display()
+            )
+        })?;
+
         if archive.len() > MAX_ARCHIVE_ENTRIES {
             bail!(
                 "Archive has {} entries; the daemon refuses more than {MAX_ARCHIVE_ENTRIES}",
@@ -1073,7 +1097,10 @@ impl Bundle {
         let mut total: u64 = 0;
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i)?;
-            let path = entry.name().to_string();
+            let path = entry
+                .name()
+                .with_context(|| format!("Archive entry {i} has an unreadable name"))?
+                .into_owned();
             if i == 0 && path != MANIFEST_ENTRY {
                 bail!("The central directory's first entry is '{path}', not {MANIFEST_ENTRY}");
             }

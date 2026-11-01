@@ -642,7 +642,7 @@ mod vectors {
             for i in 0..zip.len() {
                 use std::io::Read;
                 let mut e = zip.by_index(i).unwrap();
-                let n = e.name().to_string();
+                let n = e.name().unwrap().into_owned();
                 if n == "SIGNATURE" || n == "PUBKEY" {
                     continue;
                 }
@@ -769,5 +769,239 @@ mod vectors {
                 d["summary"].as_str().unwrap_or("")
             );
         }
+    }
+}
+
+/// The "zip cloaking" gap (the CRITICAL Dependabot advisory for Rust `zip` <
+/// 9.0.5): a crafted archive whose local file headers disagree with its
+/// central directory makes a validator and an extractor see different
+/// entries. zip 9 does not refuse this by itself — `ZipArchive::by_index`
+/// still reads metadata off the central directory alone — so `Bundle::open`
+/// now calls `ZipArchive::validate_header_consistency()` explicitly, before
+/// trusting anything `by_index` returns.
+///
+/// This fixture is built one byte at a time rather than with `zip::ZipWriter`
+/// because every writer in this codebase — and in the `zip` crate itself —
+/// keeps local and central headers in sync by construction. The attack this
+/// guards against can only be expressed below the writer's API, the same way
+/// `roundtrip::carve_manifest` reads below the reader's.
+#[cfg(test)]
+mod cloaking {
+    use std::collections::BTreeMap;
+
+    use sha2::{Digest, Sha256};
+
+    use crate::bundle::{Bundle, BundleManifest, FileEntry, ManifestEntry, Platform, SCHEMA, hex, permissions_hash};
+
+    fn le16(n: u16) -> [u8; 2] {
+        n.to_le_bytes()
+    }
+    fn le32(n: u32) -> [u8; 4] {
+        n.to_le_bytes()
+    }
+
+    /// CRC-32 (ZIP's polynomial), computed independently of the `zip` crate's
+    /// own implementation so this fixture does not borrow the correctness of
+    /// the thing it is attacking.
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &byte in data {
+            crc ^= byte as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+
+    /// A stored (uncompressed) local file header plus its content, appended to
+    /// `out`. Returns the header's starting offset — what a central directory
+    /// record's "relative offset of local header" field points at.
+    fn write_local_header(out: &mut Vec<u8>, name: &[u8], content: &[u8]) -> u32 {
+        let offset = out.len() as u32;
+        out.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
+        out.extend_from_slice(&le16(20)); // version needed to extract
+        out.extend_from_slice(&le16(0)); // flags: no encryption, no data descriptor
+        out.extend_from_slice(&le16(0)); // compression method: stored
+        out.extend_from_slice(&le16(0)); // last mod time
+        out.extend_from_slice(&le16(0x21)); // last mod date: 1980-01-01
+        out.extend_from_slice(&le32(crc32(content)));
+        out.extend_from_slice(&le32(content.len() as u32)); // compressed size
+        out.extend_from_slice(&le32(content.len() as u32)); // uncompressed size
+        out.extend_from_slice(&le16(name.len() as u16));
+        out.extend_from_slice(&le16(0)); // extra field length
+        out.extend_from_slice(name);
+        out.extend_from_slice(content);
+        offset
+    }
+
+    /// A central directory record. `name`, `content_crc` and `content_len` are
+    /// the CENTRAL directory's own claims — independent of whatever is
+    /// physically written at `local_header_offset`. That gap is the entire
+    /// point of this fixture: a reader that trusts the central directory for
+    /// everything (as `by_index` does) never looks at what disagrees.
+    fn write_central_entry(
+        out: &mut Vec<u8>,
+        name: &[u8],
+        content_crc: u32,
+        content_len: u32,
+        local_header_offset: u32,
+    ) {
+        out.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
+        out.extend_from_slice(&le16(0)); // version made by: MS-DOS host, no unix mode
+        out.extend_from_slice(&le16(20)); // version needed to extract
+        out.extend_from_slice(&le16(0)); // flags
+        out.extend_from_slice(&le16(0)); // compression method: stored
+        out.extend_from_slice(&le16(0)); // last mod time
+        out.extend_from_slice(&le16(0x21)); // last mod date
+        out.extend_from_slice(&le32(content_crc));
+        out.extend_from_slice(&le32(content_len));
+        out.extend_from_slice(&le32(content_len));
+        out.extend_from_slice(&le16(name.len() as u16));
+        out.extend_from_slice(&le16(0)); // extra field length
+        out.extend_from_slice(&le16(0)); // file comment length
+        out.extend_from_slice(&le16(0)); // disk number start
+        out.extend_from_slice(&le16(0)); // internal file attributes
+        out.extend_from_slice(&le32(0)); // external file attributes
+        out.extend_from_slice(&le32(local_header_offset));
+        out.extend_from_slice(name);
+    }
+
+    /// Build a two-entry archive where entry 0 (`MANIFEST.json`) is entirely
+    /// consistent — local and central agree, exactly as a real bundle built by
+    /// this CLI would be — and entry 1 is the cloak: its local file header
+    /// names it `evil.txt`, but the central directory's record for that same
+    /// offset names it `note.txt`, with the central directory's CRC32 and size
+    /// set to the real bytes' values (so a reader that trusts the central
+    /// directory for everything, as `by_index` does, reads them without
+    /// complaint).
+    ///
+    /// A verifier built on `by_index` alone — every reader before
+    /// `validate_header_consistency` existed — sees a `note.txt` whose hash
+    /// matches `MANIFEST.files` and calls the bundle good. An extractor that
+    /// resolves names from local headers instead (streaming scanners and
+    /// several real-world unzip implementations do, for exactly the files
+    /// that matter to them) would write that same payload to `evil.txt` — a
+    /// path the manifest never mentioned and nothing hashed under that name.
+    /// `verify` vouching for "note.txt" says nothing about what `evil.txt`
+    /// contains.
+    fn build_cloaked_bundle() -> Vec<u8> {
+        let note_content: &[u8] = b"hello123";
+
+        let manifest = BundleManifest {
+            schema: SCHEMA.to_string(),
+            plugin_id: "cloak-test".to_string(),
+            version: "0.1.0".to_string(),
+            platform: Platform {
+                os: "any".to_string(),
+                arch: "any".to_string(),
+            },
+            protocol: 1,
+            min_astra_version: String::new(),
+            capabilities: vec![],
+            permissions: BTreeMap::new(),
+            permissions_hash: permissions_hash(&BTreeMap::new()).unwrap(),
+            entry: ManifestEntry {
+                command: "python".to_string(),
+                args: vec![],
+            },
+            files: vec![FileEntry {
+                path: "note.txt".to_string(),
+                sha256: hex(&Sha256::digest(note_content)),
+                size: note_content.len() as u64,
+                mode: "0644".to_string(),
+            }],
+        };
+        let manifest_bytes = manifest.to_bytes().unwrap();
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let note_offset = write_local_header(&mut out, b"evil.txt", note_content);
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry(
+            &mut out,
+            b"note.txt", // <-- disagrees with the local header's "evil.txt"
+            crc32(note_content),
+            note_content.len() as u32,
+            note_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+
+        out.extend_from_slice(&0x0605_4b50u32.to_le_bytes()); // end of central directory
+        out.extend_from_slice(&le16(0)); // disk number
+        out.extend_from_slice(&le16(0)); // disk with central directory
+        out.extend_from_slice(&le16(2)); // entries on this disk
+        out.extend_from_slice(&le16(2)); // total entries
+        out.extend_from_slice(&le32(central_size));
+        out.extend_from_slice(&le32(central_start));
+        out.extend_from_slice(&le16(0)); // comment length
+        out
+    }
+
+    /// A scratch path that does not need the `tempfile` crate, mirroring
+    /// `roundtrip::tempdir`'s reasoning in this same binary.
+    struct ScratchFile(std::path::PathBuf);
+
+    impl Drop for ScratchFile {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    /// The test this whole module exists for: `Bundle::open` — and so
+    /// `astra-plugin verify` and `astra-plugin sign`, which calls it first —
+    /// must refuse a bundle whose local headers disagree with its central
+    /// directory, rather than silently reading the central directory's view
+    /// and calling it verified.
+    ///
+    /// MUTATION PROOF: deleting the `archive.validate_header_consistency()?`
+    /// call this fixes adds to `Bundle::open` (bundle.rs) makes this test
+    /// fail — every other invariant `Bundle::open` already checked (entry 0
+    /// is `MANIFEST.json` and stored, its hash matches the local header at
+    /// offset 0, `MANIFEST.files` is exhaustive, every listed digest and size
+    /// matches, the entry command resolves) is satisfied by this fixture on
+    /// purpose, because the central directory's own bookkeeping is
+    /// self-consistent. Only cross-checking it against the local headers
+    /// catches the swap.
+    #[test]
+    fn verify_refuses_an_archive_whose_local_header_disagrees_with_its_central_directory() {
+        let bytes = build_cloaked_bundle();
+        let path = ScratchFile(std::env::temp_dir().join(format!(
+            "astra-plugin-cloak-{}-{:?}.astraplugin",
+            std::process::id(),
+            std::thread::current().id()
+        )));
+        std::fs::write(&path.0, &bytes).unwrap();
+
+        let err = match Bundle::open(&path.0) {
+            Ok(_) => panic!(
+                "Bundle::open accepted an archive whose local file header names 'evil.txt' \
+                 where the central directory claims 'note.txt' at the same offset. `verify` \
+                 would vouch for contents an extractor trusting local headers would write under \
+                 a different name."
+            ),
+            Err(e) => format!("{e:#}"),
+        };
+        assert!(
+            err.contains("header-consistency") || err.contains("header inconsistency"),
+            "the refusal should name the header-consistency check, not some other invariant: \
+             {err}"
+        );
+        assert!(
+            err.contains("filename mismatch") || err.contains("evil.txt") || err.contains("note.txt"),
+            "the refusal should be traceable to the name disagreement, not a coincidence: {err}"
+        );
     }
 }
