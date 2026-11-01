@@ -1279,6 +1279,20 @@ def main() -> int:
             if "max_seconds" in v:  # a cost bound: the gate must not be made to spend more on this release
                 spent = time.monotonic() - started
                 report(f"content/releases/{v['name']} within {v['max_seconds']} s", spent <= v["max_seconds"], f"{spent:.1f} s")
+            if v.get("guard") == "strict_json":
+                # content's gltf_problem meets a too-deep JSON first and catches its
+                # RecursionError, so the verdict above cannot see games' own guard: run
+                # the golden through games' strict parser alone, which must refuse it
+                for rel, raw in sorted(files.items()):
+                    if rel.endswith(".gltf"):
+                        try:
+                            _strict_json(raw)
+                            held = False
+                        except GltfFormatError:
+                            held = True
+                        except RecursionError:
+                            held = False
+                        report(f"content/releases/{v['name']} {rel} refused by _strict_json alone, never a crash", held)
             codes = sorted({f["code"] for f in got["findings"]})
             flags = sorted({f["flag"] for f in got["flags"]})
             # ONE defect per golden: a refusal carries exactly the code it is named for
