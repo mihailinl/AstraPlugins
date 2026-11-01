@@ -321,7 +321,12 @@ def extract_vrm_metas(raw: bytes) -> dict:
     file whose VRM 0.x meta allowed and whose VRM 1.0 meta prohibited
     passed the gate outright). Empty when neither is present (not every
     .vrm file carries one, and that is not itself a refusal)."""
-    doc = parse_glb_json_chunk(raw)
+    return extract_vrm_metas_doc(parse_glb_json_chunk(raw))
+
+
+def extract_vrm_metas_doc(doc) -> dict:
+    """extract_vrm_metas over an already-parsed glTF JSON document (a GLB's
+    JSON chunk or a `.gltf` file's whole text)."""
     if not isinstance(doc, dict):
         return {}
     exts = doc.get("extensions")
@@ -337,49 +342,66 @@ def extract_vrm_metas(raw: bytes) -> dict:
     return out
 
 
+def _reading(value, allowed, prohibited, default_prohibited=True):
+    """One field's reading: "allowed", "prohibited" or "unknown"."""
+    if value is None:
+        return "prohibited" if default_prohibited else "unknown"
+    if not isinstance(value, str):
+        return "prohibited"
+    if allowed(value):
+        return "allowed"
+    if value in prohibited:
+        return "prohibited"
+    return "unknown"
+
+
 def rule_vrm_licence_refused(vrm_version: str, meta: dict) -> dict:
     """manifest.md §2.7.3's HARD VRM GATE / marketplace legal DRAFT-v3.md
-    Part 6 G4, D8 (widened): refuse on the decided redistribution refusal
-    OR an author-only/named-people avatar permission, reading EACH SPEC'S
-    OWN DEFAULT for a field the file leaves out -- never "absent means
-    allowed". Defaults are astra-companion's own (src/vrm/meta.rs:80-100,
-    `licence_of`/`redistribution_of`, the implementation these two rules
-    are ported from):
-      VRM 1.0 -- absent/non-true `allowRedistribution` is prohibited (the
-        meta schema's own default is false); absent `avatarPermission`
-        defaults to "onlyAuthor".
-      VRM 0.x -- absent `licenseName` is prohibited (UniVRM's default);
-        absent `allowedUserName` defaults to "OnlyAuthor".
-    Over an already-extracted meta dict (so a test can mutate it directly).
-    Returns {"refused", "field", "value", "defaulted"}; "value" is the
-    literal field value that triggered the refusal, or None when the
-    field was absent and a spec default did (`"defaulted": True`)."""
+    Part 6 G4, D8 (widened): one meta's verdict, read exactly as the content
+    contract's ingest-v1.md §4.2 and astra-companion's `src/vrm/meta.rs`
+    (`licence_of`, `redistribution_of`, origin/main 045b0bf) read it, so that
+    the games and content gates agree on every file. Each meta gives two
+    readings:
+
+      VRM 1.0 `allowRedistribution`: `true` allowed; `false`, absent or not a
+        bool (the string "true" included) prohibited.
+      VRM 0.x `licenseName`: `CC0` or any token beginning `CC_` allowed;
+        `Redistribution_Prohibited`, absent or not a string prohibited;
+        `Other` or ANY other token unknown (the terms are elsewhere).
+      VRM 1.0 `avatarPermission` / 0.x `allowedUserName`: `everyone` /
+        `Everyone` allowed; `onlyAuthor`, `onlySeparatelyLicensedPerson` /
+        `OnlyAuthor`, `ExplicitlyLicensedPerson`, absent (the spec default)
+        or not a string prohibited; ANY other token unknown.
+
+    The verdict is "prohibited" if either reading is, else "unknown" if
+    either is, else "allowed". An unrecognised token is never allowed.
+    Returns {"verdict", "refused", "field", "value", "defaulted"}: "field"
+    names the reading that decided a prohibited or unknown verdict (the
+    redistribution field first), "value" its literal value, and
+    "defaulted" whether the field was absent and a spec default decided."""
     if vrm_version == "0.x":
-        license_name = meta.get("licenseName")
-        if license_name is None:
-            return {"refused": True, "field": "extensions.VRM.meta.licenseName", "value": None, "defaulted": True}
-        if license_name == "Redistribution_Prohibited":
-            return {"refused": True, "field": "extensions.VRM.meta.licenseName", "value": license_name, "defaulted": False}
-        allowed_user = meta.get("allowedUserName")
-        if allowed_user is None:
-            return {"refused": True, "field": "extensions.VRM.meta.allowedUserName", "value": None, "defaulted": True}
-        if allowed_user in ("OnlyAuthor", "ExplicitlyLicensedPerson"):
-            return {"refused": True, "field": "extensions.VRM.meta.allowedUserName", "value": allowed_user, "defaulted": False}
-        return {"refused": False, "field": None, "value": None, "defaulted": False}
-    if vrm_version == "1.0":
-        allow_redist = meta.get("allowRedistribution")
-        if allow_redist is not True:
-            return {
-                "refused": True, "field": "extensions.VRMC_vrm.meta.allowRedistribution",
-                "value": allow_redist, "defaulted": "allowRedistribution" not in meta,
-            }
-        avatar_perm = meta.get("avatarPermission")
-        if avatar_perm is None:
-            return {"refused": True, "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": None, "defaulted": True}
-        if avatar_perm in ("onlyAuthor", "onlySeparatelyLicensedPerson"):
-            return {"refused": True, "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": avatar_perm, "defaulted": False}
-        return {"refused": False, "field": None, "value": None, "defaulted": False}
-    raise NotImplementedError(vrm_version)
+        fields = (
+            ("extensions.VRM.meta.licenseName", "licenseName",
+             _reading(meta.get("licenseName"), lambda v: v == "CC0" or v.startswith("CC_"), ("Redistribution_Prohibited",))),
+            ("extensions.VRM.meta.allowedUserName", "allowedUserName",
+             _reading(meta.get("allowedUserName"), lambda v: v == "Everyone", ("OnlyAuthor", "ExplicitlyLicensedPerson"))),
+        )
+    elif vrm_version == "1.0":
+        redist = meta.get("allowRedistribution")
+        fields = (
+            ("extensions.VRMC_vrm.meta.allowRedistribution", "allowRedistribution",
+             "allowed" if redist is True else "prohibited"),
+            ("extensions.VRMC_vrm.meta.avatarPermission", "avatarPermission",
+             _reading(meta.get("avatarPermission"), lambda v: v == "everyone", ("onlyAuthor", "onlySeparatelyLicensedPerson"))),
+        )
+    else:
+        raise NotImplementedError(vrm_version)
+    for wanted in ("prohibited", "unknown"):
+        for field, key, reading in fields:
+            if reading == wanted:
+                return {"verdict": wanted, "refused": wanted == "prohibited", "field": field,
+                        "value": meta.get(key), "defaulted": key not in meta}
+    return {"verdict": "allowed", "refused": False, "field": None, "value": None, "defaulted": False}
 
 
 # manifest.md §2.7.3 / legal DRAFT-v3.md G5: kept with the part so the
@@ -398,71 +420,87 @@ VRM_USAGE_FIELDS = {
     "1.0": ("allowExcessivelyViolentUsage", "allowExcessivelySexualUsage", "allowPoliticalOrReligiousUsage", "allowAntisocialOrHateUsage"),
 }
 
-# The overlap between the two specs' usage-flag vocabularies: 0.x's
-# *Name string enum ("Allow" vs anything else -- UniVRM) against 1.0's
-# allowExcessively*Usage boolean. 0.x's own `commercialUssageName` and 1.0's
-# `allowPoliticalOrReligiousUsage` / `allowAntisocialOrHateUsage` have no
-# counterpart on the other side and are never compared.
-VRM_USAGE_OVERLAP = {
-    "violent": ("violentUssageName", "allowExcessivelyViolentUsage"),
-    "sexual": ("sexualUssageName", "allowExcessivelySexualUsage"),
-}
-
-
 def rule_vrm_conflict(meta0x: dict, meta1_0: dict) -> dict | None:
     """manifest.md §2.7.3 / the content contract's ingest-v1.md §4.2: a file
     carrying BOTH a VRM 0.x and a VRM 1.0 meta is judged on EACH (O-2 -- a
     reader that stops at the first meta it finds would pass a file whose
-    0.x meta allows and whose 1.0 meta prohibits). Disagreement is refused
-    as `E_CONTENT_LICENCE_CONFLICT`:
-
-      - the two gate verdicts differ (one side's redistribution or avatar-
-        permission field refuses, the other's does not -- the exact
-        disagreement `ingest-v1.md`'s own hostile golden
-        `vrm-metas-disagree.astrachar` tests), or
-      - an overlapping usage flag BOTH sides actually carry reads a
-        different allow/disallow between the two specs.
+    0.x meta allows and whose 1.0 meta prohibits). If the two verdicts
+    differ -- an unknown against an allowed included -- it is refused as
+    `E_CONTENT_LICENCE_CONFLICT`. Usage flags are display, never compared
+    here, exactly as the content gate does not compare them.
 
     Returns the refusal dict (`{"field", "detail"}`) or None when the two
-    metas do not disagree (including when one or both are absent --
-    callers only reach here with both present)."""
+    verdicts agree."""
     v0 = rule_vrm_licence_refused("0.x", meta0x)
     v1 = rule_vrm_licence_refused("1.0", meta1_0)
-    if v0["refused"] != v1["refused"]:
-        side = lambda v: f"refused ({v['field']})" if v["refused"] else "allowed"
+    if v0["verdict"] != v1["verdict"]:
+        side = lambda v: v["verdict"] + (f" ({v['field']})" if v["field"] else "")
         return {"field": "gate verdict", "detail": f"VRM 0.x reads {side(v0)}; VRM 1.0 reads {side(v1)}"}
-    for label, (key0, key1) in VRM_USAGE_OVERLAP.items():
-        if key0 in meta0x and key1 in meta1_0:
-            allowed0 = meta0x[key0] == "Allow"
-            allowed1 = meta1_0[key1] is True
-            if allowed0 != allowed1:
-                return {
-                    "field": f"usage:{label}",
-                    "detail": f"VRM 0.x {key0}={meta0x[key0]!r}; VRM 1.0 {key1}={meta1_0[key1]!r}",
-                }
     return None
+
+
+AVATAR_EXTENSIONS = ("VRM", "VRMC_vrm")
+ANIMATION_EXTENSION = "VRMC_vrm_animation"
+
+
+def gltf_document(raw: bytes, path: str | None = None):
+    """The glTF JSON of a GLB (by its magic, whatever it is called) or of a
+    `.gltf` text file, or None for anything else."""
+    if raw[:4] == b"glTF":
+        return parse_glb_json_chunk(raw)
+    if path is not None and path.lower().endswith(".gltf") and _is_gltf_text(raw):
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+    return None
+
+
+def gltf_class(doc) -> str:
+    """The content contract's ingest-v1.md §4 classification, by the glTF
+    JSON's extensions and never by the file's name: "avatar" when an avatar
+    extension (`VRM`, `VRMC_vrm`) appears in `extensions` or
+    `extensionsUsed`; "animation" when `VRMC_vrm_animation` does and no
+    avatar extension does; "plain" otherwise."""
+    names: set[str] = set()
+    if isinstance(doc, dict):
+        if isinstance(doc.get("extensions"), dict):
+            names.update(doc["extensions"])
+        if isinstance(doc.get("extensionsUsed"), list):
+            names.update(n for n in doc["extensionsUsed"] if isinstance(n, str))
+    if any(n in names for n in AVATAR_EXTENSIONS):
+        return "avatar"
+    if ANIMATION_EXTENSION in names:
+        return "animation"
+    return "plain"
 
 
 def part_licence(entry: dict, raw) -> dict:
     """legal DRAFT-v3.md Part 6 G5: the licence_source decision for one
     covered [[integration.content]] entry, given the real bytes at its
     path (or None when nothing covers it). `licence_source` is `"vrm"`
-    when readable VRM meta decided it (allowed or refused), `"declared"`
-    when the manifest's own `licence` string is the whole licence, and
-    `None` when neither exists -- `E_CONTENT_LICENCE_UNDECLARED`.
+    when readable, recognised VRM meta decided it (allowed or refused),
+    `"declared"` when the manifest's own `licence` string is the whole
+    licence, and `None` when neither exists -- `E_CONTENT_LICENCE_UNDECLARED`.
     `gate_status` is the VRM gate's own verdict
     ("ok"/"refused"/"conflict"/"unknown"), or None when the gate does not
-    apply to this part at all."""
+    apply: not a GLB or `.gltf`, an animation (`VRMC_vrm_animation` with no
+    avatar extension), or a plain glTF in a part that is not a character.
+    The gate runs on the bytes, never on the name, so a renamed avatar is
+    judged as an avatar."""
     path = entry.get("path") if isinstance(entry, dict) else None
     gate_status = None
     vrm_licence = None
     refusal = None
-    if raw is not None and isinstance(path, str) and path.lower().endswith(".vrm"):
-        gate = vrm_gate(raw)
-        gate_status = gate["status"]
-        refusal = gate["refusal"]
-        if gate_status != "unknown":
-            vrm_licence = gate["vrm_licence"]
+    doc = gltf_document(raw, path if isinstance(path, str) else None) if raw is not None else None
+    if doc is not None:
+        cls = gltf_class(doc)
+        if cls == "avatar" or (cls == "plain" and entry.get("kind") == "character"):
+            gate = vrm_gate(raw, path if isinstance(path, str) else None)
+            gate_status = gate["status"]
+            refusal = gate["refusal"]
+            if gate_status != "unknown":
+                vrm_licence = gate["vrm_licence"]
     if vrm_licence is not None:
         licence_source = "vrm"
     elif entry.get("licence"):
@@ -472,21 +510,20 @@ def part_licence(entry: dict, raw) -> dict:
     return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status, "refusal": refusal}
 
 
-def vrm_gate(raw: bytes) -> dict:
-    """The full G4/G5 verdict for one .vrm's (or a readable .astrachar
-    body's) bytes, reading BOTH a VRM 0.x and a VRM 1.0 meta when the GLB
-    carries both (O-2 -- the earlier version of this gate read only the
-    first one found, so a file whose two metas disagreed passed outright).
-    Returns {"status": "ok"|"refused"|"conflict"|"unknown", "vrm_licence":
-    {"vrm_version","fields"}|None, "refusal": {...}|None}.
-    "unknown" (no VRM meta of EITHER spec -- not every .vrm carries one) is
-    NEVER a refusal: G4 says it is flagged (F_CONTENT_VRM_META_UNKNOWN) and
-    passes only with the character checkbox and the licence line, which is
-    the publish form's job, not this gate's. "conflict" is
-    `E_CONTENT_LICENCE_CONFLICT` (`rule_vrm_conflict`) and runs before any
-    single-meta verdict -- a disagreement is refused whichever way either
-    meta alone would have read."""
-    metas = extract_vrm_metas(raw)
+def vrm_gate(raw: bytes, path: str | None = None) -> dict:
+    """The full G4/G5 verdict for one glTF's bytes (a GLB by its magic, or a
+    `.gltf` text file), reading BOTH a VRM 0.x and a VRM 1.0 meta when it
+    carries both (O-2). Returns {"status": "ok"|"refused"|"conflict"|"unknown",
+    "vrm_licence": {"vrm_version","fields"}|None, "refusal": {...}|None}.
+    "unknown" is no VRM meta of either spec, meta that cannot be read, or a
+    meta whose verdict is unknown (an unrecognised licence or permission
+    token). It is NEVER a refusal: G4 says it is flagged
+    (F_CONTENT_VRM_META_UNKNOWN) and passes only with the character checkbox
+    and a declared licence (G5); `refusal` then names the deciding field
+    when there is one. "conflict" is `E_CONTENT_LICENCE_CONFLICT`
+    (`rule_vrm_conflict`) and runs before any single-meta verdict."""
+    doc = gltf_document(raw, path)
+    metas = extract_vrm_metas_doc(doc)
     if not metas:
         return {"status": "unknown", "vrm_licence": None, "refusal": None}
     if "0.x" in metas and "1.0" in metas:
@@ -501,6 +538,9 @@ def vrm_gate(raw: bytes) -> dict:
     verdict = rule_vrm_licence_refused(vrm_version, meta)
     fields = {k: meta[k] for k in VRM_GATE_FIELDS[vrm_version] + VRM_USAGE_FIELDS[vrm_version] if k in meta}
     vrm_licence = {"vrm_version": vrm_version, "fields": fields}
+    if verdict["verdict"] == "unknown":
+        return {"status": "unknown", "vrm_licence": None,
+                "refusal": {"field": verdict["field"], "value": verdict["value"], "defaulted": verdict["defaulted"]}}
     if verdict["refused"]:
         refusal = {"field": verdict["field"], "value": verdict["value"], "defaulted": verdict["defaulted"]}
         return {"status": "refused", "vrm_licence": vrm_licence, "refusal": refusal}
@@ -656,7 +696,13 @@ def main() -> int:
             if v["verdict"] == "accept":
                 report(f"content/vrm/{v['name']}", gate["status"] == "ok")
             elif v["verdict"] == "unknown":
-                report(f"content/vrm/{v['name']}", gate["status"] == "unknown")
+                ok = gate["status"] == "unknown" and gate["vrm_licence"] is None
+                if "field" in v:
+                    ok = ok and gate["refusal"] is not None and gate["refusal"]["field"] == v["field"] \
+                        and gate["refusal"]["value"] == v["value"]
+                else:
+                    ok = ok and gate["refusal"] is None
+                report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
             elif v["verdict"] == "conflict":
                 ok = gate["status"] == "conflict" and gate["refusal"]["field"] == v["field"]
                 report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
