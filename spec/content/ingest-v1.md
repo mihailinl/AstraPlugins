@@ -88,6 +88,15 @@ called — step 10 then refuses a GLB under a non-GLB name) **and on every
 AstraPlugins PR #120** (`spec/games-vrm-g4` `d1da665`, `spec/games/manifest.md`
 §2.7.3 as that PR amends it), aligned with astra-ce's legal G4/G5.
 
+**A GLB is classified by its glTF JSON extensions, never by its name**
+(coordinator, 2026-11-01). One declaring `VRMC_vrm_animation` (in `extensions`
+or `extensionsUsed`) and **no** avatar extension — neither 0.x `VRM` nor 1.0
+`VRMC_vrm` — is an ANIMATION: its part needs the `animations` rights
+confirmation, not the avatar verdict below, so it is not held for missing
+licence meta (golden `animset-vrma`). One carrying an avatar extension anywhere
+is an AVATAR and gets the verdict whatever it is called, so a renamed avatar
+cannot pass as an animation (golden `vrma-avatar-prohibited`).
+
 ### 4.1 Three outcomes, handled separately
 
 - **`Allowed`** passes.

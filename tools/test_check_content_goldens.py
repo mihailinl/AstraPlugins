@@ -604,6 +604,21 @@ def _old_ingest(cmd, claim, served):
     return got
 
 
+class GlbClassByExtensions(unittest.TestCase):
+    def test_classifying_by_name(self):
+        # the mutation: anything NAMED .vrma is an animation, whatever it carries
+        orig = cg.ingest_bundle
+
+        def by_name(raw, ctx):
+            with Mutation("glb_class", lambda b: "animation" if b"VRMC_vrm_animation" in b[:4096] else "other"):
+                return orig(raw, ctx)
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("ingest_bundle", by_name), "archives/vrma-avatar-prohibited")
+
+    def test_no_animation_exemption(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("glb_class", lambda b: "avatar" if b[:4] == cg.GLB_MAGIC else "other"), "archives/animset-vrma")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

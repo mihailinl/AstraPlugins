@@ -745,6 +745,27 @@ def gltf_json(raw: bytes):
         return None
 
 
+AVATAR_EXTS = ("VRM", "VRMC_vrm")
+
+
+def glb_class(b: bytes) -> str:
+    """avatar | animation | other — by the glTF JSON's extensions, NEVER by the name (coordinator,
+    2026-11-01): a GLB declaring VRMC_vrm_animation and no avatar extension is an ANIMATION (it
+    needs the animations rights checkbox, not the avatar licence verdict); one carrying an avatar
+    extension anywhere is an AVATAR whatever it is called, so a renamed avatar cannot pass as one."""
+    g = glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)
+    if not isinstance(g, dict):
+        return "other"
+    exts = g.get("extensions") if isinstance(g.get("extensions"), dict) else {}
+    used = set(g.get("extensionsUsed") or []) if isinstance(g.get("extensionsUsed"), list) else set()
+    named = set(exts) | {u for u in used if isinstance(u, str)}
+    if named & set(AVATAR_EXTS):
+        return "avatar"
+    if "VRMC_vrm_animation" in named:
+        return "animation"
+    return "other"
+
+
 def name_matches_magic(p: str, b: bytes) -> bool:
     return (b[:4] == GLB_MAGIC) == p.lower().endswith(GLB_EXTS)
 
@@ -850,7 +871,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
-    verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b)}
+    verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and glb_class(b) != "animation"}
     for p, v in verdicts.items():
         if v == "duplicate":
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")

@@ -878,6 +878,17 @@ def gen_archives() -> None:
         "astra.character", {BODY_PATH: vrm1(dict(VRM1_ALLOWED, allowRedistribution="true"))}, BODY_PATH))
     put("archives/valid/model-vrm0-cc-by-nc.astrachar", bundle(
         "astra.character", {BODY_PATH: vrm0(dict(VRM0_ALLOWED, licenseName="CC_BY_NC"))}, BODY_PATH))
+    # a GLB is classified by its extensions, not its name (coordinator, 2026-11-01)
+    vrma = glb({"asset": {"version": "2.0"}, "extensions": {"VRMC_vrm_animation": {"specVersion": "1.0"}},
+                "extensionsUsed": ["VRMC_vrm_animation"]})
+    dance = {"animpacks/dance/animpack.toml": b'name = "dance"\n', "animpacks/dance/clips/dance.vrma": vrma}
+    put("archives/valid/animset-vrma.astrapack", bundle("astra.animpack", dance, body=None))
+    avatar_vrma = glb({"asset": {"version": "2.0"}, "extensions": {
+        "VRMC_vrm_animation": {"specVersion": "1.0"},
+        "VRMC_vrm": {"specVersion": "1.0", "meta": dict(VRM1_ALLOWED, avatarPermission="onlyAuthor")}},
+        "extensionsUsed": ["VRMC_vrm_animation", "VRMC_vrm"]})
+    put("archives/hostile/vrma-avatar-prohibited.astrapack", bundle(
+        "astra.animpack", {**dance, "animpacks/dance/clips/dance.vrma": avatar_vrma}, body=None))
     hostile("vrm-metas-disagree.astrachar", bundle(
         "astra.character", {BODY_PATH: vrm_both(VRM0_ALLOWED, dict(VRM1_ALLOWED, allowRedistribution=False))},
         BODY_PATH))
