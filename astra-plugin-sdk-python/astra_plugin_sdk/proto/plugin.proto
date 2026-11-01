@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 049c139f9159ecf3185b810f704771210520378e9e7f67c463fca4afc11b10cc
+// surface-sha256: b519b8f732b021bcc71cd5d023d5b8724c4d31411a09d1487f7b671c6c1f6f12
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3406,6 +3406,10 @@ message AiSettings {
     // follows work_provider. `optional`, like the work pair.
     optional string work_worker_provider = 34;
     optional string work_worker_model = 35;
+
+    // Saved reasoning default for Fast chats. Absent on older clients: preserve
+    // the stored preference on bulk updates. Empty explicitly chooses auto.
+    optional string fast_reasoning_effort = 36;
 }
 
 // One provider's saved endpoint, as a CLIENT sees it.
@@ -3904,6 +3908,10 @@ message FieldDefinitionMsg {
     // general.hide_advanced_settings is on. Declared beside the field so a
     // PLUGIN's knob can say it too — a list kept on the frontend could not.
     bool advanced = 18;
+
+    // Optional Unicode regexp (u flag) and i18n refusal for each tokens entry.
+    string validation_pattern = 19;
+    string validation_message = 20;
 }
 
 // Condition for showing/hiding a field based on another field's value
