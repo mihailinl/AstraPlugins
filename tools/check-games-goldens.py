@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import posixpath
 import re
 import sys
 import tomllib
@@ -254,6 +255,12 @@ CONTENT_EXT_MAGIC = {
 }
 
 
+def present_files(root: pathlib.Path) -> set[str]:
+    """Every file under `root`, as release-relative posix paths -- what a
+    `.gltf`'s relative uri may name."""
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+
+
 def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
     """Every file under `root` whose extension AND magic bytes both say it is
     content-typed (manifest.md §2.7.1), keyed by its path relative to `root`
@@ -294,6 +301,99 @@ def content_coverage(manifest: dict, found: dict[str, bytes]) -> dict:
         "missing": sorted(declared_set - found_set),
         "duplicates": sorted(dup),
     }
+
+
+class GltfFormatError(ValueError):
+    """`E_CONTENT_FORMAT` (the content catalogue's ingest-v1.md §3 step 10,
+    adopted so the two gates agree on every file): a GLB that is not whole,
+    glTF JSON that does not parse or names a member twice, or an external
+    reference."""
+
+
+def _no_duplicate_members(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise GltfFormatError(f"the glTF JSON names {key!r} twice")
+        out[key] = value
+    return out
+
+
+def _strict_json(data: bytes):
+    try:
+        return json.loads(data.decode("utf-8"), object_pairs_hook=_no_duplicate_members)
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise GltfFormatError(f"the glTF JSON does not parse: {e}") from None
+
+
+def parse_glb_strict(raw: bytes) -> dict:
+    """A GLB's JSON chunk, or GltfFormatError. The GLB must be whole: its
+    header's total length equals the file's size and its first chunk is JSON
+    and ends inside the file, so a chunk declared past EOF is never read as
+    whatever bytes happen to be there. The JSON must parse with no member
+    named twice -- one reader's `allowRedistribution: false` is another's
+    `true`, and JSON that does not parse must never fall through to "plain",
+    which an animation part does not judge."""
+    if len(raw) < 20 or raw[0:4] != b"glTF":
+        raise GltfFormatError("not a GLB")
+    total = int.from_bytes(raw[8:12], "little")
+    if total != len(raw):
+        raise GltfFormatError(f"the GLB header says {total} bytes and the file has {len(raw)}")
+    if raw[16:20] != b"JSON":
+        raise GltfFormatError("the GLB's first chunk is not JSON")
+    chunk_len = int.from_bytes(raw[12:16], "little")
+    if 20 + chunk_len > len(raw):
+        raise GltfFormatError("the GLB's JSON chunk runs past the end of the file")
+    doc = _strict_json(raw[20:20 + chunk_len])
+    if not isinstance(doc, dict):
+        raise GltfFormatError("the glTF JSON is not an object")
+    return doc
+
+
+def gltf_uri_problem(doc: dict, is_glb: bool, path: str | None, present) -> str | None:
+    """No external reference (ingest-v1.md §3 step 10): in a GLB every
+    `images[].uri` and `buffers[].uri` is a `data:` URI; in a `.gltf` each is
+    a `data:` URI or a plain relative path -- no scheme, no `..`, no leading
+    `/`, no backslash -- naming a file the release holds (`present`, a set of
+    release-relative paths; None skips that last test)."""
+    for key in ("images", "buffers"):
+        items = doc.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict) or "uri" not in item:
+                continue
+            u = item["uri"]
+            if not isinstance(u, str):
+                return f"a {key} uri that is not a string: {u!r}"
+            if u.startswith("data:"):
+                continue
+            if is_glb:
+                return f"a GLB names an external uri {u!r}"
+            if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", u) or u.startswith("/") or "\\" in u \
+                    or "/../" in f"/{u}/" or u in ("", "."):
+                return f"a uri that is not a plain relative path: {u!r}"
+            if present is not None and path is not None:
+                target = posixpath.normpath(posixpath.join(posixpath.dirname(path), u))
+                if target not in present:
+                    return f"a uri naming a file the release does not hold: {u!r}"
+    return None
+
+
+def gltf_format_problem(raw: bytes, path: str | None = None, present=None) -> str | None:
+    """Every GLB (by its magic) and every `.gltf`, in any part and of any
+    class: the reason it is `E_CONTENT_FORMAT`, or None. Runs BEFORE
+    classification."""
+    is_glb = raw[:4] == b"glTF"
+    if not is_glb and not (path is not None and path.lower().endswith(".gltf")):
+        return None
+    try:
+        doc = parse_glb_strict(raw) if is_glb else _strict_json(raw)
+    except GltfFormatError as e:
+        return str(e)
+    if not isinstance(doc, dict):
+        return "the glTF JSON is not an object"
+    return gltf_uri_problem(doc, is_glb, path, present)
 
 
 def parse_glb_json_chunk(raw: bytes):
@@ -475,7 +575,7 @@ def gltf_class(doc) -> str:
     return "plain"
 
 
-def part_licence(entry: dict, raw) -> dict:
+def part_licence(entry: dict, raw, present=None) -> dict:
     """legal DRAFT-v3.md Part 6 G5: the licence_source decision for one
     covered [[integration.content]] entry, given the real bytes at its
     path (or None when nothing covers it). `licence_source` is `"vrm"`
@@ -483,8 +583,9 @@ def part_licence(entry: dict, raw) -> dict:
     `"declared"` when the manifest's own `licence` string is the whole
     licence, and `None` when neither exists -- `E_CONTENT_LICENCE_UNDECLARED`.
     `gate_status` is the VRM gate's own verdict
-    ("ok"/"refused"/"conflict"/"unknown"), or None when the gate does not
-    apply: not a GLB or `.gltf`, an animation (`VRMC_vrm_animation` with no
+    ("ok"/"refused"/"conflict"/"unknown", or "format" for
+    `E_CONTENT_FORMAT`, which every GLB and `.gltf` is held to before it is
+    classified), or None when the gate does not apply: not a GLB or `.gltf`, an animation (`VRMC_vrm_animation` with no
     avatar extension), or a plain glTF in a part that is not a character.
     The gate runs on the bytes, never on the name, so a renamed avatar is
     judged as an avatar."""
@@ -492,11 +593,16 @@ def part_licence(entry: dict, raw) -> dict:
     gate_status = None
     vrm_licence = None
     refusal = None
-    doc = gltf_document(raw, path if isinstance(path, str) else None) if raw is not None else None
+    spath = path if isinstance(path, str) else None
+    problem = gltf_format_problem(raw, spath, present) if raw is not None else None
+    if problem is not None:
+        gate_status = "format"
+        refusal = {"field": "format", "detail": problem}
+    doc = gltf_document(raw, spath) if raw is not None and problem is None else None
     if doc is not None:
         cls = gltf_class(doc)
         if cls == "avatar" or (cls == "plain" and entry.get("kind") == "character"):
-            gate = vrm_gate(raw, path if isinstance(path, str) else None)
+            gate = vrm_gate(raw, spath, present)
             gate_status = gate["status"]
             refusal = gate["refusal"]
             if gate_status != "unknown":
@@ -510,7 +616,7 @@ def part_licence(entry: dict, raw) -> dict:
     return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status, "refusal": refusal}
 
 
-def vrm_gate(raw: bytes, path: str | None = None) -> dict:
+def vrm_gate(raw: bytes, path: str | None = None, present=None) -> dict:
     """The full G4/G5 verdict for one glTF's bytes (a GLB by its magic, or a
     `.gltf` text file), reading BOTH a VRM 0.x and a VRM 1.0 meta when it
     carries both (O-2). Returns {"status": "ok"|"refused"|"conflict"|"unknown",
@@ -522,6 +628,9 @@ def vrm_gate(raw: bytes, path: str | None = None) -> dict:
     and a declared licence (G5); `refusal` then names the deciding field
     when there is one. "conflict" is `E_CONTENT_LICENCE_CONFLICT`
     (`rule_vrm_conflict`) and runs before any single-meta verdict."""
+    problem = gltf_format_problem(raw, path, present)
+    if problem is not None:
+        return {"status": "format", "vrm_licence": None, "refusal": {"field": "format", "detail": problem}}
     doc = gltf_document(raw, path)
     metas = extract_vrm_metas_doc(doc)
     if not metas:
@@ -678,8 +787,8 @@ def main() -> int:
                 raw = found.get(p) if isinstance(p, str) else None
                 if raw is None:
                     continue
-                pl = part_licence(entry, raw)
-                if pl["gate_status"] in ("refused", "conflict"):
+                pl = part_licence(entry, raw, present_files(DATA / v["dir"]))
+                if pl["gate_status"] in ("refused", "conflict", "format"):
                     licence_refused.append((p, pl["refusal"]["field"]))
                 if pl["licence_source"] is None:
                     licence_undeclared.append(p)
@@ -702,6 +811,9 @@ def main() -> int:
                         and gate["refusal"]["value"] == v["value"]
                 else:
                     ok = ok and gate["refusal"] is None
+                report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
+            elif v["verdict"] == "format":
+                ok = gate["status"] == "format" and v["detail"] in gate["refusal"]["detail"]
                 report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
             elif v["verdict"] == "conflict":
                 ok = gate["status"] == "conflict" and gate["refusal"]["field"] == v["field"]

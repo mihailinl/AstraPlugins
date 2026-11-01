@@ -6,7 +6,10 @@ Each golden is a GLB holding one JSON chunk and nothing else: enough for
 manifest.md §2.7.3's gate, which reads only the VRM 0.x and VRM 1.0 metas.
 Two serialisations are in use, kept as they were first written so that the
 bytes (and the digests other repositories pin) do not move: `plain` is
-json.dumps' default, `compact` is sorted keys with no spaces.
+json.dumps' default, `compact` is sorted keys with no spaces. The hostile
+`E_CONTENT_FORMAT` goldens are written from literal JSON text (`raw`), since
+json.dumps cannot name a member twice; `past-eof` declares a JSON chunk 8
+bytes longer than the file and `bad-length` a header length 4 bytes short.
 
     python3 gen.py           # write every file
     python3 gen.py --check   # write nothing; fail if any file differs
@@ -65,6 +68,15 @@ GOLDENS = {
     "unknown-vrm0-licence-unrecognised.vrm": ("plain", v0({"licenseName": "Redistribution_Allowed", "allowedUserName": "Everyone"})),
     "unknown-vrm0-user-unrecognised.vrm": ("plain", v0({"licenseName": "CC0", "allowedUserName": "Anyone"})),
     "unknown-vrm1-avatar-unrecognised.vrm": ("plain", v1({"allowRedistribution": True, "avatarPermission": "anyone"})),
+    # E_CONTENT_FORMAT: every GLB, in any part and of any class
+    "vrm-duplicate-key.vrm": ("raw", '{"extensions": {"VRMC_vrm": {"meta": {"allowRedistribution": false, '
+                                     '"avatarPermission": "everyone", "allowRedistribution": true}}}}'),
+    "glb-duplicate-extensions.glb": ("raw", '{"extensions": {"VRMC_vrm": {"meta": {"allowRedistribution": false, '
+                                            '"avatarPermission": "everyone"}}}, "extensions": {}}'),
+    "vrm-chunk-past-eof.vrm": ("past-eof", json.dumps(v0(V0_ALLOWED))),
+    "vrm-header-length-wrong.vrm": ("bad-length", json.dumps(v0(V0_ALLOWED))),
+    "glb-remote-uri.glb": ("plain", {"asset": {"version": "2.0"}, "images": [{"uri": "https://example.invalid/t.png"}]}),
+    "glb-data-uri.glb": ("plain", {"asset": {"version": "2.0"}, "images": [{"uri": "data:image/png;base64,iVBORw0KGgo="}]}),
     # conflict
     "vrm-metas-disagree.vrm": ("compact", both(
         {**V0_ALLOWED}, {"allowRedistribution": False, "avatarPermission": "everyone"})),
@@ -76,12 +88,16 @@ GOLDENS = {
 def glb(style, obj):
     if style == "plain":
         text = json.dumps(obj)
-    else:
+    elif style == "compact":
         text = json.dumps(obj, sort_keys=True, separators=(",", ":"))
+    else:
+        text = obj
     chunk = text.encode("utf-8")
     chunk += b" " * ((-len(chunk)) % 4)
-    body = struct.pack("<I4s", len(chunk), b"JSON") + chunk
-    return struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body
+    declared = len(chunk) + (8 if style == "past-eof" else 0)
+    body = struct.pack("<I4s", declared, b"JSON") + chunk
+    total = 12 + len(body) - (4 if style == "bad-length" else 0)
+    return struct.pack("<4sII", b"glTF", 2, total) + body
 
 
 def main(argv):
@@ -96,7 +112,7 @@ def main(argv):
         else:
             path.write_bytes(want)
     if check:
-        stray = sorted(p.name for p in HERE.glob("*.vrm") if p.name not in GOLDENS)
+        stray = sorted(p.name for p in [*HERE.glob("*.vrm"), *HERE.glob("*.glb")] if p.name not in GOLDENS)
         for name in bad:
             print(f"FAIL {name} is not what gen.py writes", file=sys.stderr)
         for name in stray:

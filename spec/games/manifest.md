@@ -313,6 +313,23 @@ or `extensionsUsed`:
   `character` part, since a character is an avatar whatever its extensions;
   in any other part it is ordinary art.
 
+**Before any of that, every GLB and every `.gltf` — in any part, of any
+class — is held to the format rules** (the content catalogue's `ingest-v1.md`
+§3 step 10), and a file that breaks one is refused **`E_CONTENT_FORMAT`**:
+
+- **a GLB is whole**: its header's total length equals the file's size, and
+  its first chunk is JSON and ends inside the file, so a chunk declared past
+  EOF is never read as whatever bytes happen to be there;
+- **its glTF JSON parses and names no member twice**: one reader's
+  `allowRedistribution: false` is another's `true`, and JSON that does not
+  parse must never fall through to "plain", which an animation part does not
+  judge;
+- **no external reference**: in a GLB every `images[].uri` and
+  `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or a
+  plain relative path (no scheme, no `..`, no leading `/`, no backslash)
+  naming a file the release holds — so nothing Astra loads makes it fetch a
+  URL, which would tell a third party who is looking at the model.
+
 It applies as well to the body inside a `.astrachar` bundle
 *when that bundle's format is readable* (its `astrachar.json` parses, its
 `body` is a `{"file": ...}` pointing at a `.vrm` inside the same zip —
@@ -483,10 +500,11 @@ asserts each one is refused with exactly that code.
 
 §2.7's content-coverage codes (`E_CONTENT_UNDECLARED`, `E_CONTENT_MISSING`,
 `E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED`,
-`E_CONTENT_LICENCE_CONFLICT` (§2.7.3's two-meta disagreement) and
-`E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback with
-nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
-`.vrm`/`.astrachar` body with no readable VRM meta at all — never a
+`E_CONTENT_LICENCE_CONFLICT` (§2.7.3's two-meta disagreement),
+`E_CONTENT_FORMAT` (§2.7.3's whole-GLB, duplicate-member and external-reference
+rules) and `E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback
+with nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
+judged glTF with no readable VRM meta, or an unrecognised token — never a
 refusal) are the one exception to "gi-probe check finding": the ingest
 order (§2.7.1) runs
 the content check **before** gi-probe, over the real release zip's bytes,

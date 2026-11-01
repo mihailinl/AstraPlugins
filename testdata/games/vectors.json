@@ -138,7 +138,10 @@
       { "name": "duplicate", "dir": "content/releases/duplicate", "manifest": "content/releases/duplicate/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_DUPLICATE" },
       { "name": "allowed", "dir": "content/releases/allowed", "manifest": "content/releases/allowed/astra-gi.toml", "verdict": "accept" },
       { "name": "licence-undeclared", "dir": "content/releases/licence-undeclared", "manifest": "content/releases/licence-undeclared/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_LICENCE_UNDECLARED", "note": "a non-VRM part with no vrm meta and no declared licence -- legal DRAFT-v3.md Part 6 G5" },
-      { "name": "vrm-unknown-but-declared", "dir": "content/releases/vrm-unknown-but-declared", "manifest": "content/releases/vrm-unknown-but-declared/astra-gi.toml", "verdict": "accept", "note": "G4's unknown VRM meta is never refused by the gate; G5's declared-licence fallback is what makes this accept -- pair with licence-undeclared, same shape minus the declared licence" }
+      { "name": "vrm-unknown-but-declared", "dir": "content/releases/vrm-unknown-but-declared", "manifest": "content/releases/vrm-unknown-but-declared/astra-gi.toml", "verdict": "accept", "note": "G4's unknown VRM meta is never refused by the gate; G5's declared-licence fallback is what makes this accept -- pair with licence-undeclared, same shape minus the declared licence" },
+      { "name": "animation-duplicate-key", "dir": "content/releases/animation-duplicate-key", "manifest": "content/releases/animation-duplicate-key/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_FORMAT", "note": "the glTF JSON names `extensions` twice; a lenient reader keeps the second and calls the file plain, which an animations part never judges (the content catalogue's animset-glb-duplicate-key)" },
+      { "name": "gltf-uri-escape", "dir": "content/releases/gltf-uri-escape", "manifest": "content/releases/gltf-uri-escape/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_FORMAT", "note": "a .gltf buffer uri that climbs out of the release" },
+      { "name": "gltf-relative-uri", "dir": "content/releases/gltf-relative-uri", "manifest": "content/releases/gltf-relative-uri/astra-gi.toml", "verdict": "accept", "note": "a .gltf naming a sibling buffer the release holds" }
     ],
     "vrm_gate": [
       { "name": "allowed", "file": "content/vrm/allowed.vrm", "verdict": "accept", "note": "0.x, isolates neither trigger: licenseName=CC_BY (a UniVRM token; O-2c), allowedUserName=Everyone, plus the usage flags" },
@@ -159,7 +162,13 @@
       { "name": "unknown-vrm1-avatar-unrecognised", "file": "content/vrm/unknown-vrm1-avatar-unrecognised.vrm", "verdict": "unknown", "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": "anyone", "note": "O-2b: an unrecognised permission token is unknown, never allowed" },
       { "name": "metas-disagree", "file": "content/vrm/vrm-metas-disagree.vrm", "verdict": "conflict", "field": "gate verdict", "note": "O-2: VRM 0.x meta allows (licenseName=CC_BY, allowedUserName=Everyone); VRM 1.0 meta prohibits (allowRedistribution=false). A reader that stops at the first meta found would pass it." },
       { "name": "metas-agree", "file": "content/vrm/vrm-metas-agree.vrm", "verdict": "accept", "note": "both a VRM 0.x and a VRM 1.0 meta present, both allow and their overlapping usage flags (violent, sexual) agree -- reading both must still pass" },
-      { "name": "metas-unknown-vs-allowed", "file": "content/vrm/vrm-metas-unknown-vs-allowed.vrm", "verdict": "conflict", "field": "gate verdict", "note": "O-2b: VRM 0.x reads unknown (licenseName=Other), VRM 1.0 reads allowed -- an unknown against an allowed is a conflict" }
+      { "name": "metas-unknown-vs-allowed", "file": "content/vrm/vrm-metas-unknown-vs-allowed.vrm", "verdict": "conflict", "field": "gate verdict", "note": "O-2b: VRM 0.x reads unknown (licenseName=Other), VRM 1.0 reads allowed -- an unknown against an allowed is a conflict" },
+      { "name": "vrm-duplicate-key", "file": "content/vrm/vrm-duplicate-key.vrm", "verdict": "format", "detail": "twice", "note": "allowRedistribution false then true: one reader's false is another's true" },
+      { "name": "glb-duplicate-extensions", "file": "content/vrm/glb-duplicate-extensions.glb", "verdict": "format", "detail": "twice", "note": "two `extensions` members: refused before classification, never read as plain" },
+      { "name": "vrm-chunk-past-eof", "file": "content/vrm/vrm-chunk-past-eof.vrm", "verdict": "format", "detail": "past the end", "note": "the JSON chunk is declared 8 bytes longer than the file (the content catalogue's vrm-chunk-past-eof)" },
+      { "name": "vrm-header-length-wrong", "file": "content/vrm/vrm-header-length-wrong.vrm", "verdict": "format", "detail": "header says", "note": "the GLB header's total length is not the file's size" },
+      { "name": "glb-remote-uri", "file": "content/vrm/glb-remote-uri.glb", "verdict": "format", "detail": "external uri", "note": "a GLB carries everything it needs; an https image uri would make Astra fetch it (the content catalogue's glb-remote-uri)" },
+      { "name": "glb-data-uri", "file": "content/vrm/glb-data-uri.glb", "verdict": "unknown", "note": "a data: uri is not external; a plain GLB has no VRM meta" }
     ]
   }
 }

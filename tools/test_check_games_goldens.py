@@ -482,6 +482,38 @@ def glb_of(doc: dict) -> bytes:
     return struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body
 
 
+class GltfFormat(unittest.TestCase):
+    """E_CONTENT_FORMAT: the content catalogue's ingest-v1.md §3 step 10."""
+
+    def test_a_duplicate_member_anywhere_is_refused_before_classification(self):
+        text = b'{"extensions": {"VRMC_vrm": {"meta": {"allowRedistribution": false}}}, "extensions": {}}'
+        chunk = text + b" " * ((-len(text)) % 4)
+        raw = struct.pack("<4sII", b"glTF", 2, 20 + len(chunk)) + struct.pack("<I4s", len(chunk), b"JSON") + chunk
+        self.assertIn("twice", ggold.gltf_format_problem(raw, "anim/wave.glb"))
+        pl = ggold.part_licence({"path": "anim/wave.glb", "kind": "animations", "licence": "CC0-1.0"}, raw)
+        self.assertEqual(pl["gate_status"], "format")
+
+    def test_a_whole_glb_passes_and_a_truncated_one_does_not(self):
+        raw = glb_of({"asset": {"version": "2.0"}})
+        self.assertIsNone(ggold.gltf_format_problem(raw, "a.glb"))
+        self.assertIsNotNone(ggold.gltf_format_problem(raw[:-4], "a.glb"))
+        self.assertIsNotNone(ggold.gltf_format_problem(raw + b"\0\0\0\0", "a.glb"))
+
+    def test_gltf_uris(self):
+        def doc(uri):
+            return json.dumps({"buffers": [{"uri": uri}]}).encode()
+        present = {"m/a.gltf", "m/a.bin", "x.bin"}
+        for uri, ok in [("a.bin", True), ("data:application/octet-stream;base64,AAAA", True), ("../x.bin", False),
+                        ("/x.bin", False), ("https://e.invalid/a.bin", False), ("file:a.bin", False),
+                        ("m\\a.bin", False), ("missing.bin", False), ("", False)]:
+            with self.subTest(uri=uri):
+                self.assertEqual(ggold.gltf_format_problem(doc(uri), "m/a.gltf", present) is None, ok)
+
+    def test_a_glb_takes_data_uris_only(self):
+        self.assertIsNone(ggold.gltf_format_problem(glb_of({"images": [{"uri": "data:image/png;base64,AA=="}]}), "a.glb"))
+        self.assertIn("external", ggold.gltf_format_problem(glb_of({"images": [{"uri": "t.png"}]}), "a.glb"))
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"
