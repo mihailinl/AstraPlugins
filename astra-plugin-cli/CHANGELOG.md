@@ -45,6 +45,15 @@ reads to find out how to get the tool.
     and `--surface-standalone-raised`.
   Nothing was removed or renamed.
 
+### Changed
+
+- **The vendored `astra-plugin-manifest` is 0.1.1.** Only its README moved: a
+  path that still said `astra-rs/astra-plugin-manifest` after Astra flattened
+  its tree. C37 refuses a vendored crate whose bytes differ from the version
+  crates.io already holds, because the CLI's release skips a version that is
+  already published and would ship the older copy; so the README fix is a
+  patch release of the crate, published before this CLI. No code changed.
+
 ### Fixed
 
 - **A bundle built on Windows verifies, and hashes like the same build on
