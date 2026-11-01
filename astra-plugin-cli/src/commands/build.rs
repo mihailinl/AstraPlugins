@@ -1978,4 +1978,41 @@ actions = true
             assert!(written, "{top:?} packed and wrote nothing");
         }
     }
+
+    /// zip 9 records the build host as each entry's "made by" system unless
+    /// told otherwise. On Windows that is DOS, whose attributes carry no Unix
+    /// mode, so a reader synthesises 0664 and the bundle fails its own mode
+    /// check; and the same sources hash differently on Windows and Linux.
+    /// Every entry is made by Unix, on every host.
+    #[test]
+    fn every_entry_is_made_by_unix_whatever_the_build_host() {
+        let dir = dir_with("build-made-by-unix", &plugin_with(""));
+        let out = dir.join("out.astraplugin");
+        run(BuildOptions {
+            path: dir.to_str().unwrap(),
+            output: Some(out.to_str().unwrap()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        })
+        .unwrap_or_else(|e| panic!("must pack: {e:#}"));
+        let mut archive = zip::ZipArchive::new(fs::File::open(&out).unwrap()).unwrap();
+        assert!(archive.len() >= 2, "a manifest and at least one file");
+        for i in 0..archive.len() {
+            let entry = archive.by_index(i).unwrap();
+            let name = entry.name().unwrap().into_owned();
+            assert_eq!(
+                entry.system(),
+                zip::System::Unix,
+                "{name} is made by {:?}",
+                entry.system()
+            );
+            let mode = entry.unix_mode().map(|m| m & 0o7777);
+            assert!(
+                matches!(mode, Some(0o644 | 0o755)),
+                "{name} has mode {mode:?}"
+            );
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
