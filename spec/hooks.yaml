@@ -361,7 +361,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:527"
+    daemon_calls: "src/plugins/manager/capabilities.rs:530"
     summary: "Answer one web search for the assistant's web_search tool, as a provider the user picks."
     note: "A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence."
     rust: stable
@@ -450,7 +450,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:343"
+    daemon_calls: "src/plugins/manager/capabilities.rs:346"
     summary: "Run one command-step action this plugin contributed."
     rust: stable
     python: stable
@@ -493,7 +493,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:443"
+    daemon_calls: "src/plugins/manager/capabilities.rs:446"
     summary: "Which of this plugin's trigger types a command is currently listening for."
     note: "manager/capabilities.rs:438 routes it through `optional_hook`."
     rust: stable
