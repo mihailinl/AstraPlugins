@@ -20,6 +20,7 @@ import copy
 import importlib.util
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -159,6 +160,135 @@ class IndexFreshness(unittest.TestCase):
         issued = 1_700_000_000
         self.assertTrue(ggold.rule_expiry_span_too_long({"issued_at": issued, "expires_at": issued + 8 * 86400}))
         self.assertFalse(ggold.rule_expiry_span_too_long({"issued_at": issued, "expires_at": issued + 8 * 86400 + 1}))
+
+
+class ContentSchema(unittest.TestCase):
+    def test_a_disallowed_kind_is_refused_and_a_real_one_passes(self):
+        doc = copy.deepcopy(manifest("content-parts.toml"))
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        ok_before, _ = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok_before)
+        doc["integration"]["content"][0]["kind"] = "command"
+        ok_after, detail = ggold.schema_ok(doc, schema)
+        self.assertFalse(ok_after, "'command' is in the shared asset-rights rule, never in a GI's content kinds")
+
+    def test_a_path_traversal_is_refused_and_a_relative_path_passes(self):
+        doc = copy.deepcopy(manifest("content-parts.toml"))
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        doc["integration"]["content"][0]["path"] = "../../outside.png"
+        ok, _detail = ggold.schema_ok(doc, schema)
+        self.assertFalse(ok)
+        doc["integration"]["content"][0]["path"] = "art/outside.png"
+        ok2, _detail2 = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok2)
+
+    def test_a_builtin_style_colon_is_refused(self):
+        doc = copy.deepcopy(manifest("content-parts.toml"))
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        doc["integration"]["content"][0]["path"] = "builtin:default-climb"
+        ok, _detail = ggold.schema_ok(doc, schema)
+        self.assertFalse(ok, "a builtin: reference must never read as a declared part")
+
+
+class IntegrationUsesReserved(unittest.TestCase):
+    def test_removing_the_uses_table_makes_the_manifest_valid_again(self):
+        doc = copy.deepcopy(ggold.load_doc("manifests/invalid/integration-uses-reserved.toml"))
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        ok_before, _ = ggold.schema_ok(doc, schema)
+        self.assertFalse(ok_before)
+        del doc["integration"]["uses"]
+        ok_after, _ = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok_after)
+
+
+class ContentCoverage(unittest.TestCase):
+    def test_declaring_the_extra_file_fixes_undeclared(self):
+        root = ggold.DATA / "content/releases/undeclared"
+        doc = copy.deepcopy(ggold.load_doc("content/releases/undeclared/astra-gi.toml"))
+        found = ggold.find_content_files(root)
+        cov = ggold.content_coverage(doc, found)
+        self.assertIn("audio/theme.ogg", cov["undeclared"])
+        doc["integration"]["content"].append(
+            {"path": "audio/theme.ogg", "kind": "audio", "title": "t", "credit": "c", "licence": "CC0-1.0"}
+        )
+        cov2 = ggold.content_coverage(doc, found)
+        self.assertEqual(cov2["undeclared"], [])
+
+    def test_providing_the_missing_file_fixes_missing(self):
+        root = ggold.DATA / "content/releases/missing"
+        doc = copy.deepcopy(ggold.load_doc("content/releases/missing/astra-gi.toml"))
+        found = ggold.find_content_files(root)
+        cov = ggold.content_coverage(doc, found)
+        self.assertIn("animations/climb.fbx", cov["missing"])
+        found2 = dict(found)
+        found2["animations/climb.fbx"] = b"Kaydara FBX Binary  \x00"
+        cov2 = ggold.content_coverage(doc, found2)
+        self.assertEqual(cov2["missing"], [])
+
+    def test_removing_the_duplicate_entry_fixes_duplicate(self):
+        root = ggold.DATA / "content/releases/duplicate"
+        doc = copy.deepcopy(ggold.load_doc("content/releases/duplicate/astra-gi.toml"))
+        found = ggold.find_content_files(root)
+        cov = ggold.content_coverage(doc, found)
+        self.assertIn("animations/climb.fbx", cov["duplicates"])
+        doc["integration"]["content"].pop()
+        cov2 = ggold.content_coverage(doc, found)
+        self.assertEqual(cov2["duplicates"], [])
+
+    def test_a_renamed_loader_is_not_picked_up_as_content_by_extension_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "evil.png").write_bytes(b"MZ" + b"\x00" * 30)  # a PE header, not a PNG
+            found = ggold.find_content_files(root)
+            self.assertEqual(found, {}, "extension alone must never be enough -- manifest.md §2.7.1")
+            (root / "real.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 8)
+            found2 = ggold.find_content_files(root)
+            self.assertEqual(set(found2), {"real.png"})
+
+
+class VrmLicenceGate(unittest.TestCase):
+    def test_vrm0_only_author_is_refused_and_everyone_passes(self):
+        meta = {"allowedUserName": "OnlyAuthor"}
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)[0])
+        meta["allowedUserName"] = "Everyone"
+        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)[0])
+
+    def test_vrm0_licence_name_prohibited_is_refused(self):
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", {"licenseName": "Redistribution_Prohibited"})[0])
+        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", {"licenseName": "Redistribution_Allowed"})[0])
+
+    def test_vrm1_only_author_is_refused_and_everyone_passes(self):
+        meta = {"avatarPermission": "onlyAuthor"}
+        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", meta)[0])
+        meta["avatarPermission"] = "everyone"
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", meta)[0])
+
+    def test_vrm1_allow_redistribution_false_is_refused(self):
+        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", {"allowRedistribution": False})[0])
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", {"allowRedistribution": True})[0])
+
+    def test_an_absent_field_is_not_itself_a_refusal(self):
+        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", {})[0])
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", {})[0])
+
+    def test_the_fixture_files_parse_to_the_right_refusal(self):
+        cases = [
+            ("refused-vrm0-only-author.vrm", "extensions.VRM.meta.allowedUserName", "OnlyAuthor"),
+            ("refused-vrm1-only-author.vrm", "extensions.VRMC_vrm.meta.avatarPermission", "onlyAuthor"),
+        ]
+        for name, want_field, want_value in cases:
+            raw = (ggold.DATA / "content/vrm" / name).read_bytes()
+            ok, field, value = ggold.vrm_gate_refusal(raw)
+            self.assertFalse(ok)
+            self.assertEqual(field, want_field)
+            self.assertEqual(value, want_value)
+
+    def test_the_allowed_fixture_passes(self):
+        raw = (ggold.DATA / "content/vrm/allowed.vrm").read_bytes()
+        self.assertTrue(ggold.vrm_gate_refusal(raw)[0])
+
+    def test_a_non_glb_file_has_no_vrm_meta_at_all(self):
+        self.assertIsNone(ggold.extract_vrm_meta(b"not a glb"))
 
 
 class WithdrawnSecurity(unittest.TestCase):

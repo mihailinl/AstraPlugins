@@ -1,0 +1,29 @@
+# content check golden: E_CONTENT_DUPLICATE. Two [[integration.content]]
+# entries both cover "animations/climb.fbx" -- manifest.md §2.7 requires
+# exactly one entry per content file.
+schema = 1
+
+[integration]
+id = "someone.duplicate-content"
+name = "Duplicate Content Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle (duplicate entry)"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

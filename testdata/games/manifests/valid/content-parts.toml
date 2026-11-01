@@ -1,0 +1,48 @@
+# Valid: [[integration.content]] declaring the GI's own non-built-in
+# animations, a character model, cover art and a theme track -- manifest.md
+# §2.7. Each kind gets its own author rights-confirmation checkbox at
+# publish (merged plan §5.4); this manifest only has to pass the schema. The
+# content-coverage check and the VRM gate run against the real release zip
+# (testdata/games/content/releases/, check-games-goldens.py's "content"
+# vectors).
+schema = 1
+
+[integration]
+id = "someone.peak-moves"
+name = "Extra moves for PEAK"
+version = "1.0.0"
+license = "MIT"
+
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[[integration.content]]
+path = "character/avatar.vrm"
+kind = "character"
+title = "Scout avatar"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[[integration.content]]
+path = "art/cover.png"
+kind = "art"
+title = "Cover art"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "audio/theme.ogg"
+kind = "audio"
+title = "Theme"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+steam_appid = 3527290
+exe = "PEAK.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"

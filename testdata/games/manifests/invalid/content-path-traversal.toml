@@ -1,0 +1,22 @@
+# Invalid (schema): a [[integration.content]] path must be relative with no
+# ".." segment and no ":" (so a "builtin:" reference can never read as a
+# part) -- manifest.md §2.7.
+schema = 1
+
+[integration]
+id = "someone.path-traversal"
+name = "Path Traversal Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "../../outside.png"
+kind = "art"
+title = "Escaped art"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

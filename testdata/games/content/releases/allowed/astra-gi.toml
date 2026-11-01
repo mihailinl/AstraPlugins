@@ -1,0 +1,29 @@
+# content check golden: every content-typed file covered exactly once, and
+# the VRM gate accepts the character body -- manifest.md §2.7, the full
+# happy path.
+schema = 1
+
+[integration]
+id = "someone.allowed-content"
+name = "Allowed Content Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "art/cover.png"
+kind = "art"
+title = "Cover art"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "character/avatar.vrm"
+kind = "character"
+title = "Scout avatar"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

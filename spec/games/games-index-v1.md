@@ -93,7 +93,12 @@ ingest refuses a second publisher's claim to an owned code with
   "review": "unchecked",
   "supersedes": [],
   "flags": [],
-  "notes": { "en": "First release.", "ru": "Первый релиз." }
+  "notes": { "en": "First release.", "ru": "Первый релиз." },
+  "content": [
+    { "path": "animations/climb.fbx", "kind": "animations", "title": "Climb cycle",
+      "credit": "someone", "licence": "CC-BY-4.0", "sha256": "…" }
+  ],
+  "content_confirmed": { "gi-content-rights-v1": 1 }
 }
 ```
 
@@ -109,6 +114,8 @@ ingest refuses a second publisher's claim to an owned code with
 | `capabilities` | replaces the earlier `uses_avatar` boolean; `v1`'s only value is `"companion.presentation"` |
 | `review` | `"unchecked"` \| `"source_reviewed"`. The client derives the UI tier and Provenance badge from this plus first-party-list membership; this document states only the fact, never the wording (R19) |
 | `notes` | per-locale release notes, replacing free-text "what's new"; a locale a client does not have falls back to `en` |
+| `content` | this release's `[[integration.content]]` parts (manifest.md §2.7), each carrying the sha256 ingest hashed and, for a `.vrm` part (or a readable `.astrachar`'s body), the `vrm_licence` meta the HARD VRM gate read. Absent or `[]` for a GI with no non-built-in assets |
+| `content_confirmed` | `{text_id: version}` — which confirmation text version each declared part was last confirmed under (manifest.md §2.7.4). **Never an account**: who confirmed, and when, is the plugins service's own record, not this document's |
 
 **Dropped from the earlier plan's shape:** the flat `engine?`/`engine_ref?`
 convenience fields (superseded by `target.engine` and `foundation.engine`
