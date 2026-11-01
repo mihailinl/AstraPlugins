@@ -128,7 +128,10 @@ class StaticLeg(unittest.TestCase):
 
     def test_a_vendored_bump_the_requirement_did_not_follow_is_red(self) -> None:
         with Tree() as t:
-            t.edit(f"{MANIFEST_DIR}/Cargo.toml", 'version = "0.1.0"', 'version = "0.2.0"')
+            # The tree's own version, read rather than assumed: a README-only release of the
+            # vendored crate (0.1.0 -> 0.1.1) made a literal "0.1.0" here match nothing.
+            current = re.search(r'(?m)^version = "([^"]+)"', (t.dir / MANIFEST_DIR / "Cargo.toml").read_text()).group(1)
+            t.edit(f"{MANIFEST_DIR}/Cargo.toml", f'version = "{current}"', 'version = "0.2.0"')
             fails, _ = run_static(t.dir)
         self.assertEqual(len(fails), 1, fails)
         self.assertIn("astra-plugin-cli → astra-plugin-manifest", fails[0])
