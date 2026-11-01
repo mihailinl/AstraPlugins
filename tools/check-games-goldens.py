@@ -377,7 +377,69 @@ def name_problem(path: str, raw: bytes) -> str | None:
         if len(raw) > CG.MAX_GLTF_JSON:
             return f"a JSON text over 16 MiB ({len(raw)} bytes) that names an asset key, named something not .gltf"
         return "a text glTF (a JSON object with a top-level asset member) named something not .gltf"
+    if _is_zip(raw[:4]) and not path.lower().endswith(BUNDLE_EXTS) and is_bundle_bytes(raw):
+        return "a content bundle (a zip whose last entry is astrachar.json) named something not .astrachar or .astrapack"
     return None
+
+
+# ── an embedded .astrachar / .astrapack (manifest.md §2.7.3) ──────────────
+# A bundle inside a game integration's release is judged by the content
+# contract's OWN code, `ingest_bundle`: walk_zip and ingest-v1.md §3 steps
+# 1-8, 10, 11 and step 12's every-file-in-a-part rule. Step 9 (the server's
+# blocklist) has no list here and is skipped; step 12's parts-mismatch half
+# has nothing to compare, since a game integration declares no part digests.
+# The part's declared `licence` stands for every part of the bundle (content's
+# `declared_licence`); without one, each bundle part needs its own allowed
+# VRM meta. Content's Unknown is held there for a moderator and published
+# flagged here (F_CONTENT_VRM_META_UNKNOWN), as for a bare VRM.
+
+BUNDLE_EXTS = (".astrachar", ".astrapack")
+
+
+def is_bundle_bytes(raw: bytes) -> bool:
+    """ingest-v1.md §3: a bundle is a zip whose LAST entry is
+    `astrachar.json` -- read with content's own walk_zip, so only an archive
+    Astra's importer would open as a bundle counts as one."""
+    if not _is_zip(raw[:4]) or b"astrachar.json" not in raw:
+        return False
+    try:
+        order = json.loads(CG.walk_zip(raw)["\0order"])
+    except Exception:  # noqa: BLE001 -- refused or unreadable: no importer opens it as a bundle
+        return False
+    return bool(order) and order[-1] == "astrachar.json"
+
+
+def _bundle_layout(raw: bytes):
+    """(part roots, body path, body bytes) by content's own reading, or
+    ([], None, None) when it cannot read that far -- `ingest_bundle` then
+    refuses the bundle with the step that failed."""
+    try:
+        files = CG.walk_zip(raw)
+        files.pop("\0order", None)
+        man = CG.C.strict_loads(files["astrachar.json"])
+        body = (man.get("body") or {}).get("file")
+        settings = (man.get("character") or {}).get("dir")
+        parts = CG.parts_of(files, body, settings, strict=False, pack=CG.pack_kind(man))
+        return sorted(root for _kind, root in parts), body, files.get(body) if isinstance(body, str) else None
+    except Exception:  # noqa: BLE001
+        return [], None, None
+
+
+def bundle_verdict(path: str, raw: bytes, licence) -> dict:
+    """Content's verdict on one embedded bundle: {"status": "ok" | "unknown"
+    | "bundle", "refusal": {"code", "detail"} | None, "body": (path, bytes) |
+    None}. A refusal keeps content's own code; its detail is content's,
+    prefixed `<path>!`, so a per-file one reads `<gi path>!<inner path>`."""
+    roots, body_path, body = _bundle_layout(raw)
+    try:
+        got = CG.ingest_bundle(raw, {"declared_licence": roots if licence else []})
+    except CG.Refusal as r:
+        return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
+    except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
+        return {"status": "bundle", "body": None, "refusal": {
+            "code": "E_CONTENT_FORMAT", "detail": f"{path}!: the content checker cannot read it ({type(e).__name__}: {e})"}}
+    status = "unknown" if "F_CONTENT_VRM_META_UNKNOWN" in got["flags"] else "ok"
+    return {"status": status, "refusal": None, "body": (body_path, body) if body is not None else None}
 
 
 def content_coverage(manifest: dict, found: dict[str, bytes]) -> dict:
@@ -729,6 +791,15 @@ def part_licence(entry: dict, raw, present=None) -> dict:
             refusal = gate["refusal"]
             if gate_status != "unknown":
                 vrm_licence = gate["vrm_licence"]
+    if spath is not None and raw is not None and spath.lower().endswith(BUNDLE_EXTS) and _is_zip(raw[:4]):
+        # an embedded bundle: the content contract's own verdict decides; its
+        # body's readable VRM licence, when it has one, is the part's licence
+        bv = bundle_verdict(spath, raw, entry.get("licence"))
+        gate_status, refusal = bv["status"], bv["refusal"]
+        if bv["status"] == "ok" and bv["body"] is not None:
+            body_gate = vrm_gate(bv["body"][1], bv["body"][0])
+            if body_gate["status"] == "ok":
+                vrm_licence = body_gate["vrm_licence"]
     if vrm_licence is not None:
         licence_source = "vrm"
     elif entry.get("licence"):
@@ -798,6 +869,9 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
         status = pl["gate_status"]
         if status in GATE_CODES:
             refuse(GATE_CODES[status], p, _refusal_detail(pl["refusal"]))
+            continue
+        if status == "bundle":  # an embedded bundle, refused with the content contract's own code
+            refuse(pl["refusal"]["code"], p, pl["refusal"]["detail"])
             continue
         if status == "unknown":
             flags.append({"flag": "F_CONTENT_VRM_META_UNKNOWN", "path": p})

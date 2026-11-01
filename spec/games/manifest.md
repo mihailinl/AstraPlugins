@@ -278,7 +278,13 @@ while the gate never opened it. Each of these is **`E_CONTENT_FORMAT`**:
   first non-whitespace byte is `{` and the **top-level** object names an
   `asset` member, read key by key, whether or not the rest parses; golden
   `gltf-named-json`; a nested `asset` key is not one, golden
-  `json-nested-asset`).
+  `json-nested-asset`);
+- a zip that is a content bundle by the content catalogue's own definition —
+  its **last** entry is `astrachar.json`, read with content's `walk_zip`, so
+  only an archive Astra's importer would open as a bundle counts — and is
+  not named `.astrachar` or `.astrapack` (golden `bundle-renamed`). A game's
+  own archive (a `.jar`, a mod `.zip`) has no such entry and is not one.
+  Named as one, it is judged as §2.7.3 says.
 
 Two deliberate differences from the content catalogue, because a game
 integration ships arbitrary files and a content bundle does not:
@@ -404,13 +410,36 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
   equivalent here: a game integration's part is one file, and the buffer it
   names is not a part of its own.
 
-It applies as well to the body inside a `.astrachar` bundle
-*when that bundle's format is readable* (its `astrachar.json` parses, its
-`body` is a `{"file": ...}` pointing at a `.vrm` inside the same zip —
-astra-companion `docs/character-files-and-2d-editor.md` §1.3/§1.4). When it
-is not readable, that is noted as a gap (`F_CONTENT_ASTRACHAR_UNREADABLE` in
-the catalogue), never a refusal: an unreadable bundle is a different problem
-than a bundle that reads cleanly and says no.
+**A `.astrachar` or `.astrapack` part is judged whole, by the content
+contract's own code** — `ingest_bundle` in `tools/check-content-goldens.py`,
+never a second reading of it: `walk_zip` and [`ingest-v1.md`](../content/ingest-v1.md)
+§3 steps 1–8 (the end record, the entry count, the headers and the cloaking
+probes, the names, the sizes and the 32 MiB budget, Stored-only types, the
+raw read, the manifest and its digests), step 10 (every GLB and `.gltf` in
+it, by the rules above), step 11 (the licence verdict on **every** GLB and
+`.gltf` in it, not only the body) and step 12's rule that every file is in
+exactly one part. Two steps have nothing to run on here: step 9 is the
+server's blocklist, which this gate does not hold, and step 12's
+parts-mismatch half compares declared part digests, which a game
+integration does not declare. A refusal **refuses the release with
+content's own code** (`E_ZIP_HEADERS_INCONSISTENT`, `E_BUNDLE_MANIFEST`,
+`E_CONTENT_LICENCE_REFUSED`, …), its detail content's, prefixed
+`<gi path>!` so that a per-file refusal reads `<gi path>!<inner path>`
+(goldens `bundle-vrm-redistribution-prohibited`,
+`bundle-glb-prohibited-beside-allowed-body`, `bundle-vrm-metas-disagree`,
+`bundle-gap-between-entries` — the content catalogue's own hostile bundles,
+byte for byte, which `gen.py --check` keeps equal to `testdata/content/`). A
+bundle shape content's reader raises on instead of refusing (an
+`astrachar.json` that is an array, say) is refused `E_CONTENT_FORMAT` here,
+never a crash. The part's declared `licence` stands for every part of the
+bundle (content's `declared_licence`); without one, each part needs its own
+allowed VRM meta (golden `bundle-audio-licence-undeclared`, refused by
+content's step 11; `bundle-model-aiko`, accepted with `licence_source =
+"vrm"` from its body; `bundle-animset-wave`, accepted on its declared
+licence). This replaces the earlier reading of the body alone, which passed
+an unreadable bundle as a gap (`F_CONTENT_ASTRACHAR_UNREADABLE`) and never
+opened its accessories: an unreadable bundle is now what the content
+catalogue says it is, a refusal.
 
 The gate parses the file's GLB container (the 12-byte header, then the first
 chunk if it is typed `JSON`), or a `.gltf` file's whole text, and reads each
@@ -485,7 +514,12 @@ for a moderator (`ingest-v1.md` §4.1). This catalogue publishes it flagged,
 under the publish-at-once rule every community release follows, because a
 GI's part always carries the author's declared licence (`licence_source =
 "declared"`, or `E_CONTENT_LICENCE_UNDECLARED`) and the per-part rights
-confirmation (`W_CONTENT_UNCONFIRMED` until it is given).
+confirmation (`W_CONTENT_UNCONFIRMED` until it is given). **The same holds
+inside an embedded bundle**: where `ingest_bundle` returns the content
+catalogue's `held` with `F_CONTENT_VRM_META_UNKNOWN`, this gate publishes the
+release flagged `F_CONTENT_VRM_META_UNKNOWN` on the bundle's path (golden
+`bundle-vrm0-licence-other`), and only with the part's declared licence —
+without it, `E_CONTENT_LICENCE_UNDECLARED`.
 
 **The usage flags (G5).** Kept with the part in `vrm_licence.fields`
 whichever of these the file actually carries, alongside the

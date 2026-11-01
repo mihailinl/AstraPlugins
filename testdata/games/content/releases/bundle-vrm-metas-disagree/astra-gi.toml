@@ -1,0 +1,21 @@
+# content check golden: the content catalogue's vrm-metas-disagree.astrachar, byte for byte --
+# E_CONTENT_LICENCE_CONFLICT: its body's VRM 0.x and 1.0 metas disagree.
+schema = 1
+
+[integration]
+id = "someone.bundle-vrm-metas-disagree"
+name = "Bundle Vrm Metas Disagree"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -172,6 +172,25 @@ SYNTH = {
 }
 
 
+# the content catalogue's own bundles, byte for byte, inside a game integration's release:
+# judged by that contract's own code (manifest.md §2.7.3), so they must stay its exact bytes
+CONTENT_ARCHIVES = HERE.parents[2] / "content" / "archives"
+BUNDLE_COPIES = {
+    "releases/bundle-vrm-redistribution-prohibited/characters/scout.astrachar": "hostile/vrm-redistribution-prohibited.astrachar",
+    "releases/bundle-glb-prohibited-beside-allowed-body/characters/scout.astrachar":
+        "hostile/glb-prohibited-beside-allowed-body.astrachar",
+    "releases/bundle-vrm-metas-disagree/characters/scout.astrachar": "hostile/vrm-metas-disagree.astrachar",
+    "releases/bundle-gap-between-entries/characters/scout.astrachar": "hostile/gap-between-entries.astrachar",
+    "releases/bundle-vrm0-licence-other/characters/scout.astrachar": "hostile/vrm0-licence-other.astrachar",
+    "releases/bundle-animset-wave/packs/wave.astrapack": "valid/animset-wave.astrapack",
+    "releases/bundle-model-aiko/characters/aiko.astrachar": "valid/model-aiko.astrachar",
+    "releases/bundle-renamed/packs/wave.zip": "valid/animset-wave.astrapack",
+    "releases/bundle-audio-licence-undeclared/characters/scout.astrachar": "hostile/audio-licence-undeclared.astrachar",
+}
+for _rel, _src in BUNDLE_COPIES.items():
+    RELEASE_FILES[_rel] = (lambda src: lambda: (CONTENT_ARCHIVES / src).read_bytes())(_src)
+
+
 def synth(name: str) -> bytes:
     """The release goldens too large to commit, built in memory."""
     return SYNTH[name]()

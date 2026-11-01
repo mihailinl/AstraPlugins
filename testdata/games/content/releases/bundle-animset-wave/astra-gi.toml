@@ -1,0 +1,21 @@
+# content check golden: the content catalogue's valid animset-wave.astrapack, byte for byte, as an
+# animations part with its licence declared -- accepted.
+schema = 1
+
+[integration]
+id = "someone.bundle-animset-wave"
+name = "Bundle Animset Wave"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/wave.astrapack"
+kind = "animations"
+title = "wave"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -1,0 +1,14 @@
+# content check golden: a valid .astrapack renamed packs/wave.zip, undeclared -- E_CONTENT_FORMAT: a zip
+# whose last entry is astrachar.json is a bundle by its bytes, and is named as one (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.bundle-renamed"
+name = "Bundle Renamed"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

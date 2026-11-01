@@ -658,6 +658,58 @@ class GltfCaps(unittest.TestCase):
         self.assertEqual(codes_of(files, doc), [], "22 MiB of glTF JSON is under the 32 MiB a release may hold")
 
 
+class EmbeddedBundles(unittest.TestCase):
+    """manifest.md §2.7.3: a .astrachar/.astrapack inside a release is judged
+    by the content contract's own ingest_bundle, refusals keeping its codes."""
+
+    ENTRY = {"path": "characters/x.astrachar", "kind": "character", "title": "t", "credit": "c", "licence": "CC0-1.0"}
+
+    def cgen(self):
+        return ggold.CG.gen_module()
+
+    def test_the_refusal_is_contents_own_code_naming_the_inner_path(self):
+        files, doc = release("bundle-glb-prohibited-beside-allowed-body")
+        (f,) = ggold.release_findings(files, doc)["findings"]
+        self.assertEqual(f["code"], "E_CONTENT_LICENCE_REFUSED")
+        self.assertEqual(f["detail"], "characters/scout.astrachar!characters/aiko/accessories/hat/hat.glb")
+
+    def test_a_manifest_content_cannot_read_is_refused_never_a_crash(self):
+        raw = self.cgen().zip_bytes([{"name": "astrachar.json", "data": b"[]", "method": 0}])
+        with self.assertRaises(AttributeError):  # the content checker's own reader raises on it
+            ggold.CG.ingest_bundle(raw, {})
+        pl = ggold.part_licence(self.ENTRY, raw)
+        self.assertEqual(pl["gate_status"], "bundle")
+        self.assertEqual(pl["refusal"]["code"], "E_CONTENT_FORMAT")
+
+    def test_a_valid_bundle_accepts_and_a_declared_licence_covers_its_parts(self):
+        files, doc = release("bundle-animset-wave")
+        self.assertEqual(codes_of(files, doc), [])
+        doc["integration"]["content"][0]["licence"] = ""
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_LICENCE_UNDECLARED"], "nothing else covers the animations")
+
+    def test_a_renamed_bundle_named_back_is_content_typed_and_a_plain_zip_is_not_a_bundle(self):
+        files, doc = release("bundle-renamed")
+        files["packs/wave.astrapack"] = files.pop("packs/wave.zip")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"])
+        jar = self.cgen().zip_bytes([{"name": "META-INF/MANIFEST.MF", "data": b"Manifest-Version: 1.0\n"}])
+        self.assertIsNone(ggold.name_problem("mods/loader.jar", jar), "a game's own zip is not a bundle")
+
+    def test_an_unknown_inside_needs_the_declared_licence(self):
+        files, doc = release("bundle-vrm0-licence-other")
+        got = ggold.release_findings(files, doc)
+        self.assertEqual([f["flag"] for f in got["flags"]], ["F_CONTENT_VRM_META_UNKNOWN"])
+        doc["integration"]["content"][0]["licence"] = ""
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_LICENCE_UNDECLARED"])
+
+    def test_the_cloaked_bundle_turns_green_for_the_wrong_reason_under_a_lenient_reader(self):
+        import io
+        import zipfile
+        files, doc = release("bundle-gap-between-entries")
+        self.assertEqual(codes_of(files, doc), ["E_ZIP_HEADERS_INCONSISTENT"])
+        raw = files["characters/scout.astrachar"]
+        zipfile.ZipFile(io.BytesIO(raw)).testzip()  # Python's zipfile reads it without complaint
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"
