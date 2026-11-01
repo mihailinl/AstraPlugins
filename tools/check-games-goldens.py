@@ -30,6 +30,7 @@ Run: python3 tools/check-games-goldens.py
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import pathlib
 import posixpath
@@ -832,6 +833,10 @@ def component_problem(c: str, placeholders: bool = True) -> str | None:
         return "path-invalid"
     if c.endswith(".") or c.endswith(" "):
         return "path-invalid"
+    if re.search(r"~[0-9]", c):
+        # An 8.3 short name (XINPUT~1.DLL, PROGRA~1): a direct lookup
+        # resolves it to some other file, a proxy under a name no list knows.
+        return "path-invalid"
     if _DEVICE_STEMS.match(c.split(".")[0].rstrip(" ").upper()):
         return "path-invalid"
     return None
@@ -934,32 +939,65 @@ def _top_lookups(loader: dict, kind: str):
 
 
 def _passive(loader: dict) -> bool:
-    """§7.4, exactly: no `chain` strategy in `coexist`, and no `tell` in any
-    strategy. A passive loader never makes Astra load or tell anything."""
+    """§7.4, exactly: no `chain` and no `via-manager` strategy in `coexist`,
+    and no `tell` in any strategy. A passive loader never makes Astra load,
+    tell or route anything."""
     co = loader.get("coexist")
     return isinstance(co, list) and all(
-        isinstance(s, dict) and s.get("strategy") != "chain" and "tell" not in s for s in co)
+        isinstance(s, dict) and s.get("strategy") not in ("chain", "via-manager") and "tell" not in s for s in co)
 
 
-def _file_anchors(loader: dict) -> list[str]:
+def detection_patterns(doc: dict) -> list[str]:
+    """§7.4: the last component of every name this descriptor's OWN
+    detection rules look up (`listed`, `child`, `stat`, `tail`, a bootstrap's
+    `listed`, an `also_if` `dir`), lower-cased, with each placeholder read as
+    `*`. A name that is nothing but placeholders and wildcards (`{program}`)
+    is the program itself, which the program rule already covers."""
+    out, stack = [], [doc.get("rule")]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, dict):
+            for k in ("listed", "child", "stat", "tail", "dir"):
+                if isinstance(v.get(k), str):
+                    last = _PLACEHOLDER.sub("*", v[k].rsplit("/", 1)[-1]).lower()
+                    if last.replace("*", ""):
+                        out.append(last)
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return out
+
+
+def _detection_name(path: str, doc: dict) -> bool:
+    last = path.rsplit("/", 1)[-1].lower()
+    return any(fnmatch.fnmatchcase(last, pattern) for pattern in detection_patterns(doc))
+
+
+def _file_anchors(loader: dict, doc: dict) -> list[str]:
     """§7.4: top-level `file` lookups whose last component holds a literal
-    name that is not a proxy, not a ubiquitous runtime and not the game's
-    own program."""
+    name that is not a proxy, not a ubiquitous runtime, not the game's own
+    program and not a name this descriptor's detection looks up."""
     return [p for p in _top_lookups(loader, "file")
-            if _anchor_name(p) and not _proxy_or_runtime(p) and not _program_shaped(p)]
+            if _anchor_name(p) and not _proxy_or_runtime(p) and not _program_shaped(p)
+            and not _detection_name(p, doc)]
 
 
-def _root_anchored(loader: dict) -> bool:
-    """§7.4: anchored on its root -- no file anchor, and a top-level `dir`
-    lookup of exactly its own `root`."""
-    return not _file_anchors(loader) and any(
-        p == loader.get("root") and _anchor_name(p) for p in _top_lookups(loader, "dir"))
+def _root_anchored(loader: dict, doc: dict) -> bool:
+    """§7.4: anchored on its root -- no file anchor, and a top-level `child`
+    or `stat` of kind `dir` of exactly its own `root` (never `listed`: a
+    folder is named by the two lookups that name one)."""
+    req = loader.get("require")
+    roots = [e for e in req if isinstance(e, dict)] if isinstance(req, list) else []
+    return not _file_anchors(loader, doc) and any(
+        e.get("kind") == "dir" and isinstance(e.get(k), str) and e[k] == loader.get("root")
+        and _anchor_name(e[k]) and not _detection_name(e[k], doc)
+        for e in roots for k in ("child", "stat") if k in e)
 
 
 def rule_mods_loader_anchor_invalid(doc: dict) -> bool:
     """True = OK. §7.4: every loader is anchored -- by a file, or on its own
     root. Whether a root-anchored loader may be so is the next rule's."""
-    return all(_file_anchors(l) or _root_anchored(l) for l in mods_loaders(doc))
+    return all(_file_anchors(l, doc) or _root_anchored(l, doc) for l in mods_loaders(doc))
 
 
 def rule_mods_root_anchor_not_passive(doc: dict) -> bool:
@@ -967,20 +1005,22 @@ def rule_mods_root_anchor_not_passive(doc: dict) -> bool:
     declares `chain` or a `tell` is refused, so that a later member can never
     quietly make a root-anchored loader active: an active loader needs a
     file anchor."""
-    return all(_passive(l) for l in mods_loaders(doc) if _root_anchored(l))
+    return all(_passive(l) for l in mods_loaders(doc) if _root_anchored(l, doc))
 
 
 def rule_mods_chain_entry_invalid(doc: dict) -> bool:
-    """True = OK. §7.6: a `chain` entry is one of the loader's own top-level
-    `file` lookups -- a file its recognition already found -- and is never a
-    proxy, a ubiquitous runtime or the game's own program."""
+    """True = OK. §7.6: a `chain` entry is a `.dll`, and one of the loader's
+    own top-level `file` lookups -- a file its recognition already found --
+    and never a proxy, a ubiquitous runtime, the game's own program or a
+    name this descriptor's detection looks up."""
     for loader in mods_loaders(doc):
         own = set(_top_lookups(loader, "file"))
         for s in loader.get("coexist", []) if isinstance(loader.get("coexist"), list) else []:
             if not isinstance(s, dict) or s.get("strategy") != "chain" or not isinstance(s.get("entry"), str):
                 continue
             e = s["entry"]
-            if e not in own or _proxy_or_runtime(e) or _program_shaped(e):
+            if e not in own or _proxy_or_runtime(e) or _program_shaped(e) or _detection_name(e, doc) \
+                    or not e.lower().endswith(".dll"):
                 return False
     return True
 
@@ -1007,6 +1047,21 @@ def rule_mods_placeholder_unknown(doc: dict) -> bool:
         for _member, p in _mods_paths(loader):
             if isinstance(p, str) and set(_PLACEHOLDER.findall(p)) - known - {"source"}:
                 return False
+    return True
+
+
+def rule_mods_version_unreadable(doc: dict) -> bool:
+    """True = OK. §7.4: every `versions` operand reads in its template's
+    shape (`>=a.b`, or `>=1.2.3` on a two-run template, does not). A
+    template or `versions` the schema already refuses is the schema's."""
+    for loader in mods_loaders(doc):
+        v = loader.get("version")
+        if not isinstance(v, dict) or not isinstance(v.get("template"), str) or not isinstance(v.get("versions"), str):
+            continue
+        if not _TEMPLATE.match(v["template"]) or not _VERSIONS.match(v["versions"]):
+            continue
+        if any(read_operand(v["template"], operand) is None for _op, operand in version_comparators(v["versions"])):
+            return False
     return True
 
 
@@ -1060,6 +1115,7 @@ SEMANTIC_MODS_RULES = {
     "mods-root-anchor-not-passive": rule_mods_root_anchor_not_passive,
     "mods-chain-entry-invalid": rule_mods_chain_entry_invalid,
     "mods-placeholder-unknown": rule_mods_placeholder_unknown,
+    "mods-version-unreadable": rule_mods_version_unreadable,
     "mods-code-undeclared": rule_mods_code_undeclared,
     "mods-loader-id-duplicate": rule_mods_loader_id_duplicate,
     "mods-over-budget": rule_mods_over_budget,
@@ -1072,6 +1128,7 @@ SEMANTIC_MODS_REASONS = {
     "mods-root-anchor-not-passive": "root-anchor-not-passive",
     "mods-chain-entry-invalid": "chain-entry-invalid",
     "mods-placeholder-unknown": "placeholder-unknown",
+    "mods-version-unreadable": "version-invalid",
     "mods-code-undeclared": "code-undeclared",
     "mods-loader-id-duplicate": "loader-id-duplicate",
     "mods-over-budget": "over-budget",
@@ -1331,7 +1388,7 @@ def judge_mods_hostile(v: dict, doc: dict, descriptor_schema: dict) -> list[tupl
     out.append((f"descriptor/mods/hostile/{v['name']} (reasons)", reasons == sorted(v["reasons"]),
                 f"got {reasons}, want {sorted(v['reasons'])}"))
     problems = mods_semantic_problems(doc)
-    want = [v["rule"]] if v["check"] == "semantic" else []
+    want = (v.get("rules") or [v["rule"]]) if v["check"] == "semantic" else []
     out.append((f"descriptor/mods/hostile/{v['name']} (semantic)", problems == want, f"{problems}"))
     return out
 

@@ -400,6 +400,12 @@ astra-game-launcher `src/paths.rs` `check_component`'s rules, plus C1. A
 device name is refused by its spelling, before anything is opened: opening
 `COM1` reaches a device before any regular-file check could run.
 
+A component also never holds `~` followed by a digit, anywhere in it,
+which covers every Windows 8.3 short name (the `~N` before the extension):
+`XINPUT~1.DLL`, `PROGRA~1`. A direct lookup resolves a short name to some
+other file, so `XINPUT~1.DLL` would be `xinput1_3.dll`, a proxy, under a
+name no list knows. `~mods` is a name, and stays allowed.
+
 An absolute path, a drive letter, a UNC path or a `~` home cannot be
 written, because each would have to begin with something other than
 `{source}` (reason `path-outside-jail`). A `..` component is reason
@@ -466,21 +472,33 @@ whose last component holds a literal name that is none of these:
 - a §2.4 ubiquitous runtime name;
 - the game's own program, by §2.4's "must not itself be a program file":
   a name holding `{program}`, `{stem}` or `{name}`, or ending in `.exe`,
-  `.com`, `.bat`, `.cmd`, `.ps1`, `.sh`, `.x86` or `.x86_64`.
+  `.com`, `.bat`, `.cmd`, `.ps1`, `.sh`, `.x86` or `.x86_64`;
+- a name this descriptor's **own detection** looks up: the last component
+  of any `listed`, `child`, `stat` or `tail` in its `rule`s (a bootstrap's
+  `listed` and an `also_if` `dir` included), compared ignoring ASCII case,
+  with each `*` or placeholder in the detection name matching any run of
+  characters. A name that is nothing but placeholders and wildcards
+  (`{program}`) is the program, which the bullet above covers.
 
 None of those recognises a loader. A proxy DLL says only that *some*
 loader sits in a folder: one name is shared by BepInEx's Doorstop, UE4SS,
-the Ultimate ASI Loader and ReShade. The program is in every folder this
-descriptor placed. And a folder name (`Plugins`, `Mods`) is in countless
-games. So each may appear in a loader's `require`, but never as its only
-anchor.
+the Ultimate ASI Loader and ReShade. The program, and the files detection
+looks for (`engine2.dll`, `UnityPlayer.dll`), are in every folder this
+descriptor placed, so a loader "found" by one of them would be found in
+every game. And a folder name (`Plugins`, `Mods`) is in countless games. So
+each may appear in a loader's `require`, but never as its only anchor.
 
 **The one exception: a root-anchored loader, which must be passive.** A
 loader is **passive** when, exactly, its `coexist` holds no `chain`
-strategy and no strategy with a `tell`. A passive loader may be anchored
-by a top-level `child` or `stat` of kind `dir` whose path is exactly its
-own `root`, instead of by a file. It is then **root-anchored**: it has no
-file anchor, and its own mods folder is what recognises it.
+strategy, no `via-manager` strategy, and no strategy with a `tell`.
+Sending the start through a mod manager changes what Astra does, so
+`via-manager` is not passive. A passive loader may be anchored by a
+top-level `child` or `stat` of kind `dir` whose path is exactly its own
+`root` (and is not a detection name), instead of by a file. It is then
+**root-anchored**: it has no file anchor, and its own mods folder is what
+recognises it. Only `child` and `stat` anchor a root, being the two
+lookups that name a folder; `listed` answers from the parent's listing of
+names and anchors no root.
 
 The reason this is safe: a false "recognised" for a root-anchored loader
 changes only what the player sees on their own machine (a folder's files
@@ -488,11 +506,11 @@ listed as their mods), and Astra loads nothing of it and tells it nothing.
 The `~mods` paks are that case: no file says they are there, and Astra
 only lists them.
 
-A root-anchored loader that also declares `chain` or a `tell` is reason
-`root-anchor-not-passive`. So a later member can never quietly turn a
-root-anchored loader active: an active loader needs a file anchor. A
-loader with no anchor at all, neither a file nor its own root, is reason
-`loader-anchor-invalid`.
+A root-anchored loader that also declares `chain`, `via-manager` or a
+`tell` is reason `root-anchor-not-passive`. So a later member can never
+quietly turn a root-anchored loader active: an active loader needs a file
+anchor. A loader with no anchor at all, neither a file nor its own root,
+is reason `loader-anchor-invalid`.
 
 **`codes`** (optional) limits a loader to games this descriptor placed under
 one of the listed codes. Every one must be among this descriptor's own
@@ -511,7 +529,10 @@ can be required:
   run of a to b digits, with 1 ≤ a ≤ b ≤ 5; anything else is a literal
   character. A template that does not read this way (`N{5,1}`), or a
   `versions` that does not, is reason `version-invalid`: a version that
-  cannot be read must never fall through to "supported".
+  cannot be read must never fall through to "supported". So is a
+  `versions` operand that does not read in its template's shape (`>=a.b`,
+  or `>=1.2.3` on a two-run template): at evaluation it could never hold,
+  so lint refuses it rather than ship a requirement nobody can meet.
 - `versions` (optional): one or two comparators joined by `, `. Each is
   one of `=`, `<`, `<=`, `>`, `>=`, followed by an operand written in the
   template's own shape and cut after any digit run. The comparison is
@@ -569,7 +590,7 @@ implements:
 
 | `strategy` | its members | what happens |
 |---|---|---|
-| `chain` | `entry` (required): exactly the path of one of this loader's own top-level `file` lookups in `require`, so a file its recognition found. It is never a proxy, a ubiquitous runtime or the game's own program (§7.4's three lists); otherwise reason `chain-entry-invalid`. `tell` (optional) | Astra's runner starts first and hands control to the player's loader at `entry`, which then loads their mods as it always does. `entry` is loaded in place by the game process; it is never written, copied or replaced. |
+| `chain` | `entry` (required): a `.dll`, and exactly the path of one of this loader's own top-level `file` lookups in `require`, so a file its recognition found. It is never a proxy, a ubiquitous runtime, the game's own program or a name this descriptor's detection looks up (§7.4's four lists); otherwise reason `chain-entry-invalid`. Only `.dll`: a PE on no list (`.scr`) is still a program. `tell` (optional) | Astra's runner starts first and hands control to the player's loader at `entry`, which then loads their mods as it always does. `entry` is loaded in place by the game process; it is never written, copied or replaced. |
 | `side-by-side` | `tell` (optional) | The player's loader starts as it would without Astra, and Astra's runner runs beside it. Astra's own files stay in Astra's profile. If the player's loader must load something of Astra's, it is told where through `tell` (an environment variable or an argument), never by a file written into the player's tree. Without `tell`, this strategy serves only a foundation that adds nothing to this loader. |
 | `via-manager` | none | The player's mod manager starts the game with its own profile, and Astra rides along through a launcher adapter for that manager (§7.7). It is unavailable when no adapter exists for the manager in use. |
 
@@ -694,7 +715,9 @@ the descriptor, so a catalogue never signs one. A client that evaluates
     integration;
   - not a log. A log may say that a start was with or without mods, and
     give the refusal code (§7.4–§7.9) that decided it, and nothing the
-    evaluation found;
+    evaluation found. Even that line never goes into any log that a
+    problem report attaches, nor into a support bundle a player sends:
+    whether someone plays with mods is itself about their mods;
   - not a runner beyond what it needs. A runner is given exactly the
     `entry` path and the `tell` value: never the list of mods, the other
     loaders or their versions.
@@ -721,7 +744,7 @@ launcher 0.5.0's K17 reads:
 | `compat/source2-with-mods.toml` | condition 1: a descriptor with `mods` that a reader ignoring it still accepts for detection. Without `mods`, it is `manifests/valid/foundation-owns-engine.toml`'s `[integration.engine]`, member for member |
 | `compat/source2-with-future-mods.toml` | a `mods` table from a later version: this schema refuses it, while detection and the 0.5.0 reader's view accept the same descriptor |
 | `paths.json` | §7.3: every path's schema verdict and reason, `..` alone and the device names included, and each substitution's re-checked components |
-| `hostile/mods-*.toml` | one per rule, each asserted for exactly its §7.9 reasons: `path-escape`, `absolute-path`, `device-name`, `unknown-placeholder`, `over-budget-glob`, `unknown-enum`, `template-reversed`, `manager-as-data`, `anchor-on-a-proxy`, `anchor-on-the-program`, `anchor-on-a-folder`, `root-anchor-not-passive`, `chain-entry-on-a-proxy`, `loader-for-another-engine`, `loader-id-duplicate`, `over-budget-lookups`, `over-budget-probes`, `deep-nesting`, `not-a-table` |
+| `hostile/mods-*.toml` | one per rule, each asserted for exactly its §7.9 reasons: `path-escape`, `absolute-path`, `device-name`, `unknown-placeholder`, `over-budget-glob`, `unknown-enum`, `template-reversed`, `manager-as-data`, `anchor-on-a-proxy`, `short-name`, `anchor-on-the-program`, `anchor-on-the-engine`, `anchor-on-a-folder`, `root-anchor-not-passive`, `root-anchor-via-manager`, `root-anchor-chain` (two reasons, by construction), `root-anchor-listed`, `chain-entry-on-a-proxy`, `chain-entry-on-the-engine`, `chain-entry-not-a-dll`, `chain-entry-unrecognised`, `chain-entry-on-the-program`, `versions-unreadable`, `deep-unknown-member`, `loader-for-another-engine`, `loader-id-duplicate`, `over-budget-lookups`, `over-budget-probes`, `deep-nesting`, `not-a-table` |
 
 `tools/check-games-goldens.py` checks `$defs/mods` and the rules a schema
 cannot express: the loader anchor, a root-anchored loader being passive,

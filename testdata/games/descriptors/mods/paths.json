@@ -208,6 +208,26 @@
     {
       "path": "{source}/a\u009fb",
       "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/XINPUT~1.DLL",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/PROGRA~1/x.dll",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/x~9",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a~b.dll",
+      "reason": null
+    },
+    {
+      "path": "{source}/~mods",
+      "reason": null
     }
   ],
   "substitution": [

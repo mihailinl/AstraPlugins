@@ -240,15 +240,15 @@
 
     "modsPath": {
       "type": "string",
-      "description": "§7.3: `{source}` then /-separated components; no empty, `.` or `..` component, no `\\`, `:`, `*`, control character (C0, DEL, C1), `<>\"|?`, stray brace or trailing dot/space, and is never a Windows device name (CON, NUL.txt, COM1, LPT1.log, CONIN$, ...); placeholders are the §2.4 names and the placing rule's captures, every component re-checked after substitution. Nothing absolute, nothing outside the jail.",
+      "description": "§7.3: `{source}` then /-separated components; no empty, `.` or `..` component, no `\\`, `:`, `*`, control character (C0, DEL, C1), `<>\"|?`, stray brace, `~` followed by a digit (an 8.3 short name such as XINPUT~1.DLL) or trailing dot/space, and is never a Windows device name (CON, NUL.txt, COM1, LPT1.log, CONIN$, ...); placeholders are the §2.4 names and the placing rule's captures, every component re-checked after substitution. Nothing absolute, nothing outside the jail.",
       "maxLength": 512,
-      "pattern": "^\\{source\\}(?:/(?!\\.\\.?(?:/|$))(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?(?:/|$))(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}){0,254}(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}))*$"
+      "pattern": "^\\{source\\}(?:/(?![^/]*~[0-9])(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?(?:/|$))(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}){0,254}(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}))*$"
     },
 
     "modsFileName": {
       "type": "string",
       "description": "§7.5: one file name, never a path; the §7.3 component rules, and no placeholder.",
-      "pattern": "^(?!\\.\\.?$)(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?$)[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]{0,254}[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]$"
+      "pattern": "^(?!.*~[0-9])(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?$)[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]{0,254}[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]$"
     },
 
     "modsLoader": {

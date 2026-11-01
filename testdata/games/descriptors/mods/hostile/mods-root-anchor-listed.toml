@@ -1,0 +1,35 @@
+# Hostile `mods` golden: a root anchor written with `listed`
+# (engine-descriptor-v1.md §7.4). A loader anchored on its own root is
+# anchored by `child` or `stat` of kind `dir`, the two lookups that name a
+# folder; `listed` answers from the parent's listing of NAMES and anchors no
+# root. With no file anchor either, the loader has none. Schema-valid; the
+# checker's anchor rule refuses it: mods-invalid, reason
+# loader-anchor-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { listed = "{source}/s2loader/mods", kind = "dir" } ]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

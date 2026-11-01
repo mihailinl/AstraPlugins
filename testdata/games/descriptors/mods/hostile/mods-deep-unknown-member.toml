@@ -1,0 +1,36 @@
+# Hostile `mods` golden: NESTING through a member this version does not know
+# (engine-descriptor-v1.md §7.1). `require` cannot nest past depth 3, so the
+# only way to bury a reader is a member from "later" -- 20 tables deep here.
+# §7.1 bounds the whole `mods` table to 11 levels whatever it holds, so no
+# reader has to recurse on the unknown. The schema refuses the member
+# (unknown); the checker's budget rule refuses the depth: mods-invalid,
+# reasons unknown and over-budget.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { stat = "{source}/s2loader/s2loader.dll", kind = "file" } ]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]
+later = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = { x = 1 } } } } } } } } } } } } } } } } } } } } }

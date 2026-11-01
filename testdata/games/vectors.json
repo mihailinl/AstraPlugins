@@ -159,6 +159,62 @@
           "mechanical_note": "the one error in `mods` that skips the whole descriptor, in 0.5.0 (descriptor-invalid, field mods) and after"
         },
         {
+          "name": "short-name", "file": "descriptors/mods/hostile/mods-short-name.toml", "reasons": ["path-invalid"],
+          "schema_verdict": "refuse", "verdict": "refuse", "check": "schema",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "anchor-on-the-engine", "file": "descriptors/mods/hostile/mods-anchor-on-the-engine.toml", "reasons": ["loader-anchor-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-anchor-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "root-anchor-listed", "file": "descriptors/mods/hostile/mods-root-anchor-listed.toml", "reasons": ["loader-anchor-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-anchor-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "root-anchor-chain", "file": "descriptors/mods/hostile/mods-root-anchor-chain.toml", "reasons": ["chain-entry-invalid", "root-anchor-not-passive"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rules": ["mods-root-anchor-not-passive", "mods-chain-entry-invalid"],
+          "client": "mods-dropped", "reader_ignoring_mods": "accept",
+          "mechanical_note": "two rules by construction: any entry that passed would itself be a file anchor"
+        },
+        {
+          "name": "root-anchor-via-manager", "file": "descriptors/mods/hostile/mods-root-anchor-via-manager.toml", "reasons": ["root-anchor-not-passive"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-root-anchor-not-passive",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "chain-entry-on-the-engine", "file": "descriptors/mods/hostile/mods-chain-entry-on-the-engine.toml", "reasons": ["chain-entry-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-chain-entry-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "chain-entry-not-a-dll", "file": "descriptors/mods/hostile/mods-chain-entry-not-a-dll.toml", "reasons": ["chain-entry-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-chain-entry-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "chain-entry-unrecognised", "file": "descriptors/mods/hostile/mods-chain-entry-unrecognised.toml", "reasons": ["chain-entry-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-chain-entry-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "chain-entry-on-the-program", "file": "descriptors/mods/hostile/mods-chain-entry-on-the-program.toml", "reasons": ["chain-entry-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-chain-entry-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "versions-unreadable", "file": "descriptors/mods/hostile/mods-versions-unreadable.toml", "reasons": ["version-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-version-unreadable",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "deep-unknown-member", "file": "descriptors/mods/hostile/mods-deep-unknown-member.toml", "reasons": ["over-budget", "unknown"],
+          "schema_verdict": "refuse", "verdict": "refuse", "check": "semantic", "rule": "mods-over-budget",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
           "name": "root-anchor-not-passive", "file": "descriptors/mods/hostile/mods-root-anchor-not-passive.toml", "reasons": ["root-anchor-not-passive"],
           "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-root-anchor-not-passive",
           "client": "mods-dropped", "reader_ignoring_mods": "accept"
