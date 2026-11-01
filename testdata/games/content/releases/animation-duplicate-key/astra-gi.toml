@@ -1,0 +1,22 @@
+# content check golden: an animations part whose GLB names `extensions` twice -- the first an avatar
+# that prohibits redistribution, the second empty. A lenient reader keeps the last and calls it
+# plain, which an animation part never judges; E_CONTENT_FORMAT refuses it before classification.
+schema = 1
+
+[integration]
+id = "someone.animation-duplicate-key"
+name = "Animation Duplicate Key"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "anim/wave.glb"
+kind = "animations"
+title = "Wave"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

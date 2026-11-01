@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -290,13 +292,13 @@ class VrmLicenceGate(unittest.TestCase):
     allowRedistribution=True for the same reason."""
 
     def test_vrm0_only_author_is_refused_and_everyone_passes(self):
-        meta = {"licenseName": "Redistribution_Allowed", "allowedUserName": "OnlyAuthor"}
+        meta = {"licenseName": "CC_BY", "allowedUserName": "OnlyAuthor"}
         self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
         meta["allowedUserName"] = "Everyone"
         self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
 
     def test_vrm0_named_people_is_refused(self):
-        meta = {"licenseName": "Redistribution_Allowed", "allowedUserName": "ExplicitlyLicensedPerson"}
+        meta = {"licenseName": "CC_BY", "allowedUserName": "ExplicitlyLicensedPerson"}
         r = ggold.rule_vrm_licence_refused("0.x", meta)
         self.assertTrue(r["refused"])
         self.assertEqual(r["field"], "extensions.VRM.meta.allowedUserName")
@@ -305,8 +307,8 @@ class VrmLicenceGate(unittest.TestCase):
     def test_vrm0_licence_name_prohibited_is_refused(self):
         meta = {"allowedUserName": "Everyone", "licenseName": "Redistribution_Prohibited"}
         self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
-        meta["licenseName"] = "Redistribution_Allowed"
-        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
+        meta["licenseName"] = "CC_BY"
+        self.assertEqual(ggold.rule_vrm_licence_refused("0.x", meta)["verdict"], "allowed")
 
     def test_vrm0_absent_fields_default_to_refused(self):
         r = ggold.rule_vrm_licence_refused("0.x", {})
@@ -381,8 +383,186 @@ class VrmLicenceGate(unittest.TestCase):
         self.assertIsNone(gate["refusal"])
 
     def test_a_non_glb_file_has_no_vrm_meta_at_all(self):
-        self.assertIsNone(ggold.extract_vrm_meta(b"not a glb"))
+        self.assertEqual(ggold.extract_vrm_metas(b"not a glb"), {})
         self.assertEqual(ggold.vrm_gate(b"not a glb")["status"], "unknown")
+
+    def test_both_metas_are_read_not_only_the_first(self):
+        """O-2: extract_vrm_metas must return BOTH blocks when a GLB
+        carries both, never stop at the first it finds."""
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        metas = ggold.extract_vrm_metas(raw)
+        self.assertEqual(set(metas), {"0.x", "1.0"})
+
+    def test_disagreeing_metas_are_a_conflict_even_though_each_alone_would_pass_or_refuse(self):
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        gate = ggold.vrm_gate(raw)
+        self.assertEqual(gate["status"], "conflict", json.dumps(gate))
+        self.assertEqual(gate["vrm_licence"], None)
+        self.assertEqual(gate["refusal"]["field"], "gate verdict")
+        # the defect this replaces: a reader that only looked at the FIRST
+        # meta (0.x here) would have read this file as allowed.
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", metas_of(raw)["0.x"])["refused"])
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", metas_of(raw)["1.0"])["refused"])
+
+    def test_agreeing_metas_pass_reading_both(self):
+        raw = (ggold.DATA / "content/vrm/vrm-metas-agree.vrm").read_bytes()
+        gate = ggold.vrm_gate(raw)
+        self.assertEqual(gate["status"], "ok", json.dumps(gate))
+        self.assertEqual(gate["vrm_licence"]["vrm_version"], "1.0", "both present and agreeing shows VRM 1.0")
+
+    def test_mutating_the_conflict_golden_to_agree_fixes_it(self):
+        """The mutation this test proves: flip the disagreeing golden's
+        VRM 1.0 allowRedistribution to true (now agreeing with the 0.x side
+        that already allows) and the conflict must disappear."""
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        metas = metas_of(raw)
+        self.assertIsNotNone(ggold.rule_vrm_conflict(metas["0.x"], metas["1.0"]))
+        fixed = dict(metas["1.0"], allowRedistribution=True)
+        self.assertIsNone(ggold.rule_vrm_conflict(metas["0.x"], fixed))
+
+    def test_usage_flags_are_display_and_never_a_conflict(self):
+        """The content gate compares the two metas' VERDICTS only; usage
+        flags are display. A disagreeing overlapping usage flag alone is
+        therefore no conflict here either, so the two gates agree."""
+        meta0 = {"licenseName": "CC_BY", "allowedUserName": "Everyone", "violentUssageName": "Allow"}
+        meta1 = {"allowRedistribution": True, "avatarPermission": "everyone", "allowExcessivelyViolentUsage": False}
+        self.assertIsNone(ggold.rule_vrm_conflict(meta0, meta1))
+
+    def test_an_unknown_against_an_allowed_is_a_conflict(self):
+        meta0 = {"licenseName": "Other", "allowedUserName": "Everyone"}
+        meta1 = {"allowRedistribution": True, "avatarPermission": "everyone"}
+        conflict = ggold.rule_vrm_conflict(meta0, meta1)
+        self.assertIsNotNone(conflict)
+        self.assertIn("unknown", conflict["detail"])
+
+
+class VrmTokenReadings(unittest.TestCase):
+    """O-2b: the content contract's ingest-v1.md §4.2 table, row by row. An
+    unrecognised token is never allowed."""
+
+    def verdict(self, version, meta):
+        return ggold.rule_vrm_licence_refused(version, meta)
+
+    def test_vrm0_licence_names(self):
+        for name, want in [("CC0", "allowed"), ("CC_BY", "allowed"), ("CC_BY_NC_ND", "allowed"),
+                           ("Redistribution_Prohibited", "prohibited"), ("Other", "unknown"),
+                           ("Redistribution_Allowed", "unknown"), ("cc0", "unknown"), ("", "unknown")]:
+            with self.subTest(name=name):
+                self.assertEqual(self.verdict("0.x", {"licenseName": name, "allowedUserName": "Everyone"})["verdict"], want)
+        self.assertEqual(self.verdict("0.x", {"licenseName": 1, "allowedUserName": "Everyone"})["verdict"], "prohibited",
+                         "not a string is prohibited")
+
+    def test_vrm0_allowed_user_names(self):
+        for name, want in [("Everyone", "allowed"), ("OnlyAuthor", "prohibited"),
+                           ("ExplicitlyLicensedPerson", "prohibited"), ("Anyone", "unknown"), ("everyone", "unknown")]:
+            with self.subTest(name=name):
+                self.assertEqual(self.verdict("0.x", {"licenseName": "CC0", "allowedUserName": name})["verdict"], want)
+        self.assertEqual(self.verdict("0.x", {"licenseName": "CC0", "allowedUserName": ["Everyone"]})["verdict"], "prohibited")
+
+    def test_vrm1_redistribution_is_exactly_true(self):
+        for value, want in [(True, "allowed"), (False, "prohibited"), ("true", "prohibited"), (1, "prohibited"), (None, "prohibited")]:
+            with self.subTest(value=value):
+                self.assertEqual(self.verdict("1.0", {"allowRedistribution": value, "avatarPermission": "everyone"})["verdict"], want)
+
+    def test_vrm1_avatar_permissions(self):
+        for name, want in [("everyone", "allowed"), ("onlyAuthor", "prohibited"),
+                           ("onlySeparatelyLicensedPerson", "prohibited"), ("anyone", "unknown"), ("Everyone", "unknown")]:
+            with self.subTest(name=name):
+                self.assertEqual(self.verdict("1.0", {"allowRedistribution": True, "avatarPermission": name})["verdict"], want)
+
+    def test_prohibited_wins_over_unknown(self):
+        r = self.verdict("0.x", {"licenseName": "Other", "allowedUserName": "OnlyAuthor"})
+        self.assertEqual((r["verdict"], r["field"]), ("prohibited", "extensions.VRM.meta.allowedUserName"))
+
+
+def glb_of(doc: dict) -> bytes:
+    chunk = json.dumps(doc).encode()
+    chunk += b" " * ((-len(chunk)) % 4)
+    body = struct.pack("<I4s", len(chunk), b"JSON") + chunk
+    return struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body
+
+
+class GltfFormat(unittest.TestCase):
+    """E_CONTENT_FORMAT: the content catalogue's ingest-v1.md §3 step 10."""
+
+    def test_a_duplicate_member_anywhere_is_refused_before_classification(self):
+        text = b'{"extensions": {"VRMC_vrm": {"meta": {"allowRedistribution": false}}}, "extensions": {}}'
+        chunk = text + b" " * ((-len(text)) % 4)
+        raw = struct.pack("<4sII", b"glTF", 2, 20 + len(chunk)) + struct.pack("<I4s", len(chunk), b"JSON") + chunk
+        self.assertIn("twice", ggold.gltf_format_problem(raw, "anim/wave.glb"))
+        pl = ggold.part_licence({"path": "anim/wave.glb", "kind": "animations", "licence": "CC0-1.0"}, raw)
+        self.assertEqual(pl["gate_status"], "format")
+
+    def test_a_whole_glb_passes_and_a_truncated_one_does_not(self):
+        raw = glb_of({"asset": {"version": "2.0"}})
+        self.assertIsNone(ggold.gltf_format_problem(raw, "a.glb"))
+        self.assertIsNotNone(ggold.gltf_format_problem(raw[:-4], "a.glb"))
+        self.assertIsNotNone(ggold.gltf_format_problem(raw + b"\0\0\0\0", "a.glb"))
+
+    def test_gltf_uris(self):
+        def doc(uri):
+            return json.dumps({"buffers": [{"uri": uri}]}).encode()
+        present = {"m/a.gltf", "m/a.bin", "x.bin"}
+        for uri, ok in [("a.bin", True), ("data:application/octet-stream;base64,AAAA", True), ("../x.bin", False),
+                        ("/x.bin", False), ("https://e.invalid/a.bin", False), ("file:a.bin", False),
+                        ("m\\a.bin", False), ("missing.bin", False), ("", False)]:
+            with self.subTest(uri=uri):
+                self.assertEqual(ggold.gltf_format_problem(doc(uri), "m/a.gltf", present) is None, ok)
+
+    def test_a_glb_takes_data_uris_only(self):
+        self.assertIsNone(ggold.gltf_format_problem(glb_of({"images": [{"uri": "data:image/png;base64,AA=="}]}), "a.glb"))
+        self.assertIn("external", ggold.gltf_format_problem(glb_of({"images": [{"uri": "t.png"}]}), "a.glb"))
+
+
+class VrmGoldensGenerator(unittest.TestCase):
+    def test_every_vrm_golden_is_what_gen_py_writes(self):
+        gen = ggold.DATA / "content/vrm/gen.py"
+        r = subprocess.run([sys.executable, str(gen), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class GltfClassification(unittest.TestCase):
+    """The content contract's ingest-v1.md §4: a GLB is classified by its
+    glTF JSON extensions, never by its name."""
+
+    AVATAR = {"extensions": {"VRM": {"meta": {"licenseName": "Redistribution_Prohibited", "allowedUserName": "Everyone"}}}}
+    ANIMATION = {"extensionsUsed": ["VRMC_vrm_animation"], "extensions": {"VRMC_vrm_animation": {"specVersion": "1.0"}}}
+    PLAIN = {"asset": {"version": "2.0"}}
+
+    def part(self, path, kind, doc, licence="CC0-1.0"):
+        return ggold.part_licence({"path": path, "kind": kind, "licence": licence}, glb_of(doc))
+
+    def test_a_renamed_avatar_is_judged_as_an_avatar(self):
+        for path, kind in [("models/emotes.glb", "animations"), ("art/prop.glb", "art"), ("a/avatar.vrma", "animations")]:
+            with self.subTest(path=path):
+                self.assertEqual(self.part(path, kind, self.AVATAR)["gate_status"], "refused")
+
+    def test_an_avatar_extension_only_in_extensions_used_is_an_avatar(self):
+        doc = {"extensionsUsed": ["VRMC_vrm", "VRMC_vrm_animation"]}
+        self.assertEqual(ggold.gltf_class(doc), "avatar")
+        self.assertEqual(self.part("a.glb", "animations", doc)["gate_status"], "unknown")
+
+    def test_an_animation_gets_no_avatar_verdict(self):
+        pl = self.part("anim/wave.vrma", "animations", self.ANIMATION)
+        self.assertIsNone(pl["gate_status"])
+        self.assertEqual(pl["licence_source"], "declared")
+
+    def test_a_plain_gltf_is_judged_only_as_a_character(self):
+        self.assertIsNone(self.part("art/prop.glb", "art", self.PLAIN)["gate_status"])
+        self.assertEqual(self.part("character/body.glb", "character", self.PLAIN)["gate_status"], "unknown")
+
+    def test_a_gltf_text_file_is_judged_too(self):
+        raw = json.dumps(self.AVATAR).encode()
+        pl = ggold.part_licence({"path": "char/a.gltf", "kind": "character", "licence": "CC0-1.0"}, raw)
+        self.assertEqual(pl["gate_status"], "refused")
+
+    def test_a_non_gltf_file_never_reaches_the_gate(self):
+        pl = ggold.part_licence({"path": "art/x.png", "kind": "art", "licence": "CC0-1.0"}, b"\x89PNG\r\n\x1a\n" + b"\0" * 16)
+        self.assertIsNone(pl["gate_status"])
+
+
+def metas_of(raw: bytes) -> dict:
+    return ggold.extract_vrm_metas(raw)
 
 
 class WithdrawnSecurity(unittest.TestCase):

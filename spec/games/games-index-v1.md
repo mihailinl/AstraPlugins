@@ -25,7 +25,7 @@ One JCS document, detached Ed25519 signatures, in the plugin envelope.
 | `serial` | `= issued_at`, Unix seconds |
 | `issued_at` | Unix seconds |
 | `expires_at` | Unix seconds. `expires_at − issued_at ≤ 8 days`, 7-day target |
-| `key_id` | `"games-current"` or `"games-next"` (§3) |
+| `key_id` | the signing key's **role**, `"games-current"` or `"games-next"` — never a real key id (§3) |
 
 - A client refuses a document whose `issued_at` is more than 1 day ahead of
   its own clock.
@@ -98,7 +98,7 @@ ingest refuses a second publisher's claim to an owned code with
     { "path": "animations/climb.fbx", "kind": "animations", "title": "Climb cycle",
       "credit": "someone", "licence": "CC-BY-4.0", "licence_source": "declared", "sha256": "…" }
   ],
-  "content_confirmed": { "gi-content-rights-v1": 1 }
+  "content_confirmed": { "market.rights.animations": 1 }
 }
 ```
 
@@ -115,7 +115,7 @@ ingest refuses a second publisher's claim to an owned code with
 | `review` | `"unchecked"` \| `"source_reviewed"`. The client derives the UI tier and Provenance badge from this plus first-party-list membership; this document states only the fact, never the wording (R19) |
 | `notes` | per-locale release notes, replacing free-text "what's new"; a locale a client does not have falls back to `en` |
 | `content` | this release's `[[integration.content]]` parts (manifest.md §2.7), each carrying the sha256 ingest hashed, `licence_source` (`"vrm"` when a readable VRM licence decided it, `"declared"` when the manifest's own `licence` string is the whole licence — manifest.md §2.7.3) and, for a `.vrm` part (or a readable `.astrachar`'s body) with readable meta, the `vrm_licence` the HARD VRM gate read, including the VRM usage flags (legal `DRAFT-v3.md` Part 6 G5). Absent or `[]` for a GI with no non-built-in assets |
-| `content_confirmed` | `{text_id: version}` — which confirmation text version each declared part was last confirmed under (manifest.md §2.7.4). **Never an account**: who confirmed, and when, is the plugins service's own record, not this document's |
+| `content_confirmed` | `{text_id: version}` — which confirmation text version each declared part was last confirmed under (manifest.md §2.7.4). A `text_id` is dot-separated lowercase segments, each `[a-z][a-z0-9_-]*` (`market.rights.animations`); the version is an integer ≥ 1. **Never an account**: who confirmed, and when, is the plugins service's own record, not this document's |
 
 **Dropped from the earlier plan's shape:** the flat `engine?`/`engine_ref?`
 convenience fields (superseded by `target.engine` and `foundation.engine`
@@ -189,13 +189,60 @@ game is still allowed, just never "Recommended".
 
 ## 3. Keys
 
-Two compiled Ed25519 key ids, `games-current` and `games-next`, generated
-once by an agent into `/mnt/Storage/Minice/Keys/games-{current,next}.ed25519`
-(0600, never printed; CLAUDE.md §3) — no owner ceremony. Each key id keeps
-its **own** serial floor. The first document a client verifies under
-`games-next` retires `games-current` on that client permanently, so a forged
-`serial` replayed under the (now-compromised) `current` key cannot hold back
-`next`. A later client release compiles a fresh `next` after a ratchet.
+**Not a compiled client key any more.** Games documents are authorised only
+by the two entries of kind `"games"` in the root-signed `trust.json`'s
+`kind_keys` member (minice `docs/architecture/2026-11-01-content-catalogue.md`
+§5; the astra-games-catalogue's `lib/trust.mjs`, agreed with minice-01 on
+2026-11-01). Each entry:
+
+```jsonc
+{ "kind": "games", "role": "current" | "next", "key_id": "astra-games-2026a",
+  "alg": "ed25519", "public_key": "<base64, 32 bytes>", "not_before": "<RFC 3339>" }
+```
+
+`trust.json` carries **exactly two** entries for kind `"games"` — one
+`role: "current"`, one `role: "next"` — both already authorised the moment
+the root signature that covers `trust.json` itself verifies. Adding a games
+key, or replacing one outright, is a root ceremony (the owner's passphrase,
+CLAUDE.md §3); *using* the `next` one routinely is not. A kind key never
+appears in `trust.json`'s `index_keys` (the plugin registry's own key list)
+and a kind key for `"games"` is never shared with any other kind — a
+`trust.json` that breaks either separation is refused whole, because it is
+exactly the thing that would let a client predating `kind_keys` (which reads
+only `index_keys`) accept a games key for the plugin index, or let one kind's
+compromise reach another's documents.
+
+**No per-key lifetime.** A `kind_keys` entry is authorised from its
+`not_before` onward and stays authorised until a root ceremony says
+otherwise — there is no `not_after` on the key itself. What is short-lived is
+each *signed document*: `expires_at − issued_at ≤ 8 days` (§1) plus a
+**per-kind serial floor** — tracked for the kind `"games"` as a whole, not
+reset by a routine role swap.
+
+**Routine rotation is the signer moving from `current` to `next`** — no
+client release, no ceremony, the same ratchet as before but now a
+day-to-day operation rather than something a new client build has to compile.
+The first document a client verifies under the kind's `"next"` role retires
+`"current"` for that kind on that client **permanently**, so a forged
+`serial` replayed under a since-retired role cannot hold back the one that
+took over. A later rotation needs a root ceremony to install a fresh `"next"`
+only once both roles of the kind have been spent, or on a suspected
+compromise — not on every rotation, the way a compiled key id used to force
+a client release.
+
+**The document body names the key's ROLE, never its real id.** The signed
+body's `key_id` (§1, §2) is always the literal string `"games-current"` or
+`"games-next"` — a reference to a `kind_keys` **role** for kind `"games"`,
+exactly as `games-index-v1.schema.json`'s enum already states it, never a
+`kind_keys.key_id` value. The **signature envelope**'s own `key_id` (the
+plugin envelope's `signatures[].key_id`, a hint for logging and key
+selection — astra-registry `bot/lib/sign.mjs` — never trusted for which key
+actually signed) carries the real `kind_keys.key_id` that did the signing
+(e.g. `"astra-games-2026a"`). A client verifies a games document only against
+the two `kind_keys` public keys of kind `"games"` — never an `index_keys` key
+and never another kind's `kind_keys` key, whatever either `key_id` claims —
+and uses the body's role string only to decide the ratchet above, never to
+pick which public key to try.
 
 ## 3a. References to a catalogue item (packs, `requires`)
 
