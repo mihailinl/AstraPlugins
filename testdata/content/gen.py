@@ -159,7 +159,7 @@ def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None, cd_ord
             out += (b"PK\x07\x08" if dd.get("sig", True) else b"") + struct.pack(
                 "<III", dd.get("crc", crc), len(comp), len(data))
         flags = cflags
-        central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, (3 << 8) | 20, 20, flags, method,
+        central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, e.get("made_by", (3 << 8) | 20), 20, flags, method,
                                DOS_TIME, DOS_DATE, crc, len(comp), len(data), len(name), len(extra), 0,
                                0, 0, e.get("ext_attr", 0o100644 << 16), off)
         central += name + extra
@@ -762,6 +762,12 @@ def gen_archives() -> None:
     link = {**model_files, "characters/aiko/notes.txt": b"../../../../etc/passwd"}
     hostile("symlink-entry.astrachar", bundle("astra.character", link, BODY_PATH,
                                               tweak=attr("characters/aiko/notes.txt", ext_attr=0o120777 << 16)))
+    # zip 9.2.0 `get_unix_mode` reads the unix mode for ANY non-DOS host: a link is a link on host 19 or 10 too
+    # (inside an animset part, so the link rule is the ONLY thing between the file and publication)
+    linked = {**ASCII_PART, "animpacks/wave/clips/c.fbx": b"../../../../etc/passwd"}
+    for host in (19, 10):
+        put(f"archives/hostile/symlink-host-{host}.astrapack", bundle("astra.animpack", linked, body=None, tweak=attr(
+            "animpacks/wave/clips/c.fbx", ext_attr=0o120777 << 16, made_by=(host << 8) | 20)))
     hostile("encrypted-entry.astrachar", bundle("astra.character", model_files, BODY_PATH,
                                                 tweak=attr(BODY_PATH, flags=1)))
     bomb = {**model_files, "characters/aiko/zeros.bin": b"\x00" * (1024 * 1024)}

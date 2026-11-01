@@ -629,6 +629,13 @@ class PlainGlbOnlyInAvatarParts(unittest.TestCase):
             self, Mutation("gets_verdict", lambda cls, kind: cls == "avatar"), "archives/character-plain-glb-accessory")
 
 
+class R1LinksOnEveryNonDosHost(unittest.TestCase):
+    def test_links_only_for_host_3(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("is_link", lambda made, ext: made >> 8 == 3 and (ext >> 16) & 0o170000 not in (0, 0o100000, 0o040000)),
+            "archives/symlink-host-19", "archives/symlink-host-10")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

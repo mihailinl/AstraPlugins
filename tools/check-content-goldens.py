@@ -557,6 +557,13 @@ def name_refusal(name: str) -> str | None:
     return None
 
 
+def is_link(made: int, ext: int) -> bool:
+    """A non-DOS host with a unix mode in the high 16 bits that is not a regular file or a directory."""
+    if made >> 8 == 0 or ext >> 16 == 0:
+        return False
+    return (ext >> 16) & 0o170000 not in (0o100000, 0o040000)
+
+
 def walk_zip(b: bytes) -> dict[str, bytes]:
     total, cd_off, cd_size = end_record(b)
     if total > MAX_ENTRIES:
@@ -586,8 +593,9 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
             raise Refusal("E_ARCHIVE_ENCRYPTED", raw_name.decode("utf-8", "replace"))
         if method not in (0, 8):
             raise Refusal("E_ARCHIVE_METHOD", str(method))
-        mode = (ext >> 16) & 0o170000
-        if (made >> 8) == 3 and mode not in (0, 0o100000, 0o040000):
+        # zip 9.2.0 `get_unix_mode` reads the unix mode for ANY host but DOS (0), so the mode is
+        # tested whenever the host is not DOS and the high 16 bits carry one -- not only for host 3
+        if is_link(made, ext):
             raise Refusal("E_ARCHIVE_LINK", raw_name.decode("utf-8", "replace"))
         q = 0
         while q + 4 <= len(extra):
