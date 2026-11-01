@@ -176,8 +176,22 @@ what the author chose to publish; VRM meta contact fields are NOT copied
   "lifts": [ { "id", "versions", "lifts_at" } ] }
 ```
 
-`rows` and `lifts` are always present (`[]` when empty). `versions` is a semver
-range. `at` is when the act was taken. `reason_text` (≤ 500) is shown verbatim
+`rows` and `lifts` are always present (`[]` when empty). `at` is when the act was
+taken.
+
+**`versions` (and a command's `version_req`) is comparators only, judged by
+SemVer 2.0.0 §11 precedence — it is NOT Cargo's `VersionReq`.** A range is one
+or more comparators `<V`, `<=V`, `>V`, `>=V`, `=V` joined by `,` (all must
+hold); `V` is a full SemVer version. There is no caret, tilde, wildcard or
+`||`, a bare version means `=`, and a pre-release is matched by precedence
+alone — unlike Cargo, which excludes pre-releases from a requirement that does
+not name one. So `<=1.0.0` covers `1.0.0-rc.1` (a withdrawal of a release
+withdraws its release candidates), and `1.0.0-rc.2 < 1.0.0-rc.10 < 1.0.0`
+(numeric identifiers compare numerically and below alphanumeric ones). Scenario
+`semver-precedence` holds a pre-release case below, equal to and above every
+comparator.
+
+`reason_text` (≤ 500) is shown verbatim
 and carries no secret and no person's name beyond what is already public.
 
 ### 6.1 Acts

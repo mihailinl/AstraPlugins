@@ -2366,6 +2366,145 @@
         true
       ],
       "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3)"
+    },
+    {
+      "name": "semver-precedence",
+      "type": "client-covers",
+      "cases": [
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">=1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<=1.0.0-alpha.beta",
+          "version": "1.0.0-alpha.1"
+        },
+        {
+          "versions": "<1.0.0-alpha",
+          "version": "1.0.0-alpha.1"
+        },
+        {
+          "versions": ">1.0.0-beta",
+          "version": "1.0.0-alpha.9"
+        }
+      ],
+      "expect": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "note": "SemVer §11, NOT Cargo VersionReq: a pre-release is matched by precedence alone. rc.1 < rc.2 < rc.10 < 1.0.0; <=1.0.0 covers 1.0.0-rc.1; numeric identifiers sort below alphanumeric ones"
     }
   ],
   "external": [

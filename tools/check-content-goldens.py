@@ -853,9 +853,23 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
 
 # ── scenarios ────────────────────────────────────────────────────────────
 
+_IDENT = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+SEMVER = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(" + _IDENT + r"(?:\." + _IDENT + r")*))?")
+
+
 def semver_key(v: str):
-    core = v.split("-", 1)[0]
-    return tuple(int(x) for x in core.split("."))
+    """SemVer 2.0.0 §11 precedence as a sort key: major, minor, patch numerically; a version
+    WITH a pre-release sorts below the same version without one; pre-release identifiers
+    compare left to right, numeric ones numerically and below alphanumeric ones, which compare
+    in ASCII order; a longer list of equal leading identifiers sorts higher."""
+    m = SEMVER.fullmatch(v)
+    if m is None:
+        raise ValueError(f"not semver: {v!r}")
+    core = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    if m.group(4) is None:
+        return core, (1,)
+    ids = tuple((0, int(i), "") if i.isdigit() else (1, 0, i) for i in m.group(4).split("."))
+    return core, (0, ids)
 
 
 def in_range(version: str, rng: str) -> bool:

@@ -45,7 +45,9 @@ ITEM_ID = {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$"}
 SEMVER = {
     "type": "string",
     "maxLength": 64,
-    "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+    # SemVer 2.0.0: a numeric pre-release identifier has no leading zero
+    "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)"
+               "(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$",
 }
 # v1's range grammar: comma-joined comparators `<` `<=` `>` `>=` `=` (or none) before a version
 # (OPEN.md O-19). A caret, tilde, wildcard or `||` is a later contract version, never a silent widening.
