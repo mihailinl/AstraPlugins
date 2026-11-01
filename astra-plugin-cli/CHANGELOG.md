@@ -32,7 +32,7 @@ reads to find out how to get the tool.
 
 ### Added
 
-- **The UI Kit matches Astra `5d5ae5e83bd` (main).** `astra-plugin new` vendors
+- **The UI Kit matches Astra `ff6f952e92c4` (main).** `astra-plugin new` vendors
   the kit's declarations into `frontend/vendor/astra-plugin-ui/`, resynced
   after `ASTRA_REF` was deleted and `proto-upstream` started checking out
   Astra `main` again instead of the `release/0.2.7-final` branch that had been
@@ -42,8 +42,16 @@ reads to find out how to get the tool.
     `"subtle"`;
   - the theme exposes `--color-plate`, `--color-plate-hover`,
     `--surface-frost`, `--surface-standalone`, `--surface-standalone-hover`
-    and `--surface-standalone-raised`.
+    and `--surface-standalone-raised`;
+  - three icons: `briefcase`, `waveform` and `astroid`.
   Nothing was removed or renamed.
+
+- **The plugin protocol follows Astra main to `ff6f952e92c4`.**
+  `SettingsResponse` gains `fast_reasoning_effort = 36` (optional string, the
+  saved reasoning default for Fast chats), and `FieldSchema` gains
+  `validation_pattern = 19` / `validation_message = 20` (an optional Unicode
+  regexp and its i18n refusal string). Protocol stays generation 1; nothing
+  removed or renumbered.
 
 ### Changed
 
