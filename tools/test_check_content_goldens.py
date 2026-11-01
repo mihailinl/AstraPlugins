@@ -728,6 +728,12 @@ class PartRootRelativePaths(unittest.TestCase):
                                                "archives/model-aiko part character:characters/aiko/body.vrm")
 
 
+class S5TextGltfUnderAnotherName(unittest.TestCase):
+    def test_gltf_decided_by_extension(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("is_gltf_json", lambda b: False),
+                                               "archives/gltf-named-json-in-animset", "archives/gltf-named-json-accessory")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

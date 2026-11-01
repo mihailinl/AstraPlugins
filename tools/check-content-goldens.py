@@ -840,8 +840,24 @@ def has_duplicate_json(b: bytes) -> bool:
     return (glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)) == "duplicate"
 
 
+def is_gltf_json(b: bytes) -> bool:
+    """S5: the bytes ARE a text glTF -- the first non-whitespace byte is `{` and the top-level
+    object has an `asset` member -- whatever the file is called. Only the top level is read."""
+    if b.lstrip(b" \t\r\n")[:1] != b"{":
+        return False
+    try:
+        top = json.loads(b.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+        return False
+    return isinstance(top, dict) and "asset" in top
+
+
 def name_matches_magic(p: str, b: bytes) -> bool:
-    return (b[:4] == GLB_MAGIC) == p.lower().endswith(GLB_EXTS)
+    """A name and its content agree, both ways: the GLB magic under a GLB name, and a text glTF
+    (S5) under the name .gltf -- so neither can hide from the verdict behind another name."""
+    if (b[:4] == GLB_MAGIC) != p.lower().endswith(GLB_EXTS):
+        return False
+    return p.lower().endswith(".gltf") or not is_gltf_json(b)
 
 
 def judged(p: str, b: bytes) -> bool:
@@ -992,7 +1008,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             if why:
                 raise Refusal("E_CONTENT_FORMAT", f"{p}: {why}")
         if not name_matches_magic(p, b):
-            raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB container's name and magic disagree")
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: a glTF's name and content disagree")
     if body is not None:
         if not body.lower().endswith(BODY_EXT) or body not in files or not is_vrm_body(files[body]):
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")

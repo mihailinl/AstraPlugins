@@ -967,6 +967,13 @@ def gen_archives() -> None:
     put("archives/hostile/name-device-superscript.astrapack", anim({"clips/com\u00b9.fbx": b"FBX-X"}))
     put("archives/hostile/name-device-conin.astrapack", anim({"clips/CONIN$.fbx": b"FBX-X"}))
     put("archives/hostile/file-and-directory.astrapack", anim({"clips/a.fbx/b.fbx": b"FBX-X"}))
+    # S5: a text glTF under a name that is not .gltf (name and content must agree, as for the GLB magic)
+    avatar_json = json.dumps({"asset": {"version": "2.0"}, "extensions": {"VRMC_vrm": {
+        "specVersion": "1.0", "meta": dict(VRM1_ALLOWED, allowRedistribution=False)}},
+        "extensionsUsed": ["VRMC_vrm"]}, sort_keys=True).encode()
+    put("archives/hostile/gltf-named-json-in-animset.astrapack", anim({"clips/avatar.json": avatar_json}))
+    hostile("gltf-named-json-accessory.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/accessories/x/model.json": avatar_json}, None))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 
