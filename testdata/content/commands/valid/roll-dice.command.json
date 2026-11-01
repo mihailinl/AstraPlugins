@@ -1,0 +1,32 @@
+{
+  "id": "00000000-0000-4000-8000-000000000003",
+  "name": "Roll dice",
+  "triggers": [],
+  "actions": [],
+  "enabled": true,
+  "workflow": {
+    "nodes": {
+      "t": {
+        "id": "t",
+        "node_type": "trigger",
+        "data": {
+          "trigger_type": "schedule",
+          "mode": "daily"
+        }
+      },
+      "a": {
+        "id": "a",
+        "node_type": "action",
+        "data": {
+          "action_type": "plugin__dice-roller__roll"
+        }
+      },
+      "e": {
+        "id": "e",
+        "node_type": "end",
+        "data": {}
+      }
+    },
+    "edges": {}
+  }
+}

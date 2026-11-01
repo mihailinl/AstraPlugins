@@ -1,0 +1,80 @@
+{
+  "signed": {
+    "schema": "astra.models.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "aiko-body",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359",
+          "size": 1063,
+          "media_type": "application/vnd.astra.character+zip"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "format": "astra.character",
+        "body_kind": "vrm",
+        "parts": [
+          {
+            "part_kind": "character",
+            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74",
+            "size": 540
+          }
+        ],
+        "content_confirmed": {
+          "character-rights-v1": 1
+        },
+        "licence": {
+          "source": "vrm",
+          "spec": "vrm1",
+          "commercial_detail": "personalProfit",
+          "redistribution": "allowed",
+          "avatar_permission": "everyone",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": null,
+          "license_url": "https://vrm.dev/licenses/1.0/",
+          "usage": {
+            "violent": "prohibited",
+            "sexual": "prohibited",
+            "political": "prohibited",
+            "antisocial": "prohibited"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-models-2026a",
+      "sig": "8ks5Og/DENLtmYfAPBcSqv8Zt6XT4cbBc5ae2FaHOsv0Ib8qm+AWyYohFutkWeJHDbYpLR27cElX64BP1rbRDw=="
+    }
+  ]
+}

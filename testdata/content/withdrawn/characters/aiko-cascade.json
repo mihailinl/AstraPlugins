@@ -1,0 +1,31 @@
+{
+  "signed": {
+    "schema": "astra.characters.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "aiko",
+        "versions": "<=1.0.0",
+        "act": "security",
+        "floor_effect": "disarm",
+        "reason_code": "member-withdrawn",
+        "reason_text": "test row: security/member-withdrawn",
+        "at": 1798674900,
+        "cause": {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-characters-2026a",
+      "sig": "HLSN1inGC5j3B0dkTJRacR7vzy0YTBfWZYtUciURh2Y8wZF1fmRsYeqco/8ZEbw0qY/ZnsCgpB46lPYgZGZbDw=="
+    }
+  ]
+}

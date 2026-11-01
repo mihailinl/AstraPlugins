@@ -1,0 +1,2193 @@
+{
+  "schema": "astra.testdata.content/1",
+  "note": "One record per golden, its verdict stated BY HAND (testdata/content/gen.py writes the bytes, never these verdicts). See testdata/content/README.md for each field.",
+  "now": 1798675200,
+  "trust": {
+    "file": "trust/trust.json",
+    "root_public_key": "IGzxwzZlVZl+I5OBxofWXuaRV7DX7F1AYVomAKKcuio=",
+    "kind_keys": [
+      {
+        "name": "valid",
+        "file": "trust/kind-keys/valid.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "next-not-later",
+        "file": "trust/kind-keys/next-not-later.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "next-earlier",
+        "file": "trust/kind-keys/next-earlier.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "duplicate-role",
+        "file": "trust/kind-keys/duplicate-role.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-alg",
+        "file": "trust/kind-keys/bad-alg.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-role",
+        "file": "trust/kind-keys/bad-role.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "missing-next",
+        "file": "trust/kind-keys/missing-next.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": []
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": []
+          }
+        }
+      },
+      {
+        "name": "shared-key-across-kinds",
+        "file": "trust/kind-keys/shared-key-across-kinds.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "kind-key-in-index-keys",
+        "file": "trust/kind-keys/kind-key-in-index-keys.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "unknown-kind-row",
+        "file": "trust/kind-keys/unknown-kind-row.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-public-key",
+        "file": "trust/kind-keys/bad-public-key.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "unparseable-not-before",
+        "file": "trust/kind-keys/unparseable-not-before.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "part_digest": [
+    {
+      "name": "ascii",
+      "dir": "part-digest/ascii",
+      "jcs": "part-digest/ascii.jcs",
+      "part_digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588"
+    },
+    {
+      "name": "non-ascii",
+      "dir": "part-digest/non-ascii",
+      "jcs": "part-digest/non-ascii.jcs",
+      "part_digest": "66c85d350c3c7ea28cc901483ffd3cc461ab0d95d36d2fd27d98942fc1ca39c9"
+    }
+  ],
+  "part_digest_refusals": [
+    {
+      "name": "not-nfc",
+      "path": "animpacks/wave/café.fbx",
+      "rule": "not-nfc"
+    },
+    {
+      "name": "backslash",
+      "path": "animpacks\\wave\\a.fbx",
+      "rule": "backslash"
+    },
+    {
+      "name": "leading-slash",
+      "path": "/animpacks/wave/a.fbx",
+      "rule": "leading-slash"
+    },
+    {
+      "name": "dot-dot",
+      "path": "animpacks/../a.fbx",
+      "rule": "dot-dot"
+    },
+    {
+      "name": "empty-segment",
+      "path": "animpacks//a.fbx",
+      "rule": "empty-segment"
+    },
+    {
+      "name": "c0",
+      "path": "animpacks/a\u0007.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "c1",
+      "path": "animpacks/a.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "del",
+      "path": "animpacks/a.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "empty",
+      "path": "",
+      "rule": "empty"
+    }
+  ],
+  "index": [
+    {
+      "name": "valid",
+      "kind": "commands",
+      "file": "index/commands/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026a"
+    },
+    {
+      "name": "signed-by-next",
+      "kind": "commands",
+      "file": "index/commands/signed-by-next.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "next is valid at `now`: both keys are pre-authorised"
+    },
+    {
+      "name": "next-before-not-before",
+      "kind": "commands",
+      "file": "index/commands/next-before-not-before.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "now": 1794700800,
+      "note": "not_before gates VALIDITY: before it, only current verifies"
+    },
+    {
+      "name": "next-before-not-before-later",
+      "kind": "commands",
+      "file": "index/commands/next-before-not-before.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "the same bytes verify once next's not_before has passed"
+    },
+    {
+      "name": "signed-by-models-key",
+      "kind": "commands",
+      "file": "index/commands/signed-by-models-key.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "a key outside its kind"
+    },
+    {
+      "name": "signed-by-index-key",
+      "kind": "commands",
+      "file": "index/commands/signed-by-index-key.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "a plugin index key never verifies a content document"
+    },
+    {
+      "name": "signed-under-models-domain",
+      "kind": "commands",
+      "file": "index/commands/signed-under-models-domain.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "the right key over the wrong domain: the verifier's constant decides"
+    },
+    {
+      "name": "duplicate-member-name",
+      "kind": "commands",
+      "file": "index/commands/duplicate-member-name.json",
+      "verdict": "refuse",
+      "check": "parse",
+      "note": "its signature VERIFIES under a last-wins parser; a duplicate member name is refused before any signature is checked (common-v1.md §1)"
+    },
+    {
+      "name": "tampered-after-signing",
+      "kind": "commands",
+      "file": "index/commands/tampered-after-signing.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid"
+    },
+    {
+      "name": "expiry-span-too-long",
+      "kind": "commands",
+      "file": "index/commands/expiry-span-too-long.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "expiry-span"
+    },
+    {
+      "name": "issued-in-future",
+      "kind": "commands",
+      "file": "index/commands/issued-in-future.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "issued-in-future"
+    },
+    {
+      "name": "serial-not-issued-at",
+      "kind": "commands",
+      "file": "index/commands/serial-not-issued-at.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "serial-is-issued-at"
+    },
+    {
+      "name": "licence-prohibited",
+      "kind": "commands",
+      "file": "index/commands/licence-prohibited.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-allowed"
+    },
+    {
+      "name": "no-command-part",
+      "kind": "commands",
+      "file": "index/commands/no-command-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-command-part"
+    },
+    {
+      "name": "capabilities-unsorted",
+      "kind": "commands",
+      "file": "index/commands/capabilities-unsorted.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "capabilities-sorted"
+    },
+    {
+      "name": "id-double-hyphen",
+      "kind": "commands",
+      "file": "index/commands/id-double-hyphen.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "id-double-hyphen"
+    },
+    {
+      "name": "parts-without-confirmation",
+      "kind": "commands",
+      "file": "index/commands/parts-without-confirmation.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "parts-confirmed"
+    },
+    {
+      "name": "duplicate-id-version",
+      "kind": "commands",
+      "file": "index/commands/duplicate-id-version.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "unique-id-version"
+    },
+    {
+      "name": "unknown-top-level-key",
+      "kind": "commands",
+      "file": "index/commands/unknown-top-level-key.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "withdrawals never ride inside an index (common-v1.md §2)"
+    },
+    {
+      "name": "requires-kind-model",
+      "kind": "commands",
+      "file": "index/commands/requires-kind-model.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "danger-unknown-word",
+      "kind": "commands",
+      "file": "index/commands/danger-unknown-word.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "characters",
+      "file": "index/characters/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-characters-2026a"
+    },
+    {
+      "name": "requires-stale-digest",
+      "kind": "characters",
+      "file": "index/characters/requires-stale-digest.json",
+      "verdict": "accept",
+      "note": "valid as a document; the client refuses it against the served model (scenario requires-digest-mismatch)"
+    },
+    {
+      "name": "requires-no-model",
+      "kind": "characters",
+      "file": "index/characters/requires-no-model.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-model"
+    },
+    {
+      "name": "requires-two-models",
+      "kind": "characters",
+      "file": "index/characters/requires-two-models.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-model"
+    },
+    {
+      "name": "part-kind-animations",
+      "kind": "characters",
+      "file": "index/characters/part-kind-animations.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "models",
+      "file": "index/models/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-models-2026a"
+    },
+    {
+      "name": "two-parts",
+      "kind": "models",
+      "file": "index/models/two-parts.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "format-vrm-body-pixel",
+      "kind": "models",
+      "file": "index/models/format-vrm-body-pixel.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "model-format"
+    },
+    {
+      "name": "licence-vrm-spec-none",
+      "kind": "models",
+      "file": "index/models/licence-vrm-spec-none.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-source-spec"
+    },
+    {
+      "name": "avatar-author-only",
+      "kind": "models",
+      "file": "index/models/avatar-author-only.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-allowed"
+    },
+    {
+      "name": "vrm0-political-known",
+      "kind": "models",
+      "file": "index/models/vrm0-political-known.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "vrm0-usage"
+    },
+    {
+      "name": "valid",
+      "kind": "animsets",
+      "file": "index/animsets/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-animsets-2026a"
+    },
+    {
+      "name": "dimension-2d-animations-part",
+      "kind": "animsets",
+      "file": "index/animsets/dimension-2d-animations-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "dimension-part"
+    },
+    {
+      "name": "clips-zero",
+      "kind": "animsets",
+      "file": "index/animsets/clips-zero.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "packs",
+      "file": "index/packs/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-packs-2026a"
+    },
+    {
+      "name": "member-pack",
+      "kind": "packs",
+      "file": "index/packs/member-pack.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "min-astra-present",
+      "kind": "packs",
+      "file": "index/packs/min-astra-present.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "licence-present",
+      "kind": "packs",
+      "file": "index/packs/licence-present.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "members-65",
+      "kind": "packs",
+      "file": "index/packs/members-65.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "duplicate-member",
+      "kind": "packs",
+      "file": "index/packs/duplicate-member.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "unique-members"
+    }
+  ],
+  "withdrawn": [
+    {
+      "name": "valid",
+      "kind": "commands",
+      "file": "withdrawn/commands/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-1-security",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-1-security.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-2-row-dropped",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-2-row-dropped.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-3-lift-wrong-at",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-3-lift-wrong-at.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-4-lift",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-4-lift.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "security-reason-retired-act",
+      "kind": "commands",
+      "file": "withdrawn/commands/security-reason-retired-act.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "security-pairs"
+    },
+    {
+      "name": "security-floor-not-disarm",
+      "kind": "commands",
+      "file": "withdrawn/commands/security-floor-not-disarm.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "rights-floor-no-offer",
+      "kind": "commands",
+      "file": "withdrawn/commands/rights-floor-no-offer.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "retired-floor-no-offer",
+      "kind": "commands",
+      "file": "withdrawn/commands/retired-floor-no-offer.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "part-without-rights",
+      "kind": "commands",
+      "file": "withdrawn/commands/part-without-rights.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "part-only-rights"
+    },
+    {
+      "name": "cascade-without-cause",
+      "kind": "commands",
+      "file": "withdrawn/commands/cascade-without-cause.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "cause-on-cascade"
+    },
+    {
+      "name": "lift-contradicts-row",
+      "kind": "commands",
+      "file": "withdrawn/commands/lift-contradicts-row.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted"
+    },
+    {
+      "name": "bad-act-enum",
+      "kind": "commands",
+      "file": "withdrawn/commands/bad-act-enum.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "the PUBLISHER may not emit it; a CLIENT applies its floor_effect (scenario client-floor-unknown-act)"
+    },
+    {
+      "name": "missing-lifts",
+      "kind": "commands",
+      "file": "withdrawn/commands/missing-lifts.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "characters",
+      "file": "withdrawn/characters/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "no-cascade",
+      "kind": "characters",
+      "file": "withdrawn/characters/no-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "aiko-cascade",
+      "kind": "characters",
+      "file": "withdrawn/characters/aiko-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "valid",
+      "kind": "models",
+      "file": "withdrawn/models/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "aiko-security",
+      "kind": "models",
+      "file": "withdrawn/models/aiko-security.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "expiry-span-too-long",
+      "kind": "models",
+      "file": "withdrawn/models/expiry-span-too-long.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "expiry-span"
+    },
+    {
+      "name": "valid",
+      "kind": "animsets",
+      "file": "withdrawn/animsets/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "valid",
+      "kind": "packs",
+      "file": "withdrawn/packs/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "no-cascade",
+      "kind": "packs",
+      "file": "withdrawn/packs/no-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "row-with-part",
+      "kind": "packs",
+      "file": "withdrawn/packs/row-with-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "part-only-rights"
+    }
+  ],
+  "commands": [
+    {
+      "name": "greet",
+      "file": "commands/valid/greet.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio",
+          "uses_ai"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "prompt-only"
+    },
+    {
+      "name": "build-and-ask",
+      "file": "commands/valid/build-and-ask.command.json",
+      "claim": {
+        "capabilities": [
+          "binds_hotkey",
+          "executes_shell",
+          "uses_ai"
+        ],
+        "danger": "critical",
+        "requires": []
+      },
+      "verdict": "accept",
+      "flags": [
+        "F_COMMAND_EXEC_AND_NETWORK"
+      ]
+    },
+    {
+      "name": "roll-dice",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          "dice-roller"
+        ]
+      },
+      "verdict": "accept",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      }
+    },
+    {
+      "name": "morning",
+      "file": "commands/valid/morning.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "startup is its own word, never on_event:startup"
+    },
+    {
+      "name": "on-crit",
+      "file": "commands/valid/on-crit.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "low",
+        "requires": [
+          "dice-roller"
+        ]
+      },
+      "verdict": "accept",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      },
+      "note": "a plugin TRIGGER is a requirement too"
+    },
+    {
+      "name": "conditional",
+      "file": "commands/valid/conditional.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "opens_urls"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "nested condition bodies are scanned"
+    },
+    {
+      "name": "duplicate-type-key",
+      "file": "commands/hostile/duplicate-type-key.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_FORMAT",
+      "note": "`type` twice: speak to one reader, execute to another"
+    },
+    {
+      "name": "caps-mismatch",
+      "file": "commands/hostile/caps-mismatch.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "unknown-action",
+      "file": "commands/hostile/unknown-action.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-node",
+      "file": "commands/hostile/unknown-node.command.json",
+      "claim": {
+        "capabilities": [],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-trigger",
+      "file": "commands/hostile/unknown-trigger.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER"
+    },
+    {
+      "name": "unknown-trigger-node",
+      "file": "commands/hostile/unknown-trigger-node.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER",
+      "note": "`reminder` is not one of v1's mapped trigger types (OPEN.md O-5)"
+    },
+    {
+      "name": "unknown-event-name",
+      "file": "commands/hostile/unknown-event-name.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER"
+    },
+    {
+      "name": "undeclared-trigger-cap",
+      "file": "commands/hostile/undeclared-trigger-cap.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "undeclared-uses-plugin",
+      "file": "commands/hostile/undeclared-uses-plugin.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_MISMATCH"
+    },
+    {
+      "name": "bare-dynamic",
+      "file": "commands/hostile/bare-dynamic.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_PLUGIN_UNNAMED"
+    },
+    {
+      "name": "two-spellings",
+      "file": "commands/hostile/two-spellings.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "danger-understated",
+      "file": "commands/hostile/danger-understated.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "runs_command"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "unparsed-handler",
+      "file": "commands/hostile/unparsed-handler.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          "dice-roller"
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_PLUGIN_UNNAMED"
+    },
+    {
+      "name": "sub-workflow",
+      "file": "commands/hostile/sub-workflow.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION",
+      "note": "refused in v1: it invokes a workflow the extractor does not resolve (OPEN.md O-12)"
+    },
+    {
+      "name": "requires-unlisted",
+      "file": "commands/hostile/requires-unlisted.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:ghost-plugin"
+        ],
+        "danger": "high",
+        "requires": [
+          "ghost-plugin"
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_UNLISTED",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      }
+    },
+    {
+      "name": "requires-revoked",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          "dice-roller"
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_UNLISTED",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ],
+          "revoked": [
+            "1.2.0"
+          ]
+        }
+      }
+    }
+  ],
+  "archives": [
+    {
+      "name": "model-aiko",
+      "file": "archives/valid/model-aiko.astrachar",
+      "verdict": "accept",
+      "parts": {
+        "character:characters/aiko/body.vrm": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+      }
+    },
+    {
+      "name": "animset-wave",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        "animpacks/wave"
+      ],
+      "parts": {
+        "animations:animpacks/wave": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588"
+      },
+      "note": "its part digest IS the §2 ASCII golden"
+    },
+    {
+      "name": "character-aiko",
+      "file": "archives/valid/character-aiko.astrachar",
+      "verdict": "accept",
+      "note": "settings only: no part"
+    },
+    {
+      "name": "decoy-end-record",
+      "file": "archives/hostile/decoy-end-record.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "trailing-junk",
+      "file": "archives/hostile/trailing-junk.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "entries-10001",
+      "file": "archives/hostile/entries-10001.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_TOO_MANY_ENTRIES"
+    },
+    {
+      "name": "name-dotdot",
+      "file": "archives/hostile/name-dotdot.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-not-nfc",
+      "file": "archives/hostile/name-not-nfc.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-case-collision",
+      "file": "archives/hostile/name-case-collision.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-control-character",
+      "file": "archives/hostile/name-control-character.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "symlink-entry",
+      "file": "archives/hostile/symlink-entry.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_LINK"
+    },
+    {
+      "name": "encrypted-entry",
+      "file": "archives/hostile/encrypted-entry.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_ENCRYPTED"
+    },
+    {
+      "name": "ratio-bomb",
+      "file": "archives/hostile/ratio-bomb.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_RATIO"
+    },
+    {
+      "name": "deflated-vrm",
+      "file": "archives/hostile/deflated-vrm.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_MUST_BE_STORED"
+    },
+    {
+      "name": "header-name-differs",
+      "file": "archives/hostile/header-name-differs.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "upath-extra",
+      "file": "archives/hostile/upath-extra.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "manifest-not-last",
+      "file": "archives/hostile/manifest-not-last.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST"
+    },
+    {
+      "name": "file-unlisted",
+      "file": "archives/hostile/file-unlisted.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_FILE_UNLISTED"
+    },
+    {
+      "name": "file-digest-wrong",
+      "file": "archives/hostile/file-digest-wrong.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_FILE_DIGEST"
+    },
+    {
+      "name": "glb-prohibited-beside-allowed-body",
+      "file": "archives/hostile/glb-prohibited-beside-allowed-body.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-redistribution-prohibited",
+      "file": "archives/hostile/vrm-redistribution-prohibited.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-field-absent",
+      "file": "archives/hostile/vrm-field-absent.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-named-people",
+      "file": "archives/hostile/vrm-named-people.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-metas-disagree",
+      "file": "archives/hostile/vrm-metas-disagree.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_CONFLICT"
+    },
+    {
+      "name": "vrm-not-glb",
+      "file": "archives/hostile/vrm-not-glb.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "vrm-no-extension",
+      "file": "archives/hostile/vrm-no-extension.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "audio-licence-undeclared",
+      "file": "archives/hostile/audio-licence-undeclared.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_UNDECLARED"
+    },
+    {
+      "name": "vrm-no-meta",
+      "file": "archives/hostile/vrm-no-meta.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "Unknown is HELD for a moderator, never published and never refused (ingest-v1.md §4.1)"
+    },
+    {
+      "name": "blocked-file-renamed",
+      "file": "archives/hostile/blocked-file-renamed.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_BLOCKED",
+      "blocklist": [
+        "971e1babfdef9efe2e2dd1b3d3f98a8695e4f27991235c11d99d6df6b58a00ba"
+      ],
+      "note": "the blocklist is per FILE sha256: the allowed body under a new name is still blocked"
+    },
+    {
+      "name": "gap-between-entries",
+      "file": "archives/hostile/gap-between-entries.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "overlapping-entries",
+      "file": "archives/hostile/overlapping-entries.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "directory-with-data",
+      "file": "archives/hostile/directory-with-data.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "manifest-duplicate-key",
+      "file": "archives/hostile/manifest-duplicate-key.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST"
+    },
+    {
+      "name": "vrm-duplicate-key",
+      "file": "archives/hostile/vrm-duplicate-key.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "pack-member-listed",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "pack-member-withdrawn",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        }
+      },
+      "expect": "E_PACK_MEMBER_UNLISTED"
+    },
+    {
+      "name": "pack-member-digest",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "E_PACK_MEMBER_DIGEST",
+      "note": "a pack pins its member's ARTEFACT sha256, not a part digest (OPEN.md O-3)"
+    },
+    {
+      "name": "pack-member-nested",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "pack",
+          "id": "other",
+          "version": "1.0.0",
+          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+        }
+      ],
+      "served": {},
+      "expect": "E_PACK_NESTED"
+    },
+    {
+      "name": "pack-member-game-unserved",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "game-integration",
+          "id": "someone/peak-astra",
+          "version": "1.0.0",
+          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+        }
+      ],
+      "served": {},
+      "expect": "E_PACK_MEMBER_KIND_UNSERVED"
+    },
+    {
+      "name": "character-requires-ok",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+        },
+        {
+          "kind": "animset",
+          "id": "wave-set",
+          "version": "1.0.0",
+          "digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "character-requires-withdrawn-model",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        }
+      },
+      "expect": "E_CHARACTER_REQUIRES_UNLISTED"
+    },
+    {
+      "name": "character-requires-digest",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "E_CHARACTER_REQUIRES_DIGEST",
+      "note": "a character pins the model's single PART digest (design §11a.10)"
+    },
+    {
+      "name": "cascade-pack-present",
+      "type": "cascade",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json",
+          "withdrawn": "withdrawn/packs/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/valid.json",
+          "withdrawn": "withdrawn/commands/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "cascade-pack-missing",
+      "type": "cascade",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json",
+          "withdrawn": "withdrawn/packs/no-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/valid.json",
+          "withdrawn": "withdrawn/commands/valid.json"
+        }
+      },
+      "expect": "cascade-missing"
+    },
+    {
+      "name": "cascade-character-present",
+      "type": "cascade",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json",
+          "withdrawn": "withdrawn/characters/aiko-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "cascade-character-missing",
+      "type": "cascade",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json",
+          "withdrawn": "withdrawn/characters/no-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "cascade-missing"
+    },
+    {
+      "name": "requires-digest-ok",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "requires-digest-mismatch",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/requires-stale-digest.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "requires-digest-mismatch"
+    },
+    {
+      "name": "requires-withdrawn-model",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "requires-unavailable"
+    },
+    {
+      "name": "sticky-security",
+      "type": "sticky",
+      "kind": "commands",
+      "installed": {
+        "id": "evil-shell",
+        "version": "1.0.0"
+      },
+      "sequence": [
+        "withdrawn/commands/seq-1-security.json",
+        "withdrawn/commands/seq-2-row-dropped.json",
+        "withdrawn/commands/seq-3-lift-wrong-at.json",
+        "withdrawn/commands/seq-4-lift.json"
+      ],
+      "expect": [
+        "disarmed",
+        "disarmed",
+        "disarmed",
+        "armed"
+      ],
+      "note": "dropping the row re-arms nothing; a lift with the wrong `at` re-arms nothing; only the exact lift does"
+    },
+    {
+      "name": "one-way-switch",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ]
+    },
+    {
+      "name": "client-floor-unknown-act",
+      "type": "client-floor",
+      "file": "withdrawn/commands/bad-act-enum.json",
+      "expect": [
+        "disarm",
+        "disarm",
+        "no-update"
+      ]
+    },
+    {
+      "name": "withdrawn-freshness",
+      "type": "withdrawn-freshness",
+      "cases": [
+        {
+          "age": 0,
+          "latest_verified": true
+        },
+        {
+          "age": 7200,
+          "latest_verified": true
+        },
+        {
+          "age": 7201,
+          "latest_verified": true
+        },
+        {
+          "age": 60,
+          "latest_verified": false
+        },
+        {
+          "age": 60,
+          "latest_verified": true,
+          "doc_age": 93600
+        },
+        {
+          "age": 60,
+          "latest_verified": true,
+          "doc_age": 93601
+        }
+      ],
+      "expect": [
+        "allow",
+        "allow",
+        "refuse",
+        "refuse",
+        "allow",
+        "refuse"
+      ],
+      "note": "the fetch is at most 2 h old AND the document itself at most 26 h old: a replayed, still-unexpired document cannot pass for fresh (OPEN.md O-20)"
+    },
+    {
+      "name": "serial-floor",
+      "type": "serial-floor",
+      "cases": [
+        {
+          "floor": 100,
+          "serial": 99,
+          "floor_bytes": "a",
+          "bytes": "a"
+        },
+        {
+          "floor": 100,
+          "serial": 100,
+          "floor_bytes": "a",
+          "bytes": "a"
+        },
+        {
+          "floor": 100,
+          "serial": 100,
+          "floor_bytes": "a",
+          "bytes": "b"
+        },
+        {
+          "floor": 100,
+          "serial": 101,
+          "floor_bytes": "a",
+          "bytes": "b"
+        }
+      ],
+      "expect": [
+        "refuse",
+        "accept",
+        "refuse",
+        "accept"
+      ]
+    },
+    {
+      "name": "unparseable-range-covers-all",
+      "type": "client-covers",
+      "cases": [
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.1"
+        },
+        {
+          "versions": "^1.0",
+          "version": "9.9.9"
+        },
+        {
+          "versions": "",
+          "version": "0.0.1"
+        }
+      ],
+      "expect": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3)"
+    }
+  ],
+  "external": [
+    {
+      "name": "zip-cloaking/slack.zip",
+      "source": "AstraPlugins PR #122 daa9f05",
+      "path": "testdata/zip-cloaking/slack.zip",
+      "sha256": "71511e42a17bb35af2db71c72f2a45fe95754ce73ddfcda417968a77a92fe6f3",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest (Rust zip >= 9.0.5 + the two extra checks)"
+    },
+    {
+      "name": "zip-cloaking/upath.zip",
+      "source": "AstraPlugins PR #122 daa9f05",
+      "path": "testdata/zip-cloaking/upath.zip",
+      "sha256": "4649643cdf69d4e2f650209d73b49c190ea8d9a7d80888d5c1c174af093fc59f",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest"
+    },
+    {
+      "name": "zip-cloaking/stored-dd.zip",
+      "source": "AstraPlugins PR #122 62e8106",
+      "path": "testdata/zip-cloaking/stored-dd.zip",
+      "sha256": "3841c473f7ade57d1efca72aa33847d9508773df2147797a8bdb873828f691fb",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest"
+    },
+    {
+      "name": "vrm-gate (11 files)",
+      "source": "AstraPlugins PR #120 d1da665",
+      "path": "testdata/games/content/vrm/",
+      "sha256": null,
+      "expect": "the verdicts in that PR's vectors.json content.vrm_gate, identical through the content verdict (ingest-v1.md §4)",
+      "enforced_by": "L1 plugins-ingest; listed by sha256 in spec/content/ingest-v1.md §4.4"
+    }
+  ]
+}

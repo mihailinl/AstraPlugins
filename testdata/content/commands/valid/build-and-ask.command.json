@@ -1,0 +1,25 @@
+{
+  "id": "00000000-0000-4000-8000-000000000002",
+  "name": "Build and ask",
+  "triggers": [
+    {
+      "type": "hotkey",
+      "modifiers": [
+        "ctrl",
+        "alt"
+      ],
+      "key": "b"
+    }
+  ],
+  "actions": [
+    {
+      "type": "execute",
+      "command": "make"
+    },
+    {
+      "type": "send_to_ai",
+      "prompt": "What failed?"
+    }
+  ],
+  "enabled": true
+}

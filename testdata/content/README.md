@@ -1,0 +1,40 @@
+<!--
+SPDX-License-Identifier: GPL-3.0-or-later
+Copyright (C) 2026 Minice — https://minice.ai
+-->
+
+# `testdata/content` — the goldens the server, the signer and the client pin
+
+**Everything here except this file, `vectors.json` and `gen.py` is GENERATED
+by `gen.py`** — deterministic, re-run it and commit both; never hand-edit a
+golden. `SHA256SUMS` records every generated file, and `gen.py --check` fails
+on any byte that moved.
+
+**The verdicts are not in the generator.** `vectors.json` states by hand what
+each golden must be — `accept`, `held`, or refused with which code — and
+`tools/check-content-goldens.py` derives the verdict from the bytes and
+compares. A generator bug turns the checker red instead of agreeing with
+itself.
+
+Every envelope is really signed (Ed25519, `tools/contentlite.py`) with
+**published TEST keys** whose seeds are `contentlite.test_seed(<key id>)`. The
+TEST root that signs `trust/trust.json` has public key
+`IGzxwzZlVZl+I5OBxofWXuaRV7DX7F1AYVomAKKcuio=`. Trusting any of these keys
+outside a test is a bug. The goldens' clock is `vectors.json` `now`
+(1798675200, 2026-12-31T00:00:00Z) unless a record says otherwise.
+
+| directory | what | consumed by |
+|---|---|---|
+| `part-digest/` | both part-digest vectors as files, and their exact JCS bytes | the server's ingest, the engine's `part_digest.rs`, the client |
+| `trust/` | a TEST `trust.json` with `kind_keys`, and `kind-keys/` variants each costing a named kind its keys | the client's trust parser (L8), the root ceremony's self-check (L4) |
+| `index/<kind>/`, `withdrawn/<kind>/` | `valid.json`, one golden per schema or semantic rule, the signature goldens, the served states the scenarios use, the sticky sequence | the publisher (`plugins-server/src/publisher/`), the signer, the client verifier |
+| `commands/{valid,hostile}/` | `CommandDefinition` artefacts | the shared extractor's tests on both sides (`catalogue_facts`) |
+| `archives/{valid,hostile}/` | `.astrachar` / `.astrapack` bundles: the design note's §10 hostile list | `plugins-ingest` (L1) |
+
+`vectors.json` fields: `verdict` (`accept` \| `held` \| `refuse`); `check`
+(`schema`, `semantic` with the one `rule` that refuses it, `signature` with the
+client `reason`); `code` and `flags` for an ingest; `claim` for a command (what
+the uploader declared); `blocklist` / `declared_licence` for a bundle's ingest
+context; `scenarios[]` for several documents judged together; `external[]` for
+goldens other PRs commit (#120's VRM files, #122's cloaking probes), referenced
+by path and sha256 and never copied.

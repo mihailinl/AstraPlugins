@@ -1,0 +1,63 @@
+{
+  "signed": {
+    "schema": "astra.packs.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "aiko-starter",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "review": "unchecked",
+        "published_at": 1798588800,
+        "members": [
+          {
+            "kind": "model",
+            "id": "aiko-body",
+            "version": "1.0.0",
+            "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+          },
+          {
+            "kind": "animset",
+            "id": "wave-set",
+            "version": "1.0.0",
+            "digest": "bed5eb6b8bbcae07f0bd0c51e95a1a9276fea5b3d23996180632b1866bd244a7"
+          },
+          {
+            "kind": "command",
+            "id": "greet",
+            "version": "1.0.0",
+            "digest": "88feaddc8312ff5335d742b14e4ed2dad38d149d3ff37d929c78a3bd64d4606f"
+          },
+          {
+            "kind": "model",
+            "id": "aiko-body",
+            "version": "1.0.0",
+            "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-packs-2026a",
+      "sig": "63IfDPEVzaDOZ1fQ+bmL2hRe66j+Cj83TaM83eKjkHTfP27zkbjS9XDuJL95EhQ084Xxlk7smcLQ4sqN4pPxAw=="
+    }
+  ]
+}

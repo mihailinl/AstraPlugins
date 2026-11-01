@@ -1,0 +1,17 @@
+{
+  "id": "00000000-0000-4000-8000-000000000004",
+  "name": "Morning",
+  "triggers": [
+    {
+      "type": "event",
+      "event_name": "startup"
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "title": "Good morning"
+    }
+  ],
+  "enabled": true
+}

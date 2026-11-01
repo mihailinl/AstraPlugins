@@ -1,0 +1,85 @@
+{
+  "signed": {
+    "schema": "astra.animsets.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "wave-set",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "bed5eb6b8bbcae07f0bd0c51e95a1a9276fea5b3d23996180632b1866bd244a7",
+          "size": 929,
+          "media_type": "application/vnd.astra.animpack+zip"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "format": "astra.animpack",
+        "dimension": "3d",
+        "parts": [
+          {
+            "part_kind": "animations",
+            "digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588",
+            "size": 24
+          }
+        ],
+        "clips": 0,
+        "states": [
+          "idle",
+          "wave"
+        ],
+        "content_confirmed": {
+          "animations-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-animsets-2026a",
+      "sig": "RP0w6UqZBMN9D6JlCeCOpkZ1lyhqQXAwEogQIPL+MtWvPuLPacKppnODV8Lkwccv5Lq8RN6mJ7Od+Amiy21uAw=="
+    }
+  ]
+}

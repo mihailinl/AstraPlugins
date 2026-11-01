@@ -1,0 +1,109 @@
+{
+  "index_keys": [
+    {
+      "key_id": "astra-index-test",
+      "public_key": "KSJW4XMJaMOcD2hJs5PvNPvIsTPCFQK7TRlQl3GYcwc=",
+      "not_before": "2026-07-01T00:00:00Z",
+      "not_after": "2027-07-01T00:00:00Z",
+      "comment": "TEST"
+    }
+  ],
+  "kind_keys": [
+    {
+      "kind": "commands",
+      "role": "current",
+      "key_id": "astra-commands-2026a",
+      "alg": "ed25519",
+      "public_key": "LeV3+iy2Mc/SF/Bn5L/9ZE44yb1Oshm9NdYPvhKxjVQ=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "commands",
+      "role": "next",
+      "key_id": "astra-commands-2026b",
+      "alg": "ed25519",
+      "public_key": "3JS0F99zvZZWVq58HHumrK7hmmmKfsFpbqEmEzyFKGY=",
+      "not_before": "2026-12-01T00:00:00Z"
+    },
+    {
+      "kind": "characters",
+      "role": "current",
+      "key_id": "astra-characters-2026a",
+      "alg": "ed25519",
+      "public_key": "+FnCEqZAUFenm7BYXxOawI7EfFx/maBUxsi1i7ySGjM=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "characters",
+      "role": "next",
+      "key_id": "astra-characters-2026b",
+      "alg": "ed25519",
+      "public_key": "DL7qV6K3Fgmia3JvpeIxhyq/fQUYnURu3OXLOvZIAvA=",
+      "not_before": "2026-12-01T00:00:00Z"
+    },
+    {
+      "kind": "models",
+      "role": "current",
+      "key_id": "astra-models-2026a",
+      "alg": "ed25519",
+      "public_key": "VnWDxhOgjpp4LmFRNCvKL/wRg9WIedaVbRpJv27Pkmk=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "models",
+      "role": "next",
+      "key_id": "astra-models-2026b",
+      "alg": "ed25519",
+      "public_key": "HHfXie7eEukfTx9zNMLzlvfyPZKfG6KoSG7o/oZ8JVQ=",
+      "not_before": "2026-12-01T00:00:00Z"
+    },
+    {
+      "kind": "animsets",
+      "role": "current",
+      "key_id": "astra-animsets-2026a",
+      "alg": "ed25519",
+      "public_key": "UcEJV6FWutIf2JbBT3LwccvPOF7wrR48fWAQ049QDzE=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "animsets",
+      "role": "next",
+      "key_id": "astra-animsets-2026b",
+      "alg": "ed25519",
+      "public_key": "U0XNYDNiGwWNaizik/X7Vl+exOch9EPhjjI0qItTMk4=",
+      "not_before": "next week"
+    },
+    {
+      "kind": "packs",
+      "role": "current",
+      "key_id": "astra-packs-2026a",
+      "alg": "ed25519",
+      "public_key": "4P8wJQxm2OrMNJH5hTjqRSPyqoRz/TOsc8jjSQBR9Dc=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "packs",
+      "role": "next",
+      "key_id": "astra-packs-2026b",
+      "alg": "ed25519",
+      "public_key": "v3H4i6gHn0X2bd7gpoo6NyxThirItsmY3xSsj1VFRuo=",
+      "not_before": "2026-12-01T00:00:00Z"
+    },
+    {
+      "kind": "games",
+      "role": "current",
+      "key_id": "astra-games-2026a",
+      "alg": "ed25519",
+      "public_key": "G+4oHJQ9g+KwkhVlsLrTGLSH1uAP7C6grQ2T0qgS68Y=",
+      "not_before": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kind": "games",
+      "role": "next",
+      "key_id": "astra-games-2026b",
+      "alg": "ed25519",
+      "public_key": "VwidWjGtwYfsA4aTJTEbiqFcqlmIpTQUg9zzfj4tqLg=",
+      "not_before": "2026-12-01T00:00:00Z"
+    }
+  ]
+}

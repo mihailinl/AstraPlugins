@@ -1,0 +1,22 @@
+{
+  "signed": {
+    "schema": "astra.commands.withdrawn/1",
+    "serial": 1798682400,
+    "issued_at": 1798682400,
+    "expires_at": 1799287200,
+    "rows": [],
+    "lifts": [
+      {
+        "id": "evil-shell",
+        "versions": "<=1.0.0",
+        "lifts_at": 1798671601
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-commands-2026a",
+      "sig": "/3321QeHLDQimfCM8z70Fc4E4CG0tfvrnnBsF7pxwbfCI8pGwK1lUR5xBpKBJLDi4Hex3Z5Z/d1x5/DIDgzlAw=="
+    }
+  ]
+}
