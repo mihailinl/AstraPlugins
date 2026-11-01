@@ -1,0 +1,93 @@
+# The content catalogue's refusal vocabulary — every code a content ingest,
+# a content publisher check or the client can answer with, and its state.
+#
+# This file is the CONTRACT side. The server's table
+# (minice plugins/crates/plugins-api/src/guest/reason_codes/table.rs, lane L2)
+# and the client's refusal enum (Astra, lane L8) carry these exact spellings;
+# a door refusal is HTTP 422 with the token, never 401 or 403 (crowdsec counts
+# those; design §3.1).
+#
+# `tools/check-content-goldens.py` holds the three directions that can drift:
+#   * every `E_*` / `F_*` token any spec/content/*.md cites is listed here;
+#   * every `ingest:` and `flags:` name here is specified in a spec/content/*.md;
+#   * every code testdata/content/vectors.json expects is listed here;
+#   * every `client:` token is specified, in backticks, in a spec/content/*.md.
+#
+# States, as spec/submission-tokens.yaml uses them:
+#   live        — emitted; a consumer must handle it
+#   reserved    — named so nobody coins a second spelling; not emitted in v1
+#
+# FORMAT: `section:`, then indented `NAME: state` lines, and `#` comments.
+# Hand-parsed; the content-spec job installs nothing.
+
+# refusals of an upload (ingest-v1.md). The first failing step's code is the answer.
+ingest:
+  E_ZIP_END_RECORD: live
+  E_ARCHIVE_TOO_MANY_ENTRIES: live
+  E_ARCHIVE_ENCRYPTED: live
+  E_ARCHIVE_METHOD: live
+  E_ARCHIVE_LINK: live
+  E_ZIP_HEADERS_INCONSISTENT: live
+  E_ARCHIVE_NAME_UNSAFE: live
+  E_ARCHIVE_TOO_LARGE: live
+  E_ARCHIVE_RATIO: live
+  E_ARCHIVE_MUST_BE_STORED: live
+  E_BUNDLE_MANIFEST: live
+  E_BUNDLE_FILE_UNLISTED: live
+  E_BUNDLE_FILE_DIGEST: live
+  E_CONTENT_DIGEST_MISMATCH: live
+  E_CONTENT_TOO_LARGE: live
+  E_CONTENT_QUOTA: live
+  E_CONTENT_BLOCKED: live
+  E_CONTENT_FORMAT: live
+  E_CONTENT_IMAGE_DIMENSIONS: live
+  E_CONTENT_MEDIA_TYPE: live
+  E_CONTENT_PARTS_MISMATCH: live
+  E_CONTENT_LICENCE_CONFLICT: live
+  E_CONTENT_LICENCE_REFUSED: live
+  E_CONTENT_LICENCE_UNDECLARED: live
+  E_COMMAND_FORMAT: live
+  E_COMMAND_UNKNOWN_ACTION: live
+  E_COMMAND_UNKNOWN_TRIGGER: live
+  E_COMMAND_PLUGIN_UNNAMED: live
+  E_COMMAND_CAPS_MISMATCH: live
+  E_COMMAND_REQUIRES_MISMATCH: live
+  E_COMMAND_REQUIRES_UNLISTED: live
+  E_PACK_NESTED: live
+  E_PACK_TOO_MANY_MEMBERS: live
+  E_PACK_MEMBER_KIND_UNSERVED: live
+  E_PACK_MEMBER_UNLISTED: live
+  E_PACK_MEMBER_DIGEST: live
+  E_CHARACTER_REQUIRES_UNLISTED: live
+  E_CHARACTER_REQUIRES_DIGEST: live
+  E_SERVED_UNVERIFIED: live
+  # the plugin vocabulary, reused unchanged for a content slug (design §2)
+  E_ID_RESERVED_PREFIX: live
+
+# not refusals: a flag holds the version for a moderator, or orders the queue
+flags:
+  F_CONTENT_VRM_META_UNKNOWN: live
+  F_COMMAND_EXEC_AND_NETWORK: live
+
+# what a CLIENT says when it refuses an install, an update or a document
+# (common-v1.md §7, trust-kind-keys-v1.md §7). Lower-case, as the client's
+# existing catalogue refusals are.
+client:
+  kind-keys-unusable: live
+  signature-invalid: live
+  key-retired: live
+  serial-rollback: live
+  issued-in-future: live
+  expired: live
+  withdrawn-stale: live
+  withdrawn-unverified: live
+  artefact-digest-mismatch: live
+  claim-mismatch: live
+  requires-digest-mismatch: live
+  requires-unavailable: live
+  member-digest-mismatch: live
+  member-unavailable: live
+  need-unknown: live
+  command-unknown-trigger: live
+  # publisher-side invariant the checker names (common-v1.md §6.4)
+  cascade-missing: live
