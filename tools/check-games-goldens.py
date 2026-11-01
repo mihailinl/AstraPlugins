@@ -449,34 +449,34 @@ def parse_glb_strict(raw: bytes) -> dict:
     return doc
 
 
-def gltf_uri_problem(doc: dict, is_glb: bool, path: str | None, present) -> str | None:
-    """No external reference (ingest-v1.md §3 step 10): in a GLB every
-    `images[].uri` and `buffers[].uri` is a `data:` URI; in a `.gltf` each is
-    a `data:` URI or a plain relative path -- no scheme, no `..`, no leading
-    `/`, no backslash -- naming a file the release holds (`present`, a set of
-    release-relative paths; None skips that last test)."""
+class _AnyFile:
+    """`present` when there is no release to look in (a lone file): every
+    relative name is taken to exist, so only the shape of the uri is judged."""
+
+    def __contains__(self, _name) -> bool:
+        return True
+
+
+def gltf_uri_problem(raw: bytes, doc: dict, path: str | None, present) -> str | None:
+    """No external reference: the content catalogue's own `uri_refusal`
+    (ingest-v1.md §3 step 10). In a GLB every `images[].uri` and
+    `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or
+    a relative path with no scheme, no `..`, no leading `/` and **no `%`,
+    `?`, `#` or `\\`** -- a loader percent-decodes (and splits off a query or
+    fragment) BEFORE it joins, so `..%2f..%2fetc%2fpasswd` leaves the
+    release even when a file with that literal name is in it (N2) -- naming
+    a file the release holds (`present`, a set of release-relative paths;
+    None skips that last test). Content's own-part test is given no parts:
+    a game integration's part is one file, and its buffers are not parts.
+
+    `images` or `buffers` that is not an array is refused here first:
+    content's reader skips an object (whose "0" key a JavaScript loader still
+    indexes as `images[0]`) and raises on a number."""
     for key in ("images", "buffers"):
-        items = doc.get(key)
-        if not isinstance(items, list):
-            continue
-        for item in items:
-            if not isinstance(item, dict) or "uri" not in item:
-                continue
-            u = item["uri"]
-            if not isinstance(u, str):
-                return f"a {key} uri that is not a string: {u!r}"
-            if u.startswith("data:"):
-                continue
-            if is_glb:
-                return f"a GLB names an external uri {u!r}"
-            if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", u) or u.startswith("/") or "\\" in u \
-                    or "/../" in f"/{u}/" or u in ("", "."):
-                return f"a uri that is not a plain relative path: {u!r}"
-            if present is not None and path is not None:
-                target = posixpath.normpath(posixpath.join(posixpath.dirname(path), u))
-                if target not in present:
-                    return f"a uri naming a file the release does not hold: {u!r}"
-    return None
+        if key in doc and not isinstance(doc[key], list):
+            return f"{key} is not an array: {type(doc[key]).__name__}"
+    where = present if present is not None and path is not None else _AnyFile()
+    return CG.uri_refusal(path or "", raw, where, {})
 
 
 def gltf_format_problem(raw: bytes, path: str | None = None, present=None) -> str | None:
@@ -492,7 +492,7 @@ def gltf_format_problem(raw: bytes, path: str | None = None, present=None) -> st
         return str(e)
     if not isinstance(doc, dict):
         return "the glTF JSON is not an object"
-    return gltf_uri_problem(doc, is_glb, path, present)
+    return gltf_uri_problem(raw, doc, path, present)
 
 
 def parse_glb_json_chunk(raw: bytes):

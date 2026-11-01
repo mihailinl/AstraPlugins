@@ -581,6 +581,39 @@ class ContentByBytes(unittest.TestCase):
                     ggold.name_problem = original
 
 
+class GltfUris(unittest.TestCase):
+    """The content catalogue's own uri_refusal (N2): no % ? # or \\ in a uri
+    that is not data:, because a loader decodes and splits before it joins."""
+
+    def test_each_forbidden_character_refuses_even_with_the_literal_file_present(self):
+        for uri in ("..%2fsecret.bin", "a.bin?x=1", "a.bin#frag", "a\\b.bin", "a%20b.bin"):
+            with self.subTest(uri=uri):
+                doc = json.dumps({"buffers": [{"uri": uri}]}).encode()
+                why = ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf", f"m/{uri}"})
+                self.assertIsNotNone(why)
+                self.assertIn("containing", why)
+
+    def test_the_percent_rule_wins_over_the_dotdot_rule(self):
+        doc = json.dumps({"buffers": [{"uri": "../x%2fy.bin"}]}).encode()
+        self.assertIn("'%'", ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf"}))
+
+    def test_the_golden_turns_green_for_the_wrong_reason_without_the_rule(self):
+        files, doc = release("gltf-uri-percent")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        saved = ggold.CG.URI_FORBIDDEN
+        ggold.CG.URI_FORBIDDEN = ""
+        try:
+            self.assertEqual(codes_of(files, doc), [], "the literal file is present, so only the % rule refuses it")
+        finally:
+            ggold.CG.URI_FORBIDDEN = saved
+
+    def test_images_or_buffers_that_are_not_an_array_are_refused_not_skipped(self):
+        for images in ({"0": {"uri": "https://e.invalid/t.png"}}, 5, "t.png"):
+            with self.subTest(images=images):
+                doc = json.dumps({"asset": {"version": "2.0"}, "images": images}).encode()
+                self.assertIn("not an array", ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf"}))
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"

@@ -119,6 +119,8 @@ def gltf_text(obj) -> bytes:
 GLTF_AVATAR_PROHIBITED = {"asset": {"version": "2.0"},
                           **v0({"licenseName": "Redistribution_Prohibited", "allowedUserName": "Everyone"})}
 
+PCT_URI = "..%2f..%2f..%2f..%2fetc%2fpasswd"
+
 RELEASE_FILES = {
     # content by bytes (manifest.md §2.7.1): a GLB or a text glTF under any other name
     "releases/glb-named-bin/data/avatar.bin": lambda: glb(*GOLDENS["refused-vrm0-redistribution-prohibited.vrm"]),
@@ -130,6 +132,11 @@ RELEASE_FILES = {
         lambda: codecs.BOM_UTF16_LE + '{"greeting": "Привет", "farewell": "Пока"}'.encode("utf-16-le"),
     "releases/localisation-utf16/lang/credits.txt": lambda: codecs.BOM_UTF16_BE + "Спасибо\n".encode("utf-16-be"),
     "releases/json-nested-asset/data/config.json": lambda: gltf_text({"meta": {"asset": "props/crate"}}),
+    # a .gltf uri a loader percent-decodes BEFORE it joins: it leaves the release, though a file with
+    # that literal name is right beside it (the content catalogue's pct, N2)
+    "releases/gltf-uri-percent/models/prop.gltf":
+        lambda: gltf_text({"asset": {"version": "2.0"}, "buffers": [{"uri": PCT_URI, "byteLength": 4}]}),
+    f"releases/gltf-uri-percent/models/{PCT_URI}": lambda: b"\x00\x01\x02\x03",
 }
 
 

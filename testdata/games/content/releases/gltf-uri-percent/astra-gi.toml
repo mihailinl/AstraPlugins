@@ -1,0 +1,22 @@
+# content check golden: a .gltf buffer uri ..%2f..%2f..%2f..%2fetc%2fpasswd, with a file of that
+# literal name beside it -- E_CONTENT_FORMAT: a loader percent-decodes before it joins, so the uri
+# leaves the release (manifest.md §2.7.3; the content catalogue's pct, N2).
+schema = 1
+
+[integration]
+id = "someone.gltf-uri-percent"
+name = "Gltf Uri Percent"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

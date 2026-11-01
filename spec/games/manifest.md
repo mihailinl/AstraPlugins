@@ -365,11 +365,24 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
   `allowRedistribution: false` is another's `true`, and JSON that does not
   parse must never fall through to "plain", which an animation part does not
   judge;
-- **no external reference**: in a GLB every `images[].uri` and
-  `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or a
-  plain relative path (no scheme, no `..`, no leading `/`, no backslash)
-  naming a file the release holds — so nothing Astra loads makes it fetch a
-  URL, which would tell a third party who is looking at the model.
+- **no external reference** (the content catalogue's own `uri_refusal`): in
+  a GLB every `images[].uri` and `buffers[].uri` is a `data:` URI; in a
+  `.gltf` each is a `data:` URI or a plain relative path — no scheme, no
+  `..`, no leading `/`, **and no `%`, `?`, `#` or `\`** — naming a file the
+  release holds, so nothing Astra loads makes it fetch a URL, which would
+  tell a third party who is looking at the model. The four characters are
+  refused because a loader percent-decodes the uri (and splits off a query
+  or fragment) **before** it joins it to the file's folder:
+  `..%2f..%2f..%2f..%2fetc%2fpasswd` passes a `..` test as written and
+  leaves the release once decoded, even when a file with that literal name
+  sits beside the `.gltf` (golden `gltf-uri-percent`, the content
+  catalogue's `pct`, N2); the character test runs first, so that is the
+  reason given. `images` or `buffers` that is not an array is refused too: a
+  JavaScript loader indexes an object's `"0"` key as `images[0]`, which a
+  reader that skips non-arrays never looks at. The content catalogue's
+  further rule — the uri resolves inside the `.gltf`'s own part — has no
+  equivalent here: a game integration's part is one file, and the buffer it
+  names is not a part of its own.
 
 It applies as well to the body inside a `.astrachar` bundle
 *when that bundle's format is readable* (its `astrachar.json` parses, its
