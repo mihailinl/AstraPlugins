@@ -1,0 +1,15 @@
+# Invalid: reserved-id. integration.id uses the "astra." prefix, which
+# spec/games/reserved.yaml reserves to the first-party publisher.
+schema = 1
+
+[integration]
+id = "astra.totally-official-mod"
+name = "A Third-Party Mod"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+steam_appid = 1966720
+exe = "Lethal Company.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

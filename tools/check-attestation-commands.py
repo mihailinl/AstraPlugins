@@ -51,6 +51,19 @@ WHAT EACH COMMAND MUST CARRY. `--signer-workflow`, and:
 * a placeholder (`<path>`, `<AstraPlugins>/…`, `…`) passes, as long as a value
   ending in `.yml` still names the right workflow.
 
+ONE RULE, NOT AN EXEMPTION: `templates/*`. A file under `templates/` (for
+example `templates/gi-release.yml`, spec/games) is never run in this
+repository and never `uses:`-called by it — a reader copies it into their OWN
+`.github/workflows/`, where it becomes the workflow that signs ITS OWN
+output. There, `${GITHUB_WORKFLOW_REF%@*}` (GitHub's own env var for "the
+workflow actually running," `@ref` stripped) is exactly the signer, by
+construction, for every repository that ever copies the file — a fixed
+literal could not be, since there is no one fixed signer across every
+author's copy. The same variable inside a workflow this repository runs
+(`.github/workflows/*.yml`, this file's own comments, anywhere else) is the
+original bug and stays refused: `is_self_signing_template()` is narrowed to
+`templates/` and to this one variable for exactly that reason.
+
 `--signer-repo mihailinl/AstraPlugins` also passes on a good file, and is not
 enough here: it accepts a signature from ANY workflow in AstraPlugins. The
 registry checks the workflow path, and a reader's check should be no weaker
@@ -207,6 +220,39 @@ def flag_value(tokens: list[str], flag: str) -> str | None:
     return None
 
 
+#: A directory of workflow TEMPLATES, never `uses:`-called by this repository and never run here:
+#: `templates/gi-release.yml` (spec/games, lane S) is copied into a game integration author's OWN
+#: repository and becomes THEIR top-level workflow. That is the opposite shape from
+#: `plugin-release.yml`/`release-cli.yml`, which stay in this repository and sign on a CALLER's behalf
+#: — which is exactly why a shell variable is the bug there (the caller's `${GITHUB_REPOSITORY}` is not
+#: the signer) and is exactly right here (the signer IS whichever repository is running the workflow).
+TEMPLATES = "templates/"
+
+#: GitHub's own `GITHUB_WORKFLOW_REF` env var: "owner/repo/.github/workflows/file.yml@ref" for
+#: whichever workflow is ACTUALLY RUNNING right now — see
+#: https://docs.github.com/actions/learn-github-actions/variables#default-environment-variables.
+#: `%@*` (or the greedy `%%@*`) is bash's suffix-strip, and it is REQUIRED, not merely allowed: the
+#: bare variable still carries "@ref" (line 44-45 above says why that fails even a correctly-pinned
+#: literal), so only the stripped form is ever a valid `--signer-workflow` value. No other variable
+#: self-identifies the running workflow this way: `${GITHUB_REPOSITORY}` alone is missing the workflow
+#: path, and in a reusable workflow it names the caller, never the signer.
+SELF_SIGNER = re.compile(r"^\$\{GITHUB_WORKFLOW_REF%%?@\*\}$")
+
+
+def is_self_signing_template(path: str, value: str) -> bool:
+    """True when `value` is this exact self-reference, inside a file under `templates/`.
+
+    Narrowed to `templates/` on purpose, not to any file that happens to use
+    `GITHUB_WORKFLOW_REF`: the variable is only a correct signer the moment the
+    file containing it IS the workflow that will sign — true by construction
+    for a template an author copies into `.github/workflows/`, false for every
+    workflow this repository actually runs (where `GITHUB_WORKFLOW_REF` would
+    correctly name THIS repository, and a command here is almost always
+    teaching a THIRD party what signed THEIR download — the opposite fact).
+    """
+    return path.startswith(TEMPLATES) and bool(SELF_SIGNER.match(value))
+
+
 def expected_signer(tokens: list[str]) -> str | None:
     """Which workflow signs the file this command names, when the name says."""
     for tok in tokens:
@@ -238,6 +284,8 @@ def problems(cmd: Command, workflows: set[str]) -> list[str]:
         ]
     if not value:
         return ["`--signer-workflow` has no value"]
+    if is_self_signing_template(cmd.path, value):
+        return []  # the running workflow IS the signer here; see is_self_signing_template
     if "$" in value:
         return [
             f"`--signer-workflow {value}` is a shell variable. Name the signer literally: "

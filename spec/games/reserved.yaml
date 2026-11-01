@@ -1,0 +1,97 @@
+# Game-integration reserved names and ids — the ONE list.
+#
+# This file is the source. `astra-game-launcher` (src/manifest.rs, the
+# engine-code table in src/engines/) and `gi-probe` (the launcher's own
+# validator binary, see spec/games/manifest.md) each hold a copy, and K13
+# (dev/couplings.md in astra-plugins-ops) fails CI the moment any of the
+# three disagree. Before this file existed, "reserved" was three different
+# claims in three places with no way to tell whether they still matched; see
+# spec/reserved-ids.yaml for what that failure mode costs once a release ships
+# against a stale copy.
+#
+# WHAT IS RESERVED, AND WHY EACH GROUP EXISTS
+#
+#   engine_codes        A code an author's `[integration.engine]` may not
+#                        declare: the four built-ins (K1-K3 hold their
+#                        Detection identical to the shipped launcher, so a
+#                        community descriptor can never shadow them — merged
+#                        plan R5/R6, dev/game-integrations-plan-merged.md) and
+#                        the sentinel `unknown`. Ingest additionally refuses a
+#                        code already owned by a different publisher
+#                        (`engine-code-taken`, merged §2.1) — that is a
+#                        per-request fact the catalogue checks, not a fixed
+#                        list, so it has no row here.
+#
+#   integration_id      The `astra.` and `minice.` prefixes on
+#                        `[integration].id`: first-party identity, so a
+#                        community listing cannot read as ours.
+#
+#   integration_name    `[integration].name` may not CONTAIN "Minice" or
+#                        "Official" (confusable-folded — "Οfficial" with a
+#                        Greek Omicron still matches). "Astra" alone stays
+#                        allowed: it says what the integration does, and
+#                        every third-party GI needs to be able to say so
+#                        (merged plan §4, "rec reserved names").
+#
+#   profile_file_names   The names `[[files]]`/`[[config_writes]]` may not
+#                        place at the top of a profile (case-insensitive):
+#                        the launcher's own bookkeeping, plus the two Link
+#                        files B§3.1 adds in 0.5.0. `paths::is_reserved` in
+#                        the launcher checks the first three today
+#                        (astra-game-launcher main, src/paths.rs:87-91); the
+#                        other two land with the 0.5.0 Link file writer.
+#
+# HOW TO CHANGE ANY OF IT
+#   Edit this file, then `src/paths.rs::is_reserved` and the engine-code
+#   table in `src/engines/` (astra-game-launcher) and `gi-probe`'s own copy,
+#   in the same change. `tools/check-games-goldens.py` (AstraPlugins) checks
+#   this file against the testdata goldens; the launcher's `tests/no_
+#   reserved_drift.rs` (0.5.0) is meant to check it against this file by
+#   pinned SHA, the other half of K13.
+#
+# FORMAT — the same hand-parseable subset `spec/reserved-ids.yaml` and
+# `spec/limits.yaml` use: `key: value` for a scalar, `key:` then `  - item`
+# for a list, `#` for a comment. No YAML dependency, on purpose: a checker
+# that needs `pip install pyyaml` is a checker that stops running the first
+# time a runner image changes it has not pinned.
+
+# mirrors: dev/game-integrations-plan-merged.md §3.2 lane L, B§1
+#          ("Codes and names"), B's builtin/{unity,unreal,godot}.toml
+engine_code_pattern: "^[a-z][a-z0-9-]{1,31}$"
+
+# Folded the same way the pattern check is: `_` -> `-`, then NFKC plus a
+# confusables fold, before comparison. A code that folds to one of these is
+# refused with `engine-code-reserved`, never silently accepted under a
+# look-alike spelling.
+engine_codes:
+  - unity-mono
+  - unity-il2cpp
+  - godot
+  - unreal
+  - unknown   # the "Pass A said unknown, Pass B found nothing either" sentinel; never a real engine
+
+max_engine_codes_per_descriptor: 4
+
+# mirrors: game-integrations-marketplace-plan.md §2 ("Reserved identity")
+integration_id_reserved_prefixes:
+  - "astra."
+  - "minice."
+
+# Confusable-folded (NFKC + a Unicode confusables fold) before the substring
+# check, case-insensitive. A name that contains one of these after folding is
+# refused outright; a name that is merely "Astra ..." is fine.
+integration_name_reserved_substrings:
+  - "Minice"
+  - "Official"
+
+# mirrors: astra-game-launcher main, src/paths.rs:17-19,87-91 (LEDGER_FILE,
+# LOCK_FILE, BACKUP_DIR) plus the two names
+# game-integrations-marketplace-plan.md §3.1 adds for Astra Link in 0.5.0.
+# Checked case-insensitively against the first path component under
+# `${profile}`, exactly as `is_reserved` does today for the first three.
+profile_file_names:
+  - astra-launcher-ledger.json   # mirrors: src/paths.rs LEDGER_FILE
+  - astra-launcher-ledger.lock   # mirrors: src/paths.rs LOCK_FILE
+  - astra-launcher-backup        # mirrors: src/paths.rs BACKUP_DIR
+  - astra-link.json              # new in 0.5.0: the Link token file (B§3.1)
+  - play-arm.json                # new in 0.5.0: written beside astra-link.json (B§3.1)

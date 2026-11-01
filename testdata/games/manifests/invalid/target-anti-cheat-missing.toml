@@ -1,0 +1,16 @@
+# Invalid: a plain schema failure (TARGET_KEYS requires anti_cheat;
+# src/manifest.rs). Kept as a golden because it is the base rule every
+# [integration.*] addition sits on top of -- if this ever stopped being
+# refused, nothing above it would be safe either.
+schema = 1
+
+[integration]
+id = "someone.missing-anti-cheat"
+name = "Missing Anti-Cheat Field"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+steam_appid = 1966720
+exe = "Lethal Company.exe"
+platforms = ["windows-x64"]

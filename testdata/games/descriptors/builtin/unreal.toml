@@ -1,0 +1,85 @@
+# The first-party Unreal descriptor, expressed as astra.engine/1. Rules 1
+# and 2 (both "strong") are copied verbatim from
+# dev/game-integrations-launcher-client-plan.md §1
+# ("builtin/unreal.toml -- :584-760, 936-1018"). Rules 3-5 (the three weak
+# fallbacks) are RECONSTRUCTED from that document's own shorthand comments
+# ("weak 100 (:965-969): half a pairing...", "weak 110 (:970-977): scope=
+# anywhere...", "weak 120 (:978-1018): scope=anywhere, programs=none...")
+# -- the plan explicitly defers writing them in full to lane L under C1,
+# so this golden is lane S's best-effort, schema-valid reconstruction, not
+# a byte-for-byte copy of the launcher's eventual compiled TOML. See the
+# "ambiguities" note in the lane S handback for why.
+schema = "astra.engine/1"
+
+[engine]
+codes = { unreal = "Unreal Engine" }
+
+[walk]
+list_at_limit = ["Binaries/Win64"]
+
+[[rule]]
+tier = "strong"
+programs = { suffix = "-win64-shipping.exe", at = "{project}/Binaries/Win64", skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { child = "{project}/Content/Paks", kind = "dir" },
+]
+code = "unreal"
+confidence = "high"
+binary = "windows"
+evidence = "{project}"
+named_alike = "{project.leaf}"
+bootstrap = { listed = "{project.parent}/{project.leaf}.exe", hint_stem = "{project.leaf}" }
+
+[[rule]]   # no shipping exe (GTA III)
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/Binaries/Win64", skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { child = "{project}/Content/Paks", kind = "dir" },
+  { none = [ { listed = "*-win64-shipping.exe", kind = "file" } ] },
+]
+pick = "hint-else-largest"
+code = "unreal"
+confidence = "high"
+binary = "windows"
+evidence = "{project}"
+
+# RECONSTRUCTED (see header): "half a pairing" -- same program match as
+# rule 1, but Content/Paks is absent, so it can only ever be a low-
+# confidence, non-passing fallback.
+[[rule]]
+tier = "weak"
+weak_order = 100
+programs = { suffix = "-win64-shipping.exe", at = "{project}/Binaries/Win64", skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { none = [ { child = "{project}/Content/Paks", kind = "dir" } ] },
+]
+code = "unreal"
+confidence = "low"
+passes = false
+evidence = "{project}"
+binary = "windows"
+
+# RECONSTRUCTED (see header): the first shipping exe anywhere in walk
+# order, with no captured evidence at all.
+[[rule]]
+tier = "weak"
+weak_order = 110
+programs = { suffix = "-win64-shipping.exe", scope = "anywhere", first = 1, skip_wrappers = true }
+code = "unreal"
+confidence = "low"
+binary = "windows"
+
+# RECONSTRUCTED (see header): no program candidate at all -- it fires off
+# a bare Content/Paks/*.pak match anywhere in the walk, and the binary
+# comes from the pak's own filename suffix rather than from an exe.
+[[rule]]
+tier = "weak"
+weak_order = 120
+programs = "none"
+require = [
+  { listed = "{project}/Content/Paks/*.pak", kind = "file", as = "pak" },
+]
+code = "unreal"
+confidence = "low"
+evidence = "{pak}"
+binary = { from_name = "{pak}", map = { "-windows" = "windows", "-wingdk" = "windows", "-linux" = "linux" } }

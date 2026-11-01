@@ -1,0 +1,56 @@
+# Valid: a game-specific GI declaring [integration.link] and the companion
+# capability together, matching manifest.md §2 in full.
+schema = 1
+
+[integration]
+id = "someone.peak-astra"
+name = "Astra in PEAK"
+version = "1.2.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/peak-astra"
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[integration.link]
+context = true
+shares_other_players = false
+skill = "astra/SKILL.md"
+
+[[integration.link.tools]]
+name = "drop_item"
+description = "Drop the item the player holds"
+params = "astra/tools/drop_item.json"
+
+[[integration.link.triggers]]
+name = "boss_spawned"
+label = "A boss appears"
+data = "astra/triggers/boss_spawned.json"
+
+[[integration.link.events]]
+name = "player_died"
+data = "astra/events/player_died.json"
+
+[target]
+steam_appid = 3527290
+exe = "PEAK.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/core/**"
+to = "${profile}/BepInEx/core/"
+
+[[game_files]]
+from = "winhttp.dll"
+to = "${game}/winhttp.dll"
+sha256 = "8c6cdbc38836dee87e3368f5de1994d7c0ccebf29e4ce7aba3c0981f9375412c"
+
+[launch]
+args = ["--doorstop-enabled", "true"]
+
+[[config_writes]]
+file = "${profile}/BepInEx/config/astra.unity-foundation.cfg"
+section = "Connection"
+set = { Port = "${bridge_port}", Token = "${bridge_token}" }

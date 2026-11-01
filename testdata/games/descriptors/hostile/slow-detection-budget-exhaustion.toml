@@ -1,0 +1,121 @@
+# Hostile fixture for B§3 row "Slow detection".
+# Bound: per descriptor <=16 KiB, <=16 rules, <=8 checks, <=64 lookups,
+# <=8 probes; per game <=1,024 lookups, <=64 KiB, <=4 Pass-B version
+# extractions. Over budget -> that descriptor yields nothing, never a
+# partial result and never a hang (engine-descriptor-v1.md §4).
+#
+# 17 rules -- one over the per-descriptor rule cap -- each with its own
+# anchor, so the file cannot be refused on the anchor rule alone and the
+# rule-count budget is what has to catch it. Schema-valid (the JSON Schema
+# only caps rule[] at 16 -- see schemas/engine-descriptor-v1.schema.json,
+# which treats the 17th rule as the schema violation already; the budget
+# this fixture is really aimed at is the evaluator's own counted-lookup
+# ceiling, which no static schema can see because it depends on how many
+# lookups a real folder makes each rule perform).
+schema = "astra.engine/1"
+
+[engine]
+codes = { slow-engine = "Slow Engine" }
+
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-01.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-02.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-03.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-04.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-05.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-06.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-07.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-08.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-09.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-10.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-11.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-12.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-13.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-14.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-15.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-16.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [ { listed = "marker-17.dll", kind = "file" } ]
+code = "slow-engine"
+confidence = "low"

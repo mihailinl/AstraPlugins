@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["boss_name"],
+  "properties": {
+    "boss_name": { "type": "string", "maxLength": 32, "description": "The boss's display name." },
+    "difficulty": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "enraged": { "type": "boolean" }
+  }
+}

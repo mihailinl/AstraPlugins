@@ -1,0 +1,33 @@
+# Hostile fixture for B§3 row "Anti-cheat the list misses".
+# Bound: a signed, ADDITIVE marker table (games-index-v1.md §2.3/§2.5); a
+# Pass B claim is refused as anti-cheat-unknown when the walk hit its cap
+# or the folder ships a *.sys file. (The earlier plan's per-appid
+# moderator "no anti-cheat" override record is DROPPED by the merged plan,
+# §2.4 "No per-game record" -- this fixture targets the current mitigation,
+# not the superseded one.)
+#
+# The descriptor below claims a foundation for a folder, declaring no
+# `anti_cheat` scoped addition of its own, as if hoping an anti-cheat this
+# descriptor's author happens to know about (but the signed marker table
+# does not yet list) goes unnoticed. tools/check-games-goldens.py can only
+# check, mechanically, that this rule carries no anti_cheat claim; the real
+# refusal path -- the *.sys/cap check and the signed marker table -- needs a
+# real folder tree and the signed index, and is pinned to lane D's fixtures
+# instead (games-index-v1.md §2.5).
+schema = "astra.engine/1"
+
+[engine]
+codes = { sneaky-engine = "Sneaky Engine" }
+
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [
+  { listed = "sneaky-engine-core.dll", kind = "file" },
+]
+code = "sneaky-engine"
+confidence = "low"
+binary = "windows"
+evidence = "{project}"
+# Deliberately absent: an `anti_cheat` scoped addition naming the marker
+# this folder actually carries (e.g. a brand-new kernel driver file).

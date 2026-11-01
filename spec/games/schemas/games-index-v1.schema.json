@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraplugins.minice.ai/spec/games/schemas/games-index-v1.schema.json",
+  "title": "astra.games.index/1",
+  "description": "games-index-v1.md. Signature verification and the freshness/ownership rules are run-time facts, not structural ones; see tools/check-games-goldens.py.",
+  "type": "object",
+  "required": ["schema", "serial", "issued_at", "expires_at", "key_id", "entries", "games"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "astra.games.index/1" },
+    "serial": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
+    "key_id": { "enum": ["games-current", "games-next"] },
+    "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
+    "games": { "type": "array", "items": { "$ref": "#/$defs/gameRow" } },
+    "anticheat": { "type": "array", "items": { "$ref": "#/$defs/anticheatMarker" } },
+    "loaders": { "type": "array", "items": { "$ref": "#/$defs/loaderAllow" } },
+    "engine_codes": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+      "additionalProperties": { "$ref": "#/$defs/publisherIdentity" }
+    }
+  },
+  "$defs": {
+    "publisherIdentity": {
+      "type": "object",
+      "required": ["account", "repo_id", "repo_owner_id"],
+      "additionalProperties": false,
+      "properties": {
+        "account": { "type": "string", "minLength": 1 },
+        "repo_id": { "type": "integer", "minimum": 1 },
+        "repo_owner_id": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "source": {
+      "type": "object",
+      "required": ["host", "repo", "repo_id", "repo_owner_id", "release_tag", "asset", "sha256", "size", "commit", "workflow_path", "event"],
+      "additionalProperties": false,
+      "properties": {
+        "host": { "const": "github.com" },
+        "repo": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+        "repo_id": { "type": "integer", "minimum": 1 },
+        "repo_owner_id": { "type": "integer", "minimum": 1 },
+        "release_tag": { "type": "string", "minLength": 1 },
+        "asset": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size": { "type": "integer", "minimum": 0 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "workflow_path": { "type": "string", "minLength": 1 },
+        "event": { "enum": ["push", "release"] }
+      }
+    },
+
+    "entryTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": { "const": "steam" },
+        "id": { "type": "integer", "minimum": 1 },
+        "exe": { "type": "string" },
+        "engine": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }
+      }
+    },
+
+    "foundationClaim": {
+      "type": "object",
+      "required": ["id", "version", "engine"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "engine": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }
+      }
+    },
+
+    "builtOn": {
+      "type": "object",
+      "required": ["entry", "version", "verified"],
+      "additionalProperties": false,
+      "properties": {
+        "entry": { "type": "string" },
+        "version": { "type": "string" },
+        "verified": { "type": "boolean" }
+      }
+    },
+
+    "linkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context": { "type": "boolean" },
+        "shares_other_players": { "type": "boolean" },
+        "skill_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+
+    "gameFileChange": {
+      "type": "object",
+      "required": ["path", "sha256", "loader"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "loader": { "enum": ["none", "allowlisted", "other"] }
+      }
+    },
+
+    "changes": {
+      "type": "object",
+      "required": ["profile_files", "game_files", "launch", "config_writes"],
+      "additionalProperties": false,
+      "properties": {
+        "profile_files": { "type": "boolean" },
+        "game_files": { "type": "array", "items": { "$ref": "#/$defs/gameFileChange" } },
+        "launch": { "type": "boolean" },
+        "config_writes": { "type": "boolean" }
+      }
+    },
+
+    "entry": {
+      "type": "object",
+      "required": [
+        "id", "kind", "publisher", "source", "version", "schema", "min_astra",
+        "shares_other_players", "changes", "code_changed", "licence", "review"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["foundation", "integration"] },
+        "publisher": { "$ref": "#/$defs/publisherIdentity" },
+        "source": { "$ref": "#/$defs/source" },
+        "version": { "type": "string", "minLength": 1 },
+        "schema": { "const": 1 },
+        "min_astra": { "type": "string", "minLength": 1 },
+        "target": { "$ref": "#/$defs/entryTarget" },
+        "descriptor": { "type": ["object", "null"] },
+        "descriptor_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "sdk": { "type": ["string", "null"] },
+        "foundation": { "anyOf": [{ "$ref": "#/$defs/foundationClaim" }, { "type": "null" }] },
+        "built_on": { "anyOf": [{ "$ref": "#/$defs/builtOn" }, { "type": "null" }] },
+        "engine_versions": { "type": ["string", "null"] },
+        "link": { "anyOf": [{ "$ref": "#/$defs/linkSummary" }, { "type": "null" }] },
+        "schema_digests": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "shares_other_players": { "type": "boolean" },
+        "changes": { "$ref": "#/$defs/changes" },
+        "code_changed": { "type": "boolean" },
+        "licence": { "type": "string", "minLength": 1 },
+        "review": { "enum": ["unchecked", "source_reviewed"] },
+        "supersedes": { "type": "array", "items": { "type": "string" } },
+        "flags": { "type": "array", "items": { "type": "string" } },
+        "notes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+
+    "gameRow": {
+      "type": "object",
+      "required": ["store", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "store": { "const": "steam" },
+        "id": { "type": "integer", "minimum": 1 },
+        "engine": { "type": ["string", "null"] },
+        "prefer": { "type": "array", "items": { "type": "string" } },
+        "deny": { "type": "array", "items": { "type": "string" } },
+        "refuse": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["reason"],
+              "additionalProperties": false,
+              "properties": { "reason": { "type": "string" } }
+            }
+          ]
+        },
+        "allow_foundations": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "anticheatMarker": {
+      "type": "object",
+      "required": ["name", "kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["folder-marker", "process-name", "service-name"] },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "loaderAllow": {
+      "type": "object",
+      "required": ["name", "sha256", "default_enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "default_enabled": { "const": false }
+      }
+    }
+  }
+}

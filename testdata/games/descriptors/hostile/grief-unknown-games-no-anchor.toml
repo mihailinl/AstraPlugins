@@ -1,0 +1,44 @@
+# Hostile fixture for B§3 row "Grief unknown games".
+# Bound: a positive top-level literal `listed` anchor that is not a
+# program and not a ubiquitous runtime name; the O(1) prefilter;
+# moderator-only `prefer`/overrides.
+#
+# Two attempts in one file, each its own rule:
+#   rule 1 -- no top-level anchor at all: its only `listed` lookup sits
+#     INSIDE an `any`, so engine-descriptor-v1.md §2.4's "exactly one
+#     top-level entry" requirement has nothing to point at;
+#   rule 2 -- a top-level anchor, but it names a ubiquitous runtime file
+#     every Windows game's folder carries, which would match almost any
+#     unrelated game and is refused by name even though it is syntactically
+#     a fine literal `listed` entry.
+# Both are schema-valid; tools/check-games-goldens.py's anchor check is
+# what refuses this fixture, not the JSON Schema.
+schema = "astra.engine/1"
+
+[engine]
+codes = { griefer = "Grief Engine" }
+
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [
+  { any = [
+      { listed = "whatever.dll", kind = "file" },
+      { listed = "also-whatever.dll", kind = "file" },
+  ] },
+]
+code = "griefer"
+confidence = "low"
+binary = "windows"
+evidence = "{project}"
+
+[[rule]]
+tier = "weak"
+programs = { ext = ["exe"] }
+require = [
+  { listed = "steam_api64.dll", kind = "file" },
+]
+code = "griefer"
+confidence = "low"
+binary = "windows"
+evidence = "{project}"

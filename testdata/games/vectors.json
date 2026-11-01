@@ -1,0 +1,127 @@
+{
+  "schema": "astra.testdata.games/1",
+  "note": "One record per golden. 'verdict' is accept|refuse; 'check' says how tools/check-games-goldens.py decides it: 'schema' (spec/games/schemas/*.json alone), 'semantic' (a small rule the checker runs in addition to the schema, named in 'rule'), or 'pinned' (this repo can only assert the golden PARSES/schema-validates; the real refusal needs a real folder tree, a real zip, or the signed catalogue's ownership table, and is lane L's or lane C's test to run -- named in 'enforced_by').",
+  "manifests": {
+    "schema": "spec/games/schemas/manifest.schema.json",
+    "valid": [
+      { "name": "game-specific-link", "file": "manifests/valid/game-specific-link.toml", "verdict": "accept" },
+      { "name": "foundation-owns-engine", "file": "manifests/valid/foundation-owns-engine.toml", "verdict": "accept" },
+      { "name": "foundation-shares-engine", "file": "manifests/valid/foundation-shares-engine.toml", "verdict": "accept" },
+      { "name": "foundation-dependency-claim", "file": "manifests/valid/foundation-dependency-claim.toml", "verdict": "accept" },
+      { "name": "runner-builtin", "file": "manifests/valid/runner-builtin.toml", "verdict": "accept" }
+    ],
+    "invalid": [
+      { "name": "engine-undeclared", "file": "manifests/invalid/engine-undeclared.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-undeclared" },
+      { "name": "engine-undeclared-mismatch", "file": "manifests/invalid/engine-undeclared-mismatch.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-undeclared" },
+      { "name": "engine-code-reserved", "file": "manifests/invalid/engine-code-reserved.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-code-reserved" },
+      { "name": "loader-policy-conflict", "file": "manifests/invalid/loader-policy-conflict.toml", "verdict": "refuse", "check": "semantic", "rule": "loader-policy-conflict" },
+      { "name": "capability-undeclared", "file": "manifests/invalid/capability-undeclared.toml", "verdict": "refuse", "check": "semantic", "rule": "capability-undeclared" },
+      { "name": "reserved-id", "file": "manifests/invalid/reserved-id.toml", "verdict": "refuse", "check": "semantic", "rule": "reserved-id" },
+      { "name": "reserved-name", "file": "manifests/invalid/reserved-name.toml", "verdict": "refuse", "check": "semantic", "rule": "reserved-name" },
+      { "name": "target-anti-cheat-missing", "file": "manifests/invalid/target-anti-cheat-missing.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-too-many-tools", "file": "manifests/invalid/link-too-many-tools.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "unknown-top-level-key", "file": "manifests/invalid/unknown-top-level-key.toml", "verdict": "refuse", "check": "schema" }
+    ]
+  },
+
+  "descriptors": {
+    "schema": "spec/games/schemas/engine-descriptor-v1.schema.json",
+    "builtin": [
+      { "name": "unity", "file": "descriptors/builtin/unity.toml", "verdict": "accept" },
+      { "name": "unreal", "file": "descriptors/builtin/unreal.toml", "verdict": "accept", "note": "rules 3-5 are a lane-S reconstruction of the plan's weak 100/110/120 shorthand; see the file's own header comment." },
+      { "name": "godot", "file": "descriptors/builtin/godot.toml", "verdict": "accept" }
+    ],
+    "hostile": [
+      {
+        "name": "take-recognised-game", "file": "descriptors/hostile/take-recognised-game.toml",
+        "b3_row": "Take a recognised game", "schema_verdict": "accept",
+        "verdict": "refuse", "check": "semantic", "rule": "engine-code-reserved"
+      },
+      {
+        "name": "grief-unknown-games-no-anchor", "file": "descriptors/hostile/grief-unknown-games-no-anchor.toml",
+        "b3_row": "Grief unknown games", "schema_verdict": "accept",
+        "verdict": "refuse", "check": "semantic", "rule": "descriptor-anchor-invalid"
+      },
+      {
+        "name": "anticheat-list-misses", "file": "descriptors/hostile/anticheat-list-misses.toml",
+        "b3_row": "Anti-cheat the list misses", "schema_verdict": "accept",
+        "verdict": "refuse", "check": "pinned", "enforced_by": "lane D (signed anticheat[] marker table + the *.sys/walk-cap claim refusal), against a real folder",
+        "mechanical_note": "this repo only asserts the rule's own anti_cheat claim list is empty, which is necessary but not sufficient"
+      },
+      {
+        "name": "hijack-updates-code-squatting", "file": "descriptors/hostile/hijack-updates-code-squatting.toml",
+        "b3_row": "Hijack updates", "schema_verdict": "accept",
+        "verdict": "refuse", "check": "semantic", "rule": "engine-code-taken",
+        "paired_with": "manifests/valid/foundation-owns-engine.toml",
+        "mechanical_note": "both claim engine code 'source2'; the first (foundation-owns-engine) is treated as the prior owner in this check"
+      },
+      {
+        "name": "read-outside-the-folder", "file": "descriptors/hostile/read-outside-the-folder.toml",
+        "b3_row": "Read outside the folder", "schema_verdict": "refuse",
+        "verdict": "refuse", "check": "schema"
+      },
+      {
+        "name": "slow-detection-budget-exhaustion", "file": "descriptors/hostile/slow-detection-budget-exhaustion.toml",
+        "b3_row": "Slow detection", "schema_verdict": "refuse",
+        "verdict": "refuse", "check": "schema"
+      }
+    ],
+    "b3_rows_out_of_scope": {
+      "note": "B§3 rows that are not engine-descriptor-grammar attacks; each is covered elsewhere in this testdata set or is lane L's/lane C's to fixture against a real folder tree or zip, which this repository's pure-schema goldens cannot build.",
+      "Foreign loader -> keep": "manifests/invalid/loader-policy-conflict.toml",
+      "Overclaim capabilities": "manifests/invalid/capability-undeclared.toml",
+      "Overwrite a player's file": "lane L (tests/corpus, the Community no-Replace rule over a real profile)",
+      "Plant code in another loader's folder": "lane L (plan.rs's [[game_files]] placement check over a real zip)",
+      "Abuse [launch]": "lane L (manifest.rs's Community launch-override rules)",
+      "Uninstall deletes their identical loader": "lane L (install.rs's proxy-folder baseline)",
+      "Rollback, freeze": "lane D (catalogue_state.rs's serial floor and expiry fixtures)",
+      "Spoof tier or \"built on\"": "lane C (ingest's digest-based built_on computation)",
+      "Install via Astra herself": "lane D (the native-picker-only import canary, K7)"
+    }
+  },
+
+  "index": {
+    "schema": "spec/games/schemas/games-index-v1.schema.json",
+    "valid": [
+      { "name": "valid-index", "file": "index/valid-index.json", "verdict": "accept" }
+    ],
+    "invalid": [
+      { "name": "issued-at-too-far-ahead", "file": "index/invalid-issued-at-too-far-ahead.json", "verdict": "refuse", "check": "semantic", "rule": "issued-at-too-far-ahead" },
+      { "name": "expiry-span-too-long", "file": "index/invalid-expiry-span-too-long.json", "verdict": "refuse", "check": "semantic", "rule": "expiry-span-too-long" },
+      { "name": "missing-key-id", "file": "index/invalid-missing-key-id.json", "verdict": "refuse", "check": "schema" },
+      { "name": "withdrawn-moved-out", "file": "index/invalid-withdrawn-moved-out.json", "verdict": "refuse", "check": "schema", "note": "withdrawn[] belongs in astra.games.withdrawn/1 only (merged plan R23); this document's schema has no such key, so carrying one is just an unknown top-level key." },
+      { "name": "entry-missing-kind", "file": "index/invalid-entry-missing-kind.json", "verdict": "refuse", "check": "schema" },
+      { "name": "anticheat-marker-bad-kind", "file": "index/invalid-anticheat-marker-bad-kind.json", "verdict": "refuse", "check": "schema" }
+    ]
+  },
+
+  "withdrawn": {
+    "schema": "spec/games/schemas/games-withdrawn-v1.schema.json",
+    "valid": [
+      { "name": "valid-withdrawn", "file": "withdrawn/valid-withdrawn.json", "verdict": "accept" }
+    ],
+    "invalid": [
+      { "name": "security-not-revoke", "file": "withdrawn/invalid-security-not-revoke.json", "verdict": "refuse", "check": "semantic", "rule": "security-requires-revoke" },
+      { "name": "missing-repo-id", "file": "withdrawn/invalid-missing-repo-id.json", "verdict": "refuse", "check": "schema" },
+      { "name": "bad-act-enum", "file": "withdrawn/invalid-bad-act-enum.json", "verdict": "refuse", "check": "schema" },
+      { "name": "bad-reason-code-enum", "file": "withdrawn/invalid-bad-reason-code-enum.json", "verdict": "refuse", "check": "schema" }
+    ]
+  },
+
+  "link": {
+    "message_schema": "spec/games/schemas/link-v1-message.schema.json",
+    "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
+    "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema" },
+    "data_schemas": {
+      "valid": [
+        { "name": "boss_spawned", "file": "link/data-schemas/valid/boss_spawned.json", "verdict": "accept" },
+        { "name": "drop_item", "file": "link/data-schemas/valid/drop_item.json", "verdict": "accept" }
+      ],
+      "invalid": [
+        { "name": "too-many-properties", "file": "link/data-schemas/invalid/too-many-properties.json", "verdict": "refuse", "check": "schema" },
+        { "name": "nested-object", "file": "link/data-schemas/invalid/nested-object.json", "verdict": "refuse", "check": "schema" },
+        { "name": "string-too-long", "file": "link/data-schemas/invalid/string-too-long.json", "verdict": "refuse", "check": "schema" }
+      ]
+    }
+  }
+}

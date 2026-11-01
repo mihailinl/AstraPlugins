@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraplugins.minice.ai/spec/games/schemas/link-v1-message.schema.json",
+  "title": "astra.link/1 wire message",
+  "description": "link-v1.md §4. One object per WebSocket frame; validates the envelope shape only -- the declared-name and schema-validity rules on event/trigger/call payloads are checked against the GI's own [integration.link] declaration, not by this schema.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["t", "integration", "v", "client"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "hello" },
+        "token": { "type": "string" },
+        "resume": { "type": "string" },
+        "integration": { "type": "string", "minLength": 1 },
+        "v": { "type": "integer", "minimum": 1 },
+        "client": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "granted", "limits", "resume"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "welcome" },
+        "granted": { "$ref": "#/$defs/grantedSet" },
+        "limits": { "type": "object" },
+        "resume": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "name", "data"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "event" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+        "data": { "type": "object" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "context" },
+        "text": { "type": "string", "maxLength": 2048 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "name", "data"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "trigger" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+        "data": { "type": "object" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "id", "tool", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "call" },
+        "id": { "type": "string" },
+        "tool": { "type": "string" },
+        "args": { "type": "object" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "id", "ok"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "result" },
+        "id": { "type": "string" },
+        "ok": { "type": "boolean" },
+        "data": {},
+        "error": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "granted"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "grants" },
+        "granted": { "$ref": "#/$defs/grantedSet" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "end" },
+        "reason": { "enum": ["withdrawn", "stopped", "replaced", "game_exited", "catalogue_stale"] }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "code"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "const": "error" },
+        "code": { "enum": ["not_granted", "rate_limited", "too_large", "bad_schema", "withdrawn"] }
+      }
+    }
+  ],
+  "$defs": {
+    "grantedSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "triggers": { "type": "array", "items": { "type": "string" } },
+        "events": { "type": "array", "items": { "type": "string" } },
+        "context": { "type": "boolean" },
+        "skill": { "type": "boolean" }
+      }
+    }
+  }
+}

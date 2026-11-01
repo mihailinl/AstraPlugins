@@ -1,0 +1,24 @@
+# Valid: a SECOND foundation for an engine code it does not own. It ships
+# no [integration.engine] table at all -- only the owning foundation does
+# (manifest.md §2.1, "Many foundations, one owner"). It is offered through
+# foundations_for("source2") once the owning foundation's descriptor has
+# matched a game.
+schema = 1
+
+[integration]
+id = "another.source2-lite"
+name = "Source 2 support (lite)"
+version = "0.3.0"
+authors = ["another"]
+license = "MIT"
+repo = "https://github.com/another/source2-lite"
+
+[target]
+engine = "source2"
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
+
+[[files]]
+from = "**"
+to = "${profile}/"

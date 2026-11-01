@@ -1,0 +1,28 @@
+# Valid: the first-party Unity Mono runner. A built-in engine needs no
+# [integration.engine] table (the grammar is compiled into the launcher,
+# not shipped in a zip) and, as a runner, no [integration.foundation]
+# table either (manifest.md §2.4: "neither does ... the three first-party
+# built-ins").
+schema = 1
+
+[integration]
+id = "astra.unity"
+name = "Astra for any Unity game"
+version = "0.8.1"
+authors = ["mihailinl"]
+license = "MIT"
+repo = "https://github.com/mihailinl/astra-unity"
+
+[target]
+engine = "unity-mono"
+exe = "*"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/core/**"
+to = "${profile}/BepInEx/core/"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

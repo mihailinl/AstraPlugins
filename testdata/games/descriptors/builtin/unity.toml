@@ -1,0 +1,49 @@
+# The first-party Unity descriptor, expressed as astra.engine/1. Copied
+# from dev/game-integrations-launcher-client-plan.md §1
+# ("builtin/unity.toml -- LM/detect.rs:479-562, 766-779"). Pins K1/K17: the
+# launcher's compiled src/engines/builtin/unity.toml must parse to this
+# same shape and must keep Detection identical to launcher_legacy at
+# 73bf11e.
+schema = "astra.engine/1"
+
+[engine]
+codes = { unity-mono = "Unity (Mono)", unity-il2cpp = "Unity (IL2CPP)" }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe", "x86_64", "x86"], also_if = { dir = "{name}_Data" }, skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { listed = "{stem}_Data", kind = "dir", as = "data" },
+  { any = [
+      { listed = "UnityPlayer.dll", kind = "file" },
+      { listed = "UnityPlayer.so", kind = "file" },
+  ] },
+]
+classify = [
+  { when = { any = [
+      { listed = "GameAssembly.dll", kind = "file" },
+      { listed = "GameAssembly.so", kind = "file" },
+  ] }, code = "unity-il2cpp", confidence = "high" },
+  { when = { stat = "{data}/Managed/Assembly-CSharp.dll", kind = "file" }, code = "unity-mono", confidence = "high" },
+  { when = { stat = "{data}/il2cpp_data", kind = "dir" }, code = "unity-il2cpp", confidence = "low" },
+  { when = { stat = "{data}/Managed", kind = "dir" }, code = "unity-mono", confidence = "low" },
+  { code = "unknown", confidence = "low" },
+]
+evidence = "{data}"
+binary = "by-ext"
+named_alike = true
+version = { head = ["{data}/globalgamemanagers", "{data}/data.unity3d", "{data}/mainData"], template = "N{1,4}.N{1,2}.N{1,3}[abfpx]N{1,3}" }
+
+[[rule]]   # before 2017.2
+tier = "strong-fallback"
+programs = { ext = ["exe", "x86_64", "x86"], also_if = { dir = "{name}_Data" }, skip_wrappers = true, skip_dirs = ["Engine"] }
+require = [
+  { listed = "{stem}_Data", kind = "dir", as = "data" },
+  { stat = "{data}/Managed/Assembly-CSharp.dll", kind = "file" },
+]
+code = "unity-mono"
+confidence = "low"
+passes = false
+evidence = "{data}"
+binary = "by-ext"
+named_alike = true
