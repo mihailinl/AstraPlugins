@@ -1239,6 +1239,47 @@ def gen_archives() -> None:
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 
+    # games round 3 (astra-plugins-ops-42): a manifest that is not a JSON object must not crash
+    # the reader -- `ingest_bundle` once called `.get` on whatever `strict_loads` returned
+    def manifest_not_object(es):
+        for e in es:
+            if e["name"] == "astrachar.json":
+                e["data"] = b"[]\n"
+        return es
+    hostile("manifest-not-object.astrachar", bundle("astra.character", model_files, BODY_PATH, tweak=manifest_not_object))
+
+    # `images`/`buffers` must be arrays (bug: `"images": 5` raised TypeError in uri_refusal)
+    images_not_array = json.dumps({"asset": {"version": "2.0"}, "images": 5}).encode()
+    put("archives/hostile/gltf-images-not-array.astrapack", anim({"clips/badimg.gltf": images_not_array}))
+    # `images` as a keyed OBJECT: a JS loader still reads the key "0", so the old code -- which only
+    # walked LIST elements -- let an external uri through unseen (bug 3). The fix refuses the SHAPE,
+    # so this is refused before the uri inside it is ever read
+    images_as_object = json.dumps(
+        {"asset": {"version": "2.0"}, "images": {"0": {"uri": "https://example.invalid/x.png"}}}).encode()
+    put("archives/hostile/gltf-images-object.astrapack", anim({"clips/badimgobj.gltf": images_as_object}))
+
+    # N2bis: `%` is legitimate glTF escaping (a space MUST be written `%20`) -- the old blanket
+    # "no raw %" rule refused `Base%20Color.png`, a uri every real glTF exporter can emit
+    space_png = b"\x89PNG\r\n\x1a\n" + b"SPACE-NAME-PNG"
+    ok_pct_gltf = json.dumps({"asset": {"version": "2.0"}, "images": [{"uri": "Base%20Color.png"}]}).encode()
+    put("archives/valid/animset-gltf-percent-space.astrapack",
+        anim({"clips/pctok.gltf": ok_pct_gltf, "clips/Base Color.png": space_png}))
+    # double percent-encoding: decoding ONCE must not be enough to reach `..` -- `%252e%252e`
+    # decodes once to the literal text "%2e%2e", which still contains `%` and is refused outright
+    # rather than decoded a second time (which would reach "..")
+    dbl_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "%252e%252e", "byteLength": 1}]}).encode()
+    put("archives/hostile/gltf-percent-double-encoded.astrapack", anim({"clips/dbl.gltf": dbl_gltf}))
+    # a malformed escape (not two hex digits) is refused, not silently passed through
+    bad_pct_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "%zz", "byteLength": 1}]}).encode()
+    put("archives/hostile/gltf-percent-malformed.astrapack", anim({"clips/badpct.gltf": bad_pct_gltf}))
+
+    # no bundle inside a content bundle: pack members are catalogue REFERENCES, never nested bytes.
+    # `nested_bundle` is a whole, valid .astrachar -- the point is that content ingest refuses it by
+    # its zip SIGNATURE alone, before it is ever opened as a sub-archive, whatever it is named
+    nested_bundle = bundle("astra.character", MODEL_FILES, body=BODY_PATH)
+    put("archives/hostile/nested-astrachar-in-astrapack.astrapack", anim({"clips/nested.astrachar": nested_bundle}))
+    put("archives/hostile/nested-astrachar-renamed-dat.astrapack", anim({"clips/nested.dat": nested_bundle}))
+
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──
 

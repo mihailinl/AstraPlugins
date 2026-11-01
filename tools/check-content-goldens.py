@@ -811,6 +811,13 @@ def meta_verdict(spec: str, m: dict) -> str:
 
 GLB_MAGIC = b"glTF"
 GLB_EXTS = (".vrm", ".glb", ".vrma")
+# R-NESTED: pack members are catalogue REFERENCES, so a content upload never needs a bundle
+# nested inside a bundle. Any entry beginning with one of these zip signatures -- whatever its
+# name or extension -- is refused outright. None of the allowed part types begin with them: a
+# GLB/.vrm/.vrma starts with `glTF`, PNG/JPEG/WebP/KTX2/OGG/FLAC/FBX each have their own distinct
+# magic, and TOML/JSON settings are UTF-8 text. Games judges an embedded bundle recursively, by
+# its own choice (spec/games/); this rule is content-only (ingest-v1.md step 10).
+ZIP_SIGNATURES = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
 BODY_EXT = ".vrm"  # the names a GLB container may carry (ingest-v1.md §3 step 10)
 
 
@@ -860,34 +867,111 @@ def gets_verdict(cls: str, part_kind: str | None) -> bool:
     return part_kind in AVATAR_PART_KINDS
 
 
-URI_FORBIDDEN = "%?#\\"
+URI_RAW_FORBIDDEN = "?#\\"  # checked on the RAW uri, before any percent-decoding
+
+
+def _percent_decode_once(u: str) -> bytes:
+    """Exactly one pass of percent-decoding, over the uri's own UTF-8 bytes (so a non-ASCII
+    character survives untouched and only `%XX` escapes are consumed). Raises ValueError on a
+    `%` not followed by two hex digits."""
+    src = u.encode("utf-8")
+    out = bytearray()
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c == 0x25:  # '%'
+            two = src[i + 1:i + 3]
+            if len(two) != 2 or not all(chr(x) in "0123456789abcdefABCDEF" for x in two):
+                raise ValueError("a '%' not followed by two hex digits")
+            out.append(int(two, 16))
+            i += 3
+        else:
+            out.append(c)
+            i += 1
+    return bytes(out)
+
+
+def _decode_gltf_uri(u: str) -> str:
+    """glTF 2.0 requires a space (and other reserved characters) to be percent-encoded, so a raw
+    `%` is legitimate -- `Base%20Color.png` must resolve to `Base Color.png`. What is NOT
+    legitimate: a raw `?`, `#` or `\\` (a loader strips/splits on these before it even looks at
+    `%`, N2); a malformed escape; bytes that are not valid UTF-8 once decoded; a control
+    character; or a decoded string that still contains `%` (it was double-encoded, e.g.
+    `%252e%252e` decodes once to the literal text `%2e%2e`, and decoding it again would reach
+    `..` -- so decoding only once and then refusing a leftover `%` closes that gap without ever
+    decoding twice). Raises ValueError with the reason; never returns a value containing `%`."""
+    bad = [c for c in URI_RAW_FORBIDDEN if c in u]
+    if bad:
+        raise ValueError(f"containing {''.join(bad)!r}")
+    try:
+        decoded_bytes = _percent_decode_once(u)
+    except ValueError as e:
+        raise ValueError(str(e)) from None
+    try:
+        decoded = decoded_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("not valid UTF-8 once percent-decoded") from None
+    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in decoded):
+        raise ValueError("a control character once percent-decoded")
+    if "%" in decoded:
+        raise ValueError("still percent-encoded once decoded (double encoding)")
+    return decoded
+
+
+def gltf_array_shape_refusal(v, key: str) -> str | None:
+    """games round 3 (astra-plugins-ops-42): `images` and `buffers`, when present, must be JSON
+    arrays of objects. `"images": 5` crashed `uri_refusal` with TypeError (bug 2: `for x in (g.get(k)
+    or [])` iterates an int); `"images": {"0": {"uri": "..."}}` (bug 3) is truthy so the old `or []`
+    never ran, and iterating a dict yields its KEYS ("0", a string, never a dict) -- `isinstance(x,
+    dict)` then silently skipped every element, so the external uri inside was never read at all,
+    even though a JS loader reads the object by its key "0" and would follow it. Both are refused
+    by their SHAPE before any element is read."""
+    if not isinstance(v, list):
+        return f"{key} is a JSON {type(v).__name__}, not an array"
+    for x in v:
+        if not isinstance(x, dict):
+            return f"{key} contains an element that is not an object: {x!r}"
+    return None
 
 
 def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None:
     """R7: a GLB carries everything it needs: any images[].uri / buffers[].uri that is not a
-    `data:` URI is refused. A .gltf may name a sibling file only: relative, no scheme, no `..`, no
+    `data:` URI is refused. `images` and `buffers`, when present, must be arrays, each of whose
+    elements is an object (`gltf_array_shape_refusal`). A .gltf may name a sibling file only:
+    percent-decoded exactly once (see `_decode_gltf_uri`), relative, no scheme, no `..`, no
     leading `/`, resolving inside its OWN part, to a file present in the archive."""
     g = glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)
     if not isinstance(g, dict):
         return None  # not JSON at all: step 10's other rules decide
-    uris = [x.get("uri") for k in ("images", "buffers") for x in (g.get(k) or []) if isinstance(x, dict) and "uri" in x]
-    for u in uris:
-        if not isinstance(u, str):
-            return f"a uri that is not a string: {u!r}"
-        if u.startswith("data:"):
+    for key in ("images", "buffers"):
+        v = g.get(key)
+        if v is None:
             continue
-        if b[:4] == GLB_MAGIC:
-            return f"a GLB names an external uri {u!r}"
-        bad = [c for c in URI_FORBIDDEN if c in u]
-        if bad:  # N2: a loader percent-decodes (and splits on ? and #) BEFORE it joins the path
-            return f"a uri containing {''.join(bad)!r}: {u!r}"
-        if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", u) or u.startswith("/") or "\\" in u or "/../" in f"/{u}/" or u in ("", "."):
-            return f"a uri that is not a plain relative path: {u!r}"
-        target = posixpath.normpath(posixpath.join(posixpath.dirname(p), u))
-        if target not in files:
-            return f"a uri naming a file the archive does not hold: {u!r}"
-        if part_root_of.get(target) != part_root_of.get(p):
-            return f"a uri resolving outside its own part: {u!r}"
+        why = gltf_array_shape_refusal(v, key)
+        if why:
+            return why
+        for x in v:
+            if "uri" not in x:
+                continue
+            u = x["uri"]
+            if not isinstance(u, str):
+                return f"a uri that is not a string: {u!r}"
+            if u.startswith("data:"):
+                continue
+            if b[:4] == GLB_MAGIC:
+                return f"a GLB names an external uri {u!r}"
+            try:
+                decoded = _decode_gltf_uri(u)
+            except ValueError as e:
+                return f"a uri {e}: {u!r}"
+            if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", decoded) or decoded.startswith("/") or "\\" in decoded \
+                    or "/../" in f"/{decoded}/" or decoded in ("", "."):
+                return f"a uri that is not a plain relative path: {decoded!r}"
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(p), decoded))
+            if target not in files:
+                return f"a uri naming a file the archive does not hold: {decoded!r}"
+            if part_root_of.get(target) != part_root_of.get(p):
+                return f"a uri resolving outside its own part: {decoded!r}"
     return None
 
 
@@ -1123,6 +1207,16 @@ def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None
     return parts
 
 
+def require_manifest_is_object(man) -> None:
+    """ingest-v1.md §3 step 8: `astrachar.json` must be a JSON OBJECT. `C.strict_loads` happily
+    returns a list, a string, a number, a bool or `None` for other valid JSON, and every line
+    below this point calls `.get` on the result -- a manifest of `[]` once raised AttributeError
+    out of `ingest_bundle` instead of a refusal (astra-plugins-ops-42, games round 3; golden
+    `manifest-not-object`)."""
+    if not isinstance(man, dict):
+        raise Refusal("E_BUNDLE_MANIFEST", f"astrachar.json is a JSON {type(man).__name__}, not an object")
+
+
 def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     files = walk_zip(raw)
     order = json.loads(files.pop("\0order"))
@@ -1135,6 +1229,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         man = C.strict_loads(man_raw)
     except (UnicodeDecodeError, json.JSONDecodeError, C.DuplicateMember):
         raise Refusal("E_BUNDLE_MANIFEST", "does not parse") from None
+    require_manifest_is_object(man)
     if man.get("format") not in ("astra.character", "astra.animpack") or man.get("format_version") != 1 or man.get("schema") != 5:
         raise Refusal("E_BUNDLE_MANIFEST", "format, format_version or schema")
     listed = man.get("files") or {}
@@ -1160,6 +1255,8 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         why = bom_refusal(p, b)
         if why:
             raise Refusal("E_CONTENT_FORMAT", f"{p}: {why}")
+        if b[:4] in ZIP_SIGNATURES:
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: a nested archive is not a content part")
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
         if judged(p, b):
