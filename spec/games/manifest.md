@@ -291,6 +291,12 @@ real file in the zip would ever match it, which only ever reads as
 
 #### 2.7.3 The HARD VRM licence gate
 
+**Normative source: marketplace legal `DRAFT-v3.md` Part 6 G4 (Terms 8.1,
+D8 — widened by the coordinator's second round, 2026-11-01) and G5 (Part 1
+rule 2; Terms 6.4).** D8 was decided for astra-ce's character checkbox
+first; G4 makes it the *same* rule for a GI's content parts — one gate,
+read the same way, wherever a VRM reaches Astra.
+
 Runs **before any checkbox** — a licence that refuses redistribution is not
 something an author's confirmation can override. It applies to every `.vrm`
 file this table declares, and to the body inside a `.astrachar` bundle
@@ -307,26 +313,74 @@ refuses with `E_CONTENT_LICENCE_REFUSED`, naming the field and its value,
 when:
 
 - **VRM 0.x** — `extensions.VRM.meta.allowedUserName == "OnlyAuthor"`, or
+  `== "ExplicitlyLicensedPerson"` (named people only, D8 widened), or
   `extensions.VRM.meta.licenseName == "Redistribution_Prohibited"`;
 - **VRM 1.0** — `extensions.VRMC_vrm.meta.avatarPermission == "onlyAuthor"`,
-  or `extensions.VRMC_vrm.meta.allowRedistribution == false`.
+  or `== "onlySeparatelyLicensedPerson"` (named people only), or
+  `extensions.VRMC_vrm.meta.allowRedistribution == false`.
 
-These are the exact fields and values; an absent field never triggers a
-refusal by itself (unlike astra-companion's own *export* default, D23, which
-treats an absent field as prohibited — that is a stricter choice astra-ce
-makes for its own export UI, not a rule this gate repeats). Whatever meta was
-read — the fields above, present or not — is kept with the part as
-`vrm_licence` (games-index-v1.md §2.1), for the confirmation record, whether
-or not the gate refused it.
+**An absent field reads as ITS OWN SPEC'S default, never as "allowed"** —
+this replaces this document's earlier text, which said the opposite and was
+wrong (G4: "reading each spec's defaults for absent fields"). The defaults
+are astra-companion's own (`src/vrm/meta.rs:80-100`, `licence_of` /
+`redistribution_of`, the implementation this gate ports):
+
+| spec | field | when absent |
+|---|---|---|
+| VRM 1.0 | `avatarPermission` | `"onlyAuthor"` — refused |
+| VRM 1.0 | `allowRedistribution` | `false` (the meta schema's own default) — refused |
+| VRM 0.x | `allowedUserName` | `"OnlyAuthor"` (UniVRM's default) — refused |
+| VRM 0.x | `licenseName` | prohibited (UniVRM's default) — refused |
+
+So a VRM 1.0 file whose `extensions.VRMC_vrm.meta` carries neither field at
+all is refused exactly as if it had written `avatarPermission: "onlyAuthor"`
+itself — absence is never a gap in this gate, only in the one below.
+
+**`unknown`: no VRM meta at all.** A `.vrm` file (or a readable `.astrachar`
+body) that is a well-formed GLB but carries no `extensions.VRM.meta` and no
+`extensions.VRMC_vrm.meta` block — not every `.vrm` has one — is neither
+refused nor passed silently: it is flagged `F_CONTENT_VRM_META_UNKNOWN` and
+reaches the release's confirmation step only via §2.7.3's `licence_source`
+fallback below (G4: "`unknown` passes only with the character checkbox and
+the licence line beside it", which is the publish form's job, not this
+gate's).
+
+**The usage flags (G5).** Kept with the part in `vrm_licence.fields`
+whichever of these the file actually carries, alongside the
+redistribution/permission fields above, so the install sheet and the public
+card can show the whole licence line:
+
+- **VRM 1.0** — `allowExcessivelyViolentUsage`, `allowExcessivelySexualUsage`,
+  `allowPoliticalOrReligiousUsage`, `allowAntisocialOrHateUsage`;
+- **VRM 0.x** — `violentUssageName`, `sexualUssageName`,
+  `commercialUssageName` (the spec's own misspelling, kept verbatim).
+
+`vrm_licence.fields` holds the **raw** keys the file carries — an absent
+key's spec default is applied only by the refusal logic above, never
+fabricated here; a display default (if any) is the install sheet's own
+concern, not this gate's.
+
+**`licence_source`: every covered part needs a licence from somewhere.**
+When the gate found readable VRM meta (`vrm_licence` is present, whether the
+verdict was allowed or refused), the part's `licence_source` is `"vrm"`.
+Otherwise — a non-VRM kind, or a `.vrm`/`.astrachar` body whose meta reads
+`unknown` — the part's own `[[integration.content]].licence` string (§2.7)
+is its whole licence, and `licence_source` is `"declared"`. A part with
+neither — no readable VRM meta **and** an absent or empty `licence` — is
+refused with `E_CONTENT_LICENCE_UNDECLARED`, naming the path (G5, Part 1
+rule 2a's `licence.source = declared` fallback, applied to a GI's own
+free-text `licence` field rather than astra-ce's richer structured
+declaration form).
 
 #### 2.7.4 The catalogue entry
 
-An entry carries `content[]`, each `{path, kind, title, credit, licence,
-sha256, vrm_licence?}` (games-index-v1.md §2.1), and `content_confirmed`, a
-`{text_id: version}` map of which confirmation text each declared part was
-last confirmed under. **Never an account** — who confirmed what, and when,
-is a confirmation record, and confirmation records live in the plugins
-service (minice), not in the signed catalogue document.
+An entry carries `content[]`, each `{path, kind, title, credit, licence?,
+licence_source, sha256, vrm_licence?}` (games-index-v1.md §2.1), and
+`content_confirmed`, a `{text_id: version}` map of which confirmation text
+each declared part was last confirmed under. **Never an account** — who
+confirmed what, and when, is a confirmation record, and confirmation
+records live in the plugins service (minice), not in the signed catalogue
+document.
 
 ### 2.8 Reserved: `[[integration.uses]]`
 
@@ -373,8 +427,12 @@ per rule, named for the rule it breaks, and `tools/check-games-goldens.py`
 asserts each one is refused with exactly that code.
 
 §2.7's content-coverage codes (`E_CONTENT_UNDECLARED`, `E_CONTENT_MISSING`,
-`E_CONTENT_DUPLICATE`) and the VRM gate's `E_CONTENT_LICENCE_REFUSED` are the
-one exception to "gi-probe check finding": the ingest order (§2.7.1) runs
+`E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED` and
+`E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback with
+nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
+`.vrm`/`.astrachar` body with no readable VRM meta at all — never a
+refusal) are the one exception to "gi-probe check finding": the ingest
+order (§2.7.1) runs
 the content check **before** gi-probe, over the real release zip's bytes,
 not the parsed manifest alone — `path` uniqueness is the only part of §2.7
 `gi-probe check` can assert from the manifest by itself (`testdata/games/

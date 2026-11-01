@@ -1,0 +1,23 @@
+# content check golden: E_CONTENT_LICENCE_UNDECLARED (manifest.md §2.7.3 /
+# legal DRAFT-v3.md Part 6 G5). "audio/theme.ogg" is a non-VRM kind (no
+# spec licence metadata to read at all) and its entry carries no `licence`
+# -- schema 1 allows the key to be absent, but the content check still
+# needs SOME licence for the part, and refuses when there is none.
+schema = 1
+
+[integration]
+id = "someone.licence-undeclared"
+name = "Licence Undeclared Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "audio/theme.ogg"
+kind = "audio"
+title = "Theme"
+credit = "someone"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

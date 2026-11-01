@@ -110,7 +110,7 @@
 
     "vrmLicenceMeta": {
       "type": "object",
-      "description": "manifest.md §2.7's HARD VRM GATE. The licence meta actually read from the part's glTF JSON chunk (or, for a .astrachar part, its body's), kept for the confirmation record whether or not the gate refused it.",
+      "description": "manifest.md §2.7's HARD VRM GATE. The licence meta actually read from the part's glTF JSON chunk (or, for a .astrachar part, its body's), kept for the confirmation record whether or not the gate refused it. `fields` carries whichever of the redistribution/avatar-permission keys and the VRM usage-flag keys (legal DRAFT-v3.md Part 6 G5: VRM 1.0 allowExcessivelyViolentUsage/allowExcessivelySexualUsage/allowPoliticalOrReligiousUsage/allowAntisocialOrHateUsage, VRM 0.x violentUssageName/sexualUssageName/commercialUssageName) the file actually carries -- an absent key's spec default is a display concern, never fabricated here.",
       "required": ["vrm_version"],
       "additionalProperties": false,
       "properties": {
@@ -121,8 +121,8 @@
 
     "contentPart": {
       "type": "object",
-      "description": "manifest.md §2.7 / dev/game-integrations-plan-merged.md §5.4: one of this entry's own non-built-in assets (animations, a character model, art or audio), covered by exactly one [[integration.content]] table and confirmed by the author per content_confirmed below.",
-      "required": ["path", "kind", "title", "credit", "licence", "sha256"],
+      "description": "manifest.md §2.7 / dev/game-integrations-plan-merged.md §5.4: one of this entry's own non-built-in assets (animations, a character model, art or audio), covered by exactly one [[integration.content]] table and confirmed by the author per content_confirmed below. licence_source says where its licence terms came from (legal DRAFT-v3.md Part 6 G5): 'vrm' when a readable VRM licence was found (vrm_licence is then present too), 'declared' when the manifest's own `licence` string is the part's whole licence -- a part reaching this document always resolved one or the other (manifest.md §2.7.3's E_CONTENT_LICENCE_UNDECLARED refuses the release otherwise).",
+      "required": ["path", "kind", "title", "credit", "sha256", "licence_source"],
       "additionalProperties": false,
       "properties": {
         "path": { "type": "string", "minLength": 1 },
@@ -130,6 +130,7 @@
         "title": { "type": "string", "minLength": 1 },
         "credit": { "type": "string", "minLength": 1 },
         "licence": { "type": "string", "minLength": 1 },
+        "licence_source": { "enum": ["vrm", "declared"] },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "vrm_licence": { "$ref": "#/$defs/vrmLicenceMeta" }
       }

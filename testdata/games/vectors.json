@@ -135,12 +135,22 @@
       { "name": "undeclared", "dir": "content/releases/undeclared", "manifest": "content/releases/undeclared/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_UNDECLARED" },
       { "name": "missing", "dir": "content/releases/missing", "manifest": "content/releases/missing/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_MISSING" },
       { "name": "duplicate", "dir": "content/releases/duplicate", "manifest": "content/releases/duplicate/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_DUPLICATE" },
-      { "name": "allowed", "dir": "content/releases/allowed", "manifest": "content/releases/allowed/astra-gi.toml", "verdict": "accept" }
+      { "name": "allowed", "dir": "content/releases/allowed", "manifest": "content/releases/allowed/astra-gi.toml", "verdict": "accept" },
+      { "name": "licence-undeclared", "dir": "content/releases/licence-undeclared", "manifest": "content/releases/licence-undeclared/astra-gi.toml", "verdict": "refuse", "code": "E_CONTENT_LICENCE_UNDECLARED", "note": "a non-VRM part with no vrm meta and no declared licence -- legal DRAFT-v3.md Part 6 G5" },
+      { "name": "vrm-unknown-but-declared", "dir": "content/releases/vrm-unknown-but-declared", "manifest": "content/releases/vrm-unknown-but-declared/astra-gi.toml", "verdict": "accept", "note": "G4's unknown VRM meta is never refused by the gate; G5's declared-licence fallback is what makes this accept -- pair with licence-undeclared, same shape minus the declared licence" }
     ],
     "vrm_gate": [
-      { "name": "allowed", "file": "content/vrm/allowed.vrm", "verdict": "accept" },
-      { "name": "refused-vrm0-only-author", "file": "content/vrm/refused-vrm0-only-author.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.allowedUserName", "value": "OnlyAuthor" },
-      { "name": "refused-vrm1-only-author", "file": "content/vrm/refused-vrm1-only-author.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": "onlyAuthor" }
+      { "name": "allowed", "file": "content/vrm/allowed.vrm", "verdict": "accept", "note": "0.x, isolates neither trigger: licenseName=Redistribution_Allowed, allowedUserName=Everyone, plus the usage flags" },
+      { "name": "allowed-vrm1", "file": "content/vrm/allowed-vrm1.vrm", "verdict": "accept", "note": "1.0, same shape as 'allowed' plus its own usage flags" },
+      { "name": "refused-vrm0-only-author", "file": "content/vrm/refused-vrm0-only-author.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.allowedUserName", "value": "OnlyAuthor", "defaulted": false },
+      { "name": "refused-vrm1-only-author", "file": "content/vrm/refused-vrm1-only-author.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": "onlyAuthor", "defaulted": false },
+      { "name": "refused-vrm0-named-people", "file": "content/vrm/refused-vrm0-named-people.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.allowedUserName", "value": "ExplicitlyLicensedPerson", "defaulted": false },
+      { "name": "refused-vrm1-named-people", "file": "content/vrm/refused-vrm1-named-people.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": "onlySeparatelyLicensedPerson", "defaulted": false },
+      { "name": "refused-vrm0-redistribution-prohibited", "file": "content/vrm/refused-vrm0-redistribution-prohibited.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.licenseName", "value": "Redistribution_Prohibited", "defaulted": false },
+      { "name": "refused-vrm1-redistribution-false", "file": "content/vrm/refused-vrm1-redistribution-false.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.allowRedistribution", "value": false, "defaulted": false },
+      { "name": "refused-vrm0-absent-fields", "file": "content/vrm/refused-vrm0-absent-fields.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.licenseName", "value": null, "defaulted": true, "note": "meta present but empty -- UniVRM's own absent-licenseName default is prohibited" },
+      { "name": "refused-vrm1-absent-fields", "file": "content/vrm/refused-vrm1-absent-fields.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.allowRedistribution", "value": null, "defaulted": true, "note": "meta present but empty -- the VRM 1.0 meta schema's own absent-allowRedistribution default is false" },
+      { "name": "unknown-no-meta", "file": "content/vrm/unknown-no-meta.vrm", "verdict": "unknown", "note": "a valid GLB with no VRM/VRMC_vrm extension at all -- G4: flagged, never refused" }
     ]
   }
 }
