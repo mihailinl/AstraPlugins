@@ -7,10 +7,12 @@ Copyright (C) 2026 Minice — https://minice.ai
 
 **Normative.** A separate small signed document (merged plan §1, R23 — not
 a `withdrawn[]` array inside `astra.games.index/1`, which an over-cap check
-would refuse along with the takedown it carries). Same envelope, same key
-family and freshness numbers as `games-index-v1.md` §1 and §3, its own
-per-key serial floor, and its own client-side size cap — a document this
-small has no excuse to ever approach it.
+would refuse along with the takedown it carries). Same envelope, same
+`kind_keys` key pair and freshness numbers as `games-index-v1.md` §1 and §3,
+its own per-kind serial floor (tracked separately from the index
+document's — a replayed `withdrawn` serial must not hold back a fresh one,
+and vice versa), and its own client-side size cap — a document this small
+has no excuse to ever approach it.
 
 ## 1. Why a separate document, precisely
 
