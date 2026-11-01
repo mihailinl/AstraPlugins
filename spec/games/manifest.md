@@ -364,7 +364,27 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
 - **its glTF JSON parses and names no member twice**: one reader's
   `allowRedistribution: false` is another's `true`, and JSON that does not
   parse must never fall through to "plain", which an animation part does not
-  judge;
+  judge. JSON nested so deep that the parser's own stack gives out is JSON
+  that does not parse — a refusal, never a crash of the gate (golden
+  `gltf-million-deep`, built in memory);
+- **the caps, the content catalogue's own** (`gltf_problem`, ingest-v1.md
+  §3 steps 5 and 10), each naming the cap it breaks: a GLB JSON chunk or a
+  `.gltf` over **16 MiB**, checked from the header or the file's size
+  **before** anything is parsed (goldens `glb-json-over-16mib`,
+  `gltf-over-16mib`); JSON nested **deeper than 128**, the top-level object
+  being depth 1 (goldens `gltf-too-deep`, refused, and `gltf-depth-128`,
+  accepted); and more than **32 MiB of glTF JSON in the whole release** —
+  every GLB's declared first-chunk length plus every `.gltf`'s size, read
+  before any is parsed (golden `gltf-total-over-32mib`: three GLBs of 11 MiB,
+  each fine alone). The reason is the server's memory: one release must not
+  make it hold a gigabyte of parsed JSON (B1: seven 16 MiB `.gltf` once held
+  1.9 GB). These are `E_CONTENT_FORMAT` here; the content catalogue gives
+  its archive-wide budget its own `E_ARCHIVE_TOO_LARGE`;
+- **a `.gltf` carries no byte-order mark** — UTF-8, UTF-16 or UTF-32: glTF
+  2.0 is UTF-8 JSON without one, and a reader that decodes by the mark sees
+  a different text from one that does not (goldens `gltf-with-bom`,
+  `gltf-utf16`). Unlike the content catalogue, which refuses a UTF-16/32
+  mark on any entry, this applies to a `.gltf` alone (§2.7.1);
 - **no external reference** (the content catalogue's own `uri_refusal`): in
   a GLB every `images[].uri` and `buffers[].uri` is a `data:` URI; in a
   `.gltf` each is a `data:` URI or a plain relative path — no scheme, no

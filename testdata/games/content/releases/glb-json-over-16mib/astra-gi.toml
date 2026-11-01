@@ -1,0 +1,21 @@
+# content check golden: a whole GLB whose JSON chunk is 16 MiB + 4 bytes (built in memory, gen.py
+# synth) -- E_CONTENT_FORMAT, checked before the chunk is parsed (ingest-v1.md §3 step 10).
+schema = 1
+
+[integration]
+id = "someone.glb-json-over-16mib"
+name = "Glb Json Over 16mib"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/big.glb"
+kind = "art"
+title = "big"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

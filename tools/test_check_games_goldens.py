@@ -614,6 +614,50 @@ class GltfUris(unittest.TestCase):
                 self.assertIn("not an array", ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf"}))
 
 
+class GltfCaps(unittest.TestCase):
+    """The content catalogue's caps, by its own gltf_problem: 16 MiB per JSON
+    chunk or .gltf before parsing, depth 128, 32 MiB per release; any BOM on
+    a .gltf; and a JSON too deep to parse is a refusal, never a crash."""
+
+    def gen(self):
+        return ggold.gen_module()
+
+    def test_depth_128_passes_and_129_is_refused_in_a_glb_and_a_gltf(self):
+        for depth, ok in ((128, True), (129, False)):
+            text = self.gen().deep_gltf(depth)
+            chunk = text + b" " * ((-len(text)) % 4)
+            glb = struct.pack("<4sII", b"glTF", 2, 20 + len(chunk)) + struct.pack("<I4s", len(chunk), b"JSON") + chunk
+            for raw, path in ((text, "m/a.gltf"), (glb, "m/a.glb")):
+                with self.subTest(depth=depth, path=path):
+                    self.assertEqual(ggold.gltf_format_problem(raw, path) is None, ok)
+
+    def test_a_json_too_deep_to_parse_is_a_format_error_not_a_crash(self):
+        raw = self.gen().synth("gltf-million-deep")
+        with self.assertRaises(ggold.GltfFormatError):
+            ggold._strict_json(raw)
+        self.assertIn("does not parse", ggold.gltf_format_problem(raw, "m/a.gltf"))
+
+    def test_the_16_mib_cap_is_read_before_the_json_is_parsed(self):
+        n = ggold.CG.MAX_GLTF_JSON + 4
+        glb = struct.pack("<4sII", b"glTF", 2, 20 + n) + struct.pack("<I4s", n, b"JSON") + b"{" * n  # never valid JSON
+        self.assertIn("over 16777216", ggold.gltf_format_problem(glb, "m/a.glb"))
+        self.assertIn("over 16777216", ggold.gltf_format_problem(b"{" * (n - 3), "m/a.gltf"))
+
+    def test_any_bom_on_a_gltf_is_refused_and_the_same_bytes_under_another_name_are_only_sniffed(self):
+        for bom in (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff", b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"):
+            with self.subTest(bom=bom.hex()):
+                raw = bom + b'{"asset": {"version": "2.0"}}'
+                self.assertIn("byte-order mark", ggold.gltf_format_problem(raw, "m/a.gltf"))
+                self.assertIsNone(ggold.gltf_format_problem(raw, "m/a.json"))
+
+    def test_the_release_budget_counts_every_glb_and_gltf_and_two_of_three_fit(self):
+        files, doc = release("gltf-total-over-32mib")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        del files["models/c.glb"]
+        doc["integration"]["content"] = [e for e in doc["integration"]["content"] if e["path"] != "models/c.glb"]
+        self.assertEqual(codes_of(files, doc), [], "22 MiB of glTF JSON is under the 32 MiB a release may hold")
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"

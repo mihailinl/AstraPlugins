@@ -423,6 +423,19 @@ def _strict_json(data: bytes):
         return json.loads(data.decode("utf-8"), object_pairs_hook=_no_duplicate_members)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise GltfFormatError(f"the glTF JSON does not parse: {e}") from None
+    except RecursionError:
+        # thousands of levels deep: the parser's own stack gives out first, and
+        # that is a file this gate refuses, never a crash of the gate itself
+        raise GltfFormatError("the glTF JSON does not parse: it nests too deep to read") from None
+
+
+def _cap_problem(path: str | None, raw: bytes) -> str | None:
+    """The content catalogue's own `gltf_problem` (ingest-v1.md §3 step 10):
+    a JSON chunk or `.gltf` over 16 MiB, checked BEFORE anything is parsed;
+    JSON that does not parse (RecursionError included) or is not an object;
+    nesting deeper than 128, the top-level object being depth 1. A duplicate
+    member is left to `_strict_json`, which names it."""
+    return CG.gltf_problem(path or "", raw)
 
 
 def parse_glb_strict(raw: bytes) -> dict:
@@ -443,6 +456,9 @@ def parse_glb_strict(raw: bytes) -> dict:
     chunk_len = int.from_bytes(raw[12:16], "little")
     if 20 + chunk_len > len(raw):
         raise GltfFormatError("the GLB's JSON chunk runs past the end of the file")
+    why = _cap_problem(None, raw)
+    if why:
+        raise GltfFormatError(f"the GLB's {why}" if why.startswith("its ") else f"the GLB has {why}")
     doc = _strict_json(raw[20:20 + chunk_len])
     if not isinstance(doc, dict):
         raise GltfFormatError("the glTF JSON is not an object")
@@ -486,6 +502,13 @@ def gltf_format_problem(raw: bytes, path: str | None = None, present=None) -> st
     is_glb = raw[:4] == b"glTF"
     if not is_glb and not (path is not None and path.lower().endswith(".gltf")):
         return None
+    if not is_glb:
+        # glTF 2.0 is UTF-8 JSON without a byte-order mark: any BOM on a .gltf,
+        # UTF-8 or UTF-16/32, is refused by the content catalogue's own rule
+        # (N1) -- here, and only for a .gltf (§2.7.1's deliberate difference)
+        why = CG.bom_refusal(path, raw) or _cap_problem(path, raw)
+        if why:
+            return f"a .gltf that {why}" if why.startswith("begins") else why
     try:
         doc = parse_glb_strict(raw) if is_glb else _strict_json(raw)
     except GltfFormatError as e:
@@ -742,8 +765,18 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
             findings.append({"code": code, "path": path, "detail": detail})
 
     present = set(files)
+    # the release's glTF JSON budget, from headers before anything is parsed:
+    # the content catalogue's 32 MiB per archive (ingest-v1.md §3 step 5, B1)
+    budget = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
+    if budget > CG.MAX_GLTF_JSON_TOTAL:
+        refuse("E_CONTENT_FORMAT", "", f"{budget} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
     for p, b in sorted(files.items()):
         why = name_problem(p, b)
+        if why:
+            refuse("E_CONTENT_FORMAT", p, why)
+            continue
+        # every GLB and every .gltf, declared or not, of any class (§2.7.3)
+        why = gltf_format_problem(b, p, present)
         if why:
             refuse("E_CONTENT_FORMAT", p, why)
     found = content_files_of(files)
@@ -751,7 +784,8 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
     for p in cov["undeclared"]:
         refuse("E_CONTENT_UNDECLARED", p, "a content-typed file with no [[integration.content]] entry")
     for p in cov["missing"]:
-        refuse("E_CONTENT_MISSING", p, "declared, and no content-typed file is at that path")
+        if ("E_CONTENT_FORMAT", p) not in seen:  # it is there, and refused for what it is
+            refuse("E_CONTENT_MISSING", p, "declared, and no content-typed file is at that path")
     for p in cov["duplicates"]:
         refuse("E_CONTENT_DUPLICATE", p, "declared by more than one entry")
     entries = manifest.get("integration", {}).get("content", [])

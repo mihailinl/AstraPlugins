@@ -1,0 +1,21 @@
+# content check golden: a .gltf in UTF-16LE with its byte-order mark -- E_CONTENT_FORMAT (the content
+# catalogue's gltf-json-utf16): every .gltf is a glTF candidate, so the BOM rule applies to it.
+schema = 1
+
+[integration]
+id = "someone.gltf-utf16"
+name = "Gltf Utf16"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -116,6 +116,7 @@ def gltf_text(obj) -> bytes:
 
 
 # a text glTF carrying an avatar whose licence refuses redistribution
+PLAIN_GLTF = {"asset": {"version": "2.0"}}
 GLTF_AVATAR_PROHIBITED = {"asset": {"version": "2.0"},
                           **v0({"licenseName": "Redistribution_Prohibited", "allowedUserName": "Everyone"})}
 
@@ -137,13 +138,37 @@ RELEASE_FILES = {
     "releases/gltf-uri-percent/models/prop.gltf":
         lambda: gltf_text({"asset": {"version": "2.0"}, "buffers": [{"uri": PCT_URI, "byteLength": 4}]}),
     f"releases/gltf-uri-percent/models/{PCT_URI}": lambda: b"\x00\x01\x02\x03",
+    # the caps (ingest-v1.md §3 step 10): nesting deeper than 128, the top-level object being 1
+    "releases/gltf-too-deep/models/prop.gltf": lambda: deep_gltf(129),
+    "releases/gltf-depth-128/models/prop.gltf": lambda: deep_gltf(128),
+    # glTF 2.0 is UTF-8 JSON without a byte-order mark
+    "releases/gltf-with-bom/models/prop.gltf": lambda: codecs.BOM_UTF8 + gltf_text(PLAIN_GLTF),
+    "releases/gltf-utf16/models/prop.gltf": lambda: codecs.BOM_UTF16_LE + json.dumps(PLAIN_GLTF).encode("utf-16-le"),
 }
+
+
+def deep_gltf(depth: int) -> bytes:
+    """A .gltf whose JSON nests exactly `depth` deep: the object, then arrays."""
+    return b'{"asset": {"version": "2.0"}, "extras": ' + b"[" * (depth - 1) + b"]" * (depth - 1) + b"}"
+
+
+def padded_glb(chunk_len: int) -> bytes:
+    """A whole GLB whose one JSON chunk is a plain glTF padded with spaces to `chunk_len` bytes."""
+    text = gltf_text(PLAIN_GLTF)
+    chunk = text + b" " * (chunk_len - len(text))
+    return struct.pack("<4sII", b"glTF", 2, 20 + len(chunk)) + struct.pack("<I4s", len(chunk), b"JSON") + chunk
 
 
 SYNTH = {
     # over the 16 MiB a key-by-key sniff reads: refused only when the bytes name "asset"
     "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": 1}, "strings": "' + b"x" * (16 * MIB) + b'"}',
     "json-over-16mib-plain": lambda: b'{"strings": "' + b"x" * (16 * MIB) + b'"}',
+    # the caps, each checked BEFORE anything is parsed
+    "glb-json-over-16mib": lambda: padded_glb(16 * MIB + 4),
+    "gltf-over-16mib": lambda: gltf_text(PLAIN_GLTF) + b" " * (16 * MIB),
+    "glb-json-11mib": lambda: padded_glb(11 * MIB),  # three of them: each under 16 MiB, together over 32
+    # a million levels: a recursive parser raises, and that must be a refusal, never a crash
+    "gltf-million-deep": lambda: deep_gltf(1_000_000),
 }
 
 
