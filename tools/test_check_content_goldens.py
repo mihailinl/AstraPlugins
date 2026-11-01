@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -101,16 +102,21 @@ class Primitives(unittest.TestCase):
         self.assertEqual(C.jcs(doc).decode("utf-8"), '{"\U0001f600":2,"":1}')
 
     def test_a_changed_byte_moves_the_part_digest(self):
-        files = {"animpacks/wave/animpack.toml": b'name = "wave"\n', "animpacks/wave/clips/a.fbx": b"FBX-A",
-                 "animpacks/wave/clips/b.fbx": b"FBX-B"}
-        self.assertEqual(C.part_digest(files), V["part_digest"][0]["part_digest"])
-        files["animpacks/wave/clips/b.fbx"] = b"FBX-C"
-        self.assertNotEqual(C.part_digest(files), V["part_digest"][0]["part_digest"])
+        files = {"animpack.toml": b'name = "wave"\n', "clips/a.fbx": b"FBX-A", "clips/b.fbx": b"FBX-B"}
+        self.assertEqual(C.part_digest(files, root=""), V["part_digest"][0]["part_digest"])
+        files["clips/b.fbx"] = b"FBX-C"
+        self.assertNotEqual(C.part_digest(files, root=""), V["part_digest"][0]["part_digest"])
 
     def test_the_part_digest_ignores_input_order_but_not_names(self):
         a = {"x/b": b"1", "x/a": b"2"}
-        self.assertEqual(C.part_digest(a), C.part_digest(dict(reversed(list(a.items())))))
-        self.assertNotEqual(C.part_digest(a), C.part_digest({"x/c": b"1", "x/a": b"2"}))
+        self.assertEqual(C.part_digest(a, root="x"), C.part_digest(dict(reversed(list(a.items()))), root="x"))
+        self.assertNotEqual(C.part_digest(a, root="x"), C.part_digest({"x/c": b"1", "x/a": b"2"}, root="x"))
+
+    def test_the_part_root_and_the_single_file_rule(self):
+        pack = {"animpack.toml": b"t", "clips/a.fbx": b"A"}
+        inside = {f"animpacks/moves (2)/{k}": v for k, v in pack.items()}
+        self.assertEqual(C.part_digest(pack, root=""), C.part_digest(inside, root="animpacks/moves (2)"))
+        self.assertEqual(C.part_digest({"a.vrm": b"x"}, root=None), C.part_digest({"b/c.vrm": b"x"}, root=None))
 
 
 class EverySemanticGoldenBreaksExactlyItsRule(unittest.TestCase):
@@ -444,11 +450,11 @@ class F2VerdictFollowsContent(unittest.TestCase):
     def test_files_outside_parts_ignored(self):
         orig = cg.parts_of
 
-        def lax(files, body, settings_dir=None, strict=True):
+        def lax(files, body, settings_dir=None, strict=True, pack=None):
             try:
-                return orig(files, body, settings_dir, strict)
+                return orig(files, body, settings_dir, strict, pack)
             except cg.Refusal:
-                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir, strict)
+                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir, strict, pack)
         self.assertRedOn(Mutation("parts_of", lax), "archives/file-outside-parts")
 
 
@@ -696,7 +702,30 @@ class R7UrisDevicesAndFileDirectory(unittest.TestCase):
 
     def test_a_relative_uri_inside_the_part_is_allowed(self):
         raw = (cg.DATA / "archives/valid/animset-gltf-relative-uri.astrapack").read_bytes()
-        self.assertEqual(cg.ingest_bundle(raw, {"declared_licence": ["animpacks/wave"]})["verdict"], "accept")
+        self.assertEqual(cg.ingest_bundle(raw, {"declared_licence": [""]})["verdict"], "accept")  # the zip-root pack
+
+
+class PartRootRelativePaths(unittest.TestCase):
+    """part-digest-v1.md §2 (agreed with astra-companion-5f): paths relative to the PART root,
+    and a single-file part's one path is "". Each mutation restores one half of the old rule."""
+
+    def test_bundle_root_paths(self):
+        def bundle_root(label, files):
+            pairs = sorted([[p, hashlib.sha256(b).hexdigest()] for p, b in files.items()], key=lambda x: x[0].encode())
+            return hashlib.sha256(C.jcs(pairs)).hexdigest()
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("part_digest_of", bundle_root),
+                                               "archives/character-with-pack part animations:animpacks/moves (2)")
+
+    def test_a_single_file_part_keeping_its_name(self):
+        orig = cg.part_digest_of
+
+        def named(label, files):
+            if len(files) == 1 and label in files:
+                name = label.rsplit("/", 1)[-1]
+                return hashlib.sha256(C.jcs([[name, hashlib.sha256(files[label]).hexdigest()]])).hexdigest()
+            return orig(label, files)
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("part_digest_of", named),
+                                               "archives/model-aiko part character:characters/aiko/body.vrm")
 
 
 class ReasonCodes(unittest.TestCase):

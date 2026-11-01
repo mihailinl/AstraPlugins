@@ -10,7 +10,14 @@ with the engine's `InspectCharacterFile` report, astra-companion-5f,
 2026-11-01) and §11a.9 "One part digest". Implemented in astra-companion
 `src/config/bundle/part_digest.rs` (branch `bundle/part-digests` f5ea16f), in
 `tools/contentlite.py` `part_digest` here, and in the server's ingest (lane L1).
-All three must give the two golden vectors below, bit for bit.
+All three must give the three golden vectors below, bit for bit.
+
+**Changed 2026-11-01 (agreed with astra-companion-5f): paths are relative to
+the PART ROOT, not the bundle root.** A pack inside a `.astrachar` sits at
+`animpacks/<id>/…` while a published `.astrapack` holds it at the zip root, and
+`<id>` varies per machine (`moves (2)`), so under bundle-root paths the same
+bytes got different digests and the catalogue could not see that a character's
+referenced set IS the animset item.
 
 ## 1. What a part is
 
@@ -18,32 +25,41 @@ A **part** is a unit of rights: the thing an author confirms they may publish,
 keyed so that a confirmation is re-asked only when that unit's bytes or names
 change (design §1 decision 5).
 
-| a part is | part kind |
-|---|---|
-| the body: every file under the body's own path (a single `.vrm` is one pair) | `character` |
-| one animation pack: every file under `animpacks/<id>/` | `animations` (a 3D set) or `art` (a 2D/pixel set, because a pixel pack IS the look; §11a.10) |
-| one 3D accessory: every file under its own folder (`accessory_parts[]`) | `character` |
-| a standalone 2D image | `art` |
-| an audio file | `audio` |
-| a command's artefact: its one file, named `<id>.command.json` | `command` |
+| a part is | part kind | part root |
+|---|---|---|
+| the body: a lone `.vrm` (v1's only body shape, `body.file` ends in `.vrm`) | `character` | none — a **single-file** part |
+| the body, were it a folder | `character` | that folder |
+| one animation pack: `animpacks/<id>/` in a `.astrachar`, the whole zip in a `.astrapack` | `animations` (a 3D set) or `art` (a 2D/pixel set, because a pixel pack IS the look; §11a.10) | its own directory: `animpacks/<id>/` in a `.astrachar`; the zip root of a `.astrapack` |
+| one 3D accessory: every file under its own folder (`accessory_parts[]`) | `character` | its own folder |
+| a standalone 2D image | `art` | none — single-file |
+| an audio file | `audio` | none — single-file |
+| a command's artefact | `command` | none — single-file |
 
 Only `in_file` lines count: a `builtin` or `integration` pack, which carries no
 bytes in the bundle, is **not** a part and contributes nothing.
 
-**The part digest keys confirmations and nothing else.** It depends on paths,
-so a rename changes it. The blocklist and every deletion work on each FILE's
-sha256 (`content_file`), which a rename does not change (design §2, review F2).
+**The part digest keys confirmations and nothing else.** The blocklist and every
+deletion work on each FILE's sha256 (`content_file`), whatever its path
+(design §2, review F2).
 
 ## 2. Paths
 
-`path` is the zip entry name relative to the BUNDLE root, with `/` separators,
-case preserved, in Unicode NFC. The ingest **refuses the bundle**
-(`E_ARCHIVE_NAME_UNSAFE`, [`ingest-v1.md`](ingest-v1.md) §3 step 4) on a name
-that is:
+**`path` is the file's path relative to its PART ROOT** (§1's last column),
+with `/` separators, case preserved, in Unicode NFC: `clips/a.fbx`, never
+`animpacks/wave/clips/a.fbx`. So the same pack has ONE digest whether it sits
+at a `.astrapack`'s zip root or inside a `.astrachar` under any `<id>`.
+
+**A single-file part has ONE pair, whose path is the empty string `""`.** Its
+digest therefore depends on the file's sha256 alone, and a rename never changes
+it.
+
+Paths are DERIVED from zip entry names, and the ingest **refuses the bundle**
+(`E_ARCHIVE_NAME_UNSAFE`, [`ingest-v1.md`](ingest-v1.md) §3 step 4) on an ENTRY
+NAME that is:
 
 | rule (as `tools/contentlite.py` `path_refusal` names it) | |
 |---|---|
-| `empty` | the empty string |
+| `empty` | the empty string — an entry name; the derived `""` of a single-file part is not an entry name and is never subject to it |
 | `not-nfc` | not equal to its own NFC normalisation |
 | `backslash` | contains `\` |
 | `leading-slash` | starts with `/` |
@@ -51,10 +67,10 @@ that is:
 | `empty-segment` | contains `//` (an empty segment) |
 | `dot-dot` | has a `..` segment |
 
-so a stored name is already canonical. (A personal export only WARNS
-`NAME_NOT_NFC`; the daemon refuses to publish such a name, and this refusal is
-the backstop. Each rule has a vector in `testdata/content/vectors.json`
-`part_digest_refusals`.)
+so a stored name, and every path derived from it, is already canonical. (A
+personal export only WARNS `NAME_NOT_NFC`; the daemon refuses to publish such a
+name, and this refusal is the backstop. Each rule has a vector in
+`testdata/content/vectors.json` `part_digest_refusals`.)
 
 ## 3. The function
 
@@ -62,7 +78,8 @@ the backstop. Each rule has a vector in `testdata/content/vectors.json`
    bytes, 64 characters, no `sha256:` prefix. An **empty file counts**, with the
    SHA-256 of zero bytes. Directory entries do not count; an empty folder
    contributes nothing.
-2. Form the pairs `[path, file_sha256]` — 2-element JSON arrays.
+2. Form the pairs `[path, file_sha256]` — 2-element JSON arrays, `path` per §2
+   (relative to the part root; `""` for a single-file part).
 3. Sort the pairs by `path` in **UTF-8 byte order** (no locale collation).
 4. Serialise the array with RFC 8785 JCS: no whitespace, minimal string
    escaping, non-ASCII emitted as raw UTF-8.
@@ -70,32 +87,42 @@ the backstop. Each rule has a vector in `testdata/content/vectors.json`
 
 ## 4. Golden vectors
 
-Both are committed as files, so a reader re-computes them from bytes rather
-than from this page: `testdata/content/part-digest/ascii/…`,
-`testdata/content/part-digest/non-ascii/…`, and the exact JCS bytes in
-`part-digest/ascii.jcs` and `part-digest/non-ascii.jcs`.
-`tools/check-content-goldens.py` re-computes both on every run.
+All three are committed as files, so a reader re-computes them from bytes
+rather than from this page: `testdata/content/part-digest/{ascii,non-ascii,single-file}/…`,
+and the exact JCS bytes in `part-digest/{ascii,non-ascii,single-file}.jcs`.
+`tools/check-content-goldens.py` re-computes all three on every run.
+astra-companion-5f computed them independently on 2026-11-01 and they agree.
 
-**ASCII** — an animation pack, part kind `animations`:
+**ASCII** — an animation pack, part kind `animations`, paths relative to the
+pack root:
 
 | path | bytes |
 |---|---|
-| `animpacks/wave/animpack.toml` | `name = "wave"\n` |
-| `animpacks/wave/clips/a.fbx` | `FBX-A` |
-| `animpacks/wave/clips/b.fbx` | `FBX-B` |
+| `animpack.toml` | `name = "wave"\n` |
+| `clips/a.fbx` | `FBX-A` |
+| `clips/b.fbx` | `FBX-B` |
 
 ```
-[["animpacks/wave/animpack.toml","9ee744a91926a20f1e6413aa98e9afb7139448f9a107e8dcbc83e2006991f1d6"],["animpacks/wave/clips/a.fbx","cf26079b909b3f27c5ee34d729283bfae6473018a64ecf5a39530bd6c0016c2d"],["animpacks/wave/clips/b.fbx","95ee5323ae74ee42371d2ebf7b7c4fd21e216d5760ca94e62c1a75dcd19b89ea"]]
+[["animpack.toml","9ee744a91926a20f1e6413aa98e9afb7139448f9a107e8dcbc83e2006991f1d6"],["clips/a.fbx","cf26079b909b3f27c5ee34d729283bfae6473018a64ecf5a39530bd6c0016c2d"],["clips/b.fbx","95ee5323ae74ee42371d2ebf7b7c4fd21e216d5760ca94e62c1a75dcd19b89ea"]]
 ```
 
-part digest **`de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588`**.
-The same three files are the whole of `testdata/content/archives/valid/animset-wave.astrapack`'s
-part, and the valid `animsets` index names this digest.
+part digest **`5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255`**.
+The same three files are the whole of `testdata/content/archives/valid/animset-wave.astrapack`
+(at its zip root) AND the pack `animpacks/moves (2)/` inside
+`archives/valid/character-with-pack.astrachar`: **one digest for both**, which
+the checker asserts.
 
-**Non-ASCII** — the path `animpacks/волна/clips/ü.fbx` (NFC); its bytes are the
-UTF-8 of `OGG-FBX-ü-body` (`4f 47 47 2d 46 42 58 2d c3 bc 2d 62 6f 64 79`),
+**Non-ASCII** — the path `clips/ü.fbx` under the pack root (NFC); its bytes are
+the UTF-8 of `OGG-FBX-ü-body` (`4f 47 47 2d 46 42 58 2d c3 bc 2d 62 6f 64 79`),
 file sha256 `906e3479d575970545fd6fd8991c187c04ef336e7bd09b766c1866cc76c42c27`;
-part digest **`66c85d350c3c7ea28cc901483ffd3cc461ab0d95d36d2fd27d98942fc1ca39c9`**.
+part digest **`395755a2b649b6c820d1c401b07de8ec06d863d313b39518f541744c7bd80c79`**.
+
+**Single file** — a lone `.vrm` body whose bytes are the ASCII text
+`glTF-VRM-test`, file sha256
+`98bae0cf35361c8c39a366f238c7954f24b1a13d0014f23e89013b1ab25bd9d2`; one pair
+`["", "98bae0cf…d9d2"]`; part digest
+**`06c7b7f3a998db259f3dee4471e8542687eeb518982d094fec93744161305e1c`** whatever
+the file is called.
 
 ## 5. Where it is used
 

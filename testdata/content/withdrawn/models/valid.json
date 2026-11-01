@@ -15,7 +15,7 @@
         "at": 1798674300,
         "part": {
           "part_kind": "character",
-          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
         }
       }
     ],
@@ -24,7 +24,7 @@
   "signatures": [
     {
       "key_id": "astra-models-2026a",
-      "sig": "2z7KflESb6wwnoNGrpZmV6mJOpnIAVq36nsRPs+lQqcufSBFfq/6rV8nDI+3v+xazyXwvbtBe2/TnrYyVhxeAg=="
+      "sig": "T70khCwf3wcECik9SWlE1L1RVCEL+7BD3y/zdhmEI8CnEH0t4Y02g6MJec1mNop8W3ms6cJpN1YOkpFSB9oQDA=="
     }
   ]
 }

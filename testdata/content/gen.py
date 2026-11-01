@@ -259,19 +259,28 @@ def bundle(*a, **kw) -> bytes:
 
 # ── part-digest goldens (part-digest-v1.md §4) ───────────────────────────
 
+# paths relative to the PART ROOT (part-digest-v1.md §2): a pack's own directory
 ASCII_PART = {
-    "animpacks/wave/animpack.toml": b'name = "wave"\n',
-    "animpacks/wave/clips/a.fbx": b"FBX-A",
-    "animpacks/wave/clips/b.fbx": b"FBX-B",
+    "animpack.toml": b'name = "wave"\n',
+    "clips/a.fbx": b"FBX-A",
+    "clips/b.fbx": b"FBX-B",
 }
-NONASCII_PART = {"animpacks/волна/clips/ü.fbx": "OGG-FBX-ü-body".encode("utf-8")}
+NONASCII_PART = {"clips/ü.fbx": "OGG-FBX-ü-body".encode("utf-8")}
+SINGLE_FILE = b"glTF-VRM-test"  # the single-file vector agreed with astra-companion-5f: path ""
+
+
+def in_pack(pack_id: str, files: dict[str, bytes]) -> dict[str, bytes]:
+    """The same pack as it sits inside a .astrachar: under animpacks/<id>/."""
+    return {f"animpacks/{pack_id}/{p}": b for p, b in files.items()}
 
 
 def gen_part_digest() -> None:
     for name, files in (("ascii", ASCII_PART), ("non-ascii", NONASCII_PART)):
         for p, b in files.items():
             put(f"part-digest/{name}/{p}", b)
-        put(f"part-digest/{name}.jcs", C.jcs(C.part_digest_pairs(files)))
+        put(f"part-digest/{name}.jcs", C.jcs(C.part_digest_pairs(files, root="")))
+    put("part-digest/single-file/body.vrm", SINGLE_FILE)
+    put("part-digest/single-file.jcs", C.jcs(C.part_digest_pairs({"body.vrm": SINGLE_FILE}, root=None)))
 
 
 # ── the items the valid documents describe ───────────────────────────────
@@ -279,8 +288,8 @@ def gen_part_digest() -> None:
 BODY_PATH = "characters/aiko/body.vrm"
 BODY = vrm1(VRM1_ALLOWED)
 MODEL_FILES = {BODY_PATH: BODY}
-MODEL_PART = C.part_digest(MODEL_FILES)
-ANIMSET_PART = C.part_digest(ASCII_PART)  # == de7753f5…2588, the §2 golden
+MODEL_PART = C.part_digest(MODEL_FILES, root=None)  # a lone .vrm body: one pair, path ""
+ANIMSET_PART = C.part_digest(ASCII_PART, root="")  # == 5cbec44c…f255, the §4 ASCII golden
 CHAR_FILES = {"characters/aiko/character.toml": b'name = "Aiko"\nmodel = "aiko-body"\n'}
 
 LISTING = {"en": {"title": "Aiko", "description": "A test character."},
@@ -310,6 +319,9 @@ def gen_bundles() -> dict[str, bytes]:
     put("archives/valid/model-aiko.astrachar", b["model"])
     put("archives/valid/animset-wave.astrapack", b["animset"])
     put("archives/valid/character-aiko.astrachar", b["character"])
+    # the SAME pack inside a .astrachar, under an id that varies per machine: one digest (§4)
+    put("archives/valid/character-with-pack.astrachar",
+        bundle("astra.character", {**CHAR_FILES, **in_pack("moves (2)", ASCII_PART)}, body=None))
     return b
 
 
@@ -434,7 +446,7 @@ def base_entry(eid: str, art: bytes, media: str) -> dict:
 
 def command_entry(name: str, art: bytes, caps, danger, requires=()) -> dict:
     e = base_entry(name, art, "application/vnd.astra.command+json")
-    cmd_part = C.part_digest({f"{name}.command.json": art})
+    cmd_part = C.part_digest({f"{name}.command.json": art}, root=None)
     e.update({
         "capabilities": sorted(caps), "danger": danger, "platforms": ["linux", "macos", "windows"],
         "requires": [{"kind": "plugin", "id": r, "version_req": ">=1.0.0"} for r in requires],
@@ -590,7 +602,7 @@ def row(rid, act, floor, reason, at, versions="<=1.0.0", **kw) -> dict:
 
 
 def gen_withdrawn(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> None:
-    cmd_part = C.part_digest({"greet.command.json": cmds["greet"]})
+    cmd_part = C.part_digest({"greet.command.json": cmds["greet"]}, root=None)
     lift_old = {"id": "old-shell", "versions": "<=0.9.0", "lifts_at": T0 - 40 * 86400}
     valid = {
         "commands": withdrawn_signed("commands", [
@@ -770,10 +782,10 @@ def gen_archives() -> None:
                                               tweak=attr("characters/aiko/notes.txt", ext_attr=0o120777 << 16)))
     # zip 9.2.0 `get_unix_mode` reads the unix mode for ANY non-DOS host: a link is a link on host 19 or 10 too
     # (inside an animset part, so the link rule is the ONLY thing between the file and publication)
-    linked = {**ASCII_PART, "animpacks/wave/clips/c.fbx": b"../../../../etc/passwd"}
+    linked = {**ASCII_PART, "clips/c.fbx": b"../../../../etc/passwd"}
     for host in (19, 10):
         put(f"archives/hostile/symlink-host-{host}.astrapack", bundle("astra.animpack", linked, body=None, tweak=attr(
-            "animpacks/wave/clips/c.fbx", ext_attr=0o120777 << 16, made_by=(host << 8) | 20)))
+            "clips/c.fbx", ext_attr=0o120777 << 16, made_by=(host << 8) | 20)))
     hostile("encrypted-entry.astrachar", bundle("astra.character", model_files, BODY_PATH,
                                                 tweak=attr(BODY_PATH, flags=1)))
     bomb = {**model_files, "characters/aiko/zeros.bin": b"\x00" * (1024 * 1024)}
@@ -783,7 +795,7 @@ def gen_archives() -> None:
                                                     tweak=attr(BODY_PATH, local_name="characters/aiko/other.vrm")))
     upath = struct.pack("<HHB", 0x7075, 5 + len("x.vrm"), 1) + struct.pack("<I", zlib.crc32(BODY_PATH.encode())) + b"x.vrm"
     # the crate refuses 0x7075 in the local header too (read/mod.rs:446): one there and only there
-    clip = "animpacks/wave/clips/a.fbx"
+    clip = "clips/a.fbx"
     up_local = struct.pack("<HHB", 0x7075, 5 + len("x.fbx"), 1) + struct.pack("<I", zlib.crc32(clip.encode())) + b"x.fbx"
     put("archives/hostile/upath-local-only.astrapack", bundle("astra.animpack", ASCII_PART, body=None,
                                                              tweak=attr(clip, local_extra=up_local)))
@@ -886,7 +898,7 @@ def gen_archives() -> None:
     hostile("accessory-duplicate-key.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/accessories/hat/hat.glb": dup}, None))
     put("archives/hostile/animset-glb-duplicate-key.astrapack", bundle(
-        "astra.animpack", {**ASCII_PART, "animpacks/wave/clips/hat.glb": dup}, body=None))
+        "astra.animpack", {**ASCII_PART, "clips/hat.glb": dup}, body=None))
     # unrecognised licence tokens are UNKNOWN, never Allowed (meta.rs at 045b0bf; F3)
     def vrm0(meta: dict) -> bytes:
         return glb({"asset": {"version": "2.0"}, "extensions": {"VRM": {"meta": meta}}, "extensionsUsed": ["VRM"]})
@@ -903,20 +915,20 @@ def gen_archives() -> None:
     # a GLB is classified by its extensions, not its name (coordinator, 2026-11-01)
     vrma = glb({"asset": {"version": "2.0"}, "extensions": {"VRMC_vrm_animation": {"specVersion": "1.0"}},
                 "extensionsUsed": ["VRMC_vrm_animation"]})
-    dance = {"animpacks/dance/animpack.toml": b'name = "dance"\n', "animpacks/dance/clips/dance.vrma": vrma}
+    dance = {"animpack.toml": b'name = "dance"\n', "clips/dance.vrma": vrma}
     put("archives/valid/animset-vrma.astrapack", bundle("astra.animpack", dance, body=None))
     avatar_vrma = glb({"asset": {"version": "2.0"}, "extensions": {
         "VRMC_vrm_animation": {"specVersion": "1.0"},
         "VRMC_vrm": {"specVersion": "1.0", "meta": dict(VRM1_ALLOWED, avatarPermission="onlyAuthor")}},
         "extensionsUsed": ["VRMC_vrm_animation", "VRMC_vrm"]})
     put("archives/hostile/vrma-avatar-prohibited.astrapack", bundle(
-        "astra.animpack", {**dance, "animpacks/dance/clips/dance.vrma": avatar_vrma}, body=None))
+        "astra.animpack", {**dance, "clips/dance.vrma": avatar_vrma}, body=None))
     # a PLAIN GLB (no avatar extension, no VRMC_vrm_animation) is judged only in a character or
     # model part: a clip in an animset takes the part's rights confirmation; an accessory is held
     plain = glb({"asset": {"version": "2.0"}})
     put("archives/valid/animset-plain-glb.astrapack", bundle(
-        "astra.animpack", {"animpacks/glbset/animpack.toml": b'name = "glbset"\n',
-                           "animpacks/glbset/clips/wave.glb": plain}, body=None))
+        "astra.animpack", {"animpack.toml": b'name = "glbset"\n',
+                           "clips/wave.glb": plain}, body=None))
     hostile("character-plain-glb-accessory.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/accessories/hat/hat.glb": plain}, None))
     hostile("vrm-metas-disagree.astrachar", bundle(
@@ -945,16 +957,16 @@ def gen_archives() -> None:
     def anim(extra: dict) -> bytes:
         return bundle("astra.animpack", {**ASCII_PART, **extra}, body=None)
     remote = glb({"asset": {"version": "2.0"}, "images": [{"uri": "https://example.invalid/x.png"}]})
-    put("archives/hostile/glb-remote-uri.astrapack", anim({"animpacks/wave/clips/r.glb": remote}))
+    put("archives/hostile/glb-remote-uri.astrapack", anim({"clips/r.glb": remote}))
     escape = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "../../etc/passwd", "byteLength": 4}]},
                         sort_keys=True).encode()
-    put("archives/hostile/gltf-uri-escape.astrapack", anim({"animpacks/wave/clips/e.gltf": escape}))
+    put("archives/hostile/gltf-uri-escape.astrapack", anim({"clips/e.gltf": escape}))
     inside = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "m.bin", "byteLength": 4}]}, sort_keys=True).encode()
     put("archives/valid/animset-gltf-relative-uri.astrapack",
-        anim({"animpacks/wave/clips/m.gltf": inside, "animpacks/wave/clips/m.bin": b"\x00\x01\x02\x03"}))
-    put("archives/hostile/name-device-superscript.astrapack", anim({"animpacks/wave/clips/com\u00b9.fbx": b"FBX-X"}))
-    put("archives/hostile/name-device-conin.astrapack", anim({"animpacks/wave/clips/CONIN$.fbx": b"FBX-X"}))
-    put("archives/hostile/file-and-directory.astrapack", anim({"animpacks/wave/clips/a.fbx/b.fbx": b"FBX-X"}))
+        anim({"clips/m.gltf": inside, "clips/m.bin": b"\x00\x01\x02\x03"}))
+    put("archives/hostile/name-device-superscript.astrapack", anim({"clips/com\u00b9.fbx": b"FBX-X"}))
+    put("archives/hostile/name-device-conin.astrapack", anim({"clips/CONIN$.fbx": b"FBX-X"}))
+    put("archives/hostile/file-and-directory.astrapack", anim({"clips/a.fbx/b.fbx": b"FBX-X"}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

@@ -197,7 +197,9 @@ outcome is Unknown either way (OPEN.md O-6).
 ## 5. Parts
 
 The server derives the parts from the verified file list (part-digest-v1.md
-§1): the body named by `astrachar.json` `body.file`; each `animpacks/<id>/`;
+§1), each with its part root (§2: paths relative to it, `""` for a single-file
+part): the body named by `astrachar.json` `body.file`; each `animpacks/<id>/` —
+or, in a `.astrapack`, the whole zip as ONE pack at the zip root;
 each `accessories/<id>/` folder; each standalone image; each audio file. **Every other listed file is refused**
 (`E_CONTENT_FILE_OUTSIDE_PARTS`, golden `file-outside-parts`) — a file in no part
 would be published without any rights confirmation covering it — except the

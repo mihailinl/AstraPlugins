@@ -37,7 +37,7 @@
             "kind": "animset",
             "id": "wave-set",
             "version": "1.0.0",
-            "digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588"
+            "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
           }
         ],
         "parts": [],
@@ -74,7 +74,7 @@
   "signatures": [
     {
       "key_id": "astra-characters-2026a",
-      "sig": "MXsaCKUt9gWZ+TzSRL69E/ACCV4QuPdsf6AC2MTXzFbV9O9M5yTGqOqswMfB1LncU/PFsuiUAGIYkvGS3wEwBg=="
+      "sig": "bfFImp2wffOqdh4aV6speTiSTAeB16VF1RArVhluBPGoRtL+5Jl8KW6rh+z+DX5CkdMZ/fddOFNtlk0YQctzCA=="
     }
   ]
 }

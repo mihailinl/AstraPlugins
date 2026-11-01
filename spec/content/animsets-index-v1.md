@@ -32,6 +32,7 @@ fields (common-v1.md §3), with `artefact.media_type` =
 ## 3. Goldens
 
 `testdata/content/index/animsets/` — `valid` (its one part is the ASCII
-part-digest golden, `de7753f5…2588`, and its artefact is
+part-digest golden, `5cbec44c…f255` — paths relative to the pack root, so the
+same pack inside a `.astrachar` has the same digest — and its artefact is
 `archives/valid/animset-wave.astrapack`), `dimension-2d-animations-part`,
 `clips-zero`.

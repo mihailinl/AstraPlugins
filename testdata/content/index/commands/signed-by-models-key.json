@@ -46,7 +46,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "325d0325fae8266385ca860af639cbca264255ff19a18f5e498193fe5a0398c2",
+            "digest": "ff120b9aea22357c2dbe27ff62c003b2034996791f7ef20b69a9e71eb9901ac7",
             "size": 337
           }
         ],
@@ -120,7 +120,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "e464588425b80301d6fe76d79ef5d02658590d3c3d42aff3f1a927c5eb36f964",
+            "digest": "ef9012a11b5ce6070c41e23a245a7e8e37b98d2f1802d6e54d3ceeadeb61cd29",
             "size": 384
           }
         ],
@@ -199,7 +199,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "3accfe4bfcc91641a994680193236008d46e85c2123da978319ff90d0d0e0e89",
+            "digest": "acfcc52aa0c3e67a72809fbd9026e15e5619177cf0f41b5ba14cff3d4d67044b",
             "size": 592
           }
         ],
@@ -272,7 +272,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "cf86796a8c1ec9ad02012dd7fcfba60e53fcef46fc716cb6c233842eb039a17f",
+            "digest": "e37f1c5cd4650ab13858763ef4c5e6643abebeed3a5337e9ba369af164c830b0",
             "size": 263
           }
         ],
@@ -351,7 +351,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "295d59e604ac2e6ca77d6f371c9fb442d31ebaa6981f0220cea150a655928b57",
+            "digest": "44fef40ab6be00952b6d7cd3d804de0dac4d471790efe7fc41c8174dcae38771",
             "size": 616
           }
         ],
@@ -424,7 +424,7 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "ec4ba8514f530a0d0f36983a9f055d20af8946fee1e0a5c29ea7d2bb30c50156",
+            "digest": "e9e27ec8a26c5ce5e6548e1d9aa7138fe6eb4984ef9f56fb1b3ef591322f03e7",
             "size": 466
           }
         ],
@@ -462,7 +462,7 @@
   "signatures": [
     {
       "key_id": "astra-models-2026a",
-      "sig": "wJ5icm/VN4/TUa93FYfaZ2gDVB/Wnh+rAzNYsFetgtiQRzdkLIyawImhq83qg3kT6N400HVKGLBcNcwer9CgCw=="
+      "sig": "5fNAworzQLBuSQ4cFi8pJy2O8iyu7m9bzrPXBPNAo8YJESykjpn3DX3rkn7JsohI4FG9E+o/E/p3r+rdRcKNAA=="
     }
   ]
 }

@@ -20,7 +20,7 @@
         },
         "part": {
           "part_kind": "character",
-          "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
         }
       }
     ],
@@ -29,7 +29,7 @@
   "signatures": [
     {
       "key_id": "astra-packs-2026a",
-      "sig": "6Swz0nvKhDIcKjvn+LngHpiiuw/ggHyJ3hsrbjBG7bxR28lun2R1p5MPhkktE54x1uHj5LDYnYdiIIBMvFbrCg=="
+      "sig": "fUWayLhI79zheYLi8qMT8Qr/UW25CNC8g++LIiEc1awTWmNtU8o07QBpH4tUqrrH/U6UkFgf9BANQyZ0XivXCw=="
     }
   ]
 }

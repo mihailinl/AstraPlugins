@@ -36,7 +36,7 @@
         "parts": [
           {
             "part_kind": "character",
-            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14",
             "size": 540
           }
         ],
@@ -74,7 +74,7 @@
   "signatures": [
     {
       "key_id": "astra-models-2026a",
-      "sig": "8ks5Og/DENLtmYfAPBcSqv8Zt6XT4cbBc5ae2FaHOsv0Ib8qm+AWyYohFutkWeJHDbYpLR27cElX64BP1rbRDw=="
+      "sig": "xwGIsWngzNRd1WaU6zoG4njdYML6QtcyI78R7uh8w94KNg905rrKUFSFi3PhcOE1I5Dy2XnBEiQIBtkHSgqKBw=="
     }
   ]
 }

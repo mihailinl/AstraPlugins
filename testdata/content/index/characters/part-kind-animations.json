@@ -37,19 +37,19 @@
             "kind": "model",
             "id": "aiko-body",
             "version": "1.0.0",
-            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
           },
           {
             "kind": "animset",
             "id": "wave-set",
             "version": "1.0.0",
-            "digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588"
+            "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
           }
         ],
         "parts": [
           {
             "part_kind": "animations",
-            "digest": "de7753f5f2d78d89e07a1c6dde87c6549e9ada36afb5d1db7406d4d3157e2588",
+            "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255",
             "size": 1
           }
         ],
@@ -86,7 +86,7 @@
   "signatures": [
     {
       "key_id": "astra-characters-2026a",
-      "sig": "Df6VpfrJPJSBkPRoOUKK3QDm3xfiSwvwyii/wz/ANqc0gI2/h+lJKOfpcuIfHmsg+oTyQ8+X9Yu6FZXn2I9EAA=="
+      "sig": "0XWNTI8X9oI2bkLalv0rhIplXpDJ3wLkjEls1E9j4yKQriR0k3ARcVs2+RLr4w26rlVma42WCTELvNIPF7EHDg=="
     }
   ]
 }

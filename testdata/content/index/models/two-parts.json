@@ -36,12 +36,12 @@
         "parts": [
           {
             "part_kind": "character",
-            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14",
             "size": 540
           },
           {
             "part_kind": "character",
-            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14",
             "size": 540
           }
         ],
@@ -79,7 +79,7 @@
   "signatures": [
     {
       "key_id": "astra-models-2026a",
-      "sig": "yHMJn60ho25Z5QdK8JpqE3yirBhp/IJafam6tX0IAmoH6CteKjF+JBkEXhHsVM2dRCuB0FAKkpC/7ecqeIfuAg=="
+      "sig": "48sMCZWutQdBsE3rQNw32c4Bv6/3dtXuhpkq/voqcX7tgxNejEnn07/0tHuxv2J46WcXzi3YoCNnxB4cAmu+Bw=="
     }
   ]
 }

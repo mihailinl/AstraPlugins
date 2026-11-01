@@ -23,7 +23,7 @@ A model is a VRM body or a body-only `.astrachar`. The base fields
 |---|---|
 | `format` | `vrm` (the artefact IS the `.vrm`, `media_type: model/gltf-binary`, ≤ 50 MiB) \| `astra.character` (a body-only bundle, `application/vnd.astra.character+zip`, ≤ 64 MiB) |
 | `body_kind` | `vrm` \| `pixel`. `format: vrm` ⇒ `body_kind: vrm`; a `pixel` body has no VRM meta, so its licence is `source: declared` (rule `model-format`) |
-| `parts` | **exactly one**, `part_kind: character` — the body. For `format: vrm` the single pair's path is `<id>.vrm` (OPEN.md O-4) |
+| `parts` | **exactly one**, `part_kind: character` — the body. A lone `.vrm` body is a single-file part: one pair, path `""` (part-digest-v1.md §2) |
 | `content_confirmed` | non-empty |
 | `licence` | carries the SERVER-read VRM verdict (`source: vrm`) when the body has readable meta ([`ingest-v1.md`](ingest-v1.md) §4); only an Allowed verdict is ever listed (rule `licence-allowed`) |
 | `credits` | common-v1.md §3.2 |

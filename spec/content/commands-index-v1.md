@@ -30,7 +30,7 @@ The base fields (common-v1.md §3), with `artefact.media_type` =
 | `danger` | `low` \| `high` \| `critical`, derived |
 | `platforms` | `windows` \| `linux` \| `macos`, ≥ 1, derived |
 | `requires` | `[{kind: "plugin", id, version_req}]` — exactly the `uses_plugin:<id>` words (rule `requires-match-capabilities`) |
-| `parts` | exactly ONE part of kind `command` (rule `one-command-part`: the artefact, path `<id>.command.json`), plus any `art` / `audio` part it carries |
+| `parts` | exactly ONE part of kind `command` (rule `one-command-part`: the artefact, a single-file part whose one pair has the path `""`), plus any `art` / `audio` part it carries |
 | `content_confirmed` | `{text_id: version}`, non-empty (rule `parts-confirmed`) |
 | `licence`, `credits` | common-v1.md §3.1–§3.2; a command's licence is `source: declared` |
 

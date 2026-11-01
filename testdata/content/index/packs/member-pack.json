@@ -36,7 +36,7 @@
             "kind": "animset",
             "id": "wave-set",
             "version": "1.0.0",
-            "digest": "bed5eb6b8bbcae07f0bd0c51e95a1a9276fea5b3d23996180632b1866bd244a7"
+            "digest": "54f8b94b08af2e4dd7e7ecc2b9fbbe7d37022c17616382da83089d7b2a52264c"
           },
           {
             "kind": "command",
@@ -48,7 +48,7 @@
             "kind": "pack",
             "id": "x",
             "version": "1.0.0",
-            "digest": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
           }
         ]
       }
@@ -57,7 +57,7 @@
   "signatures": [
     {
       "key_id": "astra-packs-2026a",
-      "sig": "xD5IE3wy7MJy7wL8+iLfSDt/TZ3PTKg8MC0gXQ1EZFMY6/nomfD/OrD5ISLImackN6eOD5lf4FGrFSqWO9KgBQ=="
+      "sig": "VFXke94b5eZFQvCkFsoGswu8SLCODmHAOx5lSlCDtJqMwRZQDnZoyrsSAw9FMdq8/B7h7CraTfN80aqmL+nFCw=="
     }
   ]
 }

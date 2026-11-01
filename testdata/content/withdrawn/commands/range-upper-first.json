@@ -24,7 +24,7 @@
         "at": 1798668000,
         "part": {
           "part_kind": "command",
-          "digest": "325d0325fae8266385ca860af639cbca264255ff19a18f5e498193fe5a0398c2"
+          "digest": "ff120b9aea22357c2dbe27ff62c003b2034996791f7ef20b69a9e71eb9901ac7"
         }
       },
       {
@@ -53,7 +53,7 @@
   "signatures": [
     {
       "key_id": "astra-commands-2026a",
-      "sig": "Q6LN6TUONa2/50TWuE/b071OQDLcmZvsD7dbz81Kr5TcDBnDm1nS44+aVcX9Awt0XeliPNx/Ywj6XhRb9KqZCQ=="
+      "sig": "NZ3imZrQuvhaPvWnEU2/rPGpQjqfFuIcyv6/fg8pcaPysieqHCxsXEUPpd8JrJUuNygvSc9/caMF6pPfGiOQAw=="
     }
   ]
 }

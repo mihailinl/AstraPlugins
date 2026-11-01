@@ -883,6 +883,20 @@ SETTINGS_NAME = "character.toml"  # astra-companion docs/character-files.md: cha
 MAX_SETTINGS = 256 * 1024
 
 
+def part_digest_of(label: str, files: dict[str, bytes]) -> str:
+    """part-digest-v1.md §2: a part named by its one file (the body, an image, an audio file)
+    is a SINGLE-FILE part, path ""; any other part's paths are relative to its root label."""
+    single = len(files) == 1 and label in files
+    return C.part_digest(files, root=None if single else label)
+
+
+def pack_kind(man: dict) -> str | None:
+    """A .astrapack is one pack: animations, or art for a 2D (pixel) set (§11a.10)."""
+    if man.get("format") != "astra.animpack":
+        return None
+    return "art" if man.get("kind") == "pixel" else "animations"
+
+
 def is_settings(p: str, settings_dir: str | None) -> bool:
     """The ONE settings file: `<character.dir>/character.toml`. Any other `.toml` is ordinary."""
     return bool(settings_dir) and p == f"{settings_dir.rstrip('/')}/{SETTINGS_NAME}"
@@ -899,14 +913,19 @@ def check_settings(files: dict[str, bytes], settings_dir: str | None) -> None:
                 raise Refusal("E_CONTENT_FORMAT", f"{p}: not UTF-8 TOML of at most {MAX_SETTINGS} bytes ({e})") from None
 
 
-def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True):
+def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True,
+             pack: str | None = None):
     """ingest-v1.md §5: the body, each animpacks/<id>/, each accessories/<id>/,
     each standalone image (art) and audio file (audio). Every other file is
-    refused, except the character's SETTINGS: a `.toml` directly in its
-    `character.dir`, which is configuration, not content."""
+    refused, except the character's settings file. `pack` (a part kind) says the
+    bundle IS one pack, a `.astrapack`, whose part root is the zip root: label `""`.
+    Each part is keyed (part kind, root label); `part_digest_of` derives its root."""
     parts: dict[tuple[str, str], dict[str, bytes]] = {}
     for p, b in files.items():
         if p == "astrachar.json" or p.startswith("\0"):
+            continue
+        if pack is not None:
+            parts.setdefault((pack, ""), {})[p] = b
             continue
         segs = p.split("/")
         if is_settings(p, settings_dir):
@@ -959,7 +978,8 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
     part_root_of = {f: root for (_pk, root), pf in
-                    parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False).items() for f in pf}
+                    parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False,
+                             pack=pack_kind(man)).items() for f in pf}
     for p, b in files.items():
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
@@ -980,13 +1000,14 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
     settings_dir = (man.get("character") or {}).get("dir")
     check_settings(files, settings_dir)
-    kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False).items() for f in pf}
+    kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man)).items()
+               for f in pf}
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for want in ("conflict", "prohibited"):
         for p, v in verdicts.items():
             if v == want:
                 raise Refusal("E_CONTENT_LICENCE_CONFLICT" if want == "conflict" else "E_CONTENT_LICENCE_REFUSED", p)
-    parts = parts_of(files, body, (man.get("character") or {}).get("dir"))
+    parts = parts_of(files, body, (man.get("character") or {}).get("dir"), pack=pack_kind(man))
     declared = set(ctx.get("declared_licence", []))
     flags = []
     for (pk, root), pf in sorted(parts.items()):
@@ -996,13 +1017,13 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             if not unknown:
                 raise Refusal("E_CONTENT_LICENCE_UNDECLARED", root)
     if "declared_parts" in ctx:  # step 12: the parts the uploader declared at `begin`
-        derived = {f"{pk}:{root}": C.part_digest(pf) for (pk, root), pf in parts.items()}
+        derived = {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()}
         if derived != ctx["declared_parts"]:
             raise Refusal("E_CONTENT_PARTS_MISMATCH", f"derived {derived}")
     if any(v == "unknown" for v in verdicts.values()):
         flags.append("F_CONTENT_VRM_META_UNKNOWN")
     return {"verdict": "held" if flags else "accept", "flags": flags,
-            "parts": {f"{pk}:{root}": C.part_digest(pf) for (pk, root), pf in parts.items()}}
+            "parts": {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()}}
 
 
 # ── scenarios ────────────────────────────────────────────────────────────
@@ -1276,9 +1297,10 @@ def main() -> int:
         base = DATA / v["dir"]
         files = {p.relative_to(base).as_posix(): p.read_bytes() for p in sorted(base.rglob("*")) if p.is_file()}
         files = {unicodedata.normalize("NFC", k): b for k, b in files.items()}
-        jcs = C.jcs(C.part_digest_pairs(files))
+        root = v["root"]  # "" = the pack's own directory; null = a single-file part
+        jcs = C.jcs(C.part_digest_pairs(files, root=root))
         report(f"part-digest/{v['name']} JCS bytes", jcs == (DATA / v["jcs"]).read_bytes())
-        report(f"part-digest/{v['name']} = {v['part_digest'][:8]}…", C.part_digest(files) == v["part_digest"])
+        report(f"part-digest/{v['name']} = {v['part_digest'][:8]}…", C.part_digest(files, root=root) == v["part_digest"])
     for v in V["part_digest_refusals"]:
         report(f"part-digest refuses {v['name']}", C.path_refusal(v["path"]) == v["rule"], str(C.path_refusal(v["path"])))
 
