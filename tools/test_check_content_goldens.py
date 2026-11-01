@@ -678,6 +678,27 @@ class R6OneSettingsFile(unittest.TestCase):
                                                "archives/settings-mp3-bytes")
 
 
+class R7UrisDevicesAndFileDirectory(unittest.TestCase):
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_uris_unchecked(self):
+        self.assertRedOn(Mutation("uri_refusal", lambda p, b, files, roots: None),
+                         "archives/glb-remote-uri", "archives/gltf-uri-escape")
+
+    def test_the_old_device_list(self):
+        self.assertRedOn(Mutation("DEVICE", re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$", re.I)),
+                         "archives/name-device-superscript", "archives/name-device-conin")
+
+    def test_file_and_directory_unchecked(self):
+        self.assertRedOn(Mutation("walk_zip", _swallowing(["a file and a directory at one path"])),
+                         "archives/file-and-directory")
+
+    def test_a_relative_uri_inside_the_part_is_allowed(self):
+        raw = (cg.DATA / "archives/valid/animset-gltf-relative-uri.astrapack").read_bytes()
+        self.assertEqual(cg.ingest_bundle(raw, {"declared_licence": ["animpacks/wave"]})["verdict"], "accept")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

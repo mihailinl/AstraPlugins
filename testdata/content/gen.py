@@ -941,6 +941,20 @@ def gen_archives() -> None:
     hostile("settings-mp3-bytes.astrachar", bundle("astra.character", {"characters/aiko/character.toml": mp3}, None))
     hostile("settings-second-toml.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/song.toml": b'title = "not settings"\n'}, None))
+    # R7 (inside an animset part, where a plain glTF is never judged, so only these rules stand guard)
+    def anim(extra: dict) -> bytes:
+        return bundle("astra.animpack", {**ASCII_PART, **extra}, body=None)
+    remote = glb({"asset": {"version": "2.0"}, "images": [{"uri": "https://example.invalid/x.png"}]})
+    put("archives/hostile/glb-remote-uri.astrapack", anim({"animpacks/wave/clips/r.glb": remote}))
+    escape = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "../../etc/passwd", "byteLength": 4}]},
+                        sort_keys=True).encode()
+    put("archives/hostile/gltf-uri-escape.astrapack", anim({"animpacks/wave/clips/e.gltf": escape}))
+    inside = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "m.bin", "byteLength": 4}]}, sort_keys=True).encode()
+    put("archives/valid/animset-gltf-relative-uri.astrapack",
+        anim({"animpacks/wave/clips/m.gltf": inside, "animpacks/wave/clips/m.bin": b"\x00\x01\x02\x03"}))
+    put("archives/hostile/name-device-superscript.astrapack", anim({"animpacks/wave/clips/com\u00b9.fbx": b"FBX-X"}))
+    put("archives/hostile/name-device-conin.astrapack", anim({"animpacks/wave/clips/CONIN$.fbx": b"FBX-X"}))
+    put("archives/hostile/file-and-directory.astrapack", anim({"animpacks/wave/clips/a.fbx/b.fbx": b"FBX-X"}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

@@ -33,6 +33,7 @@ import hashlib
 import json
 import os
 import pathlib
+import posixpath
 import re
 import struct
 import tomllib
@@ -522,7 +523,9 @@ MAX_NAME = 240
 MAX_SEGMENTS = 16
 MAX_MANIFEST = 1024 * 1024
 STORED_ONLY = (".vrm", ".glb", ".png", ".jpg", ".webp", ".ktx2")
-DEVICE = re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$", re.I)
+# Windows device names, case-insensitively: COM/LPT with a digit OR a superscript ¹ ² ³ (Windows
+# treats those as devices too), and the console devices CONIN$ / CONOUT$ (R7)
+DEVICE = re.compile(r"^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3]|conin\$|conout\$)(\..*)?$", re.I)
 
 
 def end_record(b: bytes):
@@ -662,6 +665,13 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         if key in folded:
             raise Refusal("E_ARCHIVE_NAME_UNSAFE", f"{name!r}: collides under case folding")
         folded.add(key)
+    # a path that is a FILE must not also be a DIRECTORY of another entry (`a.png` beside
+    # `a.png/b.png`): extraction would have to drop one of them (R7), compared case-folded
+    dirs_of = {"/".join(n.lower().rstrip("/").split("/")[:i]) for n, *_ in entries
+               for i in range(1, len(n.rstrip("/").split("/")))}
+    for name, *_ in entries:
+        if not name.endswith("/") and name.lower() in dirs_of:
+            raise Refusal("E_ARCHIVE_NAME_UNSAFE", f"{name!r}: a file and a directory at one path")
     if sum(e[4] for e in entries) > MAX_TOTAL:
         raise Refusal("E_ARCHIVE_TOO_LARGE", "uncompressed total")
     for name, method, _crc, csize, usize, *_ in entries:
@@ -801,6 +811,31 @@ def gets_verdict(cls: str, part_kind: str | None) -> bool:
     return part_kind in AVATAR_PART_KINDS
 
 
+def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None:
+    """R7: a GLB carries everything it needs: any images[].uri / buffers[].uri that is not a
+    `data:` URI is refused. A .gltf may name a sibling file only: relative, no scheme, no `..`, no
+    leading `/`, resolving inside its OWN part, to a file present in the archive."""
+    g = glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)
+    if not isinstance(g, dict):
+        return None  # not JSON at all: step 10's other rules decide
+    uris = [x.get("uri") for k in ("images", "buffers") for x in (g.get(k) or []) if isinstance(x, dict) and "uri" in x]
+    for u in uris:
+        if not isinstance(u, str):
+            return f"a uri that is not a string: {u!r}"
+        if u.startswith("data:"):
+            continue
+        if b[:4] == GLB_MAGIC:
+            return f"a GLB names an external uri {u!r}"
+        if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", u) or u.startswith("/") or "\\" in u or "/../" in f"/{u}/" or u in ("", "."):
+            return f"a uri that is not a plain relative path: {u!r}"
+        target = posixpath.normpath(posixpath.join(posixpath.dirname(p), u))
+        if target not in files:
+            return f"a uri naming a file the archive does not hold: {u!r}"
+        if part_root_of.get(target) != part_root_of.get(p):
+            return f"a uri resolving outside its own part: {u!r}"
+    return None
+
+
 def has_duplicate_json(b: bytes) -> bool:
     return (glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)) == "duplicate"
 
@@ -923,6 +958,8 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         if hashlib.sha256(b).hexdigest() in blocked:
             raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
+    part_root_of = {f: root for (_pk, root), pf in
+                    parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False).items() for f in pf}
     for p, b in files.items():
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
@@ -930,6 +967,10 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         # JSON must not fall through to "plain", which an animset part never judges (R3)
         if judged(p, b) and has_duplicate_json(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")
+        if judged(p, b):
+            why = uri_refusal(p, b, files, part_root_of)
+            if why:
+                raise Refusal("E_CONTENT_FORMAT", f"{p}: {why}")
         if not name_matches_magic(p, b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB container's name and magic disagree")
     if body is not None:
