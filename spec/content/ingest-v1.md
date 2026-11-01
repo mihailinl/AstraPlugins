@@ -201,8 +201,11 @@ The server derives the parts from the verified file list (part-digest-v1.md
 each `accessories/<id>/` folder; each standalone image; each audio file. **Every other listed file is refused**
 (`E_CONTENT_FILE_OUTSIDE_PARTS`, golden `file-outside-parts`) — a file in no part
 would be published without any rights confirmation covering it — except the
-character's SETTINGS, a `.toml` directly in `astrachar.json`'s `character.dir`,
-which is configuration and carries no content. A
+character's SETTINGS: **exactly one file, at exactly `<character.dir>/character.toml`**
+(astra-companion `docs/character-files.md`: `characters/<id>/character.toml`),
+at most 256 KiB, that decodes as UTF-8 and parses as TOML (`E_CONTENT_FORMAT`
+otherwise; golden `settings-mp3-bytes`). Any OTHER file named `.toml` is an
+ordinary file and needs a part like any other (golden `settings-second-toml`). A
 model has exactly one part (`character`), an animset exactly one (`animations`,
 or `art` for 2D), and the index says so (models-index-v1.md, animsets-index-v1.md).
 

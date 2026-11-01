@@ -936,6 +936,11 @@ def gen_archives() -> None:
     # the allowed body under a NEW name: the blocklist is per file sha256, so a rename does not evade it
     hostile("blocked-file-renamed.astrachar", bundle(
         "astra.character", {"characters/aiko/renamed.vrm": BODY}, "characters/aiko/renamed.vrm"))
+    # the settings exemption is ONE file at ONE path, parsed as TOML (ingest-v1.md §5)
+    mp3 = b"ID3\x04\x00\x00\x00\x00\x00\x00" + b"\xff\xfb\x90\x64" + b"\x00" * 64
+    hostile("settings-mp3-bytes.astrachar", bundle("astra.character", {"characters/aiko/character.toml": mp3}, None))
+    hostile("settings-second-toml.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/song.toml": b'title = "not settings"\n'}, None))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

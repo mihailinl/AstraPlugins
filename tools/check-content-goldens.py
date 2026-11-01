@@ -35,6 +35,7 @@ import os
 import pathlib
 import re
 import struct
+import tomllib
 import sys
 import unicodedata
 import zlib
@@ -843,6 +844,26 @@ def is_vrm_body(raw: bytes) -> bool:
     return isinstance(exts, dict) and ("VRM" in exts or "VRMC_vrm" in exts)
 
 
+SETTINGS_NAME = "character.toml"  # astra-companion docs/character-files.md: characters/<id>/character.toml
+MAX_SETTINGS = 256 * 1024
+
+
+def is_settings(p: str, settings_dir: str | None) -> bool:
+    """The ONE settings file: `<character.dir>/character.toml`. Any other `.toml` is ordinary."""
+    return bool(settings_dir) and p == f"{settings_dir.rstrip('/')}/{SETTINGS_NAME}"
+
+
+def check_settings(files: dict[str, bytes], settings_dir: str | None) -> None:
+    for p, b in files.items():
+        if is_settings(p, settings_dir):
+            try:
+                if len(b) > MAX_SETTINGS:
+                    raise ValueError("too large")
+                tomllib.loads(b.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError) as e:  # tomllib.TOMLDecodeError is a ValueError
+                raise Refusal("E_CONTENT_FORMAT", f"{p}: not UTF-8 TOML of at most {MAX_SETTINGS} bytes ({e})") from None
+
+
 def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True):
     """ingest-v1.md §5: the body, each animpacks/<id>/, each accessories/<id>/,
     each standalone image (art) and audio file (audio). Every other file is
@@ -853,7 +874,7 @@ def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None
         if p == "astrachar.json" or p.startswith("\0"):
             continue
         segs = p.split("/")
-        if settings_dir and p.rsplit("/", 1)[0] == settings_dir.rstrip("/") and p.endswith(".toml"):
+        if is_settings(p, settings_dir):
             continue
         if body and p == body:
             parts.setdefault(("character", p), {})[p] = b
@@ -917,6 +938,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
     settings_dir = (man.get("character") or {}).get("dir")
+    check_settings(files, settings_dir)
     kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False).items() for f in pf}
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for want in ("conflict", "prohibited"):

@@ -667,6 +667,17 @@ class R5UpathInEitherHeader(unittest.TestCase):
                                                "archives/upath-local-only", "archives/upath-extra")
 
 
+class R6OneSettingsFile(unittest.TestCase):
+    def test_any_toml_in_the_folder(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("is_settings", lambda p, d: bool(d) and p.rsplit("/", 1)[0] == d.rstrip("/") and p.endswith(".toml")),
+            "archives/settings-second-toml")
+
+    def test_settings_bytes_unparsed(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("check_settings", lambda files, d: None),
+                                               "archives/settings-mp3-bytes")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
