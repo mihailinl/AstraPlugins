@@ -822,6 +822,9 @@ def gets_verdict(cls: str, part_kind: str | None) -> bool:
     return part_kind in AVATAR_PART_KINDS
 
 
+URI_FORBIDDEN = "%?#\\"
+
+
 def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None:
     """R7: a GLB carries everything it needs: any images[].uri / buffers[].uri that is not a
     `data:` URI is refused. A .gltf may name a sibling file only: relative, no scheme, no `..`, no
@@ -837,6 +840,9 @@ def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None
             continue
         if b[:4] == GLB_MAGIC:
             return f"a GLB names an external uri {u!r}"
+        bad = [c for c in URI_FORBIDDEN if c in u]
+        if bad:  # N2: a loader percent-decodes (and splits on ? and #) BEFORE it joins the path
+            return f"a uri containing {''.join(bad)!r}: {u!r}"
         if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", u) or u.startswith("/") or "\\" in u or "/../" in f"/{u}/" or u in ("", "."):
             return f"a uri that is not a plain relative path: {u!r}"
         target = posixpath.normpath(posixpath.join(posixpath.dirname(p), u))

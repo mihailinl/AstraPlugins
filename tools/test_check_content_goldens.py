@@ -782,6 +782,11 @@ class N1ByteOrderMarks(unittest.TestCase):
         self.assertIsNotNone(cg.bom_refusal("clips/plain.gltf", files["clips/plain.gltf"]))
 
 
+class N2PercentEncoding(unittest.TestCase):
+    def test_percent_allowed(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("URI_FORBIDDEN", "?#\\"), "archives/pct")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

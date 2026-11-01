@@ -993,6 +993,10 @@ def gen_archives() -> None:
     put("archives/hostile/gltf-with-bom.astrapack", anim({"clips/plain.gltf": b"\xef\xbb\xbf" + plain_gltf}))
     put("archives/hostile/gltf-json-utf16.astrapack",
         anim({"clips/avatar.json": b"\xff\xfe" + avatar_json.decode("utf-8").encode("utf-16-le")}))
+    # N2: gltf 1.4.1 and browsers percent-decode a uri before joining it: %2f is a /
+    pct_uri = "..%2f..%2f..%2f..%2fetc%2fpasswd"
+    pct_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": pct_uri, "byteLength": 4}]}).encode()
+    put("archives/hostile/pct.astrapack", anim({"clips/p.gltf": pct_gltf, f"clips/{pct_uri}": b"\x00\x01\x02\x03"}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 
