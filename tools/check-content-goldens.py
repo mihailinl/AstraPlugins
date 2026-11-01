@@ -584,10 +584,46 @@ def is_link(made: int, ext: int) -> bool:
     return (ext >> 16) & 0o170000 not in (0o100000, 0o040000)
 
 
+def zip64_prepass(b: bytes, total: int, cd_off: int) -> None:
+    """Step 3's FIRST pass, over ALL directory entries before any other step-3 check (§3 order):
+    zip64 in any spelling -- a sentinel size or offset, or a 0x0001 extra field, central or local."""
+    p = cd_off
+    for _ in range(total):
+        if b[p:p + 4] != b"PK\x01\x02":
+            return  # not a directory entry: the main pass says so, with its own code
+        csize, usize = struct.unpack("<II", b[p + 20:p + 28])
+        nlen, xlen, clen = struct.unpack("<HHH", b[p + 28:p + 34])
+        loff = struct.unpack("<I", b[p + 42:p + 46])[0]
+        extra = b[p + 46 + nlen:p + 46 + nlen + xlen]
+        p += 46 + nlen + xlen + clen
+        if 0xFFFFFFFF in (csize, usize, loff):
+            raise Refusal("E_ZIP_END_RECORD", "a zip64 sentinel size or offset")
+        lx = b[loff + 30 + int.from_bytes(b[loff + 26:loff + 28], "little"):][:int.from_bytes(b[loff + 28:loff + 30], "little")]
+        for blob in (extra, lx):
+            q = 0
+            while q + 4 <= len(blob):
+                hid, hlen = struct.unpack("<HH", blob[q:q + 4])
+                if hid == 0x0001:
+                    raise Refusal("E_ZIP_END_RECORD", "a zip64 extra field")
+                q += 4 + hlen
+
+
+def peek(b: bytes, method: int, off: int, csize: int, n: int) -> bytes:
+    """The first n bytes of an entry's DATA, inflating no more than that."""
+    comp = b[off:off + csize]
+    if method == 0:
+        return comp[:n]
+    try:
+        return zlib.decompressobj(-15).decompress(comp, n)
+    except zlib.error:
+        return b""
+
+
 def walk_zip(b: bytes) -> dict[str, bytes]:
     total, cd_off, cd_size = end_record(b)
     if total > MAX_ENTRIES:
         raise Refusal("E_ARCHIVE_TOO_MANY_ENTRIES", str(total))
+    zip64_prepass(b, total, cd_off)
     entries = []
     p = cd_off
     for _ in range(total):
@@ -598,17 +634,12 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         raw_name = b[p + 46:p + 46 + nlen]
         extra = b[p + 46 + nlen:p + 46 + nlen + xlen]
         p += 46 + nlen + xlen + clen
-        # zip64 in any spelling: a sentinel size or offset, or the 0x0001 extra field (central or local)
-        if 0xFFFFFFFF in (csize, usize, loff):
-            raise Refusal("E_ZIP_END_RECORD", "a zip64 sentinel size or offset")
         lx = b[loff + 30 + int.from_bytes(b[loff + 26:loff + 28], "little"):][:int.from_bytes(b[loff + 28:loff + 30], "little")]
         upath = False
         for blob in (extra, lx):
             q = 0
             while q + 4 <= len(blob):
                 hid, hlen = struct.unpack("<HH", blob[q:q + 4])
-                if hid == 0x0001:
-                    raise Refusal("E_ZIP_END_RECORD", "a zip64 extra field")
                 if hid in UPATH_IDS:  # the crate refuses it in the local header too (read/mod.rs:446)
                     upath = True
                 q += 4 + hlen
@@ -690,6 +721,11 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
     for name, method, _crc, csize, usize, *_ in entries:
         if method == 8 and usize > MAX_RATIO * max(csize, 1):
             raise Refusal("E_ARCHIVE_RATIO", name)
+    # step 5's archive-wide glTF JSON budget (B1: the server once held 1.9 GB for seven 16 MiB .gltf),
+    # from headers and each entry's first 16 bytes -- before step 6, and before anything is inflated whole
+    gltf_total = sum(gltf_json_bytes(e[0], peek(b, e[1], e[5], e[3], 16), e[4]) for e in entries if not e[0].endswith("/"))
+    if gltf_total > MAX_GLTF_JSON_TOTAL:
+        raise Refusal("E_ARCHIVE_TOO_LARGE", f"{gltf_total} bytes of glTF JSON, over {MAX_GLTF_JSON_TOTAL}")
     for name, method, *_ in entries:
         if method != 0 and name.lower().endswith(STORED_ONLY):
             raise Refusal("E_ARCHIVE_MUST_BE_STORED", name)
@@ -713,10 +749,6 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         if len(data) != usize or (zlib.crc32(data) & 0xFFFFFFFF) != crc:
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: size or CRC")
         files[name] = data
-    # step 5's archive-wide glTF JSON budget (B1): the server once held 1.9 GB for seven 16 MiB .gltf
-    total = sum(gltf_json_bytes(p, d) for p, d in files.items())
-    if total > MAX_GLTF_JSON_TOTAL:
-        raise Refusal("E_ARCHIVE_TOO_LARGE", f"{total} bytes of glTF JSON, over {MAX_GLTF_JSON_TOTAL}")
     files["\0order"] = json.dumps([e[0] for e in entries]).encode()
     return files
 
@@ -864,12 +896,12 @@ MAX_JSON_DEPTH = 128
 MAX_GLTF_JSON_TOTAL = 32 * 1024 * 1024  # B1: all GLB JSON chunks plus all .gltf in ONE archive
 
 
-def gltf_json_bytes(p: str, b: bytes) -> int:
-    """The glTF JSON a reader would hold for this entry: a GLB's declared first-chunk length,
-    or a .gltf's whole size -- read from headers, before anything is parsed."""
-    if b[:4] == GLB_MAGIC:
-        return int.from_bytes(b[12:16], "little") if len(b) >= 16 else 0
-    return len(b) if p.lower().endswith(".gltf") else 0
+def gltf_json_bytes(p: str, head: bytes, size: int) -> int:
+    """The glTF JSON a reader would hold for this entry: a GLB's declared first-chunk length (from
+    its first 16 bytes), or a .gltf's whole declared size -- before anything is parsed."""
+    if head[:4] == GLB_MAGIC:
+        return int.from_bytes(head[12:16], "little") if len(head) >= 16 else 0
+    return size if p.lower().endswith(".gltf") else 0
 
 
 def json_depth(doc) -> int:

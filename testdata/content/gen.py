@@ -1000,6 +1000,17 @@ def gen_archives() -> None:
     put("archives/hostile/pct.astrapack", anim({"clips/p.gltf": pct_gltf, f"clips/{pct_uri}": b"\x00\x01\x02\x03"}))
     # the sniff decides on the top-level `asset` key alone, whether or not the rest parses
     put("archives/hostile/gltf-sniff-garbage.astrapack", anim({"clips/x.json": b'{"asset":1,<garbage> \x00\x01 not json'}))
+    # TWO faults, to pin the order (ingest-v1.md §3): an encrypted entry FIRST in directory order and a
+    # zip64 extra field on a LATER one. The zip64 pre-pass over all entries runs before any step-3 check
+    def two_faults(entries):
+        for e in entries:
+            if e["name"] == "clips/a.fbx":
+                e["flags"] = 1
+            if e["name"] == "clips/b.fbx":
+                e["extra"] = struct.pack("<HHQQ", 0x0001, 16, 5, 5)
+        return entries
+    put("archives/hostile/order-zip64-before-encrypted.astrapack",
+        bundle("astra.animpack", ASCII_PART, body=None, tweak=two_faults))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

@@ -814,6 +814,22 @@ class SniffOnTheTopLevelKey(unittest.TestCase):
         self.assertTrue(f('{"as\\u0073et":1, <garbage>'))  # an escaped key is the same key
 
 
+class StepOrder(unittest.TestCase):
+    def test_zip64_checked_after_the_step_3_checks(self):
+        # the old shape: zip64 not a pre-pass, so an earlier entry's step-3 fault answers first
+        orig = cg.walk_zip
+
+        def late_zip64(b):
+            with Mutation("zip64_prepass", lambda *a: None):
+                try:
+                    return orig(b)
+                except cg.Refusal as r:
+                    if r.code != "E_ZIP_END_RECORD":
+                        raise
+            return orig(b)
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("walk_zip", late_zip64), "archives/order-zip64-before-encrypted")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
