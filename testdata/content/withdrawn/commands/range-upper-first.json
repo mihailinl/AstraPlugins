@@ -1,0 +1,59 @@
+{
+  "signed": {
+    "schema": "astra.commands.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "evil-shell",
+        "versions": "<=1.0.0,>=0.5.0",
+        "act": "security",
+        "floor_effect": "disarm",
+        "reason_code": "security",
+        "reason_text": "test row: security/security",
+        "at": 1798671600
+      },
+      {
+        "id": "greet-copy",
+        "versions": "<=1.0.0",
+        "act": "rights",
+        "floor_effect": "disarm",
+        "reason_code": "rights-holder",
+        "reason_text": "test row: rights/rights-holder",
+        "at": 1798668000,
+        "part": {
+          "part_kind": "command",
+          "digest": "ff120b9aea22357c2dbe27ff62c003b2034996791f7ef20b69a9e71eb9901ac7"
+        }
+      },
+      {
+        "id": "needs-ghost",
+        "versions": "<=1.0.0",
+        "act": "retired",
+        "floor_effect": "no-update",
+        "reason_code": "requires-unavailable",
+        "reason_text": "test row: retired/requires-unavailable",
+        "at": 1798674600,
+        "cause": {
+          "kind": "plugin",
+          "id": "ghost-plugin",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "lifts": [
+      {
+        "id": "old-shell",
+        "versions": "<=0.9.0",
+        "lifts_at": 1795219200
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-commands-2026a",
+      "sig": "NZ3imZrQuvhaPvWnEU2/rPGpQjqfFuIcyv6/fg8pcaPysieqHCxsXEUPpd8JrJUuNygvSc9/caMF6pPfGiOQAw=="
+    }
+  ]
+}

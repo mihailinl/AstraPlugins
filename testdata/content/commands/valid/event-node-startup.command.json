@@ -1,0 +1,29 @@
+{
+  "id": "00000000-0000-4000-8000-000000000008",
+  "name": "Startup node",
+  "triggers": [],
+  "actions": [],
+  "enabled": true,
+  "workflow": {
+    "nodes": {
+      "t": {
+        "id": "t",
+        "node_type": "trigger",
+        "data": {
+          "trigger_type": "event",
+          "config": {
+            "event_name": "startup"
+          }
+        }
+      },
+      "a": {
+        "id": "a",
+        "node_type": "action",
+        "data": {
+          "action_type": "notify"
+        }
+      }
+    },
+    "edges": {}
+  }
+}

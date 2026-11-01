@@ -1,0 +1,16 @@
+{
+  "signed": {
+    "schema": "astra.packs.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-packs-2026a",
+      "sig": "c9AqzU7oBA170i7KV/+hnIx7oZWGRvssxlN5Jd8PODh91tp9fNpxrrSM4rzlz161or8iFzb2LvP3EkZb5rfNBQ=="
+    }
+  ]
+}

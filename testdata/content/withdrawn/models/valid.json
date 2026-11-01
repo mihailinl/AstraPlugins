@@ -1,0 +1,30 @@
+{
+  "signed": {
+    "schema": "astra.models.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "stolen-body",
+        "versions": "<=1.0.0",
+        "act": "rights",
+        "floor_effect": "disarm",
+        "reason_code": "rights-holder",
+        "reason_text": "test row: rights/rights-holder",
+        "at": 1798674300,
+        "part": {
+          "part_kind": "character",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-models-2026a",
+      "sig": "T70khCwf3wcECik9SWlE1L1RVCEL+7BD3y/zdhmEI8CnEH0t4Y02g6MJec1mNop8W3ms6cJpN1YOkpFSB9oQDA=="
+    }
+  ]
+}

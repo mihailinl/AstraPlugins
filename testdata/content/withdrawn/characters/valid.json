@@ -1,0 +1,31 @@
+{
+  "signed": {
+    "schema": "astra.characters.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "mika",
+        "versions": "<=1.0.0",
+        "act": "retired",
+        "floor_effect": "no-update",
+        "reason_code": "member-withdrawn",
+        "reason_text": "test row: retired/member-withdrawn",
+        "at": 1798674600,
+        "cause": {
+          "kind": "model",
+          "id": "stolen-body",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-characters-2026a",
+      "sig": "uWmJQVa3cPnM+DTbTsnrVokZ+tCwmxaiQ4f093x4g7XFVbkpwOnx29Ad3JtEvqx4ENyY4GCyVqT2w/wOnCO2Cg=="
+    }
+  ]
+}

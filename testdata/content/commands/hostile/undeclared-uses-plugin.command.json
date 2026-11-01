@@ -1,0 +1,19 @@
+{
+  "id": "00000000-0000-4000-8000-000000000017",
+  "name": "Plugin action",
+  "triggers": [
+    {
+      "type": "text",
+      "phrases": [
+        "roll"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "dynamic",
+      "handler_id": "plugin__dice-roller__roll"
+    }
+  ],
+  "enabled": true
+}

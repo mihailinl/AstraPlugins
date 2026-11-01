@@ -1,0 +1,17 @@
+{
+  "id": "00000000-0000-4000-8000-000000000013",
+  "name": "Unknown trigger",
+  "triggers": [
+    {
+      "type": "geofence",
+      "radius": 5
+    }
+  ],
+  "actions": [
+    {
+      "type": "speak",
+      "text": "hi"
+    }
+  ],
+  "enabled": true
+}

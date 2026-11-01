@@ -1,0 +1,16 @@
+{
+  "signed": {
+    "schema": "astra.commands.withdrawn/1",
+    "serial": 1798678800,
+    "issued_at": 1798678800,
+    "expires_at": 1799283600,
+    "rows": [],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-commands-2026a",
+      "sig": "tCtjonUzPk/y4FizrDp8wjsO7eP5FDx2o27GoWJa6DxYf8D+J7NLqdJ0uExbTlwwGYJDePlhkIMsBMmOE3/hBg=="
+    }
+  ]
+}

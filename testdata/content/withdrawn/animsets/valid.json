@@ -1,0 +1,26 @@
+{
+  "signed": {
+    "schema": "astra.animsets.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "old-dance",
+        "versions": "<=1.0.0",
+        "act": "retired",
+        "floor_effect": "no-update",
+        "reason_code": "author-request",
+        "reason_text": "test row: retired/author-request",
+        "at": 1798675150
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-animsets-2026a",
+      "sig": "2IL5so0Rd+xiyASegZH86LUcmlODml66dCPGN2JURw2SdR+xvyPZEuYivCZXMv/JszHwXGu0ePqejw/60a6lDQ=="
+    }
+  ]
+}

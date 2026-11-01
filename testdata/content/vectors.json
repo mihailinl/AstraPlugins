@@ -1,0 +1,3945 @@
+{
+  "schema": "astra.testdata.content/1",
+  "note": "One record per golden, its verdict stated BY HAND (testdata/content/gen.py writes the bytes, never these verdicts). See testdata/content/README.md for each field.",
+  "now": 1798675200,
+  "trust": {
+    "file": "trust/trust.json",
+    "root_public_key": "IGzxwzZlVZl+I5OBxofWXuaRV7DX7F1AYVomAKKcuio=",
+    "kind_keys": [
+      {
+        "name": "valid",
+        "file": "trust/kind-keys/valid.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "next-not-later",
+        "file": "trust/kind-keys/next-not-later.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "next-earlier",
+        "file": "trust/kind-keys/next-earlier.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "duplicate-role",
+        "file": "trust/kind-keys/duplicate-role.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-alg",
+        "file": "trust/kind-keys/bad-alg.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-role",
+        "file": "trust/kind-keys/bad-role.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "missing-next",
+        "file": "trust/kind-keys/missing-next.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": []
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": []
+          }
+        }
+      },
+      {
+        "name": "shared-key-across-kinds",
+        "file": "trust/kind-keys/shared-key-across-kinds.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "kind-key-in-index-keys",
+        "file": "trust/kind-keys/kind-key-in-index-keys.json",
+        "schema_verdict": "accept",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "unknown-kind-row",
+        "file": "trust/kind-keys/unknown-kind-row.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "bad-public-key",
+        "file": "trust/kind-keys/bad-public-key.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [
+              "astra-animsets-2026a",
+              "astra-animsets-2026b"
+            ],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [
+              "astra-animsets-2026a"
+            ],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      },
+      {
+        "name": "unparseable-not-before",
+        "file": "trust/kind-keys/unparseable-not-before.json",
+        "schema_verdict": "refuse",
+        "expect": {
+          "now": {
+            "commands": [
+              "astra-commands-2026a",
+              "astra-commands-2026b"
+            ],
+            "characters": [
+              "astra-characters-2026a",
+              "astra-characters-2026b"
+            ],
+            "models": [
+              "astra-models-2026a",
+              "astra-models-2026b"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a",
+              "astra-packs-2026b"
+            ],
+            "games": [
+              "astra-games-2026a",
+              "astra-games-2026b"
+            ]
+          },
+          "1794700800": {
+            "commands": [
+              "astra-commands-2026a"
+            ],
+            "characters": [
+              "astra-characters-2026a"
+            ],
+            "models": [
+              "astra-models-2026a"
+            ],
+            "animsets": [],
+            "packs": [
+              "astra-packs-2026a"
+            ],
+            "games": [
+              "astra-games-2026a"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "part_digest": [
+    {
+      "name": "ascii",
+      "dir": "part-digest/ascii",
+      "jcs": "part-digest/ascii.jcs",
+      "part_digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255",
+      "root": ""
+    },
+    {
+      "name": "non-ascii",
+      "dir": "part-digest/non-ascii",
+      "jcs": "part-digest/non-ascii.jcs",
+      "part_digest": "395755a2b649b6c820d1c401b07de8ec06d863d313b39518f541744c7bd80c79",
+      "root": ""
+    },
+    {
+      "name": "single-file",
+      "dir": "part-digest/single-file",
+      "jcs": "part-digest/single-file.jcs",
+      "root": null,
+      "part_digest": "06c7b7f3a998db259f3dee4471e8542687eeb518982d094fec93744161305e1c",
+      "note": "ONE pair whose path is \"\": the bytes are the ASCII text glTF-VRM-test (sha256 98bae0cf…d9d2); agreed with astra-companion-5f"
+    }
+  ],
+  "part_digest_refusals": [
+    {
+      "name": "not-nfc",
+      "path": "animpacks/wave/café.fbx",
+      "rule": "not-nfc"
+    },
+    {
+      "name": "backslash",
+      "path": "animpacks\\wave\\a.fbx",
+      "rule": "backslash"
+    },
+    {
+      "name": "leading-slash",
+      "path": "/animpacks/wave/a.fbx",
+      "rule": "leading-slash"
+    },
+    {
+      "name": "dot-dot",
+      "path": "animpacks/../a.fbx",
+      "rule": "dot-dot"
+    },
+    {
+      "name": "empty-segment",
+      "path": "animpacks//a.fbx",
+      "rule": "empty-segment"
+    },
+    {
+      "name": "c0",
+      "path": "animpacks/a\u0007.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "c1",
+      "path": "animpacks/a.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "del",
+      "path": "animpacks/a.fbx",
+      "rule": "control-character"
+    },
+    {
+      "name": "empty",
+      "path": "",
+      "rule": "empty"
+    }
+  ],
+  "index": [
+    {
+      "name": "valid",
+      "kind": "commands",
+      "file": "index/commands/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026a"
+    },
+    {
+      "name": "signed-by-next",
+      "kind": "commands",
+      "file": "index/commands/signed-by-next.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "next is valid at `now`: both keys are pre-authorised"
+    },
+    {
+      "name": "next-before-not-before",
+      "kind": "commands",
+      "file": "index/commands/next-before-not-before.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "now": 1794700800,
+      "note": "not_before gates VALIDITY: before it, only current verifies"
+    },
+    {
+      "name": "next-before-not-before-later",
+      "kind": "commands",
+      "file": "index/commands/next-before-not-before.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "the same bytes verify once next's not_before has passed"
+    },
+    {
+      "name": "dual-signed-current-first",
+      "kind": "commands",
+      "file": "index/commands/dual-signed-current-first.json",
+      "verdict": "accept",
+      "verified_by": [
+        "astra-commands-2026a",
+        "astra-commands-2026b"
+      ]
+    },
+    {
+      "name": "dual-signed-next-first",
+      "kind": "commands",
+      "file": "index/commands/dual-signed-next-first.json",
+      "verdict": "accept",
+      "verified_by": [
+        "astra-commands-2026a",
+        "astra-commands-2026b"
+      ]
+    },
+    {
+      "name": "signed-by-models-key",
+      "kind": "commands",
+      "file": "index/commands/signed-by-models-key.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "a key outside its kind"
+    },
+    {
+      "name": "signed-by-index-key",
+      "kind": "commands",
+      "file": "index/commands/signed-by-index-key.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "a plugin index key never verifies a content document"
+    },
+    {
+      "name": "signed-under-models-domain",
+      "kind": "commands",
+      "file": "index/commands/signed-under-models-domain.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid",
+      "note": "the right key over the wrong domain: the verifier's constant decides"
+    },
+    {
+      "name": "duplicate-member-name",
+      "kind": "commands",
+      "file": "index/commands/duplicate-member-name.json",
+      "verdict": "refuse",
+      "check": "parse",
+      "note": "its signature VERIFIES under a last-wins parser; a duplicate member name is refused before any signature is checked (common-v1.md §1)"
+    },
+    {
+      "name": "tampered-after-signing",
+      "kind": "commands",
+      "file": "index/commands/tampered-after-signing.json",
+      "verdict": "refuse",
+      "check": "signature",
+      "reason": "signature-invalid"
+    },
+    {
+      "name": "content-confirmed-dotted-id",
+      "kind": "commands",
+      "file": "index/commands/content-confirmed-dotted-id.json",
+      "verdict": "accept",
+      "note": "the shared dotted text id market.rights.animations"
+    },
+    {
+      "name": "content-confirmed-malformed-id",
+      "kind": "commands",
+      "file": "index/commands/content-confirmed-malformed-id.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "an empty segment"
+    },
+    {
+      "name": "expiry-span-too-long",
+      "kind": "commands",
+      "file": "index/commands/expiry-span-too-long.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "expiry-span"
+    },
+    {
+      "name": "issued-in-future",
+      "kind": "commands",
+      "file": "index/commands/issued-in-future.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "issued-in-future"
+    },
+    {
+      "name": "serial-not-issued-at",
+      "kind": "commands",
+      "file": "index/commands/serial-not-issued-at.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "serial-is-issued-at"
+    },
+    {
+      "name": "licence-prohibited",
+      "kind": "commands",
+      "file": "index/commands/licence-prohibited.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-allowed"
+    },
+    {
+      "name": "no-command-part",
+      "kind": "commands",
+      "file": "index/commands/no-command-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-command-part"
+    },
+    {
+      "name": "capabilities-unsorted",
+      "kind": "commands",
+      "file": "index/commands/capabilities-unsorted.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "capabilities-sorted"
+    },
+    {
+      "name": "id-double-hyphen",
+      "kind": "commands",
+      "file": "index/commands/id-double-hyphen.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "id-double-hyphen"
+    },
+    {
+      "name": "parts-without-confirmation",
+      "kind": "commands",
+      "file": "index/commands/parts-without-confirmation.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "parts-confirmed"
+    },
+    {
+      "name": "duplicate-id-version",
+      "kind": "commands",
+      "file": "index/commands/duplicate-id-version.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "unique-id-version"
+    },
+    {
+      "name": "unknown-top-level-key",
+      "kind": "commands",
+      "file": "index/commands/unknown-top-level-key.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "withdrawals never ride inside an index (common-v1.md §2)"
+    },
+    {
+      "name": "requires-kind-model",
+      "kind": "commands",
+      "file": "index/commands/requires-kind-model.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "danger-unknown-word",
+      "kind": "commands",
+      "file": "index/commands/danger-unknown-word.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "characters",
+      "file": "index/characters/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-characters-2026a"
+    },
+    {
+      "name": "requires-stale-digest",
+      "kind": "characters",
+      "file": "index/characters/requires-stale-digest.json",
+      "verdict": "accept",
+      "note": "valid as a document; the client refuses it against the served model (scenario requires-digest-mismatch)"
+    },
+    {
+      "name": "requires-no-model",
+      "kind": "characters",
+      "file": "index/characters/requires-no-model.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-model"
+    },
+    {
+      "name": "requires-two-models",
+      "kind": "characters",
+      "file": "index/characters/requires-two-models.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "one-model"
+    },
+    {
+      "name": "part-kind-animations",
+      "kind": "characters",
+      "file": "index/characters/part-kind-animations.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "models",
+      "file": "index/models/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-models-2026a"
+    },
+    {
+      "name": "two-parts",
+      "kind": "models",
+      "file": "index/models/two-parts.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "format-vrm-body-pixel",
+      "kind": "models",
+      "file": "index/models/format-vrm-body-pixel.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "model-format"
+    },
+    {
+      "name": "licence-vrm-spec-none",
+      "kind": "models",
+      "file": "index/models/licence-vrm-spec-none.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-source-spec"
+    },
+    {
+      "name": "avatar-author-only",
+      "kind": "models",
+      "file": "index/models/avatar-author-only.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-allowed"
+    },
+    {
+      "name": "vrm0-political-known",
+      "kind": "models",
+      "file": "index/models/vrm0-political-known.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "vrm0-usage"
+    },
+    {
+      "name": "valid",
+      "kind": "animsets",
+      "file": "index/animsets/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-animsets-2026a"
+    },
+    {
+      "name": "dimension-2d-animations-part",
+      "kind": "animsets",
+      "file": "index/animsets/dimension-2d-animations-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "dimension-part"
+    },
+    {
+      "name": "clips-zero",
+      "kind": "animsets",
+      "file": "index/animsets/clips-zero.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "packs",
+      "file": "index/packs/valid.json",
+      "verdict": "accept",
+      "signed_by": "astra-packs-2026a"
+    },
+    {
+      "name": "member-pack",
+      "kind": "packs",
+      "file": "index/packs/member-pack.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "min-astra-present",
+      "kind": "packs",
+      "file": "index/packs/min-astra-present.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "licence-present",
+      "kind": "packs",
+      "file": "index/packs/licence-present.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "members-65",
+      "kind": "packs",
+      "file": "index/packs/members-65.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "duplicate-member",
+      "kind": "packs",
+      "file": "index/packs/duplicate-member.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "unique-members"
+    }
+  ],
+  "withdrawn": [
+    {
+      "name": "valid",
+      "kind": "commands",
+      "file": "withdrawn/commands/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-1-security",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-1-security.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-2-row-dropped",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-2-row-dropped.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-3-lift-wrong-at",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-3-lift-wrong-at.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seq-4-lift",
+      "kind": "commands",
+      "file": "withdrawn/commands/seq-4-lift.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seqr-1",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-1.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seqr-2",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-2.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seqr-3",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-3.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted",
+      "note": "the publisher may not serve it; the client must still let the row win"
+    },
+    {
+      "name": "seqr-4",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-4.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "the publisher may not spell a range with a space; the client that is served it anyway still lifts nothing (scenario sticky-every-row)"
+    },
+    {
+      "name": "seqr-5",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-5.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "security-reason-retired-act",
+      "kind": "commands",
+      "file": "withdrawn/commands/security-reason-retired-act.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "security-pairs"
+    },
+    {
+      "name": "security-floor-not-disarm",
+      "kind": "commands",
+      "file": "withdrawn/commands/security-floor-not-disarm.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "rights-floor-no-offer",
+      "kind": "commands",
+      "file": "withdrawn/commands/rights-floor-no-offer.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "retired-floor-no-offer",
+      "kind": "commands",
+      "file": "withdrawn/commands/retired-floor-no-offer.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "floor-of-act"
+    },
+    {
+      "name": "part-without-rights",
+      "kind": "commands",
+      "file": "withdrawn/commands/part-without-rights.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "part-only-rights"
+    },
+    {
+      "name": "cascade-without-cause",
+      "kind": "commands",
+      "file": "withdrawn/commands/cascade-without-cause.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "cause-on-cascade"
+    },
+    {
+      "name": "lift-contradicts-row",
+      "kind": "commands",
+      "file": "withdrawn/commands/lift-contradicts-row.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted"
+    },
+    {
+      "name": "lift-contradicts-retired-row",
+      "kind": "commands",
+      "file": "withdrawn/commands/lift-contradicts-retired-row.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted",
+      "note": "a row in the same document beats a lift, whatever its act"
+    },
+    {
+      "name": "range-with-space",
+      "kind": "commands",
+      "file": "withdrawn/commands/range-with-space.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "ranges are canonical: no spaces"
+    },
+    {
+      "name": "range-upper-first",
+      "kind": "commands",
+      "file": "withdrawn/commands/range-upper-first.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "ranges are canonical: the lower bound first"
+    },
+    {
+      "name": "bad-act-enum",
+      "kind": "commands",
+      "file": "withdrawn/commands/bad-act-enum.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "the PUBLISHER may not emit it; a CLIENT applies its floor_effect (scenario client-floor-unknown-act)"
+    },
+    {
+      "name": "missing-lifts",
+      "kind": "commands",
+      "file": "withdrawn/commands/missing-lifts.json",
+      "verdict": "refuse",
+      "check": "schema"
+    },
+    {
+      "name": "valid",
+      "kind": "characters",
+      "file": "withdrawn/characters/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "no-cascade",
+      "kind": "characters",
+      "file": "withdrawn/characters/no-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "aiko-cascade",
+      "kind": "characters",
+      "file": "withdrawn/characters/aiko-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "valid",
+      "kind": "models",
+      "file": "withdrawn/models/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "aiko-security",
+      "kind": "models",
+      "file": "withdrawn/models/aiko-security.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "expiry-span-too-long",
+      "kind": "models",
+      "file": "withdrawn/models/expiry-span-too-long.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "expiry-span"
+    },
+    {
+      "name": "valid",
+      "kind": "animsets",
+      "file": "withdrawn/animsets/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "valid",
+      "kind": "packs",
+      "file": "withdrawn/packs/valid.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "no-cascade",
+      "kind": "packs",
+      "file": "withdrawn/packs/no-cascade.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "row-with-part",
+      "kind": "packs",
+      "file": "withdrawn/packs/row-with-part.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "part-only-rights"
+    }
+  ],
+  "commands": [
+    {
+      "name": "greet",
+      "file": "commands/valid/greet.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio",
+          "uses_ai"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "prompt-only"
+    },
+    {
+      "name": "build-and-ask",
+      "file": "commands/valid/build-and-ask.command.json",
+      "claim": {
+        "capabilities": [
+          "binds_hotkey",
+          "executes_shell",
+          "uses_ai"
+        ],
+        "danger": "critical",
+        "requires": []
+      },
+      "verdict": "accept",
+      "flags": [
+        "F_COMMAND_EXEC_AND_NETWORK"
+      ]
+    },
+    {
+      "name": "roll-dice",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "accept",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      }
+    },
+    {
+      "name": "morning",
+      "file": "commands/valid/morning.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "startup is its own word, never on_event:startup"
+    },
+    {
+      "name": "on-crit",
+      "file": "commands/valid/on-crit.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "low",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "accept",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      },
+      "note": "a plugin TRIGGER is a requirement too"
+    },
+    {
+      "name": "conditional",
+      "file": "commands/valid/conditional.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "opens_urls"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "nested condition bodies are scanned"
+    },
+    {
+      "name": "open-file",
+      "file": "commands/valid/open-file.command.json",
+      "claim": {
+        "capabilities": [
+          "file_access",
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "a linear execute with shell \"open\" opens a file and runs nothing: file_access, low (scan_action / action_danger at Astra 5d5ae5e83)"
+    },
+    {
+      "name": "event-node-startup",
+      "file": "commands/valid/event-node-startup.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "a trigger NODE keeps event_name under data.config"
+    },
+    {
+      "name": "linear-open-file",
+      "file": "commands/hostile/linear-open-file.command.json",
+      "claim": {
+        "capabilities": [
+          "file_access",
+          "on_phrase"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION",
+      "note": "open_file is a node action type, never an Action serde tag"
+    },
+    {
+      "name": "event-node-no-config",
+      "file": "commands/hostile/event-node-no-config.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER",
+      "note": "event_name outside config: the client's matcher never fires it, so no word can describe it"
+    },
+    {
+      "name": "duplicate-type-key",
+      "file": "commands/hostile/duplicate-type-key.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_FORMAT",
+      "note": "`type` twice: speak to one reader, execute to another"
+    },
+    {
+      "name": "caps-mismatch",
+      "file": "commands/hostile/caps-mismatch.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "unknown-action",
+      "file": "commands/hostile/unknown-action.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-node-action",
+      "file": "commands/hostile/unknown-node-action.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-node",
+      "file": "commands/hostile/unknown-node.command.json",
+      "claim": {
+        "capabilities": [],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-trigger",
+      "file": "commands/hostile/unknown-trigger.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER"
+    },
+    {
+      "name": "unknown-trigger-node",
+      "file": "commands/hostile/unknown-trigger-node.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER",
+      "note": "`reminder` is not one of v1's mapped trigger types (OPEN.md O-5)"
+    },
+    {
+      "name": "unknown-event-name",
+      "file": "commands/hostile/unknown-event-name.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER"
+    },
+    {
+      "name": "undeclared-trigger-cap",
+      "file": "commands/hostile/undeclared-trigger-cap.command.json",
+      "claim": {
+        "capabilities": [
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "undeclared-uses-plugin",
+      "file": "commands/hostile/undeclared-uses-plugin.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_MISMATCH"
+    },
+    {
+      "name": "bare-dynamic",
+      "file": "commands/hostile/bare-dynamic.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_PLUGIN_UNNAMED"
+    },
+    {
+      "name": "two-spellings",
+      "file": "commands/hostile/two-spellings.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "danger-understated",
+      "file": "commands/hostile/danger-understated.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "runs_command"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_CAPS_MISMATCH"
+    },
+    {
+      "name": "unparsed-handler",
+      "file": "commands/hostile/unparsed-handler.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_PLUGIN_UNNAMED"
+    },
+    {
+      "name": "sub-workflow",
+      "file": "commands/hostile/sub-workflow.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION",
+      "note": "refused in v1: it invokes a workflow the extractor does not resolve (OPEN.md O-12)"
+    },
+    {
+      "name": "requires-unlisted",
+      "file": "commands/hostile/requires-unlisted.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "uses_plugin:ghost-plugin"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "ghost-plugin",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_UNLISTED",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ]
+        }
+      }
+    },
+    {
+      "name": "requires-revoked",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_REQUIRES_UNLISTED",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ],
+          "revoked": [
+            "<=1.2.0"
+          ]
+        }
+      },
+      "note": "the only listed version that matches is inside a revocation WINDOW"
+    },
+    {
+      "name": "requires-window-misses-newer",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.2.0"
+          }
+        ]
+      },
+      "verdict": "accept",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0",
+            "1.3.0"
+          ],
+          "revoked": [
+            ">=1.2.0,<1.3.0"
+          ]
+        }
+      },
+      "note": "1.2.0 is revoked, 1.3.0 is not and matches"
+    },
+    {
+      "name": "requires-req-excludes-unrevoked",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": "<1.3.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0",
+            "1.3.0"
+          ],
+          "revoked": [
+            "=1.2.0"
+          ]
+        }
+      },
+      "note": "the unrevoked 1.3.0 is outside version_req; the one inside is revoked",
+      "code": "E_COMMAND_REQUIRES_UNLISTED"
+    },
+    {
+      "name": "requires-rc-revoked-by-release-window",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.3.0-rc.1"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.3.0-rc.1"
+          ],
+          "revoked": [
+            "<=1.3.0"
+          ]
+        }
+      },
+      "note": "<=1.3.0 covers 1.3.0-rc.1 by SemVer precedence",
+      "code": "E_COMMAND_REQUIRES_UNLISTED"
+    },
+    {
+      "name": "requires-window-unparseable",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ],
+          "revoked": [
+            "^1.2"
+          ]
+        }
+      },
+      "note": "a window the client cannot parse covers every version",
+      "code": "E_COMMAND_REQUIRES_UNLISTED"
+    },
+    {
+      "name": "requires-req-not-canonical",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": "^1.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ],
+          "revoked": []
+        }
+      },
+      "note": "version_req is canonical comparators only",
+      "code": "E_COMMAND_FORMAT"
+    },
+    {
+      "name": "requires-nothing-listed-matches",
+      "file": "commands/valid/roll-dice.command.json",
+      "claim": {
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "requires": [
+          {
+            "id": "dice-roller",
+            "version_req": ">=2.0.0"
+          }
+        ]
+      },
+      "verdict": "refuse",
+      "served_plugins": {
+        "dice-roller": {
+          "listed": [
+            "1.2.0"
+          ],
+          "revoked": []
+        }
+      },
+      "note": "",
+      "code": "E_COMMAND_REQUIRES_UNLISTED"
+    }
+  ],
+  "archives": [
+    {
+      "name": "model-aiko",
+      "file": "archives/valid/model-aiko.astrachar",
+      "verdict": "accept",
+      "parts": {
+        "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+      },
+      "declared_parts": {
+        "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+      }
+    },
+    {
+      "name": "model-aiko-parts-mismatch",
+      "file": "archives/valid/model-aiko.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_PARTS_MISMATCH",
+      "declared_parts": {
+        "character:characters/aiko/body.vrm": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
+      },
+      "note": "the valid model, uploaded with a declared part digest that is not its own"
+    },
+    {
+      "name": "animset-wave",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        ""
+      ],
+      "parts": {
+        "animations:": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
+      },
+      "note": "its one part, at the zip root, is the ASCII part-digest golden; character-with-pack holds the same pack under animpacks/<id>/ and gets the same digest"
+    },
+    {
+      "name": "animset-vrma",
+      "file": "archives/valid/animset-vrma.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a .vrma declaring VRMC_vrm_animation and no avatar extension is an animation: the animations rights checkbox, no avatar verdict, not held"
+    },
+    {
+      "name": "animset-plain-glb",
+      "file": "archives/valid/animset-plain-glb.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a plain GLB clip (no avatar extension, no VRMC_vrm_animation) in an animset part takes the part's rights confirmation: never judged, never held"
+    },
+    {
+      "name": "character-aiko",
+      "file": "archives/valid/character-aiko.astrachar",
+      "verdict": "accept",
+      "note": "settings only: no part"
+    },
+    {
+      "name": "character-with-pack",
+      "file": "archives/valid/character-with-pack.astrachar",
+      "verdict": "accept",
+      "declared_licence": [
+        "animpacks/moves (2)"
+      ],
+      "parts": {
+        "animations:animpacks/moves (2)": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
+      },
+      "note": "the SAME pack as animset-wave, inside a .astrachar under the per-machine id \"moves (2)\": the SAME digest, so the catalogue sees the referenced set is the animset item"
+    },
+    {
+      "name": "model-vrm0-cc-by-nc",
+      "file": "archives/valid/model-vrm0-cc-by-nc.astrachar",
+      "verdict": "accept",
+      "note": "every CC_* licenseName is Allowed (meta.rs)"
+    },
+    {
+      "name": "model-aiko-descriptor",
+      "file": "archives/valid/model-aiko-descriptor.astrachar",
+      "verdict": "accept",
+      "parts": {
+        "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+      },
+      "note": "a Deflated bit-3 entry with a signed descriptor that equals the directory"
+    },
+    {
+      "name": "model-aiko-descriptor-nosig",
+      "file": "archives/valid/model-aiko-descriptor-nosig.astrachar",
+      "verdict": "accept",
+      "note": "the descriptor's signature is optional"
+    },
+    {
+      "name": "decoy-end-record",
+      "file": "archives/hostile/decoy-end-record.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "trailing-junk",
+      "file": "archives/hostile/trailing-junk.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "count-short-of-directory",
+      "file": "archives/hostile/count-short-of-directory.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "the reviewer's t3 shape: a directory entry past the end record's count"
+    },
+    {
+      "name": "zip64-extra",
+      "file": "archives/hostile/zip64-extra.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-size-sentinel",
+      "file": "archives/hostile/zip64-size-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-offset-sentinel",
+      "file": "archives/hostile/zip64-offset-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-cd-size-sentinel",
+      "file": "archives/hostile/zip64-cd-size-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "entries-10001",
+      "file": "archives/hostile/entries-10001.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_TOO_MANY_ENTRIES"
+    },
+    {
+      "name": "name-dotdot",
+      "file": "archives/hostile/name-dotdot.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-not-nfc",
+      "file": "archives/hostile/name-not-nfc.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-case-collision",
+      "file": "archives/hostile/name-case-collision.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-control-character",
+      "file": "archives/hostile/name-control-character.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "method-bzip2",
+      "file": "archives/hostile/method-bzip2.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_METHOD"
+    },
+    {
+      "name": "symlink-entry",
+      "file": "archives/hostile/symlink-entry.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_LINK"
+    },
+    {
+      "name": "symlink-host-19",
+      "file": "archives/hostile/symlink-host-19.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_LINK",
+      "note": "made-by host 19, unix mode 0o120777: the crate reads the mode for any non-DOS host",
+      "declared_licence": [
+        ""
+      ]
+    },
+    {
+      "name": "symlink-host-10",
+      "file": "archives/hostile/symlink-host-10.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_LINK",
+      "note": "made-by host 10, unix mode 0o120777: the crate reads the mode for any non-DOS host",
+      "declared_licence": [
+        ""
+      ]
+    },
+    {
+      "name": "encrypted-entry",
+      "file": "archives/hostile/encrypted-entry.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_ENCRYPTED"
+    },
+    {
+      "name": "ratio-bomb",
+      "file": "archives/hostile/ratio-bomb.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_RATIO"
+    },
+    {
+      "name": "deflated-vrm",
+      "file": "archives/hostile/deflated-vrm.astrachar",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_MUST_BE_STORED"
+    },
+    {
+      "name": "header-name-differs",
+      "file": "archives/hostile/header-name-differs.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "upath-extra",
+      "file": "archives/hostile/upath-extra.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "upath-local-only",
+      "file": "archives/hostile/upath-local-only.astrapack",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a Unicode Path extra field in the local header and not the central one"
+    },
+    {
+      "name": "manifest-not-last",
+      "file": "archives/hostile/manifest-not-last.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST"
+    },
+    {
+      "name": "manifest-first-by-offset",
+      "file": "archives/hostile/manifest-first-by-offset.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "last in the directory, first in the file"
+    },
+    {
+      "name": "file-unlisted",
+      "file": "archives/hostile/file-unlisted.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_FILE_UNLISTED"
+    },
+    {
+      "name": "file-digest-wrong",
+      "file": "archives/hostile/file-digest-wrong.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_FILE_DIGEST"
+    },
+    {
+      "name": "glb-prohibited-beside-allowed-body",
+      "file": "archives/hostile/glb-prohibited-beside-allowed-body.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "body-renamed-bin",
+      "file": "archives/hostile/body-renamed-bin.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "body.file must end in .vrm, and GLB magic under another name is refused"
+    },
+    {
+      "name": "accessory-glb-renamed",
+      "file": "archives/hostile/accessory-glb-renamed.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "a prohibiting GLB named .dat: accepted when the verdict picked files by extension"
+    },
+    {
+      "name": "gltf-prohibited",
+      "file": "archives/hostile/gltf-prohibited.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED",
+      "note": "a text .gltf is judged too"
+    },
+    {
+      "name": "file-outside-parts",
+      "file": "archives/hostile/file-outside-parts.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FILE_OUTSIDE_PARTS",
+      "note": "a listed file that is in no part and is not a settings .toml"
+    },
+    {
+      "name": "vrm-redistribution-prohibited",
+      "file": "archives/hostile/vrm-redistribution-prohibited.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-field-absent",
+      "file": "archives/hostile/vrm-field-absent.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm-named-people",
+      "file": "archives/hostile/vrm-named-people.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm0-licence-other",
+      "file": "archives/hostile/vrm0-licence-other.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "licenseName Other: the terms are elsewhere, so Unknown (meta.rs redistribution_of)"
+    },
+    {
+      "name": "vrm0-user-unrecognised",
+      "file": "archives/hostile/vrm0-user-unrecognised.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "an allowedUserName no spec defines is Unknown, never Allowed"
+    },
+    {
+      "name": "vrm1-avatar-unrecognised",
+      "file": "archives/hostile/vrm1-avatar-unrecognised.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ]
+    },
+    {
+      "name": "vrm1-redistribution-string",
+      "file": "archives/hostile/vrm1-redistribution-string.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED",
+      "note": "allowRedistribution \"true\" is not a bool: prohibited (meta.rs)"
+    },
+    {
+      "name": "vrm-metas-disagree",
+      "file": "archives/hostile/vrm-metas-disagree.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_CONFLICT"
+    },
+    {
+      "name": "vrm-chunk-past-eof",
+      "file": "archives/hostile/vrm-chunk-past-eof.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "the JSON chunk's declared length runs 4 KiB past the end of the file"
+    },
+    {
+      "name": "vrm-not-glb",
+      "file": "archives/hostile/vrm-not-glb.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "vrm-no-extension",
+      "file": "archives/hostile/vrm-no-extension.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "settings-mp3-bytes",
+      "file": "archives/hostile/settings-mp3-bytes.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "MP3 bytes under the settings name: not UTF-8 TOML"
+    },
+    {
+      "name": "settings-second-toml",
+      "file": "archives/hostile/settings-second-toml.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FILE_OUTSIDE_PARTS",
+      "note": "a second .toml beside character.toml is an ordinary file, and in no part"
+    },
+    {
+      "name": "audio-licence-undeclared",
+      "file": "archives/hostile/audio-licence-undeclared.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_UNDECLARED"
+    },
+    {
+      "name": "vrm-no-meta",
+      "file": "archives/hostile/vrm-no-meta.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "Unknown is HELD for a moderator, never published and never refused (ingest-v1.md §4.1)"
+    },
+    {
+      "name": "blocked-file-renamed",
+      "file": "archives/hostile/blocked-file-renamed.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_BLOCKED",
+      "blocklist": [
+        "971e1babfdef9efe2e2dd1b3d3f98a8695e4f27991235c11d99d6df6b58a00ba"
+      ],
+      "note": "the blocklist is per FILE sha256: the allowed body under a new name is still blocked"
+    },
+    {
+      "name": "gap-between-entries",
+      "file": "archives/hostile/gap-between-entries.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "overlapping-entries",
+      "file": "archives/hostile/overlapping-entries.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "directory-with-data",
+      "file": "archives/hostile/directory-with-data.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT"
+    },
+    {
+      "name": "manifest-duplicate-key",
+      "file": "archives/hostile/manifest-duplicate-key.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST"
+    },
+    {
+      "name": "vrm-duplicate-key",
+      "file": "archives/hostile/vrm-duplicate-key.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "accessory-duplicate-key",
+      "file": "archives/hostile/accessory-duplicate-key.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        "characters/aiko/accessories/hat"
+      ],
+      "note": "allowRedistribution false then true in an accessory GLB: a last-wins reader sees allowed"
+    },
+    {
+      "name": "animset-glb-duplicate-key",
+      "file": "archives/hostile/animset-glb-duplicate-key.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "the same GLB as an animset clip: an unparseable JSON must not read as a plain GLB that is never judged"
+    },
+    {
+      "name": "descriptor-crc-differs",
+      "file": "archives/hostile/descriptor-crc-differs.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "T1: the descriptor's CRC is not the directory's"
+    },
+    {
+      "name": "stored-bit3",
+      "file": "archives/hostile/stored-bit3.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "T2: bit 3 on a Stored entry is refused outright"
+    },
+    {
+      "name": "bit3-local-only",
+      "file": "archives/hostile/bit3-local-only.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "the local header sets bit 3, the directory does not"
+    },
+    {
+      "name": "vrma-avatar-prohibited",
+      "file": "archives/hostile/vrma-avatar-prohibited.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED",
+      "declared_licence": [
+        ""
+      ],
+      "note": "named .vrma and declaring VRMC_vrm_animation, but it carries VRMC_vrm: an avatar, judged as one"
+    },
+    {
+      "name": "character-plain-glb-accessory",
+      "file": "archives/hostile/character-plain-glb-accessory.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "the same plain GLB as a character's accessory gets the avatar verdict: Unknown, held"
+    },
+    {
+      "name": "glb-remote-uri",
+      "file": "archives/hostile/glb-remote-uri.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a GLB whose images[].uri is https://, not a data: URI",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "gltf-uri-escape",
+      "file": "archives/hostile/gltf-uri-escape.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a .gltf buffer uri ../../etc/passwd",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "animset-gltf-relative-uri",
+      "file": "archives/valid/animset-gltf-relative-uri.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a .gltf whose uri names a file in the same part: allowed"
+    },
+    {
+      "name": "name-device-superscript",
+      "file": "archives/hostile/name-device-superscript.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "com¹ is a Windows device name",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "name-device-conin",
+      "file": "archives/hostile/name-device-conin.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "CONIN$ is a Windows device name, case-insensitively",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "file-and-directory",
+      "file": "archives/hostile/file-and-directory.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a.fbx is a file and the directory of a.fbx/b.fbx",
+      "code": "E_ARCHIVE_NAME_UNSAFE"
+    },
+    {
+      "name": "gltf-named-json-in-animset",
+      "file": "archives/hostile/gltf-named-json-in-animset.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "S5: clips/avatar.json IS a glTF (a JSON object with a top-level asset) carrying VRMC_vrm with allowRedistribution false"
+    },
+    {
+      "name": "gltf-named-json-accessory",
+      "file": "archives/hostile/gltf-named-json-accessory.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        "characters/aiko/accessories/x"
+      ],
+      "note": "S5: the same glTF as accessories/x/model.json"
+    },
+    {
+      "name": "glb-json-over-16mib",
+      "synth": "glb-json-over-16mib",
+      "sha256": "6e79c9f88cb6467ee958ffe59889061d1230f21d3adfdf52e4e6f89292773b33",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "built in memory by testdata/content/gen.py synth() (16 MiB), pinned by this sha256"
+    },
+    {
+      "name": "gltf-over-16mib",
+      "synth": "gltf-over-16mib",
+      "sha256": "1a2d8e3dad8346779e1df2b9c8aaf98462b443d3e68ac64ca0e00705e0b01e81",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "built in memory by testdata/content/gen.py synth() (16 MiB), pinned by this sha256"
+    },
+    {
+      "name": "glb-invalid-json",
+      "file": "archives/hostile/glb-invalid-json.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a GLB whose JSON chunk is not valid JSON",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "gltf-invalid-json",
+      "file": "archives/hostile/gltf-invalid-json.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "a .gltf that is not valid JSON",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "gltf-too-deep",
+      "file": "archives/hostile/gltf-too-deep.astrapack",
+      "verdict": "refuse",
+      "declared_licence": [
+        ""
+      ],
+      "note": "nesting 129 deep",
+      "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "animset-gltf-depth-128",
+      "file": "archives/valid/animset-gltf-depth-128.astrapack",
+      "verdict": "accept",
+      "declared_licence": [
+        ""
+      ],
+      "note": "nesting exactly 128 deep is readable"
+    },
+    {
+      "name": "gltf-total-over-32mib",
+      "synth": "gltf-total-over-32mib",
+      "sha256": "756aed776cdd780b726892a6a9407d2c4d2ee049decd8e991ff0d60bb61c9426",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_TOO_LARGE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "B1: three readable 11 MiB .gltf, 33 MiB of glTF JSON in one archive (built in memory, 33 MiB)"
+    },
+    {
+      "name": "name-fold-long-s",
+      "file": "archives/hostile/name-fold-long-s.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "ſ / s"
+    },
+    {
+      "name": "name-fold-micro",
+      "file": "archives/hostile/name-fold-micro.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "µ (U+00B5) / μ"
+    },
+    {
+      "name": "name-fold-final-sigma",
+      "file": "archives/hostile/name-fold-final-sigma.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "ς / σ"
+    },
+    {
+      "name": "name-fold-dotless-i",
+      "file": "archives/hostile/name-fold-dotless-i.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "ı / i"
+    },
+    {
+      "name": "name-fold-kelvin",
+      "file": "archives/hostile/name-fold-kelvin.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "K (U+212A) / k — already refused by the NFC rule, U+212A is not NFC"
+    },
+    {
+      "name": "name-fold-sharp-s",
+      "file": "archives/hostile/name-fold-sharp-s.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "ß / ss — the refusing direction"
+    },
+    {
+      "name": "gltf-json-utf8-bom",
+      "file": "archives/hostile/gltf-json-utf8-bom.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "N1: a UTF-8 BOM before a VRMC_vrm glTF named avatar.json"
+    },
+    {
+      "name": "gltf-with-bom",
+      "file": "archives/hostile/gltf-with-bom.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "N1: a .gltf must be UTF-8 JSON WITHOUT a BOM (glTF 2.0)"
+    },
+    {
+      "name": "gltf-json-utf16",
+      "file": "archives/hostile/gltf-json-utf16.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "N1: a UTF-16 BOM: no allowed part type begins FF FE"
+    },
+    {
+      "name": "pct",
+      "file": "archives/hostile/pct.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "N2: buffers[0].uri ..%2f..%2f..%2f..%2fetc%2fpasswd, beside an entry literally so named: percent-decoded, it leaves the archive"
+    },
+    {
+      "name": "name-fold-capital-sharp-s",
+      "file": "archives/hostile/name-fold-capital-sharp-s.astrapack",
+      "verdict": "refuse",
+      "code": "E_ARCHIVE_NAME_UNSAFE",
+      "declared_licence": [
+        ""
+      ],
+      "note": "N8: ß / ẞ (U+1E9E): one round trip gives ss and ß, two give ss and ss; APFS folds both to ss"
+    },
+    {
+      "name": "gltf-sniff-garbage",
+      "file": "archives/hostile/gltf-sniff-garbage.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "declared_licence": [
+        ""
+      ],
+      "note": "{\"asset\":1,<garbage> in clips/x.json: the sniff reads the top-level key, the rest need not parse"
+    },
+    {
+      "name": "order-zip64-before-encrypted",
+      "file": "archives/hostile/order-zip64-before-encrypted.astrapack",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD",
+      "declared_licence": [
+        ""
+      ],
+      "note": "two faults: clips/a.fbx encrypted (step 3) comes first in the directory, clips/b.fbx carries a zip64 extra; the zip64 pre-pass over ALL entries decides"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "pack-member-listed",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "pack-member-withdrawn",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        }
+      },
+      "expect": "E_PACK_MEMBER_UNLISTED"
+    },
+    {
+      "name": "pack-member-digest",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "E_PACK_MEMBER_DIGEST",
+      "note": "a pack pins its member's ARTEFACT sha256, not a part digest (OPEN.md O-3)"
+    },
+    {
+      "name": "pack-member-nested",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "pack",
+          "id": "other",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {},
+      "expect": "E_PACK_NESTED"
+    },
+    {
+      "name": "pack-member-game-unserved",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "game-integration",
+          "id": "someone/peak-astra",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {},
+      "expect": "E_PACK_MEMBER_KIND_UNSERVED"
+    },
+    {
+      "name": "pack-too-many-members",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "command",
+          "id": "c00",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c01",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c02",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c03",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c04",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c05",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c06",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c07",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c08",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c09",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c10",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c11",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c12",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c13",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c14",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c15",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c16",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c17",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c18",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c19",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c20",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c21",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c22",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c23",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c24",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c25",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c26",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c27",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c28",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c29",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c30",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c31",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c32",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c33",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c34",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c35",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c36",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c37",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c38",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c39",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c40",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c41",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c42",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c43",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c44",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c45",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c46",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c47",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c48",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c49",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c50",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c51",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c52",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c53",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c54",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c55",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c56",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c57",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c58",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c59",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c60",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c61",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c62",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c63",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "command",
+          "id": "c64",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {},
+      "expect": "E_PACK_TOO_MANY_MEMBERS"
+    },
+    {
+      "name": "pack-served-unverified",
+      "type": "pack-ingest",
+      "declared": [
+        {
+          "kind": "command",
+          "id": "greet",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {
+        "commands": {
+          "index": "index/commands/signed-by-models-key.json"
+        }
+      },
+      "expect": "E_SERVED_UNVERIFIED",
+      "note": "references are checked against SERVED documents only after they verify under their kind's keys"
+    },
+    {
+      "name": "character-requires-ok",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        },
+        {
+          "kind": "animset",
+          "id": "wave-set",
+          "version": "1.0.0",
+          "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "character-requires-withdrawn-model",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        }
+      },
+      "expect": "E_CHARACTER_REQUIRES_UNLISTED"
+    },
+    {
+      "name": "character-requires-digest",
+      "type": "character-ingest",
+      "declared": [
+        {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0",
+          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+        }
+      ],
+      "served": {
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        }
+      },
+      "expect": "E_CHARACTER_REQUIRES_DIGEST",
+      "note": "a character pins the model's single PART digest (design §11a.10)"
+    },
+    {
+      "name": "cascade-pack-present",
+      "type": "cascade",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json",
+          "withdrawn": "withdrawn/packs/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/valid.json",
+          "withdrawn": "withdrawn/commands/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "cascade-pack-missing",
+      "type": "cascade",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json",
+          "withdrawn": "withdrawn/packs/no-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/valid.json",
+          "withdrawn": "withdrawn/commands/valid.json"
+        }
+      },
+      "expect": "cascade-missing"
+    },
+    {
+      "name": "cascade-character-present",
+      "type": "cascade",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json",
+          "withdrawn": "withdrawn/characters/aiko-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "cascade-character-missing",
+      "type": "cascade",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json",
+          "withdrawn": "withdrawn/characters/no-cascade.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "cascade-missing"
+    },
+    {
+      "name": "requires-digest-ok",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "requires-digest-mismatch",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/requires-stale-digest.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "requires-digest-mismatch"
+    },
+    {
+      "name": "requires-withdrawn-model",
+      "type": "requires-digest",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json",
+          "withdrawn": "withdrawn/models/aiko-security.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json",
+          "withdrawn": "withdrawn/animsets/valid.json"
+        }
+      },
+      "expect": "requires-unavailable"
+    },
+    {
+      "name": "sticky-security",
+      "type": "sticky",
+      "kind": "commands",
+      "installed": {
+        "id": "evil-shell",
+        "version": "1.0.0"
+      },
+      "sequence": [
+        "withdrawn/commands/seq-1-security.json",
+        "withdrawn/commands/seq-2-row-dropped.json",
+        "withdrawn/commands/seq-3-lift-wrong-at.json",
+        "withdrawn/commands/seq-4-lift.json"
+      ],
+      "expect": [
+        "disarmed",
+        "disarmed",
+        "disarmed",
+        "armed"
+      ],
+      "note": "dropping the row re-arms nothing; a lift with the wrong `at` re-arms nothing; only the exact lift does"
+    },
+    {
+      "name": "one-way-switch",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ]
+    },
+    {
+      "name": "client-floor-unknown-act",
+      "type": "client-floor",
+      "file": "withdrawn/commands/bad-act-enum.json",
+      "expect": [
+        "disarm",
+        "disarm",
+        "no-update"
+      ]
+    },
+    {
+      "name": "withdrawn-freshness",
+      "type": "withdrawn-freshness",
+      "cases": [
+        {
+          "age": 0,
+          "latest_verified": true
+        },
+        {
+          "age": 7200,
+          "latest_verified": true
+        },
+        {
+          "age": 7201,
+          "latest_verified": true
+        },
+        {
+          "age": 60,
+          "latest_verified": false
+        },
+        {
+          "age": 60,
+          "latest_verified": true,
+          "doc_age": 93600
+        },
+        {
+          "age": 60,
+          "latest_verified": true,
+          "doc_age": 93601
+        }
+      ],
+      "expect": [
+        "allow",
+        "allow",
+        "refuse",
+        "refuse",
+        "allow",
+        "refuse"
+      ],
+      "note": "the fetch is at most 2 h old AND the document itself at most 26 h old: a replayed, still-unexpired document cannot pass for fresh (OPEN.md O-20)"
+    },
+    {
+      "name": "serial-floor",
+      "type": "serial-floor",
+      "cases": [
+        {
+          "floor": 100,
+          "serial": 99,
+          "floor_bytes": "a",
+          "bytes": "a"
+        },
+        {
+          "floor": 100,
+          "serial": 100,
+          "floor_bytes": "a",
+          "bytes": "a"
+        },
+        {
+          "floor": 100,
+          "serial": 100,
+          "floor_bytes": "a",
+          "bytes": "b"
+        },
+        {
+          "floor": 100,
+          "serial": 101,
+          "floor_bytes": "a",
+          "bytes": "b"
+        }
+      ],
+      "expect": [
+        "refuse",
+        "accept",
+        "refuse",
+        "accept"
+      ]
+    },
+    {
+      "name": "unparseable-range-covers-all",
+      "type": "client-covers",
+      "cases": [
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.1"
+        },
+        {
+          "versions": "^1.0",
+          "version": "9.9.9"
+        },
+        {
+          "versions": "",
+          "version": "0.0.1"
+        },
+        {
+          "versions": "<=1.0.0,^2.0",
+          "version": "2.0.0"
+        },
+        {
+          "versions": "^2.0,<=1.0.0",
+          "version": "2.0.0"
+        },
+        {
+          "versions": "<=1.0.0,>=0.1",
+          "version": "5.0.0"
+        },
+        {
+          "versions": "<= 1.0.0",
+          "version": "9.0.0"
+        },
+        {
+          "versions": "<=2.0.0,>=1.0.0",
+          "version": "3.0.0"
+        },
+        {
+          "versions": ">=1.0.0,<=2.0.0",
+          "version": "3.0.0"
+        },
+        {
+          "versions": "1.0.0",
+          "version": "2.0.0"
+        }
+      ],
+      "expect": [
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ],
+      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3) — in EITHER order: every comparator is parsed before any is evaluated (F17); a NON-CANONICAL range (a space, the upper bound first, a bare version) is unparseable too"
+    },
+    {
+      "name": "semver-precedence",
+      "type": "client-covers",
+      "cases": [
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "<1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "<=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": ">1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": ">=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.2"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0-rc.10"
+        },
+        {
+          "versions": "=1.0.0-rc.2",
+          "version": "1.0.0"
+        },
+        {
+          "versions": "<=1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": ">=1.0.0",
+          "version": "1.0.0-rc.1"
+        },
+        {
+          "versions": "<=1.0.0-alpha.beta",
+          "version": "1.0.0-alpha.1"
+        },
+        {
+          "versions": "<1.0.0-alpha",
+          "version": "1.0.0-alpha.1"
+        },
+        {
+          "versions": ">1.0.0-beta",
+          "version": "1.0.0-alpha.9"
+        }
+      ],
+      "expect": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "note": "SemVer §11, NOT Cargo VersionReq: a pre-release is matched by precedence alone. rc.1 < rc.2 < rc.10 < 1.0.0; <=1.0.0 covers 1.0.0-rc.1; numeric identifiers sort below alphanumeric ones"
+    },
+    {
+      "name": "one-way-switch-dual-current-first",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/dual-signed-current-first.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
+    },
+    {
+      "name": "one-way-switch-dual-next-first",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/dual-signed-next-first.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
+    },
+    {
+      "name": "sticky-every-row",
+      "type": "sticky",
+      "kind": "commands",
+      "installed": {
+        "id": "needs-ghost",
+        "version": "1.0.0"
+      },
+      "sequence": [
+        "withdrawn/commands/seqr-1.json",
+        "withdrawn/commands/seqr-2.json",
+        "withdrawn/commands/seqr-3.json",
+        "withdrawn/commands/seqr-4.json",
+        "withdrawn/commands/seqr-5.json"
+      ],
+      "expect": [
+        "blocked",
+        "blocked",
+        "blocked",
+        "blocked",
+        "armed"
+      ],
+      "note": "a retired cascade row: dropped (still blocked), re-asserted beside its lift (the row wins), lifted under \"<= 1.0.0\" (a near-miss spelling a space-normalising client would match: nothing), lifted exactly (armed)"
+    }
+  ],
+  "external": [
+    {
+      "name": "zip-cloaking/slack.zip",
+      "source": "AstraPlugins PR #122 daa9f05",
+      "path": "testdata/zip-cloaking/slack.zip",
+      "sha256": "71511e42a17bb35af2db71c72f2a45fe95754ce73ddfcda417968a77a92fe6f3",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest (Rust zip >= 9.0.5 + the two extra checks)",
+      "kind": "zip"
+    },
+    {
+      "name": "zip-cloaking/upath.zip",
+      "source": "AstraPlugins PR #122 daa9f05",
+      "path": "testdata/zip-cloaking/upath.zip",
+      "sha256": "4649643cdf69d4e2f650209d73b49c190ea8d9a7d80888d5c1c174af093fc59f",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest",
+      "kind": "zip"
+    },
+    {
+      "name": "zip-cloaking/stored-dd.zip",
+      "source": "AstraPlugins PR #122 62e8106",
+      "path": "testdata/zip-cloaking/stored-dd.zip",
+      "sha256": "3841c473f7ade57d1efca72aa33847d9508773df2147797a8bdb873828f691fb",
+      "expect": "E_ZIP_HEADERS_INCONSISTENT",
+      "enforced_by": "L1 plugins-ingest",
+      "kind": "zip"
+    },
+    {
+      "name": "games-vrm/allowed-vrm1.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/allowed-vrm1.vrm",
+      "sha256": "c57da68629797f068d4000f9bf23091c000eada6982ef138cbc7e112543abd1a",
+      "kind": "vrm",
+      "expect": "allowed",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/allowed.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/allowed.vrm",
+      "sha256": "73d0f78566d9e4be98c544482c038f88894fab213c04be4ce2286e000d053eea",
+      "kind": "vrm",
+      "expect": "allowed",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm0-absent-fields.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm0-absent-fields.vrm",
+      "sha256": "4e77fe322fbc305f8b6aa4687beea0ee4077bccfb024bc06d3d6399994ab310f",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm0-named-people.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm0-named-people.vrm",
+      "sha256": "07541a94a5aab6829217da869e37d2ea55a6828e136ce907f54c13265280fd42",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm0-only-author.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm0-only-author.vrm",
+      "sha256": "641a9506d0415428d4cdd70ad0ff386b7e049734f737ab15f35fc761bf5100ad",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm0-redistribution-prohibited.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm0-redistribution-prohibited.vrm",
+      "sha256": "6b3be446a9f8978cfcf7d78529561f068e4ffb245ea66ca9b849d198c43bb113",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm1-absent-fields.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm1-absent-fields.vrm",
+      "sha256": "c62fb976efa4bd2780612b69788aa884e30997e4d08d31e4b0366d0bb97b6e0a",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm1-named-people.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm1-named-people.vrm",
+      "sha256": "2d05c4134c2c35a009687d9a786b7952271ba699c9a4dbb831ef99e941c04e6c",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm1-only-author.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm1-only-author.vrm",
+      "sha256": "77f3ea67d6bdf8406986d6f96ffd4d047ef86444aa9d78395859662d3adddb56",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm1-redistribution-false.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm1-redistribution-false.vrm",
+      "sha256": "b9a924b811ce5cdc898533144d2dbd37bf50a95d065b8dafc2dc57ae573d9127",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/refused-vrm1-redistribution-string.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/refused-vrm1-redistribution-string.vrm",
+      "sha256": "5430e39773e48cfbf03668d38be3ab034f31415738b302b55a2f895b90ea5121",
+      "kind": "vrm",
+      "expect": "prohibited",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/unknown-no-meta.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/unknown-no-meta.vrm",
+      "sha256": "ad4ad6ba48e49548eb373fda5a6c4d5d369022f3b4a9573869aab95b5f657c81",
+      "kind": "vrm",
+      "expect": "unknown",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/unknown-vrm0-licence-other.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/unknown-vrm0-licence-other.vrm",
+      "sha256": "be954a9422ee33471131a3d38353363e8bb8d4ea7e37c7f30e299fc7c0548c5d",
+      "kind": "vrm",
+      "expect": "unknown",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/unknown-vrm0-licence-unrecognised.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/unknown-vrm0-licence-unrecognised.vrm",
+      "sha256": "e5eaa822262e27f4ae90b6ef7a6e340c9bd6199237038335ae88978c8b1bfe97",
+      "kind": "vrm",
+      "expect": "unknown",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/unknown-vrm0-user-unrecognised.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/unknown-vrm0-user-unrecognised.vrm",
+      "sha256": "a488f7305c523de80692b3ee686a275580caad9423d3ae56c7a11ff1877ffb2b",
+      "kind": "vrm",
+      "expect": "unknown",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/unknown-vrm1-avatar-unrecognised.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/unknown-vrm1-avatar-unrecognised.vrm",
+      "sha256": "908ff51c96bb43254bc4d3a37c935f9d5226a6986d80df872d9dde3d4c100dba",
+      "kind": "vrm",
+      "expect": "unknown",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/vrm-metas-agree.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/vrm-metas-agree.vrm",
+      "sha256": "7e3659f5f24a4321f93f99dfcebab31a6c613d12263347eab32dad2213d4d7f5",
+      "kind": "vrm",
+      "expect": "allowed",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/vrm-metas-disagree.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/vrm-metas-disagree.vrm",
+      "sha256": "7eec68abf107f779f1ab1a05a18ba20878b7356779441c91a103a5b0900f106e",
+      "kind": "vrm",
+      "expect": "conflict",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    },
+    {
+      "name": "games-vrm/vrm-metas-unknown-vs-allowed.vrm",
+      "source": "AstraPlugins #123 516ba38 (generated by testdata/games/content/vrm/gen.py)",
+      "path": "testdata/games/content/vrm/vrm-metas-unknown-vs-allowed.vrm",
+      "sha256": "2f866f53ad2eb0b9e670c4f734599d29bee125e8016dc0bf2550ae1c55280e48",
+      "kind": "vrm",
+      "expect": "conflict",
+      "enforced_by": "L1 plugins-ingest; the games gate (#123) gives the same verdict"
+    }
+  ],
+  "l1_only": {
+    "E_CONTENT_DIGEST_MISMATCH": "a door check: the assembled upload against the sha256 and size `begin` declared; there is no bundle to commit",
+    "E_CONTENT_TOO_LARGE": "the caps are 50 MiB (VRM), 64 MiB (bundle) and 1 MiB (command); L1 generates the over-cap fixtures at test time",
+    "E_CONTENT_QUOTA": "the author's quota is service state (live objects plus staging sessions), not a property of a file",
+    "E_CONTENT_IMAGE_DIMENSIONS": "needs an image decoder over PNG/WebP/JPEG headers; L1 tests it against the decoder it ships",
+    "E_CONTENT_MEDIA_TYPE": "the audio allowlist is an L1 knob, not a contract constant",
+    "E_ID_RESERVED_PREFIX": "the reserved prefixes are spec/reserved-ids.yaml (the registry's mirror, held by C27); the slug door is L1's"
+  },
+  "expected_checks": 348
+}

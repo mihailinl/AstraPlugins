@@ -1,0 +1,429 @@
+{
+  "signed": {
+    "schema": "astra.packs.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "aiko-starter",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "review": "unchecked",
+        "published_at": 1798588800,
+        "members": [
+          {
+            "kind": "command",
+            "id": "c00",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c01",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c02",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c03",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c04",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c05",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c06",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c07",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c08",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c09",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c10",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c11",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c12",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c13",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c14",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c15",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c16",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c17",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c18",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c19",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c20",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c21",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c22",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c23",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c24",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c25",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c26",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c27",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c28",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c29",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c30",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c31",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c32",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c33",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c34",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c35",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c36",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c37",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c38",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c39",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c40",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c41",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c42",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c43",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c44",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c45",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c46",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c47",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c48",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c49",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c50",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c51",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c52",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c53",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c54",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c55",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c56",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c57",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c58",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c59",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c60",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c61",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c62",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c63",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          },
+          {
+            "kind": "command",
+            "id": "c64",
+            "version": "1.0.0",
+            "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-packs-2026a",
+      "sig": "JfRKICdcpV1YkAyNpfItw/4+hfOkfqY91CZNPvWV7FaAo2ROFR8YWhvXtj7DyqVc3GRNQlY7jFddTdrCFwv0CA=="
+    }
+  ]
+}
