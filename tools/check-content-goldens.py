@@ -564,11 +564,17 @@ def name_refusal(name: str) -> str | None:
 UPATH_IDS = {0x7075}  # the Info-ZIP Unicode Path extra field, in a central OR a local header
 
 
+FOLD_TWICE = True
+
+
 def fold_key(name: str) -> str:
     """The key two names collide under on a case-insensitive file system: lower(upper(NFC)),
     Python's full, locale-independent Unicode mappings. lower() alone keeps ſ/s, µ/μ, ς/σ,
     ı/i and ß/ss apart while NTFS and APFS merge them; ß -> SS -> ss is the refusing direction."""
-    return unicodedata.normalize("NFC", name).upper().lower()
+    once = unicodedata.normalize("NFC", name).upper().lower()
+    # N8: the round trip TWICE -- once leaves ß -> ss and ẞ (U+1E9E) -> ß apart, which APFS folds
+    # together; twice is a fixed point on every pair the goldens hold
+    return once.upper().lower() if FOLD_TWICE else once
 
 
 def is_link(made: int, ext: int) -> bool:

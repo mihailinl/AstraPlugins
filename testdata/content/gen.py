@@ -984,7 +984,8 @@ def gen_archives() -> None:
     put("archives/valid/animset-gltf-depth-128.astrapack", anim({"clips/deep.gltf": nested(128)}))
     # case folding is lower(upper(NFC(name))), full Unicode mappings: each pair names ONE file on NTFS/APFS
     for tag, a, b2 in (("long-s", "\u017f", "s"), ("micro", "\u00b5", "\u03bc"), ("final-sigma", "\u03c2", "\u03c3"),
-                       ("dotless-i", "\u0131", "i"), ("kelvin", "\u212a", "k"), ("sharp-s", "\u00df", "ss")):
+                       ("dotless-i", "\u0131", "i"), ("kelvin", "\u212a", "k"), ("sharp-s", "\u00df", "ss"),
+                       ("capital-sharp-s", "\u00df", "\u1e9e")):
         put(f"archives/hostile/name-fold-{tag}.astrapack",
             anim({f"clips/{a}.fbx": b"FBX-1", f"clips/{b2}.fbx": b"FBX-2"}))
     # N1: byte-order marks. three.js's TextDecoder strips a UTF-8 BOM, so a BOM-led glTF loads after a rename

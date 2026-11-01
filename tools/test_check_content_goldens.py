@@ -787,6 +787,15 @@ class N2PercentEncoding(unittest.TestCase):
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("URI_FORBIDDEN", "?#\\"), "archives/pct")
 
 
+class N8FoldTwice(unittest.TestCase):
+    def test_one_round_trip(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("FOLD_TWICE", False), "archives/name-fold-capital-sharp-s")
+
+    def test_the_key_is_a_fixed_point(self):
+        for a in ("\u017f", "s", "\u00b5", "\u03bc", "\u03c2", "\u03c3", "\u0131", "i", "k", "\u00df", "ss", "\u1e9e"):
+            self.assertEqual(cg.fold_key(cg.fold_key(a)), cg.fold_key(a), repr(a))
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
