@@ -144,9 +144,20 @@ def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None) -> byt
         flags = e.get("flags", 0) | (0x800 if any(c > 0x7F for c in name) else 0)
         extra = e.get("extra", b"")
         off = len(out)
-        out += struct.pack("<IHHHHHIIIHH", 0x04034B50, 20, flags, method, DOS_TIME, DOS_DATE,
-                           crc, len(comp), len(data), len(local_name), len(extra))
+        dd = e.get("dd")  # a bit-3 data descriptor: {sig, crc, central_bit3, local_sizes}
+        lflags, cflags, lcrc, lcs, lus = flags, flags, crc, len(comp), len(data)
+        if dd is not None:
+            lflags |= 0x8
+            cflags |= 0x8 if dd.get("central_bit3", True) else 0
+            if not dd.get("local_sizes", False):
+                lcrc, lcs, lus = 0, 0, 0
+        out += struct.pack("<IHHHHHIIIHH", 0x04034B50, 20, lflags, method, DOS_TIME, DOS_DATE,
+                           lcrc, lcs, lus, len(local_name), len(extra))
         out += local_name + extra + comp
+        if dd is not None:
+            out += (b"PK\x07\x08" if dd.get("sig", True) else b"") + struct.pack(
+                "<III", dd.get("crc", crc), len(comp), len(data))
+        flags = cflags
         central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, (3 << 8) | 20, 20, flags, method,
                                DOS_TIME, DOS_DATE, crc, len(comp), len(data), len(name), len(extra), 0,
                                0, 0, e.get("ext_attr", 0o100644 << 16), off)
@@ -745,6 +756,19 @@ def gen_archives() -> None:
     hostile("count-short-of-directory.astrachar", zip_bytes(
         bundle_entries("astra.character", model_files, BODY_PATH) + [{"alias_of": 0, "name": "characters/aiko/hidden.vrm"}],
         eocd_override=lambda n, size, off: (n - 1, n - 1, size, off)))
+    # bit 3 (ingest-v1.md §3 step 3): the descriptor is parsed and must equal the central record
+    def dd(**kw):
+        return attr("astrachar.json", dd=kw)
+    put("archives/valid/model-aiko-descriptor.astrachar",
+        bundle("astra.character", model_files, BODY_PATH, tweak=dd(sig=True)))
+    put("archives/valid/model-aiko-descriptor-nosig.astrachar",
+        bundle("astra.character", model_files, BODY_PATH, tweak=dd(sig=False)))
+    hostile("descriptor-crc-differs.astrachar", bundle("astra.character", model_files, BODY_PATH,
+                                                       tweak=dd(sig=True, crc=0x12345678)))
+    hostile("stored-bit3.astrachar", bundle("astra.character", model_files, BODY_PATH,
+                                            tweak=attr(BODY_PATH, dd={"sig": True})))
+    hostile("bit3-local-only.astrachar", bundle("astra.character", model_files, BODY_PATH,
+                                                tweak=dd(sig=True, central_bit3=False, local_sizes=True)))
     hostile("directory-with-data.astrachar", bundle(
         "astra.character", model_files, BODY_PATH,
         tweak=lambda es: [{"name": "characters/aiko/dir/", "data": b"hidden", "method": 0}] + es))

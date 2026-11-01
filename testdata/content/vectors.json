@@ -1583,6 +1583,21 @@
       "note": "settings only: no part"
     },
     {
+      "name": "model-aiko-descriptor",
+      "file": "archives/valid/model-aiko-descriptor.astrachar",
+      "verdict": "accept",
+      "parts": {
+        "character:characters/aiko/body.vrm": "bebcd44e101ce73a2907c0391ecdb095454c932957de5ab4a50e4c14a6eefe74"
+      },
+      "note": "a Deflated bit-3 entry with a signed descriptor that equals the directory"
+    },
+    {
+      "name": "model-aiko-descriptor-nosig",
+      "file": "archives/valid/model-aiko-descriptor-nosig.astrachar",
+      "verdict": "accept",
+      "note": "the descriptor's signature is optional"
+    },
+    {
       "name": "decoy-end-record",
       "file": "archives/hostile/decoy-end-record.astrachar",
       "verdict": "refuse",
@@ -1781,6 +1796,27 @@
       "file": "archives/hostile/vrm-duplicate-key.astrachar",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT"
+    },
+    {
+      "name": "descriptor-crc-differs",
+      "file": "archives/hostile/descriptor-crc-differs.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "T1: the descriptor's CRC is not the directory's"
+    },
+    {
+      "name": "stored-bit3",
+      "file": "archives/hostile/stored-bit3.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "T2: bit 3 on a Stored entry is refused outright"
+    },
+    {
+      "name": "bit3-local-only",
+      "file": "archives/hostile/bit3-local-only.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "the local header sets bit 3, the directory does not"
     }
   ],
   "scenarios": [

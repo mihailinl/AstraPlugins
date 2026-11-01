@@ -370,6 +370,25 @@ class F1CountCoversTheDirectory(unittest.TestCase):
         self.assertEqual(int.from_bytes(b[-12:-10], "little"), 2)
 
 
+class F5DataDescriptors(unittest.TestCase):
+    def test_an_unread_descriptor(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["the data descriptor disagrees"])), "archives/descriptor-crc-differs")
+
+    def test_bit3_allowed_on_stored(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["bit 3 on a Stored entry"])), "archives/stored-bit3")
+
+    def test_bit3_compared_on_one_side_only(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["local and central headers disagree"])), "archives/bit3-local-only")
+
+    def test_valid_descriptors_are_accepted_both_ways(self):
+        for n in ("model-aiko-descriptor", "model-aiko-descriptor-nosig"):
+            raw = (cg.DATA / f"archives/valid/{n}.astrachar").read_bytes()
+            self.assertEqual(cg.ingest_bundle(raw, {})["verdict"], "accept", n)
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

@@ -571,9 +571,11 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: no local header")
         _, _v, lflags, lmethod, _lt, _ld, lcrc, lcs, lus, lnl, lxl = struct.unpack("<IHHHHHIIIHH", lh)
         lname = b[loff + 30:loff + 30 + lnl]
-        if lname != raw_name or lmethod != method or (lflags & 0x1) != (flags & 0x1):
+        if lname != raw_name or lmethod != method or (lflags & 0x9) != (flags & 0x9):
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: local and central headers disagree")
-        if not (flags & 0x8) and (lcrc, lcs, lus) != (crc, csize, usize):
+        if flags & 0x8 and method == 0:
+            raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: bit 3 on a Stored entry")
+        if (lcrc, lcs, lus) != (crc, csize, usize) and not (flags & 0x8 and (lcrc, lcs, lus) == (0, 0, 0)):
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: local and central sizes disagree")
         if name.endswith("/") and (csize or usize):
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: a directory entry that carries data")
@@ -586,12 +588,22 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
     # followed at once by the next header, the last one ending where the directory starts. A gap
     # can hide a cloaked entry; an overlap is a second reading of the same bytes (ingest-v1.md §3 step 3)
     at = 0
+    crc_of = {e[0]: e[2] for e in entries}
+    size_of = {e[0]: e[4] for e in entries}
     for name, _m, _c, csize, _u, data_off, flags, loff in sorted(entries, key=lambda e: e[7]):
         if loff != at:
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: {'a gap' if loff > at else 'an overlap'} before it")
         at = data_off + csize
         if flags & 0x8:
-            at += 16 if b[at:at + 4] == b"PK\x07\x08" else 12
+            # the descriptor sits EXACTLY at the data's end, its signature optional, and says what the
+            # central record says; either reading of an ambiguous first word may match, never neither
+            want = struct.pack("<III", crc_of[name], csize, size_of[name])
+            if b[at:at + 16] == b"PK\x07\x08" + want:
+                at += 16
+            elif b[at:at + 12] == want:
+                at += 12
+            else:
+                raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: the data descriptor disagrees with the directory")
     if at != cd_off:
         raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "bytes between the last entry and the directory")
     folded = set()
