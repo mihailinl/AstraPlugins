@@ -771,7 +771,17 @@ class N1ByteOrderMarks(unittest.TestCase):
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UTF8_BOM", b"\x00never\x00"), "archives/gltf-json-utf8-bom")
 
     def test_utf16_boms_allowed(self):
-        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UNICODE_BOMS", ()), "archives/gltf-json-utf16")
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UNICODE_BOMS", {}), "archives/gltf-json-utf16")
+
+    def test_bom_refusal_on_every_entry(self):
+        # the first draft: any entry led by a UTF-16/32 BOM, binary or not
+        def every(p, b):
+            return "a BOM" if any(b.startswith(m) for m in cg.UNICODE_BOMS) else None
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("bom_refusal", every), "archives/animset-gltf-bin-bom")
+
+    def test_no_decoded_sniff(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("decoded_has_asset", lambda b, bom: False),
+                                               "archives/gltf-utf16-dat")
 
     def test_a_bom_gltf_has_its_own_rule(self):
         # backed up by the unreadable rule (JSON cannot parse past a BOM), so its own mutation is not

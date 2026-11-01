@@ -1236,6 +1236,15 @@ def gen_archives() -> None:
         return entries
     put("archives/hostile/order-zip64-before-encrypted.astrapack",
         bundle("astra.animpack", ASCII_PART, body=None, tweak=two_faults))
+    # BOMs, revised (astra-companion-5f): a BINARY .bin can begin FF FE (here the float -1.0e38-ish bytes),
+    # so only TEXT kinds must be UTF-8; any other entry is refused only if it decodes to a glTF
+    floats = struct.pack("<4f", 1.0, 2.0, 3.0, 4.0)
+    bin_bom = b"\xff\xfe" + floats
+    bom_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "m.bin", "byteLength": len(bin_bom)}]}).encode()
+    put("archives/valid/animset-gltf-bin-bom.astrapack", anim({"clips/m.gltf": bom_gltf, "clips/m.bin": bin_bom}))
+    utf16 = b"\xff\xfe" + avatar_json.decode("utf-8").encode("utf-16-le")
+    put("archives/hostile/gltf-utf16-dat.astrapack", anim({"clips/x.dat": utf16}))
+    put("archives/hostile/toml-utf16.astrapack", anim({"clips/meta.toml": b"\xff\xfe" + 'name = "x"\n'.encode("utf-16-le")}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 
