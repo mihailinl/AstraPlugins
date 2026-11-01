@@ -578,6 +578,10 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         if name.endswith("/") and (csize or usize):
             raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: a directory entry that carries data")
         entries.append((name, method, crc, csize, usize, loff + 30 + lnl + lxl, flags, loff))
+    # the count must account for the WHOLE directory: entries past it are invisible to a reader that
+    # trusts the count and visible to one that walks the directory (ingest-v1.md §3 step 1)
+    if p != cd_off + cd_size:
+        raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "the directory holds more than the end record counts")
     # the entries TILE the file: the first local header at 0, each entry's data (and descriptor)
     # followed at once by the next header, the last one ending where the directory starts. A gap
     # can hide a cloaked entry; an overlap is a second reading of the same bytes (ingest-v1.md §3 step 3)

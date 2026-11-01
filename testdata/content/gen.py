@@ -124,7 +124,7 @@ def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None) -> byt
     for e in entries:
         if "alias_of" in e:  # a second directory entry for an EARLIER local header: an overlap
             src = entries[e["alias_of"]]
-            nm = src["name"].encode("utf-8")
+            nm = e.get("name", src["name"]).encode("utf-8")
             data = src.get("data", b"")
             comp = deflate(data) if src.get("method", 0) == 8 else data
             central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, (3 << 8) | 20, 20, 0, src.get("method", 0),
@@ -215,9 +215,9 @@ def manifest(fmt: str, kind: str, files: dict[str, bytes], body: str | None) -> 
     return json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8") + b"\n"
 
 
-def bundle(fmt: str, files: dict[str, bytes], body: str | None = None, kind: str = "vrm",
-           methods: dict[str, int] | None = None, listed: dict[str, bytes] | None = None,
-           tweak=None, manifest_last: bool = True) -> bytes:
+def bundle_entries(fmt: str, files: dict[str, bytes], body: str | None = None, kind: str = "vrm",
+                   methods: dict[str, int] | None = None, listed: dict[str, bytes] | None = None,
+                   tweak=None, manifest_last: bool = True) -> list[dict]:
     methods = methods or {}
     entries = [{"name": p, "data": b, "method": methods.get(p, 0 if p.endswith((".vrm", ".glb", ".png")) else 8)}
                for p, b in sorted(files.items())]
@@ -229,7 +229,11 @@ def bundle(fmt: str, files: dict[str, bytes], body: str | None = None, kind: str
         entries.insert(0, man)
     if tweak:
         entries = tweak(entries)
-    return zip_bytes(entries)
+    return entries
+
+
+def bundle(*a, **kw) -> bytes:
+    return zip_bytes(bundle_entries(*a, **kw))
 
 
 # ── part-digest goldens (part-digest-v1.md §4) ───────────────────────────
@@ -736,6 +740,11 @@ def gen_archives() -> None:
                                                     tweak=pad("astrachar.json", b"PK\x03\x04HIDDEN-ENTRY")))
     hostile("overlapping-entries.astrachar", bundle(
         "astra.character", model_files, BODY_PATH, tweak=lambda es: es[:1] + [{"alias_of": 0}] + es[1:]))
+    # three directory entries, an end record counting two: the third (a second name for the body's
+    # bytes) is seen only by a reader that walks the directory rather than trusting the count
+    hostile("count-short-of-directory.astrachar", zip_bytes(
+        bundle_entries("astra.character", model_files, BODY_PATH) + [{"alias_of": 0, "name": "characters/aiko/hidden.vrm"}],
+        eocd_override=lambda n, size, off: (n - 1, n - 1, size, off)))
     hostile("directory-with-data.astrachar", bundle(
         "astra.character", model_files, BODY_PATH,
         tweak=lambda es: [{"name": "characters/aiko/dir/", "data": b"hidden", "method": 0}] + es))

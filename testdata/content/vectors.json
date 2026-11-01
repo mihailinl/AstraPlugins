@@ -1595,6 +1595,13 @@
       "code": "E_ZIP_END_RECORD"
     },
     {
+      "name": "count-short-of-directory",
+      "file": "archives/hostile/count-short-of-directory.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "the reviewer's t3 shape: a directory entry past the end record's count"
+    },
+    {
       "name": "entries-10001",
       "file": "archives/hostile/entries-10001.astrachar",
       "verdict": "refuse",

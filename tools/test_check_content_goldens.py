@@ -344,6 +344,32 @@ class F15ExtractorMatchesAstra(unittest.TestCase):
         self.assertRedOn(Mutation("derive_command", derive), "commands/event-node-no-config")
 
 
+def _swallowing(detail_words, fallback=None):
+    """A walk_zip mutation: the refusal whose detail names one of `detail_words` is not raised."""
+    orig = cg.walk_zip
+
+    def walk(b):
+        try:
+            return orig(b)
+        except cg.Refusal as r:
+            if any(w in r.detail for w in detail_words):
+                return fallback(b) if fallback else {"\0order": b"[]"}
+            raise
+    return walk
+
+
+class F1CountCoversTheDirectory(unittest.TestCase):
+    def test_trusting_the_count(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["more than the end record counts"])),
+            "archives/count-short-of-directory")
+
+    def test_the_golden_hides_a_real_entry(self):
+        b = (cg.DATA / "archives/hostile/count-short-of-directory.astrachar").read_bytes()
+        self.assertEqual(b.count(b"PK\x01\x02"), 3)
+        self.assertEqual(int.from_bytes(b[-12:-10], "little"), 2)
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
