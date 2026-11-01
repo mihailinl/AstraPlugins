@@ -659,8 +659,13 @@ impl BundleBuilder {
         } else {
             zip::CompressionMethod::Deflated
         };
+        // `system` is pinned too. zip 9 defaults it to the build host's, so on
+        // Windows every entry was made by "DOS": the mode we set was then read
+        // back as a synthesised 0664, the bundle failed its own verification,
+        // and its digest differed from the same build on Linux.
         let mut options = SimpleFileOptions::default()
             .compression_method(method)
+            .system(zip::System::Unix)
             .unix_permissions(mode);
         // Both are pinned unconditionally, not only under --reproducible: a
         // build that is deterministic by default is one fewer flag between an
@@ -812,6 +817,7 @@ impl BundleBuilder {
         SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
             .compression_level(Some(REPRODUCIBLE_COMPRESSION_LEVEL))
+            .system(zip::System::Unix)
             .unix_permissions(0o644)
             .last_modified_time(fixed_mtime())
     }
