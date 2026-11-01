@@ -513,7 +513,7 @@ def end_record(b: bytes):
         raise Refusal("E_ZIP_END_RECORD", "the last end record does not end the file")
     if disk or disk_cd or on_disk != total:
         raise Refusal("E_ZIP_END_RECORD", "several disks")
-    if total == 0xFFFF or cd_off == 0xFFFFFFFF:
+    if total == 0xFFFF or cd_off == 0xFFFFFFFF or cd_size == 0xFFFFFFFF:
         raise Refusal("E_ZIP_END_RECORD", "zip64 is not accepted in v1")
     if total and (cd_off + cd_size != eocd or b[cd_off:cd_off + 4] != b"PK\x01\x02"):
         raise Refusal("E_ZIP_END_RECORD", "the directory is not where the record says")
@@ -549,6 +549,17 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         raw_name = b[p + 46:p + 46 + nlen]
         extra = b[p + 46 + nlen:p + 46 + nlen + xlen]
         p += 46 + nlen + xlen + clen
+        # zip64 in any spelling: a sentinel size or offset, or the 0x0001 extra field (central or local)
+        if 0xFFFFFFFF in (csize, usize, loff):
+            raise Refusal("E_ZIP_END_RECORD", "a zip64 sentinel size or offset")
+        lx = b[loff + 30 + int.from_bytes(b[loff + 26:loff + 28], "little"):][:int.from_bytes(b[loff + 28:loff + 30], "little")]
+        for blob in (extra, lx):
+            q = 0
+            while q + 4 <= len(blob):
+                hid, hlen = struct.unpack("<HH", blob[q:q + 4])
+                if hid == 0x0001:
+                    raise Refusal("E_ZIP_END_RECORD", "a zip64 extra field")
+                q += 4 + hlen
         if flags & 0x1:
             raise Refusal("E_ARCHIVE_ENCRYPTED", raw_name.decode("utf-8", "replace"))
         if method not in (0, 8):

@@ -1617,6 +1617,30 @@
       "note": "the reviewer's t3 shape: a directory entry past the end record's count"
     },
     {
+      "name": "zip64-extra",
+      "file": "archives/hostile/zip64-extra.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-size-sentinel",
+      "file": "archives/hostile/zip64-size-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-offset-sentinel",
+      "file": "archives/hostile/zip64-offset-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
+      "name": "zip64-cd-size-sentinel",
+      "file": "archives/hostile/zip64-cd-size-sentinel.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_END_RECORD"
+    },
+    {
       "name": "entries-10001",
       "file": "archives/hostile/entries-10001.astrachar",
       "verdict": "refuse",

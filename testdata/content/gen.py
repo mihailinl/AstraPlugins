@@ -781,6 +781,22 @@ def gen_archives() -> None:
     # must mean last by position too, so directory order must be file order (§3 steps 3, 8)
     first = bundle_entries("astra.character", model_files, BODY_PATH, manifest_last=False)
     hostile("manifest-first-by-offset.astrachar", zip_bytes(first, cd_order=list(range(1, len(first))) + [0]))
+    # zip64, in each of its spellings, is not accepted in v1 (OPEN.md O-7; §3 step 1)
+    def patch_cd(b: bytes, name: str, field: int, value: int) -> bytes:
+        q = b.find(b"PK\x01\x02")
+        while q >= 0:
+            nl = struct.unpack("<H", b[q + 28:q + 30])[0]
+            if b[q + 46:q + 46 + nl] == name.encode():
+                return b[:q + field] + struct.pack("<I", value) + b[q + field + 4:]
+            q = b.find(b"PK\x01\x02", q + 4)
+        raise KeyError(name)
+    z64 = struct.pack("<HHQQ", 0x0001, 16, len(BODY), len(BODY))
+    hostile("zip64-extra.astrachar", bundle("astra.character", model_files, BODY_PATH, tweak=attr(BODY_PATH, extra=z64)))
+    hostile("zip64-size-sentinel.astrachar", patch_cd(good, BODY_PATH, 20, 0xFFFFFFFF))
+    hostile("zip64-offset-sentinel.astrachar", patch_cd(good, BODY_PATH, 42, 0xFFFFFFFF))
+    hostile("zip64-cd-size-sentinel.astrachar", zip_bytes(
+        bundle_entries("astra.character", model_files, BODY_PATH),
+        eocd_override=lambda n, size, off: (n, n, 0xFFFFFFFF, off)))
     hostile("directory-with-data.astrachar", bundle(
         "astra.character", model_files, BODY_PATH,
         tweak=lambda es: [{"name": "characters/aiko/dir/", "data": b"hidden", "method": 0}] + es))

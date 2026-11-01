@@ -401,6 +401,25 @@ class F7DirectoryOrderIsFileOrder(unittest.TestCase):
         self.assertEqual(b[cd + 46:cd + 46 + len("astrachar.json")], b"astrachar.json")
 
 
+class F8NoZip64(unittest.TestCase):
+    def test_zip64_markers_tolerated(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["zip64 sentinel", "zip64 extra"])),
+            "archives/zip64-extra", "archives/zip64-size-sentinel", "archives/zip64-offset-sentinel")
+
+    def test_cd_size_sentinel_tolerated(self):
+        orig = cg.end_record
+
+        def lax(b):
+            try:
+                return orig(b)
+            except cg.Refusal as r:
+                if "zip64" in r.detail:
+                    return 0, 0, 0  # an empty archive: anything but the zip64 refusal
+                raise
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("end_record", lax), "archives/zip64-cd-size-sentinel")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
