@@ -932,18 +932,52 @@ def bom_refusal(p: str, b: bytes) -> str | None:
     return None
 
 
+def top_level_has_asset(text: str) -> bool:
+    """Does the top-level object name an `asset` member, read key by key? A tolerant scan: it
+    tracks strings and nesting, compares each depth-1 KEY, and never needs the rest to parse."""
+    i, n = 0, len(text)
+    while i < n and text[i] in " \t\r\n":
+        i += 1
+    if i >= n or text[i] != "{":
+        return False
+    depth, expect_key, i = 1, True, i + 1
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            if depth == 1 and expect_key:
+                try:
+                    key = json.loads(text[i:j + 1])
+                except json.JSONDecodeError:
+                    key = text[i + 1:j]
+                if key == "asset":
+                    return True
+                expect_key = False
+            i = j + 1
+            continue
+        if c in "{[":
+            depth += 1
+        elif c in "}]":
+            depth -= 1
+            if depth == 0:
+                return False
+        elif c == "," and depth == 1:
+            expect_key = True
+        i += 1
+    return False
+
+
 def is_gltf_json(b: bytes) -> bool:
-    """S5: the bytes ARE a text glTF -- the first non-whitespace byte is `{` and the top-level
-    object has an `asset` member -- whatever the file is called. Only the top level is read."""
+    """S5: the bytes ARE a text glTF -- after an optional UTF-8 BOM (N1), the first
+    non-whitespace byte is `{` and the TOP-LEVEL object names an `asset` member -- whatever the
+    file is called, and whether or not the rest of it parses."""
     if b.startswith(UTF8_BOM):  # N1: three.js's TextDecoder strips it, so the sniff must too
         b = b[len(UTF8_BOM):]
     if b.lstrip(b" \t\r\n")[:1] != b"{":
         return False
-    try:
-        top = json.loads(b.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
-        return False
-    return isinstance(top, dict) and "asset" in top
+    return top_level_has_asset(b.decode("utf-8", "replace"))
 
 
 def name_matches_magic(p: str, b: bytes) -> bool:

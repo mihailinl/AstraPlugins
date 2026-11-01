@@ -998,6 +998,8 @@ def gen_archives() -> None:
     pct_uri = "..%2f..%2f..%2f..%2fetc%2fpasswd"
     pct_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": pct_uri, "byteLength": 4}]}).encode()
     put("archives/hostile/pct.astrapack", anim({"clips/p.gltf": pct_gltf, f"clips/{pct_uri}": b"\x00\x01\x02\x03"}))
+    # the sniff decides on the top-level `asset` key alone, whether or not the rest parses
+    put("archives/hostile/gltf-sniff-garbage.astrapack", anim({"clips/x.json": b'{"asset":1,<garbage> \x00\x01 not json'}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

@@ -796,6 +796,24 @@ class N8FoldTwice(unittest.TestCase):
             self.assertEqual(cg.fold_key(cg.fold_key(a)), cg.fold_key(a), repr(a))
 
 
+class SniffOnTheTopLevelKey(unittest.TestCase):
+    def test_sniff_needs_the_whole_file_to_parse(self):
+        def full_parse(text):
+            try:
+                top = json.loads(text)
+            except json.JSONDecodeError:
+                return False
+            return isinstance(top, dict) and "asset" in top
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("top_level_has_asset", full_parse), "archives/gltf-sniff-garbage")
+
+    def test_the_scanner(self):
+        f = cg.top_level_has_asset
+        self.assertTrue(f('{"accessors":[{"asset":0}],"asset":{}}'))  # asset need not be first
+        self.assertFalse(f('{"x":{"asset":1}}'))  # nested is not top-level
+        self.assertFalse(f('{"x":"asset"}'))  # a value is not a key
+        self.assertTrue(f('{"as\\u0073et":1, <garbage>'))  # an escaped key is the same key
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
