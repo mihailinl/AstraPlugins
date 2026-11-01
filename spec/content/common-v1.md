@@ -227,7 +227,10 @@ and "hidden" must not degrade to "keeps loading".
 parses each row on its own and:
 
 - reads a `versions` range it cannot parse as covering **every** version (a
-  takedown must not fail open on syntax; scenario `unparseable-range-covers-all`);
+  takedown must not fail open on syntax; scenario `unparseable-range-covers-all`).
+  **Every comparator is parsed before any is evaluated**: `<=1.0.0,^2.0` is
+  unparseable, so it covers `2.0.0`, exactly as `^2.0,<=1.0.0` does — never
+  "false at the first comparator";
 - applies the act when it knows it (§6.1);
 - otherwise applies `floor_effect`;
 - otherwise (an unknown `floor_effect` as well) applies `disarm`.

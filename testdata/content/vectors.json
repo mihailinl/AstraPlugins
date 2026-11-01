@@ -2357,15 +2357,30 @@
         {
           "versions": "",
           "version": "0.0.1"
+        },
+        {
+          "versions": "<=1.0.0,^2.0",
+          "version": "2.0.0"
+        },
+        {
+          "versions": "^2.0,<=1.0.0",
+          "version": "2.0.0"
+        },
+        {
+          "versions": "<=1.0.0,>=0.1",
+          "version": "5.0.0"
         }
       ],
       "expect": [
         true,
         false,
         true,
+        true,
+        true,
+        true,
         true
       ],
-      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3)"
+      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3) — in EITHER order: every comparator is parsed before any is evaluated (F17)"
     },
     {
       "name": "semver-precedence",

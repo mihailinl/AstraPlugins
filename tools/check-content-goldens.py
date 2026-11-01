@@ -872,20 +872,25 @@ def semver_key(v: str):
     return core, (0, ids)
 
 
-def in_range(version: str, rng: str) -> bool:
-    """The comparator subset the goldens use: `<=X`, `<X`, `>=X`, `>X`, `=X`, `X`."""
+def parse_range(rng: str) -> list[tuple[str, tuple]]:
+    """EVERY comparator is parsed before ANY is evaluated (F17): a range with one unparseable
+    comparator is unparseable whatever its order, never "false at the first comparator"."""
     if not rng.strip():
         raise ValueError("empty range")
+    out = []
     for part in rng.split(","):
-        part = part.strip()
-        m = re.fullmatch(r"(<=|>=|<|>|=)?\s*([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)", part)
+        m = re.fullmatch(r"\s*(<=|>=|<|>|=)?\s*(\S+)\s*", part)
         if m is None:
             raise ValueError(part)
-        op, v = m.group(1) or "=", semver_key(m.group(2))
-        x = semver_key(version)
-        if not {"<=": x <= v, ">=": x >= v, "<": x < v, ">": x > v, "=": x == v}[op]:
-            return False
-    return True
+        out.append((m.group(1) or "=", semver_key(m.group(2))))
+    return out
+
+
+def in_range(version: str, rng: str) -> bool:
+    """Comparators only, SemVer §11 precedence (common-v1.md §6); all must hold."""
+    cmps = parse_range(rng)
+    x = semver_key(version)
+    return all({"<=": x <= v, ">=": x >= v, "<": x < v, ">": x > v, "=": x == v}[op] for op, v in cmps)
 
 
 def served(kind: str, sc: dict, now: int, member: dict):

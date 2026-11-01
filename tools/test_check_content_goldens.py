@@ -24,6 +24,7 @@ import copy
 import importlib.util
 import io
 import json
+import re
 import subprocess
 import sys
 import unittest
@@ -315,7 +316,12 @@ class SelfAttackFixes(unittest.TestCase):
         self.assertRedOn(Mutation("WITHDRAWN_MAX_DOC_AGE", 8 * 86400), "scenario/withdrawn-freshness")
 
     def test_an_unparseable_range_failing_open(self):
-        self.assertRedOn(Mutation("covers", lambda version, rng: cg.in_range(version, rng) if rng.strip() and "^" not in rng else False),
+        def fail_open(version, rng):
+            try:
+                return cg.in_range(version, rng)
+            except (ValueError, AttributeError):
+                return False  # the mutation: an unparseable range covers NOTHING
+        self.assertRedOn(Mutation("covers", fail_open),
                          "scenario/unparseable-range-covers-all")
 
 
@@ -469,6 +475,21 @@ class F3UnrecognisedIsUnknown(unittest.TestCase):
         orig = cg._redistribution0
         self.assertRedOn(Mutation("_redistribution0", lambda m: "unknown" if m.get("licenseName") == "CC_BY_NC" else orig(m)),
                          "archives/model-vrm0-cc-by-nc")
+
+
+class F17ParseBeforeEvaluate(unittest.TestCase):
+    def test_short_circuit_evaluation(self):
+        def lazy(version, rng):
+            if not rng.strip():
+                raise ValueError("empty")
+            x = cg.semver_key(version)
+            for part in rng.split(","):
+                m = re.fullmatch(r"\s*(<=|>=|<|>|=)?\s*(\S+)\s*", part)
+                op, v = (m.group(1) or "="), cg.semver_key(m.group(2))  # raises only when REACHED
+                if not {"<=": x <= v, ">=": x >= v, "<": x < v, ">": x > v, "=": x == v}[op]:
+                    return False
+            return True
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("in_range", lazy), "scenario/unparseable-range-covers-all")
 
 
 class ReasonCodes(unittest.TestCase):
