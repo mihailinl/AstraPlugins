@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 18f46f438afa12f64d85a24a157ac202512cad1fc30637d533d25a418e4a2ade
+// surface-sha256: 049c139f9159ecf3185b810f704771210520378e9e7f67c463fca4afc11b10cc
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2785,6 +2785,17 @@ message SettingsResponse {
     ClipboardHistorySettings clipboard_history = 22;
     ScreenWidgetsSettings screen_widgets = 23;
     WidgetPanelSettings widget_panel = 24;
+    RemindersSettings reminders = 25;
+}
+
+// Reminders-widget preferences that apply to every reminder. Written through
+// SetSetting (`reminders.sound`); this is the read-only projection.
+message RemindersSettings {
+    // Play the reminder sound when a reminder fires.
+    bool sound = 1;
+
+    // Its volume, percent of the file's own level (5-100).
+    uint32 sound_volume = 2;
 }
 
 // Inbox-widget preferences that are not per-mailbox. The mailboxes themselves
