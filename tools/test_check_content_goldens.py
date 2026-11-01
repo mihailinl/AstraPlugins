@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Minice — https://minice.ai
+"""tools/check-content-goldens.py is green on this tree, and a check that has
+only ever seen a green tree has not shown it can see anything. Two kinds of
+test below, the shape tools/test_check_games_goldens.py uses:
+
+  * golden flips — take a real golden, change the ONE fact its rule reads,
+    and assert the verdict flips with it;
+  * rule mutations — break one rule INSIDE the checker (the guard the design
+    note §10 names: "merge the two key sets", "let Unknown through", "drop
+    the rule") and assert the whole run turns red on exactly the goldens that
+    rule exists for. A rule whose mutation leaves the run green guards nothing.
+
+    python3 tools/test_check_content_goldens.py -v
+
+No network. No writes outside the OS temp directory.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import copy
+import importlib.util
+import io
+import json
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+
+_spec = importlib.util.spec_from_file_location("cgold", ROOT / "tools/check-content-goldens.py")
+cg = importlib.util.module_from_spec(_spec)
+sys.modules["cgold"] = cg
+_spec.loader.exec_module(cg)
+C = cg.C
+
+V = cg.load_json("vectors.json")
+TRUST = cg.load_json("trust/trust.json")["signed"]
+
+
+def run_quiet() -> tuple[int, str]:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = cg.main()
+    return rc, buf.getvalue()
+
+
+def failed(out: str) -> list[str]:
+    return [line[5:].split(" — ")[0] for line in out.splitlines() if line.startswith("FAIL ")]
+
+
+class Mutation:
+    """Patch one attribute of the checker module, restore it afterwards."""
+
+    def __init__(self, name: str, value):
+        self.name, self.value = name, value
+
+    def __enter__(self):
+        self.old = getattr(cg, self.name)
+        setattr(cg, self.name, self.value)
+
+    def __exit__(self, *exc):
+        setattr(cg, self.name, self.old)
+
+
+class EndToEnd(unittest.TestCase):
+    def test_the_real_tree_is_green(self):
+        r = subprocess.run([sys.executable, str(ROOT / "tools/check-content-goldens.py")],
+                           capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr)
+        self.assertIn("all checks pass", r.stdout)
+
+    def test_the_generator_and_the_schemas_are_current(self):
+        for cmd in (["testdata/content/gen.py", "--check"], ["tools/gen-content-schemas.py", "--check"]):
+            r = subprocess.run([sys.executable, *cmd], capture_output=True, text=True, cwd=ROOT)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class Primitives(unittest.TestCase):
+    def test_rfc8032_vector_1(self):
+        seed = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+        self.assertEqual(C.public_key(seed).hex(), "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+        sig = C.sign(seed, b"")
+        self.assertTrue(sig.hex().startswith("e5564300c360ac729086e2cc806e828a"))
+        self.assertTrue(C.verify(C.public_key(seed), b"", sig))
+
+    def test_verify_is_strict_about_s(self):
+        seed = C.test_seed("strictness")
+        sig = C.sign(seed, b"m")
+        s = int.from_bytes(sig[32:], "little") + C._L  # the malleable twin a permissive verifier accepts
+        self.assertFalse(C.verify(C.public_key(seed), b"m", sig[:32] + s.to_bytes(32, "little")))
+
+    def test_jcs_sorts_by_utf16_not_code_point(self):
+        # by code point U+E000 sorts first; in UTF-16 code units U+1F600 (0xD83D…) sorts first. RFC 8785 is UTF-16.
+        doc = {"": 1, "\U0001f600": 2}
+        self.assertEqual(C.jcs(doc).decode("utf-8"), '{"\U0001f600":2,"":1}')
+
+    def test_a_changed_byte_moves_the_part_digest(self):
+        files = {"animpacks/wave/animpack.toml": b'name = "wave"\n', "animpacks/wave/clips/a.fbx": b"FBX-A",
+                 "animpacks/wave/clips/b.fbx": b"FBX-B"}
+        self.assertEqual(C.part_digest(files), V["part_digest"][0]["part_digest"])
+        files["animpacks/wave/clips/b.fbx"] = b"FBX-C"
+        self.assertNotEqual(C.part_digest(files), V["part_digest"][0]["part_digest"])
+
+    def test_the_part_digest_ignores_input_order_but_not_names(self):
+        a = {"x/b": b"1", "x/a": b"2"}
+        self.assertEqual(C.part_digest(a), C.part_digest(dict(reversed(list(a.items())))))
+        self.assertNotEqual(C.part_digest(a), C.part_digest({"x/c": b"1", "x/a": b"2"}))
+
+
+class EverySemanticGoldenBreaksExactlyItsRule(unittest.TestCase):
+    def test_the_named_rule_passes_on_valid_and_fails_on_the_golden(self):
+        n = 0
+        for section, doc in (("index", "index"), ("withdrawn", "withdrawn")):
+            for v in V[section]:
+                if v.get("check") != "semantic":
+                    continue
+                n += 1
+                valid = cg.load_json(f"{section}/{v['kind']}/valid.json")["signed"]
+                bad = cg.load_json(v["file"])["signed"]
+                rule = cg.rules_for(v["kind"], doc)[v["rule"]]
+                ctx = {"now": v.get("now", V["now"]), "kind": v["kind"]}
+                self.assertTrue(rule(valid, ctx), f"{v['rule']} refuses the VALID {v['kind']} {doc}")
+                self.assertFalse(rule(bad, ctx), f"{v['rule']} accepts {v['file']}")
+        self.assertGreater(n, 20)
+
+
+class GoldenFlips(unittest.TestCase):
+    def test_restoring_the_act_makes_security_pairs_pass(self):
+        s = copy.deepcopy(cg.load_json("withdrawn/commands/security-reason-retired-act.json")["signed"])
+        self.assertFalse(cg.rule_security_pairs(s, {}))
+        s["rows"][0]["act"] = "security"
+        self.assertTrue(cg.rule_security_pairs(s, {}))
+
+    def test_fixing_next_not_before_restores_the_kinds_keys(self):
+        doc = copy.deepcopy(cg.load_json("trust/kind-keys/next-not-later.json"))
+        self.assertEqual(cg.kind_keys_for(doc, "commands", V["now"]), [])
+        next(r for r in doc["kind_keys"] if r["kind"] == "commands" and r["role"] == "next")["not_before"] = "2026-12-01T00:00:00Z"
+        self.assertEqual(len(cg.kind_keys_for(doc, "commands", V["now"])), 2)
+
+    def test_a_re_signed_tampered_index_verifies_again(self):
+        env = copy.deepcopy(cg.load_json("index/commands/tampered-after-signing.json"))
+        self.assertEqual(cg.verify_doc(env, "commands", "index", TRUST, V["now"])[1], "signature-invalid")
+        seed = C.test_seed("astra-commands-2026a")
+        env["signatures"] = [{"key_id": "astra-commands-2026a",
+                              "sig": C.b64(C.sign(seed, C.signing_digest("astra.commands.index/1", env["signed"])))}]
+        self.assertEqual(cg.verify_doc(env, "commands", "index", TRUST, V["now"])[0], "astra-commands-2026a")
+
+    def test_declaring_the_hotkey_makes_the_trigger_golden_pass(self):
+        cmd = cg.load_json("commands/hostile/undeclared-trigger-cap.command.json")
+        with self.assertRaises(cg.Refusal):
+            cg.ingest_command(cmd, {"capabilities": ["plays_audio"], "danger": "low", "requires": []})
+        got = cg.ingest_command(cmd, {"capabilities": ["binds_hotkey", "plays_audio"], "danger": "low", "requires": []})
+        self.assertEqual(got["capabilities"], ["binds_hotkey", "plays_audio"])
+
+    def test_startup_and_schedule_are_their_own_words(self):
+        caps = cg.derive_command(cg.load_json("commands/valid/morning.command.json"))["capabilities"]
+        self.assertIn("on_startup", caps)
+        self.assertNotIn("on_event:startup", caps)
+        caps = cg.derive_command(cg.load_json("commands/valid/roll-dice.command.json"))["capabilities"]
+        self.assertIn("on_schedule", caps)
+
+
+def _all_keys(member, kind, now):
+    """Mutation: merge every kind's keys (and the index keys) into one set."""
+    out = []
+    for r in member.get("kind_keys", []):
+        if r.get("alg") == "ed25519" and C.unb64(r.get("public_key", "")):
+            out.append((r["key_id"], C.unb64(r["public_key"])))
+    for r in member.get("index_keys", []):
+        out.append((r["key_id"], C.unb64(r["public_key"])))
+    return out
+
+
+class RuleMutationsTurnTheRunRed(unittest.TestCase):
+    def assertRedOn(self, mutation: Mutation, *names: str):
+        with mutation:
+            rc, out = run_quiet()
+        self.assertEqual(rc, 1, f"the run stayed green under the mutation of {mutation.name}")
+        got = failed(out)
+        for n in names:
+            self.assertTrue(any(n in f for f in got), f"{n} did not fail; failed: {got}")
+
+    def test_merging_the_key_sets(self):
+        self.assertRedOn(Mutation("kind_keys_for", _all_keys),
+                         "index/commands/signed-by-models-key", "index/commands/signed-by-index-key")
+
+    def test_letting_unknown_through(self):
+        orig = cg.vrm_verdict
+        self.assertRedOn(Mutation("vrm_verdict", lambda raw: "allowed" if orig(raw) == "unknown" else orig(raw)),
+                         "archives/vrm-no-meta")
+
+    def test_reading_only_the_first_meta(self):
+        orig = cg.vrm_verdict
+        self.assertRedOn(Mutation("vrm_verdict", lambda raw: "allowed" if orig(raw) == "conflict" else orig(raw)),
+                         "archives/vrm-metas-disagree")
+
+    def test_dropping_the_exec_and_network_rule(self):
+        self.assertRedOn(Mutation("EXEC_CAPS", set()), "commands/build-and-ask")
+
+    def test_skipping_unknown_action_types(self):
+        caps = dict(cg.ACTION_CAPS)
+        caps["download_and_run"] = []
+        self.assertRedOn(Mutation("ACTION_CAPS", caps), "commands/unknown-action")
+
+    def test_skipping_unknown_node_types(self):
+        self.assertRedOn(Mutation("NODE_TYPES", cg.NODE_TYPES | {"teleport"}), "commands/unknown-node")
+
+    def test_accepting_an_unknown_event_name(self):
+        self.assertRedOn(Mutation("KNOWN_EVENTS", cg.KNOWN_EVENTS | {"usb_inserted"}), "commands/unknown-event-name")
+
+    def test_raising_the_entry_cap(self):
+        self.assertRedOn(Mutation("MAX_ENTRIES", 20000), "archives/entries-10001")
+
+    def test_forgetting_the_stored_rule(self):
+        self.assertRedOn(Mutation("STORED_ONLY", ()), "archives/deflated-vrm")
+
+    def test_trusting_the_ratio(self):
+        self.assertRedOn(Mutation("MAX_RATIO", 10**9), "archives/ratio-bomb")
+
+    def test_a_non_sticky_client(self):
+        def forgetful(sc, now, member):
+            states = []
+            for f in sc["sequence"]:
+                rows = cg.load_json(f)["signed"]["rows"]
+                states.append("disarmed" if any(r["id"] == sc["installed"]["id"] for r in rows) else "armed")
+            return states
+        self.assertRedOn(Mutation("scenario_sticky", forgetful), "scenario/sticky-security")
+
+    def test_a_looser_withdrawn_bound(self):
+        self.assertRedOn(Mutation("WITHDRAWN_MAX_AGE", 7201), "scenario/withdrawn-freshness")
+
+    def test_one_domain_for_everything(self):
+        orig = C.signing_digest
+        with Mutation("verify_doc", lambda env, kind, doc, member, now, retired=frozenset():
+                      _verify_any_domain(env, kind, member, now, orig)):
+            rc, out = run_quiet()
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("signed-under-models-domain" in f for f in failed(out)), failed(out))
+
+    def test_no_one_way_switch(self):
+        orig = cg.verify_doc
+        self.assertRedOn(Mutation("verify_doc", lambda env, kind, doc, member, now, retired=frozenset():
+                                  orig(env, kind, doc, member, now)), "scenario/one-way-switch")
+
+    def test_a_pack_digest_that_is_a_part_digest(self):
+        orig = cg.scenario_ingest_refs
+
+        def lax(sc, now, member, what):
+            try:
+                return orig(sc, now, member, what)
+            except cg.Refusal as r:
+                if r.code.endswith("_DIGEST"):
+                    return "accept"
+                raise
+        self.assertRedOn(Mutation("scenario_ingest_refs", lax), "scenario/pack-member-digest",
+                         "scenario/character-requires-digest")
+
+
+def _verify_any_domain(env, kind, member, now, digest_fn):
+    """Mutation: accept a signature over ANY content domain of the kind's keys."""
+    for d in ("index", "withdrawn"):
+        for other in cg.KINDS:
+            dig = digest_fn(f"astra.{other}.{d}/1", env.get("signed"))
+            for s in env.get("signatures") or []:
+                for kid, pk in cg.kind_keys_for(member, kind, now):
+                    if C.verify(pk, dig, C.unb64(s["sig"]) or b""):
+                        return kid, None
+    return None, "signature-invalid"
+
+
+class SelfAttackFixes(unittest.TestCase):
+    """The four classes the author's own attack found (OPEN.md O-20, O-21):
+    each guard is removed in turn and the run must go red on its golden."""
+
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_a_last_wins_loader(self):
+        import json as _json
+        self.assertRedOn(Mutation("load_json", lambda rel: _json.loads((cg.DATA / rel).read_text(encoding="utf-8"))),
+                         "index/commands/duplicate-member-name", "commands/duplicate-type-key")
+
+    def test_a_lax_glb_reader(self):
+        orig = cg.C.strict_loads
+        lax = lambda t: __import__("json").loads(t if isinstance(t, str) else t.decode("utf-8"))  # noqa: E731
+        cg.C.strict_loads = lax
+        try:
+            rc, out = run_quiet()
+        finally:
+            cg.C.strict_loads = orig
+        self.assertEqual(rc, 1)
+        got = failed(out)
+        for n in ("archives/vrm-duplicate-key", "archives/manifest-duplicate-key"):
+            self.assertTrue(any(n in f for f in got), got)
+
+    def test_no_tiling_rule(self):
+        orig = cg.walk_zip
+
+        def untiled(b):
+            # re-run the walk with the tiling loop's refusals swallowed
+            try:
+                return orig(b)
+            except cg.Refusal as r:
+                if "gap" in r.detail or "overlap" in r.detail or "between the last" in r.detail:
+                    return {"\0order": b"[]"}
+                raise
+        self.assertRedOn(Mutation("walk_zip", untiled), "archives/gap-between-entries", "archives/overlapping-entries")
+
+    def test_a_fetch_clock_only(self):
+        self.assertRedOn(Mutation("WITHDRAWN_MAX_DOC_AGE", 8 * 86400), "scenario/withdrawn-freshness")
+
+    def test_an_unparseable_range_failing_open(self):
+        self.assertRedOn(Mutation("covers", lambda version, rng: cg.in_range(version, rng) if rng.strip() and "^" not in rng else False),
+                         "scenario/unparseable-range-covers-all")
+
+
+class ReasonCodes(unittest.TestCase):
+    def test_a_code_cited_but_not_registered_is_caught(self):
+        codes = cg.load_codes()
+        self.assertIn("E_CONTENT_LICENCE_REFUSED", codes["ingest"])
+        self.assertIn("requires-digest-mismatch", codes["client"])
+        orig = cg.load_codes
+
+        def without():
+            c = copy.deepcopy(orig())
+            del c["ingest"]["E_ZIP_HEADERS_INCONSISTENT"]
+            return c
+        with Mutation("load_codes", without):
+            rc, out = run_quiet()
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("cite is in reason-codes.yaml" in f for f in failed(out)), failed(out))
+
+
+if __name__ == "__main__":
+    unittest.main()
