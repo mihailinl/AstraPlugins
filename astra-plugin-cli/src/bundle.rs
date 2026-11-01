@@ -89,6 +89,14 @@ pub const LEGACY_PAIR_SUNSET: &str = "astra-plugin 0.5.0 / Astra 0.4.0";
 pub const UNLISTED_ENTRIES: &[&str] =
     &[MANIFEST_ENTRY, LEGACY_SIGNATURE_ENTRY, LEGACY_PUBKEY_ENTRY];
 
+/// The Info-ZIP "Unicode Path" extra field tag (APPNOTE 4.6.9). When present,
+/// `zip`'s own `name()`/`by_name` resolve an entry through this field instead
+/// of the entry's raw name — but not every reader honours it, so the same
+/// bytes can extract to two different paths depending on which a given tool
+/// trusts. `Bundle::open` refuses any entry carrying it outright rather than
+/// picking a side.
+const UNICODE_PATH_EXTRA_FIELD_TAG: u16 = 0x7075;
+
 /// Deflate level pinned for `--reproducible`.
 ///
 /// `None` means "the encoder's default", which is a property of whichever
@@ -1027,6 +1035,171 @@ pub fn manifest_from_local_header(bytes: &[u8]) -> Result<Vec<u8>> {
         .to_vec())
 }
 
+/// "Zip cloaking", the second shape: deflate slack.
+///
+/// `by_index` decodes a Deflated entry forward from its data and stops the
+/// moment the real deflate stream's own end-of-block marker says it is
+/// done. It never asks whether the central directory's declared
+/// `compressed_size` agreed — so a `compressed_size` that overshoots the
+/// real stream's end leaves a gap inside the entry's own declared bounds
+/// that no by_index-based reader ever looks at. That gap can hold an entire
+/// extra local file header (a second entry's worth of name and content) —
+/// invisible to a verifier built on `by_index`, and potentially visible to
+/// a tool that resolves entries by scanning local headers and the data
+/// descriptors that follow them, which is what streaming scanners, several
+/// real `unzip` implementations and antivirus tools do instead of
+/// consulting the central directory.
+///
+/// This function re-derives the entry's bytes a second, independent way —
+/// from the RAW, undecoded data [`zip::ZipArchive::by_index_raw`] returns,
+/// through our own [`flate2::Decompress`], never through `by_index`'s own
+/// decompressor — and insists on three things `by_index` alone never
+/// checks:
+///
+/// 1. The real stream consumes every byte of the declared `compressed_size`,
+///    no more and no fewer. This is the slack check itself.
+/// 2. The decompressed length matches the declared `uncompressed_size`.
+/// 3. Its CRC32 matches the declared one.
+///
+/// Callers must have already refused any entry with general-purpose bit 3
+/// (a trailing data descriptor) set: bit 3 is precisely what lets a LOCAL
+/// header's own sizes read zero and defer to a value that only appears
+/// after the data, which is the shape this attack needs and which
+/// `BundleBuilder::pack` never writes (it always targets a seekable `File`,
+/// which has no reason to defer a size it already knows). With bit 3
+/// refused, and `ZipArchive::validate_header_consistency` already run, the
+/// sizes and CRC32 this function compares against are the ones the local
+/// header agrees with too — there is no second, disagreeing source to also
+/// check here.
+fn verify_no_deflate_slack<R: Read + Seek>(
+    archive: &mut zip::ZipArchive<R>,
+    index: usize,
+    path: &str,
+    method: zip::CompressionMethod,
+    declared_compressed_size: u64,
+    declared_uncompressed_size: u64,
+    declared_crc32: u32,
+) -> Result<()> {
+    // Bundle::open's own loop bounds its running total against this same
+    // ceiling as it reads via `by_index`; checking it here too means one
+    // pathological entry cannot force an allocation past what
+    // spec/limits.yaml permits on its own, independent of that loop.
+    if declared_compressed_size > MAX_EXTRACT_BYTES || declared_uncompressed_size > MAX_EXTRACT_BYTES
+    {
+        bail!(
+            "Archive entry '{path}' declares a size over the daemon's extract ceiling \
+             ({MAX_EXTRACT_BYTES} bytes, spec/limits.yaml: max_extract_bytes)"
+        );
+    }
+
+    let mut raw = archive.by_index_raw(index)?;
+    let mut in_buf = [0u8; 64 * 1024];
+    let mut crc = crc32fast::Hasher::new();
+    let mut out_size: u64 = 0;
+
+    match method {
+        zip::CompressionMethod::Stored => {
+            // Stored data is used verbatim, so there is no decode boundary
+            // to disagree about — only whether the declared size is the
+            // real one.
+            let mut in_total: u64 = 0;
+            loop {
+                let n = raw.read(&mut in_buf)?;
+                if n == 0 {
+                    break;
+                }
+                in_total += n as u64;
+                out_size += n as u64;
+                crc.update(&in_buf[..n]);
+            }
+            if in_total != declared_compressed_size {
+                bail!(
+                    "Archive entry '{path}' is Stored and declares {declared_compressed_size} \
+                     byte(s), but only {in_total} were there to read"
+                );
+            }
+        }
+        zip::CompressionMethod::Deflated => {
+            let mut inflater = flate2::Decompress::new(false);
+            let mut out_buf = [0u8; 64 * 1024];
+            let mut stream_ended = false;
+            loop {
+                let n = raw.read(&mut in_buf)?;
+                if n == 0 {
+                    break;
+                }
+                if stream_ended {
+                    // The real stream already finished; keep draining so a
+                    // file that is shorter than its own declared size is
+                    // reported as that, rather than silently accepted, but
+                    // nothing further goes through the decoder — calling it
+                    // again past its own end is not valid use of the API.
+                    continue;
+                }
+                let mut offset = 0usize;
+                while offset < n {
+                    let before_in = inflater.total_in();
+                    let before_out = inflater.total_out();
+                    let status = inflater
+                        .decompress(&in_buf[offset..n], &mut out_buf, flate2::FlushDecompress::None)
+                        .with_context(|| {
+                            format!("Archive entry '{path}' is not a valid deflate stream")
+                        })?;
+                    let consumed = (inflater.total_in() - before_in) as usize;
+                    let produced = (inflater.total_out() - before_out) as usize;
+                    out_size += produced as u64;
+                    crc.update(&out_buf[..produced]);
+                    offset += consumed;
+                    if status == flate2::Status::StreamEnd {
+                        stream_ended = true;
+                        break;
+                    }
+                    if consumed == 0 && produced == 0 {
+                        bail!(
+                            "Archive entry '{path}': the deflate decoder made no progress on a \
+                             non-empty chunk"
+                        );
+                    }
+                }
+            }
+            if !stream_ended {
+                bail!(
+                    "Archive entry '{path}' is Deflated but its real stream never reached its \
+                     own end within the declared compressed size"
+                );
+            }
+            // THE check this function exists for.
+            let consumed = inflater.total_in();
+            if consumed != declared_compressed_size {
+                bail!(
+                    "Archive entry '{path}' declares a compressed size of \
+                     {declared_compressed_size} bytes, but its real deflate stream only needed \
+                     {consumed} of them — the remaining {} byte(s) are slack a reader that \
+                     decodes forward and stops at the real stream's end would never look at, and \
+                     a crafted archive can hide an entire extra file in exactly that gap",
+                    declared_compressed_size - consumed
+                );
+            }
+        }
+        other => bail!("Archive entry '{path}' uses unsupported compression method {other:?}"),
+    }
+
+    if out_size != declared_uncompressed_size {
+        bail!(
+            "Archive entry '{path}': independently re-derived {out_size} byte(s) of content, but \
+             the central directory declares {declared_uncompressed_size}"
+        );
+    }
+    let got_crc32 = crc.finalize();
+    if got_crc32 != declared_crc32 {
+        bail!(
+            "Archive entry '{path}': independently computed CRC32 {got_crc32:08x}, but the \
+             central directory declares {declared_crc32:08x}"
+        );
+    }
+    Ok(())
+}
+
 impl Bundle {
     /// Open a `.astraplugin` and check every invariant in this module's docs.
     ///
@@ -1129,7 +1302,62 @@ impl Bundle {
             }
             check_archive_path(&path)?;
 
-            let stored = entry.compression() == zip::CompressionMethod::Stored;
+            // "Zip cloaking", shape 1: a trailing data descriptor (general
+            // purpose bit 3). Bit 3 is what lets a LOCAL header's own crc32
+            // and sizes read zero and defer to a value the central
+            // directory alone carries — the exact precondition the "deflate
+            // slack" attack `verify_no_deflate_slack` guards against needs.
+            // `astra-plugin build` never writes one: `BundleBuilder::pack`
+            // always targets a seekable `File` (`zip::ZipWriter::new`, not
+            // `new_streaming`), which has no reason to defer a size it
+            // already knows before writing a byte of content. A bundle that
+            // has one did not come from this CLI, so refuse the flag
+            // outright rather than only the one byte pattern demonstrated
+            // against it.
+            if entry.flags().is_using_data_descriptor() {
+                bail!(
+                    "Archive entry '{path}' uses a trailing data descriptor (general-purpose \
+                     bit 3 set). `astra-plugin build` never writes one; a bundle that has one \
+                     did not come from this CLI."
+                );
+            }
+            // "Zip cloaking", shape 2: the Info-ZIP Unicode Path (0x7075)
+            // extra field. `by_index`/`name()` resolve an entry's name
+            // through this field when present; a reader that does not
+            // honour it resolves the raw name instead — the same bytes then
+            // extract to two different paths depending on which a given
+            // tool trusts. `validate_header_consistency` above already
+            // refuses an archive where local and central disagree about
+            // this field; this refuses it even when both sides agree,
+            // because agreement does not make the field any less ambiguous
+            // to a reader that ignores it.
+            for field in entry.extra_data_fields() {
+                let is_unicode_path = matches!(field, zip::ExtraField::UnicodePath(_))
+                    || matches!(
+                        field,
+                        zip::ExtraField::Custom(custom)
+                            if custom.header_id == UNICODE_PATH_EXTRA_FIELD_TAG
+                    );
+                if is_unicode_path {
+                    bail!(
+                        "Archive entry '{path}' carries a Unicode Path (0x7075) extra field, \
+                         which resolves to a different name than the raw one depending on \
+                         whether a reader honours it."
+                    );
+                }
+            }
+
+            let method = entry.compression();
+            let declared_compressed_size = entry.compressed_size();
+            let declared_uncompressed_size = entry.size();
+            let declared_crc32 = entry.crc32();
+            // Captured now, not at push time below: `entry` borrows
+            // `archive` mutably, and `verify_no_deflate_slack` needs its own
+            // mutable borrow (for `by_index_raw`) once `entry` is done with
+            // it — which requires every use of `entry` to be behind us.
+            let mode = entry.unix_mode().map(|m| m & 0o7777);
+
+            let stored = method == zip::CompressionMethod::Stored;
             let mut hasher = Sha256::new();
             let mut buf = vec![0u8; 64 * 1024];
             let mut size = 0u64;
@@ -1148,11 +1376,31 @@ impl Bundle {
                     );
                 }
             }
+            let sha256 = hex(&hasher.finalize());
+            // Ends `entry`'s borrow of `archive` explicitly: `ZipFile`
+            // implements `Drop`, so NLL alone cannot shorten it to the last
+            // real use above, and `verify_no_deflate_slack` needs its own
+            // mutable borrow (for `by_index_raw`) right below.
+            drop(entry);
+
+            // "Belt and braces": re-derive this same entry's bytes a second,
+            // independent way, through our own decoder rather than
+            // `by_index`'s. See `verify_no_deflate_slack`'s doc comment.
+            verify_no_deflate_slack(
+                &mut archive,
+                i,
+                &path,
+                method,
+                declared_compressed_size,
+                declared_uncompressed_size,
+                declared_crc32,
+            )?;
+
             entries.push(ArchiveEntry {
                 path,
-                sha256: hex(&hasher.finalize()),
+                sha256,
                 size,
-                mode: entry.unix_mode().map(|m| m & 0o7777),
+                mode,
                 stored,
             });
         }

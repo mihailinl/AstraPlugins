@@ -128,6 +128,19 @@ anyhow = "1"
 # fix is `Bundle::open` calling `ZipArchive::validate_header_consistency()`
 # explicitly before trusting anything it reads. See bundle.rs.
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+# `Bundle::open`'s second cloaking fix: a Deflated entry's declared
+# compressed_size can legally run past where its real deflate stream ends
+# ("slack"), hiding another entry's local header in the gap — `by_index`
+# alone never notices, because it stops decoding at the real stream's end
+# and never checks whether the declared size agreed. `verify_no_deflate_slack`
+# in bundle.rs re-inflates `by_index_raw`'s undecoded bytes itself and insists
+# the real stream consumes every declared byte. Both crates are already
+# resolved transitively through `zip`'s own "deflate" feature (flate2 via
+# `deflate-flate2-zlib-rs`, crc32fast as zip's own CRC dependency) — these
+# entries make that pinned version directly callable instead of adding a
+# second, independent resolution of either.
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+crc32fast = "1"
 walkdir = "2"
 notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
 tokio = { version = "1", features = ["full"] }

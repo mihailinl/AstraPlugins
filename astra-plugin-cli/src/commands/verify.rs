@@ -788,6 +788,7 @@ mod vectors {
 #[cfg(test)]
 mod cloaking {
     use std::collections::BTreeMap;
+    use std::io::Write;
 
     use sha2::{Digest, Sha256};
 
@@ -818,32 +819,124 @@ mod cloaking {
         !crc
     }
 
-    /// A stored (uncompressed) local file header plus its content, appended to
-    /// `out`. Returns the header's starting offset — what a central directory
-    /// record's "relative offset of local header" field points at.
-    fn write_local_header(out: &mut Vec<u8>, name: &[u8], content: &[u8]) -> u32 {
+    /// A real, valid raw DEFLATE stream (no zlib wrapper — the same framing
+    /// PKZIP method 8 uses), produced independently of `bundle.rs`'s own
+    /// decoder: this is what a legitimate packer writes, and what the real
+    /// compressed region of a slack attack's bytes actually decode to.
+    fn raw_deflate(data: &[u8]) -> Vec<u8> {
+        let mut encoder = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::best());
+        encoder.write_all(data).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    /// The Info-ZIP Unicode Path (0x7075) extra field: tag, size, a version
+    /// byte, the CRC32 of the *raw* name this field accompanies, and the
+    /// UTF-8 "real" name a reader that honours this field resolves to
+    /// instead. Byte-for-byte what `gen.py`'s `upath()` helper builds.
+    fn unicode_path_extra(raw_name: &[u8], target: &[u8]) -> Vec<u8> {
+        let mut body = vec![1u8]; // version
+        body.extend_from_slice(&crc32(raw_name).to_le_bytes());
+        body.extend_from_slice(target);
+        let mut field = Vec::new();
+        field.extend_from_slice(&le16(0x7075));
+        field.extend_from_slice(&le16(body.len() as u16));
+        field.extend_from_slice(&body);
+        field
+    }
+
+    /// A local file header, fully parameterised, appended to `out`. Returns
+    /// the header's starting offset — what a central directory record's
+    /// "relative offset of local header" field points at. `method`/`flags`/
+    /// `crc`/the two sizes are the header's own claims, independent of
+    /// `content`'s real length: that gap is what lets this module build
+    /// archives no legitimate writer would.
+    #[allow(clippy::too_many_arguments)]
+    fn write_local_header_raw(
+        out: &mut Vec<u8>,
+        name: &[u8],
+        method: u16,
+        flags: u16,
+        crc: u32,
+        compressed_size: u32,
+        uncompressed_size: u32,
+        extra: &[u8],
+        content: &[u8],
+    ) -> u32 {
         let offset = out.len() as u32;
         out.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
         out.extend_from_slice(&le16(20)); // version needed to extract
-        out.extend_from_slice(&le16(0)); // flags: no encryption, no data descriptor
-        out.extend_from_slice(&le16(0)); // compression method: stored
+        out.extend_from_slice(&le16(flags));
+        out.extend_from_slice(&le16(method));
         out.extend_from_slice(&le16(0)); // last mod time
         out.extend_from_slice(&le16(0x21)); // last mod date: 1980-01-01
-        out.extend_from_slice(&le32(crc32(content)));
-        out.extend_from_slice(&le32(content.len() as u32)); // compressed size
-        out.extend_from_slice(&le32(content.len() as u32)); // uncompressed size
+        out.extend_from_slice(&le32(crc));
+        out.extend_from_slice(&le32(compressed_size));
+        out.extend_from_slice(&le32(uncompressed_size));
         out.extend_from_slice(&le16(name.len() as u16));
-        out.extend_from_slice(&le16(0)); // extra field length
+        out.extend_from_slice(&le16(extra.len() as u16));
         out.extend_from_slice(name);
+        out.extend_from_slice(extra);
         out.extend_from_slice(content);
         offset
     }
 
-    /// A central directory record. `name`, `content_crc` and `content_len` are
-    /// the CENTRAL directory's own claims — independent of whatever is
-    /// physically written at `local_header_offset`. That gap is the entire
-    /// point of this fixture: a reader that trusts the central directory for
+    /// A stored (uncompressed), fully consistent local file header plus its
+    /// content — the common case every other helper here is a deliberate
+    /// departure from.
+    fn write_local_header(out: &mut Vec<u8>, name: &[u8], content: &[u8]) -> u32 {
+        write_local_header_raw(
+            out,
+            name,
+            0,
+            0,
+            crc32(content),
+            content.len() as u32,
+            content.len() as u32,
+            &[],
+            content,
+        )
+    }
+
+    /// A central directory record, fully parameterised. `name`, `method`,
+    /// `flags`, `content_crc`, the two sizes and `extra` are the CENTRAL
+    /// directory's own claims — independent of whatever is physically
+    /// written at `local_header_offset`. That gap is the entire point of
+    /// this module: a reader that trusts the central directory for
     /// everything (as `by_index` does) never looks at what disagrees.
+    #[allow(clippy::too_many_arguments)]
+    fn write_central_entry_raw(
+        out: &mut Vec<u8>,
+        name: &[u8],
+        method: u16,
+        flags: u16,
+        content_crc: u32,
+        compressed_size: u32,
+        uncompressed_size: u32,
+        extra: &[u8],
+        local_header_offset: u32,
+    ) {
+        out.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
+        out.extend_from_slice(&le16(0)); // version made by: MS-DOS host, no unix mode
+        out.extend_from_slice(&le16(20)); // version needed to extract
+        out.extend_from_slice(&le16(flags));
+        out.extend_from_slice(&le16(method));
+        out.extend_from_slice(&le16(0)); // last mod time
+        out.extend_from_slice(&le16(0x21)); // last mod date
+        out.extend_from_slice(&le32(content_crc));
+        out.extend_from_slice(&le32(compressed_size));
+        out.extend_from_slice(&le32(uncompressed_size));
+        out.extend_from_slice(&le16(name.len() as u16));
+        out.extend_from_slice(&le16(extra.len() as u16));
+        out.extend_from_slice(&le16(0)); // file comment length
+        out.extend_from_slice(&le16(0)); // disk number start
+        out.extend_from_slice(&le16(0)); // internal file attributes
+        out.extend_from_slice(&le32(0)); // external file attributes
+        out.extend_from_slice(&le32(local_header_offset));
+        out.extend_from_slice(name);
+        out.extend_from_slice(extra);
+    }
+
+    /// A stored, fully consistent central directory record.
     fn write_central_entry(
         out: &mut Vec<u8>,
         name: &[u8],
@@ -851,24 +944,55 @@ mod cloaking {
         content_len: u32,
         local_header_offset: u32,
     ) {
-        out.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
-        out.extend_from_slice(&le16(0)); // version made by: MS-DOS host, no unix mode
-        out.extend_from_slice(&le16(20)); // version needed to extract
-        out.extend_from_slice(&le16(0)); // flags
-        out.extend_from_slice(&le16(0)); // compression method: stored
-        out.extend_from_slice(&le16(0)); // last mod time
-        out.extend_from_slice(&le16(0x21)); // last mod date
-        out.extend_from_slice(&le32(content_crc));
-        out.extend_from_slice(&le32(content_len));
-        out.extend_from_slice(&le32(content_len));
-        out.extend_from_slice(&le16(name.len() as u16));
-        out.extend_from_slice(&le16(0)); // extra field length
-        out.extend_from_slice(&le16(0)); // file comment length
-        out.extend_from_slice(&le16(0)); // disk number start
-        out.extend_from_slice(&le16(0)); // internal file attributes
-        out.extend_from_slice(&le32(0)); // external file attributes
-        out.extend_from_slice(&le32(local_header_offset));
-        out.extend_from_slice(name);
+        write_central_entry_raw(
+            out,
+            name,
+            0,
+            0,
+            content_crc,
+            content_len,
+            content_len,
+            &[],
+            local_header_offset,
+        );
+    }
+
+    /// The end-of-central-directory record.
+    fn write_eocd(out: &mut Vec<u8>, entries: u16, central_size: u32, central_start: u32) {
+        out.extend_from_slice(&0x0605_4b50u32.to_le_bytes());
+        out.extend_from_slice(&le16(0)); // disk number
+        out.extend_from_slice(&le16(0)); // disk with central directory
+        out.extend_from_slice(&le16(entries)); // entries on this disk
+        out.extend_from_slice(&le16(entries)); // total entries
+        out.extend_from_slice(&le32(central_size));
+        out.extend_from_slice(&le32(central_start));
+        out.extend_from_slice(&le16(0)); // comment length
+    }
+
+    /// A minimal, otherwise-valid v2 manifest naming `files`, serialised the
+    /// same way the real packer does (`BundleManifest::to_bytes`).
+    fn build_manifest(files: Vec<FileEntry>) -> Vec<u8> {
+        BundleManifest {
+            schema: SCHEMA.to_string(),
+            plugin_id: "cloak-test".to_string(),
+            version: "0.1.0".to_string(),
+            platform: Platform {
+                os: "any".to_string(),
+                arch: "any".to_string(),
+            },
+            protocol: 1,
+            min_astra_version: String::new(),
+            capabilities: vec![],
+            permissions: BTreeMap::new(),
+            permissions_hash: permissions_hash(&BTreeMap::new()).unwrap(),
+            entry: ManifestEntry {
+                command: "python".to_string(),
+                args: vec![],
+            },
+            files,
+        }
+        .to_bytes()
+        .unwrap()
     }
 
     /// Build a two-entry archive where entry 0 (`MANIFEST.json`) is entirely
@@ -891,32 +1015,12 @@ mod cloaking {
     /// contains.
     fn build_cloaked_bundle() -> Vec<u8> {
         let note_content: &[u8] = b"hello123";
-
-        let manifest = BundleManifest {
-            schema: SCHEMA.to_string(),
-            plugin_id: "cloak-test".to_string(),
-            version: "0.1.0".to_string(),
-            platform: Platform {
-                os: "any".to_string(),
-                arch: "any".to_string(),
-            },
-            protocol: 1,
-            min_astra_version: String::new(),
-            capabilities: vec![],
-            permissions: BTreeMap::new(),
-            permissions_hash: permissions_hash(&BTreeMap::new()).unwrap(),
-            entry: ManifestEntry {
-                command: "python".to_string(),
-                args: vec![],
-            },
-            files: vec![FileEntry {
-                path: "note.txt".to_string(),
-                sha256: hex(&Sha256::digest(note_content)),
-                size: note_content.len() as u64,
-                mode: "0644".to_string(),
-            }],
-        };
-        let manifest_bytes = manifest.to_bytes().unwrap();
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: "note.txt".to_string(),
+            sha256: hex(&Sha256::digest(note_content)),
+            size: note_content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
 
         let mut out = Vec::new();
         let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
@@ -938,15 +1042,197 @@ mod cloaking {
             note_offset,
         );
         let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
+        out
+    }
 
-        out.extend_from_slice(&0x0605_4b50u32.to_le_bytes()); // end of central directory
-        out.extend_from_slice(&le16(0)); // disk number
-        out.extend_from_slice(&le16(0)); // disk with central directory
-        out.extend_from_slice(&le16(2)); // entries on this disk
-        out.extend_from_slice(&le16(2)); // total entries
-        out.extend_from_slice(&le32(central_size));
-        out.extend_from_slice(&le32(central_start));
-        out.extend_from_slice(&le16(0)); // comment length
+    /// Entry 1 is `a.txt`, Deflated, with general-purpose bit 3 (trailing
+    /// data descriptor) set — but otherwise entirely honest: the real
+    /// deflate stream, the data descriptor right after it, and the central
+    /// directory's sizes all agree, with nothing hidden. This is the shape
+    /// `gen.py`'s `slack.zip` vector depends on to defer its local header's
+    /// sizes in the first place — rebuilt here without the nested-header
+    /// payload, to isolate the one thing this fixture exists to prove: that
+    /// `Bundle::open` refuses bit 3 *on its own*, before any question of
+    /// slack even arises.
+    fn build_bit3_bundle() -> Vec<u8> {
+        let content: &[u8] = b"hello world\n";
+        let compressed = raw_deflate(content);
+        let crc = crc32(content);
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: "a.txt".to_string(),
+            sha256: hex(&Sha256::digest(content)),
+            size: content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
+
+        let mut data_descriptor = Vec::new();
+        data_descriptor.extend_from_slice(&0x0807_4b50u32.to_le_bytes()); // optional signature
+        data_descriptor.extend_from_slice(&le32(crc));
+        data_descriptor.extend_from_slice(&le32(compressed.len() as u32));
+        data_descriptor.extend_from_slice(&le32(content.len() as u32));
+        let mut a_content = compressed.clone();
+        a_content.extend_from_slice(&data_descriptor);
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let a_offset = write_local_header_raw(
+            &mut out,
+            b"a.txt",
+            8,      // Deflated
+            0x0008, // general-purpose bit 3: sizes deferred to the trailing descriptor
+            0,
+            0,
+            0,
+            &[],
+            &a_content,
+        );
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry_raw(
+            &mut out,
+            b"a.txt",
+            8,
+            0x0008,
+            crc,
+            compressed.len() as u32,
+            content.len() as u32,
+            &[],
+            a_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
+        out
+    }
+
+    /// Entry 1 is `a.txt`, Deflated, bit 3 *unset* — local and central agree
+    /// on every field, including a `compressed_size` that is a flat lie:
+    /// the real deflate stream (`compressed`) ends partway through it, and
+    /// the rest is `junk`, physically present but never a byte either
+    /// header admits to. Because local and central agree exactly,
+    /// `validate_header_consistency` finds nothing wrong — there is no
+    /// disagreement to find — and because bit 3 is unset, `build_bit3_bundle`'s
+    /// refusal does not fire either. Only re-inflating the raw bytes and
+    /// noticing the decoder stopped needing input before `compressed_size`
+    /// was reached catches this one.
+    fn build_slack_bundle() -> Vec<u8> {
+        let content: &[u8] = b"hello world\n";
+        let compressed = raw_deflate(content);
+        let crc = crc32(content);
+        let junk = b"JUNK-AFTER-THE-REAL-STREAM-ENDS";
+        let declared_compressed_size = (compressed.len() + junk.len()) as u32;
+
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: "a.txt".to_string(),
+            sha256: hex(&Sha256::digest(content)),
+            size: content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
+
+        let mut a_content = compressed.clone();
+        a_content.extend_from_slice(junk);
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let a_offset = write_local_header_raw(
+            &mut out,
+            b"a.txt",
+            8, // Deflated
+            0, // bit 3 unset — sizes are not deferred, and both headers lie about them identically
+            crc,
+            declared_compressed_size,
+            content.len() as u32,
+            &[],
+            &a_content,
+        );
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry_raw(
+            &mut out,
+            b"a.txt",
+            8,
+            0,
+            crc,
+            declared_compressed_size,
+            content.len() as u32,
+            &[],
+            a_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
+        out
+    }
+
+    /// Rebuilds `gen.py`'s `upath.zip` vector: a single entry whose raw name
+    /// is `notes.txt` on both the local header and the central directory —
+    /// in full agreement, so `validate_header_consistency` finds nothing
+    /// wrong — but both also carry an *identical* Unicode Path (0x7075)
+    /// extra field whose target is `launch.sh`. `zip::ZipFile::name()`
+    /// resolves through that field, so `Bundle::open`'s own `path` for this
+    /// entry becomes `launch.sh`, not `notes.txt` — and nothing about the
+    /// two headers disagreeing ever gets a chance to say so.
+    fn build_unicode_path_bundle() -> Vec<u8> {
+        let raw_name = b"notes.txt";
+        let target = b"launch.sh";
+        let content: &[u8] = b"payload";
+        let extra = unicode_path_extra(raw_name, target);
+
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: String::from_utf8(target.to_vec()).unwrap(),
+            sha256: hex(&Sha256::digest(content)),
+            size: content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let entry_offset = write_local_header_raw(
+            &mut out,
+            raw_name,
+            0, // Stored
+            0,
+            crc32(content),
+            content.len() as u32,
+            content.len() as u32,
+            &extra,
+            content,
+        );
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry_raw(
+            &mut out,
+            raw_name,
+            0,
+            0,
+            crc32(content),
+            content.len() as u32,
+            content.len() as u32,
+            &extra,
+            entry_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
         out
     }
 
@@ -957,6 +1243,25 @@ mod cloaking {
     impl Drop for ScratchFile {
         fn drop(&mut self) {
             let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    /// Writes `bytes` to a scratch `.astraplugin`, calls `Bundle::open`, and
+    /// panics with `what_accepted` if it was accepted — every fixture in
+    /// this module is a bundle it must refuse. Returns the refusal's full
+    /// context chain (`{:#}`) for the caller's own assertions about *why*.
+    fn expect_refused(bytes: &[u8], what_accepted: &str) -> String {
+        static NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let nonce = NONCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path = ScratchFile(std::env::temp_dir().join(format!(
+            "astra-plugin-cloak-{}-{:?}-{nonce}.astraplugin",
+            std::process::id(),
+            std::thread::current().id(),
+        )));
+        std::fs::write(&path.0, bytes).unwrap();
+        match Bundle::open(&path.0) {
+            Ok(_) => panic!("{what_accepted}"),
+            Err(e) => format!("{e:#}"),
         }
     }
 
@@ -1002,6 +1307,97 @@ mod cloaking {
         assert!(
             err.contains("filename mismatch") || err.contains("evil.txt") || err.contains("note.txt"),
             "the refusal should be traceable to the name disagreement, not a coincidence: {err}"
+        );
+    }
+
+    /// Rebuilds the shape `gen.py`'s `slack.zip` vector depends on (minus its
+    /// nested-header payload, which `build_slack_bundle` below isolates
+    /// instead): a Deflated entry with general-purpose bit 3 set.
+    ///
+    /// MUTATION PROOF: removing the `entry.flags().is_using_data_descriptor()`
+    /// refusal in `Bundle::open` (bundle.rs) makes this test fail. Nothing
+    /// else in this fixture is wrong — the deflate stream, its trailing data
+    /// descriptor and the central directory's sizes all agree with each
+    /// other and with `MANIFEST.files` — so `validate_header_consistency`
+    /// and every other existing check pass it. Only the explicit bit-3 ban
+    /// catches it, which is the point: bit 3 is what lets a local header's
+    /// sizes defer to a value the central directory alone states, the exact
+    /// precondition `verify_no_deflate_slack`'s attack needs, so this CLI
+    /// refuses the flag outright rather than trusting its own slack check
+    /// to catch every byte pattern that flag makes possible.
+    #[test]
+    fn verify_refuses_a_deflated_entry_with_a_trailing_data_descriptor() {
+        let err = expect_refused(
+            &build_bit3_bundle(),
+            "Bundle::open accepted an entry with general-purpose bit 3 (a trailing data \
+             descriptor) set. astra-plugin build never writes one, and bit 3 is exactly what \
+             lets a local header's sizes defer to the central directory alone — the \
+             precondition the deflate-slack attack needs.",
+        );
+        assert!(
+            err.contains("data descriptor") || err.contains("bit 3"),
+            "the refusal should name the data-descriptor flag, not some other invariant: {err}"
+        );
+    }
+
+    /// A Deflated entry with bit 3 *unset* whose declared `compressed_size`
+    /// is a flat lie, agreed on by both the local header and the central
+    /// directory: the real deflate stream (for `b"hello world\n"`) ends
+    /// partway through the declared region, and 31 bytes of
+    /// `JUNK-AFTER-THE-REAL-STREAM-ENDS` fill the rest — physically present,
+    /// never admitted to by either header, and never reached by a reader
+    /// that decodes forward and stops the moment the real stream ends.
+    ///
+    /// MUTATION PROOF: removing the `verify_no_deflate_slack` call in
+    /// `Bundle::open` makes this test fail. `validate_header_consistency`
+    /// finds nothing to object to — local and central agree on every field,
+    /// including the lie — and bit 3 is unset, so
+    /// `verify_refuses_a_deflated_entry_with_a_trailing_data_descriptor`'s
+    /// check does not fire either. Only re-inflating the raw bytes
+    /// independently and comparing how much input the real stream actually
+    /// needed against the declared size catches this one.
+    #[test]
+    fn verify_refuses_a_deflated_entry_whose_declared_compressed_size_hides_slack() {
+        let err = expect_refused(
+            &build_slack_bundle(),
+            "Bundle::open accepted an entry whose declared compressed_size runs past where its \
+             real deflate stream ends. The trailing bytes are slack a reader that decodes \
+             forward and stops there would never look at — exactly where a crafted archive can \
+             hide an entire extra file.",
+        );
+        assert!(
+            err.contains("slack") || err.contains("compressed size"),
+            "the refusal should be traceable to the slack/size check, not a coincidence: {err}"
+        );
+    }
+
+    /// Rebuilds `gen.py`'s `upath.zip` vector exactly: a single entry named
+    /// `notes.txt` on both the local header and the central directory — in
+    /// full agreement — but both also carry an identical Unicode Path
+    /// (0x7075) extra field targeting `launch.sh`.
+    ///
+    /// MUTATION PROOF: removing the `extra_data_fields` scan for
+    /// `ExtraField::UnicodePath`/the 0x7075 `Custom` tag in `Bundle::open`
+    /// makes this test fail. `validate_header_consistency` finds nothing
+    /// wrong here either — local and central carry byte-for-byte the same
+    /// extra field, so there is no disagreement for it to catch — and
+    /// `zip::ZipFile::name()` resolves through the field to `launch.sh`,
+    /// which this fixture also lists (correctly) in `MANIFEST.files`, so
+    /// every other existing check — exhaustiveness, the digest, the entry
+    /// command — passes too. Only refusing the field outright, agreement or
+    /// not, catches a reader that would have resolved `notes.txt` instead.
+    #[test]
+    fn verify_refuses_an_entry_with_a_unicode_path_extra_field() {
+        let err = expect_refused(
+            &build_unicode_path_bundle(),
+            "Bundle::open accepted an entry carrying a Unicode Path (0x7075) extra field. A \
+             reader that resolves names through this field and one that does not would extract \
+             the same bytes under two different names.",
+        );
+        assert!(
+            err.contains("Unicode Path") || err.contains("0x7075"),
+            "the refusal should name the Unicode Path extra field, not some other invariant: \
+             {err}"
         );
     }
 }
