@@ -84,9 +84,10 @@ PR merges:
 ONE function, copied from astra-companion `src/vrm/meta.rs` `read_licence`, run
 on **every entry whose bytes begin with the GLB magic `glTF`** (whatever it is
 called — step 10 then refuses a GLB under a non-GLB name) **and on every
-`.gltf` text file** (its whole content is the glTF JSON), not only the body. **The contract is
-AstraPlugins PR #120** (`spec/games-vrm-g4` `d1da665`, `spec/games/manifest.md`
-§2.7.3 as that PR amends it), aligned with astra-ce's legal G4/G5.
+`.gltf` text file** (its whole content is the glTF JSON), not only the body. The rule is this
+page's §4.2, aligned with astra-ce's legal G4/G5; the games gate applies the same
+rule since AstraPlugins #123 (`516ba38`, `spec/games/manifest.md` §2.7.3 as that
+PR amends it), which superseded #120 (`d1da665`).
 
 **A GLB is classified by its glTF JSON extensions, never by its name**
 (coordinator, 2026-11-01). One declaring `VRMC_vrm_animation` (in `extensions`
@@ -95,7 +96,13 @@ or `extensionsUsed`) and **no** avatar extension — neither 0.x `VRM` nor 1.0
 confirmation, not the avatar verdict below, so it is not held for missing
 licence meta (golden `animset-vrma`). One carrying an avatar extension anywhere
 is an AVATAR and gets the verdict whatever it is called, so a renamed avatar
-cannot pass as an animation (golden `vrma-avatar-prohibited`).
+cannot pass as an animation (golden `vrma-avatar-prohibited`). A PLAIN one — no
+avatar extension and no `VRMC_vrm_animation` — gets the verdict **only in a
+character or model part** (the body, an accessory); in an animset part, or any
+part that is not a character's or model's, it takes that part's rights
+confirmation and is never held as Unknown (goldens `animset-plain-glb`, accepted,
+and `character-plain-glb-accessory`, held). This is the games gate's rule too
+(AstraPlugins #123), so the two agree file for file.
 
 ### 4.1 Three outcomes, handled separately
 
@@ -139,7 +146,8 @@ cannot pass as an animation (golden `vrma-avatar-prohibited`).
   `Unknown` against an `Allowed` included →
   `E_CONTENT_LICENCE_CONFLICT`. (A reader that stops at the first meta it finds
   would pass `testdata/content/archives/hostile/vrm-metas-disagree.astrachar`,
-  whose 0.x meta allows and whose 1.0 meta prohibits — OPEN.md O-2.)
+  whose 0.x meta allows and whose 1.0 meta prohibits; the games gate did, until
+#123 — OPEN.md O-2, closed.)
 
 ### 4.3 A part with no licence at all
 
@@ -147,32 +155,44 @@ A part with neither readable VRM meta nor a declared licence (`licence_source`
 none) → `E_CONTENT_LICENCE_UNDECLARED`. A part whose only VRM file is
 `Unknown` is held (§4.1), not refused as undeclared.
 
-### 4.4 PR #120's goldens
+### 4.4 The games gate's goldens (AstraPlugins #123)
 
-The server's verdict runs these and requires identical outcomes, pinned by
-sha256 (design §3.3) — with the one divergence the table names.
-`tools/check-content-goldens.py` runs every one of them, and §3.1's probes,
-whenever the file is present with the pinned sha256 (`CONTENT_EXTERNAL_ROOT`
-points it at another checkout); on 2026-11-01, with both PRs' files supplied,
-all 14 gave the outcome below.
+AstraPlugins #123 (`spec/games-vrm-conflict-kindkeys`, commit `516ba38`) moved
+the games gate onto this page's rules and replaced #120's goldens; its
+`testdata/games/content/vrm/gen.py` regenerates every file below byte for byte
+(checked 2026-11-01). The server's verdict runs these and requires identical
+outcomes, pinned by sha256 (design §3.3). `tools/check-content-goldens.py` runs
+every one of them, and §3.1's probes, whenever the file is present with the
+pinned sha256 (`CONTENT_EXTERNAL_ROOT` points it at another checkout); with a
+checkout of `516ba38`, all 22 externals gave the outcome below, and every one
+equals #123's own recorded verdict.
 
 | `testdata/games/content/vrm/` | sha256 | verdict |
 |---|---|---|
-| `allowed.vrm` | `db9765f8f7bc1cd8c85b836a9ffdf8a32577b333cddfca81f8975cf1c9d1da01` | **Unknown** here; PR #120 says Allowed. Its `licenseName` `Redistribution_Allowed` is no UniVRM `LicenseType` and not `CC0`/`CC_*`, so astra-companion `meta.rs` reads it unknown (§4.2; OPEN.md O-2c) |
 | `allowed-vrm1.vrm` | `c57da68629797f068d4000f9bf23091c000eada6982ef138cbc7e112543abd1a` | Allowed |
-| `refused-vrm0-only-author.vrm` | `641a9506d0415428d4cdd70ad0ff386b7e049734f737ab15f35fc761bf5100ad` | Prohibited |
-| `refused-vrm1-only-author.vrm` | `77f3ea67d6bdf8406986d6f96ffd4d047ef86444aa9d78395859662d3adddb56` | Prohibited |
+| `allowed.vrm` | `73d0f78566d9e4be98c544482c038f88894fab213c04be4ce2286e000d053eea` | Allowed |
+| `refused-vrm0-absent-fields.vrm` | `4e77fe322fbc305f8b6aa4687beea0ee4077bccfb024bc06d3d6399994ab310f` | Prohibited |
 | `refused-vrm0-named-people.vrm` | `07541a94a5aab6829217da869e37d2ea55a6828e136ce907f54c13265280fd42` | Prohibited |
-| `refused-vrm1-named-people.vrm` | `2d05c4134c2c35a009687d9a786b7952271ba699c9a4dbb831ef99e941c04e6c` | Prohibited |
+| `refused-vrm0-only-author.vrm` | `641a9506d0415428d4cdd70ad0ff386b7e049734f737ab15f35fc761bf5100ad` | Prohibited |
 | `refused-vrm0-redistribution-prohibited.vrm` | `6b3be446a9f8978cfcf7d78529561f068e4ffb245ea66ca9b849d198c43bb113` | Prohibited |
+| `refused-vrm1-absent-fields.vrm` | `c62fb976efa4bd2780612b69788aa884e30997e4d08d31e4b0366d0bb97b6e0a` | Prohibited |
+| `refused-vrm1-named-people.vrm` | `2d05c4134c2c35a009687d9a786b7952271ba699c9a4dbb831ef99e941c04e6c` | Prohibited |
+| `refused-vrm1-only-author.vrm` | `77f3ea67d6bdf8406986d6f96ffd4d047ef86444aa9d78395859662d3adddb56` | Prohibited |
 | `refused-vrm1-redistribution-false.vrm` | `b9a924b811ce5cdc898533144d2dbd37bf50a95d065b8dafc2dc57ae573d9127` | Prohibited |
-| `refused-vrm0-absent-fields.vrm` | `4e77fe322fbc305f8b6aa4687beea0ee4077bccfb024bc06d3d6399994ab310f` | Prohibited (defaulted) |
-| `refused-vrm1-absent-fields.vrm` | `c62fb976efa4bd2780612b69788aa884e30997e4d08d31e4b0366d0bb97b6e0a` | Prohibited (defaulted) |
+| `refused-vrm1-redistribution-string.vrm` | `5430e39773e48cfbf03668d38be3ab034f31415738b302b55a2f895b90ea5121` | Prohibited |
 | `unknown-no-meta.vrm` | `ad4ad6ba48e49548eb373fda5a6c4d5d369022f3b4a9573869aab95b5f657c81` | Unknown |
+| `unknown-vrm0-licence-other.vrm` | `be954a9422ee33471131a3d38353363e8bb8d4ea7e37c7f30e299fc7c0548c5d` | Unknown |
+| `unknown-vrm0-licence-unrecognised.vrm` | `e5eaa822262e27f4ae90b6ef7a6e340c9bd6199237038335ae88978c8b1bfe97` | Unknown |
+| `unknown-vrm0-user-unrecognised.vrm` | `a488f7305c523de80692b3ee686a275580caad9423d3ae56c7a11ff1877ffb2b` | Unknown |
+| `unknown-vrm1-avatar-unrecognised.vrm` | `908ff51c96bb43254bc4d3a37c935f9d5226a6986d80df872d9dde3d4c100dba` | Unknown |
+| `vrm-metas-agree.vrm` | `7e3659f5f24a4321f93f99dfcebab31a6c613d12263347eab32dad2213d4d7f5` | Allowed |
+| `vrm-metas-disagree.vrm` | `7eec68abf107f779f1ab1a05a18ba20878b7356779441c91a103a5b0900f106e` | Conflict (`E_CONTENT_LICENCE_CONFLICT`) |
+| `vrm-metas-unknown-vs-allowed.vrm` | `2f866f53ad2eb0b9e670c4f734599d29bee125e8016dc0bf2550ae1c55280e48` | Conflict (`E_CONTENT_LICENCE_CONFLICT`) |
 
 As a content BODY, `unknown-no-meta.vrm` (a GLB with no VRM extension at all)
 fails step 10 before the verdict runs; as an accessory `.glb` it is Unknown and
-held. The verdict function's own outcome is Unknown either way (OPEN.md O-6).
+held, and in an animset it is not judged (§4 above). The verdict function's own
+outcome is Unknown either way (OPEN.md O-6).
 
 ## 5. Parts
 

@@ -444,11 +444,11 @@ class F2VerdictFollowsContent(unittest.TestCase):
     def test_files_outside_parts_ignored(self):
         orig = cg.parts_of
 
-        def lax(files, body, settings_dir=None):
+        def lax(files, body, settings_dir=None, strict=True):
             try:
-                return orig(files, body, settings_dir)
+                return orig(files, body, settings_dir, strict)
             except cg.Refusal:
-                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir)
+                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir, strict)
         self.assertRedOn(Mutation("parts_of", lax), "archives/file-outside-parts")
 
 
@@ -617,6 +617,16 @@ class GlbClassByExtensions(unittest.TestCase):
     def test_no_animation_exemption(self):
         RuleMutationsTurnTheRunRed.assertRedOn(
             self, Mutation("glb_class", lambda b: "avatar" if b[:4] == cg.GLB_MAGIC else "other"), "archives/animset-vrma")
+
+
+class PlainGlbOnlyInAvatarParts(unittest.TestCase):
+    def test_judging_plain_glb_everywhere(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("gets_verdict", lambda cls, kind: cls != "animation"), "archives/animset-plain-glb")
+
+    def test_never_judging_plain_glb(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("gets_verdict", lambda cls, kind: cls == "avatar"), "archives/character-plain-glb-accessory")
 
 
 class ReasonCodes(unittest.TestCase):

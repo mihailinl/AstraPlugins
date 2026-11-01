@@ -766,6 +766,21 @@ def glb_class(b: bytes) -> str:
     return "other"
 
 
+AVATAR_PART_KINDS = {"character"}  # a character's or model's own parts: the body and its accessories
+
+
+def gets_verdict(cls: str, part_kind: str | None) -> bool:
+    """Which GLB / .gltf the avatar licence verdict runs on (ingest-v1.md §4, aligned with the games
+    gate in AstraPlugins #123): an avatar extension in ANY part; an animation never; a plain one
+    (`other`) only in a character or model part -- elsewhere it takes its part's rights
+    confirmation and is never held as Unknown."""
+    if cls == "avatar":
+        return True
+    if cls == "animation":
+        return False
+    return part_kind in AVATAR_PART_KINDS
+
+
 def name_matches_magic(p: str, b: bytes) -> bool:
     return (b[:4] == GLB_MAGIC) == p.lower().endswith(GLB_EXTS)
 
@@ -805,7 +820,7 @@ def is_vrm_body(raw: bytes) -> bool:
     return isinstance(exts, dict) and ("VRM" in exts or "VRMC_vrm" in exts)
 
 
-def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None):
+def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True):
     """ingest-v1.md §5: the body, each animpacks/<id>/, each accessories/<id>/,
     each standalone image (art) and audio file (audio). Every other file is
     refused, except the character's SETTINGS: a `.toml` directly in its
@@ -829,7 +844,8 @@ def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None
         elif p.lower().endswith((".ogg", ".wav", ".mp3", ".flac")):
             parts.setdefault(("audio", p), {})[p] = b
         else:
-            raise Refusal("E_CONTENT_FILE_OUTSIDE_PARTS", p)
+            if strict:
+                raise Refusal("E_CONTENT_FILE_OUTSIDE_PARTS", p)
     return parts
 
 
@@ -871,7 +887,9 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
-    verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and glb_class(b) != "animation"}
+    settings_dir = (man.get("character") or {}).get("dir")
+    kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False).items() for f in pf}
+    verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for p, v in verdicts.items():
         if v == "duplicate":
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")

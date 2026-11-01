@@ -889,6 +889,14 @@ def gen_archives() -> None:
         "extensionsUsed": ["VRMC_vrm_animation", "VRMC_vrm"]})
     put("archives/hostile/vrma-avatar-prohibited.astrapack", bundle(
         "astra.animpack", {**dance, "animpacks/dance/clips/dance.vrma": avatar_vrma}, body=None))
+    # a PLAIN GLB (no avatar extension, no VRMC_vrm_animation) is judged only in a character or
+    # model part: a clip in an animset takes the part's rights confirmation; an accessory is held
+    plain = glb({"asset": {"version": "2.0"}})
+    put("archives/valid/animset-plain-glb.astrapack", bundle(
+        "astra.animpack", {"animpacks/glbset/animpack.toml": b'name = "glbset"\n',
+                           "animpacks/glbset/clips/wave.glb": plain}, body=None))
+    hostile("character-plain-glb-accessory.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/accessories/hat/hat.glb": plain}, None))
     hostile("vrm-metas-disagree.astrachar", bundle(
         "astra.character", {BODY_PATH: vrm_both(VRM0_ALLOWED, dict(VRM1_ALLOWED, allowRedistribution=False))},
         BODY_PATH))

@@ -15,36 +15,22 @@ answer that loosens a rule is a new contract version, never an edit.
 
 ## Alarms for other lanes (a defect, not a choice)
 
-**O-2. PR #120's games gate reads only the FIRST VRM meta it finds.**
-`tools/check-games-goldens.py` `extract_vrm_meta` at `spec/games-vrm-g4`
-`d1da665` returns `extensions.VRM.meta` when present and never looks at
-`VRMC_vrm.meta`. L201 says a file whose 0.x and 1.0 metas disagree is
-`E_CONTENT_LICENCE_CONFLICT`. A file whose 0.x meta allows and whose 1.0 meta
-prohibits therefore PASSES the games gate:
-`testdata/content/archives/hostile/vrm-metas-disagree.astrachar`'s body is
-exactly that file. The content verdict ([`ingest-v1.md`](ingest-v1.md) §4.2)
-reads both. **Lane C (astra-plugins-ops-42)** should apply the same rule to the
-games gate and to `astra-games-catalogue` `lib/content.mjs` before games
-content is served.
+**O-2, O-2b, O-2c — CLOSED by AstraPlugins #123, commit `516ba38`**
+(`spec/games-vrm-conflict-kindkeys`, astra-plugins-ops-42). The games gate read
+only the first VRM meta it found (O-2), treated an unrecognised licence token as
+allowed (O-2b), and #120's `allowed.vrm` carried the non-UniVRM token
+`Redistribution_Allowed` (O-2c). #123 judges both metas, reads unrecognised
+tokens as Unknown, re-cuts `allowed.vrm` with `CC_BY`, and adds goldens for each
+case. All 19 of its VRM files give the same verdict through this contract's
+function as #123 records for them (ingest-v1.md §4.4, run with a checkout of
+`516ba38`).
 
-**O-2b. PR #120's games gate treats an unrecognised licence token as allowed.**
-Its `rule_vrm_licence_refused` refuses only the named prohibiting values, so a
-0.x `licenseName: Other` (or any unknown token) and an `allowedUserName` /
-`avatarPermission` no spec defines pass as Allowed. astra-companion's own
-`redistribution_of` reads `Other` and every unknown `licenseName` as UNKNOWN,
-and this contract holds such a file ([`ingest-v1.md`](ingest-v1.md) §4.2,
-goldens `vrm0-licence-other`, `vrm0-user-unrecognised`,
-`vrm1-avatar-unrecognised`). **Lane C** should align the games gate.
-
-**O-2c. PR #120's `allowed.vrm` is not an allowed VRM under the engine's own
-reading.** Its 0.x meta says `licenseName: "Redistribution_Allowed"`, which is
-not one of UniVRM's `LicenseType` values (`Redistribution_Prohibited`, `CC0`,
-`CC_BY`, …, `Other`). astra-companion `redistribution_of` (origin/main
-`045b0bf`) maps any such token to UNKNOWN, so this contract holds that file
-where #120 accepts it — the only one of #120's eleven files where the two
-disagree (`vectors.json` `external`, run with both PRs' files present). **Lane
-C** should change the golden's token to a real one (`CC_BY`) and keep a separate
-golden for an unrecognised token, which must come out Unknown.
+**O-22. An accepted difference in POLICY, not in verdict.** For games, an
+`Unknown` verdict is published, flagged `F_CONTENT_VRM_META_UNKNOWN`
+(`spec/games/manifest.md` §2.7.3); for content it is HELD for a moderator
+(ingest-v1.md §4.1). The verdict function is identical file for file; only what
+each product does with `Unknown` differs, deliberately (coordinator,
+2026-11-01).
 
 **O-1. Games keys.** L328–330 moves `games` into `kind_keys` (agreed by -42 on
 2026-11-01); `spec/games/games-index-v1.md` §3 still compiles `games-current` /
