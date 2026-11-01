@@ -141,11 +141,15 @@ none) → `E_CONTENT_LICENCE_UNDECLARED`. A part whose only VRM file is
 ### 4.4 PR #120's goldens
 
 The server's verdict runs these and requires identical outcomes, pinned by
-sha256 (design §3.3):
+sha256 (design §3.3) — with the one divergence the table names.
+`tools/check-content-goldens.py` runs every one of them, and §3.1's probes,
+whenever the file is present with the pinned sha256 (`CONTENT_EXTERNAL_ROOT`
+points it at another checkout); on 2026-11-01, with both PRs' files supplied,
+all 14 gave the outcome below.
 
 | `testdata/games/content/vrm/` | sha256 | verdict |
 |---|---|---|
-| `allowed.vrm` | `db9765f8f7bc1cd8c85b836a9ffdf8a32577b333cddfca81f8975cf1c9d1da01` | Allowed |
+| `allowed.vrm` | `db9765f8f7bc1cd8c85b836a9ffdf8a32577b333cddfca81f8975cf1c9d1da01` | **Unknown** here; PR #120 says Allowed. Its `licenseName` `Redistribution_Allowed` is no UniVRM `LicenseType` and not `CC0`/`CC_*`, so astra-companion `meta.rs` reads it unknown (§4.2; OPEN.md O-2c) |
 | `allowed-vrm1.vrm` | `c57da68629797f068d4000f9bf23091c000eada6982ef138cbc7e112543abd1a` | Allowed |
 | `refused-vrm0-only-author.vrm` | `641a9506d0415428d4cdd70ad0ff386b7e049734f737ab15f35fc761bf5100ad` | Prohibited |
 | `refused-vrm1-only-author.vrm` | `77f3ea67d6bdf8406986d6f96ffd4d047ef86444aa9d78395859662d3adddb56` | Prohibited |

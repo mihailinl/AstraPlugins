@@ -36,6 +36,16 @@ and this contract holds such a file ([`ingest-v1.md`](ingest-v1.md) §4.2,
 goldens `vrm0-licence-other`, `vrm0-user-unrecognised`,
 `vrm1-avatar-unrecognised`). **Lane C** should align the games gate.
 
+**O-2c. PR #120's `allowed.vrm` is not an allowed VRM under the engine's own
+reading.** Its 0.x meta says `licenseName: "Redistribution_Allowed"`, which is
+not one of UniVRM's `LicenseType` values (`Redistribution_Prohibited`, `CC0`,
+`CC_BY`, …, `Other`). astra-companion `redistribution_of` (origin/main
+`045b0bf`) maps any such token to UNKNOWN, so this contract holds that file
+where #120 accepts it — the only one of #120's eleven files where the two
+disagree (`vectors.json` `external`, run with both PRs' files present). **Lane
+C** should change the golden's token to a real one (`CC_BY`) and keep a separate
+golden for an unrecognised token, which must come out Unknown.
+
 **O-1. Games keys.** L328–330 moves `games` into `kind_keys` (agreed by -42 on
 2026-11-01); `spec/games/games-index-v1.md` §3 still compiles `games-current` /
 `games-next` and a per-key serial floor. This contract lists `games` in

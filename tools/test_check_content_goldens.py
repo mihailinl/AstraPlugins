@@ -555,6 +555,55 @@ class F14StickyRowsAndCanonicalRanges(unittest.TestCase):
         self.assertTrue(any("lift-contradicts-retired-row" in f for f in failed(out)), failed(out))
 
 
+class F16NoGuttedCorpus(unittest.TestCase):
+    def _vectors(self, mutate):
+        orig = cg.load_json
+
+        def load(rel):
+            doc = orig(rel)
+            if rel == "vectors.json":
+                doc = copy.deepcopy(doc)
+                mutate(doc)
+            return doc
+        return Mutation("load_json", load)
+
+    def test_dropping_vectors(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, self._vectors(lambda d: d.update(archives=d["archives"][:3])),
+            "every SHA256SUMS path is used by at least one vector", "the run made exactly")
+
+    def test_dropping_a_check_but_keeping_every_file(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, self._vectors(lambda d: d["archives"][0].pop("parts")), "the run made exactly")
+
+    def test_an_ingest_code_with_neither(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, self._vectors(lambda d: d["l1_only"].pop("E_CONTENT_QUOTA")),
+            "every ingest code has a golden or an l1_only reason")
+
+    def test_ignoring_revocation_windows(self):
+        orig = cg.covers
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("ingest_command", lambda cmd, claim, served=None: _old_ingest(cmd, claim, served)),
+            "commands/requires-window-unparseable", "commands/requires-rc-revoked-by-release-window")
+        self.assertIs(cg.covers, orig)
+
+
+def _old_ingest(cmd, claim, served):
+    """The first draft: a plugin is usable if some listed version is not an exact revoked string."""
+    got = cg.derive_command(cmd)
+    if got["capabilities"] != sorted(claim["capabilities"]) or got["danger"] != claim["danger"]:
+        raise cg.Refusal("E_COMMAND_CAPS_MISMATCH")
+    ids = sorted(r["id"] for r in claim["requires"])
+    if got["requires"] != ids:
+        raise cg.Refusal("E_COMMAND_REQUIRES_MISMATCH")
+    for pid in ids if served is not None else []:
+        p = served.get(pid) or {"listed": []}
+        if not [v for v in p["listed"] if v not in p.get("revoked", [])]:
+            raise cg.Refusal("E_COMMAND_REQUIRES_UNLISTED")
+    return got
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

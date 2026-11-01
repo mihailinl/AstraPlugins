@@ -816,6 +816,8 @@ def gen_archives() -> None:
     hostile("zip64-cd-size-sentinel.astrachar", zip_bytes(
         bundle_entries("astra.character", model_files, BODY_PATH),
         eocd_override=lambda n, size, off: (n, n, 0xFFFFFFFF, off)))
+    hostile("method-bzip2.astrachar", bundle("astra.character", {**model_files, "characters/aiko/notes.ogg": b"OggS-bz"},
+                                             BODY_PATH, tweak=attr("characters/aiko/notes.ogg", method=12)))
     hostile("directory-with-data.astrachar", bundle(
         "astra.character", model_files, BODY_PATH,
         tweak=lambda es: [{"name": "characters/aiko/dir/", "data": b"hidden", "method": 0}] + es))

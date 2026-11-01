@@ -37,4 +37,15 @@ client `reason`); `code` and `flags` for an ingest; `claim` for a command (what
 the uploader declared); `blocklist` / `declared_licence` for a bundle's ingest
 context; `scenarios[]` for several documents judged together; `external[]` for
 goldens other PRs commit (#120's VRM files, #122's cloaking probes), referenced
-by path and sha256 and never copied.
+by path and sha256 and never copied — the checker RUNS each one whose file is
+present with that sha256 and says so for each it skips (`CONTENT_EXTERNAL_ROOT`
+points it at another checkout).
+
+Two guards keep the corpus from being gutted into a green run: every path in
+`SHA256SUMS` must be named by at least one vector, and `expected_checks` pins
+the exact number of checks the run makes (externals excluded) — adding or
+removing a vector moves it, on purpose. `l1_only` lists each ingest code that
+has no golden here, with the reason only lane L1 can test it; a code with
+neither is a red run. A command's `claim.requires` carries each plugin's
+`version_req`, and `served_plugins` its listed versions and revocation WINDOWS
+(ranges).

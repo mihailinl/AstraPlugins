@@ -31,6 +31,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import os
 import pathlib
 import re
 import struct
@@ -492,13 +493,22 @@ def ingest_command(cmd, claim: dict, served_plugins: dict | None = None) -> dict
     got = derive_command(cmd)
     if got["capabilities"] != sorted(claim["capabilities"]) or got["danger"] != claim["danger"]:
         raise Refusal("E_COMMAND_CAPS_MISMATCH", f"derived {got['capabilities']} {got['danger']}")
-    if got["requires"] != sorted(claim["requires"]):
+    declared = {r["id"]: r["version_req"] for r in claim["requires"]}
+    if got["requires"] != sorted(declared) or len(declared) != len(claim["requires"]):
         raise Refusal("E_COMMAND_REQUIRES_MISMATCH", f"derived {got['requires']}")
+    for pid, req in declared.items():
+        try:
+            parse_range(req)  # canonical comparators, SemVer precedence (common-v1.md §6)
+        except ValueError:
+            raise Refusal("E_COMMAND_FORMAT", f"version_req {req!r}") from None
     if served_plugins is not None:
-        for pid in got["requires"]:
-            p = served_plugins.get(pid)
-            if not p or not [v for v in p["listed"] if v not in p.get("revoked", [])]:
-                raise Refusal("E_COMMAND_REQUIRES_UNLISTED", pid)
+        for pid, req in declared.items():
+            p = served_plugins.get(pid) or {"listed": []}
+            # a listed version that matches version_req and that no served revocation WINDOW covers
+            # (a window is a range; one the client cannot parse covers every version)
+            ok = [v for v in p["listed"] if in_range(v, req) and not any(covers(v, w) for w in p.get("revoked", []))]
+            if not ok:
+                raise Refusal("E_COMMAND_REQUIRES_UNLISTED", f"{pid} {req}")
     return got
 
 
@@ -857,6 +867,10 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             unknown = any(verdicts.get(p) == "unknown" for p in pf)
             if not unknown:
                 raise Refusal("E_CONTENT_LICENCE_UNDECLARED", root)
+    if "declared_parts" in ctx:  # step 12: the parts the uploader declared at `begin`
+        derived = {f"{pk}:{root}": C.part_digest(pf) for (pk, root), pf in parts.items()}
+        if derived != ctx["declared_parts"]:
+            raise Refusal("E_CONTENT_PARTS_MISMATCH", f"derived {derived}")
     if any(v == "unknown" for v in verdicts.values()):
         flags.append("F_CONTENT_VRM_META_UNKNOWN")
     return {"verdict": "held" if flags else "accept", "flags": flags,
@@ -1089,6 +1103,22 @@ def main() -> int:
         sums[p] = h
     bad = [p for p, h in sums.items() if not (DATA / p).is_file() or hashlib.sha256((DATA / p).read_bytes()).hexdigest() != h]
     report(f"SHA256SUMS ({len(sums)} files)", not bad, ", ".join(bad[:5]))
+    # F16: a corpus gutted of its vectors must not pass -- every generated file is some vector's input
+    named: set[str] = set()
+
+    def strings(x):
+        if isinstance(x, str):
+            named.add(x)
+        elif isinstance(x, list):
+            for i in x:
+                strings(i)
+        elif isinstance(x, dict):
+            for i in x.values():
+                strings(i)
+    strings(V)
+    dirs = {d["dir"] for d in V["part_digest"]}
+    unused = [p for p in sums if p not in named and not any(p.startswith(d + "/") for d in dirs)]
+    report("every SHA256SUMS path is used by at least one vector", not unused, ", ".join(unused[:8]))
 
     # -- trust ------------------------------------------------------------
     T = V["trust"]
@@ -1259,6 +1289,50 @@ def main() -> int:
     client_codes = set(codes.get("client", {}))
     report("every client token is specified in a spec/content/*.md",
            all(f"`{c}`" in spec_text for c in client_codes), str([c for c in client_codes if f"`{c}`" not in spec_text]))
+
+    # -- every ingest code has a golden, or says why only L1 can test it (F16) -------
+    expected_codes = {v.get("code") for v in V["commands"] + V["archives"]}
+    expected_codes |= {v["expect"] for v in V["scenarios"] if isinstance(v["expect"], str)}
+    l1 = V.get("l1_only", {})
+    bare = [c for c in codes["ingest"] if c not in expected_codes and not str(l1.get(c, "")).strip()]
+    report("every ingest code has a golden or an l1_only reason", not bare, str(bare))
+    report("l1_only names only ingest codes that have no golden",
+           all(c in codes["ingest"] and c not in expected_codes for c in l1), str(sorted(l1)))
+
+    # -- the pinned count: a removed vector or check is a red run, not a smaller green one
+    pinned = checked
+    report(f"the run made exactly {V['expected_checks']} checks", pinned == V["expected_checks"], f"made {pinned}")
+
+    # -- external goldens other PRs commit: run when present, never counted in the pin ---
+    root = pathlib.Path(os.environ.get("CONTENT_EXTERNAL_ROOT", ROOT))
+    ran = skipped = 0
+    for v in V["external"]:
+        path = root / v["path"]
+        if not path.is_file():
+            print(f"skip external {v['name']} (absent: {v['path']})")
+            skipped += 1
+            continue
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != v["sha256"]:
+            # the path exists but holds other bytes (e.g. #118's file before #120 replaced it):
+            # not the golden this record pins, so it is not run -- and said out loud
+            print(f"skip external {v['name']} (present, but not the pinned sha256 {v['sha256'][:12]}…)")
+            skipped += 1
+            continue
+        ok = True
+        if v["kind"] == "zip":
+            try:
+                walk_zip(raw)
+                ok = False
+            except Refusal as r:
+                ok = r.code == v["expect"]
+        elif ok and v["kind"] == "vrm":
+            ok = vrm_verdict(raw, v["path"]) == v["expect"]
+        ran += 1
+        print(("ok   " if ok else "FAIL ") + f"external {v['name']}")
+        if not ok:
+            failures.append(f"external {v['name']}")
+    print(f"external goldens: {ran} run, {skipped} not run (absent or other bytes)")
 
     print(f"\n{checked} checks, {len(failures)} failed.")
     if failures:
