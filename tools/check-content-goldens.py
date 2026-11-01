@@ -903,9 +903,28 @@ def has_duplicate_json(b: bytes) -> bool:
     return (glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)) == "duplicate"
 
 
+UTF8_BOM = b"\xef\xbb\xbf"
+# N1: UTF-32 first, since FF FE 00 00 also begins FF FE. No allowed part type can begin with one:
+# GLB "glTF", PNG 89 50, JPEG FF D8, WebP/WAV "RIFF", KTX2 AB 4B, OGG "OggS", FLAC "fLaC", FBX
+# "Kaydara"/"; FBX", TOML and JSON text (UTF-8 by their specs), MP3 "ID3" or a Layer III frame
+# FF E2/E3/F2/F3/FA/FB -- FF FE would be an MPEG-1 Layer I frame, which is not MP3.
+UNICODE_BOMS = (b"\x00\x00\xfe\xff", b"\xff\xfe\x00\x00", b"\xff\xfe", b"\xfe\xff")
+
+
+def bom_refusal(p: str, b: bytes) -> str | None:
+    for bom in UNICODE_BOMS:
+        if b.startswith(bom):
+            return f"begins with the UTF-16/32 byte-order mark {bom.hex()}"
+    if p.lower().endswith(".gltf") and b.startswith(UTF8_BOM):
+        return "a .gltf must be UTF-8 JSON without a byte-order mark (glTF 2.0)"
+    return None
+
+
 def is_gltf_json(b: bytes) -> bool:
     """S5: the bytes ARE a text glTF -- the first non-whitespace byte is `{` and the top-level
     object has an `asset` member -- whatever the file is called. Only the top level is read."""
+    if b.startswith(UTF8_BOM):  # N1: three.js's TextDecoder strips it, so the sniff must too
+        b = b[len(UTF8_BOM):]
     if b.lstrip(b" \t\r\n")[:1] != b"{":
         return False
     try:
@@ -1060,6 +1079,9 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
                     parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False,
                              pack=pack_kind(man)).items() for f in pf}
     for p, b in files.items():
+        why = bom_refusal(p, b)
+        if why:
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: {why}")
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
         if judged(p, b):

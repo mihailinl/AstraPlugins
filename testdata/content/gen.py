@@ -987,6 +987,12 @@ def gen_archives() -> None:
                        ("dotless-i", "\u0131", "i"), ("kelvin", "\u212a", "k"), ("sharp-s", "\u00df", "ss")):
         put(f"archives/hostile/name-fold-{tag}.astrapack",
             anim({f"clips/{a}.fbx": b"FBX-1", f"clips/{b2}.fbx": b"FBX-2"}))
+    # N1: byte-order marks. three.js's TextDecoder strips a UTF-8 BOM, so a BOM-led glTF loads after a rename
+    put("archives/hostile/gltf-json-utf8-bom.astrapack", anim({"clips/avatar.json": b"\xef\xbb\xbf" + avatar_json}))
+    plain_gltf = json.dumps({"asset": {"version": "2.0"}}).encode()
+    put("archives/hostile/gltf-with-bom.astrapack", anim({"clips/plain.gltf": b"\xef\xbb\xbf" + plain_gltf}))
+    put("archives/hostile/gltf-json-utf16.astrapack",
+        anim({"clips/avatar.json": b"\xff\xfe" + avatar_json.decode("utf-8").encode("utf-16-le")}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

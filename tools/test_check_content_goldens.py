@@ -766,6 +766,22 @@ class FoldKey(unittest.TestCase):
             "archives/name-fold-dotless-i", "archives/name-fold-sharp-s")
 
 
+class N1ByteOrderMarks(unittest.TestCase):
+    def test_sniff_blind_to_a_utf8_bom(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UTF8_BOM", b"\x00never\x00"), "archives/gltf-json-utf8-bom")
+
+    def test_utf16_boms_allowed(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UNICODE_BOMS", ()), "archives/gltf-json-utf16")
+
+    def test_a_bom_gltf_has_its_own_rule(self):
+        # backed up by the unreadable rule (JSON cannot parse past a BOM), so its own mutation is not
+        # red on the run; assert the rule itself, so deleting it is caught here
+        b = (cg.DATA / "archives/hostile/gltf-with-bom.astrapack").read_bytes()
+        files = cg.walk_zip(b)
+        files.pop("\0order")
+        self.assertIsNotNone(cg.bom_refusal("clips/plain.gltf", files["clips/plain.gltf"]))
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
