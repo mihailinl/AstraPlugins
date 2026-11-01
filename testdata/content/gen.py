@@ -982,6 +982,11 @@ def gen_archives() -> None:
         return b'{"asset":{"version":"2.0"},"x":' + b"[" * (depth - 1) + b"]" * (depth - 1) + b"}"
     put("archives/hostile/gltf-too-deep.astrapack", anim({"clips/deep.gltf": nested(129)}))
     put("archives/valid/animset-gltf-depth-128.astrapack", anim({"clips/deep.gltf": nested(128)}))
+    # case folding is lower(upper(NFC(name))), full Unicode mappings: each pair names ONE file on NTFS/APFS
+    for tag, a, b2 in (("long-s", "\u017f", "s"), ("micro", "\u00b5", "\u03bc"), ("final-sigma", "\u03c2", "\u03c3"),
+                       ("dotless-i", "\u0131", "i"), ("kelvin", "\u212a", "k"), ("sharp-s", "\u00df", "ss")):
+        put(f"archives/hostile/name-fold-{tag}.astrapack",
+            anim({f"clips/{a}.fbx": b"FBX-1", f"clips/{b2}.fbx": b"FBX-2"}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
 

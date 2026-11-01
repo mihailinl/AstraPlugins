@@ -564,6 +564,13 @@ def name_refusal(name: str) -> str | None:
 UPATH_IDS = {0x7075}  # the Info-ZIP Unicode Path extra field, in a central OR a local header
 
 
+def fold_key(name: str) -> str:
+    """The key two names collide under on a case-insensitive file system: lower(upper(NFC)),
+    Python's full, locale-independent Unicode mappings. lower() alone keeps ſ/s, µ/μ, ς/σ,
+    ı/i and ß/ss apart while NTFS and APFS merge them; ß -> SS -> ss is the refusing direction."""
+    return unicodedata.normalize("NFC", name).upper().lower()
+
+
 def is_link(made: int, ext: int) -> bool:
     """A non-DOS host with a unix mode in the high 16 bits that is not a regular file or a directory."""
     if made >> 8 == 0 or ext >> 16 == 0:
@@ -661,16 +668,16 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         why = name_refusal(name)
         if why:
             raise Refusal("E_ARCHIVE_NAME_UNSAFE", f"{name!r}: {why}")
-        key = name.lower()
+        key = fold_key(name)
         if key in folded:
             raise Refusal("E_ARCHIVE_NAME_UNSAFE", f"{name!r}: collides under case folding")
         folded.add(key)
     # a path that is a FILE must not also be a DIRECTORY of another entry (`a.png` beside
     # `a.png/b.png`): extraction would have to drop one of them (R7), compared case-folded
-    dirs_of = {"/".join(n.lower().rstrip("/").split("/")[:i]) for n, *_ in entries
+    dirs_of = {"/".join(fold_key(n).rstrip("/").split("/")[:i]) for n, *_ in entries
                for i in range(1, len(n.rstrip("/").split("/")))}
     for name, *_ in entries:
-        if not name.endswith("/") and name.lower() in dirs_of:
+        if not name.endswith("/") and fold_key(name) in dirs_of:
             raise Refusal("E_ARCHIVE_NAME_UNSAFE", f"{name!r}: a file and a directory at one path")
     if sum(e[4] for e in entries) > MAX_TOTAL:
         raise Refusal("E_ARCHIVE_TOO_LARGE", "uncompressed total")

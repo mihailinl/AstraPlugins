@@ -758,6 +758,14 @@ class B1GltfJsonTotal(unittest.TestCase):
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("MAX_GLTF_JSON_TOTAL", 1 << 40), "archives/gltf-total-over-32mib")
 
 
+class FoldKey(unittest.TestCase):
+    def test_lowercase_only(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("fold_key", lambda n: n.lower()),
+            "archives/name-fold-long-s", "archives/name-fold-micro", "archives/name-fold-final-sigma",
+            "archives/name-fold-dotless-i", "archives/name-fold-sharp-s")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
