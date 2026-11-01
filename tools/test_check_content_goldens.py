@@ -734,6 +734,25 @@ class S5TextGltfUnderAnotherName(unittest.TestCase):
                                                "archives/gltf-named-json-in-animset", "archives/gltf-named-json-accessory")
 
 
+class UnreadableIsRefused(unittest.TestCase):
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_unreadable_treated_as_plain(self):
+        self.assertRedOn(Mutation("gltf_problem", lambda p, b: None),
+                         "archives/glb-invalid-json", "archives/gltf-invalid-json", "archives/gltf-too-deep",
+                         "archives/glb-json-over-16mib", "archives/gltf-over-16mib")
+
+    def test_no_size_cap(self):
+        self.assertRedOn(Mutation("MAX_GLTF_JSON", 1 << 40), "archives/glb-json-over-16mib", "archives/gltf-over-16mib")
+
+    def test_no_depth_cap(self):
+        self.assertRedOn(Mutation("MAX_JSON_DEPTH", 10**6), "archives/gltf-too-deep")
+
+    def test_depth_cap_off_by_one(self):
+        self.assertRedOn(Mutation("MAX_JSON_DEPTH", 127), "archives/animset-gltf-depth-128")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

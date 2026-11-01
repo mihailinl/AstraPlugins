@@ -974,8 +974,48 @@ def gen_archives() -> None:
     put("archives/hostile/gltf-named-json-in-animset.astrapack", anim({"clips/avatar.json": avatar_json}))
     hostile("gltf-named-json-accessory.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/accessories/x/model.json": avatar_json}, None))
+    # unreadable is refused, never "plain" (an animset part never judges a plain glTF)
+    put("archives/hostile/glb-invalid-json.astrapack", anim({"clips/bad.glb": _glb_of(b'{"asset": {"version": ')}))
+    put("archives/hostile/gltf-invalid-json.astrapack", anim({"clips/bad.gltf": b'{"asset": {"version": "2.0"}, '}))
+
+    def nested(depth: int) -> bytes:  # the top-level object is depth 1
+        return b'{"asset":{"version":"2.0"},"x":' + b"[" * (depth - 1) + b"]" * (depth - 1) + b"}"
+    put("archives/hostile/gltf-too-deep.astrapack", anim({"clips/deep.gltf": nested(129)}))
+    put("archives/valid/animset-gltf-depth-128.astrapack", anim({"clips/deep.gltf": nested(128)}))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
+
+
+# ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──
+
+MIB16 = 16 * 1024 * 1024
+
+
+def _big_json(size: int) -> bytes:
+    """A valid glTF JSON object of exactly `size` bytes."""
+    head, tail = b'{"asset":{"version":"2.0"},"pad":"', b'"}'
+    return head + b"a" * (size - len(head) - len(tail)) + tail
+
+
+def _glb_of(json_bytes: bytes) -> bytes:
+    j = json_bytes + b" " * (-len(json_bytes) % 4)
+    return struct.pack("<4sII", b"glTF", 2, 20 + len(j)) + struct.pack("<I4s", len(j), b"JSON") + j
+
+
+def _pack(extra: dict, stored=()) -> bytes:
+    return bundle("astra.animpack", {**ASCII_PART, **extra}, body=None, methods={p: 0 for p in stored})
+
+
+SYNTH = {
+    # a GLB whose JSON chunk is over 16 MiB (ingest-v1.md §3 step 10)
+    "glb-json-over-16mib": lambda: _pack({"clips/big.glb": _glb_of(_big_json(MIB16 + 4))}),
+    # a .gltf over 16 MiB
+    "gltf-over-16mib": lambda: _pack({"clips/big.gltf": _big_json(MIB16 + 1)}, stored=["clips/big.gltf"]),
+}
+
+
+def synth(name: str) -> bytes:
+    return SYNTH[name]()
 
 
 # ── SHA256SUMS ───────────────────────────────────────────────────────────

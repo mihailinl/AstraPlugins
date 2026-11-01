@@ -836,6 +836,49 @@ def uri_refusal(p: str, b: bytes, files: dict, part_root_of: dict) -> str | None
     return None
 
 
+MAX_GLTF_JSON = 16 * 1024 * 1024  # one GLB JSON chunk, or one .gltf
+MAX_JSON_DEPTH = 128
+
+
+def json_depth(doc) -> int:
+    """The nesting depth of a parsed JSON value; the top-level object or array is 1."""
+    deepest, stack = 0, [(doc, 1)]
+    while stack:
+        x, d = stack.pop()
+        if isinstance(x, (dict, list)):
+            deepest = max(deepest, d)
+            stack.extend((y, d + 1) for y in (x.values() if isinstance(x, dict) else x))
+    return deepest
+
+
+def gltf_problem(p: str, b: bytes) -> str | None:
+    """Why a GLB's JSON chunk or a .gltf cannot be read WHOLE, or None. Unreadable is refused
+    in EVERY part -- never "plain", which an animset part does not judge. The size is checked
+    before anything is parsed. A duplicate member is the duplicate rule's (R3), not this one's."""
+    if b[:4] == GLB_MAGIC:
+        if b[16:20] != b"JSON":
+            return "its first chunk is not JSON"
+        n = int.from_bytes(b[12:16], "little")
+        if n > MAX_GLTF_JSON:
+            return f"a JSON chunk of {n} bytes, over {MAX_GLTF_JSON}"
+        data = b[20:20 + n]
+    else:
+        if len(b) > MAX_GLTF_JSON:
+            return f"a .gltf of {len(b)} bytes, over {MAX_GLTF_JSON}"
+        data = b
+    try:
+        doc = C.strict_loads(data)
+    except C.DuplicateMember:
+        return None
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+        return "its JSON does not parse"
+    if not isinstance(doc, dict):
+        return "its JSON is not an object"
+    if json_depth(doc) > MAX_JSON_DEPTH:
+        return f"its JSON nests deeper than {MAX_JSON_DEPTH}"
+    return None
+
+
 def has_duplicate_json(b: bytes) -> bool:
     return (glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)) == "duplicate"
 
@@ -999,6 +1042,10 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     for p, b in files.items():
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
+        if judged(p, b):
+            why = gltf_problem(p, b)
+            if why:
+                raise Refusal("E_CONTENT_FORMAT", f"{p}: unreadable glTF: {why}")
         # ONE rule for every GLB and .gltf, in any part and of any class: an unparseable-by-duplicate
         # JSON must not fall through to "plain", which an animset part never judges (R3)
         if judged(p, b) and has_duplicate_json(b):
@@ -1225,6 +1272,20 @@ def serial_accept(floor: int, floor_bytes: str | None, serial: int, bytes_: str)
     return not (serial == floor and floor_bytes is not None and floor_bytes != bytes_)
 
 
+_GEN = None
+
+
+def gen_module():
+    """testdata/content/gen.py, for the goldens it builds in memory (`synth`)."""
+    global _GEN
+    if _GEN is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("content_gen", DATA / "gen.py")
+        _GEN = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_GEN)
+    return _GEN
+
+
 # ── reason codes (spec/content/reason-codes.yaml) ────────────────────────
 
 def load_codes() -> dict[str, dict[str, str]]:
@@ -1384,7 +1445,12 @@ def main() -> int:
 
     # -- archives (ingest) -------------------------------------------------
     for v in V["archives"]:
-        raw = (DATA / v["file"]).read_bytes()
+        if "synth" in v:  # too large to commit: built in memory, pinned by sha256
+            raw = gen_module().synth(v["synth"])
+            report(f"archives/{v['name']} synthesised bytes are the pinned sha256",
+                   hashlib.sha256(raw).hexdigest() == v["sha256"])
+        else:
+            raw = (DATA / v["file"]).read_bytes()
         try:
             got = ingest_bundle(raw, v)
             outcome, flags, parts = got["verdict"], got["flags"], got["parts"]
