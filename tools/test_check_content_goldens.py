@@ -506,6 +506,55 @@ class F9EveryVerifyingKey(unittest.TestCase):
                                                "scenario/one-way-switch-dual-current-first")
 
 
+class F14StickyRowsAndCanonicalRanges(unittest.TestCase):
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def _sticky(self, *, only_security=False, lift_wins=False, normalise=False):
+        def run(sc, now, member):
+            sticky, states, inst = {}, [], sc["installed"]
+            for f in sc["sequence"]:
+                env = cg.load_json(f)
+                rows = {(r["id"], r["versions"], r["at"]): r for r in env["signed"]["rows"]
+                        if not only_security or r["act"] == "security"}
+                sticky.update(rows)
+                for lift in env["signed"]["lifts"]:
+                    k = (lift["id"], lift["versions"].replace(" ", "") if normalise else lift["versions"], lift["lifts_at"])
+                    if lift_wins or k not in rows:
+                        sticky.pop(k, None)
+                live = [r for (i, v, _), r in sticky.items() if i == inst["id"] and cg.covers(inst["version"], v)]
+                states.append("disarmed" if any(cg.client_effect(r) == "disarm" for r in live) else "blocked" if live else "armed")
+            return states
+        return run
+
+    def test_only_security_rows_sticky(self):
+        self.assertRedOn(Mutation("scenario_sticky", self._sticky(only_security=True)), "scenario/sticky-every-row")
+
+    def test_a_lift_beating_its_row(self):
+        self.assertRedOn(Mutation("scenario_sticky", self._sticky(lift_wins=True)), "scenario/sticky-every-row")
+
+    def test_a_space_normalising_lift(self):
+        self.assertRedOn(Mutation("scenario_sticky", self._sticky(normalise=True)), "scenario/sticky-every-row")
+
+    def test_non_canonical_ranges_parsed(self):
+        lax = re.compile(r".*")
+        self.assertRedOn(Mutation("CANONICAL_RANGE", lax), "scenario/unparseable-range-covers-all")
+
+    def test_lift_contradiction_checked_for_security_only(self):
+        orig = cg.WITHDRAWN_RULES["lift-not-contradicted"]
+
+        def sec_only(s, ctx):
+            sec = {(r["id"], r["versions"], r["at"]) for r in s["rows"] if r["act"] == "security"}
+            return all((l["id"], l["versions"], l["lifts_at"]) not in sec for l in s["lifts"])
+        cg.WITHDRAWN_RULES["lift-not-contradicted"] = sec_only
+        try:
+            rc, out = run_quiet()
+        finally:
+            cg.WITHDRAWN_RULES["lift-not-contradicted"] = orig
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("lift-contradicts-retired-row" in f for f in failed(out)), failed(out))
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

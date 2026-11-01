@@ -156,23 +156,33 @@ withdrawals". A cached or blocked index therefore cannot keep installing a
 withdrawn item (scenario `withdrawn-freshness`: 0 s and 7200 s allow; 7201 s,
 any unverified latest fetch, and a document 26 h + 1 s old refuse).
 
-### 7.2 A `security` row is sticky until a `lift`
+### 7.2 Every row is sticky until a `lift`
 
-Once a client has seen a `security` row covering an installed copy, the copy
-**stays disarmed even if a later document omits the row**. The only thing that
-re-arms it is a `lift` row `{id, versions, lifts_at}` whose `id` and `versions`
-equal the row's and whose `lifts_at` equals the row's `at` — exactly. A lift
-with any other `at` re-arms nothing (scenario `sticky-security`: disarmed,
-disarmed after the row is dropped, disarmed after a lift with the wrong `at`,
-armed only after the exact lift).
+**Once a client has seen a row covering a version, that row stays in force even
+if a later document omits it** — whatever its act: install and update of the
+covered versions stay refused, and a disarming row (`security`, `rights`, or an
+unknown act whose `floor_effect` is `disarm`) keeps the installed copy disarmed.
+The only thing that undoes a row is a `lift` row `{id, versions, lifts_at}`
+whose `id` and `versions` equal the row's **as strings** (ranges are canonical,
+common-v1.md §6) and whose `lifts_at` equals the row's `at` — exactly.
 
-- A client remembers sticky rows durably, beside its serial floors.
-- A row with an act this client does not know whose `floor_effect` is `disarm`
-  is sticky the same way.
+- A lift with any other `at` or any other spelling re-arms nothing — `<= 1.0.0`
+  does not lift `<=1.0.0`.
+- **A row in the same document beats a lift for it**: the client applies the
+  document's lifts, then its rows.
+- Scenarios: `sticky-security` (disarmed; disarmed after the row is dropped;
+  disarmed after a lift with the wrong `at`; armed after the exact lift) and
+  `sticky-every-row` (a `retired` cascade row: blocked when dropped, blocked when
+  re-asserted beside its lift, blocked under a near-miss spelling, armed after
+  the exact lift).
+- A client remembers seen rows durably, beside its serial floors.
 - A lift stays in the document for at least 365 days after it was first served,
   so a client that was offline for less than that sees it; one offline for
-  longer stays disarmed, which is the safe failure.
-- The publisher alarms on any served `lift` that no `M_UNREVOKE` decision made
-  (design §5, §10 "Alarms"), so a leaked kind key cannot re-arm copies quietly.
-- A document that lifts a `security` row it also carries is a publisher defect
-  (rule `lift-not-contradicted`).
+  longer stays blocked, which is the safe failure.
+- **The publisher alarms on any served `lift` that no `M_UNREVOKE` (or
+  `M_RELIST`) decision made** (design §5, §10 "Alarms"), so a leaked kind key
+  cannot re-arm copies quietly. For a cascade lift — one carrying `cause` — the
+  decision looked for is the one on the CAUSE (the member or plugin restored),
+  and the alarm is raised only when no `M_UNREVOKE` exists on it.
+- A document that lifts a row it also carries is a publisher defect (rule
+  `lift-not-contradicted`).

@@ -1,0 +1,27 @@
+{
+  "signed": {
+    "schema": "astra.commands.withdrawn/1",
+    "serial": 1798689600,
+    "issued_at": 1798689600,
+    "expires_at": 1799294400,
+    "rows": [],
+    "lifts": [
+      {
+        "id": "needs-ghost",
+        "versions": "<= 1.0.0",
+        "lifts_at": 1798674600,
+        "cause": {
+          "kind": "plugin",
+          "id": "ghost-plugin",
+          "version": "1.0.0"
+        }
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-commands-2026a",
+      "sig": "wn4NBl6ThnmI/PjpXomM0IKg/itWIukFxm3+biebH/CSWW8Gp5ziAUCURF2UehKVTWDr7ENveokt0uoV5T5mCw=="
+    }
+  ]
+}

@@ -1022,6 +1022,41 @@
       "verdict": "accept"
     },
     {
+      "name": "seqr-1",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-1.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seqr-2",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-2.json",
+      "verdict": "accept"
+    },
+    {
+      "name": "seqr-3",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-3.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted",
+      "note": "the publisher may not serve it; the client must still let the row win"
+    },
+    {
+      "name": "seqr-4",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-4.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "the publisher may not spell a range with a space; the client that is served it anyway still lifts nothing (scenario sticky-every-row)"
+    },
+    {
+      "name": "seqr-5",
+      "kind": "commands",
+      "file": "withdrawn/commands/seqr-5.json",
+      "verdict": "accept"
+    },
+    {
       "name": "security-reason-retired-act",
       "kind": "commands",
       "file": "withdrawn/commands/security-reason-retired-act.json",
@@ -1076,6 +1111,31 @@
       "verdict": "refuse",
       "check": "semantic",
       "rule": "lift-not-contradicted"
+    },
+    {
+      "name": "lift-contradicts-retired-row",
+      "kind": "commands",
+      "file": "withdrawn/commands/lift-contradicts-retired-row.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "lift-not-contradicted",
+      "note": "a row in the same document beats a lift, whatever its act"
+    },
+    {
+      "name": "range-with-space",
+      "kind": "commands",
+      "file": "withdrawn/commands/range-with-space.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "ranges are canonical: no spaces"
+    },
+    {
+      "name": "range-upper-first",
+      "kind": "commands",
+      "file": "withdrawn/commands/range-upper-first.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "ranges are canonical: the lower bound first"
     },
     {
       "name": "bad-act-enum",
@@ -2389,6 +2449,22 @@
         {
           "versions": "<=1.0.0,>=0.1",
           "version": "5.0.0"
+        },
+        {
+          "versions": "<= 1.0.0",
+          "version": "9.0.0"
+        },
+        {
+          "versions": "<=2.0.0,>=1.0.0",
+          "version": "3.0.0"
+        },
+        {
+          "versions": ">=1.0.0,<=2.0.0",
+          "version": "3.0.0"
+        },
+        {
+          "versions": "1.0.0",
+          "version": "2.0.0"
         }
       ],
       "expect": [
@@ -2398,9 +2474,13 @@
         true,
         true,
         true,
+        true,
+        true,
+        true,
+        false,
         true
       ],
-      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3) — in EITHER order: every comparator is parsed before any is evaluated (F17)"
+      "note": "a row whose range the client cannot parse covers EVERY version (common-v1.md §6.3) — in EITHER order: every comparator is parsed before any is evaluated (F17); a NON-CANONICAL range (a space, the upper bound first, a bare version) is unparseable too"
     },
     {
       "name": "semver-precedence",
@@ -2572,6 +2652,30 @@
         "key-retired"
       ],
       "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
+    },
+    {
+      "name": "sticky-every-row",
+      "type": "sticky",
+      "kind": "commands",
+      "installed": {
+        "id": "needs-ghost",
+        "version": "1.0.0"
+      },
+      "sequence": [
+        "withdrawn/commands/seqr-1.json",
+        "withdrawn/commands/seqr-2.json",
+        "withdrawn/commands/seqr-3.json",
+        "withdrawn/commands/seqr-4.json",
+        "withdrawn/commands/seqr-5.json"
+      ],
+      "expect": [
+        "blocked",
+        "blocked",
+        "blocked",
+        "blocked",
+        "armed"
+      ],
+      "note": "a retired cascade row: dropped (still blocked), re-asserted beside its lift (the row wins), lifted under \"<= 1.0.0\" (a near-miss spelling a space-normalising client would match: nothing), lifted exactly (armed)"
     }
   ],
   "external": [

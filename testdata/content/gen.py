@@ -631,6 +631,16 @@ def gen_withdrawn(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> None:
             withdrawn_signed("commands", [], [{"id": "evil-shell", "versions": "<=1.0.0", "lifts_at": T0 - 3600}],
                              issued=T0 + 10800))
 
+    # every row is sticky (F14): a cascade `retired` row, dropped, re-asserted beside its lift, lifted
+    # under a near-miss spelling, and finally lifted exactly, with the cause the cascade named
+    cause = {"kind": "plugin", "id": "ghost-plugin", "version": "1.0.0"}
+    ret = row("needs-ghost", "retired", "no-update", "requires-unavailable", T0 - 600, cause=cause)
+    exact = {"id": "needs-ghost", "versions": "<=1.0.0", "lifts_at": T0 - 600, "cause": cause}
+    for n, (rows, lifts) in enumerate([([ret], []), ([], []), ([ret], [exact]),
+                                       ([], [dict(exact, versions="<= 1.0.0")]), ([], [exact])], 1):
+        put_doc(f"withdrawn/commands/seqr-{n}.json", "commands", "withdrawn",
+                withdrawn_signed("commands", rows, lifts, issued=T0 + n * 3600))
+
     def bad(kind: str, name: str, mutate) -> None:
         s = copy.deepcopy(valid[kind])
         mutate(s)
@@ -647,6 +657,10 @@ def gen_withdrawn(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> None:
     bad("commands", "cascade-without-cause", lambda s: s["rows"][2].pop("cause"))
     bad("commands", "lift-contradicts-row", lambda s: s["lifts"].append(
         {"id": "evil-shell", "versions": "<=1.0.0", "lifts_at": T0 - 3600}))
+    bad("commands", "lift-contradicts-retired-row", lambda s: s["lifts"].append(
+        {"id": "needs-ghost", "versions": "<=1.0.0", "lifts_at": T0 - 600, "cause": s["rows"][2]["cause"]}))
+    bad("commands", "range-with-space", lambda s: r0(s).update(versions="<= 1.0.0"))
+    bad("commands", "range-upper-first", lambda s: r0(s).update(versions="<=1.0.0,>=0.5.0"))
     bad("commands", "bad-act-enum", lambda s: r0(s).update(act="quarantine"))
     bad("commands", "missing-lifts", lambda s: s.pop("lifts"))
     bad("packs", "row-with-part", lambda s: r0(s).update(part={"part_kind": "character", "digest": MODEL_PART}))

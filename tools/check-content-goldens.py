@@ -299,7 +299,7 @@ def rule_cause_on_cascade(s, ctx) -> bool:
 
 
 def rule_lift_not_contradicted(s, ctx) -> bool:
-    sec = {(r["id"], r["versions"], r["at"]) for r in s["rows"] if r["act"] == "security"}
+    sec = {(r["id"], r["versions"], r["at"]) for r in s["rows"]}  # any act: a row beats a lift
     return all((l["id"], l["versions"], l["lifts_at"]) not in sec for l in s["lifts"])
 
 
@@ -884,11 +884,15 @@ def semver_key(v: str):
     return core, (0, ids)
 
 
+_V = SEMVER.pattern
+CANONICAL_RANGE = re.compile(f"={_V}|(?:>=|>){_V}(?:,(?:<=|<){_V})?|(?:<=|<){_V}")
+
+
 def parse_range(rng: str) -> list[tuple[str, tuple]]:
     """EVERY comparator is parsed before ANY is evaluated (F17): a range with one unparseable
     comparator is unparseable whatever its order, never "false at the first comparator"."""
-    if not rng.strip():
-        raise ValueError("empty range")
+    if not CANONICAL_RANGE.fullmatch(rng):
+        raise ValueError(f"not a canonical range: {rng!r}")  # common-v1.md §6: no spaces, fixed order
     out = []
     for part in rng.split(","):
         m = re.fullmatch(r"\s*(<=|>=|<|>|=)?\s*(\S+)\s*", part)
@@ -997,11 +1001,14 @@ def scenario_requires_digest(sc: dict, now: int, member: dict):
 
 
 def scenario_sticky(sc: dict, now: int, member: dict):
-    """trust-kind-keys-v1.md §7.2: a security row is sticky until a lift
-    names its id, its versions and its `at`."""
-    sticky: set = set()
+    """trust-kind-keys-v1.md §7.2 (F14): EVERY row a client has seen stays in force — install
+    and update refused, and a disarming row disarmed — until a lift names its id, its versions
+    (the canonical string, compared as a string) and its `at`. A row in the same document beats
+    a lift for it. Answers per step: disarmed | blocked | armed."""
+    sticky: dict = {}
     states = []
     floor = 0
+    inst = sc["installed"]
     for f in sc["sequence"]:
         env = load_json(f)
         kid, why = verify_doc(env, sc["kind"], "withdrawn", member, now)
@@ -1009,14 +1016,14 @@ def scenario_sticky(sc: dict, now: int, member: dict):
             states.append("unverified")
             continue
         floor = env["signed"]["serial"]
-        for r in env["signed"]["rows"]:
-            # an unknown act whose floor is disarm is sticky the same way (trust-kind-keys-v1.md §7.2)
-            if r.get("act") == "security" or (r.get("act") not in ("rights", "retired") and client_effect(r) == "disarm"):
-                sticky.add((r["id"], r["versions"], r["at"]))
+        here = {(r["id"], r["versions"], r["at"]): r for r in env["signed"]["rows"]}
         for lift in env["signed"]["lifts"]:
-            sticky.discard((lift["id"], lift["versions"], lift["lifts_at"]))
-        inst = sc["installed"]
-        states.append("disarmed" if any(i == inst["id"] and covers(inst["version"], v) for i, v, _ in sticky) else "armed")
+            k = (lift["id"], lift["versions"], lift["lifts_at"])
+            if k not in here:
+                sticky.pop(k, None)
+        sticky.update(here)
+        live = [r for (i, v, _), r in sticky.items() if i == inst["id"] and covers(inst["version"], v)]
+        states.append("disarmed" if any(client_effect(r) == "disarm" for r in live) else "blocked" if live else "armed")
     return states
 
 

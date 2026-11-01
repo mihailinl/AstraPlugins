@@ -180,10 +180,13 @@ what the author chose to publish; VRM meta contact fields are NOT copied
 taken.
 
 **`versions` (and a command's `version_req`) is comparators only, judged by
-SemVer 2.0.0 §11 precedence — it is NOT Cargo's `VersionReq`.** A range is one
-or more comparators `<V`, `<=V`, `>V`, `>=V`, `=V` joined by `,` (all must
-hold); `V` is a full SemVer version. There is no caret, tilde, wildcard or
-`||`, a bare version means `=`, and a pre-release is matched by precedence
+SemVer 2.0.0 §11 precedence — it is NOT Cargo's `VersionReq`.** A range is
+**canonical**, in exactly one of three shapes, with no spaces: `=V`; a lower
+bound `>=V` or `>V`, optionally followed by `,` and an upper bound `<=V` or
+`<V`; or an upper bound alone. `V` is a full SemVer version. There is no caret,
+tilde, wildcard, `||`, bare version or other order — a client reads any of them
+as unparseable (below). Canonical spelling is what lets a `lift` be matched to
+its row by plain string equality (§6.5). A pre-release is matched by precedence
 alone — unlike Cargo, which excludes pre-releases from a requirement that does
 not name one. So `<=1.0.0` covers `1.0.0-rc.1` (a withdrawal of a release
 withdraws its release candidates), and `1.0.0-rc.2 < 1.0.0-rc.10 < 1.0.0`
@@ -255,10 +258,16 @@ A served set in which a listed dependant of a withdrawn member carries no such
 row is a publisher defect, `cascade-missing`
 (`testdata/content/vectors.json` scenarios `cascade-*`).
 
-### 6.5 The client's withdrawn-freshness rule and sticky `security`
+### 6.5 The client's withdrawn-freshness rule, sticky rows and `lift`
 
 Both are in [`trust-kind-keys-v1.md`](trust-kind-keys-v1.md) §7, beside the key
 rules, because they are what makes a leaked or withheld document harmless.
+
+A `lift` is `{id, versions, lifts_at}`, plus **`cause{kind, id, version}`** when
+it undoes a CASCADE row (§6.4) — the same `cause` that row carried. A `lift`
+never shares `(id, versions, at)` with a row of the same document, whatever the
+row's act (rule `lift-not-contradicted`); if one does anyway, the client lets
+the ROW win.
 
 ## 7. Client refusal tokens
 

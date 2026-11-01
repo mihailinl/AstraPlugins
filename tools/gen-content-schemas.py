@@ -51,8 +51,12 @@ SEMVER = {
 }
 # v1's range grammar: comma-joined comparators `<` `<=` `>` `>=` `=` (or none) before a version
 # (OPEN.md O-19). A caret, tilde, wildcard or `||` is a later contract version, never a silent widening.
-_CMP = "(<=|>=|<|>|=)?[0-9A-Za-z.-]+"
-VERSION_RANGE = {"type": "string", "minLength": 1, "maxLength": 128, "pattern": f"^{_CMP}( *, *{_CMP})*$"}
+# CANONICAL (F14): no spaces, and one fixed shape — `=V`, or a lower bound then an upper bound —
+# so a lift can be matched to its row by string equality and a near-miss spelling never re-arms.
+_ID = "(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+_V = f"(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-{_ID}(\\.{_ID})*)?"
+VERSION_RANGE = {"type": "string", "minLength": 1, "maxLength": 128,
+                 "pattern": f"^(={_V}|(>=|>){_V}(,(<=|<){_V})?|(<=|<){_V})$"}
 UNIX = {"type": "integer", "minimum": 0}
 HTTPS = {"type": "string", "maxLength": 2048, "pattern": "^https://[^\\s]+$"}
 TEXT_ID = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
@@ -368,6 +372,8 @@ LIFT_ROW = {
         "id": {"$ref": "#/$defs/itemId"},
         "versions": {"$ref": "#/$defs/versionRange"},
         "lifts_at": {"$ref": "#/$defs/unixSeconds"},
+        # a lift that undoes a CASCADE row carries that row's cause (common-v1.md §6.5)
+        "cause": {"$ref": "#/$defs/row/properties/cause"},
     },
 }
 
