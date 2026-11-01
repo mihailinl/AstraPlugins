@@ -262,7 +262,10 @@ Code, DLLs and loader binaries never count, whatever their extension — this
 table is closed, and nothing outside it is ever treated as content.
 
 **The other direction is read by bytes, for every file in the release —
-declared or not, whatever its name** (the content catalogue's
+declared or not, whatever its name, the manifest alone excepted: that is
+`astra-gi.toml` at the release root, and a file of that name in any folder is
+judged like every other** (golden `vrm-named-manifest-nested`: a prohibited
+VRM saved as `models/astra-gi.toml`) (the content catalogue's
 [`ingest-v1.md`](../content/ingest-v1.md) §3 step 10, called as that
 contract's own code, `tools/check-content-goldens.py`). A name must never
 decide whether a file escapes the gate: three.js and every glTF loader sniff

@@ -125,6 +125,8 @@ PCT_URI = "..%2f..%2f..%2f..%2fetc%2fpasswd"
 RELEASE_FILES = {
     # content by bytes (manifest.md §2.7.1): a GLB or a text glTF under any other name
     "releases/glb-named-bin/data/avatar.bin": lambda: glb(*GOLDENS["refused-vrm0-redistribution-prohibited.vrm"]),
+    # only the release ROOT's astra-gi.toml is the manifest; one in a folder is a file like any other
+    "releases/vrm-named-manifest-nested/models/astra-gi.toml": lambda: glb(*GOLDENS["refused-vrm0-redistribution-prohibited.vrm"]),
     "releases/gltf-named-json/data/avatar.json": lambda: gltf_text(GLTF_AVATAR_PROHIBITED),
     "releases/gltf-named-json-utf16/data/avatar.json":
         lambda: codecs.BOM_UTF16_LE + json.dumps(GLTF_AVATAR_PROHIBITED).encode("utf-16-le"),

@@ -541,6 +541,15 @@ class ContentByBytes(unittest.TestCase):
         files["data/avatar.vrm"] = files.pop("data/avatar.bin")
         self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"], "named as a GLB it is content-typed, and undeclared")
 
+    def test_only_the_root_manifest_is_exempt(self):
+        files, doc = release("vrm-named-manifest-nested")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        self.assertTrue(ggold.is_manifest("astra-gi.toml"))
+        for path in ("models/astra-gi.toml", "a/b/astra-gi.toml"):
+            with self.subTest(path=path):
+                self.assertFalse(ggold.is_manifest(path))
+                self.assertIsNotNone(ggold.name_problem(path, files["models/astra-gi.toml"]))
+
     def test_a_text_gltf_under_another_name_is_refused_and_as_gltf_it_is_content(self):
         files, doc = release("gltf-named-json")
         self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])

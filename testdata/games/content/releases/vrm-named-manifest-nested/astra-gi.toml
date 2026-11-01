@@ -1,0 +1,15 @@
+# content check golden: a GLB carrying a VRM whose licence refuses redistribution, saved as
+# models/astra-gi.toml -- E_CONTENT_FORMAT. Only the release root's astra-gi.toml is the manifest
+# (manifest.md §2.7.1); any other file of that name is judged by its bytes like every other.
+schema = 1
+
+[integration]
+id = "someone.vrm-named-manifest-nested"
+name = "Vrm Named Manifest Nested"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

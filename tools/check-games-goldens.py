@@ -295,6 +295,13 @@ def present_files(root: pathlib.Path) -> set[str]:
     return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
 
 
+def is_manifest(path: str) -> bool:
+    """The manifest is `astra-gi.toml` at the release root. A file of that
+    name in any folder is an ordinary file, judged by its bytes: matching the
+    basename let a prohibited VRM saved as `models/astra-gi.toml` publish."""
+    return path == MANIFEST_NAME
+
+
 def release_files(root: pathlib.Path) -> dict[str, bytes]:
     """Every file of a release, the manifest included, keyed by its
     release-relative posix path: what the content check reads BY BYTES
@@ -306,8 +313,9 @@ def release_files(root: pathlib.Path) -> dict[str, bytes]:
 
 def is_content_typed(path: str, raw: bytes) -> bool:
     """manifest.md §2.7.1's table: extension AND magic, never one alone. The
-    manifest file itself is never a content file."""
-    if pathlib.PurePosixPath(path).name == MANIFEST_NAME:
+    manifest file itself -- `astra-gi.toml` at the release ROOT, nowhere
+    else -- is never a content file."""
+    if is_manifest(path):
         return False
     sniff = CONTENT_EXT_MAGIC.get(pathlib.PurePosixPath(path).suffix.lower())
     return sniff is not None and sniff(raw[:32])
@@ -368,7 +376,7 @@ def is_text_gltf(raw: bytes) -> bool:
 def name_problem(path: str, raw: bytes) -> str | None:
     """Why a file's name and its bytes disagree (E_CONTENT_FORMAT), or None.
     Runs on every file of the release, declared or not."""
-    if pathlib.PurePosixPath(path).name == MANIFEST_NAME:
+    if is_manifest(path):
         return None
     if raw[:4] == CG.GLB_MAGIC:
         # the content catalogue's own name rule, one way: a GLB is named as one
