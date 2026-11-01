@@ -557,6 +557,9 @@ def name_refusal(name: str) -> str | None:
     return None
 
 
+UPATH_IDS = {0x7075}  # the Info-ZIP Unicode Path extra field, in a central OR a local header
+
+
 def is_link(made: int, ext: int) -> bool:
     """A non-DOS host with a unix mode in the high 16 bits that is not a regular file or a directory."""
     if made >> 8 == 0 or ext >> 16 == 0:
@@ -582,12 +585,15 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         if 0xFFFFFFFF in (csize, usize, loff):
             raise Refusal("E_ZIP_END_RECORD", "a zip64 sentinel size or offset")
         lx = b[loff + 30 + int.from_bytes(b[loff + 26:loff + 28], "little"):][:int.from_bytes(b[loff + 28:loff + 30], "little")]
+        upath = False
         for blob in (extra, lx):
             q = 0
             while q + 4 <= len(blob):
                 hid, hlen = struct.unpack("<HH", blob[q:q + 4])
                 if hid == 0x0001:
                     raise Refusal("E_ZIP_END_RECORD", "a zip64 extra field")
+                if hid in UPATH_IDS:  # the crate refuses it in the local header too (read/mod.rs:446)
+                    upath = True
                 q += 4 + hlen
         if flags & 0x1:
             raise Refusal("E_ARCHIVE_ENCRYPTED", raw_name.decode("utf-8", "replace"))
@@ -597,12 +603,8 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
         # tested whenever the host is not DOS and the high 16 bits carry one -- not only for host 3
         if is_link(made, ext):
             raise Refusal("E_ARCHIVE_LINK", raw_name.decode("utf-8", "replace"))
-        q = 0
-        while q + 4 <= len(extra):
-            hid, hlen = struct.unpack("<HH", extra[q:q + 4])
-            if hid == 0x7075:
-                raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "a Unicode Path extra field")
-            q += 4 + hlen
+        if upath:
+            raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "a Unicode Path extra field")
         try:
             name = raw_name.decode("utf-8")
         except UnicodeDecodeError:

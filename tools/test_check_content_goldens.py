@@ -661,6 +661,12 @@ class R4SharedTextIds(unittest.TestCase):
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("schema", old_pattern), "index/commands/content-confirmed-dotted-id")
 
 
+class R5UpathInEitherHeader(unittest.TestCase):
+    def test_upath_unchecked(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("UPATH_IDS", set()),
+                                               "archives/upath-local-only", "archives/upath-extra")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

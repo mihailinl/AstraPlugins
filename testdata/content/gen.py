@@ -152,9 +152,10 @@ def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None, cd_ord
             cflags |= 0x8 if dd.get("central_bit3", True) else 0
             if not dd.get("local_sizes", False):
                 lcrc, lcs, lus = 0, 0, 0
+        lextra = e.get("local_extra", extra)  # a field in the LOCAL header only
         out += struct.pack("<IHHHHHIIIHH", 0x04034B50, 20, lflags, method, DOS_TIME, DOS_DATE,
-                           lcrc, lcs, lus, len(local_name), len(extra))
-        out += local_name + extra + comp
+                           lcrc, lcs, lus, len(local_name), len(lextra))
+        out += local_name + lextra + comp
         if dd is not None:
             out += (b"PK\x07\x08" if dd.get("sig", True) else b"") + struct.pack(
                 "<III", dd.get("crc", crc), len(comp), len(data))
@@ -781,6 +782,11 @@ def gen_archives() -> None:
     hostile("header-name-differs.astrachar", bundle("astra.character", model_files, BODY_PATH,
                                                     tweak=attr(BODY_PATH, local_name="characters/aiko/other.vrm")))
     upath = struct.pack("<HHB", 0x7075, 5 + len("x.vrm"), 1) + struct.pack("<I", zlib.crc32(BODY_PATH.encode())) + b"x.vrm"
+    # the crate refuses 0x7075 in the local header too (read/mod.rs:446): one there and only there
+    clip = "animpacks/wave/clips/a.fbx"
+    up_local = struct.pack("<HHB", 0x7075, 5 + len("x.fbx"), 1) + struct.pack("<I", zlib.crc32(clip.encode())) + b"x.fbx"
+    put("archives/hostile/upath-local-only.astrapack", bundle("astra.animpack", ASCII_PART, body=None,
+                                                             tweak=attr(clip, local_extra=up_local)))
     hostile("upath-extra.astrachar", bundle("astra.character", model_files, BODY_PATH, tweak=attr(BODY_PATH, extra=upath)))
     def pad(path: str, junk: bytes):
         return attr(path, pad_before=junk)
