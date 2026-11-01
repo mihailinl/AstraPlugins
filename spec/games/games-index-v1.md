@@ -98,7 +98,7 @@ ingest refuses a second publisher's claim to an owned code with
     { "path": "animations/climb.fbx", "kind": "animations", "title": "Climb cycle",
       "credit": "someone", "licence": "CC-BY-4.0", "licence_source": "declared", "sha256": "…" }
   ],
-  "content_confirmed": { "gi-content-rights-v1": 1 }
+  "content_confirmed": { "market.rights.animations": 1 }
 }
 ```
 
@@ -115,7 +115,7 @@ ingest refuses a second publisher's claim to an owned code with
 | `review` | `"unchecked"` \| `"source_reviewed"`. The client derives the UI tier and Provenance badge from this plus first-party-list membership; this document states only the fact, never the wording (R19) |
 | `notes` | per-locale release notes, replacing free-text "what's new"; a locale a client does not have falls back to `en` |
 | `content` | this release's `[[integration.content]]` parts (manifest.md §2.7), each carrying the sha256 ingest hashed, `licence_source` (`"vrm"` when a readable VRM licence decided it, `"declared"` when the manifest's own `licence` string is the whole licence — manifest.md §2.7.3) and, for a `.vrm` part (or a readable `.astrachar`'s body) with readable meta, the `vrm_licence` the HARD VRM gate read, including the VRM usage flags (legal `DRAFT-v3.md` Part 6 G5). Absent or `[]` for a GI with no non-built-in assets |
-| `content_confirmed` | `{text_id: version}` — which confirmation text version each declared part was last confirmed under (manifest.md §2.7.4). **Never an account**: who confirmed, and when, is the plugins service's own record, not this document's |
+| `content_confirmed` | `{text_id: version}` — which confirmation text version each declared part was last confirmed under (manifest.md §2.7.4). A `text_id` is dot-separated lowercase segments, each `[a-z][a-z0-9_-]*` (`market.rights.animations`); the version is an integer ≥ 1. **Never an account**: who confirmed, and when, is the plugins service's own record, not this document's |
 
 **Dropped from the earlier plan's shape:** the flat `engine?`/`engine_ref?`
 convenience fields (superseded by `target.engine` and `foundation.engine`

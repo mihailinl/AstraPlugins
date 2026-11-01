@@ -95,7 +95,8 @@
       { "name": "missing-key-id", "file": "index/invalid-missing-key-id.json", "verdict": "refuse", "check": "schema" },
       { "name": "withdrawn-moved-out", "file": "index/invalid-withdrawn-moved-out.json", "verdict": "refuse", "check": "schema", "note": "withdrawn[] belongs in astra.games.withdrawn/1 only (merged plan R23); this document's schema has no such key, so carrying one is just an unknown top-level key." },
       { "name": "entry-missing-kind", "file": "index/invalid-entry-missing-kind.json", "verdict": "refuse", "check": "schema" },
-      { "name": "anticheat-marker-bad-kind", "file": "index/invalid-anticheat-marker-bad-kind.json", "verdict": "refuse", "check": "schema" }
+      { "name": "anticheat-marker-bad-kind", "file": "index/invalid-anticheat-marker-bad-kind.json", "verdict": "refuse", "check": "schema" },
+      { "name": "content-confirmed-bad-text-id", "file": "index/invalid-content-confirmed-bad-text-id.json", "verdict": "refuse", "check": "schema", "note": "a text_id is dot-separated segments [a-z][a-z0-9_-]* (market.rights.animations); an empty segment is refused." }
     ]
   },
 
