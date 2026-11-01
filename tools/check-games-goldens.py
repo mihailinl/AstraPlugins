@@ -332,32 +332,115 @@ def extract_vrm_meta(raw: bytes):
     return None
 
 
-def rule_vrm_licence_refused(vrm_version: str, meta: dict):
-    """manifest.md §2.7.3's HARD VRM GATE, over an already-extracted meta
-    dict (so a test can mutate the dict directly). Returns
-    (ok, field, value): ok=True means not refused."""
+def rule_vrm_licence_refused(vrm_version: str, meta: dict) -> dict:
+    """manifest.md §2.7.3's HARD VRM GATE / marketplace legal DRAFT-v3.md
+    Part 6 G4, D8 (widened): refuse on the decided redistribution refusal
+    OR an author-only/named-people avatar permission, reading EACH SPEC'S
+    OWN DEFAULT for a field the file leaves out -- never "absent means
+    allowed". Defaults are astra-companion's own (src/vrm/meta.rs:80-100,
+    `licence_of`/`redistribution_of`, the implementation these two rules
+    are ported from):
+      VRM 1.0 -- absent/non-true `allowRedistribution` is prohibited (the
+        meta schema's own default is false); absent `avatarPermission`
+        defaults to "onlyAuthor".
+      VRM 0.x -- absent `licenseName` is prohibited (UniVRM's default);
+        absent `allowedUserName` defaults to "OnlyAuthor".
+    Over an already-extracted meta dict (so a test can mutate it directly).
+    Returns {"refused", "field", "value", "defaulted"}; "value" is the
+    literal field value that triggered the refusal, or None when the
+    field was absent and a spec default did (`"defaulted": True`)."""
     if vrm_version == "0.x":
-        if meta.get("allowedUserName") == "OnlyAuthor":
-            return False, "extensions.VRM.meta.allowedUserName", "OnlyAuthor"
-        if meta.get("licenseName") == "Redistribution_Prohibited":
-            return False, "extensions.VRM.meta.licenseName", "Redistribution_Prohibited"
-        return True, None, None
+        license_name = meta.get("licenseName")
+        if license_name is None:
+            return {"refused": True, "field": "extensions.VRM.meta.licenseName", "value": None, "defaulted": True}
+        if license_name == "Redistribution_Prohibited":
+            return {"refused": True, "field": "extensions.VRM.meta.licenseName", "value": license_name, "defaulted": False}
+        allowed_user = meta.get("allowedUserName")
+        if allowed_user is None:
+            return {"refused": True, "field": "extensions.VRM.meta.allowedUserName", "value": None, "defaulted": True}
+        if allowed_user in ("OnlyAuthor", "ExplicitlyLicensedPerson"):
+            return {"refused": True, "field": "extensions.VRM.meta.allowedUserName", "value": allowed_user, "defaulted": False}
+        return {"refused": False, "field": None, "value": None, "defaulted": False}
     if vrm_version == "1.0":
-        if meta.get("avatarPermission") == "onlyAuthor":
-            return False, "extensions.VRMC_vrm.meta.avatarPermission", "onlyAuthor"
-        if meta.get("allowRedistribution") is False:
-            return False, "extensions.VRMC_vrm.meta.allowRedistribution", False
-        return True, None, None
+        allow_redist = meta.get("allowRedistribution")
+        if allow_redist is not True:
+            return {
+                "refused": True, "field": "extensions.VRMC_vrm.meta.allowRedistribution",
+                "value": allow_redist, "defaulted": "allowRedistribution" not in meta,
+            }
+        avatar_perm = meta.get("avatarPermission")
+        if avatar_perm is None:
+            return {"refused": True, "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": None, "defaulted": True}
+        if avatar_perm in ("onlyAuthor", "onlySeparatelyLicensedPerson"):
+            return {"refused": True, "field": "extensions.VRMC_vrm.meta.avatarPermission", "value": avatar_perm, "defaulted": False}
+        return {"refused": False, "field": None, "value": None, "defaulted": False}
     raise NotImplementedError(vrm_version)
 
 
-def vrm_gate_refusal(raw: bytes):
-    """The gate end to end, over raw GLB bytes. ok=True (no VRM meta found,
-    or found and allowed) means not refused."""
+# manifest.md §2.7.3 / legal DRAFT-v3.md G5: kept with the part so the
+# install sheet and the public card can show the whole licence line. These
+# are the raw keys the file carries -- an absent key's spec default is
+# applied only by rule_vrm_licence_refused above, never fabricated here.
+# The usage-flag quartet/triple's own defaults (false / "Disallow") are the
+# VRM 1.0 meta schema's and UniVRM's own, inferred by symmetry with
+# commercialUssageName since astra-companion does not read these flags at
+# all yet (src/vrm/meta.rs's module comment) -- display, not this gate's
+# refusal, so getting a default display value wrong here is not a safety
+# bug, and nothing above substitutes one.
+VRM_GATE_FIELDS = {"0.x": ("allowedUserName", "licenseName"), "1.0": ("avatarPermission", "allowRedistribution")}
+VRM_USAGE_FIELDS = {
+    "0.x": ("violentUssageName", "sexualUssageName", "commercialUssageName"),
+    "1.0": ("allowExcessivelyViolentUsage", "allowExcessivelySexualUsage", "allowPoliticalOrReligiousUsage", "allowAntisocialOrHateUsage"),
+}
+
+
+def part_licence(entry: dict, raw) -> dict:
+    """legal DRAFT-v3.md Part 6 G5: the licence_source decision for one
+    covered [[integration.content]] entry, given the real bytes at its
+    path (or None when nothing covers it). `licence_source` is `"vrm"`
+    when readable VRM meta decided it (allowed or refused), `"declared"`
+    when the manifest's own `licence` string is the whole licence, and
+    `None` when neither exists -- `E_CONTENT_LICENCE_UNDECLARED`.
+    `gate_status` is the VRM gate's own verdict ("ok"/"refused"/"unknown"),
+    or None when the gate does not apply to this part at all."""
+    path = entry.get("path") if isinstance(entry, dict) else None
+    gate_status = None
+    vrm_licence = None
+    refusal = None
+    if raw is not None and isinstance(path, str) and path.lower().endswith(".vrm"):
+        gate = vrm_gate(raw)
+        gate_status = gate["status"]
+        refusal = gate["refusal"]
+        if gate_status != "unknown":
+            vrm_licence = gate["vrm_licence"]
+    if vrm_licence is not None:
+        licence_source = "vrm"
+    elif entry.get("licence"):
+        licence_source = "declared"
+    else:
+        licence_source = None
+    return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status, "refusal": refusal}
+
+
+def vrm_gate(raw: bytes) -> dict:
+    """The full G4/G5 verdict for one .vrm's (or a readable .astrachar
+    body's) bytes. Returns {"status": "ok"|"refused"|"unknown",
+    "vrm_licence": {"vrm_version","fields"}|None, "refusal": {...}|None}.
+    "unknown" (no VRM meta at all -- not every .vrm carries one) is NEVER a
+    refusal: G4 says it is flagged (F_CONTENT_VRM_META_UNKNOWN) and passes
+    only with the character checkbox and the licence line, which is the
+    publish form's job, not this gate's."""
     extracted = extract_vrm_meta(raw)
     if extracted is None:
-        return True, None, None
-    return rule_vrm_licence_refused(*extracted)
+        return {"status": "unknown", "vrm_licence": None, "refusal": None}
+    vrm_version, meta = extracted
+    verdict = rule_vrm_licence_refused(vrm_version, meta)
+    fields = {k: meta[k] for k in VRM_GATE_FIELDS[vrm_version] + VRM_USAGE_FIELDS[vrm_version] if k in meta}
+    vrm_licence = {"vrm_version": vrm_version, "fields": fields}
+    if verdict["refused"]:
+        refusal = {"field": verdict["field"], "value": verdict["value"], "defaulted": verdict["defaulted"]}
+        return {"status": "refused", "vrm_licence": vrm_licence, "refusal": refusal}
+    return {"status": "ok", "vrm_licence": vrm_licence, "refusal": None}
 
 
 SEMANTIC_MANIFEST_RULES = {
@@ -476,35 +559,48 @@ def main() -> int:
             semantic_ok = rule_security_requires_revoke(doc)
             report(f"withdrawn/invalid/{v['name']}", sok is True and semantic_ok is False)
 
-    # -- content (manifest.md §2.7, merged plan §5.4) -----------------------
+    # -- content (manifest.md §2.7, merged plan §5.4 / legal DRAFT-v3.md
+    # Part 6 G4-G5) -----------------------------------------------------
     if "content" in vectors:
         for v in vectors["content"]["releases"]:
             doc = load_doc(v["manifest"])
             found = find_content_files(DATA / v["dir"])
             cov = content_coverage(doc, found)
             coverage_problems = cov["undeclared"] + cov["missing"] + cov["duplicates"]
-            licence_problems = []
+            licence_refused = []
+            licence_undeclared = []
             for entry in doc.get("integration", {}).get("content", []):
                 p = entry.get("path")
-                raw = found.get(p)
-                if raw is not None and isinstance(p, str) and p.lower().endswith(".vrm"):
-                    ok, field, _value = vrm_gate_refusal(raw)
-                    if not ok:
-                        licence_problems.append((p, field))
-            refused = bool(coverage_problems) or bool(licence_problems)
+                raw = found.get(p) if isinstance(p, str) else None
+                if raw is None:
+                    continue
+                pl = part_licence(entry, raw)
+                if pl["gate_status"] == "refused":
+                    licence_refused.append((p, pl["refusal"]["field"]))
+                if pl["licence_source"] is None:
+                    licence_undeclared.append(p)
+            refused = bool(coverage_problems) or bool(licence_refused) or bool(licence_undeclared)
             report(
                 f"content/releases/{v['name']}",
                 refused == (v["verdict"] == "refuse"),
-                f"coverage={coverage_problems} licence={licence_problems}",
+                f"coverage={coverage_problems} licence_refused={licence_refused} licence_undeclared={licence_undeclared}",
             )
 
         for v in vectors["content"]["vrm_gate"]:
             raw = (DATA / v["file"]).read_bytes()
-            ok, field, value = vrm_gate_refusal(raw)
+            gate = vrm_gate(raw)
             if v["verdict"] == "accept":
-                report(f"content/vrm/{v['name']}", ok is True)
+                report(f"content/vrm/{v['name']}", gate["status"] == "ok")
+            elif v["verdict"] == "unknown":
+                report(f"content/vrm/{v['name']}", gate["status"] == "unknown")
             else:
-                report(f"content/vrm/{v['name']}", ok is False and field == v["field"] and value == v["value"])
+                ok = (
+                    gate["status"] == "refused"
+                    and gate["refusal"]["field"] == v["field"]
+                    and gate["refusal"]["value"] == v["value"]
+                    and gate["refusal"]["defaulted"] == v.get("defaulted", False)
+                )
+                report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
 
     # -- link -------------------------------------------------------------
     message_schema = load_schema(vectors["link"]["message_schema"])

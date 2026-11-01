@@ -246,49 +246,143 @@ class ContentCoverage(unittest.TestCase):
             self.assertEqual(set(found2), {"real.png"})
 
 
+class ContentLicenceSource(unittest.TestCase):
+    """legal DRAFT-v3.md Part 6 G5: licence_source and E_CONTENT_LICENCE_UNDECLARED."""
+
+    def test_a_non_vrm_part_with_no_declared_licence_is_undeclared_and_a_licence_fixes_it(self):
+        doc = copy.deepcopy(ggold.load_doc("content/releases/licence-undeclared/astra-gi.toml"))
+        found = ggold.find_content_files(ggold.DATA / "content/releases/licence-undeclared")
+        entry = doc["integration"]["content"][0]
+        pl = ggold.part_licence(entry, found.get(entry["path"]))
+        self.assertIsNone(pl["licence_source"])
+        self.assertIsNone(pl["gate_status"], "a non-.vrm path never reaches the VRM gate at all")
+
+        entry["licence"] = "CC0-1.0"
+        pl2 = ggold.part_licence(entry, found.get(entry["path"]))
+        self.assertEqual(pl2["licence_source"], "declared")
+
+    def test_an_unknown_vrm_falls_back_to_the_declared_licence_and_losing_it_refuses(self):
+        doc = copy.deepcopy(ggold.load_doc("content/releases/vrm-unknown-but-declared/astra-gi.toml"))
+        found = ggold.find_content_files(ggold.DATA / "content/releases/vrm-unknown-but-declared")
+        entry = doc["integration"]["content"][0]
+        pl = ggold.part_licence(entry, found.get(entry["path"]))
+        self.assertEqual(pl["gate_status"], "unknown")
+        self.assertEqual(pl["licence_source"], "declared")
+
+        entry["licence"] = ""
+        pl2 = ggold.part_licence(entry, found.get(entry["path"]))
+        self.assertEqual(pl2["gate_status"], "unknown", "the gate's own verdict never changes")
+        self.assertIsNone(pl2["licence_source"], "with nothing declared either, the part has no licence source at all")
+
+    def test_a_readable_vrm_licence_source_is_vrm_regardless_of_a_declared_licence(self):
+        doc = copy.deepcopy(ggold.load_doc("content/releases/allowed/astra-gi.toml"))
+        found = ggold.find_content_files(ggold.DATA / "content/releases/allowed")
+        entry = next(e for e in doc["integration"]["content"] if e["path"].endswith(".vrm"))
+        pl = ggold.part_licence(entry, found.get(entry["path"]))
+        self.assertEqual(pl["licence_source"], "vrm")
+        self.assertEqual(pl["gate_status"], "ok")
+
+
 class VrmLicenceGate(unittest.TestCase):
+    """legal DRAFT-v3.md Part 6 G4/G5. Each 0.x meta isolates the condition
+    under test by setting licenseName to an explicitly-allowed value (the
+    rule checks licenseName before allowedUserName); each 1.0 meta sets
+    allowRedistribution=True for the same reason."""
+
     def test_vrm0_only_author_is_refused_and_everyone_passes(self):
-        meta = {"allowedUserName": "OnlyAuthor"}
-        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)[0])
+        meta = {"licenseName": "Redistribution_Allowed", "allowedUserName": "OnlyAuthor"}
+        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
         meta["allowedUserName"] = "Everyone"
-        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)[0])
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
+
+    def test_vrm0_named_people_is_refused(self):
+        meta = {"licenseName": "Redistribution_Allowed", "allowedUserName": "ExplicitlyLicensedPerson"}
+        r = ggold.rule_vrm_licence_refused("0.x", meta)
+        self.assertTrue(r["refused"])
+        self.assertEqual(r["field"], "extensions.VRM.meta.allowedUserName")
+        self.assertFalse(r["defaulted"])
 
     def test_vrm0_licence_name_prohibited_is_refused(self):
-        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", {"licenseName": "Redistribution_Prohibited"})[0])
-        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", {"licenseName": "Redistribution_Allowed"})[0])
+        meta = {"allowedUserName": "Everyone", "licenseName": "Redistribution_Prohibited"}
+        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
+        meta["licenseName"] = "Redistribution_Allowed"
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", meta)["refused"])
+
+    def test_vrm0_absent_fields_default_to_refused(self):
+        r = ggold.rule_vrm_licence_refused("0.x", {})
+        self.assertTrue(r["refused"])
+        self.assertEqual(r["field"], "extensions.VRM.meta.licenseName")
+        self.assertTrue(r["defaulted"], "licenseName absent must default to prohibited, not to allowed")
 
     def test_vrm1_only_author_is_refused_and_everyone_passes(self):
-        meta = {"avatarPermission": "onlyAuthor"}
-        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", meta)[0])
+        meta = {"allowRedistribution": True, "avatarPermission": "onlyAuthor"}
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", meta)["refused"])
         meta["avatarPermission"] = "everyone"
-        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", meta)[0])
+        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", meta)["refused"])
+
+    def test_vrm1_named_people_is_refused(self):
+        meta = {"allowRedistribution": True, "avatarPermission": "onlySeparatelyLicensedPerson"}
+        r = ggold.rule_vrm_licence_refused("1.0", meta)
+        self.assertTrue(r["refused"])
+        self.assertEqual(r["field"], "extensions.VRMC_vrm.meta.avatarPermission")
+        self.assertFalse(r["defaulted"])
 
     def test_vrm1_allow_redistribution_false_is_refused(self):
-        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", {"allowRedistribution": False})[0])
-        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", {"allowRedistribution": True})[0])
+        meta = {"avatarPermission": "everyone", "allowRedistribution": False}
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", meta)["refused"])
+        meta["allowRedistribution"] = True
+        self.assertFalse(ggold.rule_vrm_licence_refused("1.0", meta)["refused"])
 
-    def test_an_absent_field_is_not_itself_a_refusal(self):
-        self.assertTrue(ggold.rule_vrm_licence_refused("0.x", {})[0])
-        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", {})[0])
+    def test_vrm1_absent_fields_default_to_refused(self):
+        r = ggold.rule_vrm_licence_refused("1.0", {})
+        self.assertTrue(r["refused"])
+        self.assertEqual(r["field"], "extensions.VRMC_vrm.meta.allowRedistribution")
+        self.assertTrue(r["defaulted"], "allowRedistribution absent must default to false, not to true")
 
     def test_the_fixture_files_parse_to_the_right_refusal(self):
         cases = [
-            ("refused-vrm0-only-author.vrm", "extensions.VRM.meta.allowedUserName", "OnlyAuthor"),
-            ("refused-vrm1-only-author.vrm", "extensions.VRMC_vrm.meta.avatarPermission", "onlyAuthor"),
+            ("refused-vrm0-only-author.vrm", "extensions.VRM.meta.allowedUserName", "OnlyAuthor", False),
+            ("refused-vrm1-only-author.vrm", "extensions.VRMC_vrm.meta.avatarPermission", "onlyAuthor", False),
+            ("refused-vrm0-named-people.vrm", "extensions.VRM.meta.allowedUserName", "ExplicitlyLicensedPerson", False),
+            ("refused-vrm1-named-people.vrm", "extensions.VRMC_vrm.meta.avatarPermission", "onlySeparatelyLicensedPerson", False),
+            ("refused-vrm0-redistribution-prohibited.vrm", "extensions.VRM.meta.licenseName", "Redistribution_Prohibited", False),
+            ("refused-vrm1-redistribution-false.vrm", "extensions.VRMC_vrm.meta.allowRedistribution", False, False),
+            ("refused-vrm0-absent-fields.vrm", "extensions.VRM.meta.licenseName", None, True),
+            ("refused-vrm1-absent-fields.vrm", "extensions.VRMC_vrm.meta.allowRedistribution", None, True),
         ]
-        for name, want_field, want_value in cases:
+        for name, want_field, want_value, want_defaulted in cases:
             raw = (ggold.DATA / "content/vrm" / name).read_bytes()
-            ok, field, value = ggold.vrm_gate_refusal(raw)
-            self.assertFalse(ok)
-            self.assertEqual(field, want_field)
-            self.assertEqual(value, want_value)
+            gate = ggold.vrm_gate(raw)
+            self.assertEqual(gate["status"], "refused", name)
+            self.assertEqual(gate["refusal"]["field"], want_field, name)
+            self.assertEqual(gate["refusal"]["value"], want_value, name)
+            self.assertEqual(gate["refusal"]["defaulted"], want_defaulted, name)
 
-    def test_the_allowed_fixture_passes(self):
-        raw = (ggold.DATA / "content/vrm/allowed.vrm").read_bytes()
-        self.assertTrue(ggold.vrm_gate_refusal(raw)[0])
+    def test_the_allowed_fixtures_pass_and_keep_their_usage_flags(self):
+        raw0 = (ggold.DATA / "content/vrm/allowed.vrm").read_bytes()
+        gate0 = ggold.vrm_gate(raw0)
+        self.assertEqual(gate0["status"], "ok")
+        self.assertEqual(gate0["vrm_licence"]["vrm_version"], "0.x")
+        for k in ("violentUssageName", "sexualUssageName", "commercialUssageName"):
+            self.assertIn(k, gate0["vrm_licence"]["fields"], k)
+
+        raw1 = (ggold.DATA / "content/vrm/allowed-vrm1.vrm").read_bytes()
+        gate1 = ggold.vrm_gate(raw1)
+        self.assertEqual(gate1["status"], "ok")
+        self.assertEqual(gate1["vrm_licence"]["vrm_version"], "1.0")
+        for k in ("allowExcessivelyViolentUsage", "allowExcessivelySexualUsage", "allowPoliticalOrReligiousUsage", "allowAntisocialOrHateUsage"):
+            self.assertIn(k, gate1["vrm_licence"]["fields"], k)
+
+    def test_unknown_meta_is_flagged_not_refused(self):
+        raw = (ggold.DATA / "content/vrm/unknown-no-meta.vrm").read_bytes()
+        gate = ggold.vrm_gate(raw)
+        self.assertEqual(gate["status"], "unknown")
+        self.assertIsNone(gate["vrm_licence"])
+        self.assertIsNone(gate["refusal"])
 
     def test_a_non_glb_file_has_no_vrm_meta_at_all(self):
         self.assertIsNone(ggold.extract_vrm_meta(b"not a glb"))
+        self.assertEqual(ggold.vrm_gate(b"not a glb")["status"], "unknown")
 
 
 class WithdrawnSecurity(unittest.TestCase):

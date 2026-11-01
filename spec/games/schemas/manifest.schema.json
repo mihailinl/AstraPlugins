@@ -157,8 +157,8 @@
 
     "integrationContentEntry": {
       "type": "object",
-      "description": "manifest.md §2.7. kind is restricted to the four GI content kinds. 'command' exists in the shared asset-rights rule (astra-ce's character-asset confirmation) but is never valid for a GI, so it is simply absent from this enum.",
-      "required": ["path", "kind", "title", "credit", "licence"],
+      "description": "manifest.md §2.7. kind is restricted to the four GI content kinds. 'command' exists in the shared asset-rights rule (astra-ce's character-asset confirmation) but is never valid for a GI, so it is simply absent from this enum. licence is OPTIONAL (legal DRAFT-v3.md Part 6 G5): a .vrm part's real licence is read from the file itself, and the content check refuses E_CONTENT_LICENCE_UNDECLARED only when BOTH that reading fails or does not apply AND this key is absent -- see manifest.md §2.7.3.",
+      "required": ["path", "kind", "title", "credit"],
       "additionalProperties": false,
       "properties": {
         "path": {

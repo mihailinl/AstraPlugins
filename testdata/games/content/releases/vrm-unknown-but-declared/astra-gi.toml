@@ -1,0 +1,24 @@
+# content check golden: a .vrm with NO readable VRM meta at all (G4's
+# "unknown") is never refused by the gate itself -- it passes because the
+# manifest declares a licence for it (G5's licence_source = "declared"
+# fallback). Pair with releases/licence-undeclared/, which is the same
+# shape minus the declared licence, to prove the fallback is load-bearing.
+schema = 1
+
+[integration]
+id = "someone.vrm-unknown-but-declared"
+name = "VRM Unknown Meta, Declared Licence Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "character/avatar.vrm"
+kind = "character"
+title = "Scout avatar"
+credit = "someone"
+licence = "All rights reserved; used with the author's written permission"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
