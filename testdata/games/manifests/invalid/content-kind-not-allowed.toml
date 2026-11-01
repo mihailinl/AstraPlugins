@@ -1,0 +1,24 @@
+# Invalid (schema): kind = "command" exists in the shared asset-rights rule
+# (astra-ce's character-asset confirmation) but is never valid for a game
+# integration -- manifest.md §2.7 restricts [[integration.content]].kind to
+# animations|character|art|audio, and the schema's enum simply does not
+# list "command".
+schema = 1
+
+[integration]
+id = "someone.bad-kind"
+name = "Bad Kind Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "scripts/setup.cfg"
+kind = "command"
+title = "Setup macro"
+credit = "someone"
+licence = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

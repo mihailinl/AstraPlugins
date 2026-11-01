@@ -41,6 +41,21 @@
 #                        (astra-game-launcher main, src/paths.rs:87-91); the
 #                        other two land with the 0.5.0 Link file writer.
 #
+#   integration_reserved_keys   An `[integration.*]` table key schema 1 does
+#                        not define yet, but will mean something specific
+#                        once it does: shipping it today, with any shape,
+#                        would let an early author's manifest collide with
+#                        the real thing later. `uses` is the first
+#                        (manifest.md §2.8): a future `[[integration.uses]]`
+#                        reference to an in-app catalogue item (character,
+#                        animset) by id, instead of embedded bytes
+#                        (dev/game-integrations-plan-merged.md §5.4
+#                        amendment, 2026-11-01). `manifest.schema.json`
+#                        refuses the key outright (`"uses": false`); this
+#                        row is the single place that says why, so a future
+#                        schema-2 author knows to look here before reusing
+#                        the name for something else.
+#
 # HOW TO CHANGE ANY OF IT
 #   Edit this file, then `src/paths.rs::is_reserved` and the engine-code
 #   table in `src/engines/` (astra-game-launcher) and `gi-probe`'s own copy,
@@ -95,3 +110,9 @@ profile_file_names:
   - astra-launcher-backup        # mirrors: src/paths.rs BACKUP_DIR
   - astra-link.json              # new in 0.5.0: the Link token file (B§3.1)
   - play-arm.json                # new in 0.5.0: written beside astra-link.json (B§3.1)
+
+# mirrors: manifest.md §2.8. Not consumed by any loader today (the schema's
+# own "uses": false already refuses the key); this is the registry entry so
+# the reservation is recorded in the ONE list, not only in the schema.
+integration_reserved_keys:
+  - uses

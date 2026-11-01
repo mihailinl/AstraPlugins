@@ -1,0 +1,23 @@
+# Invalid (schema): [[integration.uses]] is RESERVED for a future schema (a
+# reference to an in-app catalogue item -- character, animset -- by id,
+# instead of embedded bytes: dev/game-integrations-plan-merged.md §5.4
+# amendment, 2026-11-01). schema 1 refuses it outright until that schema is
+# written -- manifest.md §2.8, spec/games/reserved.yaml's
+# integration_reserved_keys.
+schema = 1
+
+[integration]
+id = "someone.uses-early"
+name = "Uses Early Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.uses]]
+kind = "character"
+id = "astra.nayu"
+version_req = "^1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -42,7 +42,9 @@
         "loader": { "$ref": "#/$defs/integrationLoader" },
         "capabilities": { "$ref": "#/$defs/integrationCapabilities" },
         "foundation": { "$ref": "#/$defs/integrationFoundation" },
-        "link": { "$ref": "#/$defs/integrationLink" }
+        "link": { "$ref": "#/$defs/integrationLink" },
+        "content": { "$ref": "#/$defs/integrationContent" },
+        "uses": false
       }
     },
 
@@ -144,6 +146,31 @@
             }
           }
         }
+      }
+    },
+
+    "integrationContent": {
+      "type": "array",
+      "description": "manifest.md §2.7. One entry per non-built-in asset this GI ships (its own animations, models, art or audio). Cross-entry rules a JSON Schema cannot express -- a path declared more than once, a content-typed file with no entry or an entry with no file, the HARD VRM licence gate -- are gi-probe check's and the catalogue ingest's job, not this schema's.",
+      "items": { "$ref": "#/$defs/integrationContentEntry" }
+    },
+
+    "integrationContentEntry": {
+      "type": "object",
+      "description": "manifest.md §2.7. kind is restricted to the four GI content kinds. 'command' exists in the shared asset-rights rule (astra-ce's character-asset confirmation) but is never valid for a GI, so it is simply absent from this enum.",
+      "required": ["path", "kind", "title", "credit", "licence"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.)[^:\\0]+$",
+          "description": "relative, no '..' segment, no ':' (so a 'builtin:' reference can never read as a declared part). This is the part's id; uniqueness across entries is a semantic rule (gi-probe check / ingest), not expressible here."
+        },
+        "kind": { "enum": ["animations", "character", "art", "audio"] },
+        "title": { "type": "string", "minLength": 1 },
+        "credit": { "type": "string", "minLength": 1 },
+        "licence": { "type": "string", "minLength": 1 }
       }
     },
 

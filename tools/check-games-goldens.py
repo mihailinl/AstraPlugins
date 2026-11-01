@@ -187,6 +187,179 @@ def rule_security_requires_revoke(doc: dict) -> bool:
     return all(row["act"] == "revoke" for row in doc["rows"] if row["reason_code"] == "security")
 
 
+# ── content (manifest.md §2.7, merged plan §5.4) ──────────────────────────
+# Independent of schemalite and of the launcher's descriptor rules above:
+# these need real bytes, not only a parsed TOML/JSON document, so they are
+# not expressed as a JSON Schema at all. astra-games-catalogue's
+# lib/content.mjs is the other independent implementation of the same rule,
+# over a real zip instead of a loose directory; both are pinned against
+# testdata/games/content/ (manifest.md §4's exception note).
+
+def _is_zip(b: bytes) -> bool:
+    return len(b) >= 4 and b[0:2] == b"PK" and b[2] in (3, 5, 7)
+
+
+def _is_glb(b: bytes) -> bool:
+    return len(b) >= 4 and b[0:4] == b"glTF"
+
+
+def _is_gltf_text(b: bytes) -> bool:
+    return b.lstrip()[:1] == b"{"
+
+
+def _is_fbx(b: bytes) -> bool:
+    return len(b) >= 18 and (b[0:18] == b"Kaydara FBX Binary" or b[0:5] == b"; FBX")
+
+
+def _is_png(b: bytes) -> bool:
+    return b[0:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def _is_jpg(b: bytes) -> bool:
+    return b[0:3] == b"\xff\xd8\xff"
+
+
+def _is_webp(b: bytes) -> bool:
+    return b[0:4] == b"RIFF" and b[8:12] == b"WEBP"
+
+
+def _is_gif(b: bytes) -> bool:
+    return b[0:6] in (b"GIF87a", b"GIF89a")
+
+
+def _is_ogg(b: bytes) -> bool:
+    return b[0:4] == b"OggS"
+
+
+def _is_wav(b: bytes) -> bool:
+    return b[0:4] == b"RIFF" and b[8:12] == b"WAVE"
+
+
+def _is_mp3(b: bytes) -> bool:
+    return b[0:3] == b"ID3" or (len(b) >= 2 and b[0] == 0xFF and (b[1] & 0xE0) == 0xE0)
+
+
+def _is_flac(b: bytes) -> bool:
+    return b[0:4] == b"fLaC"
+
+
+# manifest.md §2.7.1's table, verbatim.
+CONTENT_EXT_MAGIC = {
+    ".astrapack": _is_zip, ".astrachar": _is_zip,
+    ".vrma": _is_glb, ".glb": _is_glb, ".vrm": _is_glb,
+    ".gltf": _is_gltf_text,
+    ".fbx": _is_fbx,
+    ".png": _is_png, ".jpg": _is_jpg, ".jpeg": _is_jpg, ".webp": _is_webp, ".gif": _is_gif,
+    ".ogg": _is_ogg, ".wav": _is_wav, ".mp3": _is_mp3, ".flac": _is_flac,
+}
+
+
+def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
+    """Every file under `root` whose extension AND magic bytes both say it is
+    content-typed (manifest.md §2.7.1), keyed by its path relative to `root`
+    (posix-style, matching a [[integration.content]] `path`). The manifest
+    file itself is never a content file."""
+    out: dict[str, bytes] = {}
+    if not root.is_dir():
+        return out
+    for p in sorted(root.rglob("*")):
+        if not p.is_file() or p.name == "astra-gi.toml":
+            continue
+        sniff = CONTENT_EXT_MAGIC.get(p.suffix.lower())
+        if sniff is None:
+            continue
+        raw = p.read_bytes()
+        if sniff(raw[:32]):
+            out[p.relative_to(root).as_posix()] = raw
+    return out
+
+
+def content_coverage(manifest: dict, found: dict[str, bytes]) -> dict:
+    """manifest.md §2.7.2: every content-typed file covered by exactly one
+    [[integration.content]] entry. `found` is as `find_content_files`
+    returns it."""
+    declared = manifest.get("integration", {}).get("content", [])
+    paths = [e.get("path") for e in declared if isinstance(e, dict) and isinstance(e.get("path"), str)]
+    seen: set[str] = set()
+    dup: set[str] = set()
+    for p in paths:
+        if p in seen:
+            dup.add(p)
+        else:
+            seen.add(p)
+    declared_set = set(paths)
+    found_set = set(found.keys())
+    return {
+        "undeclared": sorted(found_set - declared_set),
+        "missing": sorted(declared_set - found_set),
+        "duplicates": sorted(dup),
+    }
+
+
+def parse_glb_json_chunk(raw: bytes):
+    """The GLB container's first chunk, parsed as JSON, or None when `raw`
+    is not a well-formed GLB with a leading JSON chunk."""
+    if len(raw) < 20 or raw[0:4] != b"glTF":
+        return None
+    chunk_len = int.from_bytes(raw[12:16], "little")
+    if raw[16:20] != b"JSON":
+        return None
+    data = raw[20:20 + chunk_len]
+    if len(data) < chunk_len:
+        return None
+    try:
+        return json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+
+
+def extract_vrm_meta(raw: bytes):
+    """Returns (vrm_version, meta_dict) from a GLB's extensions.VRM.meta or
+    extensions.VRMC_vrm.meta, or None when neither is present (not every
+    .vrm file carries one, and that is not itself a refusal)."""
+    doc = parse_glb_json_chunk(raw)
+    if not isinstance(doc, dict):
+        return None
+    exts = doc.get("extensions")
+    if not isinstance(exts, dict):
+        return None
+    vrm0 = exts.get("VRM")
+    if isinstance(vrm0, dict) and isinstance(vrm0.get("meta"), dict):
+        return "0.x", vrm0["meta"]
+    vrm1 = exts.get("VRMC_vrm")
+    if isinstance(vrm1, dict) and isinstance(vrm1.get("meta"), dict):
+        return "1.0", vrm1["meta"]
+    return None
+
+
+def rule_vrm_licence_refused(vrm_version: str, meta: dict):
+    """manifest.md §2.7.3's HARD VRM GATE, over an already-extracted meta
+    dict (so a test can mutate the dict directly). Returns
+    (ok, field, value): ok=True means not refused."""
+    if vrm_version == "0.x":
+        if meta.get("allowedUserName") == "OnlyAuthor":
+            return False, "extensions.VRM.meta.allowedUserName", "OnlyAuthor"
+        if meta.get("licenseName") == "Redistribution_Prohibited":
+            return False, "extensions.VRM.meta.licenseName", "Redistribution_Prohibited"
+        return True, None, None
+    if vrm_version == "1.0":
+        if meta.get("avatarPermission") == "onlyAuthor":
+            return False, "extensions.VRMC_vrm.meta.avatarPermission", "onlyAuthor"
+        if meta.get("allowRedistribution") is False:
+            return False, "extensions.VRMC_vrm.meta.allowRedistribution", False
+        return True, None, None
+    raise NotImplementedError(vrm_version)
+
+
+def vrm_gate_refusal(raw: bytes):
+    """The gate end to end, over raw GLB bytes. ok=True (no VRM meta found,
+    or found and allowed) means not refused."""
+    extracted = extract_vrm_meta(raw)
+    if extracted is None:
+        return True, None, None
+    return rule_vrm_licence_refused(*extracted)
+
+
 SEMANTIC_MANIFEST_RULES = {
     "engine-undeclared": rule_engine_undeclared,
     "loader-policy-conflict": rule_loader_policy_conflict,
@@ -302,6 +475,36 @@ def main() -> int:
         else:
             semantic_ok = rule_security_requires_revoke(doc)
             report(f"withdrawn/invalid/{v['name']}", sok is True and semantic_ok is False)
+
+    # -- content (manifest.md §2.7, merged plan §5.4) -----------------------
+    if "content" in vectors:
+        for v in vectors["content"]["releases"]:
+            doc = load_doc(v["manifest"])
+            found = find_content_files(DATA / v["dir"])
+            cov = content_coverage(doc, found)
+            coverage_problems = cov["undeclared"] + cov["missing"] + cov["duplicates"]
+            licence_problems = []
+            for entry in doc.get("integration", {}).get("content", []):
+                p = entry.get("path")
+                raw = found.get(p)
+                if raw is not None and isinstance(p, str) and p.lower().endswith(".vrm"):
+                    ok, field, _value = vrm_gate_refusal(raw)
+                    if not ok:
+                        licence_problems.append((p, field))
+            refused = bool(coverage_problems) or bool(licence_problems)
+            report(
+                f"content/releases/{v['name']}",
+                refused == (v["verdict"] == "refuse"),
+                f"coverage={coverage_problems} licence={licence_problems}",
+            )
+
+        for v in vectors["content"]["vrm_gate"]:
+            raw = (DATA / v["file"]).read_bytes()
+            ok, field, value = vrm_gate_refusal(raw)
+            if v["verdict"] == "accept":
+                report(f"content/vrm/{v['name']}", ok is True)
+            else:
+                report(f"content/vrm/{v['name']}", ok is False and field == v["field"] and value == v["value"])
 
     # -- link -------------------------------------------------------------
     message_schema = load_schema(vectors["link"]["message_schema"])

@@ -88,6 +88,13 @@ data = "astra/triggers/boss_spawned.json"
 name = "player_died"
 data = "astra/events/player_died.json"
 
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle"
+credit = "someone"
+licence = "CC-BY-4.0"
+
 [target]
 engine = "source2"     # mandatory whenever [integration.engine] names a non-built-in code
 exe = "*"
@@ -208,6 +215,135 @@ at most 16 tools, 16 triggers and 32 events; every named JSON Schema file
 patterns (§6 of `link-v1.md` gives the exact restricted profile and its own
 schema).
 
+### 2.7 `[[integration.content]]` — this GI's own animations, models, art and audio
+
+```toml
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle"
+credit = "someone"
+licence = "CC-BY-4.0"
+```
+
+A game integration may ship its own non-built-in assets — a climbing
+animation, a character model, cover art, a theme track — instead of (or
+alongside) referencing something already in Astra. Each one gets its own
+author rights-confirmation checkbox at publish time, using exactly the same
+confirmation text astra-ce uses for the same kind (owner's rule, merged plan
+§5.4). This table is what makes that checkbox possible: one entry per asset,
+never a whole folder at once, so each confirmation is about one identifiable
+file.
+
+| key | meaning |
+|---|---|
+| `path` | the part's id: relative to the release zip's root, no `..` segment, no `:` (so a `builtin:` reference can never be mistaken for a declared part, below). **Must be unique** across this table — a path declared twice is `content-duplicate`, §2.7.2 |
+| `kind` | `"animations"` \| `"character"` \| `"art"` \| `"audio"`. The shared asset-rights rule astra-ce uses also has a `command` kind (a character macro), and it is deliberately **not** in this enum: a GI is a native process already, running what it likes, and "confirm you have the rights to run this command" is not a sentence that means anything here |
+| `title` | shown next to the checkbox |
+| `credit` | shown next to the checkbox |
+| `licence` | an SPDX id or free text (unlike `[integration] license`, which is the *code's* licence and is SPDX-allowlist-checked, §4 of the ingest order below never allowlist-checks this field — it is shown, not policed) |
+
+#### 2.7.1 Content-typed files, and the ingest order
+
+A **content-typed** file is one whose extension **and** magic bytes both say
+so — an extension alone is never enough, because nothing stops an author
+naming a loader DLL `climb.fbx`:
+
+| extension | magic |
+|---|---|
+| `.astrapack`, `.astrachar` | a zip local-file-header signature (`PK\x03\x04`/`PK\x05\x06`/`PK\x07\x08`) — both are zips built on the same core (astra-companion `docs/animation-packs.md` D1/D2) |
+| `.vrma`, `.glb`, `.vrm` | the GLB container magic, the literal bytes `glTF` |
+| `.gltf` | JSON text (starts with `{`) |
+| `.fbx` | the binary FBX magic `Kaydara FBX Binary` or the ASCII header `; FBX` |
+| `.png`, `.jpg`/`.jpeg`, `.webp`, `.gif` | the format's own file signature |
+| `.ogg`, `.wav`, `.mp3`, `.flac` | the format's own file signature |
+
+Code, DLLs and loader binaries never count, whatever their extension — this
+table is closed, and nothing outside it is ever treated as content.
+
+**Ingest runs in this order: provenance → manifest schema → content check →
+gi-probe.** The content check — this section — runs on the real release zip,
+after the manifest has parsed and validated but *before* gi-probe, because
+gi-probe's own report (code changes, loader classification, Link limits) is
+about the GI's *code*, and a release with broken content declarations is
+refused before that code is even inspected. `gi-probe check` (lane L, once
+built) raises the same codes below for an author's own local run; the
+catalogue's ingest (astra-games-catalogue, `lib/content.mjs`) is the
+authoritative implementation today.
+
+#### 2.7.2 The coverage refusals
+
+Every content-typed file in the release must be covered by **exactly one**
+`[[integration.content]]` entry:
+
+- `E_CONTENT_UNDECLARED` — a content-typed file with no entry at its path.
+- `E_CONTENT_MISSING` — an entry whose `path` matches no content-typed file.
+  A file that merely sits at that path but fails the magic-byte check (a
+  renamed loader DLL, a corrupted GLB) does not count as covering the entry:
+  the check fails closed, not open.
+- `E_CONTENT_DUPLICATE` — a `path` declared by more than one entry.
+
+A `builtin:` reference (astra-companion's own shorthand for "no bytes here,
+use the compiled-in one") is never a part — `path`'s pattern refuses the `:`
+that would make such a reference parse at all, and even without that, no
+real file in the zip would ever match it, which only ever reads as
+`E_CONTENT_MISSING`.
+
+#### 2.7.3 The HARD VRM licence gate
+
+Runs **before any checkbox** — a licence that refuses redistribution is not
+something an author's confirmation can override. It applies to every `.vrm`
+file this table declares, and to the body inside a `.astrachar` bundle
+*when that bundle's format is readable* (its `astrachar.json` parses, its
+`body` is a `{"file": ...}` pointing at a `.vrm` inside the same zip —
+astra-companion `docs/character-files-and-2d-editor.md` §1.3/§1.4). When it
+is not readable, that is noted as a gap (`F_CONTENT_ASTRACHAR_UNREADABLE` in
+the catalogue), never a refusal: an unreadable bundle is a different problem
+than a bundle that reads cleanly and says no.
+
+The gate parses the file's GLB container (the 12-byte header, then the first
+chunk if it is typed `JSON`) and inspects `extensions` in that chunk. It
+refuses with `E_CONTENT_LICENCE_REFUSED`, naming the field and its value,
+when:
+
+- **VRM 0.x** — `extensions.VRM.meta.allowedUserName == "OnlyAuthor"`, or
+  `extensions.VRM.meta.licenseName == "Redistribution_Prohibited"`;
+- **VRM 1.0** — `extensions.VRMC_vrm.meta.avatarPermission == "onlyAuthor"`,
+  or `extensions.VRMC_vrm.meta.allowRedistribution == false`.
+
+These are the exact fields and values; an absent field never triggers a
+refusal by itself (unlike astra-companion's own *export* default, D23, which
+treats an absent field as prohibited — that is a stricter choice astra-ce
+makes for its own export UI, not a rule this gate repeats). Whatever meta was
+read — the fields above, present or not — is kept with the part as
+`vrm_licence` (games-index-v1.md §2.1), for the confirmation record, whether
+or not the gate refused it.
+
+#### 2.7.4 The catalogue entry
+
+An entry carries `content[]`, each `{path, kind, title, credit, licence,
+sha256, vrm_licence?}` (games-index-v1.md §2.1), and `content_confirmed`, a
+`{text_id: version}` map of which confirmation text each declared part was
+last confirmed under. **Never an account** — who confirmed what, and when,
+is a confirmation record, and confirmation records live in the plugins
+service (minice), not in the signed catalogue document.
+
+### 2.8 Reserved: `[[integration.uses]]`
+
+Not valid in schema 1 — the schema refuses it outright
+(`manifest.schema.json`'s `"uses": false`), and `reserved.yaml`'s
+`integration_reserved_keys` names it, so shipping it early cannot collide
+with what it ends up meaning.
+
+The future shape, not yet specified: `{kind = "character" | "animset", id,
+version_req}`, a *reference* to an in-app catalogue item instead of embedded
+bytes — the counterpart to §2.7's `[[integration.content]]` for the case
+where the asset already exists in Astra and the GI just wants to ask for it
+by id and version range, the way a package manifest names a dependency.
+Reserving the key now means a schema that specifies it later does not have
+to ask "did anyone already ship something under this name, and what did
+they mean by it."
+
 ## 3. Reserved names and ids
 
 [`spec/games/reserved.yaml`](reserved.yaml) is the **one list** of:
@@ -235,6 +371,22 @@ lane L; A§5.2 step 5). `testdata/games/manifests/invalid/` holds one golden
 per rule, named for the rule it breaks, and `tools/check-games-goldens.py`
 (§6 of this repo's CI, see `.github/workflows/ci.yml`'s `games-spec` job)
 asserts each one is refused with exactly that code.
+
+§2.7's content-coverage codes (`E_CONTENT_UNDECLARED`, `E_CONTENT_MISSING`,
+`E_CONTENT_DUPLICATE`) and the VRM gate's `E_CONTENT_LICENCE_REFUSED` are the
+one exception to "gi-probe check finding": the ingest order (§2.7.1) runs
+the content check **before** gi-probe, over the real release zip's bytes,
+not the parsed manifest alone — `path` uniqueness is the only part of §2.7
+`gi-probe check` can assert from the manifest by itself (`testdata/games/
+manifests/valid/content-parts.toml` and `.../invalid/content-kind-not-
+allowed.toml`, `.../content-path-traversal.toml` are schema-only goldens for
+exactly that reason). The coverage and licence checks need the files
+themselves, which is why `testdata/games/content/releases/` pairs a
+manifest with real tiny content files instead of living beside the other
+manifest goldens; `check-games-goldens.py`'s own Python implementation and
+the catalogue's `lib/content.mjs` are independent implementations of the
+same rule, each pinned against these same goldens, in the same spirit as
+every other semantic rule in this document.
 
 ## 5. The author release template
 

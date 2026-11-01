@@ -1,0 +1,22 @@
+# content check golden: E_CONTENT_UNDECLARED. "audio/theme.ogg" sits beside
+# this manifest in the release but no [[integration.content]] entry covers
+# it -- manifest.md §2.7.
+schema = 1
+
+[integration]
+id = "someone.undeclared-content"
+name = "Undeclared Content Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "art/cover.png"
+kind = "art"
+title = "Cover art"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

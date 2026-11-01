@@ -1,0 +1,22 @@
+# content check golden: E_CONTENT_MISSING. [[integration.content]] declares
+# "animations/climb.fbx" and the release carries no such file --
+# manifest.md §2.7.
+schema = 1
+
+[integration]
+id = "someone.missing-content"
+name = "Missing Content Example"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "animations/climb.fbx"
+kind = "animations"
+title = "Climb cycle"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

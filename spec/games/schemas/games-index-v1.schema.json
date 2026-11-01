@@ -108,6 +108,33 @@
       }
     },
 
+    "vrmLicenceMeta": {
+      "type": "object",
+      "description": "manifest.md §2.7's HARD VRM GATE. The licence meta actually read from the part's glTF JSON chunk (or, for a .astrachar part, its body's), kept for the confirmation record whether or not the gate refused it.",
+      "required": ["vrm_version"],
+      "additionalProperties": false,
+      "properties": {
+        "vrm_version": { "enum": ["0.x", "1.0"] },
+        "fields": { "type": "object", "additionalProperties": true }
+      }
+    },
+
+    "contentPart": {
+      "type": "object",
+      "description": "manifest.md §2.7 / dev/game-integrations-plan-merged.md §5.4: one of this entry's own non-built-in assets (animations, a character model, art or audio), covered by exactly one [[integration.content]] table and confirmed by the author per content_confirmed below.",
+      "required": ["path", "kind", "title", "credit", "licence", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["animations", "character", "art", "audio"] },
+        "title": { "type": "string", "minLength": 1 },
+        "credit": { "type": "string", "minLength": 1 },
+        "licence": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "vrm_licence": { "$ref": "#/$defs/vrmLicenceMeta" }
+      }
+    },
+
     "changes": {
       "type": "object",
       "required": ["profile_files", "game_files", "launch", "config_writes"],
@@ -158,6 +185,13 @@
         "notes": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "content": { "type": "array", "items": { "$ref": "#/$defs/contentPart" } },
+        "content_confirmed": {
+          "type": "object",
+          "description": "manifest.md §2.7: {text_id: version} for the confirmation texts this release's content parts were confirmed under. Never carries an account; confirmation records (who, when) live in the plugins service, not here.",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
         }
       }
     },
