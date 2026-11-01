@@ -347,9 +347,11 @@ integration ships arbitrary files and a content bundle does not:
   text it decodes to** — a piece at a time, never the whole file for a test
   of its first character (golden `pak-utf16-bom`: a 32 MiB archive that
   begins `FF FE`, checked within 4 MiB of memory; decoded whole, a 128 MiB
-  one cost 658 MB) — a reader that decodes by the BOM, as `fetch().text()`
-  does, sees that text — so a UTF-16 glTF under another name is still refused
-  (golden `gltf-named-json-utf16`). The BOM rule applies to glTF candidates
+  one cost 658 MB) — so a UTF-16 glTF under another name is still refused
+  (golden `gltf-named-json-utf16`). This only ever over-refuses: a browser's
+  `fetch().text()` and three.js decode UTF-8 whatever the mark, so such a
+  file does not load as a glTF there at all; the margin covers a reader that
+  does detect the encoding (Python's `json.loads` on bytes does). The BOM rule applies to glTF candidates
   only: every `.gltf` (§2.7.3).
 - **The key-by-key sniff is bounded.** It reads every character in Python
   (about 4 MiB a second on `{"":0,"":0,…}`; twenty such 16 MiB files once
@@ -450,8 +452,9 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
   1.9 GB). These are `E_CONTENT_FORMAT` here; the content catalogue gives
   its archive-wide budget its own `E_ARCHIVE_TOO_LARGE`;
 - **a `.gltf` carries no byte-order mark** — UTF-8, UTF-16 or UTF-32: glTF
-  2.0 is UTF-8 JSON without one, and a reader that decodes by the mark sees
-  a different text from one that does not (goldens `gltf-with-bom`,
+  2.0 is UTF-8 JSON without one, and a reader that decodes by the mark
+  (Python's `json.loads` on bytes) sees a different text from one that does
+  not (a browser, three.js) (goldens `gltf-with-bom`,
   `gltf-utf16`). Unlike the content catalogue, which refuses a UTF-16/32
   mark on any entry, this applies to a `.gltf` alone (§2.7.1);
 - **no external reference** (the content catalogue's own `uri_refusal`): in

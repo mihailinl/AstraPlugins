@@ -344,8 +344,11 @@ def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
 # deliberate differences, because a game integration ships arbitrary files
 # and the content catalogue does not:
 #   * a UTF-16/32 byte-order mark is not refused (localisation files carry
-#     one); such a text is instead sniffed as the text it DECODES to, since
-#     a reader that decodes by the BOM (fetch().text() does) sees that text;
+#     one); such a text is instead sniffed as the text it decodes to. That
+#     only ever over-refuses: browsers' fetch().text() and three.js decode
+#     UTF-8 whatever the mark, so a UTF-16 glTF does not load there at all,
+#     and the margin covers a reader that does detect the encoding (Python's
+#     json.loads on bytes does);
 #   * over 16 MiB the key-by-key sniff is not run (it is a Python loop over
 #     every character); a JSON-looking file that large is refused when its
 #     bytes name an `asset` key at all -- spelt plainly or with \u escapes,
@@ -371,8 +374,8 @@ def _bom_of(raw: bytes):
 
 
 def _decoded_chunks(raw: bytes, size: int):
-    """The text a BOM-honouring reader sees, as UTF-8, a piece at a time: a
-    UTF-16/32 text decoded by its byte-order mark, anything else as it is.
+    """The text as UTF-8, a piece at a time: a UTF-16/32 text decoded by its
+    byte-order mark, anything else as it is.
     Never the whole file at once -- a 128 MiB `.pak` that happens to begin
     FF FE once cost 658 MB decoded whole, for a test of its first byte."""
     bom, codec = _bom_of(raw)
@@ -387,8 +390,8 @@ def _decoded_chunks(raw: bytes, size: int):
 
 
 def sniff_text(raw: bytes) -> bytes:
-    """The whole text a BOM-honouring reader sees, as UTF-8 -- only for a
-    file the 16 MiB cap already bounds."""
+    """The whole text, decoded by its byte-order mark, as UTF-8 -- only for
+    a file the 16 MiB cap already bounds."""
     bom, codec = _bom_of(raw)
     return raw[len(bom):].decode(codec, "replace").encode("utf-8") if codec else raw
 
@@ -444,7 +447,7 @@ def _json_looking(raw: bytes) -> bool:
 
 def is_text_gltf(raw: bytes, budget: ReleaseBudget | None = None) -> bool:
     """The content catalogue's text-glTF sniff (`is_gltf_json`, S5/N1), over
-    the text a BOM-honouring reader would see. First the C-speed test: no
+    the text decoded by its byte-order mark. First the C-speed test: no
     `asset` key anywhere in the bytes (plain or \\u-escaped) whose value is an
     object is no glTF, and the slow sniff never runs. Above 16 MiB, or once the release's
     SNIFF_BUDGET is spent, the key alone refuses."""

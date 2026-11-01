@@ -1,5 +1,6 @@
 # content check golden: the same text glTF, UTF-16LE with a byte-order mark, named
-# data/avatar.json -- E_CONTENT_FORMAT: a reader that decodes by the BOM sees a glTF (manifest.md §2.7.1).
+# data/avatar.json -- E_CONTENT_FORMAT: decoded by its BOM it is a glTF. three.js decodes UTF-8 and
+# would not load it, so this only over-refuses -- a margin, not a hole closed (manifest.md §2.7.1).
 schema = 1
 
 [integration]
