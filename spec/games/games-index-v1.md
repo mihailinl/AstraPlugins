@@ -197,6 +197,20 @@ its **own** serial floor. The first document a client verifies under
 `serial` replayed under the (now-compromised) `current` key cannot hold back
 `next`. A later client release compiles a fresh `next` after a ratchet.
 
+## 3a. References to a catalogue item (packs, `requires`)
+
+A pack member, or a command's or pack's dependency, names a registry or catalogue item by **kind, id and version**. One rule for every kind, agreed 2026-11-01 by the client (astra-4c, astra-ce) and the registry (astra-plugins-ops):
+
+| kind | `id` | version | the bytes the client installs |
+|---|---|---|---|
+| `games` | the **index entry id**, `entries[].id` (e.g. `someone/peak-astra`) — never the manifest's `[integration].id`, which stays internal to the package | `entries[].version` (semver) | the entry's zip `sha256`, from this signed document |
+| `plugin` | the registry plugin id, `^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$` | `releases[].version` (semver) of the signed `registry/v1/index.json` | the per-platform `releases[].artifacts.<platform>.sha256`, from that signed index |
+
+- A **member** pins an exact version: `{kind, id, version}`. A **dependency** carries a range: `{kind, id, version_req}` (semver requirement).
+- **The digest is never copied into the pack as the source of truth.** The client takes it from the signed document at install. A pack may carry a `digest` as a belt; a mismatch with the signed document refuses the install.
+- **Why the entry id:** it is the key `games-withdrawn-v1` and the client's ledger use, and one repository can publish more than one entry (a runner's Mono and IL2CPP builds), so neither the repository nor the manifest id tells them apart.
+- **Availability:** a published version's bytes never change. A version that is withdrawn (`games-withdrawn-v1`), revoked (`registry/v1/revocations.json`) or delisted refuses NEW installs through a reference; a revoked one is also disabled where installed; a yanked or deprecated one is not offered for new installs and stays where installed.
+
 ## 4. Client behaviour on an unknown value
 
 - An entry of unknown `kind` is skipped — it affects only that entry.
