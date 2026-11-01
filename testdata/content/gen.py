@@ -817,6 +817,18 @@ def gen_archives() -> None:
     hat = vrm1(dict(VRM1_ALLOWED, avatarPermission="onlyAuthor"))
     hostile("glb-prohibited-beside-allowed-body.astrachar", bundle(
         "astra.character", {**model_files, "characters/aiko/accessories/hat/hat.glb": hat}, BODY_PATH))
+    # the verdict follows CONTENT, not names (F2): a GLB is judged by its magic, a .gltf as JSON
+    hostile("body-renamed-bin.astrachar", bundle("astra.character", {"characters/aiko/body.bin": BODY},
+                                                 "characters/aiko/body.bin"))
+    hostile("accessory-glb-renamed.astrachar", bundle(
+        "astra.character", {**model_files, "characters/aiko/accessories/hat/hat.dat": hat}, BODY_PATH))
+    hat_gltf = json.dumps({"asset": {"version": "2.0"}, "extensions": {"VRMC_vrm": {
+        "specVersion": "1.0", "meta": dict(VRM1_ALLOWED, avatarPermission="onlyAuthor")}},
+        "extensionsUsed": ["VRMC_vrm"]}, sort_keys=True).encode()
+    hostile("gltf-prohibited.astrachar", bundle(
+        "astra.character", {**model_files, "characters/aiko/accessories/hat/hat.gltf": hat_gltf}, BODY_PATH))
+    hostile("file-outside-parts.astrachar", bundle(
+        "astra.character", {**model_files, "characters/aiko/payload.bin": b"\x7fELF-not-a-part"}, BODY_PATH))
     hostile("vrm-redistribution-prohibited.astrachar", bundle(
         "astra.character", {BODY_PATH: vrm1(dict(VRM1_ALLOWED, allowRedistribution=False))}, BODY_PATH))
     absent = dict(VRM1_ALLOWED)

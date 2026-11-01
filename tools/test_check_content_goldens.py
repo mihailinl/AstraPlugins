@@ -191,12 +191,12 @@ class RuleMutationsTurnTheRunRed(unittest.TestCase):
 
     def test_letting_unknown_through(self):
         orig = cg.vrm_verdict
-        self.assertRedOn(Mutation("vrm_verdict", lambda raw: "allowed" if orig(raw) == "unknown" else orig(raw)),
+        self.assertRedOn(Mutation("vrm_verdict", lambda raw, path="": "allowed" if orig(raw, path) == "unknown" else orig(raw, path)),
                          "archives/vrm-no-meta")
 
     def test_reading_only_the_first_meta(self):
         orig = cg.vrm_verdict
-        self.assertRedOn(Mutation("vrm_verdict", lambda raw: "allowed" if orig(raw) == "conflict" else orig(raw)),
+        self.assertRedOn(Mutation("vrm_verdict", lambda raw, path="": "allowed" if orig(raw, path) == "conflict" else orig(raw, path)),
                          "archives/vrm-metas-disagree")
 
     def test_dropping_the_exec_and_network_rule(self):
@@ -418,6 +418,32 @@ class F8NoZip64(unittest.TestCase):
                     return 0, 0, 0  # an empty archive: anything but the zip64 refusal
                 raise
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("end_record", lax), "archives/zip64-cd-size-sentinel")
+
+
+class F2VerdictFollowsContent(unittest.TestCase):
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_selecting_by_extension(self):
+        self.assertRedOn(Mutation("judged", lambda p, b: p.lower().endswith((".vrm", ".glb"))), "archives/gltf-prohibited")
+
+    def test_names_and_magic_unchecked(self):
+        self.assertRedOn(Mutation("name_matches_magic", lambda p, b: True), "archives/accessory-glb-renamed")
+
+    def test_a_body_under_any_name(self):
+        # two rules hold this golden (the body's suffix, and name/magic agreement); only both gone lets it in
+        with Mutation("name_matches_magic", lambda p, b: True):
+            self.assertRedOn(Mutation("BODY_EXT", ""), "archives/body-renamed-bin")
+
+    def test_files_outside_parts_ignored(self):
+        orig = cg.parts_of
+
+        def lax(files, body, settings_dir=None):
+            try:
+                return orig(files, body, settings_dir)
+            except cg.Refusal:
+                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir)
+        self.assertRedOn(Mutation("parts_of", lax), "archives/file-outside-parts")
 
 
 class ReasonCodes(unittest.TestCase):

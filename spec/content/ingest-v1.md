@@ -57,9 +57,9 @@ and the one every golden pins.
 | 7 | **the raw read** (§11a.8): every Deflated entry, bit 3 or not, is inflated from its raw bytes and the deflate stream must end EXACTLY at the central directory's `compressed_size`, with the inflated length and CRC equal to the declared ones (drain the inflater before judging the end); the bit-3 descriptor rule itself is checked at step 3 | `E_ZIP_HEADERS_INCONSISTENT` |
 | 8 | **the manifest**: `astrachar.json` is the last entry — by directory order, which step 3 made the same as position in the file — ≤ 1 MiB, parses with no duplicate member name, `format` ∈ {`astra.character`, `astra.animpack`}, a supported `format_version` (1) and `schema` (5). Every other file is listed in its `files` with an equal `sha256:` digest and size, and every listed file exists. The verified list becomes the `content_file` rows | `E_BUNDLE_MANIFEST`, `E_BUNDLE_FILE_UNLISTED`, `E_BUNDLE_FILE_DIGEST` |
 | 9 | **the blocklist**: no FILE has a `file_sha256` in `content_blocked_file`, and the bundle is not an object deleted for `rights` or `security`. An object deleted as `refused` or `unreferenced` blocks nothing | `E_CONTENT_BLOCKED` |
-| 10 | **the format**: a body is glTF binary carrying the `VRM` (0.x) or `VRMC_vrm` (1.0) extension; no `.vrm`/`.glb` JSON chunk has a duplicate member name (one reader's `allowRedistribution: false` is another's `true`); images and audio as §2 | `E_CONTENT_FORMAT` |
-| 11 | **the licence verdict** on every `.vrm` and `.glb` (§4) | `E_CONTENT_LICENCE_CONFLICT`, `E_CONTENT_LICENCE_REFUSED`, `E_CONTENT_LICENCE_UNDECLARED`; flag `F_CONTENT_VRM_META_UNKNOWN` |
-| 12 | the derived parts equal the declared ones (§6) | `E_CONTENT_PARTS_MISMATCH` |
+| 10 | **the format**: **a name and its content agree** — an entry that begins with the GLB magic `glTF` is named `.vrm`, `.glb` or `.vrma`, and an entry so named begins with it; `body.file` ends in `.vrm` and is glTF binary carrying the `VRM` (0.x) or `VRMC_vrm` (1.0) extension (goldens `body-renamed-bin`, `accessory-glb-renamed`); no `.vrm`/`.glb` JSON chunk has a duplicate member name (one reader's `allowRedistribution: false` is another's `true`); images and audio as §2 | `E_CONTENT_FORMAT` |
+| 11 | **the licence verdict** on every entry that begins with the GLB magic and on every `.gltf` (§4) — chosen by CONTENT, never by extension | `E_CONTENT_LICENCE_CONFLICT`, `E_CONTENT_LICENCE_REFUSED`, `E_CONTENT_LICENCE_UNDECLARED`; flag `F_CONTENT_VRM_META_UNKNOWN` |
+| 12 | every listed file is in exactly one part (§5) or is the character's settings; the derived parts equal the declared ones (§6) | `E_CONTENT_FILE_OUTSIDE_PARTS`, `E_CONTENT_PARTS_MISMATCH` |
 
 Rust `zip` ≥ 9.0.5 with `ZipArchive::validate_header_consistency`, plus the two
 extra checks of step 7, is the server's implementation (§11a.8); the crate
@@ -82,7 +82,9 @@ PR merges:
 ## 4. The VRM licence verdict
 
 ONE function, copied from astra-companion `src/vrm/meta.rs` `read_licence`, run
-on **every** `.vrm` and `.glb` entry, not only the body. **The contract is
+on **every entry whose bytes begin with the GLB magic `glTF`** (whatever it is
+called — step 10 then refuses a GLB under a non-GLB name) **and on every
+`.gltf` text file** (its whole content is the glTF JSON), not only the body. **The contract is
 AstraPlugins PR #120** (`spec/games-vrm-g4` `d1da665`, `spec/games/manifest.md`
 §2.7.3 as that PR amends it), aligned with astra-ce's legal G4/G5.
 
@@ -144,7 +146,11 @@ held. The verdict function's own outcome is Unknown either way (OPEN.md O-6).
 
 The server derives the parts from the verified file list (part-digest-v1.md
 §1): the body named by `astrachar.json` `body.file`; each `animpacks/<id>/`;
-each `accessories/<id>/` folder; each standalone image; each audio file. A
+each `accessories/<id>/` folder; each standalone image; each audio file. **Every other listed file is refused**
+(`E_CONTENT_FILE_OUTSIDE_PARTS`, golden `file-outside-parts`) — a file in no part
+would be published without any rights confirmation covering it — except the
+character's SETTINGS, a `.toml` directly in `astrachar.json`'s `character.dir`,
+which is configuration and carries no content. A
 model has exactly one part (`character`), an animset exactly one (`animations`,
 or `art` for 2D), and the index says so (models-index-v1.md, animsets-index-v1.md).
 

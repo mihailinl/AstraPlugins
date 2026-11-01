@@ -684,10 +684,34 @@ def _rule1(m: dict) -> bool:
     return m.get("allowRedistribution") is True and ap is not None and ap not in ("onlyAuthor", "onlySeparatelyLicensedPerson")
 
 
-def vrm_verdict(raw: bytes) -> str:
+GLB_MAGIC = b"glTF"
+GLB_EXTS = (".vrm", ".glb", ".vrma")
+BODY_EXT = ".vrm"  # the names a GLB container may carry (ingest-v1.md §3 step 10)
+
+
+def gltf_json(raw: bytes):
+    """A text `.gltf`: the whole file is the glTF JSON."""
+    try:
+        return C.strict_loads(raw)
+    except C.DuplicateMember:
+        return "duplicate"
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+
+
+def name_matches_magic(p: str, b: bytes) -> bool:
+    return (b[:4] == GLB_MAGIC) == p.lower().endswith(GLB_EXTS)
+
+
+def judged(p: str, b: bytes) -> bool:
+    """The verdict runs on CONTENT, never on a name: every GLB by its magic, every `.gltf`."""
+    return b[:4] == GLB_MAGIC or p.lower().endswith(".gltf")
+
+
+def vrm_verdict(raw: bytes, path: str = "") -> str:
     """allowed | prohibited | unknown | conflict — over BOTH metas when a
     file carries both (ingest-v1.md §4.2), never the first one found."""
-    g = glb_json(raw)
+    g = glb_json(raw) if raw[:4] == GLB_MAGIC else gltf_json(raw)
     if g == "duplicate":
         return "duplicate"
     exts = g.get("extensions") if isinstance(g, dict) else None
@@ -714,14 +738,18 @@ def is_vrm_body(raw: bytes) -> bool:
     return isinstance(exts, dict) and ("VRM" in exts or "VRMC_vrm" in exts)
 
 
-def parts_of(files: dict[str, bytes], body: str | None) -> dict[tuple[str, str], dict[str, bytes]]:
+def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None):
     """ingest-v1.md §5: the body, each animpacks/<id>/, each accessories/<id>/,
-    each standalone image (art) and audio file (audio)."""
+    each standalone image (art) and audio file (audio). Every other file is
+    refused, except the character's SETTINGS: a `.toml` directly in its
+    `character.dir`, which is configuration, not content."""
     parts: dict[tuple[str, str], dict[str, bytes]] = {}
     for p, b in files.items():
         if p == "astrachar.json" or p.startswith("\0"):
             continue
         segs = p.split("/")
+        if settings_dir and p.rsplit("/", 1)[0] == settings_dir.rstrip("/") and p.endswith(".toml"):
+            continue
         if body and p == body:
             parts.setdefault(("character", p), {})[p] = b
         elif segs[0] == "animpacks" and len(segs) > 2:
@@ -733,6 +761,8 @@ def parts_of(files: dict[str, bytes], body: str | None) -> dict[tuple[str, str],
             parts.setdefault(("art", p), {})[p] = b
         elif p.lower().endswith((".ogg", ".wav", ".mp3", ".flac")):
             parts.setdefault(("audio", p), {})[p] = b
+        else:
+            raise Refusal("E_CONTENT_FILE_OUTSIDE_PARTS", p)
     return parts
 
 
@@ -766,12 +796,15 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         if hashlib.sha256(b).hexdigest() in blocked:
             raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
+    for p, b in files.items():
+        if not name_matches_magic(p, b):
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB container's name and magic disagree")
     if body is not None:
-        if body not in files or not is_vrm_body(files[body]):
+        if not body.lower().endswith(BODY_EXT) or body not in files or not is_vrm_body(files[body]):
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
-    verdicts = {p: vrm_verdict(b) for p, b in files.items() if p.lower().endswith((".vrm", ".glb"))}
+    verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b)}
     for p, v in verdicts.items():
         if v == "duplicate":
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")
@@ -779,7 +812,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         for p, v in verdicts.items():
             if v == want:
                 raise Refusal("E_CONTENT_LICENCE_CONFLICT" if want == "conflict" else "E_CONTENT_LICENCE_REFUSED", p)
-    parts = parts_of(files, body)
+    parts = parts_of(files, body, (man.get("character") or {}).get("dir"))
     declared = set(ctx.get("declared_licence", []))
     flags = []
     for (pk, root), pf in sorted(parts.items()):

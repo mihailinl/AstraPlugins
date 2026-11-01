@@ -1738,6 +1738,34 @@
       "code": "E_CONTENT_LICENCE_REFUSED"
     },
     {
+      "name": "body-renamed-bin",
+      "file": "archives/hostile/body-renamed-bin.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "body.file must end in .vrm, and GLB magic under another name is refused"
+    },
+    {
+      "name": "accessory-glb-renamed",
+      "file": "archives/hostile/accessory-glb-renamed.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "note": "a prohibiting GLB named .dat: accepted when the verdict picked files by extension"
+    },
+    {
+      "name": "gltf-prohibited",
+      "file": "archives/hostile/gltf-prohibited.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED",
+      "note": "a text .gltf is judged too"
+    },
+    {
+      "name": "file-outside-parts",
+      "file": "archives/hostile/file-outside-parts.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FILE_OUTSIDE_PARTS",
+      "note": "a listed file that is in no part and is not a settings .toml"
+    },
+    {
       "name": "vrm-redistribution-prohibited",
       "file": "archives/hostile/vrm-redistribution-prohibited.astrachar",
       "verdict": "refuse",
