@@ -911,6 +911,10 @@ def gen_archives() -> None:
                    "extensionsUsed": ["VRMC_vrm"]})
     hostile("vrm-no-meta.astrachar", bundle("astra.character", {BODY_PATH: no_meta}, BODY_PATH))
     # a GLB with no VRM extension at all is not a VRM body: a format refusal, before any licence verdict
+    # the JSON chunk declares 4 KiB more than the file holds; a reader that slices to EOF reads the
+    # complete (allowed) JSON anyway. A short or truncated chunk is not a GLB (ingest-v1.md §3 step 10)
+    short = BODY[:12] + struct.pack("<I", int.from_bytes(BODY[12:16], "little") + 4096) + BODY[16:]
+    hostile("vrm-chunk-past-eof.astrachar", bundle("astra.character", {BODY_PATH: short}, BODY_PATH))
     hostile("vrm-not-glb.astrachar", bundle("astra.character", {BODY_PATH: b"not a glb at all"}, BODY_PATH))
     hostile("vrm-no-extension.astrachar", bundle("astra.character", {BODY_PATH: vrm1(None)}, BODY_PATH))
     # the allowed body under a NEW name: the blocklist is per file sha256, so a rename does not evade it

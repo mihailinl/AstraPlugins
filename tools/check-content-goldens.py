@@ -691,8 +691,17 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
     return files
 
 
+def glb_truncated(raw: bytes) -> bool:
+    """A GLB whose header length is not the file's, or whose first chunk runs past it."""
+    if len(raw) < 20:
+        return True
+    total = int.from_bytes(raw[8:12], "little")
+    n = int.from_bytes(raw[12:16], "little")
+    return total != len(raw) or 20 + n > len(raw)
+
+
 def glb_json(raw: bytes):
-    if len(raw) < 20 or raw[:4] != b"glTF" or raw[16:20] != b"JSON":
+    if len(raw) < 20 or raw[:4] != b"glTF" or raw[16:20] != b"JSON" or glb_truncated(raw):
         return None
     n = int.from_bytes(raw[12:16], "little")
     try:
@@ -888,6 +897,8 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
     for p, b in files.items():
+        if b[:4] == GLB_MAGIC and glb_truncated(b):
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
         if not name_matches_magic(p, b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB container's name and magic disagree")
     if body is not None:

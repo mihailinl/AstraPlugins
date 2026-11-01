@@ -636,6 +636,12 @@ class R1LinksOnEveryNonDosHost(unittest.TestCase):
             "archives/symlink-host-19", "archives/symlink-host-10")
 
 
+class R2TruncatedGlb(unittest.TestCase):
+    def test_reading_to_eof(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("glb_truncated", lambda raw: len(raw) < 20),
+                                               "archives/vrm-chunk-past-eof")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()
