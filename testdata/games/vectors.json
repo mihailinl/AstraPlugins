@@ -150,7 +150,9 @@
       { "name": "refused-vrm1-redistribution-false", "file": "content/vrm/refused-vrm1-redistribution-false.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.allowRedistribution", "value": false, "defaulted": false },
       { "name": "refused-vrm0-absent-fields", "file": "content/vrm/refused-vrm0-absent-fields.vrm", "verdict": "refuse", "field": "extensions.VRM.meta.licenseName", "value": null, "defaulted": true, "note": "meta present but empty -- UniVRM's own absent-licenseName default is prohibited" },
       { "name": "refused-vrm1-absent-fields", "file": "content/vrm/refused-vrm1-absent-fields.vrm", "verdict": "refuse", "field": "extensions.VRMC_vrm.meta.allowRedistribution", "value": null, "defaulted": true, "note": "meta present but empty -- the VRM 1.0 meta schema's own absent-allowRedistribution default is false" },
-      { "name": "unknown-no-meta", "file": "content/vrm/unknown-no-meta.vrm", "verdict": "unknown", "note": "a valid GLB with no VRM/VRMC_vrm extension at all -- G4: flagged, never refused" }
+      { "name": "unknown-no-meta", "file": "content/vrm/unknown-no-meta.vrm", "verdict": "unknown", "note": "a valid GLB with no VRM/VRMC_vrm extension at all -- G4: flagged, never refused" },
+      { "name": "metas-disagree", "file": "content/vrm/vrm-metas-disagree.vrm", "verdict": "conflict", "field": "gate verdict", "note": "O-2: VRM 0.x meta allows (licenseName=Redistribution_Allowed, allowedUserName=Everyone); VRM 1.0 meta prohibits (allowRedistribution=false). A reader that stops at the first meta found would pass this file" },
+      { "name": "metas-agree", "file": "content/vrm/vrm-metas-agree.vrm", "verdict": "accept", "note": "both a VRM 0.x and a VRM 1.0 meta present, both allow and their overlapping usage flags (violent, sexual) agree -- reading both must still pass" }
     ]
   }
 }

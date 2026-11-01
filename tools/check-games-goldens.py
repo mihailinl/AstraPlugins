@@ -313,23 +313,28 @@ def parse_glb_json_chunk(raw: bytes):
         return None
 
 
-def extract_vrm_meta(raw: bytes):
-    """Returns (vrm_version, meta_dict) from a GLB's extensions.VRM.meta or
-    extensions.VRMC_vrm.meta, or None when neither is present (not every
+def extract_vrm_metas(raw: bytes) -> dict:
+    """Returns `{"0.x": meta_dict, "1.0": meta_dict}` for WHICHEVER of a
+    GLB's extensions.VRM.meta / extensions.VRMC_vrm.meta are present --
+    both, when the file carries both, never only the first one found (O-2:
+    the earlier version of this function returned on the first match, so a
+    file whose VRM 0.x meta allowed and whose VRM 1.0 meta prohibited
+    passed the gate outright). Empty when neither is present (not every
     .vrm file carries one, and that is not itself a refusal)."""
     doc = parse_glb_json_chunk(raw)
     if not isinstance(doc, dict):
-        return None
+        return {}
     exts = doc.get("extensions")
     if not isinstance(exts, dict):
-        return None
+        return {}
+    out: dict = {}
     vrm0 = exts.get("VRM")
     if isinstance(vrm0, dict) and isinstance(vrm0.get("meta"), dict):
-        return "0.x", vrm0["meta"]
+        out["0.x"] = vrm0["meta"]
     vrm1 = exts.get("VRMC_vrm")
     if isinstance(vrm1, dict) and isinstance(vrm1.get("meta"), dict):
-        return "1.0", vrm1["meta"]
-    return None
+        out["1.0"] = vrm1["meta"]
+    return out
 
 
 def rule_vrm_licence_refused(vrm_version: str, meta: dict) -> dict:
@@ -393,6 +398,50 @@ VRM_USAGE_FIELDS = {
     "1.0": ("allowExcessivelyViolentUsage", "allowExcessivelySexualUsage", "allowPoliticalOrReligiousUsage", "allowAntisocialOrHateUsage"),
 }
 
+# The overlap between the two specs' usage-flag vocabularies: 0.x's
+# *Name string enum ("Allow" vs anything else -- UniVRM) against 1.0's
+# allowExcessively*Usage boolean. 0.x's own `commercialUssageName` and 1.0's
+# `allowPoliticalOrReligiousUsage` / `allowAntisocialOrHateUsage` have no
+# counterpart on the other side and are never compared.
+VRM_USAGE_OVERLAP = {
+    "violent": ("violentUssageName", "allowExcessivelyViolentUsage"),
+    "sexual": ("sexualUssageName", "allowExcessivelySexualUsage"),
+}
+
+
+def rule_vrm_conflict(meta0x: dict, meta1_0: dict) -> dict | None:
+    """manifest.md §2.7.3 / the content contract's ingest-v1.md §4.2: a file
+    carrying BOTH a VRM 0.x and a VRM 1.0 meta is judged on EACH (O-2 -- a
+    reader that stops at the first meta it finds would pass a file whose
+    0.x meta allows and whose 1.0 meta prohibits). Disagreement is refused
+    as `E_CONTENT_LICENCE_CONFLICT`:
+
+      - the two gate verdicts differ (one side's redistribution or avatar-
+        permission field refuses, the other's does not -- the exact
+        disagreement `ingest-v1.md`'s own hostile golden
+        `vrm-metas-disagree.astrachar` tests), or
+      - an overlapping usage flag BOTH sides actually carry reads a
+        different allow/disallow between the two specs.
+
+    Returns the refusal dict (`{"field", "detail"}`) or None when the two
+    metas do not disagree (including when one or both are absent --
+    callers only reach here with both present)."""
+    v0 = rule_vrm_licence_refused("0.x", meta0x)
+    v1 = rule_vrm_licence_refused("1.0", meta1_0)
+    if v0["refused"] != v1["refused"]:
+        side = lambda v: f"refused ({v['field']})" if v["refused"] else "allowed"
+        return {"field": "gate verdict", "detail": f"VRM 0.x reads {side(v0)}; VRM 1.0 reads {side(v1)}"}
+    for label, (key0, key1) in VRM_USAGE_OVERLAP.items():
+        if key0 in meta0x and key1 in meta1_0:
+            allowed0 = meta0x[key0] == "Allow"
+            allowed1 = meta1_0[key1] is True
+            if allowed0 != allowed1:
+                return {
+                    "field": f"usage:{label}",
+                    "detail": f"VRM 0.x {key0}={meta0x[key0]!r}; VRM 1.0 {key1}={meta1_0[key1]!r}",
+                }
+    return None
+
 
 def part_licence(entry: dict, raw) -> dict:
     """legal DRAFT-v3.md Part 6 G5: the licence_source decision for one
@@ -401,8 +450,9 @@ def part_licence(entry: dict, raw) -> dict:
     when readable VRM meta decided it (allowed or refused), `"declared"`
     when the manifest's own `licence` string is the whole licence, and
     `None` when neither exists -- `E_CONTENT_LICENCE_UNDECLARED`.
-    `gate_status` is the VRM gate's own verdict ("ok"/"refused"/"unknown"),
-    or None when the gate does not apply to this part at all."""
+    `gate_status` is the VRM gate's own verdict
+    ("ok"/"refused"/"conflict"/"unknown"), or None when the gate does not
+    apply to this part at all."""
     path = entry.get("path") if isinstance(entry, dict) else None
     gate_status = None
     vrm_licence = None
@@ -424,16 +474,30 @@ def part_licence(entry: dict, raw) -> dict:
 
 def vrm_gate(raw: bytes) -> dict:
     """The full G4/G5 verdict for one .vrm's (or a readable .astrachar
-    body's) bytes. Returns {"status": "ok"|"refused"|"unknown",
-    "vrm_licence": {"vrm_version","fields"}|None, "refusal": {...}|None}.
-    "unknown" (no VRM meta at all -- not every .vrm carries one) is NEVER a
-    refusal: G4 says it is flagged (F_CONTENT_VRM_META_UNKNOWN) and passes
-    only with the character checkbox and the licence line, which is the
-    publish form's job, not this gate's."""
-    extracted = extract_vrm_meta(raw)
-    if extracted is None:
+    body's) bytes, reading BOTH a VRM 0.x and a VRM 1.0 meta when the GLB
+    carries both (O-2 -- the earlier version of this gate read only the
+    first one found, so a file whose two metas disagreed passed outright).
+    Returns {"status": "ok"|"refused"|"conflict"|"unknown", "vrm_licence":
+    {"vrm_version","fields"}|None, "refusal": {...}|None}.
+    "unknown" (no VRM meta of EITHER spec -- not every .vrm carries one) is
+    NEVER a refusal: G4 says it is flagged (F_CONTENT_VRM_META_UNKNOWN) and
+    passes only with the character checkbox and the licence line, which is
+    the publish form's job, not this gate's. "conflict" is
+    `E_CONTENT_LICENCE_CONFLICT` (`rule_vrm_conflict`) and runs before any
+    single-meta verdict -- a disagreement is refused whichever way either
+    meta alone would have read."""
+    metas = extract_vrm_metas(raw)
+    if not metas:
         return {"status": "unknown", "vrm_licence": None, "refusal": None}
-    vrm_version, meta = extracted
+    if "0.x" in metas and "1.0" in metas:
+        conflict = rule_vrm_conflict(metas["0.x"], metas["1.0"])
+        if conflict is not None:
+            return {"status": "conflict", "vrm_licence": None, "refusal": conflict}
+    # Both present and agreeing, or only one present: VRM 1.0 takes display
+    # precedence when both exist, the same order astra-companion's own
+    # `licence_of` reads them in ("a file carrying both is read as 1.0").
+    vrm_version = "1.0" if "1.0" in metas else "0.x"
+    meta = metas[vrm_version]
     verdict = rule_vrm_licence_refused(vrm_version, meta)
     fields = {k: meta[k] for k in VRM_GATE_FIELDS[vrm_version] + VRM_USAGE_FIELDS[vrm_version] if k in meta}
     vrm_licence = {"vrm_version": vrm_version, "fields": fields}
@@ -575,7 +639,7 @@ def main() -> int:
                 if raw is None:
                     continue
                 pl = part_licence(entry, raw)
-                if pl["gate_status"] == "refused":
+                if pl["gate_status"] in ("refused", "conflict"):
                     licence_refused.append((p, pl["refusal"]["field"]))
                 if pl["licence_source"] is None:
                     licence_undeclared.append(p)
@@ -593,6 +657,9 @@ def main() -> int:
                 report(f"content/vrm/{v['name']}", gate["status"] == "ok")
             elif v["verdict"] == "unknown":
                 report(f"content/vrm/{v['name']}", gate["status"] == "unknown")
+            elif v["verdict"] == "conflict":
+                ok = gate["status"] == "conflict" and gate["refusal"]["field"] == v["field"]
+                report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
             else:
                 ok = (
                     gate["status"] == "refused"

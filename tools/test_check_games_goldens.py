@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
@@ -381,8 +382,58 @@ class VrmLicenceGate(unittest.TestCase):
         self.assertIsNone(gate["refusal"])
 
     def test_a_non_glb_file_has_no_vrm_meta_at_all(self):
-        self.assertIsNone(ggold.extract_vrm_meta(b"not a glb"))
+        self.assertEqual(ggold.extract_vrm_metas(b"not a glb"), {})
         self.assertEqual(ggold.vrm_gate(b"not a glb")["status"], "unknown")
+
+    def test_both_metas_are_read_not_only_the_first(self):
+        """O-2: extract_vrm_metas must return BOTH blocks when a GLB
+        carries both, never stop at the first it finds."""
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        metas = ggold.extract_vrm_metas(raw)
+        self.assertEqual(set(metas), {"0.x", "1.0"})
+
+    def test_disagreeing_metas_are_a_conflict_even_though_each_alone_would_pass_or_refuse(self):
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        gate = ggold.vrm_gate(raw)
+        self.assertEqual(gate["status"], "conflict", json.dumps(gate))
+        self.assertEqual(gate["vrm_licence"], None)
+        self.assertEqual(gate["refusal"]["field"], "gate verdict")
+        # the defect this replaces: a reader that only looked at the FIRST
+        # meta (0.x here) would have read this file as allowed.
+        self.assertFalse(ggold.rule_vrm_licence_refused("0.x", metas_of(raw)["0.x"])["refused"])
+        self.assertTrue(ggold.rule_vrm_licence_refused("1.0", metas_of(raw)["1.0"])["refused"])
+
+    def test_agreeing_metas_pass_reading_both(self):
+        raw = (ggold.DATA / "content/vrm/vrm-metas-agree.vrm").read_bytes()
+        gate = ggold.vrm_gate(raw)
+        self.assertEqual(gate["status"], "ok", json.dumps(gate))
+        self.assertEqual(gate["vrm_licence"]["vrm_version"], "1.0", "both present and agreeing shows VRM 1.0")
+
+    def test_mutating_the_conflict_golden_to_agree_fixes_it(self):
+        """The mutation this test proves: flip the disagreeing golden's
+        VRM 1.0 allowRedistribution to true (now agreeing with the 0.x side
+        that already allows) and the conflict must disappear."""
+        raw = (ggold.DATA / "content/vrm/vrm-metas-disagree.vrm").read_bytes()
+        metas = metas_of(raw)
+        self.assertIsNotNone(ggold.rule_vrm_conflict(metas["0.x"], metas["1.0"]))
+        fixed = dict(metas["1.0"], allowRedistribution=True)
+        self.assertIsNone(ggold.rule_vrm_conflict(metas["0.x"], fixed))
+
+    def test_usage_flag_disagreement_alone_is_also_a_conflict(self):
+        """Even when both sides' redistribution/avatar-permission verdicts
+        agree (both allowed), a disagreeing OVERLAPPING usage flag
+        (violent, sexual) is still E_CONTENT_LICENCE_CONFLICT."""
+        meta0 = {"licenseName": "Redistribution_Allowed", "allowedUserName": "Everyone", "violentUssageName": "Allow"}
+        meta1 = {"allowRedistribution": True, "avatarPermission": "everyone", "allowExcessivelyViolentUsage": False}
+        conflict = ggold.rule_vrm_conflict(meta0, meta1)
+        self.assertIsNotNone(conflict)
+        self.assertEqual(conflict["field"], "usage:violent")
+        meta1["allowExcessivelyViolentUsage"] = True
+        self.assertIsNone(ggold.rule_vrm_conflict(meta0, meta1))
+
+
+def metas_of(raw: bytes) -> dict:
+    return ggold.extract_vrm_metas(raw)
 
 
 class WithdrawnSecurity(unittest.TestCase):

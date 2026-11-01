@@ -319,6 +319,30 @@ when:
   or `== "onlySeparatelyLicensedPerson"` (named people only), or
   `extensions.VRMC_vrm.meta.allowRedistribution == false`.
 
+**A file carrying BOTH blocks is judged on both, never only the first one
+found** (O-2 — the games gate and this document both used to stop at
+`extensions.VRM.meta` when present and never look at `extensions.VRMC_vrm.meta`
+at all, so a file whose VRM 0.x meta allowed and whose VRM 1.0 meta prohibited
+passed outright). The content catalogue's own contract states the same rule
+for the same reason (`ingest-v1.md` §4.2 — "A file carrying BOTH metas is
+judged on both. If they disagree → `E_CONTENT_LICENCE_CONFLICT`"); here, that
+means the rule above runs once per meta (each spec reading its own absent-field
+default below, independently), and the file is refused
+**`E_CONTENT_LICENCE_CONFLICT`**, naming both verdicts, whenever:
+
+- the two verdicts disagree — the redistribution/permission fields above lead
+  one spec to allow what the other refuses; or
+- the two sides both carry an **overlapping** usage flag (G5, below) and its
+  effective allow/disallow differs between them: VRM 0.x `violentUssageName`
+  against VRM 1.0 `allowExcessivelyViolentUsage`, and VRM 0.x
+  `sexualUssageName` against VRM 1.0 `allowExcessivelySexualUsage`. VRM 0.x's
+  `commercialUssageName` and VRM 1.0's `allowPoliticalOrReligiousUsage` /
+  `allowAntisocialOrHateUsage` have no counterpart on the other spec and are
+  never compared.
+
+A conflict is refused outright, before `licence_source` (below) is even
+asked — it is never "whichever meta happened to parse first wins".
+
 **An absent field reads as ITS OWN SPEC'S default, never as "allowed"** —
 this replaces this document's earlier text, which said the opposite and was
 wrong (G4: "reading each spec's defaults for absent fields"). The defaults
@@ -358,7 +382,11 @@ card can show the whole licence line:
 `vrm_licence.fields` holds the **raw** keys the file carries — an absent
 key's spec default is applied only by the refusal logic above, never
 fabricated here; a display default (if any) is the install sheet's own
-concern, not this gate's.
+concern, not this gate's. **When both blocks are present and agree** (no
+conflict above), `vrm_licence` shows the VRM 1.0 side — the same precedence
+astra-companion's own `licence_of` reads them in for display, "a file
+carrying both is read as 1.0". A conflict carries no `vrm_licence` at all:
+the release is refused before display is ever asked.
 
 **`licence_source`: every covered part needs a licence from somewhere.**
 When the gate found readable VRM meta (`vrm_licence` is present, whether the
@@ -427,7 +455,8 @@ per rule, named for the rule it breaks, and `tools/check-games-goldens.py`
 asserts each one is refused with exactly that code.
 
 §2.7's content-coverage codes (`E_CONTENT_UNDECLARED`, `E_CONTENT_MISSING`,
-`E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED` and
+`E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED`,
+`E_CONTENT_LICENCE_CONFLICT` (§2.7.3's two-meta disagreement) and
 `E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback with
 nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
 `.vrm`/`.astrachar` body with no readable VRM meta at all — never a
