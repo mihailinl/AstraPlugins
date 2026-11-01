@@ -601,6 +601,25 @@ class ContentByBytes(unittest.TestCase):
         self.assertFalse(ggold.is_text_gltf(one, budget))
         self.assertEqual(budget.sniffed, len(one), "the sniff is charged what it reads")
 
+    def test_a_large_file_beginning_ff_fe_is_never_decoded_whole(self):
+        import tracemalloc
+        raw = ggold.gen_module().synth("pak-utf16-bom")
+        tracemalloc.start()
+        try:
+            self.assertIsNone(ggold.name_problem("data/level.pak", raw))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 4 * 1024 * 1024, f"{peak} bytes for a test of the first character")
+
+    def test_a_utf16_key_split_across_decoded_chunks_is_still_found(self):
+        import codecs
+        pad = " " * (ggold._CHUNK // 2 - 14)  # the key begins 3 characters before the first chunk ends
+        text = '{"meta": 1,' + pad + '"asset": {"version": "2.0"}}'
+        raw = codecs.BOM_UTF16_LE + text.encode("utf-16-le")
+        self.assertTrue(ggold._names_key(raw, ggold._ASSET_KEY))
+        self.assertTrue(ggold.is_text_gltf(raw))
+
     def test_turning_the_rule_off_turns_its_goldens_green_for_the_wrong_reason(self):
         for name in ("glb-named-bin", "gltf-named-json", "gltf-named-json-utf16", "json-over-16mib-nested-asset"):
             with self.subTest(name=name):

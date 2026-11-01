@@ -30,6 +30,7 @@ Run: python3 tools/check-games-goldens.py
 
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import pathlib
@@ -355,13 +356,66 @@ _BOM_CODECS = dict(zip(CG.UNICODE_BOMS, ("utf-32-be", "utf-32-le", "utf-16-le", 
 _ASSET_KEY = re.compile(rb'"(?:a|\\u0061)(?:s|\\u0073)(?:s|\\u0073)(?:e|\\u0065)(?:t|\\u0074)"')
 
 
-def sniff_text(raw: bytes) -> bytes:
-    """The UTF-8 text a BOM-honouring reader sees: a UTF-16/32 text decoded
-    by its byte-order mark, anything else as it is."""
+_HEAD = 64  # bytes decoded at a time while looking for the first character
+_CHUNK = 1024 * 1024  # bytes decoded at a time while searching a UTF-16/32 text
+
+
+def _bom_of(raw: bytes):
     for bom, codec in _BOM_CODECS.items():
         if raw.startswith(bom):
-            return raw[len(bom):].decode(codec, "replace").encode("utf-8")
-    return raw
+            return bom, codec
+    return b"", None
+
+
+def _decoded_chunks(raw: bytes, size: int):
+    """The text a BOM-honouring reader sees, as UTF-8, a piece at a time: a
+    UTF-16/32 text decoded by its byte-order mark, anything else as it is.
+    Never the whole file at once -- a 128 MiB `.pak` that happens to begin
+    FF FE once cost 658 MB decoded whole, for a test of its first byte."""
+    bom, codec = _bom_of(raw)
+    if codec is None:
+        for at in range(0, len(raw), size):
+            yield raw[at:at + size]
+        return
+    dec = codecs.getincrementaldecoder(codec)("replace")
+    for at in range(len(bom), len(raw), size):
+        yield dec.decode(raw[at:at + size]).encode("utf-8")
+    yield dec.decode(b"", final=True).encode("utf-8")
+
+
+def sniff_text(raw: bytes) -> bytes:
+    """The whole text a BOM-honouring reader sees, as UTF-8 -- only for a
+    file the 16 MiB cap already bounds."""
+    bom, codec = _bom_of(raw)
+    return raw[len(bom):].decode(codec, "replace").encode("utf-8") if codec else raw
+
+
+def _first_char(raw: bytes) -> bytes:
+    """The first non-whitespace byte of the text (after a UTF-8 BOM), read
+    _HEAD bytes at a time: b"" when there is none."""
+    first = True
+    for piece in _decoded_chunks(raw, _HEAD):
+        if first and piece.startswith(CG.UTF8_BOM):
+            piece = piece[len(CG.UTF8_BOM):]
+        first = first and not piece
+        rest = piece.lstrip(b" \t\r\n")
+        if rest:
+            return rest[:1]
+    return b""
+
+
+def _names_key(raw: bytes, pattern) -> bool:
+    """Does the text name the key? At C speed: a UTF-8 file is searched as it
+    is, a UTF-16/32 one in decoded chunks that overlap by 4 KiB."""
+    if _bom_of(raw)[1] is None:
+        return pattern.search(raw) is not None
+    tail = b""
+    for piece in _decoded_chunks(raw, _CHUNK):
+        window = tail + piece
+        if pattern.search(window):
+            return True
+        tail = window[-4096:]
+    return False
 
 
 # The per-character sniff reads at most this much of one release; past it, a
@@ -379,9 +433,8 @@ class ReleaseBudget:
         self.sniffed = 0
 
 
-def _json_looking(text: bytes) -> bool:
-    body = text[len(CG.UTF8_BOM):] if text.startswith(CG.UTF8_BOM) else text
-    return body.lstrip(b" \t\r\n")[:1] == b"{"
+def _json_looking(raw: bytes) -> bool:
+    return _first_char(raw) == b"{"
 
 
 def is_text_gltf(raw: bytes, budget: ReleaseBudget | None = None) -> bool:
@@ -390,12 +443,12 @@ def is_text_gltf(raw: bytes, budget: ReleaseBudget | None = None) -> bool:
     `asset` key anywhere in the bytes (plain or \\u-escaped) is no glTF, and
     the slow sniff never runs. Above 16 MiB, or once the release's
     SNIFF_BUDGET is spent, the key alone refuses."""
-    text = sniff_text(raw)
-    if not _json_looking(text) or _ASSET_KEY.search(text) is None:
+    if not _json_looking(raw) or not _names_key(raw, _ASSET_KEY):
         return False
     if len(raw) > CG.MAX_GLTF_JSON:
         return True
     budget = budget if budget is not None else ReleaseBudget()
+    text = sniff_text(raw)  # bounded: at most 16 MiB of raw bytes
     if budget.sniffed + len(text) > SNIFF_BUDGET:
         return True
     budget.sniffed += len(text)
@@ -1087,7 +1140,14 @@ def main() -> int:
                        hashlib.sha256(raw).hexdigest() == v["sha256"][rel])
                 files[rel] = raw
             started = time.monotonic()
+            if "max_peak_mib" in v:  # a memory bound, measured around the check alone
+                import tracemalloc
+                tracemalloc.start()
             got = release_findings(files, doc)
+            if "max_peak_mib" in v:
+                peak = tracemalloc.get_traced_memory()[1] / (1024 * 1024)
+                tracemalloc.stop()
+                report(f"content/releases/{v['name']} within {v['max_peak_mib']} MiB", peak <= v["max_peak_mib"], f"{peak:.0f} MiB")
             if "max_seconds" in v:  # a cost bound: the gate must not be made to spend more on this release
                 spent = time.monotonic() - started
                 report(f"content/releases/{v['name']} within {v['max_seconds']} s", spent <= v["max_seconds"], f"{spent:.1f} s")

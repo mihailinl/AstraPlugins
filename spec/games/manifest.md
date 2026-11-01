@@ -296,7 +296,10 @@ integration ships arbitrary files and a content bundle does not:
   refuses any entry that begins with one, since no content part can; a game
   integration carries UTF-16LE localisation files (golden
   `localisation-utf16`, accepted). Such a text is instead sniffed **as the
-  text it decodes to** — a reader that decodes by the BOM, as `fetch().text()`
+  text it decodes to** — a piece at a time, never the whole file for a test
+  of its first character (golden `pak-utf16-bom`: a 32 MiB archive that
+  begins `FF FE`, checked within 4 MiB of memory; decoded whole, a 128 MiB
+  one cost 658 MB) — a reader that decodes by the BOM, as `fetch().text()`
   does, sees that text — so a UTF-16 glTF under another name is still refused
   (golden `gltf-named-json-utf16`). The BOM rule applies to glTF candidates
   only: every `.gltf` (§2.7.3).

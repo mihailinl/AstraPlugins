@@ -166,6 +166,9 @@ SYNTH = {
     # over the 16 MiB a key-by-key sniff reads: refused only when the bytes name "asset"
     "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": 1}, "strings": "' + b"x" * (16 * MIB) + b'"}',
     "json-over-16mib-plain": lambda: b'{"strings": "' + b"x" * (16 * MIB) + b'"}',
+    # a 32 MiB game archive that happens to begin FF FE, then lone surrogates: decoded whole it
+    # is ~80 MB of str and UTF-8 for a test of its first character
+    "pak-utf16-bom": lambda: b"\xff\xfe" + b"\x00\xd8" * (16 * MIB),
     # 16 MiB of {"":0,"":0,...}: the per-character sniff reads it at ~4 MiB a second
     "json-16mib-many-keys": lambda: b"{" + b'"":0,' * (16 * MIB // 5 - 1) + b'"":0}',
     # the caps, each checked BEFORE anything is parsed
