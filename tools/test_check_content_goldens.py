@@ -389,6 +389,18 @@ class F5DataDescriptors(unittest.TestCase):
             self.assertEqual(cg.ingest_bundle(raw, {})["verdict"], "accept", n)
 
 
+class F7DirectoryOrderIsFileOrder(unittest.TestCase):
+    def test_order_unchecked(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(
+            self, Mutation("walk_zip", _swallowing(["order is not the file's order"])), "archives/manifest-first-by-offset")
+
+    def test_the_golden_is_last_in_the_directory_only(self):
+        b = (cg.DATA / "archives/hostile/manifest-first-by-offset.astrachar").read_bytes()
+        self.assertEqual(b[30:30 + len("astrachar.json")], b"astrachar.json")
+        cd = b.rfind(b"PK\x01\x02")
+        self.assertEqual(b[cd + 46:cd + 46 + len("astrachar.json")], b"astrachar.json")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

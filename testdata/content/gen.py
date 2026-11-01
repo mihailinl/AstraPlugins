@@ -116,7 +116,7 @@ def deflate(b: bytes) -> bytes:
     return c.compress(b) + c.flush()
 
 
-def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None) -> bytes:
+def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None, cd_order=None) -> bytes:
     """entries: {name, data, method=0|8, ext_attr, flags, local_name, extra}."""
     out = bytearray()
     central = bytearray()
@@ -162,6 +162,14 @@ def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None) -> byt
                                DOS_TIME, DOS_DATE, crc, len(comp), len(data), len(name), len(extra), 0,
                                0, 0, e.get("ext_attr", 0o100644 << 16), off)
         central += name + extra
+    if cd_order is not None:  # the directory in another order than the local headers
+        recs = []
+        q = 0
+        while q < len(central):
+            nl, xl, cl = struct.unpack("<HHH", central[q + 28:q + 34])
+            recs.append(bytes(central[q:q + 46 + nl + xl + cl]))
+            q += 46 + nl + xl + cl
+        central = bytearray(b"".join(recs[i] for i in cd_order))
     cd_off = len(out)
     out += central
     n = len(entries)
@@ -769,6 +777,10 @@ def gen_archives() -> None:
                                             tweak=attr(BODY_PATH, dd={"sig": True})))
     hostile("bit3-local-only.astrachar", bundle("astra.character", model_files, BODY_PATH,
                                                 tweak=dd(sig=True, central_bit3=False, local_sizes=True)))
+    # the manifest's LOCAL header is first in the file while the directory lists it last: "last"
+    # must mean last by position too, so directory order must be file order (§3 steps 3, 8)
+    first = bundle_entries("astra.character", model_files, BODY_PATH, manifest_last=False)
+    hostile("manifest-first-by-offset.astrachar", zip_bytes(first, cd_order=list(range(1, len(first))) + [0]))
     hostile("directory-with-data.astrachar", bundle(
         "astra.character", model_files, BODY_PATH,
         tweak=lambda es: [{"name": "characters/aiko/dir/", "data": b"hidden", "method": 0}] + es))

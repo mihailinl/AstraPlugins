@@ -1689,6 +1689,13 @@
       "code": "E_BUNDLE_MANIFEST"
     },
     {
+      "name": "manifest-first-by-offset",
+      "file": "archives/hostile/manifest-first-by-offset.astrachar",
+      "verdict": "refuse",
+      "code": "E_ZIP_HEADERS_INCONSISTENT",
+      "note": "last in the directory, first in the file"
+    },
+    {
       "name": "file-unlisted",
       "file": "archives/hostile/file-unlisted.astrachar",
       "verdict": "refuse",

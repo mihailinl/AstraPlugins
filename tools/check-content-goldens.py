@@ -606,6 +606,9 @@ def walk_zip(b: bytes) -> dict[str, bytes]:
                 raise Refusal("E_ZIP_HEADERS_INCONSISTENT", f"{name}: the data descriptor disagrees with the directory")
     if at != cd_off:
         raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "bytes between the last entry and the directory")
+    # directory order IS file order, so the manifest "last" in the directory is last in the file too
+    if [e[7] for e in entries] != sorted(e[7] for e in entries):
+        raise Refusal("E_ZIP_HEADERS_INCONSISTENT", "the directory's order is not the file's order")
     folded = set()
     for name, *_ in entries:
         why = name_refusal(name)
