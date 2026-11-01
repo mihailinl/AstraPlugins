@@ -673,15 +673,39 @@ def glb_json(raw: bytes):
         return None
 
 
-def _rule0(m: dict) -> bool:
-    """True = Allowed (PR #120 `rule_vrm_licence_refused`, 0.x, spec defaults applied)."""
-    ln, au = m.get("licenseName"), m.get("allowedUserName")
-    return ln is not None and ln != "Redistribution_Prohibited" and au is not None and au not in ("OnlyAuthor", "ExplicitlyLicensedPerson")
+# astra-companion src/vrm/meta.rs at origin/main 045b0bf (`licence_of`, `redistribution_of`), each
+# spec's own defaults; plus the design's avatar-permission refusal (§3.3). An UNRECOGNISED token is
+# never Allowed: it is Unknown, which holds the version for a moderator (ingest-v1.md §4.2, F3).
+AVATAR = {
+    "0.x": {"Everyone": "allowed", "OnlyAuthor": "prohibited", "ExplicitlyLicensedPerson": "prohibited"},
+    "1.0": {"everyone": "allowed", "onlyAuthor": "prohibited", "onlySeparatelyLicensedPerson": "prohibited"},
+}
+AVATAR_DEFAULT = {"0.x": "OnlyAuthor", "1.0": "onlyAuthor"}
 
 
-def _rule1(m: dict) -> bool:
-    ap = m.get("avatarPermission")
-    return m.get("allowRedistribution") is True and ap is not None and ap not in ("onlyAuthor", "onlySeparatelyLicensedPerson")
+def _redistribution0(m: dict) -> str:
+    ln = m.get("licenseName")
+    if not isinstance(ln, str) or ln == "Redistribution_Prohibited":
+        return "prohibited"  # absent (or not a string): UniVRM's default
+    if ln == "CC0" or ln.startswith("CC_"):
+        return "allowed"
+    return "unknown"  # "Other" and any other token: the terms are elsewhere
+
+
+def _redistribution1(m: dict) -> str:
+    return "allowed" if m.get("allowRedistribution") is True else "prohibited"  # false, absent, not a bool
+
+
+def _avatar(spec: str, m: dict) -> str:
+    key = "allowedUserName" if spec == "0.x" else "avatarPermission"
+    v = m.get(key)
+    v = v if isinstance(v, str) else AVATAR_DEFAULT[spec]  # meta.rs `s_or`: absent → the spec default
+    return AVATAR[spec].get(v, "unknown")
+
+
+def meta_verdict(spec: str, m: dict) -> str:
+    parts = [_redistribution0(m) if spec == "0.x" else _redistribution1(m), _avatar(spec, m)]
+    return "prohibited" if "prohibited" in parts else "unknown" if "unknown" in parts else "allowed"
 
 
 GLB_MAGIC = b"glTF"
@@ -720,14 +744,14 @@ def vrm_verdict(raw: bytes, path: str = "") -> str:
     verdicts = []
     v0, v1 = exts.get("VRM"), exts.get("VRMC_vrm")
     if isinstance(v0, dict) and isinstance(v0.get("meta"), dict):
-        verdicts.append(_rule0(v0["meta"]))
+        verdicts.append(meta_verdict("0.x", v0["meta"]))
     if isinstance(v1, dict) and isinstance(v1.get("meta"), dict):
-        verdicts.append(_rule1(v1["meta"]))
+        verdicts.append(meta_verdict("1.0", v1["meta"]))
     if not verdicts:
         return "unknown"
     if len(set(verdicts)) > 1:
         return "conflict"
-    return "allowed" if verdicts[0] else "prohibited"
+    return verdicts[0]
 
 
 def is_vrm_body(raw: bytes) -> bool:

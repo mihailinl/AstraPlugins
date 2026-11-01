@@ -27,6 +27,15 @@ reads both. **Lane C (astra-plugins-ops-42)** should apply the same rule to the
 games gate and to `astra-games-catalogue` `lib/content.mjs` before games
 content is served.
 
+**O-2b. PR #120's games gate treats an unrecognised licence token as allowed.**
+Its `rule_vrm_licence_refused` refuses only the named prohibiting values, so a
+0.x `licenseName: Other` (or any unknown token) and an `allowedUserName` /
+`avatarPermission` no spec defines pass as Allowed. astra-companion's own
+`redistribution_of` reads `Other` and every unknown `licenseName` as UNKNOWN,
+and this contract holds such a file ([`ingest-v1.md`](ingest-v1.md) §4.2,
+goldens `vrm0-licence-other`, `vrm0-user-unrecognised`,
+`vrm1-avatar-unrecognised`). **Lane C** should align the games gate.
+
 **O-1. Games keys.** L328–330 moves `games` into `kind_keys` (agreed by -42 on
 2026-11-01); `spec/games/games-index-v1.md` §3 still compiles `games-current` /
 `games-next` and a per-key serial floor. This contract lists `games` in

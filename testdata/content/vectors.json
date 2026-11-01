@@ -1583,6 +1583,12 @@
       "note": "settings only: no part"
     },
     {
+      "name": "model-vrm0-cc-by-nc",
+      "file": "archives/valid/model-vrm0-cc-by-nc.astrachar",
+      "verdict": "accept",
+      "note": "every CC_* licenseName is Allowed (meta.rs)"
+    },
+    {
       "name": "model-aiko-descriptor",
       "file": "archives/valid/model-aiko-descriptor.astrachar",
       "verdict": "accept",
@@ -1782,6 +1788,39 @@
       "file": "archives/hostile/vrm-named-people.astrachar",
       "verdict": "refuse",
       "code": "E_CONTENT_LICENCE_REFUSED"
+    },
+    {
+      "name": "vrm0-licence-other",
+      "file": "archives/hostile/vrm0-licence-other.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "licenseName Other: the terms are elsewhere, so Unknown (meta.rs redistribution_of)"
+    },
+    {
+      "name": "vrm0-user-unrecognised",
+      "file": "archives/hostile/vrm0-user-unrecognised.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "note": "an allowedUserName no spec defines is Unknown, never Allowed"
+    },
+    {
+      "name": "vrm1-avatar-unrecognised",
+      "file": "archives/hostile/vrm1-avatar-unrecognised.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ]
+    },
+    {
+      "name": "vrm1-redistribution-string",
+      "file": "archives/hostile/vrm1-redistribution-string.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_REFUSED",
+      "note": "allowRedistribution \"true\" is not a bool: prohibited (meta.rs)"
     },
     {
       "name": "vrm-metas-disagree",

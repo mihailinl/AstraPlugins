@@ -844,6 +844,19 @@ def gen_archives() -> None:
     dup_json += b" " * (-len(dup_json) % 4)
     dup = struct.pack("<4sII", b"glTF", 2, 20 + len(dup_json)) + struct.pack("<I4s", len(dup_json), b"JSON") + dup_json
     hostile("vrm-duplicate-key.astrachar", bundle("astra.character", {BODY_PATH: dup}, BODY_PATH))
+    # unrecognised licence tokens are UNKNOWN, never Allowed (meta.rs at 045b0bf; F3)
+    def vrm0(meta: dict) -> bytes:
+        return glb({"asset": {"version": "2.0"}, "extensions": {"VRM": {"meta": meta}}, "extensionsUsed": ["VRM"]})
+    hostile("vrm0-licence-other.astrachar", bundle(
+        "astra.character", {BODY_PATH: vrm0(dict(VRM0_ALLOWED, licenseName="Other"))}, BODY_PATH))
+    hostile("vrm0-user-unrecognised.astrachar", bundle(
+        "astra.character", {BODY_PATH: vrm0(dict(VRM0_ALLOWED, allowedUserName="Friends"))}, BODY_PATH))
+    hostile("vrm1-avatar-unrecognised.astrachar", bundle(
+        "astra.character", {BODY_PATH: vrm1(dict(VRM1_ALLOWED, avatarPermission="everyoneButCompetitors"))}, BODY_PATH))
+    hostile("vrm1-redistribution-string.astrachar", bundle(
+        "astra.character", {BODY_PATH: vrm1(dict(VRM1_ALLOWED, allowRedistribution="true"))}, BODY_PATH))
+    put("archives/valid/model-vrm0-cc-by-nc.astrachar", bundle(
+        "astra.character", {BODY_PATH: vrm0(dict(VRM0_ALLOWED, licenseName="CC_BY_NC"))}, BODY_PATH))
     hostile("vrm-metas-disagree.astrachar", bundle(
         "astra.character", {BODY_PATH: vrm_both(VRM0_ALLOWED, dict(VRM1_ALLOWED, allowRedistribution=False))},
         BODY_PATH))

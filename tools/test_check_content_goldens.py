@@ -446,6 +446,31 @@ class F2VerdictFollowsContent(unittest.TestCase):
         self.assertRedOn(Mutation("parts_of", lax), "archives/file-outside-parts")
 
 
+class F3UnrecognisedIsUnknown(unittest.TestCase):
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_unknown_licence_names_allowed(self):
+        orig = cg._redistribution0
+        self.assertRedOn(Mutation("_redistribution0", lambda m: "allowed" if orig(m) == "unknown" else orig(m)),
+                         "archives/vrm0-licence-other")
+
+    def test_unknown_permissions_allowed(self):
+        lax = {k: dict(v) for k, v in cg.AVATAR.items()}
+        lax["0.x"]["Friends"] = "allowed"
+        lax["1.0"]["everyoneButCompetitors"] = "allowed"
+        self.assertRedOn(Mutation("AVATAR", lax), "archives/vrm0-user-unrecognised", "archives/vrm1-avatar-unrecognised")
+
+    def test_a_truthy_string(self):
+        self.assertRedOn(Mutation("_redistribution1", lambda m: "allowed" if m.get("allowRedistribution") in (True, "true") else "prohibited"),
+                         "archives/vrm1-redistribution-string")
+
+    def test_cc_prefix_is_allowed(self):
+        orig = cg._redistribution0
+        self.assertRedOn(Mutation("_redistribution0", lambda m: "unknown" if m.get("licenseName") == "CC_BY_NC" else orig(m)),
+                         "archives/model-vrm0-cc-by-nc")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

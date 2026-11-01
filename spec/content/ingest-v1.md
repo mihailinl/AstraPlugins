@@ -102,13 +102,32 @@ AstraPlugins PR #120** (`spec/games-vrm-g4` `d1da665`, `spec/games/manifest.md`
   (astra-companion `src/vrm/meta.rs:80-100`): 1.0 `allowRedistribution → false`,
   `avatarPermission → onlyAuthor`; 0.x `licenseName` absent → prohibited,
   `allowedUserName → OnlyAuthor`. So an absent field REFUSES.
-- **redistribution prohibited** (0.x `licenseName = Redistribution_Prohibited`,
-  1.0 `allowRedistribution ≠ true`) or **a permission limited to the author or
-  to named people** (0.x `OnlyAuthor | ExplicitlyLicensedPerson`, 1.0
-  `onlyAuthor | onlySeparatelyLicensedPerson`) → `Prohibited`. Named-person
-  licences are refused (open question 8; astra-ce's G5).
-- anything else → `Allowed`; the usage flags go to the index's `licence.usage`.
-- **A file carrying BOTH metas is judged on both.** If they disagree →
+- Each meta gives two readings, exactly as astra-companion `src/vrm/meta.rs`
+  reads them (`licence_of`, `redistribution_of`, at astra-companion
+  `origin/main` `045b0bf`), plus the design's permission rule:
+
+  | | value | reading |
+  |---|---|---|
+  | 1.0 `allowRedistribution` | `true` | allowed |
+  | | `false`, absent, or not a bool (`"true"` is a string) | prohibited |
+  | 0.x `licenseName` | `CC0`, or any token beginning `CC_` | allowed |
+  | | `Redistribution_Prohibited`, absent, or not a string | prohibited |
+  | | `Other`, or **any other token** | **unknown** (the terms are elsewhere) |
+  | 1.0 `avatarPermission` / 0.x `allowedUserName` | `everyone` / `Everyone` | allowed |
+  | | `onlyAuthor`, `onlySeparatelyLicensedPerson` / `OnlyAuthor`, `ExplicitlyLicensedPerson`, absent (the spec default `onlyAuthor` / `OnlyAuthor`), or not a string | prohibited — named-person licences are refused (open question 8; astra-ce's G5) |
+  | | **any other token** | **unknown** |
+
+- The meta's verdict: `Prohibited` if either reading is prohibited; else
+  `Unknown` if either is unknown; else `Allowed`. **An unrecognised token is
+  never Allowed**: "anything else → Allowed" in the design note covers the
+  RECOGNISED permissive values only (coordinator, 2026-11-01). `Unknown` holds
+  the version for a moderator (§4.1). Goldens `vrm0-licence-other`,
+  `vrm0-user-unrecognised`, `vrm1-avatar-unrecognised` (held),
+  `vrm1-redistribution-string` (refused), `model-vrm0-cc-by-nc` (accepted).
+- The usage flags go to the index's `licence.usage`.
+- **A file carrying BOTH metas is judged on both** (the engine reads 1.0 first
+  for display; the verdict here reads both). If their verdicts differ — an
+  `Unknown` against an `Allowed` included →
   `E_CONTENT_LICENCE_CONFLICT`. (A reader that stops at the first meta it finds
   would pass `testdata/content/archives/hostile/vrm-metas-disagree.astrachar`,
   whose 0.x meta allows and whose 1.0 meta prohibits — OPEN.md O-2.)
