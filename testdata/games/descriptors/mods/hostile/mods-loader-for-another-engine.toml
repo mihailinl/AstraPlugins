@@ -1,0 +1,35 @@
+# Hostile `mods` golden: a community descriptor adds a loader to ANOTHER
+# ENGINE'S games (engine-descriptor-v1.md §7.1 narrow-only, §7.4 `codes`).
+# Its loader claims `unity-mono`, a code this descriptor does not declare,
+# hoping to be consulted for every Mono game. A descriptor's `mods` is read
+# only for games that descriptor placed, so this could never apply -- and the
+# lint says so instead of leaving it silently inert: mods-invalid, reason
+# code-undeclared.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["unity-mono"]
+source = ["game", "picked"]
+require = [ { stat = "{source}/BepInEx/core/BepInEx.dll", kind = "file" } ]
+root = "{source}/BepInEx/plugins"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

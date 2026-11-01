@@ -656,6 +656,273 @@ def vrm_gate(raw: bytes, path: str | None = None, present=None) -> dict:
     return {"status": "ok", "vrm_licence": vrm_licence, "refusal": None}
 
 
+# ── mods (engine-descriptor-v1.md §7) ────────────────────────────────────
+# The optional `mods` member: the player's own mod loaders. The schema's
+# $defs/mods holds its shape (closed enums, §7.3 paths, the glob); what a
+# JSON Schema cannot express is below. Every rule reads `mods` and nothing
+# else, and none of them can make a descriptor detect differently: the
+# runner also holds that the descriptor without `mods` is the same valid
+# descriptor whatever `mods` holds (§7.1).
+
+MODS_LOOKUPS = ("listed", "child", "stat")
+MODS_COMBINATORS = ("any", "all", "none")
+
+# The names mod loaders hijack-load by: merged plan §2.5 / plan A §4.5, kept
+# by astra-game-launcher as src/plan.rs HIJACK_NAMES (Doorstop's names, the
+# Ultimate ASI Loader's system-DLL names, ReShade's opengl32). A proxy says
+# that SOME loader sits in a folder, never which, so it is never a loader
+# anchor (§7.4).
+HIJACK_NAMES = (
+    "winhttp.dll", "version.dll", "dwmapi.dll", "dxgi.dll", "d3d11.dll", "dinput8.dll",
+    "xinput1_1.dll", "xinput1_2.dll", "xinput1_3.dll", "xinput1_4.dll", "xinput9_1_0.dll",
+    "xinputuap.dll", "winmm.dll", "dinput.dll", "dsound.dll", "d3d8.dll", "d3d9.dll",
+    "d3d10.dll", "d3d12.dll", "ddraw.dll", "msacm32.dll", "msvfw32.dll", "wininet.dll",
+    "xlive.dll", "opengl32.dll",
+)
+
+# §7.7: managers are launcher adapters (astra-game-launcher src/mods.rs
+# ModManager: r2modman, Thunderstore, Gale; Mod Organizer 2 and Vortex
+# later). Their names never appear in `mods`, as a member or as a value.
+# The distinctive names match anywhere (r2modman's own folder is
+# `r2modmanPlus-local`); the short ones only as a word (`nightingale` is not
+# Gale).
+_MANAGER_NAME = re.compile(
+    r"r2modman|thunderstore|mod[ _-]?organi[sz]er|overwolf"
+    r"|(?<![a-z0-9])(gale|mo2|vortex|tmm)(?![a-z0-9])",
+    re.I,
+)
+
+MODS_BUDGET = {"lookups": 64, "probes": 8, "depth": 3}
+
+
+def without_mods(doc: dict) -> dict:
+    """The descriptor a reader that ignores `mods` evaluates (§7.1)."""
+    return {k: v for k, v in doc.items() if k != "mods"}
+
+
+def mods_schema(descriptor_schema: dict) -> dict:
+    """$defs/mods alone, resolving against the whole descriptor schema."""
+    return {"$defs": descriptor_schema["$defs"], "$ref": "#/$defs/mods"}
+
+
+def reader_ignoring_mods_schema(descriptor_schema: dict) -> dict:
+    """What launcher 0.5.0 checks: `mods`, when present, is a table, and
+    nothing inside it is read."""
+    s = json.loads(json.dumps(descriptor_schema))
+    s["properties"]["mods"] = {"type": "object"}
+    return s
+
+
+# §4: ≤16 KiB serialized, `mods` included (§1: it is part of the canonical
+# form). Sorted keys and no whitespace is JCS for these goldens, whose keys
+# are ASCII and whose numbers are all integers.
+DESCRIPTOR_BYTES = 16 * 1024
+
+
+def canonical_size(doc) -> int:
+    return len(json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+
+
+def reader_ignoring_mods_accepts(doc: dict, descriptor_schema: dict) -> bool:
+    """Launcher 0.5.0's answer for the whole descriptor: `mods` is a table
+    it does not read, and the canonical form still fits §4's bound."""
+    return schema_ok(doc, reader_ignoring_mods_schema(descriptor_schema))[0] \
+        and canonical_size(doc) <= DESCRIPTOR_BYTES
+
+
+def mods_loaders(doc: dict) -> list[dict]:
+    mods = doc.get("mods")
+    if not isinstance(mods, dict) or not isinstance(mods.get("loader"), list):
+        return []
+    return [l for l in mods["loader"] if isinstance(l, dict)]
+
+
+def _require_walk(entries, depth=0):
+    """(entry, combinator depth) for every lookup or probe in a `require`."""
+    for e in entries if isinstance(entries, list) else []:
+        if not isinstance(e, dict):
+            continue
+        nested = next((k for k in MODS_COMBINATORS if k in e), None)
+        if nested is not None:
+            yield from _require_walk(e[nested], depth + 1)
+        else:
+            yield e, depth
+
+
+def _anchor_name(path: str) -> str:
+    """The literal part of a path's last component (its placeholders cut)."""
+    return re.sub(r"\{[^}]*\}", "", path.rsplit("/", 1)[-1])
+
+
+def rule_mods_loader_anchor_invalid(doc: dict) -> bool:
+    """True = OK. §7.4: every loader has a top-level `listed`/`child`/`stat`
+    whose last component holds a literal name that is neither a name loaders
+    hijack-load by nor a §2.4 ubiquitous runtime name."""
+    for loader in mods_loaders(doc):
+        ok = False
+        for entry in loader.get("require", []) if isinstance(loader.get("require"), list) else []:
+            if not isinstance(entry, dict):
+                continue
+            key = next((k for k in MODS_LOOKUPS if k in entry), None)
+            if key is None or not isinstance(entry[key], str):
+                continue
+            name = _anchor_name(entry[key])
+            if name and "*" not in name and name.lower() not in HIJACK_NAMES \
+                    and not any(p.match(name) for p in _UBIQUITOUS):
+                ok = True
+                break
+        if not ok:
+            return False
+    return True
+
+
+def rule_mods_code_undeclared(doc: dict) -> bool:
+    """True = OK. §7.4: a loader's `codes` are this descriptor's own."""
+    own = set(doc.get("engine", {}).get("codes", {}).keys()) if isinstance(doc.get("engine"), dict) else set()
+    return all(set(l.get("codes", [])) <= own for l in mods_loaders(doc))
+
+
+def rule_mods_loader_id_duplicate(doc: dict) -> bool:
+    """True = OK. §7.2: loader ids are unique within the descriptor."""
+    ids = [l.get("id") for l in mods_loaders(doc)]
+    return len(ids) == len(set(ids))
+
+
+def mods_cost(doc: dict) -> dict:
+    """§7.8's per-member counts: lookups (`listed`/`child`/`stat`), content
+    probes (`tail`, a `version`, an `enable-list` list) and the deepest
+    `any`/`all`/`none` nesting, across every loader."""
+    lookups = probes = depth = 0
+    for loader in mods_loaders(doc):
+        for entry, d in _require_walk(loader.get("require", [])):
+            depth = max(depth, d)
+            if any(k in entry for k in MODS_LOOKUPS):
+                lookups += 1
+            elif "tail" in entry:
+                probes += 1
+        if isinstance(loader.get("version"), dict):
+            probes += 1
+        for fmt in loader.get("enabled", []) if isinstance(loader.get("enabled"), list) else []:
+            if isinstance(fmt, dict) and fmt.get("format") == "enable-list":
+                probes += 1
+    return {"lookups": lookups, "probes": probes, "depth": depth}
+
+
+def rule_mods_over_budget(doc: dict) -> bool:
+    """True = OK. §7.8: ≤64 lookups, ≤8 probes, nesting ≤3, per member."""
+    cost = mods_cost(doc)
+    return all(cost[k] <= MODS_BUDGET[k] for k in MODS_BUDGET)
+
+
+def _strings(value):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield k
+            yield from _strings(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _strings(v)
+    elif isinstance(value, str):
+        yield value
+
+
+def rule_mods_manager_as_data(doc: dict) -> bool:
+    """True = OK. §7.7: no mod manager is named anywhere in `mods`, as a
+    member or as a value -- a manager is a launcher adapter, never data."""
+    return not any(_MANAGER_NAME.search(s) for s in _strings(doc.get("mods")))
+
+
+SEMANTIC_MODS_RULES = {
+    "mods-loader-anchor-invalid": rule_mods_loader_anchor_invalid,
+    "mods-code-undeclared": rule_mods_code_undeclared,
+    "mods-loader-id-duplicate": rule_mods_loader_id_duplicate,
+    "mods-over-budget": rule_mods_over_budget,
+    "mods-manager-as-data": rule_mods_manager_as_data,
+}
+
+
+def mods_semantic_problems(doc: dict) -> list[str]:
+    return [name for name, rule in SEMANTIC_MODS_RULES.items() if not rule(doc)]
+
+
+def _template_regex(template: str, runs: int | None = None) -> tuple[str, int]:
+    """§2.5's version template as a regex with one group per digit run, cut
+    after the `runs`-th run when given. Returns (regex, runs it holds)."""
+    out, n, i = [], 0, 0
+    while i < len(template):
+        m = re.match(r"N\{(\d),(\d)\}", template[i:])
+        if m:
+            out.append(f"([0-9]{{{m.group(1)},{m.group(2)}}})")
+            n += 1
+            i += m.end()
+            if runs is not None and n == runs:
+                break
+        else:
+            out.append(re.escape(template[i]))
+            i += 1
+    return "".join(out), n
+
+
+def read_version(template: str, value: str) -> list[int] | None:
+    """§7.4: the digit runs of the template's match at the start of `value`,
+    whose next character is not a digit; None when it does not match."""
+    rx, _ = _template_regex(template)
+    m = re.match(rx + r"(?![0-9])", value)
+    return [int(g) for g in m.groups()] if m else None
+
+
+def read_operand(template: str, operand: str) -> list[int] | None:
+    """§7.4: an operand is the template's leading part, cut after a digit
+    run; its runs, or None when it does not read in the template's shape."""
+    _, total = _template_regex(template)
+    for k in range(1, total + 1):
+        rx, _ = _template_regex(template, k)
+        m = re.fullmatch(rx, operand)
+        if m:
+            return [int(g) for g in m.groups()]
+    return None
+
+
+def version_comparators(versions: str) -> list[tuple[str, str]]:
+    """`>=5.4, <5.5` -> [(">=", "5.4"), ("<", "5.5")]."""
+    return [re.match(r"(<=|>=|=|<|>)(.*)$", c).groups() for c in versions.split(", ")]
+
+
+def version_holds(template: str, versions: str, value: str) -> bool:
+    """§7.4: whether `value`'s version satisfies every comparator. Unknown
+    (no match, or an operand that does not read) never holds."""
+    have = read_version(template, value)
+    if have is None:
+        return False
+    for op, operand in version_comparators(versions):
+        want = read_operand(template, operand)
+        if want is None:
+            return False
+        got = have[:len(want)]
+        if not {"=": got == want, "<": got < want, "<=": got <= want,
+                ">": got > want, ">=": got >= want}[op]:
+            return False
+    return True
+
+
+def mods_compat(doc: dict, twin: dict, descriptor_schema: dict) -> dict:
+    """§7.1 for one golden carrying `mods`: the full schema's verdict, the
+    `mods` table's own (schema and semantic), the 0.5.0 reader's view, and
+    whether the descriptor without `mods` is `twin`, a valid descriptor."""
+    return {
+        "full": schema_ok(doc, descriptor_schema)[0],
+        "mods": schema_ok(doc.get("mods"), mods_schema(descriptor_schema))[0] and not mods_semantic_problems(doc),
+        "reader": reader_ignoring_mods_accepts(doc, descriptor_schema),
+        "twin": "mods" in doc and without_mods(doc) == twin and schema_ok(twin, descriptor_schema)[0],
+    }
+
+
+def _dig(doc: dict, dotted: str):
+    for part in dotted.split("."):
+        doc = doc[part]
+    return doc
+
+
 SEMANTIC_MANIFEST_RULES = {
     "engine-undeclared": rule_engine_undeclared,
     "loader-policy-conflict": rule_loader_policy_conflict,
@@ -733,6 +1000,65 @@ def main() -> int:
         else:
             raise NotImplementedError(v["rule"])
         report(f"descriptor/hostile/{v['name']} (semantic)", semantic_ok is False)
+
+    # -- mods (engine-descriptor-v1.md §7) ----------------------------------
+    mv = vectors["descriptors"]["mods"]
+    msch = mods_schema(descriptor_schema)
+    for v in mv["builtin"]:
+        frag = load_doc(v["file"])
+        eng = load_doc(v["engine"])
+        whole = dict(eng, mods=frag.get("mods"))
+        sok, detail = schema_ok(whole, descriptor_schema)
+        problems = mods_semantic_problems(whole)
+        loaders = {l["id"]: l for l in mods_loaders(whole)}
+        operands_read = all(
+            read_operand(l["version"]["template"], operand) is not None
+            for l in loaders.values() if "versions" in l.get("version", {})
+            for _op, operand in version_comparators(l["version"]["versions"])
+        )
+        chain_incapable = all(
+            i in loaders and not any(s.get("strategy") == "chain" for s in loaders[i]["coexist"])
+            for i in v.get("chain_incapable", [])
+        )
+        ok = (
+            set(frag) == {"schema", "mods"} and frag["schema"] == eng["schema"]
+            and sok and not problems and list(loaders) == v["loaders"]
+            and without_mods(whole) == eng and operands_read and chain_incapable
+        )
+        report(f"descriptor/mods/builtin/{v['name']}", ok == (v["verdict"] == "accept"),
+               f"schema={detail or 'ok'} semantic={problems} loaders={list(loaders)}")
+
+    for v in mv["compat"]:
+        doc = load_doc(v["file"])
+        twin = _dig(load_doc(v["twin"]), v["twin_at"])
+        c = mods_compat(doc, twin, descriptor_schema)
+        ok = (
+            c["full"] == (v["verdict"] == "accept")
+            and c["mods"] == (v["mods_verdict"] == "accept")
+            and c["reader"] == (v["reader_ignoring_mods"] == "accept")
+            and c["twin"]
+        )
+        report(f"descriptor/mods/compat/{v['name']}", ok, json.dumps(c))
+
+    for v in mv["hostile"]:
+        doc = load_doc(v["file"])
+        sok, detail = schema_ok(doc, descriptor_schema)
+        # The schema's refusal, when there is one, is INSIDE `mods`: the
+        # detection half stands on its own (§7.9), and the 0.5.0 reader's
+        # view answers as recorded.
+        mods_sok, _ = schema_ok(doc.get("mods"), msch)
+        report(f"descriptor/mods/hostile/{v['name']} (schema)",
+               sok == (v["schema_verdict"] == "accept") and mods_sok == sok, detail)
+        det_ok, det_detail = schema_ok(without_mods(doc), descriptor_schema)
+        reader_ok = reader_ignoring_mods_accepts(doc, descriptor_schema)
+        report(f"descriptor/mods/hostile/{v['name']} (client)",
+               det_ok and "mods" in doc and reader_ok == (v["reader_ignoring_mods"] == "accept"), det_detail)
+        problems = mods_semantic_problems(doc)
+        if v["check"] == "semantic":
+            report(f"descriptor/mods/hostile/{v['name']} (semantic)", problems == [v["rule"]], f"{problems}")
+        else:
+            # named for the one rule it breaks: no semantic rule fires too
+            report(f"descriptor/mods/hostile/{v['name']} (semantic)", problems == [], f"{problems}")
 
     # -- index --------------------------------------------------------------
     index_schema = load_schema(vectors["index"]["schema"])
