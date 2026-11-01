@@ -1,0 +1,15 @@
+# content check golden: a JSON config whose top-level asset is a string -- accepted. three.js reads
+# asset.version, so a glTF's asset is an object; this games-only difference from the content
+# catalogue's sniff keeps a game's own data files from being refused as glTF (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.json-asset-string"
+name = "Json Asset String"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

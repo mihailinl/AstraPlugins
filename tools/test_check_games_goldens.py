@@ -561,7 +561,16 @@ class ContentByBytes(unittest.TestCase):
         self.assertTrue(ggold.CG.is_gltf_json(raw))
         self.assertTrue(ggold.is_text_gltf(ggold.CG.UTF8_BOM + raw), "a UTF-8 BOM is skipped, as three.js does")
         self.assertTrue(ggold.is_text_gltf(b'{"\\u0061sset": {}}'), "the key is compared decoded")
-        self.assertFalse(ggold.is_text_gltf(b'{"meta": {"asset": 1}}'), "only a top-level key decides")
+        self.assertFalse(ggold.is_text_gltf(b'{"meta": {"asset": {}}}'), "only a top-level key decides")
+
+    def test_a_top_level_asset_must_be_an_object(self):
+        files, doc = release("json-asset-string")
+        self.assertTrue(ggold.CG.is_gltf_json(files["data/hero.json"]), "the content catalogue's sniff says glTF")
+        self.assertEqual(codes_of(files, doc), [], "three.js reads asset.version: a string asset is no glTF")
+        for value, gltf in ((b'{"version": "2.0"}', True), (b' \n {}', True), (b'"2.0"', False), (b"1", False),
+                            (b"[]", False), (b"null", False)):
+            with self.subTest(value=value):
+                self.assertEqual(ggold.is_text_gltf(b'{"asset": ' + value + b"}"), gltf)
 
     def test_a_utf16_text_is_sniffed_as_what_it_decodes_to_and_otherwise_accepted(self):
         files, doc = release("localisation-utf16")
@@ -572,9 +581,10 @@ class ContentByBytes(unittest.TestCase):
 
     def test_over_16_mib_an_asset_key_refuses_in_any_spelling_and_its_absence_accepts(self):
         pad = b"x" * (ggold.CG.MAX_GLTF_JSON + 1)
-        for key, refused in [(b'"asset"', True), (b'"\\u0061ss\\u0065t"', True), (b'"assets"', False), (b'"meta"', False)]:
+        for key, refused in [(b'"asset": {', True), (b'"\\u0061ss\\u0065t" :{', True), (b'"asset": 1, "x": {', False),
+                             (b'"assets": {', False), (b'"meta": {', False)]:
             with self.subTest(key=key):
-                raw = b'{"strings": "' + pad + b'", ' + key + b': 1}'
+                raw = b'{"strings": "' + pad + b'", ' + key + b'}}'
                 self.assertEqual(ggold.name_problem("data/big.json", raw) is not None, refused)
         self.assertIsNone(ggold.name_problem("data/big.bin", b"\x00" + pad + b'"asset"'), "not JSON-looking")
 
@@ -587,7 +597,7 @@ class ContentByBytes(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 5.0, "twenty 16 MiB files with no asset key, at C speed")
 
     def test_the_slow_sniff_reads_at_most_the_release_budget_and_then_the_key_refuses(self):
-        one = b'{"meta": {"asset": 1}, "pad": "' + b"x" * 1000 + b'"}'  # an asset key, not a glTF
+        one = b'{"meta": {"asset": {}}, "pad": "' + b"x" * 1000 + b'"}'  # an asset key, not a glTF
         files = {f"data/{i}.json": one for i in range(5)}
         saved = ggold.SNIFF_BUDGET
         ggold.SNIFF_BUDGET = 3 * len(one)

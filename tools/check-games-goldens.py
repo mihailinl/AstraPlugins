@@ -354,6 +354,9 @@ def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
 
 _BOM_CODECS = dict(zip(CG.UNICODE_BOMS, ("utf-32-be", "utf-32-le", "utf-16-le", "utf-16-be")))
 _ASSET_KEY = re.compile(rb'"(?:a|\\u0061)(?:s|\\u0073)(?:s|\\u0073)(?:e|\\u0065)(?:t|\\u0074)"')
+# ... whose value is an object: three.js reads asset.version, so a glTF's asset is one. A games-only
+# difference (manifest.md §2.7.1): {"asset": "textures/hero.png"} is a game's data, not a glTF.
+_ASSET_OBJ = re.compile(_ASSET_KEY.pattern + rb"[ \t\r\n]*:[ \t\r\n]*\{")
 
 
 _HEAD = 64  # bytes decoded at a time while looking for the first character
@@ -442,10 +445,10 @@ def _json_looking(raw: bytes) -> bool:
 def is_text_gltf(raw: bytes, budget: ReleaseBudget | None = None) -> bool:
     """The content catalogue's text-glTF sniff (`is_gltf_json`, S5/N1), over
     the text a BOM-honouring reader would see. First the C-speed test: no
-    `asset` key anywhere in the bytes (plain or \\u-escaped) is no glTF, and
-    the slow sniff never runs. Above 16 MiB, or once the release's
+    `asset` key anywhere in the bytes (plain or \\u-escaped) whose value is an
+    object is no glTF, and the slow sniff never runs. Above 16 MiB, or once the release's
     SNIFF_BUDGET is spent, the key alone refuses."""
-    if not _json_looking(raw) or not _names_key(raw, _ASSET_KEY):
+    if not _json_looking(raw) or not _names_key(raw, _ASSET_OBJ):
         return False
     if len(raw) > CG.MAX_GLTF_JSON:
         return True

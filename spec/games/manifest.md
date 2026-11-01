@@ -329,8 +329,16 @@ past content's 4,096). Inside it:
   flagged `F_CONTENT_ARCHIVE_UNSCANNED` the same (golden `jar-in-jar`:
   Fabric's `META-INF/jars/` and Forge's jar-in-jar nest them).
 
-Two deliberate differences from the content catalogue, because a game
+Three deliberate differences from the content catalogue, because a game
 integration ships arbitrary files and a content bundle does not:
+
+- **A text glTF's top-level `asset` is an object.** The content
+  catalogue's sniff decides on a top-level `asset` key whatever its value.
+  three.js reads `asset.version` and refuses a file without one, so a glTF's
+  `asset` is an object; `{"asset": "textures/hero.png", "scale": 2}` is a
+  game's data file, and is accepted here (golden `json-asset-string`). The
+  C-speed test below looks for the key followed by `{`, so a nested object
+  `asset` beside a top-level string one still errs toward refusing.
 
 - **A UTF-16/32 byte-order mark is not refused.** The content catalogue
   refuses any entry that begins with one, since no content part can; a game
@@ -346,16 +354,17 @@ integration ships arbitrary files and a content bundle does not:
 - **The key-by-key sniff is bounded.** It reads every character in Python
   (about 4 MiB a second on `{"":0,"":0,…}`; twenty such 16 MiB files once
   held the gate for 102 s), so it runs only on a JSON-looking file whose
-  bytes name an `asset` key at all — tested first, at C speed; no key, no
-  glTF (golden `json-many-keys-no-asset`, five such files, accepted within
+  bytes name an `asset` key with an object value at all — tested first, at
+  C speed; no such key, no glTF (golden `json-many-keys-no-asset`, five such files, accepted within
   5 s) — and it reads at most **64 MiB per release**. Past that budget, a
   JSON-looking file whose bytes name the key is refused unread, as one over
   16 MiB is.
 - **Over 16 MiB the key-by-key sniff is not run** — it reads every
   character, and a game's data file may be large. A JSON-looking file (after
   an optional BOM, `{` first) of more than 16 MiB not named `.gltf` is
-  refused when its bytes name an `asset` key at all, spelt plainly or with
-  `\u` escapes that JSON decodes to the same key, and accepted otherwise
+  refused when its bytes name an `asset` key with an object value at all,
+  the key spelt plainly or with `\u` escapes that JSON decodes to the same
+  key, and accepted otherwise
   (goldens `json-over-16mib-nested-asset`, refused, and
   `json-over-16mib-plain`, accepted; both built in memory by
   `testdata/games/content/vrm/gen.py`). Nothing that large is a glTF this

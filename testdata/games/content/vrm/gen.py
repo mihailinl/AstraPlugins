@@ -136,6 +136,8 @@ RELEASE_FILES = {
         lambda: codecs.BOM_UTF16_LE + '{"greeting": "Привет", "farewell": "Пока"}'.encode("utf-16-le"),
     "releases/localisation-utf16/lang/credits.txt": lambda: codecs.BOM_UTF16_BE + "Спасибо\n".encode("utf-16-be"),
     "releases/json-nested-asset/data/config.json": lambda: gltf_text({"meta": {"asset": "props/crate"}}),
+    # a top-level asset that is not an object: three.js reads asset.version, so this is no glTF
+    "releases/json-asset-string/data/hero.json": lambda: gltf_text({"asset": "textures/hero.png", "scale": 2}),
     # a .gltf uri a loader percent-decodes BEFORE it joins: it leaves the release, though a file with
     # that literal name is right beside it (the content catalogue's pct, N2)
     "releases/gltf-uri-percent/models/prop.gltf":
@@ -164,7 +166,7 @@ def padded_glb(chunk_len: int) -> bytes:
 
 SYNTH = {
     # over the 16 MiB a key-by-key sniff reads: refused only when the bytes name "asset"
-    "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": 1}, "strings": "' + b"x" * (16 * MIB) + b'"}',
+    "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": {}}, "strings": "' + b"x" * (16 * MIB) + b'"}',
     "json-over-16mib-plain": lambda: b'{"strings": "' + b"x" * (16 * MIB) + b'"}',
     # a 32 MiB game archive that happens to begin FF FE, then lone surrogates: decoded whole it
     # is ~80 MB of str and UTF-8 for a test of its first character
