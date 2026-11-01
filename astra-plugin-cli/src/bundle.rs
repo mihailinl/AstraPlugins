@@ -1162,6 +1162,42 @@ fn verify_no_deflate_slack<R: Read + Seek>(
                     }
                 }
             }
+            // All of `compressed_size` has now been fed in via
+            // `FlushDecompress::None` calls, but that alone does not
+            // guarantee `status == StreamEnd` came back: a decoder backend
+            // may hold the stream's last bytes pending internally — e.g.
+            // because `out_buf` filled on the call that consumed the last
+            // input byte, so the final flush of output (and the conclusive
+            // "this is the end" signal) waits for a follow-up call — and
+            // `FlushDecompress::None` is not a promise that no more input is
+            // coming, so some backends will not commit to `StreamEnd` on it
+            // alone. Nudge it explicitly: keep calling with no more input
+            // and `FlushDecompress::Finish`, which does promise that, until
+            // it either agrees the stream ended or stops making progress.
+            // Skipping this falsely refused legitimate files whose
+            // uncompressed size landed just past a multiple of `out_buf`'s
+            // 64 KiB — e.g. a large all-zero file (see
+            // `a_file_just_over_a_multiple_of_64kib_still_verifies` in
+            // verify.rs) — because the very last pending byte only ever
+            // surfaces on one of these calls.
+            while !stream_ended {
+                let before_out = inflater.total_out();
+                let status = inflater
+                    .decompress(&[], &mut out_buf, flate2::FlushDecompress::Finish)
+                    .with_context(|| {
+                        format!("Archive entry '{path}' is not a valid deflate stream")
+                    })?;
+                let produced = (inflater.total_out() - before_out) as usize;
+                out_size += produced as u64;
+                crc.update(&out_buf[..produced]);
+                if status == flate2::Status::StreamEnd {
+                    stream_ended = true;
+                } else if produced == 0 {
+                    // No more input will ever arrive and this call produced
+                    // nothing either: genuinely stuck, not merely waiting.
+                    break;
+                }
+            }
             if !stream_ended {
                 bail!(
                     "Archive entry '{path}' is Deflated but its real stream never reached its \

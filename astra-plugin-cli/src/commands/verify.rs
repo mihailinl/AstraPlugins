@@ -233,6 +233,62 @@ mod roundtrip {
         Bundle::open(&out).expect("`astra-plugin verify` must accept what `build` just wrote")
     }
 
+    /// The failure mode the "deflate slack" belt-and-braces check
+    /// (`verify_no_deflate_slack` in bundle.rs) must not introduce: refusing
+    /// a perfectly legitimate file because its decompressed length lands
+    /// just past a multiple of that function's own 64 KiB output buffer.
+    ///
+    /// 17×65536+1 bytes is not a round number by accident: it is the
+    /// smallest size, found by probing the exact resolved `zlib-rs` backend
+    /// pinned in `Cargo.lock`, at which the decoder consumes every declared
+    /// compressed byte on a `FlushDecompress::None` call and still has not
+    /// reported `Status::StreamEnd` — one pending output byte sits inside
+    /// it until a follow-up call with no more input and
+    /// `FlushDecompress::Finish` flushes it. 16×65536+1 (naively "1 MiB + 1
+    /// byte") does *not* trigger it with this backend version, which is
+    /// exactly why this is pinned at the size that was actually verified to,
+    /// rather than guessed from the shape of the bug. See the
+    /// drain-after-EOF comment on `verify_no_deflate_slack` for the fix this
+    /// test pins: removing it makes this test fail.
+    #[test]
+    fn a_file_just_over_a_multiple_of_64kib_still_verifies() {
+        let tmp = tempdir();
+        let project = tmp.join("big-zero-plugin");
+        create::run(crate::commands::create::NewOptions {
+            name: "big-zero-plugin",
+            lang: "python",
+            template: "tool",
+            ui: "vanilla",
+            capabilities: Some("tools"),
+            out_dir: &project.to_string_lossy(),
+        })
+        .expect("`astra-plugin new` must produce a buildable scaffold");
+
+        // All zeros: deflate shrinks it to about a kilobyte, but its
+        // UNCOMPRESSED length is what the belt-and-braces check drains
+        // through `out_buf` in 64 KiB steps, and 17×65536+1 is confirmed
+        // (see the doc comment above) to land exactly where the fix matters.
+        let big = vec![0u8; 17 * 64 * 1024 + 1];
+        std::fs::write(project.join("src").join("zeros.bin"), &big)
+            .expect("writing the oversized fixture file into the scaffold");
+
+        let out = tmp.join("big-zero-plugin.astraplugin");
+        build::run(build::BuildOptions {
+            path: &project.to_string_lossy(),
+            output: Some(&out.to_string_lossy()),
+            target: Some(Target::Noarch),
+            reproducible: true,
+            no_sign: false,
+        })
+        .expect("`astra-plugin build` must produce a bundle");
+
+        Bundle::open(&out).expect(
+            "a legitimate large all-zero Deflated entry must verify — `verify_no_deflate_slack` \
+             must not mistake a decoder that needs one more drain call past the last byte of \
+             input for a stream that never ended",
+        );
+    }
+
     #[test]
     fn a_scaffold_builds_into_a_bundle_its_own_reader_accepts() {
         let tmp = tempdir();
@@ -1236,6 +1292,144 @@ mod cloaking {
         out
     }
 
+    /// Entry 1 is `notes.txt`, **Stored** (not Deflated), with bit 3 set —
+    /// `gen.py`'s round-2 `stored-dd.zip` vector's own trick, wrapped inside
+    /// an otherwise ordinary bundle rather than left as the bare archive
+    /// `testdata/zip-cloaking/stored-dd.zip` is. Bit 3 on a Stored entry is
+    /// unusual (there is nothing to defer: its size is as "deferred" as a
+    /// length ever gets) but legal per APPNOTE, and `entry.flags().
+    /// is_using_data_descriptor()` does not care which compression method
+    /// an entry uses. This isolates that: the committed vector gets refused
+    /// for an *earlier*, unrelated reason (it has no `MANIFEST.json` at all,
+    /// so invariant 1 refuses it first); this fixture is shaped like a real
+    /// bundle specifically so the bit-3 check is the thing that catches it.
+    fn build_stored_bit3_bundle() -> Vec<u8> {
+        let content: &[u8] = b"harmless notes\n";
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: "notes.txt".to_string(),
+            sha256: hex(&Sha256::digest(content)),
+            size: content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let entry_offset = write_local_header_raw(
+            &mut out,
+            b"notes.txt",
+            0,      // Stored
+            0x0008, // general-purpose bit 3, on a Stored entry
+            0,
+            0,
+            0,
+            &[],
+            content,
+        );
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry_raw(
+            &mut out,
+            b"notes.txt",
+            0,
+            0x0008,
+            crc32(content),
+            content.len() as u32,
+            content.len() as u32,
+            &[],
+            entry_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
+        out
+    }
+
+    /// The ZIP64 Extended Information extra field (tag 0x0001), carrying
+    /// only a replacement `compressed_size` — the shape APPNOTE 4.5.3 uses
+    /// when just one 32-bit field held the `0xFFFFFFFF` sentinel: the block
+    /// holds only the field that was asked for, in order, so here that is
+    /// one bare `u64`, no `uncompressed_size` slot reserved ahead of it.
+    fn zip64_compressed_size_extra(real_compressed_size: u64) -> Vec<u8> {
+        let mut field = Vec::new();
+        field.extend_from_slice(&le16(0x0001));
+        field.extend_from_slice(&le16(8)); // block size: one u64
+        field.extend_from_slice(&real_compressed_size.to_le_bytes());
+        field
+    }
+
+    /// The same lie `build_slack_bundle` tells — a Deflated entry's
+    /// declared `compressed_size` overshoots where its real deflate stream
+    /// ends, hiding `junk` in the gap — except this time the base 32-bit
+    /// `compressed_size` field holds the ZIP64 sentinel `0xFFFFFFFF`, and
+    /// the real (still lying) value lives in a ZIP64 extra field instead.
+    /// Bit 3 is unset and local/central agree on everything, including the
+    /// sentinel and the extra field, so neither `validate_header_consistency`
+    /// nor the bit-3 refusal fire. This exists to prove
+    /// `verify_no_deflate_slack` runs against the *resolved* size `zip`
+    /// hands back from `entry.compressed_size()` — not the raw sentinel,
+    /// and not skipped because resolving it took an extra field to do.
+    fn build_zip64_slack_bundle() -> Vec<u8> {
+        let content: &[u8] = b"hello world\n";
+        let compressed = raw_deflate(content);
+        let crc = crc32(content);
+        let junk = b"JUNK-AFTER-THE-REAL-STREAM-ENDS";
+        let real_compressed_size = (compressed.len() + junk.len()) as u64;
+        let extra = zip64_compressed_size_extra(real_compressed_size);
+
+        let manifest_bytes = build_manifest(vec![FileEntry {
+            path: "a.txt".to_string(),
+            sha256: hex(&Sha256::digest(content)),
+            size: content.len() as u64,
+            mode: "0644".to_string(),
+        }]);
+
+        let mut a_content = compressed.clone();
+        a_content.extend_from_slice(junk);
+
+        let mut out = Vec::new();
+        let manifest_offset = write_local_header(&mut out, b"MANIFEST.json", &manifest_bytes);
+        let a_offset = write_local_header_raw(
+            &mut out,
+            b"a.txt",
+            8, // Deflated
+            0, // bit 3 unset
+            crc,
+            0xFFFF_FFFF, // ZIP64 sentinel: the real compressed_size is in `extra`
+            content.len() as u32,
+            &extra,
+            &a_content,
+        );
+
+        let central_start = out.len() as u32;
+        write_central_entry(
+            &mut out,
+            b"MANIFEST.json",
+            crc32(&manifest_bytes),
+            manifest_bytes.len() as u32,
+            manifest_offset,
+        );
+        write_central_entry_raw(
+            &mut out,
+            b"a.txt",
+            8,
+            0,
+            crc,
+            0xFFFF_FFFF,
+            content.len() as u32,
+            &extra,
+            a_offset,
+        );
+        let central_size = out.len() as u32 - central_start;
+        write_eocd(&mut out, 2, central_size, central_start);
+        out
+    }
+
     /// A scratch path that does not need the `tempfile` crate, mirroring
     /// `roundtrip::tempdir`'s reasoning in this same binary.
     struct ScratchFile(std::path::PathBuf);
@@ -1398,6 +1592,105 @@ mod cloaking {
             err.contains("Unicode Path") || err.contains("0x7075"),
             "the refusal should name the Unicode Path extra field, not some other invariant: \
              {err}"
+        );
+    }
+
+    /// `build_stored_bit3_bundle`, isolated: a **Stored** entry with bit 3
+    /// set, inside an otherwise ordinary bundle.
+    ///
+    /// MUTATION PROOF: removing the `entry.flags().is_using_data_descriptor()`
+    /// refusal makes this test fail. Nothing else here is wrong — the
+    /// entry's declared size (0, deferred) and its mode are exactly what a
+    /// Stored, bit-3 entry's local header is supposed to say, matching the
+    /// central directory's real values, and `MANIFEST.files` is accurate —
+    /// so only the bit-3 ban itself catches a Stored entry carrying it,
+    /// proving the check does not quietly assume Deflated.
+    #[test]
+    fn verify_refuses_a_stored_entry_with_a_trailing_data_descriptor() {
+        let err = expect_refused(
+            &build_stored_bit3_bundle(),
+            "Bundle::open accepted a Stored entry with general-purpose bit 3 (a trailing data \
+             descriptor) set. The bit-3 refusal must not assume Deflated.",
+        );
+        assert!(
+            err.contains("data descriptor") || err.contains("bit 3"),
+            "the refusal should name the data-descriptor flag, not some other invariant: {err}"
+        );
+    }
+
+    /// `testdata/zip-cloaking/stored-dd.zip`, received from astra-ce's
+    /// second review round with the sha256 quoted in its directory's
+    /// README, kept byte-for-byte rather than rebuilt: a Stored entry
+    /// (`notes.txt`) with bit 3 set, whose real trailing data descriptor
+    /// sits *after* a second entry (`launch.sh`) rather than right after
+    /// its own content, with a CRC32 computed over all three (`notes.txt`'s
+    /// content plus `launch.sh`'s entire local header and content) — so a
+    /// streaming reader with no central directory, hunting for a CRC match
+    /// to learn where `notes.txt` ends, absorbs `launch.sh` whole and never
+    /// sees it as a separate entry.
+    ///
+    /// `Bundle::open` refuses this file — but for an earlier, unrelated
+    /// reason than the bit-3 flag: it has no `MANIFEST.json` at all (it is
+    /// not a `.astraplugin` bundle, just a bare ZIP exercising the
+    /// underlying container format this reader hardens), so invariant 1 —
+    /// the very first thing `Bundle::open` checks, straight off the raw
+    /// bytes at offset 0 — refuses it before the bit-3 check is ever
+    /// reached. `verify_refuses_a_stored_entry_with_a_trailing_data_descriptor`
+    /// above is what proves the bit-3 mechanism itself catches this shape
+    /// when it is wrapped in something that otherwise looks like a bundle;
+    /// this test is the literal committed vector, kept refused.
+    #[test]
+    fn verify_refuses_the_committed_stored_bit3_vector() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("astra-plugin-cli has a parent directory")
+            .join("testdata/zip-cloaking/stored-dd.zip");
+        let bytes = std::fs::read(&path).unwrap_or_else(|e| {
+            panic!(
+                "{} is missing or unreadable: {e}. It is committed; a checkout without it is \
+                 incomplete, not a reason to skip.",
+                path.display()
+            )
+        });
+        assert_eq!(
+            hex(&Sha256::digest(&bytes)),
+            "3841c473f7ade57d1efca72aa33847d9508773df2147797a8bdb873828f691fb",
+            "{} does not match the sha256 astra-ce's review quoted — it was edited in place",
+            path.display()
+        );
+        // Refused — for whichever reason; see the doc comment above.
+        if Bundle::open(&path).is_ok() {
+            panic!(
+                "Bundle::open accepted testdata/zip-cloaking/stored-dd.zip, a Stored bit-3 \
+                 entry whose real data descriptor sits after the next entry"
+            );
+        }
+    }
+
+    /// `build_zip64_slack_bundle`, isolated: the same `compressed_size`
+    /// overshoot `verify_refuses_a_deflated_entry_whose_declared_compressed_size_hides_slack`
+    /// proves, except the real (still lying) size is resolved from a ZIP64
+    /// extra field rather than stated directly in the 32-bit header.
+    ///
+    /// MUTATION PROOF: removing the `verify_no_deflate_slack` call makes
+    /// this test fail too — the same mutation
+    /// `verify_refuses_a_deflated_entry_whose_declared_compressed_size_hides_slack`
+    /// pins, now proven against a size this reader had to resolve through
+    /// `zip`'s own ZIP64 handling first rather than read verbatim. That
+    /// resolution happens before `Bundle::open` ever sees a number — see
+    /// `ZipFileData::apply_extra_fields` in the `zip` crate — so there was
+    /// no separate branch in `verify_no_deflate_slack` that could have
+    /// skipped it; this is what confirms that rather than assuming it.
+    #[test]
+    fn verify_refuses_a_deflated_entry_whose_zip64_resolved_compressed_size_hides_slack() {
+        let err = expect_refused(
+            &build_zip64_slack_bundle(),
+            "Bundle::open accepted an entry whose ZIP64-resolved compressed_size runs past \
+             where its real deflate stream ends.",
+        );
+        assert!(
+            err.contains("slack") || err.contains("compressed size"),
+            "the refusal should be traceable to the slack/size check, not a coincidence: {err}"
         );
     }
 }
