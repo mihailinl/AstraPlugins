@@ -539,6 +539,11 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     def e0(s):
         return s["entries"][0]
 
+    # the shared rights-text ids are dotted (`market.rights.animations`, the games pattern)
+    dotted = copy.deepcopy(valid["commands"])
+    dotted["entries"][0]["content_confirmed"] = {"market.rights.animations": 2}
+    put_doc("index/commands/content-confirmed-dotted-id.json", "commands", "index", dotted)
+    bad("commands", "content-confirmed-malformed-id", lambda s: e0(s).update(content_confirmed={"market..rights": 1}))
     bad("commands", "expiry-span-too-long", lambda s: s.update(expires_at=s["issued_at"] + 8 * 86400 + 1))
     bad("commands", "issued-in-future", lambda s: s.update(issued_at=T0 + 86400 + 1, serial=T0 + 86400 + 1,
                                                          expires_at=T0 + 86400 + 1 + WEEK))

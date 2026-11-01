@@ -59,7 +59,8 @@ VERSION_RANGE = {"type": "string", "minLength": 1, "maxLength": 128,
                  "pattern": f"^(={_V}|(>=|>){_V}(,(<=|<){_V})?|(<=|<){_V})$"}
 UNIX = {"type": "integer", "minimum": 0}
 HTTPS = {"type": "string", "maxLength": 2048, "pattern": "^https://[^\\s]+$"}
-TEXT_ID = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
+# the games pattern (spec/games), so the SHARED rights-text ids (`market.rights.animations`) fit
+TEXT_ID = {"type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)*$"}
 
 DEFS_COMMON = {
     "sha256": SHA256,

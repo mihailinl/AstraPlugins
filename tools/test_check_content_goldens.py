@@ -648,6 +648,19 @@ class R3DuplicateKeysInEveryGlb(unittest.TestCase):
                                                "archives/accessory-duplicate-key", "archives/animset-glb-duplicate-key")
 
 
+class R4SharedTextIds(unittest.TestCase):
+    def test_the_old_text_id_pattern(self):
+        orig = cg.schema
+
+        def old_pattern(name):
+            sch = copy.deepcopy(orig(name))
+            cc = sch.get("$defs", {}).get("entry", {}).get("properties", {}).get("content_confirmed")
+            if cc:
+                cc["propertyNames"] = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
+            return sch
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("schema", old_pattern), "index/commands/content-confirmed-dotted-id")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

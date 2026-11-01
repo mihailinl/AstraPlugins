@@ -91,7 +91,7 @@ Every entry of `commands`, `characters`, `models` and `animsets` carries:
 | `min_astra` | semver | a client older than this does not offer the item |
 | `published_at` | Unix seconds | |
 | `parts` | `[{part_kind, digest, size}]` | [`part-digest-v1.md`](part-digest-v1.md); which part kinds a kind allows is in its spec |
-| `content_confirmed` | `{text_id: version}` | which rights-confirmation text version the parts were last confirmed under — **never an account**; the confirmations themselves are the plugins service's record (§2). Non-empty whenever `parts` is (rule `parts-confirmed`) |
+| `content_confirmed` | `{text_id: version}` | `text_id` follows the games pattern `^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$` (≤ 128), so the SHARED ids such as `market.rights.animations` fit (golden `content-confirmed-dotted-id`; `market..rights` is refused); `version` ≥ 1. Which rights-confirmation text version the parts were last confirmed under — **never an account**; the confirmations themselves are the plugins service's record (§2). Non-empty whenever `parts` is (rule `parts-confirmed`) |
 | `licence` | §3.1 | |
 | `credits` | §3.2 | |
 
