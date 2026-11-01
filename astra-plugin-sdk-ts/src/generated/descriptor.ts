@@ -5476,6 +5476,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "workWorkerModel"
               ]
+            },
+            "_fastReasoningEffort": {
+              "oneof": [
+                "fastReasoningEffort"
+              ]
             }
           },
           "fields": {
@@ -5646,6 +5651,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "workWorkerModel": {
               "type": "string",
               "id": 35,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "fastReasoningEffort": {
+              "type": "string",
+              "id": 36,
               "options": {
                 "proto3_optional": true
               }
@@ -6721,6 +6733,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "advanced": {
               "type": "bool",
               "id": 18
+            },
+            "validationPattern": {
+              "type": "string",
+              "id": 19
+            },
+            "validationMessage": {
+              "type": "string",
+              "id": 20
             }
           }
         },
