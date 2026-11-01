@@ -22,6 +22,8 @@
 
 # refusals of an upload (ingest-v1.md). The first failing step's code is the answer.
 ingest:
+  # the begin door, before any other check: no CSAM scanner configured (ingest-v1.md §1, design §8a)
+  E_CONTENT_PUBLISHING_CLOSED: live
   E_ZIP_END_RECORD: live
   E_ARCHIVE_TOO_MANY_ENTRIES: live
   E_ARCHIVE_ENCRYPTED: live
@@ -69,6 +71,8 @@ ingest:
 flags:
   F_CONTENT_VRM_META_UNKNOWN: live
   F_COMMAND_EXEC_AND_NETWORK: live
+  # held: a CSAM scanner error or timeout, or an image that cannot be decoded (§8a)
+  F_CONTENT_CSAM_UNSCANNED: live
 
 # what a CLIENT says when it refuses an install, an update or a document
 # (common-v1.md §7, trust-kind-keys-v1.md §7). Lower-case, as the client's

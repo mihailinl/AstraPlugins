@@ -20,11 +20,26 @@ it MUST give the same first code for every golden.
 
 ## 1. Before any byte
 
+**Publishing is CLOSED until CSAM hash matching is configured** (design note
+§8a, `arch/after-m1` `2fcd18d49`; the owner made it a gate, 2026-11-01). The
+knob `content.csam.scanners` compiles to `[]`, and with no scanner configured
+the `begin` door refuses **every** content kind with
+**`E_CONTENT_PUBLISHING_CLOSED`**, before any other check. A client renders it
+as a closed state ("publishing is not open yet"), never as an error, and does
+not retry it as one. RU stays closed the same way until Stage 2.
+
 At `begin`, against the DECLARED values: the size caps (§2), the author's
 quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, and the declared
 bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`). At `finalize`: the
 assembled file's sha256 and size equal what `begin` declared
 (`E_CONTENT_DIGEST_MISMATCH`).
+
+**The scan itself** (§8a) runs on every image the upload carries, including
+textures embedded in a VRM, GLB or glTF (through a `bufferView`, a `data:` URI or
+a relative file). A scanner **error or timeout**, or an image the extraction
+cannot decode, **holds** the version with **`F_CONTENT_CSAM_UNSCANNED`**: it is
+never published unscanned, whatever the §8 policy says. What a MATCH does (hide,
+sanction, quarantine, report) is §8a's and has no code here.
 
 ## 2. Size caps (knobs; compiled to these values, every kind compiled CLOSED)
 
