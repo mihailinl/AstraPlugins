@@ -28,6 +28,23 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [Unreleased]
+
+### Added
+
+- **The UI Kit matches Astra `5d5ae5e83bd` (main).** `astra-plugin new` vendors
+  the kit's declarations into `frontend/vendor/astra-plugin-ui/`, resynced
+  after `ASTRA_REF` was deleted and `proto-upstream` started checking out
+  Astra `main` again instead of the `release/0.2.7-final` branch that had been
+  hiding this drift. The snapshot gains:
+  - `Slider` takes `marks`, `aria-label` and `aria-valuetext`;
+  - `CardBaseProps.variant` gains `"solid"`, alongside `"surface"` and
+    `"subtle"`;
+  - the theme exposes `--color-plate`, `--color-plate-hover`,
+    `--surface-frost`, `--surface-standalone`, `--surface-standalone-hover`
+    and `--surface-standalone-raised`.
+  Nothing was removed or renamed.
+
 ## [0.5.1] — 2026-10-25
 
 Additions only, so the patch slot ([`docs/en/versioning.md`](../docs/en/versioning.md)).
