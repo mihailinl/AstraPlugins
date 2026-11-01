@@ -97,9 +97,11 @@ def signing_digest(domain: str, signed: Any) -> bytes:
 
 
 def path_refusal(path: str) -> str | None:
-    """None when `path` is a canonical part path, else the rule it breaks
+    """None when `path` is a canonical ZIP ENTRY NAME, else the rule it breaks
     (part-digest-v1.md §2). The ingest refuses the BUNDLE on any of these
-    (E_ARCHIVE_NAME_UNSAFE), so a stored name is already canonical."""
+    (E_ARCHIVE_NAME_UNSAFE), so a stored name is already canonical. `empty` is
+    about entry names: the derived path `""` of a single-file part (§3) is not an
+    entry name and never passes through here."""
     if path == "":
         return "empty"
     if unicodedata.normalize("NFC", path) != path:
@@ -120,20 +122,32 @@ def path_refusal(path: str) -> str | None:
     return None
 
 
-def part_digest_pairs(files: dict[str, bytes]) -> list[list[str]]:
+def part_digest_pairs(files: dict[str, bytes], *, root: str | None) -> list[list[str]]:
+    """files: {ZIP ENTRY NAME: bytes} of ONE part. Paths are made relative to the PART ROOT
+    (part-digest-v1.md §2): `root` is the part's own directory (`animpacks/<id>`, an accessory's
+    folder; `""` for a pack at the zip root of a `.astrapack`), or None for a SINGLE-FILE part,
+    whose one pair has the path `""` -- so its digest depends on its bytes alone."""
     for p in files:
         why = path_refusal(p)
         if why is not None:
             raise ValueError(f"{p!r}: {why}")
-    pairs = [[p, hashlib.sha256(b).hexdigest()] for p, b in files.items()]
+    if root is None:
+        if len(files) != 1:
+            raise ValueError("a single-file part holds exactly one file")
+        return [["", hashlib.sha256(next(iter(files.values()))).hexdigest()]]
+    prefix = root.rstrip("/") + "/" if root else ""
+    pairs = []
+    for p, b in files.items():
+        if not p.startswith(prefix):
+            raise ValueError(f"{p!r} is not under the part root {root!r}")
+        pairs.append([p[len(prefix):], hashlib.sha256(b).hexdigest()])
     pairs.sort(key=lambda pr: pr[0].encode("utf-8"))
     return pairs
 
 
-def part_digest(files: dict[str, bytes]) -> str:
-    """files: {bundle-root-relative path: bytes} of ONE part. Returns bare
-    lowercase hex."""
-    return hashlib.sha256(jcs(part_digest_pairs(files))).hexdigest()
+def part_digest(files: dict[str, bytes], *, root: str | None) -> str:
+    """The part digest (bare lowercase hex) of ONE part; see part_digest_pairs."""
+    return hashlib.sha256(jcs(part_digest_pairs(files, root=root))).hexdigest()
 
 
 # ── Ed25519, RFC 8032 §5.1 reference (test use only) ──────────────────────
