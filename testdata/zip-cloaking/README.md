@@ -1,21 +1,23 @@
-# `testdata/zip-cloaking`
+<!--
+SPDX-License-Identifier: GPL-3.0-or-later
+Copyright (C) 2026 Minice — https://minice.ai
+-->
 
-Raw ZIP-cloaking attack vectors used by `astra-plugin-cli`'s
-`commands::verify::cloaking` tests. These are **not** `.astraplugin` bundles —
-no `MANIFEST.json`, no manifest digest — they exercise `Bundle::open`'s
-lower-level ZIP structural hardening (`validate_header_consistency`, the bit-3
-refusal, the Unicode Path refusal, `verify_no_deflate_slack`) directly,
-independent of the bundle format itself. That is also why this lives beside
-`testdata/bundles` rather than inside it: the bundle vectors are vendored
-cross-repo (Astra, astra-registry) because all three implementations read the
-*format*; these are CLI-only, about the ZIP container underneath it.
+# ZIP cloaking vectors
 
-| file | sha256 | what it demonstrates |
+Two archives that a validator and an extractor read differently, and that `zip` 9's
+`ZipArchive::validate_header_consistency` does NOT refuse on its own. Every reader of an archive that
+Astra later installs must refuse both: the AstraPlugins CLI (`astra-plugin verify`), the registry
+bot's bundle reader, the games catalogue's ingest, minice's content upload ingest, and the Astra daemon.
+Each consumer pins these bytes by the sha256 in `SHA256SUMS`, so all of them test the same archives.
+
+| file | shape | expected |
 |---|---|---|
-| `stored-dd.zip` | `3841c473f7ade57d1efca72aa33847d9508773df2147797a8bdb873828f691fb` | A **Stored** entry (`notes.txt`) with general-purpose bit 3 set. Its real trailing data descriptor sits *after* the next entry (`launch.sh`), with a CRC32 computed over all three (`notes.txt`'s content + `launch.sh`'s entire local header + content) — so a streaming reader with no central directory, watching for a CRC match to find where `notes.txt` ends, absorbs `launch.sh` into it entirely and never sees a second entry at all. The central directory sees two ordinary, non-overlapping entries. `Bundle::open` refuses this archive outright because of the bit-3 flag alone, before any of that ambiguity matters. |
+| `slack.zip` | a Deflated entry with a data descriptor (general-purpose bit 3) whose central-directory `compressed_size` runs past the real end of the deflate stream; the slack hides a local header that swallows the next entry, so a streaming reader and a central-directory reader see different payloads | **reject: E_ZIP_HEADERS_INCONSISTENT** — inflate each entry raw and require the stream to end exactly at `compressed_size`, matching the declared size and CRC |
+| `upath.zip` | an entry carrying the `0x7075` Unicode Path extra field, which renames it for readers that honour the field | **reject: E_ZIP_HEADERS_INCONSISTENT** — refuse any entry carrying `0x7075` |
+| `stored-dd.zip` | a STORED entry with a data descriptor (bit 3) whose real descriptor sits after the NEXT entry, so a scanning reader (e.g. Windows `tar.exe` on a pipe) and a central-directory reader see different payloads | **reject: E_ZIP_HEADERS_INCONSISTENT** — refuse bit 3 where the producer never writes it; otherwise require a descriptor EXACTLY at the entry's recorded end (signature optional) whose CRC and sizes equal the central record |
 
-Received from astra-ce's second review round (2026-10-31) with this sha256
-already quoted; this file is kept byte-for-byte as received rather than
-rebuilt, since reproducing a streaming-reader-vs-central-directory CRC
-collision by hand is exactly the kind of fixture worth keeping literally
-rather than re-deriving.
+`gen.py` regenerates `slack.zip` and `upath.zip`, and `gen_stored_dd.py` regenerates `stored-dd.zip`, deterministically.
+
+**Two rules every checker must also keep (review round 2):** drain the inflater after input EOF before judging "the stream ends exactly at compressed_size", or legitimate near-zero files just over k×64 KiB are falsely refused; and run the deflate-end check on EVERY Deflated entry, including those with ZIP64 sentinels. Found by astra-ce's review on 2026-11-01;
+committed here as the shared golden at minice-01's and astra-ce's request.
