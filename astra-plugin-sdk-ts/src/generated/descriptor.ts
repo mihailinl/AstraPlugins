@@ -4524,6 +4524,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "widgetPanel": {
               "type": "WidgetPanelSettings",
               "id": 24
+            },
+            "reminders": {
+              "type": "RemindersSettings",
+              "id": 25
+            }
+          }
+        },
+        "RemindersSettings": {
+          "fields": {
+            "sound": {
+              "type": "bool",
+              "id": 1
+            },
+            "soundVolume": {
+              "type": "uint32",
+              "id": 2
             }
           }
         },
