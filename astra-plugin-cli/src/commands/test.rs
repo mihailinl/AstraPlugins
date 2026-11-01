@@ -1542,10 +1542,11 @@ async fn probe_one(
                     limit: 5,
                 })
             );
-            if let Ok(r) = &answer {
-                if r.error_code.is_empty() && r.items.len() > 5 {
-                    return (Status::Error, format!("asked for 5 item(s) and got {}", r.items.len()));
-                }
+            if let Ok(r) = &answer
+                && r.error_code.is_empty()
+                && r.items.len() > 5
+            {
+                return (Status::Error, format!("asked for 5 item(s) and got {}", r.items.len()));
             }
             return music_answer(answer.map(|r| r.error_code));
         }
@@ -1561,10 +1562,11 @@ async fn probe_one(
                     language: "en".into(),
                 })
             );
-            if let Ok(r) = &answer {
-                if r.error_code.is_empty() && r.items.len() > 3 {
-                    return (Status::Error, format!("asked for 3 item(s) and got {}", r.items.len()));
-                }
+            if let Ok(r) = &answer
+                && r.error_code.is_empty()
+                && r.items.len() > 3
+            {
+                return (Status::Error, format!("asked for 3 item(s) and got {}", r.items.len()));
             }
             return music_answer(answer.map(|r| r.error_code));
         }
