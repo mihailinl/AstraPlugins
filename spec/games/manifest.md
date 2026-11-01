@@ -552,6 +552,29 @@ rule 2a's `licence.source = declared` fallback, applied to a GI's own
 free-text `licence` field rather than astra-ce's richer structured
 declaration form).
 
+**Reserved: CSAM hash matching — `W_CONTENT_CSAM_PENDING`,
+`F_CONTENT_CSAM_UNSCANNED`.** The owner made CSAM hash matching a gate on
+content publishing (2026-11-01; the content contract's `ingest-v1.md` §1),
+and it applies to a game integration's images too, which would otherwise
+bypass it (astra-plugins-ops `dev/game-integrations-lane-c-minice-design.md`
+§1.6a). **The plugins service scans every image of a GI release** — a
+declared `art` part, a texture inside a GLB or `.gltf` (a bufferView, a
+`data:` uri or a relative file) and every image inside an embedded
+`.astrachar`/`.astrapack` — with minice's own extractor and scanner, after
+the rights gate and before the release is leased for signing. **This
+checker never does, and neither does the catalogue's public Actions run**:
+neither holds a scanner key, and "every image" is defined once, by that
+extractor, not a second time here. The two codes are reserved so that no
+other rule takes them:
+
+| code | class | meaning |
+|---|---|---|
+| `W_CONTENT_CSAM_PENDING` | wait | the release has at least one image and no scanner is configured yet; it clears by itself once one is. A wait, not a refusal, because a release is a tag the author cannot cheaply re-cut. A release with no image publishes as it always did |
+| `F_CONTENT_CSAM_UNSCANNED` | held | a scan errored, timed out or met an image it could not decode; nothing is published unscanned |
+
+A match is not a code of this gate: the service quarantines the release
+and blocks the publisher, as for content.
+
 #### 2.7.4 The catalogue entry
 
 An entry carries `content[]`, each `{path, kind, title, credit, licence?,
