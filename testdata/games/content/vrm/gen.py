@@ -11,9 +11,15 @@ json.dumps' default, `compact` is sorted keys with no spaces. The hostile
 json.dumps cannot name a member twice; `past-eof` declares a JSON chunk 8
 bytes longer than the file and `bad-length` a header length 4 bytes short.
 
+It also writes the release goldens' content files that are not hand-written
+text (`RELEASE_FILES`, under ../releases/), and `synth(name)` builds the ones
+too large to commit -- check-games-goldens.py calls it and compares the bytes
+with the sha256 vectors.json pins, as the content catalogue's gen.py does.
+
     python3 gen.py           # write every file
     python3 gen.py --check   # write nothing; fail if any file differs
 """
+import codecs
 import json
 import pathlib
 import struct
@@ -100,6 +106,45 @@ def glb(style, obj):
     return struct.pack("<4sII", b"glTF", 2, total) + body
 
 
+# ── the release goldens (../releases/<name>/...) ────────────────────────
+
+MIB = 1024 * 1024
+
+
+def gltf_text(obj) -> bytes:
+    return json.dumps(obj).encode("utf-8")
+
+
+# a text glTF carrying an avatar whose licence refuses redistribution
+GLTF_AVATAR_PROHIBITED = {"asset": {"version": "2.0"},
+                          **v0({"licenseName": "Redistribution_Prohibited", "allowedUserName": "Everyone"})}
+
+RELEASE_FILES = {
+    # content by bytes (manifest.md §2.7.1): a GLB or a text glTF under any other name
+    "releases/glb-named-bin/data/avatar.bin": lambda: glb(*GOLDENS["refused-vrm0-redistribution-prohibited.vrm"]),
+    "releases/gltf-named-json/data/avatar.json": lambda: gltf_text(GLTF_AVATAR_PROHIBITED),
+    "releases/gltf-named-json-utf16/data/avatar.json":
+        lambda: codecs.BOM_UTF16_LE + json.dumps(GLTF_AVATAR_PROHIBITED).encode("utf-16-le"),
+    # ... and what a game integration really ships beside it, accepted
+    "releases/localisation-utf16/lang/strings.json":
+        lambda: codecs.BOM_UTF16_LE + '{"greeting": "Привет", "farewell": "Пока"}'.encode("utf-16-le"),
+    "releases/localisation-utf16/lang/credits.txt": lambda: codecs.BOM_UTF16_BE + "Спасибо\n".encode("utf-16-be"),
+    "releases/json-nested-asset/data/config.json": lambda: gltf_text({"meta": {"asset": "props/crate"}}),
+}
+
+
+SYNTH = {
+    # over the 16 MiB a key-by-key sniff reads: refused only when the bytes name "asset"
+    "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": 1}, "strings": "' + b"x" * (16 * MIB) + b'"}',
+    "json-over-16mib-plain": lambda: b'{"strings": "' + b"x" * (16 * MIB) + b'"}',
+}
+
+
+def synth(name: str) -> bytes:
+    """The release goldens too large to commit, built in memory."""
+    return SYNTH[name]()
+
+
 def main(argv):
     check = "--check" in argv
     bad = []
@@ -111,6 +156,15 @@ def main(argv):
                 bad.append(name)
         else:
             path.write_bytes(want)
+    for rel, build in RELEASE_FILES.items():
+        want = build()
+        path = HERE.parent / rel
+        if check:
+            if not path.exists() or path.read_bytes() != want:
+                bad.append(rel)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(want)
     if check:
         stray = sorted(p.name for p in [*HERE.glob("*.vrm"), *HERE.glob("*.glb")] if p.name not in GOLDENS)
         for name in bad:
@@ -119,7 +173,7 @@ def main(argv):
             print(f"FAIL {name} is not written by gen.py", file=sys.stderr)
         if bad or stray:
             return 1
-        print(f"ok   {len(GOLDENS)} VRM goldens are what gen.py writes")
+        print(f"ok   {len(GOLDENS)} VRM goldens and {len(RELEASE_FILES)} release files are what gen.py writes")
     return 0
 
 

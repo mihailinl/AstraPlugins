@@ -514,6 +514,73 @@ class GltfFormat(unittest.TestCase):
         self.assertIn("external", ggold.gltf_format_problem(glb_of({"images": [{"uri": "t.png"}]}), "a.glb"))
 
 
+VECTORS = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))
+RELEASES = {v["name"]: v for v in VECTORS["content"]["releases"]}
+
+
+def release(name: str) -> tuple[dict, dict]:
+    """A release golden's files (synthesised ones included) and manifest."""
+    v = RELEASES[name]
+    files = ggold.release_files(ggold.DATA / v["dir"])
+    for rel, synth in v.get("synth", {}).items():
+        files[rel] = ggold.gen_module().synth(synth)
+    return files, ggold.load_doc(v["manifest"])
+
+
+def codes_of(files: dict, doc: dict) -> list[str]:
+    return sorted({f["code"] for f in ggold.release_findings(files, doc)["findings"]})
+
+
+class ContentByBytes(unittest.TestCase):
+    """manifest.md §2.7.1: a name never decides whether a file is content --
+    the content catalogue's own sniff and name rule, over EVERY file."""
+
+    def test_a_glb_under_another_name_is_refused_and_its_glb_name_makes_it_content(self):
+        files, doc = release("glb-named-bin")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        files["data/avatar.vrm"] = files.pop("data/avatar.bin")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"], "named as a GLB it is content-typed, and undeclared")
+
+    def test_a_text_gltf_under_another_name_is_refused_and_as_gltf_it_is_content(self):
+        files, doc = release("gltf-named-json")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        files["data/avatar.gltf"] = files.pop("data/avatar.json")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"])
+
+    def test_the_sniff_is_the_content_catalogues_own(self):
+        raw = ggold.release_files(ggold.DATA / "content/releases/gltf-named-json")["data/avatar.json"]
+        self.assertTrue(ggold.CG.is_gltf_json(raw))
+        self.assertTrue(ggold.is_text_gltf(ggold.CG.UTF8_BOM + raw), "a UTF-8 BOM is skipped, as three.js does")
+        self.assertTrue(ggold.is_text_gltf(b'{"\\u0061sset": {}}'), "the key is compared decoded")
+        self.assertFalse(ggold.is_text_gltf(b'{"meta": {"asset": 1}}'), "only a top-level key decides")
+
+    def test_a_utf16_text_is_sniffed_as_what_it_decodes_to_and_otherwise_accepted(self):
+        files, doc = release("localisation-utf16")
+        self.assertIsNotNone(ggold.CG.bom_refusal("lang/strings.json", files["lang/strings.json"]),
+                             "the content catalogue would refuse this file")
+        self.assertEqual(codes_of(files, doc), [], "a game integration's localisation file is not")
+        self.assertTrue(ggold.is_text_gltf(release("gltf-named-json-utf16")[0]["data/avatar.json"]))
+
+    def test_over_16_mib_an_asset_key_refuses_in_any_spelling_and_its_absence_accepts(self):
+        pad = b"x" * (ggold.CG.MAX_GLTF_JSON + 1)
+        for key, refused in [(b'"asset"', True), (b'"\\u0061ss\\u0065t"', True), (b'"assets"', False), (b'"meta"', False)]:
+            with self.subTest(key=key):
+                raw = b'{"strings": "' + pad + b'", ' + key + b': 1}'
+                self.assertEqual(ggold.name_problem("data/big.json", raw) is not None, refused)
+        self.assertIsNone(ggold.name_problem("data/big.bin", b"\x00" + pad + b'"asset"'), "not JSON-looking")
+
+    def test_turning_the_rule_off_turns_its_goldens_green_for_the_wrong_reason(self):
+        for name in ("glb-named-bin", "gltf-named-json", "gltf-named-json-utf16", "json-over-16mib-nested-asset"):
+            with self.subTest(name=name):
+                files, doc = release(name)
+                original = ggold.name_problem
+                ggold.name_problem = lambda p, b: None
+                try:
+                    self.assertEqual(codes_of(files, doc), [], "without the rule the golden is accepted -- so the golden sees it")
+                finally:
+                    ggold.name_problem = original
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"

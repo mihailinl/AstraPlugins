@@ -1,0 +1,14 @@
+# content check golden: the same text glTF, UTF-16LE with a byte-order mark, named
+# data/avatar.json -- E_CONTENT_FORMAT: a reader that decodes by the BOM sees a glTF (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.gltf-named-json-utf16"
+name = "Gltf Named Json Utf16"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

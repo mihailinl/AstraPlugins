@@ -261,6 +261,47 @@ naming a loader DLL `climb.fbx`:
 Code, DLLs and loader binaries never count, whatever their extension — this
 table is closed, and nothing outside it is ever treated as content.
 
+**The other direction is read by bytes, for every file in the release —
+declared or not, whatever its name** (the content catalogue's
+[`ingest-v1.md`](../content/ingest-v1.md) §3 step 10, called as that
+contract's own code, `tools/check-content-goldens.py`). A name must never
+decide whether a file escapes the gate: three.js and every glTF loader sniff
+the magic, so a prohibited avatar shipped as `data/avatar.bin` would load
+while the gate never opened it. Each of these is **`E_CONTENT_FORMAT`**:
+
+- a file that begins with the GLB magic `glTF` and is not named `.vrm`,
+  `.glb` or `.vrma` (content's `name_matches_magic`; golden `glb-named-bin`).
+  Named as one, it is content-typed by the table above, so undeclared it is
+  `E_CONTENT_UNDECLARED`, as before;
+- a file not named `.gltf` whose bytes are a text glTF by the content
+  catalogue's own sniff (`is_gltf_json`: after an optional UTF-8 BOM the
+  first non-whitespace byte is `{` and the **top-level** object names an
+  `asset` member, read key by key, whether or not the rest parses; golden
+  `gltf-named-json`; a nested `asset` key is not one, golden
+  `json-nested-asset`).
+
+Two deliberate differences from the content catalogue, because a game
+integration ships arbitrary files and a content bundle does not:
+
+- **A UTF-16/32 byte-order mark is not refused.** The content catalogue
+  refuses any entry that begins with one, since no content part can; a game
+  integration carries UTF-16LE localisation files (golden
+  `localisation-utf16`, accepted). Such a text is instead sniffed **as the
+  text it decodes to** — a reader that decodes by the BOM, as `fetch().text()`
+  does, sees that text — so a UTF-16 glTF under another name is still refused
+  (golden `gltf-named-json-utf16`). The BOM rule applies to glTF candidates
+  only: every `.gltf` (§2.7.3).
+- **Over 16 MiB the key-by-key sniff is not run** — it reads every
+  character, and a game's data file may be large. A JSON-looking file (after
+  an optional BOM, `{` first) of more than 16 MiB not named `.gltf` is
+  refused when its bytes name an `asset` key at all, spelt plainly or with
+  `\u` escapes that JSON decodes to the same key, and accepted otherwise
+  (goldens `json-over-16mib-nested-asset`, refused, and
+  `json-over-16mib-plain`, accepted; both built in memory by
+  `testdata/games/content/vrm/gen.py`). Nothing that large is a glTF this
+  gate would accept anyway (§2.7.3's 16 MiB cap), so the cheap test errs
+  only toward refusing.
+
 **Ingest runs in this order: provenance → manifest schema → content check →
 gi-probe.** The content check — this section — runs on the real release zip,
 after the manifest has parsed and validated but *before* gi-probe, because

@@ -30,6 +30,7 @@ Run: python3 tools/check-games-goldens.py
 
 from __future__ import annotations
 
+import hashlib
 import json
 import pathlib
 import posixpath
@@ -195,6 +196,39 @@ def rule_security_requires_revoke(doc: dict) -> bool:
 # lib/content.mjs is the other independent implementation of the same rule,
 # over a real zip instead of a loose directory; both are pinned against
 # testdata/games/content/ (manifest.md §4's exception note).
+#
+# Where the content catalogue already decides a question -- the text-glTF
+# sniff, the `%?#\` URI rule, the 16 MiB / depth-128 / 32 MiB caps, a whole
+# `.astrachar`/`.astrapack` -- this section CALLS spec/content's own
+# reference checker (tools/check-content-goldens.py, with
+# tools/contentlite.py) instead of restating it, so the two gates cannot
+# drift apart one file at a time. Only what a game integration does
+# differently is written here (manifest.md §2.7.1, §2.7.3).
+
+def _load_content_checker():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("check_content_goldens", ROOT / "tools" / "check-content-goldens.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+CG = _load_content_checker()  # spec/content/ingest-v1.md §3-§4, the content contract's own code
+MANIFEST_NAME = "astra-gi.toml"
+_GEN = None
+
+
+def gen_module():
+    """testdata/games/content/vrm/gen.py, for the release goldens too large to
+    commit (`synth`, built in memory and pinned by sha256 in vectors.json)."""
+    global _GEN
+    if _GEN is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("games_content_gen", DATA / "content" / "vrm" / "gen.py")
+        _GEN = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_GEN)
+    return _GEN
+
 
 def _is_zip(b: bytes) -> bool:
     return len(b) >= 4 and b[0:2] == b"PK" and b[2] in (3, 5, 7)
@@ -261,24 +295,89 @@ def present_files(root: pathlib.Path) -> set[str]:
     return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
 
 
+def release_files(root: pathlib.Path) -> dict[str, bytes]:
+    """Every file of a release, the manifest included, keyed by its
+    release-relative posix path: what the content check reads BY BYTES
+    (manifest.md §2.7.1), not only the files a name makes content-typed."""
+    if not root.is_dir():
+        return {}
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def is_content_typed(path: str, raw: bytes) -> bool:
+    """manifest.md §2.7.1's table: extension AND magic, never one alone. The
+    manifest file itself is never a content file."""
+    if pathlib.PurePosixPath(path).name == MANIFEST_NAME:
+        return False
+    sniff = CONTENT_EXT_MAGIC.get(pathlib.PurePosixPath(path).suffix.lower())
+    return sniff is not None and sniff(raw[:32])
+
+
+def content_files_of(files: dict[str, bytes]) -> dict[str, bytes]:
+    return {p: b for p, b in sorted(files.items()) if is_content_typed(p, b)}
+
+
 def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
     """Every file under `root` whose extension AND magic bytes both say it is
     content-typed (manifest.md §2.7.1), keyed by its path relative to `root`
     (posix-style, matching a [[integration.content]] `path`). The manifest
     file itself is never a content file."""
-    out: dict[str, bytes] = {}
-    if not root.is_dir():
-        return out
-    for p in sorted(root.rglob("*")):
-        if not p.is_file() or p.name == "astra-gi.toml":
-            continue
-        sniff = CONTENT_EXT_MAGIC.get(p.suffix.lower())
-        if sniff is None:
-            continue
-        raw = p.read_bytes()
-        if sniff(raw[:32]):
-            out[p.relative_to(root).as_posix()] = raw
-    return out
+    return content_files_of(release_files(root))
+
+
+# ── content by bytes, for EVERY file (manifest.md §2.7.1) ────────────────
+# A name never decides whether a file is content. A GLB under any name but
+# .vrm/.glb/.vrma, or a text glTF under any name but .gltf, is refused
+# E_CONTENT_FORMAT -- otherwise a prohibited avatar ships as `data/a.bin`
+# and the gate never opens it, while three.js (which sniffs the magic) loads
+# it. The text sniff is the content catalogue's own `is_gltf_json`. Two
+# deliberate differences, because a game integration ships arbitrary files
+# and the content catalogue does not:
+#   * a UTF-16/32 byte-order mark is not refused (localisation files carry
+#     one); such a text is instead sniffed as the text it DECODES to, since
+#     a reader that decodes by the BOM (fetch().text() does) sees that text;
+#   * over 16 MiB the key-by-key sniff is not run (it is a Python loop over
+#     every character); a JSON-looking file that large is refused when its
+#     bytes name an `asset` key at all -- spelt plainly or with \u escapes,
+#     which JSON decodes to the same key -- and accepted otherwise. Nothing
+#     that large is a glTF the gate would accept anyway (16 MiB cap, below).
+
+_BOM_CODECS = dict(zip(CG.UNICODE_BOMS, ("utf-32-be", "utf-32-le", "utf-16-le", "utf-16-be")))
+_ASSET_KEY = re.compile(rb'"(?:a|\\u0061)(?:s|\\u0073)(?:s|\\u0073)(?:e|\\u0065)(?:t|\\u0074)"')
+
+
+def sniff_text(raw: bytes) -> bytes:
+    """The UTF-8 text a BOM-honouring reader sees: a UTF-16/32 text decoded
+    by its byte-order mark, anything else as it is."""
+    for bom, codec in _BOM_CODECS.items():
+        if raw.startswith(bom):
+            return raw[len(bom):].decode(codec, "replace").encode("utf-8")
+    return raw
+
+
+def is_text_gltf(raw: bytes) -> bool:
+    """The content catalogue's text-glTF sniff (`is_gltf_json`, S5/N1), over
+    the text a BOM-honouring reader sees, and the cheap test above 16 MiB."""
+    text = sniff_text(raw)
+    if len(raw) > CG.MAX_GLTF_JSON:
+        body = text[len(CG.UTF8_BOM):] if text.startswith(CG.UTF8_BOM) else text
+        return body.lstrip(b" \t\r\n")[:1] == b"{" and _ASSET_KEY.search(body) is not None
+    return CG.is_gltf_json(text)
+
+
+def name_problem(path: str, raw: bytes) -> str | None:
+    """Why a file's name and its bytes disagree (E_CONTENT_FORMAT), or None.
+    Runs on every file of the release, declared or not."""
+    if pathlib.PurePosixPath(path).name == MANIFEST_NAME:
+        return None
+    if raw[:4] == CG.GLB_MAGIC:
+        # the content catalogue's own name rule, one way: a GLB is named as one
+        return None if CG.name_matches_magic(path, raw) else "a GLB (it begins with glTF) named something not .vrm, .glb or .vrma"
+    if not path.lower().endswith(".gltf") and is_text_gltf(raw):
+        if len(raw) > CG.MAX_GLTF_JSON:
+            return f"a JSON text over 16 MiB ({len(raw)} bytes) that names an asset key, named something not .gltf"
+        return "a text glTF (a JSON object with a top-level asset member) named something not .gltf"
+    return None
 
 
 def content_coverage(manifest: dict, found: dict[str, bytes]) -> dict:
@@ -616,6 +715,63 @@ def part_licence(entry: dict, raw, present=None) -> dict:
     return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status, "refusal": refusal}
 
 
+GATE_CODES = {"refused": "E_CONTENT_LICENCE_REFUSED", "conflict": "E_CONTENT_LICENCE_CONFLICT", "format": "E_CONTENT_FORMAT"}
+
+
+def _refusal_detail(refusal) -> str:
+    if not isinstance(refusal, dict):
+        return ""
+    if "detail" in refusal:
+        return str(refusal["detail"])
+    return f"{refusal.get('field')} = {refusal.get('value')!r}"
+
+
+def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
+    """The whole content check of ONE release (manifest.md §2.7), over every
+    file it carries -- `files` as `release_files` returns it. Returns
+    {"findings": [{"code", "path", "detail"}], "flags": [{"flag", "path"}]};
+    any finding refuses the release, a flag publishes it flagged. A part the
+    gate refuses is not also asked for its `licence_source`."""
+    findings: list[dict] = []
+    flags: list[dict] = []
+    seen: set = set()
+
+    def refuse(code, path, detail):
+        if (code, path) not in seen:
+            seen.add((code, path))
+            findings.append({"code": code, "path": path, "detail": detail})
+
+    present = set(files)
+    for p, b in sorted(files.items()):
+        why = name_problem(p, b)
+        if why:
+            refuse("E_CONTENT_FORMAT", p, why)
+    found = content_files_of(files)
+    cov = content_coverage(manifest, found)
+    for p in cov["undeclared"]:
+        refuse("E_CONTENT_UNDECLARED", p, "a content-typed file with no [[integration.content]] entry")
+    for p in cov["missing"]:
+        refuse("E_CONTENT_MISSING", p, "declared, and no content-typed file is at that path")
+    for p in cov["duplicates"]:
+        refuse("E_CONTENT_DUPLICATE", p, "declared by more than one entry")
+    entries = manifest.get("integration", {}).get("content", [])
+    for entry in entries if isinstance(entries, list) else []:
+        p = entry.get("path") if isinstance(entry, dict) else None
+        raw = found.get(p) if isinstance(p, str) else None
+        if raw is None:
+            continue
+        pl = part_licence(entry, raw, present)
+        status = pl["gate_status"]
+        if status in GATE_CODES:
+            refuse(GATE_CODES[status], p, _refusal_detail(pl["refusal"]))
+            continue
+        if status == "unknown":
+            flags.append({"flag": "F_CONTENT_VRM_META_UNKNOWN", "path": p})
+        if pl["licence_source"] is None:
+            refuse("E_CONTENT_LICENCE_UNDECLARED", p, "no readable VRM licence and no declared licence")
+    return {"findings": findings, "flags": flags}
+
+
 def vrm_gate(raw: bytes, path: str | None = None, present=None) -> dict:
     """The full G4/G5 verdict for one glTF's bytes (a GLB by its magic, or a
     `.gltf` text file), reading BOTH a VRM 0.x and a VRM 1.0 meta when it
@@ -777,27 +933,22 @@ def main() -> int:
     if "content" in vectors:
         for v in vectors["content"]["releases"]:
             doc = load_doc(v["manifest"])
-            found = find_content_files(DATA / v["dir"])
-            cov = content_coverage(doc, found)
-            coverage_problems = cov["undeclared"] + cov["missing"] + cov["duplicates"]
-            licence_refused = []
-            licence_undeclared = []
-            for entry in doc.get("integration", {}).get("content", []):
-                p = entry.get("path")
-                raw = found.get(p) if isinstance(p, str) else None
-                if raw is None:
-                    continue
-                pl = part_licence(entry, raw, present_files(DATA / v["dir"]))
-                if pl["gate_status"] in ("refused", "conflict", "format"):
-                    licence_refused.append((p, pl["refusal"]["field"]))
-                if pl["licence_source"] is None:
-                    licence_undeclared.append(p)
-            refused = bool(coverage_problems) or bool(licence_refused) or bool(licence_undeclared)
-            report(
-                f"content/releases/{v['name']}",
-                refused == (v["verdict"] == "refuse"),
-                f"coverage={coverage_problems} licence_refused={licence_refused} licence_undeclared={licence_undeclared}",
-            )
+            files = release_files(DATA / v["dir"])
+            # too large to commit: built in memory by gen.py, pinned by sha256
+            for rel, name in v.get("synth", {}).items():
+                raw = gen_module().synth(name)
+                report(f"content/releases/{v['name']} synthesised {rel} is the pinned sha256",
+                       hashlib.sha256(raw).hexdigest() == v["sha256"][rel])
+                files[rel] = raw
+            got = release_findings(files, doc)
+            codes = sorted({f["code"] for f in got["findings"]})
+            flags = sorted({f["flag"] for f in got["flags"]})
+            # ONE defect per golden: a refusal carries exactly the code it is named for
+            ok = codes == ([v["code"]] if v["verdict"] == "refuse" else [])
+            if "detail" in v:
+                ok = ok and any(v["detail"] in f["detail"] for f in got["findings"])
+            ok = ok and flags == sorted(v.get("flags", []))
+            report(f"content/releases/{v['name']}", ok, f"codes={codes} flags={flags} findings={got['findings']}")
 
         for v in vectors["content"]["vrm_gate"]:
             raw = (DATA / v["file"]).read_bytes()
