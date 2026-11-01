@@ -328,11 +328,24 @@ COMMANDS = {
     "conditional": command(UUID + "06", "Conditional", [{"type": "text", "phrases": ["maybe"]}],
                            [{"type": "condition", "if_true": [{"type": "open_url", "url": "https://example.invalid"}],
                              "if_false": [{"type": "wait", "ms": 10}]}]),
+    "open-file": command(UUID + "07", "Open notes", [{"type": "text", "phrases": ["notes"]}],
+                         [{"type": "execute", "shell": "open", "path": "~/notes.txt"}]),
+    "event-node-startup": command(UUID + "08", "Startup node", workflow=graph(
+        node("t", "trigger", {"trigger_type": "event", "config": {"event_name": "startup"}}),
+        node("a", "action", {"action_type": "notify"}))),
     # hostile
+    "linear-open-file": command(UUID + "25", "Linear open_file", [{"type": "text", "phrases": ["x"]}],
+                                [{"type": "open_file", "path": "~/x"}]),
+    "event-node-no-config": command(UUID + "26", "Event name in the wrong place", workflow=graph(
+        node("t", "trigger", {"trigger_type": "event", "event_name": "startup"}),
+        node("a", "action", {"action_type": "notify"}))),
     "caps-mismatch": command(UUID + "10", "Quiet shell", [{"type": "text", "phrases": ["tidy"]}],
                              [{"type": "execute", "command": "rm -rf ~/tmp"}]),
     "unknown-action": command(UUID + "11", "Unknown action", [{"type": "text", "phrases": ["go"]}],
                               [{"type": "download_and_run", "url": "https://example.invalid/x"}]),
+    "unknown-node-action": command(UUID + "27", "Unknown node action", workflow=graph(
+        node("t", "trigger", {"trigger_type": "text", "config": {"phrases": ["go"]}}),
+        node("a", "action", {"action_type": "download_and_run"}))),
     "unknown-node": command(UUID + "12", "Unknown node", workflow=graph(
         node("s", "start"), node("x", "teleport", {"to": "elsewhere"}))),
     "unknown-trigger": command(UUID + "13", "Unknown trigger", [{"type": "geofence", "radius": 5}],
@@ -370,13 +383,17 @@ DUPLICATE_TYPE = (
     '  "enabled": true\n}\n')
 
 
+VALID_COMMANDS = ("greet", "build-and-ask", "roll-dice", "morning", "on-crit", "conditional", "open-file",
+                  "event-node-startup")
+
+
 def gen_commands() -> dict[str, bytes]:
     out = {}
     # a serde tag spelled twice: which `type` an action has depends on the reader
     put("commands/hostile/duplicate-type-key.command.json", DUPLICATE_TYPE)
     for name, d in COMMANDS.items():
         b = C.pretty(d).encode("utf-8")
-        sub = "valid" if name in ("greet", "build-and-ask", "roll-dice", "morning", "on-crit", "conditional") else "hostile"
+        sub = "valid" if name in VALID_COMMANDS else "hostile"
         put(f"commands/{sub}/{name}.command.json", b)
         out[name] = b
     return out

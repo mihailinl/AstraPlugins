@@ -13,6 +13,13 @@ shared module `command::capabilities::catalogue_facts` and copied into plugins
 with its tree sha256 pinned in both repositories (design §10 "One extractor").
 This page is what that module must compute; `tools/check-content-goldens.py`
 `derive_command` is a stdlib reading of it, run over `testdata/content/commands/`.
+**The tables were read at Astra `origin/main` `5d5ae5e83`** (2026-11-01):
+`astra-daemon/src/command/capabilities.rs` (`scan_action`, `scan_action_type`,
+`action_danger`, `action_type_danger`, `command_effective_danger`),
+`astra-core/src/command/{action.rs,trigger.rs,workflow.rs}` (`Action`,
+`Trigger`, `NodeType`, `GraphNode::action_type`, `match_trigger_node_event`) and
+`astra-daemon/src/command/type_registry.rs`. A change to any of them moves the
+extractor's pinned tree sha256 and needs this page and its goldens moved too.
 
 ## 1. Input
 
@@ -54,10 +61,23 @@ that makes `run_command` critical (OPEN.md O-12).
 
 ### 2.2 Action types and the words they yield
 
+A **linear** action (`actions[]`, recursively inside `condition` / `loop`) may
+carry only an `Action` serde tag: `speak`, `execute`, `open_url`,
+`open_application`, `type_text`, `press_keys`, `mouse_click`, `set_variable`,
+`wait`, `condition`, `loop`, `send_to_ai`, `kill_process`, `system`,
+`clipboard`, `notify`, `play_sound`, `control_music`, `noop`, `code`,
+`ai_request`, `stream_to_chat`, `set_volume`, `screenshot`, `ui_click`,
+`ui_type`, `youtube_play`, `run_command`, `companion_animation`,
+`set_companion_enabled`, `work_task`, `macro`, `dynamic`. Any other linear tag —
+`open_file` and `plugin__…` included, which exist only as graph-node action
+types — is `E_COMMAND_UNKNOWN_ACTION` (the client's own parse refuses it as an
+unknown variant). A **graph-node** action type is any row of the table below.
+
 | action type | capability words | danger |
 |---|---|---|
 | `code` | `runs_code` | critical |
 | `execute` | `executes_shell` | critical |
+| `execute` with `shell: "open"` (`EXECUTE_OPEN_MODE`) — LINEAR only; a node's `execute` is always the row above | `file_access` | low |
 | `run_command` | `runs_command` | critical |
 | `macro` | `controls_input` | critical |
 | `system`, `kill_process` | `system_control` | high |
@@ -89,7 +109,7 @@ There are **five** (§11a.9, answered in the client plan §15 Q7):
 |---|---|
 | `text` (linear) / trigger node `trigger_type: text` | `on_phrase` |
 | `hotkey` / `trigger_type: hotkey` | `binds_hotkey` |
-| `event` with `event_name: startup` | **`on_startup`** — never `on_event:startup` |
+| `event` with `event_name: startup` (a linear `Trigger::Event` carries `event_name` flat; a trigger NODE carries it at `data.config.event_name`, which is where the client's matcher reads it — an event node without it never fires and is refused, `E_COMMAND_UNKNOWN_TRIGGER`) | **`on_startup`** — never `on_event:startup` |
 | `event` with `event_name` ∈ {`shutdown`, `login`, `logout`, `wake_word`, `timer`, `reminder_fired`, `calendar_event_due`} | `on_event:<event_name>` |
 | `trigger_type: schedule` | **`on_schedule`** — never `on_event:schedule` |
 | `dynamic` with `handler_id: plugin__<id>__<t>` / `trigger_type: plugin__<id>__<t>` | `uses_plugin:<id>` (and `<id>` is a requirement, §3) |

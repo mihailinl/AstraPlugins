@@ -205,7 +205,7 @@ class RuleMutationsTurnTheRunRed(unittest.TestCase):
     def test_skipping_unknown_action_types(self):
         caps = dict(cg.ACTION_CAPS)
         caps["download_and_run"] = []
-        self.assertRedOn(Mutation("ACTION_CAPS", caps), "commands/unknown-action")
+        self.assertRedOn(Mutation("ACTION_CAPS", caps), "commands/unknown-node-action")
 
     def test_skipping_unknown_node_types(self):
         self.assertRedOn(Mutation("NODE_TYPES", cg.NODE_TYPES | {"teleport"}), "commands/unknown-node")
@@ -317,6 +317,31 @@ class SelfAttackFixes(unittest.TestCase):
     def test_an_unparseable_range_failing_open(self):
         self.assertRedOn(Mutation("covers", lambda version, rng: cg.in_range(version, rng) if rng.strip() and "^" not in rng else False),
                          "scenario/unparseable-range-covers-all")
+
+
+class F15ExtractorMatchesAstra(unittest.TestCase):
+    """Astra origin/main 5d5ae5e83: the three places the first draft's tables disagreed."""
+
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_execute_always_a_shell(self):
+        self.assertRedOn(Mutation("EXECUTE_OPEN_MODE", "\0never"), "commands/open-file")
+
+    def test_linear_actions_take_node_types(self):
+        self.assertRedOn(Mutation("LINEAR_TAGS", cg.LINEAR_TAGS | {"open_file"}), "commands/linear-open-file")
+
+    def test_event_name_read_from_the_node_itself(self):
+        orig_derive = cg.derive_command
+
+        def derive(cmd):
+            cmd = copy.deepcopy(cmd)
+            for n in ((cmd.get("workflow") or {}).get("nodes") or {}).values():
+                d = n.get("data") or {}
+                if n.get("node_type") == "trigger" and "event_name" in d:
+                    d["config"] = {"event_name": d["event_name"]}  # the old reading: the name wherever it is
+            return orig_derive(cmd)
+        self.assertRedOn(Mutation("derive_command", derive), "commands/event-node-no-config")
 
 
 class ReasonCodes(unittest.TestCase):

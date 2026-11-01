@@ -348,6 +348,16 @@ ACTION_CAPS = {
     "set_companion_enabled": ["drives_companion"],
     "condition": [], "loop": [], "set_variable": [], "wait": [], "noop": [],
 }
+# The serde tags of astra-core `command::action::Action` (Astra origin/main 5d5ae5e83): the ONLY
+# types a LINEAR action may carry. `open_file` and `plugin__…` exist only as graph-node action types.
+LINEAR_TAGS = {
+    "speak", "execute", "open_url", "open_application", "type_text", "press_keys", "mouse_click",
+    "set_variable", "wait", "condition", "loop", "send_to_ai", "kill_process", "system", "clipboard",
+    "notify", "play_sound", "control_music", "noop", "code", "ai_request", "stream_to_chat", "set_volume",
+    "screenshot", "ui_click", "ui_type", "youtube_play", "run_command", "companion_animation",
+    "set_companion_enabled", "work_task", "macro", "dynamic",
+}
+EXECUTE_OPEN_MODE = "open"  # astra-core action.rs: `Execute` with this shell opens a file, it runs nothing
 CRITICAL = {"code", "execute", "run_command", "macro"}
 HIGH = {"system", "kill_process", "type_text", "press_keys", "mouse_click", "ui_click", "ui_type", "screenshot",
         "open_url", "open_application", "dynamic", "open_file"}
@@ -389,6 +399,11 @@ def _linear(a, caps, req) -> str:
     if not isinstance(a, dict):
         raise Refusal("E_COMMAND_FORMAT", "an action that is not an object")
     t = a.get("type")
+    if t not in LINEAR_TAGS:
+        raise Refusal("E_COMMAND_UNKNOWN_ACTION", f"linear {t!r} is not an Action tag")
+    if t == "execute" and a.get("shell") == EXECUTE_OPEN_MODE:
+        caps.add("file_access")  # scan_action / action_danger: `Execute(e) if e.is_open_mode()`
+        return "low"
     if t == "dynamic":
         pid = plugin_of(str(a.get("handler_id", "")))
         caps.add(f"uses_plugin:{pid}")
@@ -445,7 +460,10 @@ def derive_command(cmd) -> dict:
                 raise Refusal("E_COMMAND_UNKNOWN_ACTION", f"node type {nt!r}")
             data = n.get("data") or {}
             if nt == "trigger":
-                _trigger(data.get("trigger_type"), data, caps, req)
+                # a node keeps its trigger's settings under data.config (workflow.rs
+                # match_trigger_node_event reads config.event_name); a linear Trigger is flat
+                cfg = data.get("config") if isinstance(data.get("config"), dict) else {}
+                _trigger(data.get("trigger_type"), {**cfg, "handler_id": data.get("handler_id")}, caps, req)
             elif nt == "action":
                 named = data.get("action_type")
                 embedded = data.get("action", {}).get("type") if isinstance(data.get("action"), dict) else None

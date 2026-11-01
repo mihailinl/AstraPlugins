@@ -1244,6 +1244,64 @@
       "note": "nested condition bodies are scanned"
     },
     {
+      "name": "open-file",
+      "file": "commands/valid/open-file.command.json",
+      "claim": {
+        "capabilities": [
+          "file_access",
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "a linear execute with shell \"open\" opens a file and runs nothing: file_access, low (scan_action / action_danger at Astra 5d5ae5e83)"
+    },
+    {
+      "name": "event-node-startup",
+      "file": "commands/valid/event-node-startup.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "accept",
+      "note": "a trigger NODE keeps event_name under data.config"
+    },
+    {
+      "name": "linear-open-file",
+      "file": "commands/hostile/linear-open-file.command.json",
+      "claim": {
+        "capabilities": [
+          "file_access",
+          "on_phrase"
+        ],
+        "danger": "high",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION",
+      "note": "open_file is a node action type, never an Action serde tag"
+    },
+    {
+      "name": "event-node-no-config",
+      "file": "commands/hostile/event-node-no-config.command.json",
+      "claim": {
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_TRIGGER",
+      "note": "event_name outside config: the client's matcher never fires it, so no word can describe it"
+    },
+    {
       "name": "duplicate-type-key",
       "file": "commands/hostile/duplicate-type-key.command.json",
       "claim": {
@@ -1274,6 +1332,19 @@
     {
       "name": "unknown-action",
       "file": "commands/hostile/unknown-action.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_UNKNOWN_ACTION"
+    },
+    {
+      "name": "unknown-node-action",
+      "file": "commands/hostile/unknown-node-action.command.json",
       "claim": {
         "capabilities": [
           "on_phrase"
