@@ -289,6 +289,46 @@ while the gate never opened it. Each of these is **`E_CONTENT_FORMAT`**:
   own archive (a `.jar`, a mod `.zip`) has no such entry and is not one.
   Named as one, it is judged as §2.7.3 says.
 
+**A game's own archives are opened one level deep.** A zip that is not a
+content bundle — a `.jar`, a mod `.zip`, anything that begins with the zip
+magic `PK`, whatever it is called — is walked with the content contract's own
+`walk_zip`, **every cloaking check included** (ingest-v1.md §3 steps 1–4 and
+7: the end record, the headers that must agree, entries that tile the file,
+the names, the raw read), under limits made for game archives rather than
+content bundles: **65,536 entries and 512 MiB uncompressed**, and no
+Stored-only rule, which is a bundle's (golden `jar-5000-entries`, accepted
+past content's 4,096). Inside it:
+
+- every GLB, text glTF and bundle is judged **exactly as a top-level file
+  is** — the rules above, §2.7.3's format rules, caps and VRM gate, an
+  embedded bundle's content verdict — and its glTF JSON counts toward the
+  release's 32 MiB (goldens `jar-glb-named-bin`, `jar-vrm-prohibited`);
+- each such GLB, `.gltf` or bundle is a **part that must be declared**, with
+  the path `<archive path>!<inner path>` — `mods/avatar.jar!assets/avatar.vrm`
+  — and is otherwise `E_CONTENT_UNDECLARED` (goldens `jar-vrm-undeclared`,
+  `jar-vrm-declared`). The owner's per-part rights checkbox must not be
+  bypassable by putting a model in a jar. The manifest schema's `path`
+  already admits `!`. Other content-typed files in an archive (a mod's
+  textures and sounds) are not parts and need no entry;
+- **cloaking is always refused**, with content's own code — an archive that
+  shows one reader different entries than another is never published,
+  whatever its size (golden `jar-cloaked`). An archive whose reader cannot
+  follow it at all is refused `E_CONTENT_FORMAT`. One consequence, stated so
+  nobody is surprised: an Android APK signed with scheme v2 or later puts its
+  signing block between the last entry and the directory, which is exactly
+  the gap a cloaked entry hides in, and is refused;
+- **an archive the walk cannot otherwise open is not refused**: past the
+  limits, zip64 (which a modpack past 65,535 entries or 4 GiB needs), a
+  compression method other than Stored or Deflate, an encrypted or linked
+  entry, a name content's rules refuse, a deflate ratio over 100. It
+  publishes flagged **`F_CONTENT_ARCHIVE_UNSCANNED`**, shown to moderators
+  with the reason, so big modpacks still work (golden `jar-zip64`). A part
+  declared inside such an archive cannot be found, and is
+  `E_CONTENT_MISSING`;
+- **an archive inside an archive is not opened** — one level deep — and is
+  flagged `F_CONTENT_ARCHIVE_UNSCANNED` the same (golden `jar-in-jar`:
+  Fabric's `META-INF/jars/` and Forge's jar-in-jar nest them).
+
 Two deliberate differences from the content catalogue, because a game
 integration ships arbitrary files and a content bundle does not:
 

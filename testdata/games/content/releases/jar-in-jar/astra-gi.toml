@@ -1,0 +1,14 @@
+# content check golden: a jar inside a jar (META-INF/jars/inner.jar, a prohibited VRM inside it) --
+# accepted and flagged F_CONTENT_ARCHIVE_UNSCANNED: archives are opened one level deep.
+schema = 1
+
+[integration]
+id = "someone.jar-in-jar"
+name = "Jar In Jar"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

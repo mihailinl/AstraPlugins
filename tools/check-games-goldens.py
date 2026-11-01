@@ -564,6 +564,62 @@ def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None 
     return {"status": status, "refusal": None, "body": (body_path, body) if body is not None else None}
 
 
+# ── a game's own archives, one level deep (manifest.md §2.7.1) ─────────────
+# A zip that is not a content bundle -- a .jar, a mod .zip, detected by its PK
+# magic and never by its name -- is opened ONE level deep with the content
+# contract's own walk_zip, every cloaking check included, under limits made
+# for game archives: 65,536 entries and 512 MiB uncompressed, and no
+# Stored-only rule (that is a bundle's). Every GLB, text glTF and bundle in it
+# is judged exactly as a top-level file is, and is a part that must be
+# DECLARED, as `<archive path>!<inner path>` -- so the per-part rights
+# checkbox cannot be bypassed by putting a model in a jar. Cloaking is always
+# refused. An archive the walk cannot otherwise open (over the limits, zip64,
+# a method it cannot inflate, an encrypted or linked entry, a name content's
+# rules refuse, a deflate ratio over 100) is NOT refused: it publishes with
+# F_CONTENT_ARCHIVE_UNSCANNED, shown to moderators, so large modpacks still
+# work. An archive inside an archive is not opened, and is flagged the same.
+
+CONTAINER_MAX_ENTRIES = 65_536
+CONTAINER_MAX_TOTAL = 512 * 1024 * 1024
+CLOAK_CODES = ("E_ZIP_HEADERS_INCONSISTENT", "E_ZIP_END_RECORD")
+# what a bundle-class file inside an archive is named: these are parts
+INNER_PART_EXTS = CG.GLB_EXTS + (".gltf",) + BUNDLE_EXTS
+
+
+def is_container(path: str, raw: bytes) -> bool:
+    """A zip that is not a bundle: by its magic, never by its name."""
+    return _is_zip(raw[:4]) and not path.lower().endswith(BUNDLE_EXTS) and not is_bundle_bytes(raw)
+
+
+def walk_container(raw: bytes) -> dict:
+    """{"status": "ok", "files"} | {"status": "unscanned", "reason"} |
+    {"status": "refused", "code", "detail"}: content's walk_zip under the
+    game-archive limits. Only cloaking -- two readings of one archive -- and
+    a glTF JSON total over 32 MiB refuse; any other reason the walk stops is
+    an archive this gate could not open."""
+    saved = CG.MAX_ENTRIES, CG.MAX_TOTAL, CG.STORED_ONLY
+    CG.MAX_ENTRIES, CG.MAX_TOTAL, CG.STORED_ONLY = CONTAINER_MAX_ENTRIES, CONTAINER_MAX_TOTAL, ()
+    try:
+        files = CG.walk_zip(raw)
+    except CG.Refusal as r:
+        if r.code in CLOAK_CODES and "zip64" not in r.detail:
+            return {"status": "refused", "code": r.code, "detail": r.detail}
+        if r.code == "E_ARCHIVE_TOO_LARGE" and "glTF JSON" in r.detail:
+            return {"status": "refused", "code": "E_CONTENT_FORMAT", "detail": r.detail}
+        return {"status": "unscanned", "reason": f"{r.code}: {r.detail}"}
+    except Exception as e:  # noqa: BLE001 -- an archive content's reader cannot follow: fail closed
+        return {"status": "refused", "code": "E_CONTENT_FORMAT", "detail": f"the archive cannot be read ({type(e).__name__}: {e})"}
+    finally:
+        CG.MAX_ENTRIES, CG.MAX_TOTAL, CG.STORED_ONLY = saved
+    files.pop("\0order", None)
+    return {"status": "ok", "files": {p: b for p, b in files.items() if not p.endswith("/")}}
+
+
+def is_inner_part(key: str, raw: bytes) -> bool:
+    """A GLB, a .gltf or a bundle inside an archive: a part to declare."""
+    return key.lower().endswith(INNER_PART_EXTS) and is_content_typed(key, raw)
+
+
 def content_coverage(manifest: dict, found: dict[str, bytes]) -> dict:
     """manifest.md §2.7.2: every content-typed file covered by exactly one
     [[integration.content]] entry. `found` is as `find_content_files`
@@ -964,6 +1020,8 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
     budget.gltf_json = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
     if budget.gltf_json > CG.MAX_GLTF_JSON_TOTAL:
         refuse("E_CONTENT_FORMAT", "", f"{budget.gltf_json} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
+    found = content_files_of(files)
+    present_of: dict[str, set] = {}  # an inner part's archive, for its .gltf's relative uris
     for p, b in sorted(files.items()):
         why = name_problem(p, b, budget)
         if why:
@@ -973,7 +1031,39 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
         why = gltf_format_problem(b, p, present)
         if why:
             refuse("E_CONTENT_FORMAT", p, why)
-    found = content_files_of(files)
+            continue
+        if not is_container(p, b):
+            continue
+        walked = walk_container(b)
+        if walked["status"] == "refused":
+            refuse(walked["code"], p, walked["detail"])
+            continue
+        if walked["status"] == "unscanned":
+            flags.append({"flag": "F_CONTENT_ARCHIVE_UNSCANNED", "path": p, "detail": walked["reason"]})
+            continue
+        inner = {f"{p}!{q}": data for q, data in walked["files"].items()}
+        own = sum(CG.gltf_json_bytes(k, d[:16], len(d)) for k, d in inner.items())
+        if budget.gltf_json + own > CG.MAX_GLTF_JSON_TOTAL:
+            refuse("E_CONTENT_FORMAT", p, f"{budget.gltf_json + own} bytes of glTF JSON in the release with this "
+                                          f"archive, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
+            continue
+        budget.gltf_json += own
+        inner_present = set(inner)
+        for k, d in sorted(inner.items()):
+            if k in files:  # a top-level file literally named like this member: two parts, one path
+                refuse("E_CONTENT_FORMAT", k, "a file named like a member of an archive beside it")
+                continue
+            why = name_problem(k, d, budget) or gltf_format_problem(d, k, inner_present)
+            if why:
+                refuse("E_CONTENT_FORMAT", k, why)
+                continue
+            if _is_zip(d[:4]) and not k.lower().endswith(BUNDLE_EXTS):
+                flags.append({"flag": "F_CONTENT_ARCHIVE_UNSCANNED", "path": k,
+                              "detail": "an archive inside an archive: opened one level deep"})
+                continue
+            if is_inner_part(k, d):
+                found[k] = d
+                present_of[k] = inner_present
     cov = content_coverage(manifest, found)
     for p in cov["undeclared"]:
         refuse("E_CONTENT_UNDECLARED", p, "a content-typed file with no [[integration.content]] entry")
@@ -988,7 +1078,7 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
         raw = found.get(p) if isinstance(p, str) else None
         if raw is None:
             continue
-        pl = part_licence(entry, raw, present, budget)
+        pl = part_licence(entry, raw, present_of.get(p, present), budget)
         status = pl["gate_status"]
         if status in GATE_CODES:
             refuse(GATE_CODES[status], p, _refusal_detail(pl["refusal"]))

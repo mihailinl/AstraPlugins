@@ -1,0 +1,15 @@
+# content check golden: a mod jar holding a VRM, the VRM not declared -- E_CONTENT_UNDECLARED at
+# mods/avatar.jar!assets/avatar.vrm: a model inside a game's archive is a part like any other, so its
+# rights checkbox cannot be bypassed by jarring it (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.jar-vrm-undeclared"
+name = "Jar Vrm Undeclared"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

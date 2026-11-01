@@ -787,6 +787,54 @@ class EmbeddedBundles(unittest.TestCase):
         zipfile.ZipFile(io.BytesIO(raw)).testzip()  # Python's zipfile reads it without complaint
 
 
+class GameArchives(unittest.TestCase):
+    """manifest.md §2.7.1: a game's own zip, one level deep, by content's walk_zip."""
+
+    def test_the_walk_runs_under_game_archive_limits_and_restores_contents_own(self):
+        seen = []
+        real = ggold.CG.walk_zip
+        before = (ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY)
+        ggold.CG.walk_zip = lambda b: seen.append((ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY)) or real(b)
+        try:
+            files, doc = release("jar-vrm-declared")
+            self.assertEqual(codes_of(files, doc), [])
+        finally:
+            ggold.CG.walk_zip = real
+        self.assertIn((65_536, 512 * 1024 * 1024, ()), seen)
+        self.assertEqual((ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY), before)
+
+    def test_an_archive_over_the_limits_is_flagged_never_refused(self):
+        files, doc = release("jar-vrm-prohibited")
+        saved = ggold.CONTAINER_MAX_TOTAL
+        ggold.CONTAINER_MAX_TOTAL = 100  # the jar holds some 400 bytes
+        try:
+            got = ggold.release_findings(files, {})
+        finally:
+            ggold.CONTAINER_MAX_TOTAL = saved
+        self.assertEqual(got["findings"], [])
+        self.assertEqual([(f["flag"], f["path"]) for f in got["flags"]], [("F_CONTENT_ARCHIVE_UNSCANNED", "mods/avatar.jar")])
+        self.assertIn("E_ARCHIVE_TOO_LARGE", got["flags"][0]["detail"])
+
+    def test_a_part_inside_an_archive_is_declared_by_archive_bang_inner_path(self):
+        doc = ggold.load_doc("content/releases/jar-vrm-declared/astra-gi.toml")
+        self.assertEqual(doc["integration"]["content"][0]["path"], "mods/avatar.jar!assets/avatar.vrm")
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        ok, detail = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok, f"the manifest schema admits '!' in a content path: {detail}")
+
+    def test_a_top_level_file_named_like_an_archive_member_is_refused(self):
+        files, doc = release("jar-vrm-declared")
+        files["mods/avatar.jar!assets/avatar.vrm"] = files["mods/avatar.jar"]
+        self.assertIn("E_CONTENT_FORMAT", codes_of(files, doc))
+
+    def test_a_non_bundle_zip_is_an_archive_whatever_it_is_called(self):
+        raw = ggold.release_files(ggold.DATA / "content/releases/jar-vrm-undeclared")["mods/avatar.jar"]
+        for name in ("mods/avatar.jar", "mods/avatar.zip", "data/blob.bin"):
+            with self.subTest(name=name):
+                self.assertTrue(ggold.is_container(name, raw))
+        self.assertFalse(ggold.is_container("packs/x.astrapack", raw), "a bundle name is a bundle's")
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"

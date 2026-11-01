@@ -209,6 +209,51 @@ def content_gen():
     return mod
 
 
+# ── a game's own archives (manifest.md §2.7.1): zips that are not bundles, built with the content
+# catalogue's own zip writer ──────────────────────────────────────────────────────────────────────
+
+PNG16 = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
+MANIFEST_MF = b"Manifest-Version: 1.0\r\nCreated-By: gen.py\r\n"
+
+
+def jar(entries: list[dict]) -> bytes:
+    return content_gen().zip_bytes(entries)
+
+
+def avatar_jar(vrm: bytes, name: str = "assets/avatar.vrm", **tweak) -> bytes:
+    """A mod jar: a manifest and a Deflated .png (a bundle would have to store it), and a VRM."""
+    entries = [{"name": "META-INF/MANIFEST.MF", "data": MANIFEST_MF, "method": 8},
+               {"name": "assets/logo.png", "data": PNG16, "method": 8},
+               {"name": name, "data": vrm, "method": 0}]
+    for e in entries:
+        e.update(tweak.get(e["name"], {}))
+    return jar(entries)
+
+
+ALLOWED_VRM = lambda: glb(*GOLDENS["allowed.vrm"])  # noqa: E731
+PROHIBITED_VRM = lambda: glb(*GOLDENS["refused-vrm0-redistribution-prohibited.vrm"])  # noqa: E731
+Z64_EXTRA = struct.pack("<HHQQ", 0x0001, 16, 1, 1)  # a zip64 extended-information field
+
+RELEASE_FILES.update({
+    "releases/jar-vrm-undeclared/mods/avatar.jar": lambda: avatar_jar(ALLOWED_VRM()),
+    "releases/jar-vrm-declared/mods/avatar.jar": lambda: avatar_jar(ALLOWED_VRM()),
+    "releases/jar-vrm-prohibited/mods/avatar.jar": lambda: avatar_jar(PROHIBITED_VRM()),
+    "releases/jar-glb-named-bin/mods/avatar.jar": lambda: avatar_jar(PROHIBITED_VRM(), name="assets/avatar.bin"),
+    # a gap before the VRM's local header, where a cloaked entry hides (the content catalogue's gap-between-entries)
+    "releases/jar-cloaked/mods/avatar.jar":
+        lambda: avatar_jar(ALLOWED_VRM(), **{"assets/avatar.vrm": {"pad_before": b"PK\x03\x04HIDDEN-ENTRY"}}),
+    # zip64 (as a modpack past 65,535 entries or 4 GiB needs): not opened, flagged
+    "releases/jar-zip64/mods/big.jar":
+        lambda: avatar_jar(PROHIBITED_VRM(), **{"META-INF/MANIFEST.MF": {"extra": Z64_EXTRA}}),
+    # a jar inside a jar (Fabric's META-INF/jars/, Forge's jarjar): one level deep, flagged
+    "releases/jar-in-jar/mods/outer.jar": lambda: jar([
+        {"name": "META-INF/MANIFEST.MF", "data": MANIFEST_MF, "method": 8},
+        {"name": "META-INF/jars/inner.jar", "data": avatar_jar(PROHIBITED_VRM()), "method": 0}]),
+})
+
+# 5,000 entries: past the content catalogue's 4,096, within a game archive's 65,536
+SYNTH["jar-5000-entries"] = lambda: jar([{"name": f"assets/lang/{i}.txt", "data": b"x"} for i in range(5000)])
+
 SYNTH["astrapack-gltf-11mib"] = lambda: content_gen()._pack(
     {"clips/g.gltf": content_gen()._big_json(11 * MIB)}, stored=["clips/g.gltf"])  # three of them: 33 MiB
 
