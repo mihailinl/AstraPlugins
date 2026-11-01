@@ -1,0 +1,472 @@
+{
+  "signed": {
+    "schema": "astra.commands.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "greet",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "88feaddc8312ff5335d742b14e4ed2dad38d149d3ff37d929c78a3bd64d4606f",
+          "size": 337,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "on_phrase",
+          "plays_audio",
+          "uses_ai"
+        ],
+        "danger": "low",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "325d0325fae8266385ca860af639cbca264255ff19a18f5e498193fe5a0398c2",
+            "size": 337
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": "Disallow",
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      },
+      {
+        "id": "build-and-ask",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "6b905e52a884569945e47281f554983cff477634a6d803cc906744b2b081dafd",
+          "size": 384,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "binds_hotkey",
+          "executes_shell",
+          "uses_ai"
+        ],
+        "danger": "critical",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "e464588425b80301d6fe76d79ef5d02658590d3c3d42aff3f1a927c5eb36f964",
+            "size": 384
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      },
+      {
+        "id": "roll-dice",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "ce9dae5f30999337016e68fcb92d52b77130fcbf55a42835413ff9bf00928b37",
+          "size": 592,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "on_schedule",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "high",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          {
+            "kind": "plugin",
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "3accfe4bfcc91641a994680193236008d46e85c2123da978319ff90d0d0e0e89",
+            "size": 592
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      },
+      {
+        "id": "morning",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "fc6a74d6341cfeb18cabd63731f1f51c515bef63ce60d4d22890e02608b16983",
+          "size": 263,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "on_startup",
+          "sends_notifications"
+        ],
+        "danger": "low",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "cf86796a8c1ec9ad02012dd7fcfba60e53fcef46fc716cb6c233842eb039a17f",
+            "size": 263
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      },
+      {
+        "id": "on-crit",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "8c0ed75c01880c4e84f2660b4aa2bd1d3ff1ccfa4efd54838a24c091c60d7ce9",
+          "size": 616,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "plays_audio",
+          "uses_plugin:dice-roller"
+        ],
+        "danger": "low",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          {
+            "kind": "plugin",
+            "id": "dice-roller",
+            "version_req": ">=1.0.0"
+          }
+        ],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "295d59e604ac2e6ca77d6f371c9fb442d31ebaa6981f0220cea150a655928b57",
+            "size": 616
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      },
+      {
+        "id": "conditional",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "a5050ef6577280a4345c28dbbb6b09623546701edc0db18eeb60df99373cd8ad",
+          "size": 466,
+          "media_type": "application/vnd.astra.command+json"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "capabilities": [
+          "on_phrase",
+          "opens_urls"
+        ],
+        "danger": "high",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [],
+        "parts": [
+          {
+            "part_kind": "command",
+            "digest": "ec4ba8514f530a0d0f36983a9f055d20af8946fee1e0a5c29ea7d2bb30c50156",
+            "size": 466
+          }
+        ],
+        "content_confirmed": {
+          "command-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-commands-2026b",
+      "sig": "iRcMS+aeHcl0/pdXX2yksqCB004vUpAZchTHaAa1Xh9iTvkjk1hz9Nc5DNbR4FLEvmAqNofRc5iNsWI8LXW+Dw=="
+    },
+    {
+      "key_id": "astra-commands-2026a",
+      "sig": "wEFxelHDr37UY3Ry8vt10FjutmU/BKZtCatTM7z7adn3t/0zqd3qRhTsid+t/enHgWG8LFnc7dk58sGnMVZTCg=="
+    }
+  ]
+}

@@ -685,6 +685,26 @@
       "note": "the same bytes verify once next's not_before has passed"
     },
     {
+      "name": "dual-signed-current-first",
+      "kind": "commands",
+      "file": "index/commands/dual-signed-current-first.json",
+      "verdict": "accept",
+      "verified_by": [
+        "astra-commands-2026a",
+        "astra-commands-2026b"
+      ]
+    },
+    {
+      "name": "dual-signed-next-first",
+      "kind": "commands",
+      "file": "index/commands/dual-signed-next-first.json",
+      "verdict": "accept",
+      "verified_by": [
+        "astra-commands-2026a",
+        "astra-commands-2026b"
+      ]
+    },
+    {
       "name": "signed-by-models-key",
       "kind": "commands",
       "file": "index/commands/signed-by-models-key.json",
@@ -2520,6 +2540,38 @@
         false
       ],
       "note": "SemVer §11, NOT Cargo VersionReq: a pre-release is matched by precedence alone. rc.1 < rc.2 < rc.10 < 1.0.0; <=1.0.0 covers 1.0.0-rc.1; numeric identifiers sort below alphanumeric ones"
+    },
+    {
+      "name": "one-way-switch-dual-current-first",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/dual-signed-current-first.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
+    },
+    {
+      "name": "one-way-switch-dual-next-first",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/valid.json",
+        "index/commands/dual-signed-next-first.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026a",
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
     }
   ],
   "external": [

@@ -133,24 +133,36 @@ def kind_keys_for(member: dict, kind: str, now: int) -> list[tuple[str, bytes]]:
     return [(kid, pk) for kid, pk, nb in (parsed["current"], parsed["next"]) if now >= nb]
 
 
-def verify_doc(env: dict, kind: str, doc: str, member: dict, now: int, retired: set[str] = frozenset()):
-    """(key_id that verified, None) or (None, reason). The domain is THIS
-    function's constant, never the document's `schema` string."""
-    domain = f"astra.{kind}.{doc}/1"
-    keys = [(k, pk) for k, pk in kind_keys_for(member, kind, now)]
+def verified_by(env: dict, kind: str, doc: str, member: dict, now: int) -> tuple[set[str], str | None]:
+    """EVERY usable key of the kind that verifies one of the offered signatures — never
+    the first only (F9): a document dual-signed by `current` and `next` retires `current`
+    whatever order its signatures are in. The domain is THIS function's constant."""
+    keys = kind_keys_for(member, kind, now)
     if not keys:
-        return None, "kind-keys-unusable"
-    digest = C.signing_digest(domain, env.get("signed"))
+        return set(), "kind-keys-unusable"
+    digest = C.signing_digest(f"astra.{kind}.{doc}/1", env.get("signed"))
+    got = set()
     for s in env.get("signatures") or []:
-        sig = C.unb64(s.get("sig", "")) if isinstance(s, dict) else None
+        sig = C.unb64(s.get("sig", "")) if isinstance(s, dict) and isinstance(s.get("sig"), str) else None
         if sig is None:
             continue
         for kid, pk in keys:
             if C.verify(pk, digest, sig):
-                if kid in retired:
-                    return None, "key-retired"
-                return kid, None
-    return None, "signature-invalid"
+                got.add(kid)
+    return got, (None if got else "signature-invalid")
+
+
+def verify_doc(env: dict, kind: str, doc: str, member: dict, now: int, retired: set[str] = frozenset()):
+    """(a key id that verified and is not retired, None) or (None, reason). When several
+    verify, the one reported is the `next` key if it is among them."""
+    got, why = verified_by(env, kind, doc, member, now)
+    if why:
+        return None, why
+    live = got - set(retired)
+    if not live:
+        return None, "key-retired"
+    role = {r.get("key_id"): r.get("role") for r in member.get("kind_keys", []) if isinstance(r, dict) and r.get("kind") == kind}
+    return sorted(live, key=lambda k: (role.get(k) != "next", k))[0], None
 
 
 # ── semantic rules over a document (common-v1.md, <kind>-index-v1.md) ───
@@ -1129,6 +1141,9 @@ def main() -> int:
                 report(label, sok and not fails and kid is not None, f"schema={sok} {d} rules={fails} sig={why}")
                 if kid is not None and v.get("signed_by"):
                     report(f"{label} verified by {v['signed_by']}", kid == v["signed_by"], kid)
+                if v.get("verified_by"):
+                    ids, _ = verified_by(env, kind, doc, member, now)
+                    report(f"{label} verified by every one of {v['verified_by']}", sorted(ids) == v["verified_by"], str(sorted(ids)))
             elif v["check"] == "schema":
                 report(label, sok is False, "the schema accepted it")
             elif v["check"] == "semantic":
@@ -1202,7 +1217,8 @@ def main() -> int:
                     env = load_json(f)
                     kid, why = verify_doc(env, v["kind"], "index", member, now, retired)
                     got.append(kid or why)
-                    if kid and role.get(kid) == "next":
+                    ids, _ = verified_by(env, v["kind"], "index", member, now)
+                    if kid and any(role.get(k) == "next" for k in ids):
                         retired |= {k for k, r in role.items() if r == "current"}
             elif t == "client-floor":
                 env = load_json(v["file"])

@@ -492,6 +492,20 @@ class F17ParseBeforeEvaluate(unittest.TestCase):
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("in_range", lazy), "scenario/unparseable-range-covers-all")
 
 
+class F9EveryVerifyingKey(unittest.TestCase):
+    def test_stopping_at_the_first_signature(self):
+        def first_only(env, kind, doc, member, now):
+            keys = cg.kind_keys_for(member, kind, now)
+            digest = C.signing_digest(f"astra.{kind}.{doc}/1", env.get("signed"))
+            for s in env.get("signatures") or []:
+                for kid, pk in keys:
+                    if C.verify(pk, digest, C.unb64(s["sig"]) or b""):
+                        return {kid}, None
+            return set(), "signature-invalid"
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("verified_by", first_only),
+                                               "scenario/one-way-switch-dual-current-first")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

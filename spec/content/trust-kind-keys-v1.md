@@ -118,8 +118,13 @@ trust one outside `testdata/`.
   already accept both.
 - **The switch is one-way.** The signer never signs with `current` alone once a
   `next`-signed document is served. **A client that has verified a document of
-  kind K under K's `next` key retires K's `current` key id on that machine**, and
-  refuses a later document of kind K that only `current` signed (`key-retired`;
+  kind K under K's `next` key retires K's `current` key id on that machine**.
+  The verifier tries **every** offered signature against **every** usable key
+  and collects every key id that verifies — never stopping at the first — so a
+  document dual-signed by `current` and `next` retires `current` whatever order
+  its signatures are in (`index/commands/dual-signed-current-first.json`,
+  `…-next-first.json`; scenarios `one-way-switch-dual-*`). A document verifies
+  when at least one NON-retired key verified it. The client refuses a later document of kind K that only `current` signed (`key-retired`;
   scenario `one-way-switch`). The retirement is by key id, so the ceremony that
   promotes `next` to `current` (same key id) and adds a fresh `next` does not
   un-retire anything.

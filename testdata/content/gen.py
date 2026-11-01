@@ -87,17 +87,18 @@ def index_keys_rows() -> list[dict]:
              "not_before": "2026-07-01T00:00:00Z", "not_after": "2027-07-01T00:00:00Z", "comment": "TEST"}]
 
 
-def envelope(domain: str, signed: dict, signer: str | None, sign_domain: str | None = None,
+def envelope(domain: str, signed: dict, signer, sign_domain: str | None = None,
              comment: str | None = None) -> dict:
+    """`signer`: one key id, a list of them (one signature each, in that order), or None."""
     env: dict = {}
     if comment:
         env["$comment"] = comment
     env["signed"] = signed
     sigs = []
-    if signer is not None:
-        seed, _ = key(signer)
+    for one in ([] if signer is None else [signer] if isinstance(signer, str) else signer):
+        seed, _ = key(one)
         digest = C.signing_digest(sign_domain or domain, signed)
-        sigs.append({"key_id": signer, "sig": C.b64(C.sign(seed, digest))})
+        sigs.append({"key_id": one, "sig": C.b64(C.sign(seed, digest))})
     env["signatures"] = sigs
     return env
 
@@ -510,6 +511,10 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     # issued while only `current` is valid, and signed by `next`: refused until next's not_before
     put_doc("index/commands/next-before-not-before.json", "commands", "index",
             index_signed("commands", copy.deepcopy(c_entries), issued=NOV15 - 3600), role="next")
+    # dual-signed during a switch, in both orders (F9): either order must retire `current`
+    a, b = kind_key_id("commands", "current"), kind_key_id("commands", "next")
+    put_json("index/commands/dual-signed-current-first.json", envelope("astra.commands.index/1", v, [a, b]))
+    put_json("index/commands/dual-signed-next-first.json", envelope("astra.commands.index/1", v, [b, a]))
     put_doc("index/commands/signed-by-models-key.json", "commands", "index", v, signer=kind_key_id("models", "current"))
     put_doc("index/commands/signed-by-index-key.json", "commands", "index", v, signer=INDEX_KEY)
     put_doc("index/commands/signed-under-models-domain.json", "commands", "index", v,
