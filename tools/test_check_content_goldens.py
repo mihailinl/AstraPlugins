@@ -642,6 +642,12 @@ class R2TruncatedGlb(unittest.TestCase):
                                                "archives/vrm-chunk-past-eof")
 
 
+class R3DuplicateKeysInEveryGlb(unittest.TestCase):
+    def test_no_duplicate_check(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("has_duplicate_json", lambda b: False),
+                                               "archives/accessory-duplicate-key", "archives/animset-glb-duplicate-key")
+
+
 class ReasonCodes(unittest.TestCase):
     def test_a_code_cited_but_not_registered_is_caught(self):
         codes = cg.load_codes()

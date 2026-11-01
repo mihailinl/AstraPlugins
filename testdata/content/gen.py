@@ -871,6 +871,11 @@ def gen_archives() -> None:
     dup_json += b" " * (-len(dup_json) % 4)
     dup = struct.pack("<4sII", b"glTF", 2, 20 + len(dup_json)) + struct.pack("<I4s", len(dup_json), b"JSON") + dup_json
     hostile("vrm-duplicate-key.astrachar", bundle("astra.character", {BODY_PATH: dup}, BODY_PATH))
+    # the same duplicate-key GLB as a character ACCESSORY (not the body) and as a clip in an ANIMSET
+    hostile("accessory-duplicate-key.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/accessories/hat/hat.glb": dup}, None))
+    put("archives/hostile/animset-glb-duplicate-key.astrapack", bundle(
+        "astra.animpack", {**ASCII_PART, "animpacks/wave/clips/hat.glb": dup}, body=None))
     # unrecognised licence tokens are UNKNOWN, never Allowed (meta.rs at 045b0bf; F3)
     def vrm0(meta: dict) -> bytes:
         return glb({"asset": {"version": "2.0"}, "extensions": {"VRM": {"meta": meta}}, "extensionsUsed": ["VRM"]})

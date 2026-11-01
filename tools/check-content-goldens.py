@@ -798,6 +798,10 @@ def gets_verdict(cls: str, part_kind: str | None) -> bool:
     return part_kind in AVATAR_PART_KINDS
 
 
+def has_duplicate_json(b: bytes) -> bool:
+    return (glb_json(b) if b[:4] == GLB_MAGIC else gltf_json(b)) == "duplicate"
+
+
 def name_matches_magic(p: str, b: bytes) -> bool:
     return (b[:4] == GLB_MAGIC) == p.lower().endswith(GLB_EXTS)
 
@@ -899,6 +903,10 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     for p, b in files.items():
         if b[:4] == GLB_MAGIC and glb_truncated(b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB whose length or first chunk runs past its end")
+        # ONE rule for every GLB and .gltf, in any part and of any class: an unparseable-by-duplicate
+        # JSON must not fall through to "plain", which an animset part never judges (R3)
+        if judged(p, b) and has_duplicate_json(b):
+            raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")
         if not name_matches_magic(p, b):
             raise Refusal("E_CONTENT_FORMAT", f"{p}: a GLB container's name and magic disagree")
     if body is not None:
@@ -909,9 +917,6 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     settings_dir = (man.get("character") or {}).get("dir")
     kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False).items() for f in pf}
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
-    for p, v in verdicts.items():
-        if v == "duplicate":
-            raise Refusal("E_CONTENT_FORMAT", f"{p}: a duplicate member name in its glTF JSON")
     for want in ("conflict", "prohibited"):
         for p, v in verdicts.items():
             if v == want:
