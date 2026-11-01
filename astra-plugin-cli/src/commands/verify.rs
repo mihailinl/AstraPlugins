@@ -1618,16 +1618,60 @@ mod cloaking {
         );
     }
 
+    /// Resolves `testdata/zip-cloaking/<name>` and checks its sha256 against
+    /// the shared `SHA256SUMS` recorded beside it in that same directory —
+    /// never a hash pinned in this crate's own source — so a vector edited
+    /// in place, or a `SHA256SUMS` that drifted from it, fails loudly here
+    /// instead of silently testing bytes nobody meant to test.
+    ///
+    /// This directory is the shared golden every consumer of these vectors
+    /// pins (`testdata/zip-cloaking/README.md`): the registry bot, the
+    /// games catalogue, minice's upload ingest, the Astra daemon, and this
+    /// CLI. Reading it from here rather than keeping a private copy is what
+    /// makes "the same bytes" true instead of asserted — see `gen.py` and
+    /// `gen_stored_dd.py` in that directory for how the goldens were made.
+    fn zip_cloaking_vector(name: &str) -> std::path::PathBuf {
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("astra-plugin-cli has a parent directory")
+            .join("testdata/zip-cloaking");
+        let path = dir.join(name);
+        let bytes = std::fs::read(&path).unwrap_or_else(|e| {
+            panic!(
+                "{} is missing or unreadable: {e}. It is committed; a checkout without it is \
+                 incomplete, not a reason to skip.",
+                path.display()
+            )
+        });
+        let sums = std::fs::read_to_string(dir.join("SHA256SUMS"))
+            .expect("testdata/zip-cloaking/SHA256SUMS is missing");
+        let want = sums
+            .lines()
+            .find_map(|line| {
+                let (hash, file) = line.split_once("  ")?;
+                (file == name).then(|| hash.to_string())
+            })
+            .unwrap_or_else(|| panic!("SHA256SUMS has no entry for {name}"));
+        let got = hex(&Sha256::digest(&bytes));
+        assert_eq!(
+            got, want,
+            "{} does not match the sha256 recorded in SHA256SUMS — either the vector was edited \
+             in place, or SHA256SUMS is stale. Regenerate with gen.py/gen_stored_dd.py; do not \
+             patch either file by hand.",
+            path.display()
+        );
+        path
+    }
+
     /// `testdata/zip-cloaking/stored-dd.zip`, received from astra-ce's
-    /// second review round with the sha256 quoted in its directory's
-    /// README, kept byte-for-byte rather than rebuilt: a Stored entry
-    /// (`notes.txt`) with bit 3 set, whose real trailing data descriptor
-    /// sits *after* a second entry (`launch.sh`) rather than right after
-    /// its own content, with a CRC32 computed over all three (`notes.txt`'s
-    /// content plus `launch.sh`'s entire local header and content) — so a
-    /// streaming reader with no central directory, hunting for a CRC match
-    /// to learn where `notes.txt` ends, absorbs `launch.sh` whole and never
-    /// sees it as a separate entry.
+    /// second review round, kept byte-for-byte rather than rebuilt: a
+    /// Stored entry (`notes.txt`) with bit 3 set, whose real trailing data
+    /// descriptor sits *after* a second entry (`launch.sh`) rather than
+    /// right after its own content, with a CRC32 computed over all three
+    /// (`notes.txt`'s content plus `launch.sh`'s entire local header and
+    /// content) — so a streaming reader with no central directory, hunting
+    /// for a CRC match to learn where `notes.txt` ends, absorbs `launch.sh`
+    /// whole and never sees it as a separate entry.
     ///
     /// `Bundle::open` refuses this file — but for an earlier, unrelated
     /// reason than the bit-3 flag: it has no `MANIFEST.json` at all (it is
@@ -1641,28 +1685,57 @@ mod cloaking {
     /// this test is the literal committed vector, kept refused.
     #[test]
     fn verify_refuses_the_committed_stored_bit3_vector() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("astra-plugin-cli has a parent directory")
-            .join("testdata/zip-cloaking/stored-dd.zip");
-        let bytes = std::fs::read(&path).unwrap_or_else(|e| {
-            panic!(
-                "{} is missing or unreadable: {e}. It is committed; a checkout without it is \
-                 incomplete, not a reason to skip.",
-                path.display()
-            )
-        });
-        assert_eq!(
-            hex(&Sha256::digest(&bytes)),
-            "3841c473f7ade57d1efca72aa33847d9508773df2147797a8bdb873828f691fb",
-            "{} does not match the sha256 astra-ce's review quoted — it was edited in place",
-            path.display()
-        );
+        let path = zip_cloaking_vector("stored-dd.zip");
         // Refused — for whichever reason; see the doc comment above.
         if Bundle::open(&path).is_ok() {
             panic!(
                 "Bundle::open accepted testdata/zip-cloaking/stored-dd.zip, a Stored bit-3 \
                  entry whose real data descriptor sits after the next entry"
+            );
+        }
+    }
+
+    /// `testdata/zip-cloaking/slack.zip` — the committed, cross-consumer
+    /// vector for the same deflate-slack-plus-bit-3 shape
+    /// `build_bit3_bundle`/`build_slack_bundle` isolate separately above.
+    /// This one is the integrated attack as astra-ce's review wrote it: a
+    /// bit-3 Deflated entry (`a.txt`) whose declared `compressed_size`
+    /// swallows a nested local header (`readme.txt`) that itself contains
+    /// the *real* next entry's local header and content (`launch.sh`), so
+    /// a streaming reader with no central directory sees `a.txt` +
+    /// `readme.txt` while a central-directory reader sees `a.txt` +
+    /// `launch.sh`.
+    ///
+    /// Like `stored-dd.zip`, this is refused by `Bundle::open`'s invariant
+    /// 1 before the bit-3 check is reached — it is not a `.astraplugin`,
+    /// just the bare container. The isolated fixtures above are what prove
+    /// the specific checks; this is the literal shared golden, kept
+    /// refused and kept byte-identical to `SHA256SUMS` by
+    /// `zip_cloaking_vector`.
+    #[test]
+    fn verify_refuses_the_committed_slack_vector() {
+        let path = zip_cloaking_vector("slack.zip");
+        if Bundle::open(&path).is_ok() {
+            panic!(
+                "Bundle::open accepted testdata/zip-cloaking/slack.zip, a bit-3 Deflated entry \
+                 whose declared compressed_size hides a second entry's local header"
+            );
+        }
+    }
+
+    /// `testdata/zip-cloaking/upath.zip` — the committed, cross-consumer
+    /// vector for the same Unicode Path shape `build_unicode_path_bundle`
+    /// isolates separately above, kept byte-identical to `SHA256SUMS` by
+    /// `zip_cloaking_vector`. Refused by `Bundle::open`'s invariant 1 for
+    /// the same reason as the other two committed vectors: it carries no
+    /// `MANIFEST.json`.
+    #[test]
+    fn verify_refuses_the_committed_unicode_path_vector() {
+        let path = zip_cloaking_vector("upath.zip");
+        if Bundle::open(&path).is_ok() {
+            panic!(
+                "Bundle::open accepted testdata/zip-cloaking/upath.zip, an entry carrying a \
+                 Unicode Path (0x7075) extra field"
             );
         }
     }
