@@ -36,6 +36,7 @@ import pathlib
 import posixpath
 import re
 import sys
+import time
 import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -363,17 +364,45 @@ def sniff_text(raw: bytes) -> bytes:
     return raw
 
 
-def is_text_gltf(raw: bytes) -> bool:
+# The per-character sniff reads at most this much of one release; past it, a
+# JSON-looking file whose bytes name an asset key is refused unread, as one
+# over 16 MiB is. Without it, twenty 16 MiB files of {"":0,"":0,...} cost the
+# gate 102 s (content's sniff reads ~4 MiB a second on them).
+SNIFF_BUDGET = 64 * 1024 * 1024
+
+
+class ReleaseBudget:
+    """What one release may make the gate spend: the bytes the per-character
+    sniff reads (SNIFF_BUDGET)."""
+
+    def __init__(self):
+        self.sniffed = 0
+
+
+def _json_looking(text: bytes) -> bool:
+    body = text[len(CG.UTF8_BOM):] if text.startswith(CG.UTF8_BOM) else text
+    return body.lstrip(b" \t\r\n")[:1] == b"{"
+
+
+def is_text_gltf(raw: bytes, budget: ReleaseBudget | None = None) -> bool:
     """The content catalogue's text-glTF sniff (`is_gltf_json`, S5/N1), over
-    the text a BOM-honouring reader sees, and the cheap test above 16 MiB."""
+    the text a BOM-honouring reader would see. First the C-speed test: no
+    `asset` key anywhere in the bytes (plain or \\u-escaped) is no glTF, and
+    the slow sniff never runs. Above 16 MiB, or once the release's
+    SNIFF_BUDGET is spent, the key alone refuses."""
     text = sniff_text(raw)
+    if not _json_looking(text) or _ASSET_KEY.search(text) is None:
+        return False
     if len(raw) > CG.MAX_GLTF_JSON:
-        body = text[len(CG.UTF8_BOM):] if text.startswith(CG.UTF8_BOM) else text
-        return body.lstrip(b" \t\r\n")[:1] == b"{" and _ASSET_KEY.search(body) is not None
+        return True
+    budget = budget if budget is not None else ReleaseBudget()
+    if budget.sniffed + len(text) > SNIFF_BUDGET:
+        return True
+    budget.sniffed += len(text)
     return CG.is_gltf_json(text)
 
 
-def name_problem(path: str, raw: bytes) -> str | None:
+def name_problem(path: str, raw: bytes, budget: ReleaseBudget | None = None) -> str | None:
     """Why a file's name and its bytes disagree (E_CONTENT_FORMAT), or None.
     Runs on every file of the release, declared or not."""
     if is_manifest(path):
@@ -381,7 +410,7 @@ def name_problem(path: str, raw: bytes) -> str | None:
     if raw[:4] == CG.GLB_MAGIC:
         # the content catalogue's own name rule, one way: a GLB is named as one
         return None if CG.name_matches_magic(path, raw) else "a GLB (it begins with glTF) named something not .vrm, .glb or .vrma"
-    if not path.lower().endswith(".gltf") and is_text_gltf(raw):
+    if not path.lower().endswith(".gltf") and is_text_gltf(raw, budget):
         if len(raw) > CG.MAX_GLTF_JSON:
             return f"a JSON text over 16 MiB ({len(raw)} bytes) that names an asset key, named something not .gltf"
         return "a text glTF (a JSON object with a top-level asset member) named something not .gltf"
@@ -844,13 +873,14 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
             findings.append({"code": code, "path": path, "detail": detail})
 
     present = set(files)
+    budget = ReleaseBudget()
     # the release's glTF JSON budget, from headers before anything is parsed:
     # the content catalogue's 32 MiB per archive (ingest-v1.md §3 step 5, B1)
-    budget = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
-    if budget > CG.MAX_GLTF_JSON_TOTAL:
-        refuse("E_CONTENT_FORMAT", "", f"{budget} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
+    gltf_total = sum(CG.gltf_json_bytes(p, b[:16], len(b)) for p, b in files.items())
+    if gltf_total > CG.MAX_GLTF_JSON_TOTAL:
+        refuse("E_CONTENT_FORMAT", "", f"{gltf_total} bytes of glTF JSON in the release, over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)")
     for p, b in sorted(files.items()):
-        why = name_problem(p, b)
+        why = name_problem(p, b, budget)
         if why:
             refuse("E_CONTENT_FORMAT", p, why)
             continue
@@ -1056,7 +1086,11 @@ def main() -> int:
                 report(f"content/releases/{v['name']} synthesised {rel} is the pinned sha256",
                        hashlib.sha256(raw).hexdigest() == v["sha256"][rel])
                 files[rel] = raw
+            started = time.monotonic()
             got = release_findings(files, doc)
+            if "max_seconds" in v:  # a cost bound: the gate must not be made to spend more on this release
+                spent = time.monotonic() - started
+                report(f"content/releases/{v['name']} within {v['max_seconds']} s", spent <= v["max_seconds"], f"{spent:.1f} s")
             codes = sorted({f["code"] for f in got["findings"]})
             flags = sorted({f["flag"] for f in got["flags"]})
             # ONE defect per golden: a refusal carries exactly the code it is named for

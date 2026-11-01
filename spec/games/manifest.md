@@ -300,6 +300,14 @@ integration ships arbitrary files and a content bundle does not:
   does, sees that text — so a UTF-16 glTF under another name is still refused
   (golden `gltf-named-json-utf16`). The BOM rule applies to glTF candidates
   only: every `.gltf` (§2.7.3).
+- **The key-by-key sniff is bounded.** It reads every character in Python
+  (about 4 MiB a second on `{"":0,"":0,…}`; twenty such 16 MiB files once
+  held the gate for 102 s), so it runs only on a JSON-looking file whose
+  bytes name an `asset` key at all — tested first, at C speed; no key, no
+  glTF (golden `json-many-keys-no-asset`, five such files, accepted within
+  5 s) — and it reads at most **64 MiB per release**. Past that budget, a
+  JSON-looking file whose bytes name the key is refused unread, as one over
+  16 MiB is.
 - **Over 16 MiB the key-by-key sniff is not run** — it reads every
   character, and a game's data file may be large. A JSON-looking file (after
   an optional BOM, `{` first) of more than 16 MiB not named `.gltf` is

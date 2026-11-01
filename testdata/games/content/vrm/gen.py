@@ -20,6 +20,7 @@ with the sha256 vectors.json pins, as the content catalogue's gen.py does.
     python3 gen.py --check   # write nothing; fail if any file differs
 """
 import codecs
+import functools
 import json
 import pathlib
 import struct
@@ -165,6 +166,8 @@ SYNTH = {
     # over the 16 MiB a key-by-key sniff reads: refused only when the bytes name "asset"
     "json-over-16mib-nested-asset": lambda: b'{"meta": {"asset": 1}, "strings": "' + b"x" * (16 * MIB) + b'"}',
     "json-over-16mib-plain": lambda: b'{"strings": "' + b"x" * (16 * MIB) + b'"}',
+    # 16 MiB of {"":0,"":0,...}: the per-character sniff reads it at ~4 MiB a second
+    "json-16mib-many-keys": lambda: b"{" + b'"":0,' * (16 * MIB // 5 - 1) + b'"":0}',
     # the caps, each checked BEFORE anything is parsed
     "glb-json-over-16mib": lambda: padded_glb(16 * MIB + 4),
     "gltf-over-16mib": lambda: gltf_text(PLAIN_GLTF) + b" " * (16 * MIB),
@@ -193,8 +196,10 @@ for _rel, _src in BUNDLE_COPIES.items():
     RELEASE_FILES[_rel] = (lambda src: lambda: (CONTENT_ARCHIVES / src).read_bytes())(_src)
 
 
+@functools.lru_cache(maxsize=4)
 def synth(name: str) -> bytes:
-    """The release goldens too large to commit, built in memory."""
+    """The release goldens too large to commit, built in memory (one copy of
+    each, however many files of a golden share it)."""
     return SYNTH[name]()
 
 

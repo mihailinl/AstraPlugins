@@ -578,12 +578,35 @@ class ContentByBytes(unittest.TestCase):
                 self.assertEqual(ggold.name_problem("data/big.json", raw) is not None, refused)
         self.assertIsNone(ggold.name_problem("data/big.bin", b"\x00" + pad + b'"asset"'), "not JSON-looking")
 
+    def test_a_file_with_no_asset_key_never_reaches_the_slow_sniff(self):
+        import time
+        hostile = ggold.gen_module().synth("json-16mib-many-keys")  # ~4 s each through content's sniff
+        files = {f"data/{i}.json": hostile for i in range(20)}  # the review's 102 s release
+        started = time.monotonic()
+        self.assertEqual(codes_of(files, {}), [])
+        self.assertLess(time.monotonic() - started, 5.0, "twenty 16 MiB files with no asset key, at C speed")
+
+    def test_the_slow_sniff_reads_at_most_the_release_budget_and_then_the_key_refuses(self):
+        one = b'{"meta": {"asset": 1}, "pad": "' + b"x" * 1000 + b'"}'  # an asset key, not a glTF
+        files = {f"data/{i}.json": one for i in range(5)}
+        saved = ggold.SNIFF_BUDGET
+        ggold.SNIFF_BUDGET = 3 * len(one)
+        try:
+            got = ggold.release_findings(files, {})
+        finally:
+            ggold.SNIFF_BUDGET = saved
+        refused = sorted(f["path"] for f in got["findings"])
+        self.assertEqual(refused, ["data/3.json", "data/4.json"], "three fit the budget and are read; the rest refuse on the key")
+        budget = ggold.ReleaseBudget()
+        self.assertFalse(ggold.is_text_gltf(one, budget))
+        self.assertEqual(budget.sniffed, len(one), "the sniff is charged what it reads")
+
     def test_turning_the_rule_off_turns_its_goldens_green_for_the_wrong_reason(self):
         for name in ("glb-named-bin", "gltf-named-json", "gltf-named-json-utf16", "json-over-16mib-nested-asset"):
             with self.subTest(name=name):
                 files, doc = release(name)
                 original = ggold.name_problem
-                ggold.name_problem = lambda p, b: None
+                ggold.name_problem = lambda p, b, budget=None: None
                 try:
                     self.assertEqual(codes_of(files, doc), [], "without the rule the golden is accepted -- so the golden sees it")
                 finally:
