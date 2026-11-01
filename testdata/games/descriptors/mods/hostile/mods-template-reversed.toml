@@ -1,0 +1,35 @@
+# Hostile `mods` golden: a VERSION TEMPLATE THAT DOES NOT READ
+# (engine-descriptor-v1.md §7.4). `N{5,1}` is a run of five to one digits; a
+# reader that compiled it would fail (a regex `{5,1}` is an error), and a
+# version that cannot be read must never fall through to "supported". A run
+# is `N{a,b}` with 1 <= a <= b <= 5, so the schema refuses it: mods-invalid,
+# reason version-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { stat = "{source}/s2loader/s2loader.dll", kind = "file" } ]
+version = { pe = "{source}/s2loader/s2loader.dll", key = ["ProductVersion"], template = "N{5,1}.N{1,3}", versions = ">=1" }
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

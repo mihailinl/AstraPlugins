@@ -59,7 +59,8 @@ coexist = []
 # ~mods paks: the engine itself loads Content/Paks/~mods/*.pak after the base
 # paks. There is no loader and no list: present means enabled. Astra's runner
 # uses no paks, so the two simply run side by side -- Astra adds nothing here
-# and tells nothing, which is why this side-by-side needs no `tell` (§7.6).
+# and tells nothing, which is why this side-by-side needs no `tell` (§7.6)
+# and why its own root folder may anchor it: a passive loader (§7.4).
 [[mods.loader]]
 id = "unreal-paks"
 name = "Unreal ~mods paks"

@@ -2,7 +2,8 @@
 # (engine-descriptor-v1.md §7.4, the loader anchor). winhttp.dll is the name
 # BepInEx's Doorstop, MelonLoader-style and ASI loaders all hijack-load by, so
 # "winhttp.dll is there" says some loader sits in the folder, never which.
-# Recognised on that alone, a chain would hand control to whatever it is.
+# Recognised on that alone, the loader would be "found" beside any
+# proxy at all.
 # Schema-valid; the checker's anchor rule refuses it: mods-invalid, reason
 # loader-anchor-invalid.
 #
@@ -38,4 +39,4 @@ require = [
 ]
 root = "{source}/s2loader/mods"
 enabled = [ { format = "dir-per-mod" } ]
-coexist = [ { strategy = "chain", entry = "{source}/winhttp.dll" } ]
+coexist = [ { strategy = "side-by-side" } ]

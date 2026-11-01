@@ -1,0 +1,35 @@
+# Hostile `mods` golden: a loader ANCHORED ON A FOLDER (engine-descriptor-v1.md
+# §7.4). A folder name such as Plugins is in countless games, so it says
+# nothing about a loader; an anchor is a FILE. The one exception is a
+# passive loader -- no `chain`, no `tell` -- anchored by its own `root`
+# (the ~mods paks). This loader tells (`ue4ss-mods-paths`), so it is not
+# passive. Schema-valid; the checker's anchor rule refuses it: mods-invalid,
+# reason loader-anchor-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { child = "{source}/{project}/Plugins", kind = "dir" } ]
+root = "{source}/{project}/Plugins"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side", tell = "ue4ss-mods-paths" } ]

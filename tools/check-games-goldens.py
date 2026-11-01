@@ -65,6 +65,10 @@ def schema_ok(doc, schema: dict) -> tuple[bool, str]:
         return True, ""
     except schemalite.SchemaError as e:
         return False, str(e)
+    except RecursionError:
+        # A document nested past what this validator can walk is refused,
+        # never a crash of the whole run (engine-descriptor-v1.md §7.1).
+        return False, "nested too deep to validate"
 
 
 # ── the reserved list, read once, the same file the launcher mirrors ─────
@@ -658,11 +662,14 @@ def vrm_gate(raw: bytes, path: str | None = None, present=None) -> dict:
 
 # ── mods (engine-descriptor-v1.md §7) ────────────────────────────────────
 # The optional `mods` member: the player's own mod loaders. The schema's
-# $defs/mods holds its shape (closed enums, §7.3 paths, the glob); what a
-# JSON Schema cannot express is below. Every rule reads `mods` and nothing
-# else, and none of them can make a descriptor detect differently: the
-# runner also holds that the descriptor without `mods` is the same valid
-# descriptor whatever `mods` holds (§7.1).
+# $defs/mods holds its shape (closed enums, §7.3 paths, the glob, the
+# nesting); what a JSON Schema cannot express is below. Every rule reads
+# `mods` and nothing else, and none of them can make a descriptor detect
+# differently: the runner also holds that the descriptor without `mods` is
+# the same valid descriptor whatever `mods` holds (§7.1).
+#
+# Nothing here recurses on the document: a `mods` nested 1,000 deep is
+# walked with an explicit stack and refused, never a RecursionError (§7.1).
 
 MODS_LOOKUPS = ("listed", "child", "stat")
 MODS_COMBINATORS = ("any", "all", "none")
@@ -671,7 +678,7 @@ MODS_COMBINATORS = ("any", "all", "none")
 # by astra-game-launcher as src/plan.rs HIJACK_NAMES (Doorstop's names, the
 # Ultimate ASI Loader's system-DLL names, ReShade's opengl32). A proxy says
 # that SOME loader sits in a folder, never which, so it is never a loader
-# anchor (§7.4).
+# anchor and never a chain entry (§7.4, §7.6).
 HIJACK_NAMES = (
     "winhttp.dll", "version.dll", "dwmapi.dll", "dxgi.dll", "d3d11.dll", "dinput8.dll",
     "xinput1_1.dll", "xinput1_2.dll", "xinput1_3.dll", "xinput1_4.dll", "xinput9_1_0.dll",
@@ -680,12 +687,22 @@ HIJACK_NAMES = (
     "xlive.dll", "opengl32.dll",
 )
 
+# §2.4's "must not itself be a program file", for §7.4's anchor and §7.6's
+# entry: a name built from the game's own program, or a name that runs.
+PROGRAM_PLACEHOLDERS = ("{program}", "{stem}", "{name}")
+PROGRAM_EXTENSIONS = (".exe", ".com", ".bat", ".cmd", ".ps1", ".sh", ".x86", ".x86_64")
+
+# §2.4's placeholder names; a descriptor's own `as` captures join them (§7.3).
+PLACEHOLDERS = ("dir", "name", "stem", "program", "project", "project.leaf", "project.parent", "pak")
+
 # §7.7: managers are launcher adapters (astra-game-launcher src/mods.rs
 # ModManager: r2modman, Thunderstore, Gale; Mod Organizer 2 and Vortex
 # later). Their names never appear in `mods`, as a member or as a value.
 # The distinctive names match anywhere (r2modman's own folder is
 # `r2modmanPlus-local`); the short ones only as a word (`nightingale` is not
-# Gale).
+# Gale). This is a list of names, so it is only the second line: the first
+# is structural (§7.7) -- a descriptor reads below `{source}` and never
+# chooses what `{source}` is.
 _MANAGER_NAME = re.compile(
     r"r2modman|thunderstore|mod[ _-]?organi[sz]er|overwolf"
     r"|(?<![a-z0-9])(gale|mo2|vortex|tmm)(?![a-z0-9])",
@@ -693,6 +710,16 @@ _MANAGER_NAME = re.compile(
 )
 
 MODS_BUDGET = {"lookups": 64, "probes": 8, "depth": 3}
+# §7.1: tables and arrays, `mods` itself counted as 1. It follows from the
+# schema: mods > loader[] > loader > require[] > three any/all/none levels
+# (an array and an entry each) > a lookup.
+MODS_MAX_NESTING = 11
+
+_PLACEHOLDER = re.compile(r"\{([a-z][a-z0-9_]*(?:\.[a-z]+)?)\}")
+_DEVICE_STEMS = re.compile(r"^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[0-9\u00b9\u00b2\u00b3]|LPT[0-9\u00b9\u00b2\u00b3])$")
+_TEMPLATE = re.compile(r"^(?:N\{(?:1,[1-5]|2,[2-5]|3,[3-5]|4,[45]|5,5)\}|[A-Za-z.+_-]){1,32}$")
+_VERSIONS = re.compile(r"^(?:=|<=?|>=?)[0-9A-Za-z.+_-]{1,32}(?:, (?:=|<=?|>=?)[0-9A-Za-z.+_-]{1,32})?$")
+_CODE = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 
 
 def without_mods(doc: dict) -> dict:
@@ -700,9 +727,10 @@ def without_mods(doc: dict) -> dict:
     return {k: v for k, v in doc.items() if k != "mods"}
 
 
-def mods_schema(descriptor_schema: dict) -> dict:
-    """$defs/mods alone, resolving against the whole descriptor schema."""
-    return {"$defs": descriptor_schema["$defs"], "$ref": "#/$defs/mods"}
+def mods_schema(descriptor_schema: dict, definition: str = "mods") -> dict:
+    """One of the $defs alone (default $defs/mods), resolving against the
+    whole descriptor schema."""
+    return {"$defs": descriptor_schema["$defs"], "$ref": f"#/$defs/{definition}"}
 
 
 def reader_ignoring_mods_schema(descriptor_schema: dict) -> dict:
@@ -719,8 +747,11 @@ def reader_ignoring_mods_schema(descriptor_schema: dict) -> dict:
 DESCRIPTOR_BYTES = 16 * 1024
 
 
-def canonical_size(doc) -> int:
-    return len(json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+def canonical_size(doc) -> int | float:
+    try:
+        return len(json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    except RecursionError:
+        return float("inf")
 
 
 def reader_ignoring_mods_accepts(doc: dict, descriptor_schema: dict) -> bool:
@@ -730,6 +761,34 @@ def reader_ignoring_mods_accepts(doc: dict, descriptor_schema: dict) -> bool:
         and canonical_size(doc) <= DESCRIPTOR_BYTES
 
 
+def nesting(value) -> int:
+    """How deep tables and arrays nest in `value` (a container counts 1)."""
+    deepest, stack = 0, [(value, 1)]
+    while stack:
+        v, d = stack.pop()
+        if isinstance(v, dict):
+            deepest = max(deepest, d)
+            stack.extend((x, d + 1) for x in v.values())
+        elif isinstance(v, list):
+            deepest = max(deepest, d)
+            stack.extend((x, d + 1) for x in v)
+    return deepest
+
+
+def _strings(value):
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, dict):
+            for k, x in v.items():
+                yield k
+                stack.append(x)
+        elif isinstance(v, list):
+            stack.extend(v)
+        elif isinstance(v, str):
+            yield v
+
+
 def mods_loaders(doc: dict) -> list[dict]:
     mods = doc.get("mods")
     if not isinstance(mods, dict) or not isinstance(mods.get("loader"), list):
@@ -737,64 +796,224 @@ def mods_loaders(doc: dict) -> list[dict]:
     return [l for l in mods["loader"] if isinstance(l, dict)]
 
 
-def _require_walk(entries, depth=0):
-    """(entry, combinator depth) for every lookup or probe in a `require`."""
-    for e in entries if isinstance(entries, list) else []:
-        if not isinstance(e, dict):
+def _require_walk(entries, limit: int = MODS_BUDGET["depth"] + 1):
+    """(entry, combinator depth) for every lookup or probe in a `require`,
+    with an explicit stack. A combinator deeper than `limit` is yielded
+    itself, at that depth, and never descended into."""
+    stack = [(entries, 0)]
+    while stack:
+        es, d = stack.pop()
+        if not isinstance(es, list):
             continue
-        nested = next((k for k in MODS_COMBINATORS if k in e), None)
-        if nested is not None:
-            yield from _require_walk(e[nested], depth + 1)
-        else:
-            yield e, depth
+        for e in es:
+            if not isinstance(e, dict):
+                continue
+            nested = next((k for k in MODS_COMBINATORS if k in e), None)
+            if nested is None:
+                yield e, d
+            elif d + 1 > limit:
+                yield e, d + 1
+            else:
+                stack.append((e[nested], d + 1))
+
+
+def component_problem(c: str, placeholders: bool = True) -> str | None:
+    """§7.3's component rules (astra-game-launcher src/paths.rs
+    check_component, plus C1 controls): None, `path-escapes` or
+    `path-invalid`."""
+    if c == "..":
+        return "path-escapes"
+    if c in ("", ".") or len(c) > 255:
+        return "path-invalid"
+    if any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F or ch in '\\:*?<>"|/' for ch in c):
+        return "path-invalid"
+    bare = _PLACEHOLDER.sub("", c) if placeholders else c
+    if "{" in bare or "}" in bare or (placeholders and "{source}" in c):
+        return "path-invalid"
+    if c.endswith(".") or c.endswith(" "):
+        return "path-invalid"
+    if _DEVICE_STEMS.match(c.split(".")[0].rstrip(" ").upper()):
+        return "path-invalid"
+    return None
+
+
+def mods_path_reason(p) -> str | None:
+    """None for a §7.3 path, else its §7.9 reason."""
+    if not isinstance(p, str) or len(p) > 512:
+        return "shape"
+    if p == "{source}":
+        return None
+    if not p.startswith("{source}/"):
+        return "path-outside-jail"
+    found = [component_problem(c) for c in p.split("/")[1:]]
+    if "path-escapes" in found:
+        return "path-escapes"
+    return "path-invalid" if any(found) else None
+
+
+def substitute(path: str, values: dict) -> list[str] | None:
+    """§7.3 at evaluation: every placeholder replaced by its game-relative
+    value, the path split on `/` again, every component checked again.
+    None = that loader yields nothing (an unbound placeholder, a value that
+    is empty, holds `..`, a separator of its own or a placeholder)."""
+    if mods_path_reason(path) is not None:
+        return None
+    missing = []
+
+    def value(m):
+        if m.group(1) not in values:
+            missing.append(m.group(1))
+            return ""
+        return values[m.group(1)]
+
+    rest = _PLACEHOLDER.sub(value, path[len("{source}"):])
+    if missing:
+        return None
+    comps = rest.split("/")[1:] if rest else []
+    if any(component_problem(c, placeholders=False) for c in comps):
+        return None
+    return comps
+
+
+def file_name_reason(n) -> str | None:
+    """§7.5's `marker`: one §7.3 component, no placeholder."""
+    if not isinstance(n, str):
+        return "shape"
+    return "path-invalid" if component_problem(n, placeholders=False) else None
+
+
+def glob_reason(g) -> str | None:
+    """§7.5: one file name, one or two `*`, no other wildcard or separator."""
+    ok = (isinstance(g, str) and 1 <= len(g) <= 64 and 1 <= g.count("*") <= 2 and "**" not in g
+          and not any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F or ch in '/\\:?[]{}<>"|' for ch in g))
+    return None if ok else "glob-over-budget"
+
+
+def _mods_paths(loader: dict):
+    """(member, path) for every §7.3 path a loader holds."""
+    if "root" in loader:
+        yield "root", loader["root"]
+    for entry, _d in _require_walk(loader.get("require")):
+        for k in MODS_LOOKUPS + ("tail",):
+            if k in entry:
+                yield f"require.{k}", entry[k]
+    if isinstance(loader.get("version"), dict) and "pe" in loader["version"]:
+        yield "version.pe", loader["version"]["pe"]
+    for f in loader.get("enabled", []) if isinstance(loader.get("enabled"), list) else []:
+        if isinstance(f, dict) and "list" in f:
+            yield "enabled.list", f["list"]
+    for s in loader.get("coexist", []) if isinstance(loader.get("coexist"), list) else []:
+        if isinstance(s, dict) and "entry" in s:
+            yield "coexist.entry", s["entry"]
 
 
 def _anchor_name(path: str) -> str:
     """The literal part of a path's last component (its placeholders cut)."""
-    return re.sub(r"\{[^}]*\}", "", path.rsplit("/", 1)[-1])
+    return _PLACEHOLDER.sub("", path.rsplit("/", 1)[-1])
+
+
+def _proxy_or_runtime(path: str) -> bool:
+    name = _anchor_name(path)
+    return name.lower() in HIJACK_NAMES or any(p.match(name) for p in _UBIQUITOUS)
+
+
+def _program_shaped(path: str) -> bool:
+    last = path.rsplit("/", 1)[-1]
+    return any(p in last for p in PROGRAM_PLACEHOLDERS) or last.lower().endswith(PROGRAM_EXTENSIONS)
+
+
+def _top_lookups(loader: dict, kind: str):
+    """The top-level `listed`/`child`/`stat` paths of `kind` in a loader's
+    `require` (never one inside any/all/none)."""
+    req = loader.get("require")
+    for entry in req if isinstance(req, list) else []:
+        if isinstance(entry, dict) and entry.get("kind") == kind:
+            key = next((k for k in MODS_LOOKUPS if k in entry), None)
+            if key is not None and isinstance(entry[key], str):
+                yield entry[key]
+
+
+def _passive(loader: dict) -> bool:
+    """§7.4: a loader that never makes Astra load or tell anything."""
+    co = loader.get("coexist")
+    return isinstance(co, list) and all(
+        isinstance(s, dict) and s.get("strategy") != "chain" and "tell" not in s for s in co)
 
 
 def rule_mods_loader_anchor_invalid(doc: dict) -> bool:
-    """True = OK. §7.4: every loader has a top-level `listed`/`child`/`stat`
-    whose last component holds a literal name that is neither a name loaders
-    hijack-load by nor a §2.4 ubiquitous runtime name."""
+    """True = OK. §7.4: every loader has a top-level `file` lookup whose last
+    component holds a literal name that is not a proxy, not a ubiquitous
+    runtime and not the game's own program -- or, for a passive loader only,
+    a top-level `dir` lookup of exactly its own `root`."""
     for loader in mods_loaders(doc):
-        ok = False
-        for entry in loader.get("require", []) if isinstance(loader.get("require"), list) else []:
-            if not isinstance(entry, dict):
-                continue
-            key = next((k for k in MODS_LOOKUPS if k in entry), None)
-            if key is None or not isinstance(entry[key], str):
-                continue
-            name = _anchor_name(entry[key])
-            if name and "*" not in name and name.lower() not in HIJACK_NAMES \
-                    and not any(p.match(name) for p in _UBIQUITOUS):
-                ok = True
-                break
-        if not ok:
+        files = [p for p in _top_lookups(loader, "file")
+                 if _anchor_name(p) and not _proxy_or_runtime(p) and not _program_shaped(p)]
+        own_root = _passive(loader) and any(
+            p == loader.get("root") and _anchor_name(p) for p in _top_lookups(loader, "dir"))
+        if not files and not own_root:
             return False
+    return True
+
+
+def rule_mods_chain_entry_invalid(doc: dict) -> bool:
+    """True = OK. §7.6: a `chain` entry is one of the loader's own top-level
+    `file` lookups -- a file its recognition already found -- and is never a
+    proxy, a ubiquitous runtime or the game's own program."""
+    for loader in mods_loaders(doc):
+        own = set(_top_lookups(loader, "file"))
+        for s in loader.get("coexist", []) if isinstance(loader.get("coexist"), list) else []:
+            if not isinstance(s, dict) or s.get("strategy") != "chain" or not isinstance(s.get("entry"), str):
+                continue
+            e = s["entry"]
+            if e not in own or _proxy_or_runtime(e) or _program_shaped(e):
+                return False
+    return True
+
+
+def descriptor_captures(doc: dict) -> set[str]:
+    """Every `as` capture this descriptor's detection rules bind."""
+    out, stack = set(), [doc.get("rule")]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, dict):
+            if isinstance(v.get("as"), str):
+                out.add(v["as"])
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return out
+
+
+def rule_mods_placeholder_unknown(doc: dict) -> bool:
+    """True = OK. §7.3: a placeholder in a `mods` path is a §2.4 name or one
+    of this descriptor's own captures."""
+    known = set(PLACEHOLDERS) | descriptor_captures(doc)
+    for loader in mods_loaders(doc):
+        for _member, p in _mods_paths(loader):
+            if isinstance(p, str) and set(_PLACEHOLDER.findall(p)) - known - {"source"}:
+                return False
     return True
 
 
 def rule_mods_code_undeclared(doc: dict) -> bool:
     """True = OK. §7.4: a loader's `codes` are this descriptor's own."""
     own = set(doc.get("engine", {}).get("codes", {}).keys()) if isinstance(doc.get("engine"), dict) else set()
-    return all(set(l.get("codes", [])) <= own for l in mods_loaders(doc))
+    return all(set(l.get("codes", [])) <= own for l in mods_loaders(doc) if isinstance(l.get("codes", []), list))
 
 
 def rule_mods_loader_id_duplicate(doc: dict) -> bool:
     """True = OK. §7.2: loader ids are unique within the descriptor."""
     ids = [l.get("id") for l in mods_loaders(doc)]
-    return len(ids) == len(set(ids))
+    return len(ids) == len(set(map(str, ids)))
 
 
 def mods_cost(doc: dict) -> dict:
     """§7.8's per-member counts: lookups (`listed`/`child`/`stat`), content
-    probes (`tail`, a `version`, an `enable-list` list) and the deepest
-    `any`/`all`/`none` nesting, across every loader."""
+    probes (`tail`, a `version`, an `enable-list` list and its `marker`) and
+    the deepest `any`/`all`/`none` nesting, across every loader."""
     lookups = probes = depth = 0
     for loader in mods_loaders(doc):
-        for entry, d in _require_walk(loader.get("require", [])):
+        for entry, d in _require_walk(loader.get("require")):
             depth = max(depth, d)
             if any(k in entry for k in MODS_LOOKUPS):
                 lookups += 1
@@ -804,26 +1023,15 @@ def mods_cost(doc: dict) -> dict:
             probes += 1
         for fmt in loader.get("enabled", []) if isinstance(loader.get("enabled"), list) else []:
             if isinstance(fmt, dict) and fmt.get("format") == "enable-list":
-                probes += 1
+                probes += 1 + ("marker" in fmt)
     return {"lookups": lookups, "probes": probes, "depth": depth}
 
 
 def rule_mods_over_budget(doc: dict) -> bool:
-    """True = OK. §7.8: ≤64 lookups, ≤8 probes, nesting ≤3, per member."""
+    """True = OK. §7.8: ≤64 lookups, ≤8 probes, any/all/none ≤3 deep, and
+    §7.1's nesting bound, per member."""
     cost = mods_cost(doc)
-    return all(cost[k] <= MODS_BUDGET[k] for k in MODS_BUDGET)
-
-
-def _strings(value):
-    if isinstance(value, dict):
-        for k, v in value.items():
-            yield k
-            yield from _strings(v)
-    elif isinstance(value, list):
-        for v in value:
-            yield from _strings(v)
-    elif isinstance(value, str):
-        yield value
+    return all(cost[k] <= MODS_BUDGET[k] for k in MODS_BUDGET) and nesting(doc.get("mods")) <= MODS_MAX_NESTING
 
 
 def rule_mods_manager_as_data(doc: dict) -> bool:
@@ -834,15 +1042,156 @@ def rule_mods_manager_as_data(doc: dict) -> bool:
 
 SEMANTIC_MODS_RULES = {
     "mods-loader-anchor-invalid": rule_mods_loader_anchor_invalid,
+    "mods-chain-entry-invalid": rule_mods_chain_entry_invalid,
+    "mods-placeholder-unknown": rule_mods_placeholder_unknown,
     "mods-code-undeclared": rule_mods_code_undeclared,
     "mods-loader-id-duplicate": rule_mods_loader_id_duplicate,
     "mods-over-budget": rule_mods_over_budget,
     "mods-manager-as-data": rule_mods_manager_as_data,
 }
 
+# §7.9's reason for each semantic rule.
+SEMANTIC_MODS_REASONS = {
+    "mods-loader-anchor-invalid": "loader-anchor-invalid",
+    "mods-chain-entry-invalid": "chain-entry-invalid",
+    "mods-placeholder-unknown": "placeholder-unknown",
+    "mods-code-undeclared": "code-undeclared",
+    "mods-loader-id-duplicate": "loader-id-duplicate",
+    "mods-over-budget": "over-budget",
+    "mods-manager-as-data": "manager-as-data",
+}
+
 
 def mods_semantic_problems(doc: dict) -> list[str]:
     return [name for name, rule in SEMANTIC_MODS_RULES.items() if not rule(doc)]
+
+
+_LOADER_KEYS = {"id", "name", "codes", "source", "require", "version", "root", "enabled", "coexist"}
+_LOADER_REQUIRED = {"id", "name", "source", "require", "root", "enabled", "coexist"}
+_ENABLED_KEYS = {"dir-per-mod": ({"format"}, {"format"}),
+                 "enable-list": ({"format", "list", "line", "marker"}, {"format", "list", "line"}),
+                 "file-glob": ({"format", "glob"}, {"format", "glob"})}
+_COEXIST_KEYS = {"chain": ({"strategy", "entry", "tell"}, {"strategy", "entry"}),
+                 "side-by-side": ({"strategy", "tell"}, {"strategy"}),
+                 "via-manager": ({"strategy"}, {"strategy"})}
+
+
+def _list(v, lo, hi) -> bool:
+    return isinstance(v, list) and lo <= len(v) <= hi
+
+
+def mods_reasons(doc: dict) -> set[str]:
+    """Every §7.9 reason a descriptor's `mods` is refused for, read from the
+    grammar itself and not from the schema's error text, so the reason a
+    golden is NAMED for can be asserted (vectors.json `reasons`). Empty for a
+    valid `mods`, or for none at all."""
+    if "mods" not in doc:
+        return set()
+    m = doc["mods"]
+    if not isinstance(m, dict):
+        return {"descriptor-invalid"}
+    r = set()
+    if nesting(m) > MODS_MAX_NESTING:
+        r.add("over-budget")
+    if set(m) - {"loader"}:
+        r.add("unknown")
+    loaders = m.get("loader")
+    if not _list(loaders, 1, 4):
+        r.add("shape")
+    for l in loaders if isinstance(loaders, list) else []:
+        if not isinstance(l, dict):
+            r.add("shape")
+            continue
+        if set(l) - _LOADER_KEYS:
+            r.add("unknown")
+        if _LOADER_REQUIRED - set(l):
+            r.add("shape")
+        if "id" in l and not (isinstance(l["id"], str) and _CODE.match(l["id"])):
+            r.add("shape")
+        if "name" in l and not (isinstance(l["name"], str) and 1 <= len(l["name"]) <= 48):
+            r.add("shape")
+        if "codes" in l and not (_list(l["codes"], 1, 4) and all(isinstance(c, str) and _CODE.match(c) for c in l["codes"])):
+            r.add("shape")
+        if "source" in l:
+            if not _list(l["source"], 1, 3):
+                r.add("shape")
+            elif any(s not in ("game", "manager", "picked") for s in l["source"]):
+                r.add("unknown")
+        if "require" in l and not _list(l["require"], 1, 8):
+            r.add("shape")
+        for entry, d in _require_walk(l.get("require")):
+            if d > MODS_BUDGET["depth"]:
+                r.add("over-budget")
+                continue
+            key = next((k for k in MODS_LOOKUPS + ("tail",) if k in entry), None)
+            if key is None:
+                r.add("unknown")
+                continue
+            allowed = {key, "kind"} if key != "tail" else {"tail", "bytes", "equals", "min_len"}
+            if set(entry) - allowed:
+                r.add("unknown")
+            if key != "tail":
+                if "kind" not in entry:
+                    r.add("shape")
+                elif entry["kind"] not in ("file", "dir"):
+                    r.add("unknown")
+        v = l.get("version")
+        if v is not None:
+            if not isinstance(v, dict):
+                r.add("shape")
+            else:
+                if set(v) - {"pe", "key", "template", "versions"}:
+                    r.add("unknown")
+                if {"pe", "key", "template"} - set(v):
+                    r.add("shape")
+                if "key" in v:
+                    if not _list(v["key"], 1, 2):
+                        r.add("shape")
+                    elif any(k not in ("ProductVersion", "FileVersion") for k in v["key"]):
+                        r.add("unknown")
+                if "template" in v and not (isinstance(v["template"], str) and _TEMPLATE.match(v["template"])):
+                    r.add("version-invalid")
+                if "versions" in v and not (isinstance(v["versions"], str) and _VERSIONS.match(v["versions"])):
+                    r.add("version-invalid")
+        en = l.get("enabled")
+        if "enabled" in l and not _list(en, 1, 3):
+            r.add("shape")
+        for f in en if isinstance(en, list) else []:
+            if not isinstance(f, dict) or f.get("format") not in _ENABLED_KEYS:
+                r.add("unknown" if isinstance(f, dict) else "shape")
+                continue
+            allowed, required = _ENABLED_KEYS[f["format"]]
+            if set(f) - allowed:
+                r.add("unknown")
+            if required - set(f):
+                r.add("shape")
+            if "line" in f and f["line"] != "name-colon-flag":
+                r.add("unknown")
+            if "marker" in f:
+                r.add(file_name_reason(f["marker"]))
+            if "glob" in f:
+                r.add(glob_reason(f["glob"]))
+        co = l.get("coexist")
+        if "coexist" in l and not _list(co, 0, 3):
+            r.add("shape")
+        for s in co if isinstance(co, list) else []:
+            if not isinstance(s, dict) or s.get("strategy") not in _COEXIST_KEYS:
+                r.add("unknown" if isinstance(s, dict) else "shape")
+                continue
+            allowed, required = _COEXIST_KEYS[s["strategy"]]
+            if set(s) - allowed:
+                r.add("unknown")
+            if required - set(s):
+                r.add("shape")
+            if "tell" in s and s["tell"] not in ("ue4ss-mods-paths",):
+                r.add("unknown")
+        for _member, p in _mods_paths(l):
+            r.add(mods_path_reason(p))
+    for name, rule in SEMANTIC_MODS_RULES.items():
+        if not rule(doc):
+            r.add(SEMANTIC_MODS_REASONS[name])
+    r.discard(None)
+    return r
 
 
 def _template_regex(template: str, runs: int | None = None) -> tuple[str, int]:
@@ -865,7 +1214,10 @@ def _template_regex(template: str, runs: int | None = None) -> tuple[str, int]:
 
 def read_version(template: str, value: str) -> list[int] | None:
     """§7.4: the digit runs of the template's match at the start of `value`,
-    whose next character is not a digit; None when it does not match."""
+    whose next character is not a digit; None when it does not match, and
+    None for a template §7.4 refuses (`N{5,1}`), never an exception."""
+    if not _TEMPLATE.match(template):
+        return None
     rx, _ = _template_regex(template)
     m = re.match(rx + r"(?![0-9])", value)
     return [int(g) for g in m.groups()] if m else None
@@ -874,6 +1226,8 @@ def read_version(template: str, value: str) -> list[int] | None:
 def read_operand(template: str, operand: str) -> list[int] | None:
     """§7.4: an operand is the template's leading part, cut after a digit
     run; its runs, or None when it does not read in the template's shape."""
+    if not _TEMPLATE.match(template):
+        return None
     _, total = _template_regex(template)
     for k in range(1, total + 1):
         rx, _ = _template_regex(template, k)
@@ -890,7 +1244,10 @@ def version_comparators(versions: str) -> list[tuple[str, str]]:
 
 def version_holds(template: str, versions: str, value: str) -> bool:
     """§7.4: whether `value`'s version satisfies every comparator. Unknown
-    (no match, or an operand that does not read) never holds."""
+    (no match, a template or `versions` that does not read, or an operand
+    out of the template's shape) never holds."""
+    if not _VERSIONS.match(versions):
+        return False
     have = read_version(template, value)
     if have is None:
         return False
@@ -921,6 +1278,45 @@ def _dig(doc: dict, dotted: str):
     for part in dotted.split("."):
         doc = doc[part]
     return doc
+
+
+def judge_mods_paths(cases: dict, descriptor_schema: dict) -> list[tuple[str, bool, str]]:
+    """testdata/games/descriptors/mods/paths.json: each path's schema verdict
+    and §7.9 reason, and each substitution's re-checked components (§7.3)."""
+    out = []
+    path_schema = mods_schema(descriptor_schema, "modsPath")
+    for c in cases["paths"]:
+        sok = schema_ok(c["path"], path_schema)[0]
+        got = mods_path_reason(c["path"])
+        out.append((f"descriptor/mods/paths/{c['path']!r}", sok == (c["reason"] is None) and got == c["reason"],
+                    f"schema_ok={sok} reason={got} want={c['reason']}"))
+    for c in cases["substitution"]:
+        got = substitute(c["path"], c["values"])
+        out.append((f"descriptor/mods/substitution/{c['path']} {c['values']}", got == c["components"],
+                    f"got={got} want={c['components']}"))
+    return out
+
+
+def judge_mods_hostile(v: dict, doc: dict, descriptor_schema: dict) -> list[tuple[str, bool, str]]:
+    """One hostile `mods` golden: refused as recorded, refused INSIDE `mods`
+    (the detection half stands on its own, §7.9), for exactly the recorded
+    §7.9 reasons, and by the one semantic rule it is named for."""
+    out = []
+    sok, detail = schema_ok(doc, descriptor_schema)
+    mods_sok, _ = schema_ok(doc.get("mods"), mods_schema(descriptor_schema))
+    out.append((f"descriptor/mods/hostile/{v['name']} (schema)",
+                sok == (v["schema_verdict"] == "accept") and mods_sok == sok, detail))
+    det_ok, det_detail = schema_ok(without_mods(doc), descriptor_schema)
+    reader_ok = reader_ignoring_mods_accepts(doc, descriptor_schema)
+    out.append((f"descriptor/mods/hostile/{v['name']} (client)",
+                det_ok and "mods" in doc and reader_ok == (v["reader_ignoring_mods"] == "accept"), det_detail))
+    reasons = sorted(mods_reasons(doc))
+    out.append((f"descriptor/mods/hostile/{v['name']} (reasons)", reasons == sorted(v["reasons"]),
+                f"got {reasons}, want {sorted(v['reasons'])}"))
+    problems = mods_semantic_problems(doc)
+    want = [v["rule"]] if v["check"] == "semantic" else []
+    out.append((f"descriptor/mods/hostile/{v['name']} (semantic)", problems == want, f"{problems}"))
+    return out
 
 
 SEMANTIC_MANIFEST_RULES = {
@@ -1003,13 +1399,14 @@ def main() -> int:
 
     # -- mods (engine-descriptor-v1.md §7) ----------------------------------
     mv = vectors["descriptors"]["mods"]
-    msch = mods_schema(descriptor_schema)
+    for name, ok, detail in judge_mods_paths(load_doc(mv["paths"]), descriptor_schema):
+        report(name, ok, detail)
     for v in mv["builtin"]:
         frag = load_doc(v["file"])
         eng = load_doc(v["engine"])
         whole = dict(eng, mods=frag.get("mods"))
         sok, detail = schema_ok(whole, descriptor_schema)
-        problems = mods_semantic_problems(whole)
+        reasons = mods_reasons(whole)
         loaders = {l["id"]: l for l in mods_loaders(whole)}
         operands_read = all(
             read_operand(l["version"]["template"], operand) is not None
@@ -1022,43 +1419,28 @@ def main() -> int:
         )
         ok = (
             set(frag) == {"schema", "mods"} and frag["schema"] == eng["schema"]
-            and sok and not problems and list(loaders) == v["loaders"]
+            and sok and not reasons and list(loaders) == v["loaders"]
             and without_mods(whole) == eng and operands_read and chain_incapable
         )
         report(f"descriptor/mods/builtin/{v['name']}", ok == (v["verdict"] == "accept"),
-               f"schema={detail or 'ok'} semantic={problems} loaders={list(loaders)}")
+               f"schema={detail or 'ok'} reasons={sorted(reasons)} loaders={list(loaders)}")
 
     for v in mv["compat"]:
         doc = load_doc(v["file"])
         twin = _dig(load_doc(v["twin"]), v["twin_at"])
         c = mods_compat(doc, twin, descriptor_schema)
+        reasons = sorted(mods_reasons(doc))
         ok = (
             c["full"] == (v["verdict"] == "accept")
             and c["mods"] == (v["mods_verdict"] == "accept")
             and c["reader"] == (v["reader_ignoring_mods"] == "accept")
-            and c["twin"]
+            and c["twin"] and reasons == sorted(v["reasons"])
         )
-        report(f"descriptor/mods/compat/{v['name']}", ok, json.dumps(c))
+        report(f"descriptor/mods/compat/{v['name']}", ok, json.dumps(dict(c, reasons=reasons)))
 
     for v in mv["hostile"]:
-        doc = load_doc(v["file"])
-        sok, detail = schema_ok(doc, descriptor_schema)
-        # The schema's refusal, when there is one, is INSIDE `mods`: the
-        # detection half stands on its own (§7.9), and the 0.5.0 reader's
-        # view answers as recorded.
-        mods_sok, _ = schema_ok(doc.get("mods"), msch)
-        report(f"descriptor/mods/hostile/{v['name']} (schema)",
-               sok == (v["schema_verdict"] == "accept") and mods_sok == sok, detail)
-        det_ok, det_detail = schema_ok(without_mods(doc), descriptor_schema)
-        reader_ok = reader_ignoring_mods_accepts(doc, descriptor_schema)
-        report(f"descriptor/mods/hostile/{v['name']} (client)",
-               det_ok and "mods" in doc and reader_ok == (v["reader_ignoring_mods"] == "accept"), det_detail)
-        problems = mods_semantic_problems(doc)
-        if v["check"] == "semantic":
-            report(f"descriptor/mods/hostile/{v['name']} (semantic)", problems == [v["rule"]], f"{problems}")
-        else:
-            # named for the one rule it breaks: no semantic rule fires too
-            report(f"descriptor/mods/hostile/{v['name']} (semantic)", problems == [], f"{problems}")
+        for name, ok, detail in judge_mods_hostile(v, load_doc(v["file"]), descriptor_schema):
+            report(name, ok, detail)
 
     # -- index --------------------------------------------------------------
     index_schema = load_schema(vectors["index"]["schema"])

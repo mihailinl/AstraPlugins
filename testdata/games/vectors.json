@@ -85,14 +85,15 @@
     "mods": {
       "note": "engine-descriptor-v1.md §7, the optional `mods` member. Its own list on purpose: launcher 0.5.0's K17 reads `builtin` and `hostile` above and nothing here, so these goldens cannot change a 0.5.0 answer. `client` is what a client that evaluates `mods` does (§7.9: an error inside the table drops only `mods`); `reader_ignoring_mods` is what a reader that reads nothing in it (launcher 0.5.0) answers for the whole descriptor; `verdict` is ingest's and lint's.",
       "schema_def": "#/$defs/mods",
+      "paths": "descriptors/mods/paths.json",
       "builtin": [
         {
           "name": "unity", "file": "descriptors/mods/builtin/unity.mods.toml", "engine": "descriptors/builtin/unity.toml",
-          "loaders": ["bepinex5", "bepinex6-il2cpp"], "verdict": "accept"
+          "loaders": ["bepinex5", "bepinex6-il2cpp"], "verdict": "accept", "reasons": []
         },
         {
           "name": "unreal", "file": "descriptors/mods/builtin/unreal.mods.toml", "engine": "descriptors/builtin/unreal.toml",
-          "loaders": ["ue4ss3", "ue4ss2", "unreal-paks"], "verdict": "accept",
+          "loaders": ["ue4ss3", "ue4ss2", "unreal-paks"], "verdict": "accept", "reasons": [],
           "chain_incapable": ["ue4ss2"]
         }
       ],
@@ -100,62 +101,102 @@
         {
           "name": "source2-with-mods", "file": "descriptors/mods/compat/source2-with-mods.toml",
           "twin": "manifests/valid/foundation-owns-engine.toml", "twin_at": "integration.engine",
-          "verdict": "accept", "mods_verdict": "accept", "client": "detects-with-mods", "reader_ignoring_mods": "accept"
+          "verdict": "accept", "mods_verdict": "accept", "client": "detects-with-mods", "reader_ignoring_mods": "accept", "reasons": []
         },
         {
           "name": "source2-with-future-mods", "file": "descriptors/mods/compat/source2-with-future-mods.toml",
           "twin": "manifests/valid/foundation-owns-engine.toml", "twin_at": "integration.engine",
-          "verdict": "refuse", "mods_verdict": "refuse", "client": "mods-dropped", "reader_ignoring_mods": "accept"
+          "verdict": "refuse", "mods_verdict": "refuse", "client": "mods-dropped", "reader_ignoring_mods": "accept", "reasons": ["unknown"]
         }
       ],
       "hostile": [
         {
-          "name": "path-escape", "file": "descriptors/mods/hostile/mods-path-escape.toml", "reason": "path-escapes",
+          "name": "path-escape", "file": "descriptors/mods/hostile/mods-path-escape.toml", "reasons": ["path-escapes"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "schema", "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "absolute-path", "file": "descriptors/mods/hostile/mods-absolute-path.toml", "reason": "path-outside-jail",
+          "name": "absolute-path", "file": "descriptors/mods/hostile/mods-absolute-path.toml", "reasons": ["path-outside-jail"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "schema", "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "over-budget-glob", "file": "descriptors/mods/hostile/mods-over-budget-glob.toml", "reason": "glob-over-budget",
+          "name": "over-budget-glob", "file": "descriptors/mods/hostile/mods-over-budget-glob.toml", "reasons": ["glob-over-budget"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "schema", "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "unknown-enum", "file": "descriptors/mods/hostile/mods-unknown-enum.toml", "reason": "unknown",
+          "name": "unknown-enum", "file": "descriptors/mods/hostile/mods-unknown-enum.toml", "reasons": ["unknown"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "schema", "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "manager-as-data", "file": "descriptors/mods/hostile/mods-manager-as-data.toml", "reason": "manager-as-data",
+          "name": "manager-as-data", "file": "descriptors/mods/hostile/mods-manager-as-data.toml", "reasons": ["unknown", "manager-as-data"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "semantic", "rule": "mods-manager-as-data",
           "client": "mods-dropped", "reader_ignoring_mods": "accept",
           "mechanical_note": "refused twice: the schema has no member to hold a manager, and the semantic rule finds a manager's name in any member or value"
         },
         {
-          "name": "anchor-on-a-proxy", "file": "descriptors/mods/hostile/mods-anchor-on-a-proxy.toml", "reason": "loader-anchor-invalid",
+          "name": "anchor-on-a-proxy", "file": "descriptors/mods/hostile/mods-anchor-on-a-proxy.toml", "reasons": ["loader-anchor-invalid"],
           "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-anchor-invalid",
           "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "loader-for-another-engine", "file": "descriptors/mods/hostile/mods-loader-for-another-engine.toml", "reason": "code-undeclared",
+          "name": "loader-for-another-engine", "file": "descriptors/mods/hostile/mods-loader-for-another-engine.toml", "reasons": ["code-undeclared"],
           "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-code-undeclared",
           "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "loader-id-duplicate", "file": "descriptors/mods/hostile/mods-loader-id-duplicate.toml", "reason": "loader-id-duplicate",
+          "name": "loader-id-duplicate", "file": "descriptors/mods/hostile/mods-loader-id-duplicate.toml", "reasons": ["loader-id-duplicate"],
           "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-id-duplicate",
           "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "over-budget-lookups", "file": "descriptors/mods/hostile/mods-over-budget-lookups.toml", "reason": "over-budget",
+          "name": "over-budget-lookups", "file": "descriptors/mods/hostile/mods-over-budget-lookups.toml", "reasons": ["over-budget"],
           "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-over-budget",
           "client": "mods-dropped", "reader_ignoring_mods": "accept"
         },
         {
-          "name": "not-a-table", "file": "descriptors/mods/hostile/mods-not-a-table.toml", "reason": "descriptor-invalid",
+          "name": "not-a-table", "file": "descriptors/mods/hostile/mods-not-a-table.toml", "reasons": ["descriptor-invalid"],
           "schema_verdict": "refuse", "verdict": "refuse", "check": "schema",
           "client": "descriptor-skipped", "reader_ignoring_mods": "refuse",
           "mechanical_note": "the one error in `mods` that skips the whole descriptor, in 0.5.0 (descriptor-invalid, field mods) and after"
+        },
+        {
+          "name": "chain-entry-on-a-proxy", "file": "descriptors/mods/hostile/mods-chain-entry-on-a-proxy.toml", "reasons": ["chain-entry-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-chain-entry-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "anchor-on-the-program", "file": "descriptors/mods/hostile/mods-anchor-on-the-program.toml", "reasons": ["loader-anchor-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-anchor-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "anchor-on-a-folder", "file": "descriptors/mods/hostile/mods-anchor-on-a-folder.toml", "reasons": ["loader-anchor-invalid"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-loader-anchor-invalid",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "device-name", "file": "descriptors/mods/hostile/mods-device-name.toml", "reasons": ["path-invalid"],
+          "schema_verdict": "refuse", "verdict": "refuse", "check": "schema",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "unknown-placeholder", "file": "descriptors/mods/hostile/mods-unknown-placeholder.toml", "reasons": ["placeholder-unknown"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-placeholder-unknown",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "deep-nesting", "file": "descriptors/mods/hostile/mods-deep-nesting.toml", "reasons": ["over-budget"],
+          "schema_verdict": "refuse", "verdict": "refuse", "check": "semantic", "rule": "mods-over-budget",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "template-reversed", "file": "descriptors/mods/hostile/mods-template-reversed.toml", "reasons": ["version-invalid"],
+          "schema_verdict": "refuse", "verdict": "refuse", "check": "schema",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
+        },
+        {
+          "name": "over-budget-probes", "file": "descriptors/mods/hostile/mods-over-budget-probes.toml", "reasons": ["over-budget"],
+          "schema_verdict": "accept", "verdict": "refuse", "check": "semantic", "rule": "mods-over-budget",
+          "client": "mods-dropped", "reader_ignoring_mods": "accept"
         }
       ]
     }
