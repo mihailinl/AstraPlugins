@@ -24,8 +24,8 @@
           "size": 22
         },
         "artefact": {
-          "sha256": "54f8b94b08af2e4dd7e7ecc2b9fbbe7d37022c17616382da83089d7b2a52264c",
-          "size": 829,
+          "sha256": "d62801676d72233384515d7662b7f2fc602f2d10f02ae65c441870d572d49cad",
+          "size": 935,
           "media_type": "application/vnd.astra.animpack+zip"
         },
         "review": "unchecked",
@@ -79,7 +79,7 @@
   "signatures": [
     {
       "key_id": "astra-animsets-2026a",
-      "sig": "sQfFmGKp9L8FPj6Vk9uifZm/q/PS9n+22DtV34HoNYhvujFnFGfgI/3VsFWQmbwt2MN2GEFItI4vbKBOZ7ffBw=="
+      "sig": "Y2XQG28tZAW+DeMs8E4ymDkyQMFxf8Y4aR6/ziOCRkoPCH9RcOy+lAovUUV0ZkqAiKOjwDX2nEZ/xQJb1PzfDw=="
     }
   ]
 }

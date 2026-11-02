@@ -2435,7 +2435,7 @@
     {
       "name": "glb-json-over-16mib",
       "synth": "glb-json-over-16mib",
-      "sha256": "6e79c9f88cb6467ee958ffe59889061d1230f21d3adfdf52e4e6f89292773b33",
+      "sha256": "629316e4bc81d2ff64a5c7cba522b10aed89f80403321c8a66fe2ae3359cf816",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
       "declared_licence": [
@@ -2446,7 +2446,7 @@
     {
       "name": "gltf-over-16mib",
       "synth": "gltf-over-16mib",
-      "sha256": "1a2d8e3dad8346779e1df2b9c8aaf98462b443d3e68ac64ca0e00705e0b01e81",
+      "sha256": "af1abb42ccd5d6c7d7993d6da284a999529cb5b2caa5adc6b5cad30f8dbeaa83",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
       "declared_licence": [
@@ -2496,7 +2496,7 @@
     {
       "name": "gltf-total-over-32mib",
       "synth": "gltf-total-over-32mib",
-      "sha256": "756aed776cdd780b726892a6a9407d2c4d2ee049decd8e991ff0d60bb61c9426",
+      "sha256": "d7919e8be8d76a107f3053da1dd74e8e9d7c8115d0549527a87c03ce4fa92081",
       "verdict": "refuse",
       "code": "E_ARCHIVE_TOO_LARGE",
       "declared_licence": [
@@ -2644,7 +2644,7 @@
           "kind": "model",
           "id": "aiko-body",
           "version": "1.0.0",
-          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+          "digest": "6329c9b36a5d96adf2776345974501898e7b31d19dd6d525ef7006aa56013350"
         }
       ],
       "served": {
@@ -2663,7 +2663,7 @@
           "kind": "model",
           "id": "aiko-body",
           "version": "1.0.0",
-          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+          "digest": "6329c9b36a5d96adf2776345974501898e7b31d19dd6d525ef7006aa56013350"
         }
       ],
       "served": {
@@ -3195,7 +3195,7 @@
           "kind": "model",
           "id": "aiko-body",
           "version": "1.0.0",
-          "digest": "d98b583d38449b8c1ce4de3a413100f39bacc7659d5027c92fa48e1e7ac34359"
+          "digest": "6329c9b36a5d96adf2776345974501898e7b31d19dd6d525ef7006aa56013350"
         }
       ],
       "served": {
