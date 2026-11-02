@@ -1,0 +1,11 @@
+# link digest golden (manifest.md §2.6.1): this file has CRLF line endings,
+# and a multi-line string whose own newlines are CRLF. TOML lets a parser
+# normalise those as it likes; the digest rule normalises them to LF, so a
+# CRLF checkout of the same table gives the same digest as an LF one.
+[integration.link]
+context = true
+shares_other_players = false
+tools = [
+  { name = "wave", params = "astra/tools/wave.json", description = """Wave
+twice""" },
+]

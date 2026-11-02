@@ -2125,6 +2125,10 @@ def main() -> int:
 
     # -- link -------------------------------------------------------------
     for v in vectors["link"].get("digest", []):
+        if v.get("crlf"):
+            # the golden only tests normalisation while it really holds CRLF
+            raw = (DATA / v["manifest"]).read_bytes()
+            report(f"link/digest/{v['name']} holds CRLF", b"\r\n" in raw)
         got = link_digest(load_doc(v["manifest"]))
         report(f"link/digest/{v['name']}", got == v["digest"], f"{got} vs {v['digest']}")
     message_schema = load_schema(vectors["link"]["message_schema"])

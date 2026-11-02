@@ -223,7 +223,13 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
 `testdata/games/vectors.json`'s `link.digest` vectors:
 
 1. Take the `[integration.link]` table of the astra-gi.toml **as shipped in
-   the release**, parsed as TOML 1.0, **exactly as written**:
+   the release**, parsed as **TOML 1.0** (a file that needs TOML 1.1 syntax,
+   or begins with a byte-order mark, is refused as an invalid manifest, so no
+   reader computes a digest another reader cannot), **exactly as written**:
+   - **A newline inside a multi-line string is LF.** TOML lets a parser
+     keep or normalise CRLF there, so the rule fixes it: CRLF becomes LF
+     before step 3, and a CRLF checkout gives the same digest as an LF one
+     (vectors `crlf`, `crlf-as-lf`).
    - **No default is added** for a key the table leaves out. An absent
      optional key (`skill`, `tools`, `triggers`, `events`) is absent, never
      `false`, `[]` or `null`.

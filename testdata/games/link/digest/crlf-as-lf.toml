@@ -1,0 +1,9 @@
+# link digest golden (manifest.md §2.6.1): crlf.toml with LF line endings.
+# Its digest must equal crlf.toml's.
+[integration.link]
+context = true
+shares_other_players = false
+tools = [
+  { name = "wave", params = "astra/tools/wave.json", description = """Wave
+twice""" },
+]
