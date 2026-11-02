@@ -1,0 +1,58 @@
+# The built-in Unity loaders as astra.engine/1 `mods` data
+# (engine-descriptor-v1.md §7). It rides on descriptors/builtin/unity.toml:
+# vectors.json names that file as its `engine`, and
+# tools/check-games-goldens.py checks the two as ONE descriptor -- and checks
+# that the descriptor without this table is unity.toml as parsed, member for
+# member, so `mods` can change nothing detection reads (§7.1).
+#
+# Facts: astra-companion-5f's loader notes (2026-11-01) and launcher 0.4.x's
+# src/mods/ (ModsLoader::Bepinex5 = "5.4", Bepinex6Il2cpp { build }). The ids
+# are the values a foundation's [integration.mods] `loader` already says
+# (astra-bepinex docs/GAME-INTEGRATION-MANIFEST.md §7), so a foundation
+# names a loader of this table by its id.
+#
+# Both loaders chain: Astra's runner starts first and hands control to the
+# player's own BepInEx preloader, in place. side-by-side is NOT listed for
+# either, on purpose: Astra's BepInEx plugin reads its Port/Token from a cfg,
+# and side by side that cfg would have to live in THEIR BepInEx/config -- a
+# write into the player's tree, which §7.10 forbids. BepInEx has no `tell`
+# channel that would avoid it.
+schema = "astra.engine/1"
+
+[[mods.loader]]
+id = "bepinex5"
+name = "BepInEx 5"
+codes = ["unity-mono"]
+source = ["game", "manager", "picked"]
+require = [
+  { stat = "{source}/BepInEx/core/BepInEx.dll", kind = "file" },
+  { stat = "{source}/BepInEx/core/BepInEx.Preloader.dll", kind = "file" },
+]
+version = { pe = "{source}/BepInEx/core/BepInEx.dll", key = ["ProductVersion", "FileVersion"], template = "N{1,2}.N{1,2}.N{1,3}", versions = ">=5.4, <5.5" }
+root = "{source}/BepInEx/plugins"
+# A plugin is a folder or a loose dll. r2modman and Thunderstore Mod Manager
+# disable one by renaming it `*.dll.old`, which the glob simply does not match;
+# Gale keeps its own list, read by the launcher's Gale adapter, never by data.
+enabled = [ { format = "dir-per-mod" }, { format = "file-glob", glob = "*.dll" } ]
+coexist = [ { strategy = "chain", entry = "{source}/BepInEx/core/BepInEx.Preloader.dll" } ]
+
+[[mods.loader]]
+id = "bepinex6-il2cpp"
+name = "BepInEx 6 (IL2CPP)"
+codes = ["unity-il2cpp"]
+source = ["game", "manager", "picked"]
+require = [
+  { stat = "{source}/BepInEx/core/BepInEx.Unity.IL2CPP.dll", kind = "file" },
+  { stat = "{source}/BepInEx/core/BepInEx.Core.dll", kind = "file" },
+  { stat = "{source}/dotnet", kind = "dir" },
+  { stat = "{source}/BepInEx/interop", kind = "dir" },
+]
+# The interop assemblies are generated per BepInEx build, so Astra's IL2CPP
+# foundation runs beside exactly one: 6.0.0-be.788. Any other build is
+# "recognised, unsupported" (§7.4): the player is told so and offered to play
+# without mods. A foundation may require a narrower version than this, never
+# a wider one.
+version = { pe = "{source}/BepInEx/core/BepInEx.Core.dll", key = ["ProductVersion", "FileVersion"], template = "N{1,2}.N{1,3}.N{1,3}-be.N{1,5}", versions = "=6.0.0-be.788" }
+root = "{source}/BepInEx/plugins"
+enabled = [ { format = "dir-per-mod" }, { format = "file-glob", glob = "*.dll" } ]
+coexist = [ { strategy = "chain", entry = "{source}/BepInEx/core/BepInEx.Unity.IL2CPP.dll" } ]

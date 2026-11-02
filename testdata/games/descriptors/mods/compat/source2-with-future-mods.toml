@@ -1,0 +1,38 @@
+# Forward compatibility (engine-descriptor-v1.md §7.1, §7.9): a `mods` table
+# from a LATER version -- here an `enabled` format this version does not know
+# (UE4SS 3's mods.json, "json-list") and a member it does not know
+# (`load_order`). This version's schema refuses the table, so ingest and lint
+# refuse the descriptor; but a CLIENT drops only `mods` and keeps detecting
+# with the rest, and launcher 0.5.0 never looks inside at all.
+#
+# tools/check-games-goldens.py holds all three: the schema refuses this
+# file; the same file without `mods` is the valid descriptor
+# source2-with-mods.toml detects with; and the 0.5.0 reader's view (`mods`
+# is any table) accepts it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [
+  { stat = "{source}/s2loader/s2loader.dll", kind = "file" },
+]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "json-list", list = "{source}/s2loader/mods/mods.json" } ]
+coexist = [ { strategy = "side-by-side" } ]
+load_order = "{source}/s2loader/mods/order.txt"

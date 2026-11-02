@@ -1,0 +1,39 @@
+# Hostile `mods` golden: a CHAIN ENTRY that is a proxy DLL
+# (engine-descriptor-v1.md §7.6). The loader is recognised properly (its own
+# s2loader.dll is the anchor), but `chain` would hand control to winhttp.dll
+# -- whatever sits under that name, which is exactly what a proxy is.
+# An entry must be one of the loader's own top-level `file` lookups, and
+# never a proxy, a ubiquitous runtime or the game's own program.
+# Schema-valid; the checker's entry rule refuses it: mods-invalid, reason
+# chain-entry-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [
+  { stat = "{source}/s2loader/s2loader.dll", kind = "file" },
+  { stat = "{source}/winhttp.dll", kind = "file" },
+]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "chain", entry = "{source}/winhttp.dll" } ]

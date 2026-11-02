@@ -574,5 +574,837 @@ class WithdrawnSecurity(unittest.TestCase):
         self.assertTrue(ggold.rule_security_requires_revoke(doc))
 
 
+# ── mods (engine-descriptor-v1.md §7) ────────────────────────────────────
+
+DESCRIPTOR_SCHEMA = ggold.load_schema("spec/games/schemas/engine-descriptor-v1.schema.json")
+MODS_SCHEMA = ggold.mods_schema(DESCRIPTOR_SCHEMA)
+
+
+def mods_hostile(name: str) -> dict:
+    return copy.deepcopy(ggold.load_doc(f"descriptors/mods/hostile/mods-{name}.toml"))
+
+
+def mods_valid() -> dict:
+    """A valid descriptor carrying a valid `mods` (compat/source2-with-mods)."""
+    return copy.deepcopy(ggold.load_doc("descriptors/mods/compat/source2-with-mods.toml"))
+
+
+def builtin_with_mods(name: str) -> dict:
+    eng = ggold.load_doc(f"descriptors/builtin/{name}.toml")
+    frag = ggold.load_doc(f"descriptors/mods/builtin/{name}.mods.toml")
+    return copy.deepcopy(dict(eng, mods=frag["mods"]))
+
+
+def descriptor_ok(doc) -> bool:
+    return ggold.schema_ok(doc, DESCRIPTOR_SCHEMA)[0]
+
+
+def mods_ok(doc) -> bool:
+    return ggold.schema_ok(doc.get("mods"), MODS_SCHEMA)[0] and not ggold.mods_semantic_problems(doc)
+
+
+class ModsCompat(unittest.TestCase):
+    """Condition 1: optional, and invisible to a reader that ignores it."""
+
+    def test_a_descriptor_needs_no_mods(self):
+        doc = mods_valid()
+        del doc["mods"]
+        self.assertTrue(descriptor_ok(doc))
+
+    def test_without_mods_every_golden_is_the_descriptor_it_was(self):
+        for f in sorted((ggold.DATA / "descriptors/mods").rglob("*.toml")):
+            if "builtin" in f.parts:
+                continue
+            with self.subTest(f=f.name):
+                doc = ggold.load_doc(str(f.relative_to(ggold.DATA)))
+                self.assertIn("mods", doc)
+                self.assertTrue(descriptor_ok(ggold.without_mods(doc)), "a mods error must never reach detection")
+
+    def test_the_reader_ignoring_mods_refuses_only_a_non_table(self):
+        reader = ggold.reader_ignoring_mods_schema(DESCRIPTOR_SCHEMA)
+        doc = copy.deepcopy(ggold.load_doc("descriptors/mods/compat/source2-with-future-mods.toml"))
+        self.assertFalse(descriptor_ok(doc), "this version's schema refuses the future table")
+        self.assertTrue(ggold.schema_ok(doc, reader)[0], "0.5.0 reads nothing inside it")
+        doc["mods"] = [doc["mods"]]  # [[mods]]
+        self.assertFalse(ggold.schema_ok(doc, reader)[0], "[[mods]] is the one shape 0.5.0 refuses")
+        self.assertFalse(descriptor_ok(doc))
+
+    def test_mods_counts_toward_the_16_kib_bound(self):
+        # 0.5.0 reads nothing in `mods`, but the canonical form includes it
+        # (§1), so a big enough table makes 0.5.0 refuse the descriptor.
+        twin = ggold.load_doc("manifests/valid/foundation-owns-engine.toml")["integration"]["engine"]
+        doc = mods_valid()
+        self.assertTrue(ggold.reader_ignoring_mods_accepts(doc, DESCRIPTOR_SCHEMA))
+        doc["mods"]["loader"][0]["name"] = "x" * ggold.DESCRIPTOR_BYTES
+        self.assertTrue(ggold.schema_ok(doc, ggold.reader_ignoring_mods_schema(DESCRIPTOR_SCHEMA))[0])
+        self.assertFalse(ggold.reader_ignoring_mods_accepts(doc, DESCRIPTOR_SCHEMA))
+        self.assertFalse(ggold.mods_compat(doc, twin, DESCRIPTOR_SCHEMA)["reader"])
+
+    def test_the_future_golden_is_valid_once_its_unknowns_go(self):
+        doc = copy.deepcopy(ggold.load_doc("descriptors/mods/compat/source2-with-future-mods.toml"))
+        self.assertFalse(mods_ok(doc))
+        del doc["mods"]["loader"][0]["load_order"]
+        self.assertFalse(mods_ok(doc), "the unknown `enabled` format alone still refuses it")
+        doc["mods"]["loader"][0]["enabled"] = [{"format": "dir-per-mod"}]
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_compat_golden_is_its_twin_and_a_changed_detection_half_is_not(self):
+        twin = ggold.load_doc("manifests/valid/foundation-owns-engine.toml")["integration"]["engine"]
+        doc = mods_valid()
+        c = ggold.mods_compat(doc, twin, DESCRIPTOR_SCHEMA)
+        self.assertEqual(c, {"full": True, "mods": True, "reader": True, "twin": True})
+        doc["rule"][0]["confidence"] = "low"  # still a valid descriptor, no longer the twin
+        self.assertTrue(descriptor_ok(doc))
+        self.assertFalse(ggold.mods_compat(doc, twin, DESCRIPTOR_SCHEMA)["twin"])
+        doc = mods_valid()
+        del doc["mods"]
+        self.assertFalse(ggold.mods_compat(doc, twin, DESCRIPTOR_SCHEMA)["twin"], "a compat golden must carry mods")
+
+    def test_a_builtin_mods_table_leaves_its_engine_untouched(self):
+        for name in ("unity", "unreal"):
+            with self.subTest(name=name):
+                whole = builtin_with_mods(name)
+                self.assertTrue(descriptor_ok(whole))
+                self.assertEqual(ggold.without_mods(whole), ggold.load_doc(f"descriptors/builtin/{name}.toml"))
+
+
+class ModsSchemaHoldsNoDetection(unittest.TestCase):
+    """Condition 2: `mods` can never carry what detection reads. Every
+    definition $defs/mods reaches is its own (mods*), and none of them has a
+    member named like a detection member."""
+
+    DETECTION = {"engine", "rule", "walk", "programs", "tier", "confidence", "classify", "code",
+                 "evidence", "binary", "anti_cheat", "wrappers", "bootstrap", "pick", "passes",
+                 "named_alike", "weak_order", "as", "schema"}
+
+    @staticmethod
+    def reach(schema):
+        defs, seen, todo, names = schema["$defs"], set(), ["mods"], set()
+
+        def walk(node):
+            if isinstance(node, dict):
+                if "$ref" in node:
+                    todo.append(node["$ref"].rsplit("/", 1)[-1])
+                names.update(node.get("properties", {}).keys())
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for v in node:
+                    walk(v)
+
+        while todo:
+            d = todo.pop()
+            if d not in seen:
+                seen.add(d)
+                walk(defs[d])
+        return seen, names
+
+    def test_the_mods_subtree_is_self_contained_and_detection_free(self):
+        seen, names = self.reach(DESCRIPTOR_SCHEMA)
+        self.assertTrue(all(d.startswith("mods") for d in seen), seen)
+        self.assertFalse(names & self.DETECTION, names & self.DETECTION)
+
+    def test_the_canary_sees_a_detection_member_planted_in_mods(self):
+        bad = json.loads(json.dumps(DESCRIPTOR_SCHEMA))
+        bad["$defs"]["modsLoader"]["properties"]["rule"] = {"$ref": "#/$defs/rule"}
+        seen, names = self.reach(bad)
+        self.assertIn("rule", seen)
+        self.assertIn("rule", names)
+
+
+class ModsPaths(unittest.TestCase):
+    """§7.3: every path is `{source}`-rooted, inside the jail."""
+
+    def with_root(self, root):
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["root"] = root
+        return mods_ok(doc)
+
+    def test_the_escape_golden_passes_once_it_stays_in_the_jail(self):
+        doc = mods_hostile("path-escape")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["root"] = "{source}/s2loader/mods"
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_absolute_golden_passes_once_rooted_at_source(self):
+        doc = mods_hostile("absolute-path")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["require"][0]["stat"] = "{source}/s2loader/s2loader.dll"
+        self.assertTrue(mods_ok(doc))
+
+    def test_every_way_out_of_the_jail_is_refused(self):
+        for p in ["C:/Windows/x.dll", "C:\\Windows\\x.dll", "/etc/passwd", "\\\\srv\\share\\x",
+                  "s2loader/mods", "~/mods", "{game}/mods", "{profile}/mods", "{source}/{source}/x",
+                  "{source}/../x", "{source}/a/..", "{source}/./a", "{source}//a", "{source}/",
+                  "{source}/a\\b", "{source}/a:b", "{source}/a.", "{source}/a ", "{source}/*.dll",
+                  "{source}/{unclosed", "{source}/a\x01b"]:
+            with self.subTest(p=p):
+                self.assertFalse(self.with_root(p))
+
+    def test_real_layouts_are_accepted(self):
+        for p in ["{source}", "{source}/BepInEx/plugins", "{source}/{project}/Content/Paks/~mods",
+                  "{source}/{project}/Binaries/Win64/ue4ss/Mods", "{source}/.doorstop_version"]:
+            with self.subTest(p=p):
+                self.assertTrue(self.with_root(p))
+
+
+class ModsGlob(unittest.TestCase):
+    def with_glob(self, g):
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["enabled"] = [{"format": "file-glob", "glob": g}]
+        return mods_ok(doc)
+
+    def test_the_over_budget_golden_passes_with_a_one_level_glob(self):
+        doc = mods_hostile("over-budget-glob")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["enabled"][0]["glob"] = "*.pak"
+        self.assertTrue(mods_ok(doc))
+
+    def test_only_one_listing_can_be_globbed(self):
+        for g in ["**", "**/*.pak", "*/*.pak", "a/*.pak", "*a*b*c", "x?.pak", "[ab]*.pak", "C:*.pak", "plain.pak"]:
+            with self.subTest(g=g):
+                self.assertFalse(self.with_glob(g))
+        for g in ["*.pak", "*.dll", "*_P*.pak"]:
+            with self.subTest(g=g):
+                self.assertTrue(self.with_glob(g))
+
+
+class ModsClosedEnums(unittest.TestCase):
+    """§7.3, §7.4, §7.5, §7.6: every vocabulary the launcher implements is closed."""
+
+    def test_the_unknown_enum_golden_passes_with_a_known_strategy(self):
+        doc = mods_hostile("unknown-enum")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["coexist"][0]["strategy"] = "chain"
+        self.assertTrue(mods_ok(doc))
+
+    def test_an_unknown_value_is_refused_in_every_closed_set(self):
+        cases = [
+            (("bepinex5", "source"), ["game", "steam-workshop"]),
+            (("bepinex5", "version", "key"), ["ProductVersion", "Comments"]),
+            (("bepinex5", "enabled"), [{"format": "json-list", "list": "{source}/mods.json"}]),
+            (("bepinex5", "coexist"), [{"strategy": "overwrite", "entry": "{source}/x.dll"}]),
+            (("ue4ss3", "coexist"), [{"strategy": "chain", "entry": "{source}/x.dll", "tell": "LD_PRELOAD"}]),
+            (("ue4ss3", "enabled"), [{"format": "enable-list", "list": "{source}/mods.txt", "line": "json"}]),
+        ]
+        for (loader_id, *path), value in cases:
+            with self.subTest(loader=loader_id, path=path):
+                engine = "unity" if loader_id.startswith("bepinex") else "unreal"
+                doc = builtin_with_mods(engine)
+                self.assertTrue(mods_ok(doc))
+                loader = next(l for l in doc["mods"]["loader"] if l["id"] == loader_id)
+                node = loader
+                for p in path[:-1]:
+                    node = node[p]
+                node[path[-1]] = value
+                self.assertFalse(mods_ok(doc))
+
+    def test_chain_needs_an_entry(self):
+        doc = builtin_with_mods("unity")
+        del doc["mods"]["loader"][0]["coexist"][0]["entry"]
+        self.assertFalse(mods_ok(doc))
+
+    def test_an_empty_coexist_is_recognised_and_incapable(self):
+        doc = builtin_with_mods("unreal")
+        ue4ss2 = next(l for l in doc["mods"]["loader"] if l["id"] == "ue4ss2")
+        self.assertEqual(ue4ss2["coexist"], [])
+        self.assertTrue(mods_ok(doc))
+
+
+class ModsManagerAsData(unittest.TestCase):
+    def test_the_golden_passes_once_the_manager_goes(self):
+        doc = mods_hostile("manager-as-data")
+        self.assertFalse(ggold.rule_mods_manager_as_data(doc))
+        self.assertFalse(mods_ok(doc))
+        del doc["mods"]["loader"][0]["manager"]
+        self.assertTrue(ggold.rule_mods_manager_as_data(doc))
+        self.assertTrue(mods_ok(doc))
+
+    def test_a_manager_hidden_where_the_schema_allows_text_is_still_refused(self):
+        for name in ["r2modman BepInEx", "Gale profile", "Mod Organizer 2 loader", "Vortex deploy", "Thunderstore"]:
+            with self.subTest(name=name):
+                doc = mods_valid()
+                doc["mods"]["loader"][0]["name"] = name
+                self.assertTrue(ggold.schema_ok(doc.get("mods"), MODS_SCHEMA)[0], "the schema lets display text through")
+                self.assertFalse(ggold.rule_mods_manager_as_data(doc))
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["root"] = "{source}/r2modmanPlus-local/mods"
+        self.assertFalse(ggold.rule_mods_manager_as_data(doc), "a manager's folder is a manager named too")
+
+    def test_a_word_that_merely_contains_a_name_is_not_a_manager(self):
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["name"] = "Nightingale Loader"
+        self.assertTrue(ggold.rule_mods_manager_as_data(doc))
+
+
+class ModsLoaderAnchor(unittest.TestCase):
+    def test_the_proxy_golden_passes_once_its_own_dll_is_the_anchor(self):
+        doc = mods_hostile("anchor-on-a-proxy")
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+        doc["mods"]["loader"][0]["require"].append({"stat": "{source}/s2loader/s2loader.dll", "kind": "file"})
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_no_proxy_or_runtime_name_anchors_a_loader(self):
+        for name in ["winhttp.dll", "version.dll", "dwmapi.dll", "XINPUT1_3.DLL", "dinput8.dll",
+                     "opengl32.dll", "steam_api64.dll", "vcruntime140.dll", "{project}", "{source}"]:
+            with self.subTest(name=name):
+                doc = mods_valid()
+                path = name if name == "{source}" else "{source}/" + name
+                doc["mods"]["loader"][0]["require"] = [{"stat": path, "kind": "file"}]
+                self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_a_lookup_nested_in_any_is_never_the_anchor(self):
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["require"] = [{"any": [{"stat": "{source}/s2loader/s2loader.dll", "kind": "file"}]}]
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_every_builtin_loader_has_an_anchor(self):
+        for name in ("unity", "unreal"):
+            with self.subTest(name=name):
+                self.assertTrue(ggold.rule_mods_loader_anchor_invalid(builtin_with_mods(name)))
+
+
+class ModsCodesAndIds(unittest.TestCase):
+    def test_the_other_engine_golden_passes_with_its_own_code(self):
+        doc = mods_hostile("loader-for-another-engine")
+        self.assertFalse(ggold.rule_mods_code_undeclared(doc))
+        doc["mods"]["loader"][0]["codes"] = ["source2"]
+        self.assertTrue(ggold.rule_mods_code_undeclared(doc))
+        del doc["mods"]["loader"][0]["codes"]
+        self.assertTrue(ggold.rule_mods_code_undeclared(doc), "no `codes` means every code of this descriptor")
+
+    def test_a_builtin_loader_cannot_name_a_code_its_engine_lacks(self):
+        doc = builtin_with_mods("unity")
+        doc["mods"]["loader"][0]["codes"] = ["unreal"]
+        self.assertFalse(ggold.rule_mods_code_undeclared(doc))
+
+    def test_the_duplicate_golden_passes_once_renamed(self):
+        doc = mods_hostile("loader-id-duplicate")
+        self.assertFalse(ggold.rule_mods_loader_id_duplicate(doc))
+        doc["mods"]["loader"][1]["id"] = "s2-loader-portable"
+        self.assertTrue(ggold.rule_mods_loader_id_duplicate(doc))
+
+
+class ModsBudget(unittest.TestCase):
+    def test_the_slow_golden_fits_with_one_loader_fewer(self):
+        doc = mods_hostile("over-budget-lookups")
+        self.assertEqual(ggold.mods_cost(doc)["lookups"], 66)
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+        doc["mods"]["loader"].pop()
+        self.assertEqual(ggold.mods_cost(doc)["lookups"], 44)
+        self.assertTrue(ggold.rule_mods_over_budget(doc))
+
+    def test_exactly_the_bound_passes_and_one_more_does_not(self):
+        doc = mods_hostile("over-budget-lookups")
+        doc["mods"]["loader"][2]["require"] = doc["mods"]["loader"][2]["require"][:7]  # 22 + 22 + 19 = 63
+        doc["mods"]["loader"][2]["require"].append({"stat": "{source}/l3/x.dll", "kind": "file"})
+        self.assertEqual(ggold.mods_cost(doc)["lookups"], 64)
+        self.assertTrue(ggold.rule_mods_over_budget(doc))
+        doc["mods"]["loader"][2]["require"][-1] = {"any": [{"stat": "{source}/l3/x.dll", "kind": "file"},
+                                                           {"stat": "{source}/l3/y.dll", "kind": "file"}]}
+        self.assertEqual(ggold.mods_cost(doc)["lookups"], 65)
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+
+    def test_nesting_deeper_than_three_is_over_budget(self):
+        doc = mods_valid()
+        leaf = {"stat": "{source}/s2loader/x.dll", "kind": "file"}
+        doc["mods"]["loader"][0]["require"].append({"any": [{"all": [{"none": [leaf]}]}]})
+        self.assertTrue(ggold.rule_mods_over_budget(doc))
+        doc["mods"]["loader"][0]["require"][-1] = {"any": [{"all": [{"none": [{"any": [leaf]}]}]}]}
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+
+    def test_probes_are_counted_too(self):
+        doc = builtin_with_mods("unreal")
+        self.assertEqual(ggold.mods_cost(doc)["probes"], 6)  # 2 versions + 2 enable lists + 2 markers
+        tails = [{"tail": "{source}/{project}/Binaries/Win64/ue4ss/UE4SS.dll", "bytes": 4, "equals": "XXXX"}] * 3
+        doc["mods"]["loader"][2]["require"].extend(tails)
+        self.assertEqual(ggold.mods_cost(doc)["probes"], 9)
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+
+
+class ModsVersion(unittest.TestCase):
+    """§7.4: BepInEx 6's be.788 is a version rule the grammar expresses."""
+
+    BE6 = "N{1,2}.N{1,3}.N{1,3}-be.N{1,5}"
+    BE5 = "N{1,2}.N{1,2}.N{1,3}"
+
+    def test_be_788_and_nothing_else(self):
+        holds = lambda v: ggold.version_holds(self.BE6, "=6.0.0-be.788", v)
+        self.assertTrue(holds("6.0.0-be.788+5bd4ae5"))
+        self.assertTrue(holds("6.0.0-be.788"))
+        for v in ["6.0.0-be.789", "6.0.0-be.7880", "6.0.0-be.78", "6.0.0", "6.0.0-pre.1", "", "5.4.23.3"]:
+            with self.subTest(v=v):
+                self.assertFalse(holds(v))
+
+    def test_bepinex_5_is_5_4_x(self):
+        holds = lambda v: ggold.version_holds(self.BE5, ">=5.4, <5.5", v)
+        self.assertTrue(holds("5.4.23.3"))
+        self.assertTrue(holds("5.4.21.0"))
+        for v in ["5.5.0.0", "5.3.9", "6.0.0-be.788", "15.4.0"]:
+            with self.subTest(v=v):
+                self.assertFalse(holds(v))
+
+    def test_an_operand_compares_only_its_own_runs(self):
+        # `5.4` is the 5.4 line, every patch and build of it; `6.0.0` is a
+        # leading part of the BepInEx 6 shape, so it holds for every be.N.
+        self.assertTrue(ggold.version_holds(self.BE5, "<=5.4", "5.4.23.3"))
+        self.assertTrue(ggold.version_holds(self.BE6, "=6.0.0", "6.0.0-be.788"))
+        self.assertFalse(ggold.version_holds(self.BE5, "<=5.4", "5.5.0.0"))
+
+    def test_an_operand_out_of_the_templates_shape_never_holds(self):
+        self.assertFalse(ggold.version_holds(self.BE6, "=6.0-be.788", "6.0.0-be.788"))
+        self.assertIsNone(ggold.read_operand(self.BE6, "6.0-be.788"))
+
+    def test_the_builtin_goldens_say_be_788(self):
+        doc = builtin_with_mods("unity")
+        be6 = next(l for l in doc["mods"]["loader"] if l["id"] == "bepinex6-il2cpp")["version"]
+        self.assertTrue(ggold.version_holds(be6["template"], be6["versions"], "6.0.0-be.788+5bd4ae5"))
+        self.assertFalse(ggold.version_holds(be6["template"], be6["versions"], "6.0.0-be.733+0a1b2c3"))
+        ue3 = next(l for l in builtin_with_mods("unreal")["mods"]["loader"] if l["id"] == "ue4ss3")["version"]
+        self.assertTrue(ggold.version_holds(ue3["template"], ue3["versions"], "3.0.1.0"))
+        self.assertFalse(ggold.version_holds(ue3["template"], ue3["versions"], "2.5.2"))
+
+
+MODS_VECTORS = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))["descriptors"]["mods"]
+
+
+def hostile_record(name: str) -> dict:
+    return copy.deepcopy(next(h for h in MODS_VECTORS["hostile"] if h["name"] == name))
+
+
+def judged_ok(record: dict, doc: dict) -> bool:
+    return all(ok for _n, ok, _d in ggold.judge_mods_hostile(record, doc, DESCRIPTOR_SCHEMA))
+
+
+class ModsChainEntry(unittest.TestCase):
+    """Review item 1: a chain entry is a file the loader's recognition found,
+    never a proxy, a runtime or the game's program."""
+
+    def test_the_proxy_entry_golden_passes_once_the_entry_is_the_loaders_own_dll(self):
+        doc = mods_hostile("chain-entry-on-a-proxy")
+        self.assertFalse(ggold.rule_mods_chain_entry_invalid(doc))
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "its anchor is fine: only the entry is wrong")
+        doc["mods"]["loader"][0]["coexist"][0]["entry"] = "{source}/s2loader/s2loader.dll"
+        self.assertTrue(ggold.rule_mods_chain_entry_invalid(doc))
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_program_a_stranger_file_or_a_nested_lookup_is_never_the_entry(self):
+        for entry, extra in [
+            ("{source}/{stem}.exe", {"stat": "{source}/{stem}.exe", "kind": "file"}),
+            ("{source}/Game.exe", {"stat": "{source}/Game.exe", "kind": "file"}),
+            ("{source}/s2loader/unrecognised.dll", None),
+            ("{source}/s2loader/nested.dll", {"any": [{"stat": "{source}/s2loader/nested.dll", "kind": "file"}]}),
+            ("{source}/s2loader", {"stat": "{source}/s2loader", "kind": "dir"}),
+        ]:
+            with self.subTest(entry=entry):
+                doc = mods_valid()
+                loader = doc["mods"]["loader"][0]
+                if extra:
+                    loader["require"].append(extra)
+                loader["coexist"] = [{"strategy": "chain", "entry": entry}]
+                self.assertFalse(ggold.rule_mods_chain_entry_invalid(doc))
+
+    def test_every_builtin_chain_enters_a_recognised_file(self):
+        for name in ("unity", "unreal"):
+            with self.subTest(name=name):
+                self.assertTrue(ggold.rule_mods_chain_entry_invalid(builtin_with_mods(name)))
+
+
+class ModsAnchorIsAFile(unittest.TestCase):
+    """Review item 2: §2.4's "never the program", and a FILE, with one passive exception."""
+
+    def test_the_program_golden_passes_once_its_own_dll_anchors_it(self):
+        doc = mods_hostile("anchor-on-the-program")
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+        doc["mods"]["loader"][0]["require"].append({"stat": "{source}/s2loader/s2loader.dll", "kind": "file"})
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_no_program_shaped_name_anchors_a_loader(self):
+        for path in ["{source}/{stem}.exe", "{source}/{program}", "{source}/{name}.dll", "{source}/Game.EXE",
+                     "{source}/run.sh", "{source}/Game.x86_64", "{source}/start.bat"]:
+            with self.subTest(path=path):
+                doc = mods_valid()
+                doc["mods"]["loader"][0]["require"] = [{"stat": path, "kind": "file"}]
+                self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_the_folder_golden_passes_only_once_the_folder_is_its_own_root(self):
+        doc = mods_hostile("anchor-on-a-folder")
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "a folder that is not its root anchors nothing")
+        doc["mods"]["loader"][0]["root"] = "{source}/{project}/Plugins"
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "passive, anchored on its own root")
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+
+    def test_a_file_name_of_kind_dir_is_not_a_file_anchor(self):
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["require"] = [{"stat": "{source}/s2loader/s2loader.dll", "kind": "dir"}]
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_the_paks_are_the_passive_case(self):
+        doc = builtin_with_mods("unreal")
+        paks = next(l for l in doc["mods"]["loader"] if l["id"] == "unreal-paks")
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc))
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+        paks["coexist"] = [{"strategy": "side-by-side", "tell": "ue4ss-mods-paths"}]
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc), "a root anchor holds only while Astra tells nothing")
+
+
+class ModsRootAnchoredIsPassive(unittest.TestCase):
+    """ops-42's follow-up: "passive" is exactly no `chain` and no `tell`, and
+    a root-anchored loader that declares either is refused on its own rule."""
+
+    def test_the_golden_passes_once_its_tell_goes(self):
+        doc = mods_hostile("root-anchor-not-passive")
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc), "it IS anchored, on its root")
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc))
+        del doc["mods"]["loader"][0]["coexist"][0]["tell"]
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+        self.assertTrue(mods_ok(doc))
+
+    def test_chain_makes_a_root_anchored_loader_active_too(self):
+        doc = mods_hostile("root-anchor-not-passive")
+        loader = doc["mods"]["loader"][0]
+        loader["require"].append({"stat": "{source}/winhttp.dll", "kind": "file"})  # a proxy: no file anchor
+        loader["coexist"] = [{"strategy": "chain", "entry": "{source}/winhttp.dll"}]
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc))
+
+    def test_passive_is_exactly_no_chain_no_via_manager_and_no_tell(self):
+        for coexist, passive in [
+            ([], True),
+            ([{"strategy": "side-by-side"}], True),
+            ([{"strategy": "via-manager"}], False),
+            ([{"strategy": "side-by-side", "tell": "ue4ss-mods-paths"}], False),
+            ([{"strategy": "chain", "entry": "{source}/x.dll"}], False),
+            ([{"strategy": "side-by-side"}, {"strategy": "via-manager"}], False),
+        ]:
+            with self.subTest(coexist=coexist):
+                self.assertEqual(ggold._passive({"coexist": coexist}), passive)
+
+    def test_the_spec_states_the_definition_the_reason_and_the_refusal(self):
+        s = " ".join(spec_section("### 7.4 Recognising a loader").split())
+        for needle in [
+            "A loader is **passive** when, exactly, its `coexist` holds no `chain` strategy, no `via-manager` strategy, and no strategy with a `tell`.",
+            "a false \"recognised\" for a root-anchored loader changes only what the player sees on their own machine",
+            "Astra loads nothing of it and tells it nothing",
+            "A root-anchored loader that also declares `chain`, `via-manager` or a `tell` is reason `root-anchor-not-passive`.",
+            "Only `child` and `stat` anchor a root",
+        ]:
+            with self.subTest(needle=needle):
+                self.assertIn(needle, s)
+
+    def test_an_active_loader_with_a_file_anchor_may_also_require_its_root(self):
+        # Not root-anchored: its file anchors it, so the root lookup is just a requirement.
+        doc = builtin_with_mods("unreal")
+        ue3 = next(l for l in doc["mods"]["loader"] if l["id"] == "ue4ss3")
+        ue3["require"].append({"child": ue3["root"], "kind": "dir"})
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc))
+        self.assertTrue(mods_ok(doc))
+
+
+class ModsDeviceNamesAndReservedCharacters(unittest.TestCase):
+    """Review item 3."""
+
+    def test_the_device_golden_passes_once_the_name_is_not_a_device(self):
+        doc = mods_hostile("device-name")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["require"][1]["stat"] = "{source}/s2loader/COM10"
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_paths_golden_names_every_device_and_reserved_character(self):
+        reasons = {c["path"]: c["reason"] for c in json.loads((ggold.DATA / "descriptors/mods/paths.json").read_text())["paths"]}
+        for p in ["{source}/CON", "{source}/NUL.txt", "{source}/COM1", "{source}/a/LPT1.log", "{source}/CONIN$",
+                  "{source}/a<b", "{source}/a|b", "{source}/a?b", "{source}/a" + chr(0x7F) + "b",
+                  "{source}/a" + chr(0x85) + "b"]:
+            with self.subTest(p=p):
+                self.assertEqual(reasons[p], "path-invalid")
+
+    def test_a_marker_or_glob_is_held_to_the_same_rules(self):
+        doc = builtin_with_mods("unreal")
+        doc["mods"]["loader"][0]["enabled"][0]["marker"] = "NUL.txt"
+        self.assertFalse(mods_ok(doc))
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["enabled"] = [{"format": "file-glob", "glob": "*|.pak"}]
+        self.assertFalse(mods_ok(doc))
+
+
+class ModsSubstitutionAndPlaceholders(unittest.TestCase):
+    """Review item 4."""
+
+    def test_the_placeholder_golden_passes_with_a_known_name(self):
+        doc = mods_hostile("unknown-placeholder")
+        self.assertFalse(ggold.rule_mods_placeholder_unknown(doc))
+        self.assertTrue(ggold.schema_ok(doc.get("mods"), MODS_SCHEMA)[0], "the schema sees only a placeholder's syntax")
+        doc["mods"]["loader"][0]["root"] = "{source}/{project}/s2loader/mods"
+        self.assertTrue(ggold.rule_mods_placeholder_unknown(doc))
+
+    def test_a_capture_is_known_only_to_the_descriptor_that_binds_it(self):
+        doc = mods_valid()  # its rule binds `as = "core"`
+        doc["mods"]["loader"][0]["root"] = "{source}/{core}/mods"
+        self.assertTrue(ggold.rule_mods_placeholder_unknown(doc))
+        doc["mods"]["loader"][0]["root"] = "{source}/{data}/mods"  # Unity's capture, not this descriptor's
+        self.assertFalse(ggold.rule_mods_placeholder_unknown(doc))
+
+    def test_every_component_is_checked_again_after_substitution(self):
+        self.assertEqual(ggold.substitute("{source}/{dir}/x.dll", {"dir": "a/b"}), ["a", "b", "x.dll"])
+        for value in ["", "..", "../x", "a//b", "/abs", "C:", "CON", "a\\b", "{source}", "{x}", "a."]:
+            with self.subTest(value=value):
+                self.assertIsNone(ggold.substitute("{source}/{dir}/x.dll", {"dir": value}))
+        self.assertIsNone(ggold.substitute("{source}/{dir}/x.dll", {}), "an unbound placeholder yields nothing")
+
+    def test_the_substitution_golden_is_read(self):
+        cases = json.loads((ggold.DATA / "descriptors/mods/paths.json").read_text())
+        self.assertTrue(all(ok for _n, ok, _d in ggold.judge_mods_paths(cases, DESCRIPTOR_SCHEMA)))
+        cases["substitution"][2]["components"] = ["", "x.dll"]  # claim an empty value survives
+        self.assertFalse(all(ok for _n, ok, _d in ggold.judge_mods_paths(cases, DESCRIPTOR_SCHEMA)))
+
+
+class ModsNestingIsBounded(unittest.TestCase):
+    """Review item 5: no input makes a reader recurse past §7.1's bound."""
+
+    @staticmethod
+    def deep(levels: int) -> dict:
+        doc = mods_valid()
+        node = {"stat": "{source}/s2loader/x.dll", "kind": "file"}
+        for _ in range(levels):
+            node = {"any": [node]}
+        doc["mods"]["loader"][0]["require"].append(node)
+        return doc
+
+    def test_the_schema_stops_at_depth_three(self):
+        self.assertTrue(ggold.schema_ok(self.deep(3).get("mods"), MODS_SCHEMA)[0])
+        self.assertFalse(ggold.schema_ok(self.deep(4).get("mods"), MODS_SCHEMA)[0])
+        self.assertEqual(ggold.nesting(self.deep(3)["mods"]), ggold.MODS_MAX_NESTING)
+
+    def test_the_deep_golden_is_refused_and_depth_three_is_not(self):
+        doc = mods_hostile("deep-nesting")
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+        self.assertGreater(ggold.nesting(doc["mods"]), ggold.MODS_MAX_NESTING)
+        self.assertTrue(ggold.rule_mods_over_budget(self.deep(3)))
+
+    def test_nesting_past_any_recursion_limit_is_refused_not_a_crash(self):
+        doc = self.deep(3000)
+        record = hostile_record("deep-nesting")
+        results = ggold.judge_mods_hostile(record, doc, DESCRIPTOR_SCHEMA)  # must not raise
+        by_name = {n.rsplit(" ", 1)[-1]: ok for n, ok, _d in results}
+        self.assertTrue(by_name["(schema)"], results)
+        self.assertTrue(by_name["(reasons)"], results)
+        self.assertTrue(by_name["(semantic)"], results)
+        self.assertFalse(ggold.reader_ignoring_mods_accepts(doc, DESCRIPTOR_SCHEMA), "too deep to serialize is too big")
+
+    def test_a_recursive_definition_fed_a_deep_document_is_a_refusal_not_a_crash(self):
+        # Detection's own `requireEntry` still recurses; a document nested
+        # past Python's limit there must refuse, never take main() down.
+        doc = mods_valid()
+        node = {"listed": "engine2.dll", "kind": "file"}
+        for _ in range(3000):
+            node = {"any": [node]}
+        doc["rule"][0]["require"].append(node)
+        ok, detail = ggold.schema_ok(doc, DESCRIPTOR_SCHEMA)
+        self.assertFalse(ok)
+        self.assertIn("too deep", detail)
+
+
+class ModsTemplateReads(unittest.TestCase):
+    """Review item 6."""
+
+    def test_the_reversed_golden_passes_with_a_run_that_reads(self):
+        doc = mods_hostile("template-reversed")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["version"]["template"] = "N{1,5}.N{1,3}"
+        self.assertTrue(mods_ok(doc))
+
+    def test_a_template_that_does_not_read_never_raises_and_never_holds(self):
+        for template in ["N{5,1}", "N{2,1}.N{1,3}", "N{0,3}", "N{1,6}"]:
+            with self.subTest(template=template):
+                self.assertFalse(ggold.version_holds(template, ">=1", "5.4.23.3"))
+                self.assertIsNone(ggold.read_version(template, "5.4.23.3"))
+
+
+class ModsMarkersAreCounted(unittest.TestCase):
+    """Review item 7."""
+
+    def test_the_probes_golden_fits_without_its_markers(self):
+        doc = mods_hostile("over-budget-probes")
+        self.assertEqual(ggold.mods_cost(doc)["probes"], 9)
+        self.assertFalse(ggold.rule_mods_over_budget(doc))
+        for loader in doc["mods"]["loader"]:
+            del loader["enabled"][0]["marker"]
+        self.assertEqual(ggold.mods_cost(doc)["probes"], 6)
+        self.assertTrue(ggold.rule_mods_over_budget(doc))
+
+
+def spec_section(heading: str) -> str:
+    text = (ROOT / "spec/games/engine-descriptor-v1.md").read_text(encoding="utf-8")
+    start = text.index(heading)
+    nxt = text.find("\n### ", start + len(heading))
+    return text[start:nxt if nxt != -1 else len(text)]
+
+
+class ModsPrivacyAndManagersAreStated(unittest.TestCase):
+    """Review items 8 and 10: the spec text IS the guarantee here, so the
+    canary is the text. Each sink and rule the review named must be there."""
+
+    def test_the_privacy_section_names_every_sink(self):
+        s = " ".join(spec_section("### 7.10 Read-only and private").split())
+        for needle in ["`link-v1`", "bridge", "plugin host's RPCs", "AI tool", "game integration", "not a log",
+                       "`entry` path and the `tell` value", "No download, update check or catalogue request",
+                       "never synced", "problem or crash report", "analytics",
+                       "Even that line never goes into any log that a problem report attaches"]:
+            with self.subTest(needle=needle):
+                self.assertIn(needle, s)
+
+    def test_the_manager_section_states_the_structural_rule_and_the_blocklists_limit(self):
+        s = " ".join(spec_section("### 7.7 Managers are adapters, never data").split())
+        self.assertIn("**The structural rule comes first.**", s)
+        self.assertIn("only a list of names", s)
+        self.assertIn("`{source}/r2mm/profiles/Default`", s)
+
+    def test_the_blocklists_limit_is_what_the_spec_says_it_is(self):
+        # Pinned on purpose: the name rule cannot see an unknown spelling,
+        # and the spec says so (§7.7). If this ever turns false, update the
+        # spec's sentence with it.
+        doc = mods_valid()
+        doc["mods"]["loader"][0]["root"] = "{source}/r2mm/profiles/Default"
+        self.assertTrue(ggold.rule_mods_manager_as_data(doc))
+
+
+class ModsReasonsAreAsserted(unittest.TestCase):
+    """Review item 9: each hostile golden is refused for exactly its reasons,
+    and the reason classifier sees each class on its own."""
+
+    def test_a_wrong_recorded_reason_turns_the_golden_red(self):
+        record = hostile_record("path-escape")
+        doc = mods_hostile("path-escape")
+        self.assertTrue(judged_ok(record, doc))
+        record["reasons"] = ["path-invalid"]
+        self.assertFalse(judged_ok(record, doc))
+
+    def test_dot_dot_alone_is_an_escape_not_a_trailing_dot(self):
+        self.assertEqual(ggold.mods_path_reason("{source}/.."), "path-escapes")
+        self.assertEqual(ggold.mods_path_reason("{source}/a/../b."), "path-escapes")
+        self.assertEqual(ggold.mods_path_reason("{source}/a."), "path-invalid")
+
+    def test_each_reason_class_is_seen(self):
+        def reasons_after(mutate):
+            doc = mods_valid()
+            mutate(doc["mods"]["loader"][0])
+            return ggold.mods_reasons(doc)
+        self.assertEqual(ggold.mods_reasons(mods_valid()), set())
+        self.assertEqual(reasons_after(lambda l: l.update(root="/etc")), {"path-outside-jail"})
+        self.assertEqual(reasons_after(lambda l: l.update(root="{source}/CON")), {"path-invalid"})
+        self.assertEqual(reasons_after(lambda l: l.update(source=["steam"])), {"unknown"})
+        self.assertEqual(reasons_after(lambda l: l.update(extra=1)), {"unknown"})
+        self.assertEqual(reasons_after(lambda l: l.pop("root")), {"shape"})
+        self.assertEqual(reasons_after(lambda l: l.update(enabled=[{"format": "file-glob", "glob": "**"}])),
+                         {"glob-over-budget"})
+        self.assertEqual(reasons_after(lambda l: l.update(version={"pe": "{source}/s2loader/s2loader.dll",
+                                                                   "key": ["ProductVersion"], "template": "N{3,1}"})),
+                         {"version-invalid"})
+        self.assertEqual(ggold.mods_reasons(dict(mods_valid(), mods=[{}])), {"descriptor-invalid"})
+
+
+class ModsBypassesClosed(unittest.TestCase):
+    """ops-42's re-review of a1d096c: the bypasses of the anchor and entry rules."""
+
+    def test_a_short_name_is_never_a_component(self):
+        for p in ["{source}/XINPUT~1.DLL", "{source}/PROGRA~1/x.dll", "{source}/BEPINE~1/core/BepInEx.dll"]:
+            with self.subTest(p=p):
+                self.assertEqual(ggold.mods_path_reason(p), "path-invalid")
+        self.assertIsNone(ggold.mods_path_reason("{source}/{project}/Content/Paks/~mods"))
+        doc = mods_hostile("short-name")
+        self.assertFalse(mods_ok(doc))
+        doc["mods"]["loader"][0]["require"][0]["stat"] = "{source}/s2loader/s2loader.dll"
+        doc["mods"]["loader"][0]["coexist"][0]["entry"] = "{source}/s2loader/s2loader.dll"
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_engines_own_files_anchor_nothing(self):
+        doc = builtin_with_mods("unity")
+        doc["mods"]["loader"][0]["require"] = [{"stat": "{source}/UnityPlayer.dll", "kind": "file"}]
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "UnityPlayer.dll is Unity's detection file")
+        doc["mods"]["loader"][0]["require"] = [{"stat": "{source}/x/Assembly-CSharp.dll", "kind": "file"}]
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "a detection stat's last component, any folder")
+        doc = builtin_with_mods("unreal")
+        doc["mods"]["loader"][0]["require"] = [{"stat": "{source}/{project}/Content/Paks/pakchunk0-Windows.pak", "kind": "file"}]
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc), "a `*` in detection's name matches any run")
+        doc = mods_hostile("anchor-on-the-engine")
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+        doc["mods"]["loader"][0]["require"].append({"stat": "{source}/s2loader/s2loader.dll", "kind": "file"})
+        self.assertTrue(ggold.rule_mods_loader_anchor_invalid(doc))
+
+    def test_a_pure_placeholder_detection_name_does_not_refuse_everything(self):
+        doc = ggold.load_doc("descriptors/builtin/godot.toml")  # its weak rule tails `{program}`
+        self.assertNotIn("*", ggold.detection_patterns(doc))
+
+    def test_an_entry_is_only_a_dll(self):
+        for name, ok in [("s2loader.scr", False), ("s2loader.cpl", False), ("s2loader.ocx", False),
+                         ("s2loader.DLL", True), ("s2loader.dll", True)]:
+            with self.subTest(name=name):
+                doc = mods_valid()
+                loader = doc["mods"]["loader"][0]
+                loader["require"].append({"stat": f"{{source}}/s2loader/{name}", "kind": "file"})
+                loader["coexist"] = [{"strategy": "chain", "entry": f"{{source}}/s2loader/{name}"}]
+                self.assertEqual(ggold.rule_mods_chain_entry_invalid(doc), ok)
+
+    def test_each_entry_golden_passes_once_the_entry_is_the_loaders_own_dll(self):
+        for name in ["chain-entry-on-the-engine", "chain-entry-not-a-dll", "chain-entry-unrecognised",
+                     "chain-entry-on-the-program"]:
+            with self.subTest(name=name):
+                doc = mods_hostile(name)
+                self.assertFalse(ggold.rule_mods_chain_entry_invalid(doc))
+                doc["mods"]["loader"][0]["coexist"][0]["entry"] = "{source}/s2loader/s2loader.dll"
+                self.assertTrue(ggold.rule_mods_chain_entry_invalid(doc))
+
+    def test_via_manager_needs_a_file_anchor(self):
+        doc = mods_hostile("root-anchor-via-manager")
+        self.assertFalse(ggold.rule_mods_root_anchor_not_passive(doc))
+        doc["mods"]["loader"][0]["require"].append({"stat": "{source}/s2loader/s2loader.dll", "kind": "file"})
+        self.assertTrue(ggold.rule_mods_root_anchor_not_passive(doc), "file-anchored: may ride a manager")
+        self.assertTrue(mods_ok(doc))
+
+    def test_listed_anchors_no_root_and_child_or_stat_does(self):
+        doc = mods_hostile("root-anchor-listed")
+        self.assertFalse(ggold.rule_mods_loader_anchor_invalid(doc))
+        for key in ("child", "stat"):
+            with self.subTest(key=key):
+                fixed = copy.deepcopy(doc)
+                fixed["mods"]["loader"][0]["require"] = [{key: "{source}/s2loader/mods", "kind": "dir"}]
+                self.assertTrue(ggold.rule_mods_loader_anchor_invalid(fixed))
+
+    def test_an_operand_must_read_in_its_template(self):
+        doc = mods_hostile("versions-unreadable")
+        self.assertFalse(ggold.rule_mods_version_unreadable(doc))
+        v = doc["mods"]["loader"][0]["version"]
+        v["versions"] = ">=a.b"
+        self.assertFalse(ggold.rule_mods_version_unreadable(doc))
+        v["versions"] = ">=1.2"
+        self.assertTrue(ggold.rule_mods_version_unreadable(doc))
+        self.assertTrue(mods_ok(doc))
+
+    def test_the_nesting_bound_holds_through_an_unknown_member(self):
+        doc = mods_hostile("deep-unknown-member")
+        self.assertEqual(ggold.mods_cost(doc)["depth"], 0, "nothing in require is deep")
+        self.assertFalse(ggold.rule_mods_over_budget(doc), "the 11-level bound alone refuses it")
+        del doc["mods"]["loader"][0]["later"]
+        self.assertTrue(ggold.rule_mods_over_budget(doc))
+
+
+class ModsGoldensEach(unittest.TestCase):
+    """Every hostile `mods` golden is refused by exactly the check vectors.json names."""
+
+    def test_each_semantic_golden_breaks_one_rule(self):
+        v = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))["descriptors"]["mods"]
+        rules = set()
+        for h in v["hostile"]:
+            doc = ggold.load_doc(h["file"])
+            with self.subTest(name=h["name"]):
+                if h["check"] == "semantic":
+                    named = h.get("rules") or [h["rule"]]
+                    self.assertEqual(ggold.mods_semantic_problems(doc), named)
+                    rules.update(named)
+                else:
+                    self.assertEqual(ggold.mods_semantic_problems(doc), [])
+                    self.assertFalse(ggold.schema_ok(doc.get("mods"), MODS_SCHEMA)[0])
+        self.assertEqual(rules, set(ggold.SEMANTIC_MODS_RULES), "one hostile golden per semantic rule")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,74 @@
+# The built-in Unreal loaders as astra.engine/1 `mods` data
+# (engine-descriptor-v1.md §7). It rides on descriptors/builtin/unreal.toml,
+# checked with it as one descriptor, exactly as unity.mods.toml rides on
+# unity.toml.
+#
+# Facts: astra-companion-5f's loader notes (2026-11-01). Every path here
+# holds `{project}`, a capture only Unreal's two strong rules (and weak 120)
+# bind; a game placed by weak 100/110 binds none, and then these loaders
+# yield nothing (§7.3) -- "not with mods", never a guess.
+schema = "astra.engine/1"
+
+# UE4SS 3.x: beside the game's real exe (never in a profile), with its own
+# proxy (dwmapi.dll, on some installs xinput1_3.dll), ue4ss/UE4SS.dll and
+# ue4ss/Mods/. The proxy is only in an `any`: a proxy name says that SOME
+# loader sits there, so it can never be what recognises this one (§7.4).
+[[mods.loader]]
+id = "ue4ss3"
+name = "UE4SS 3"
+codes = ["unreal"]
+source = ["game"]
+require = [
+  { stat = "{source}/{project}/Binaries/Win64/ue4ss/UE4SS.dll", kind = "file" },
+  { stat = "{source}/{project}/Binaries/Win64/ue4ss/UE4SS-settings.ini", kind = "file" },
+  { any = [
+      { stat = "{source}/{project}/Binaries/Win64/dwmapi.dll", kind = "file" },
+      { stat = "{source}/{project}/Binaries/Win64/xinput1_3.dll", kind = "file" },
+  ] },
+]
+version = { pe = "{source}/{project}/Binaries/Win64/ue4ss/UE4SS.dll", key = ["ProductVersion", "FileVersion"], template = "N{1,2}.N{1,3}.N{1,3}", versions = ">=3, <4" }
+root = "{source}/{project}/Binaries/Win64/ue4ss/Mods"
+# mods.txt (`Name : 1` / `Name : 0`), or an enabled.txt inside the mod's own
+# folder. 3.x's mods.json is not a format of this version (§7.5, "Open").
+enabled = [ { format = "enable-list", list = "{source}/{project}/Binaries/Win64/ue4ss/Mods/mods.txt", line = "name-colon-flag", marker = "enabled.txt" } ]
+# chain: on an armed start Astra's own dwmapi loader loads THEIR UE4SS.dll
+# instead of Astra's, and appends Astra's profile's Mods folder through
+# UE4SS_MODS_PATHS in-process. Their mods, AstraUE and Astra's ReShade add-on
+# all run, and nothing is written into their folder. side-by-side is not
+# listed: their dwmapi.dll and Astra's loader are the same file name.
+coexist = [ { strategy = "chain", entry = "{source}/{project}/Binaries/Win64/ue4ss/UE4SS.dll", tell = "ue4ss-mods-paths" } ]
+
+# UE4SS 2.x: UE4SS.dll and UE4SS-settings.ini directly beside the exe, Mods/
+# beside them. Recognised so the player is told why "with your mods" is not
+# offered, and CHAIN-INCAPABLE: Astra's Unreal runner needs UE4SS 3's Lua
+# API, so `coexist` is empty -- recognised, and Astra cannot run beside it.
+[[mods.loader]]
+id = "ue4ss2"
+name = "UE4SS 2"
+codes = ["unreal"]
+source = ["game"]
+require = [
+  { stat = "{source}/{project}/Binaries/Win64/UE4SS.dll", kind = "file" },
+  { stat = "{source}/{project}/Binaries/Win64/UE4SS-settings.ini", kind = "file" },
+]
+version = { pe = "{source}/{project}/Binaries/Win64/UE4SS.dll", key = ["ProductVersion", "FileVersion"], template = "N{1,2}.N{1,3}.N{1,3}", versions = ">=2, <3" }
+root = "{source}/{project}/Binaries/Win64/Mods"
+enabled = [ { format = "enable-list", list = "{source}/{project}/Binaries/Win64/Mods/mods.txt", line = "name-colon-flag", marker = "enabled.txt" } ]
+coexist = []
+
+# ~mods paks: the engine itself loads Content/Paks/~mods/*.pak after the base
+# paks. There is no loader and no list: present means enabled. Astra's runner
+# uses no paks, so the two simply run side by side -- Astra adds nothing here
+# and tells nothing, which is why this side-by-side needs no `tell` (§7.6)
+# and why its own root folder may anchor it: a passive loader (§7.4).
+[[mods.loader]]
+id = "unreal-paks"
+name = "Unreal ~mods paks"
+codes = ["unreal"]
+source = ["game"]
+require = [
+  { child = "{source}/{project}/Content/Paks/~mods", kind = "dir" },
+]
+root = "{source}/{project}/Content/Paks/~mods"
+enabled = [ { format = "file-glob", glob = "*.pak" } ]
+coexist = [ { strategy = "side-by-side" } ]

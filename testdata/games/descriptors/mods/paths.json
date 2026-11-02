@@ -1,0 +1,322 @@
+{
+  "note": "engine-descriptor-v1.md \u00a77.3. `paths`: every path's verdict under $defs/modsPath (accepted iff `reason` is null) and its \u00a77.9 reason, which tools/check-games-goldens.py derives independently of the schema. `substitution`: a path's components at evaluation, after every placeholder is replaced by its game-relative value and every component is checked again; null = the loader yields nothing.",
+  "paths": [
+    {
+      "path": "{source}",
+      "reason": null
+    },
+    {
+      "path": "{source}/BepInEx/core/BepInEx.dll",
+      "reason": null
+    },
+    {
+      "path": "{source}/{project}/Content/Paks/~mods",
+      "reason": null
+    },
+    {
+      "path": "{source}/.doorstop_version",
+      "reason": null
+    },
+    {
+      "path": "{source}/CONFIG",
+      "reason": null
+    },
+    {
+      "path": "{source}/console.dll",
+      "reason": null
+    },
+    {
+      "path": "{source}/COM10",
+      "reason": null
+    },
+    {
+      "path": "{source}/nullable.txt",
+      "reason": null
+    },
+    {
+      "path": "{source}/{project.leaf}/x",
+      "reason": null
+    },
+    {
+      "path": "C:/Windows/System32/drivers/etc/hosts",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "C:\\Windows\\x.dll",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "/etc/passwd",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "\\\\server\\share\\x",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "~/mods",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "BepInEx/plugins",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "{game}/mods",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "{profile}/mods",
+      "reason": "path-outside-jail"
+    },
+    {
+      "path": "{source}/..",
+      "reason": "path-escapes"
+    },
+    {
+      "path": "{source}/../Users",
+      "reason": "path-escapes"
+    },
+    {
+      "path": "{source}/a/..",
+      "reason": "path-escapes"
+    },
+    {
+      "path": "{source}/a/../b",
+      "reason": "path-escapes"
+    },
+    {
+      "path": "{source}/",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}//a",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/.",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/./a",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a.",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a ",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\\b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a:b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/*.dll",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/{source}/x",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/{unclosed",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a}b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/CON",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/con",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/NUL.txt",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/COM1",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a/LPT1.log",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/CONIN$",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/conout$.x",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/COM\u00b9",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/AUX .txt",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/PRN",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a<b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a>b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\"b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a|b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a?b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\u0001b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\u007fb",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\u0085b",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a\u009fb",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/XINPUT~1.DLL",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/PROGRA~1/x.dll",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/x~9",
+      "reason": "path-invalid"
+    },
+    {
+      "path": "{source}/a~b.dll",
+      "reason": null
+    },
+    {
+      "path": "{source}/~mods",
+      "reason": null
+    }
+  ],
+  "substitution": [
+    {
+      "path": "{source}/{project}/Content/Paks/~mods",
+      "values": {
+        "project": "Pal"
+      },
+      "components": [
+        "Pal",
+        "Content",
+        "Paks",
+        "~mods"
+      ]
+    },
+    {
+      "path": "{source}/{project}/Binaries",
+      "values": {
+        "project": "Game/Pal"
+      },
+      "components": [
+        "Game",
+        "Pal",
+        "Binaries"
+      ]
+    },
+    {
+      "path": "{source}/{project.parent}/x.dll",
+      "values": {
+        "project.parent": ""
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "../outside"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "a//b"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "/abs"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "C:"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "CON"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{dir}/x.dll",
+      "values": {
+        "dir": "{source}"
+      },
+      "components": null
+    },
+    {
+      "path": "{source}/{project}/x.dll",
+      "values": {},
+      "components": null
+    },
+    {
+      "path": "{source}/{stem}_Data/Managed",
+      "values": {
+        "stem": "Game"
+      },
+      "components": [
+        "Game_Data",
+        "Managed"
+      ]
+    }
+  ]
+}

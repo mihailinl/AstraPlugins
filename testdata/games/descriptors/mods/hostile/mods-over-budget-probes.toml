@@ -1,0 +1,58 @@
+# Hostile `mods` golden: probes over budget once the MARKERS are counted
+# (engine-descriptor-v1.md §7.8). Each loader reads a version, an enable
+# list and, per mod, an `enabled.txt` marker: 3 loaders x 3 probes = 9, over
+# the 8 a `mods` member may declare. Without the markers it would be 6 and
+# pass -- while at evaluation every marker is one more stat per mod folder.
+# Schema-valid; the checker's budget rule refuses it: mods-invalid, reason
+# over-budget.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader-1"
+name = "S2 Loader 1"
+codes = ["source2"]
+source = ["game"]
+require = [ { stat = "{source}/l1/s2loader.dll", kind = "file" } ]
+version = { pe = "{source}/l1/s2loader.dll", key = ["ProductVersion"], template = "N{1,2}.N{1,3}" }
+root = "{source}/l1/mods"
+enabled = [ { format = "enable-list", list = "{source}/l1/mods/mods.txt", line = "name-colon-flag", marker = "enabled.txt" } ]
+coexist = [ { strategy = "side-by-side" } ]
+
+[[mods.loader]]
+id = "s2-loader-2"
+name = "S2 Loader 2"
+codes = ["source2"]
+source = ["game"]
+require = [ { stat = "{source}/l2/s2loader.dll", kind = "file" } ]
+version = { pe = "{source}/l2/s2loader.dll", key = ["ProductVersion"], template = "N{1,2}.N{1,3}" }
+root = "{source}/l2/mods"
+enabled = [ { format = "enable-list", list = "{source}/l2/mods/mods.txt", line = "name-colon-flag", marker = "enabled.txt" } ]
+coexist = [ { strategy = "side-by-side" } ]
+
+[[mods.loader]]
+id = "s2-loader-3"
+name = "S2 Loader 3"
+codes = ["source2"]
+source = ["game"]
+require = [ { stat = "{source}/l3/s2loader.dll", kind = "file" } ]
+version = { pe = "{source}/l3/s2loader.dll", key = ["ProductVersion"], template = "N{1,2}.N{1,3}" }
+root = "{source}/l3/mods"
+enabled = [ { format = "enable-list", list = "{source}/l3/mods/mods.txt", line = "name-colon-flag", marker = "enabled.txt" } ]
+coexist = [ { strategy = "side-by-side" } ]

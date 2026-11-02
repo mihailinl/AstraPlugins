@@ -1,0 +1,35 @@
+# Hostile `mods` golden: an 8.3 SHORT NAME (engine-descriptor-v1.md §7.3).
+# `XINPUT~1.DLL` is how Windows can also spell `xinput1_3.dll`: a direct
+# lookup resolves it, so a proxy would pass every name list as both the
+# anchor and the chain entry. A §7.3 component never holds `~` followed by
+# a digit, so the schema refuses it: mods-invalid, reason path-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [
+  { stat = "{source}/XINPUT~1.DLL", kind = "file" },
+]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "chain", entry = "{source}/XINPUT~1.DLL" } ]

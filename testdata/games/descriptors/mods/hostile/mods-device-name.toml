@@ -1,0 +1,36 @@
+# Hostile `mods` golden: a WINDOWS DEVICE NAME as a path component
+# (engine-descriptor-v1.md §7.3). Opening `COM1` -- or `CON`, `NUL.txt`,
+# `a/LPT1.log`, `CONIN$` -- opens a device, before any regular-file check
+# can run. A §7.3 component is never one, whatever its case or extension,
+# so the schema refuses it: mods-invalid, reason path-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [
+  { stat = "{source}/s2loader/s2loader.dll", kind = "file" },
+  { stat = "{source}/s2loader/COM1", kind = "file" },
+]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

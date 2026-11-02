@@ -1,0 +1,37 @@
+# Hostile `mods` golden: a MOD MANAGER NAMED AS DATA (engine-descriptor-v1.md
+# §7.7). The loader says where r2modman keeps its profiles, so that a
+# descriptor -- not reviewed launcher code -- would decide which manager's
+# folders Astra reads. Managers are launcher adapters, never data. Refused
+# twice: the schema has no `manager` member (unknown), and
+# tools/check-games-goldens.py's manager rule refuses a manager's name
+# anywhere in `mods`, whatever member it hides in: mods-invalid, reason
+# manager-as-data.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["manager"]
+manager = { id = "r2modman", profiles = "{source}/r2modmanPlus-local/Source2/profiles" }
+require = [ { stat = "{source}/s2loader/s2loader.dll", kind = "file" } ]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]
