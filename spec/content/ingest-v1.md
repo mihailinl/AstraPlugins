@@ -59,9 +59,14 @@ assembled file's sha256 and size equal what `begin` declared
 
 **The scan itself** (§8a) runs on every image the upload carries, including
 textures embedded in a VRM, GLB or glTF (through a `bufferView`, a `data:` URI or
-a relative file). A scanner **error or timeout**, or an image the extraction
-cannot decode, **holds** the version with **`F_CONTENT_CSAM_UNSCANNED`**: it is
-never published unscanned, whatever the §8 policy says. What a MATCH does (hide,
+a relative file). More than one scanner may be configured. An image counts as
+scanned when **at least one** of them answered for it, so one scanner being
+unavailable does not stop publishing; the operator is alarmed instead.
+Publishing closes (`E_CONTENT_PUBLISHING_CLOSED`) only when no scanner is
+configured or reachable. An image that **no** configured scanner answered for
+(every one errored or timed out), or that the extraction cannot decode,
+**holds** the version with **`F_CONTENT_CSAM_UNSCANNED`**: it is never published
+unscanned, whatever the §8 policy says. What a MATCH does (hide,
 sanction, quarantine, report) is §8a's and has no code here.
 
 ## 2. Size caps (knobs; compiled to these values, every kind compiled CLOSED)

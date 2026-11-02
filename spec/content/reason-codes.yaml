@@ -73,7 +73,7 @@ ingest:
 flags:
   F_CONTENT_VRM_META_UNKNOWN: live
   F_COMMAND_EXEC_AND_NETWORK: live
-  # held: a CSAM scanner error or timeout, or an image that cannot be decoded (§8a)
+  # held: NO configured CSAM scanner answered for an image (all errored or timed out), or it cannot be decoded (§8a)
   F_CONTENT_CSAM_UNSCANNED: live
 
 # what a CLIENT says when it refuses an install, an update or a document
