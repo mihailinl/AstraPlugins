@@ -783,8 +783,79 @@ class N1ByteOrderMarks(unittest.TestCase):
 
 
 class N2PercentEncoding(unittest.TestCase):
+    """games round 3 item 4: % is legitimate glTF escaping (a space MUST be written %20), so the
+    rule is "percent-decode exactly once, then judge the decoded path" -- never "no raw %"."""
+
     def test_percent_allowed(self):
-        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("URI_FORBIDDEN", "?#\\"), "archives/pct")
+        # the OLD blanket "no raw %" rule refused a uri every real glTF exporter can emit
+        orig = cg._decode_gltf_uri
+
+        def blanket_percent_forbidden(u):
+            if "%" in u:
+                raise ValueError("containing '%'")
+            return orig(u)
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("_decode_gltf_uri", blanket_percent_forbidden),
+                                               "archives/animset-gltf-percent-space")
+
+    def test_decoding_is_still_needed(self):
+        # skip the decode entirely (treat the uri as already-plain) and N2 reopens: this archive's
+        # file is literally NAMED with the percent-escapes still in it, so an undecoded lookup finds it
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("_decode_gltf_uri", lambda u: u), "archives/pct")
+
+    def test_space_round_trips(self):
+        self.assertEqual(cg._decode_gltf_uri("Base%20Color.png"), "Base Color.png")
+
+    def test_malformed_escape_is_refused(self):
+        with self.assertRaises(ValueError):
+            cg._decode_gltf_uri("%zz")
+
+    def test_double_encoding_is_refused_rather_than_decoded_twice(self):
+        # decoding twice would turn %252e%252e into "..", catchable by the existing ".." guard --
+        # but decoding is only EVER done once, so a leftover % after that one pass is refused
+        # outright instead, which is what actually stops it
+        with self.assertRaises(ValueError):
+            cg._decode_gltf_uri("%252e%252e")
+
+    def test_raw_question_hash_backslash_still_forbidden(self):
+        for bad in ("a?b", "a#b", "a\\b"):
+            with self.assertRaises(ValueError):
+                cg._decode_gltf_uri(bad)
+
+
+class GamesRound3ShapeRefusals(unittest.TestCase):
+    """astra-plugins-ops-42 ran the reference checker on games inputs and found three crashes/
+    silent-skips; two more (percent-encoding, nested bundles) came out of the adversarial review
+    of the fix. Each sub-test mutation-verifies its own fix: it breaks exactly the thing the fix
+    added, confirms the corresponding golden flips, and `Mutation` restores the original after."""
+
+    def test_manifest_not_object_is_refused_not_a_crash(self):
+        # the exact crash astra-plugins-ops-42 hit: `[].get("format")` is AttributeError, not a
+        # Refusal, so it must propagate out of `main()` uncaught -- never silently "red"
+        with Mutation("require_manifest_is_object", lambda man: None):
+            with self.assertRaises(AttributeError):
+                run_quiet()
+
+    def test_images_not_array_is_refused_not_a_crash(self):
+        with Mutation("gltf_array_shape_refusal", lambda v, key: None):
+            with self.assertRaises(TypeError):
+                run_quiet()
+
+    def test_images_as_object_golden_flips_without_the_shape_check(self):
+        # the dict `{"0": {"uri": "https://..."}}` does not crash the OLD one-liner (`for x in
+        # (g.get(k) or [])` iterates the dict's STRING keys, and `isinstance(x, dict)` quietly
+        # skips each one) -- it just never looks at the external uri inside. Let a dict through
+        # the shape check (so it reaches the per-element loop) without touching the int case (so
+        # "images": 5 does not ALSO crash this mutation and pre-empt reaching this golden in the
+        # same run)
+        def let_dicts_through(v, key):
+            return None if isinstance(v, (list, dict)) else f"{key} is a JSON {type(v).__name__}, not an array"
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("gltf_array_shape_refusal", let_dicts_through),
+                                               "archives/gltf-images-object")
+
+    def test_nested_bundle_is_refused_by_its_zip_signature(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("ZIP_SIGNATURES", ()),
+                                               "archives/nested-astrachar-in-astrapack",
+                                               "archives/nested-astrachar-renamed-dat")
 
 
 class N8FoldTwice(unittest.TestCase):
