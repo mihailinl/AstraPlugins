@@ -539,6 +539,14 @@ class RetirementIsPerDocumentSchema(unittest.TestCase):
                          "scenario/one-way-switch-index-leaves-withdrawn",
                          "scenario/one-way-switch-withdrawn-retires-withdrawn")
 
+    def test_taking_the_schema_from_the_body(self):
+        # D must be the verifier's domain constant: read from the body's `schema`, a withdrawn
+        # list offered where an index is verified verifies, and retires withdrawn/1's current
+        def from_body(path, kind):
+            return cg.load_json(path)["signed"]["schema"].split(".")[2].split("/")[0]
+        self.assertRedOn(Mutation("sequence_doc", from_body),
+                         "scenario/one-way-switch-cross-schema-retires-nothing")
+
 
 class F14StickyRowsAndCanonicalRanges(unittest.TestCase):
     def assertRedOn(self, mutation, *names):

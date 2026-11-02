@@ -854,6 +854,11 @@ def gen_withdrawn(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> None:
     # the switch is one-way PER DOCUMENT SCHEMA (trust-kind-keys-v1.md §6): a `next`-signed
     # withdrawn list retires `current` for withdrawn/1 and leaves index/1 alone, and the reverse
     put_doc("withdrawn/commands/signed-by-next.json", "commands", "withdrawn", valid["commands"], role="next")
+    # the same `next`-signed withdrawn list served where an INDEX is verified: the (K, D) a
+    # verification retires for is the verifier's domain constant, never the body's `schema`,
+    # so this fails under astra.commands.index/1 and retires nothing in either schema
+    put_doc("index/commands/withdrawn-list-offered-as-index.json", "commands", "withdrawn",
+            valid["commands"], role="next")
 
     # the served state a pack/character ingest is judged against (scenarios)
     put_doc("withdrawn/models/aiko-security.json", "models", "withdrawn", withdrawn_signed("models", [

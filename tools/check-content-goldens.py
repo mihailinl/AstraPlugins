@@ -198,7 +198,10 @@ def retire_after(retired: set[tuple[str, str, str]], env: dict, kind: str, doc: 
 
 
 def sequence_doc(path: str, kind: str) -> str:
-    """The document schema of a scenario file, from the corpus layout `<doc>/<kind>/…`."""
+    """WHICH VERIFIER a scenario file is offered to, from the corpus layout `<doc>/<kind>/…`.
+    The directory stands for the client's code path (fetching the index, or the withdrawn
+    list), whose domain constant is the D a verification retires for. It is never read from
+    the document's `schema`, and a client never takes it from a URL or a path."""
     parts = path.split("/")
     if len(parts) < 3 or parts[0] not in KIND_DOCS or parts[1] != kind:
         raise ValueError(f"one-way-switch: {path} is not a {kind} index/withdrawn golden")

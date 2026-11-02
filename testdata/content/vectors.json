@@ -742,6 +742,14 @@
       "note": "the right key over the wrong domain: the verifier's constant decides"
     },
     {
+      "name": "withdrawn-list-offered-as-index",
+      "kind": "commands",
+      "file": "index/commands/withdrawn-list-offered-as-index.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "a real next-signed withdrawn list served where an index is verified: the index schema refuses it first; scenario one-way-switch-cross-schema-retires-nothing shows its signature alone also fails under the index domain"
+    },
+    {
       "name": "duplicate-member-name",
       "kind": "commands",
       "file": "index/commands/duplicate-member-name.json",
@@ -3860,6 +3868,22 @@
       "note": "the mirror: a next-signed withdrawn list does not refuse a current-only index"
     },
     {
+      "name": "one-way-switch-cross-schema-retires-nothing",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/withdrawn-list-offered-as-index.json",
+        "withdrawn/commands/valid.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "signature-invalid",
+        "astra-commands-2026a",
+        "astra-commands-2026a"
+      ],
+      "note": "D in (K, D) is the verifier's domain constant, never the body's `schema`, URL or path: a next-signed withdrawn list offered to the index verifier fails verification, so it retires current in neither schema (common-v1.md §1)"
+    },
+    {
       "name": "sticky-every-row",
       "type": "sticky",
       "kind": "commands",
@@ -4094,5 +4118,5 @@
     "E_CONTENT_PUBLISHING_CLOSED": "a begin-door state (no CSAM scanner configured), not a property of a file; the checker covers no doors",
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors"
   },
-  "expected_checks": 365
+  "expected_checks": 367
 }

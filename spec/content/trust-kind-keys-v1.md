@@ -123,7 +123,14 @@ trust one outside `testdata/`.
   schema with `current` alone once a `next`-signed document of THAT schema is
   served. **A client that has verified an `astra.<K>.<D>/1` document under K's
   `next` key retires K's `current` key id for (K, D) on that machine** — the
-  retirement state is keyed by (kind, document schema, key id). The client
+  retirement state is keyed by (kind, document schema, key id). **D is the
+  VERIFIER's domain constant**: the same `astra.<K>.index/1` or
+  `astra.<K>.withdrawn/1` it verified the signature under (common-v1.md §1,
+  "`domain` is the verifier's own constant"), never the document's `schema`
+  string and never a URL or a path. A `next`-signed withdrawn list served where
+  an index is verified therefore fails verification and retires nothing in
+  either schema (`index/commands/withdrawn-list-offered-as-index.json`;
+  scenario `one-way-switch-cross-schema-retires-nothing`). The client
   refuses a later (K, D) document that only `current` signed (`key-retired`;
   scenarios `one-way-switch`, `one-way-switch-index-retires-index`,
   `one-way-switch-withdrawn-retires-withdrawn`). It does **not** refuse K's
