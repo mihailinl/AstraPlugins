@@ -459,22 +459,25 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
   mark on any entry, this applies to a `.gltf` alone (§2.7.1);
 - **no external reference** (the content catalogue's own `uri_refusal`): in
   a GLB every `images[].uri` and `buffers[].uri` is a `data:` URI; in a
-  `.gltf` each is a `data:` URI or a plain relative path — no scheme, no
-  `..`, no leading `/`, **and no `%`, `?`, `#` or `\`** — naming a file the
+  `.gltf` each is a `data:` URI or a plain relative path naming a file the
   release holds, so nothing Astra loads makes it fetch a URL, which would
-  tell a third party who is looking at the model. The four characters are
-  refused because a loader percent-decodes the uri (and splits off a query
-  or fragment) **before** it joins it to the file's folder:
-  `..%2f..%2f..%2f..%2fetc%2fpasswd` passes a `..` test as written and
-  leaves the release once decoded, even when a file with that literal name
-  sits beside the `.gltf` (golden `gltf-uri-percent`, the content
-  catalogue's `pct`, N2); the character test runs first, so that is the
-  reason given. `images` or `buffers` that is not an array is refused too: a
-  JavaScript loader indexes an object's `"0"` key as `images[0]`, which a
-  reader that skips non-arrays never looks at. The content catalogue's
-  further rule — the uri resolves inside the `.gltf`'s own part — has no
-  equivalent here: a game integration's part is one file, and the buffer it
-  names is not a part of its own.
+  tell a third party who is looking at the model. A loader percent-decodes
+  the uri (and splits off a query or fragment) **before** it joins it to the
+  file's folder, so the uri is judged as the loader reads it: **decoded
+  exactly once** — glTF 2.0 encodes a space, and `Base%20Color.bin` names
+  `Base Color.bin` (golden `gltf-uri-space-encoded`, accepted) — with no raw
+  `?`, `#` or `\`, no malformed escape, nothing still percent-encoded once
+  decoded (`%252e%252e/` decodes to `%2e%2e/`, and a second decoding would
+  climb out; golden `gltf-uri-double-encoded`), and, decoded, no scheme, no
+  `..` and no leading `/`: `..%2f..%2f..%2f..%2fetc%2fpasswd` leaves the
+  release once decoded even when a file with that literal name sits beside
+  the `.gltf` (golden `gltf-uri-percent`, the content catalogue's `pct`, N2;
+  its code is pinned, not content's wording). `images` and `buffers` must be
+  arrays of objects: a JavaScript loader indexes an object's `"0"` key as
+  `images[0]`. The content catalogue's further rule — the uri resolves
+  inside the `.gltf`'s own part — has no equivalent here: a game
+  integration's part is one file, and the buffer it names is not a part of
+  its own.
 
 **A `.astrachar` or `.astrapack` part is judged whole, by the content
 contract's own code** — `ingest_bundle` in `tools/check-content-goldens.py`,

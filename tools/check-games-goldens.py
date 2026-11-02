@@ -726,22 +726,17 @@ class _AnyFile:
 
 def gltf_uri_problem(raw: bytes, doc: dict, path: str | None, present) -> str | None:
     """No external reference: the content catalogue's own `uri_refusal`
-    (ingest-v1.md §3 step 10). In a GLB every `images[].uri` and
+    (ingest-v1.md §3 step 10, with #131). In a GLB every `images[].uri` and
     `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or
-    a relative path with no scheme, no `..`, no leading `/` and **no `%`,
-    `?`, `#` or `\\`** -- a loader percent-decodes (and splits off a query or
-    fragment) BEFORE it joins, so `..%2f..%2fetc%2fpasswd` leaves the
-    release even when a file with that literal name is in it (N2) -- naming
-    a file the release holds (`present`, a set of release-relative paths;
-    None skips that last test). Content's own-part test is given no parts:
-    a game integration's part is one file, and its buffers are not parts.
-
-    `images` or `buffers` that is not an array is refused here first:
-    content's reader skips an object (whose "0" key a JavaScript loader still
-    indexes as `images[0]`) and raises on a number."""
-    for key in ("images", "buffers"):
-        if key in doc and not isinstance(doc[key], list):
-            return f"{key} is not an array: {type(doc[key]).__name__}"
+    a relative path, percent-decoded exactly once -- `Base%20Color.png`
+    names `Base Color.png` -- with no raw `?`, `#` or `\\`, no malformed or
+    double escape, and once decoded no scheme, no `..` and no leading `/`,
+    naming a file the release holds (`present`, a set of release-relative
+    paths; None skips that last test). `images`/`buffers` must be arrays of
+    objects (content's `gltf_array_shape_refusal`). Content's own-part test is
+    given no parts: a game integration's part is one file, and its buffers
+    are not parts. `doc` is unused since content reads `raw` itself; it is
+    kept for the callers' signature."""
     where = present if present is not None and path is not None else _AnyFile()
     return CG.uri_refusal(path or "", raw, where, {})
 

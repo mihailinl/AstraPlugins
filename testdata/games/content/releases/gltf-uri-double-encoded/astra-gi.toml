@@ -1,0 +1,22 @@
+# content check golden: a .gltf buffer uri %252e%252e/secret.bin -- E_CONTENT_FORMAT: decoded once
+# it is %2e%2e/secret.bin, still percent-encoded, and decoded again it would climb out of the release.
+# A file of the once-decoded name is present, so only the double-encoding rule refuses it.
+schema = 1
+
+[integration]
+id = "someone.gltf-uri-double-encoded"
+name = "Gltf Uri Double Encoded"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

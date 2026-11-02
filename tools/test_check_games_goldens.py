@@ -643,30 +643,36 @@ class ContentByBytes(unittest.TestCase):
 
 
 class GltfUris(unittest.TestCase):
-    """The content catalogue's own uri_refusal (N2): no % ? # or \\ in a uri
-    that is not data:, because a loader decodes and splits before it joins."""
+    """The content catalogue's own uri_refusal (N2, and #131): a uri that is
+    not data: is percent-decoded exactly once before it is joined -- a raw ?
+    # or \\, a malformed or a double escape, and a decoded .. are refused."""
 
-    def test_each_forbidden_character_refuses_even_with_the_literal_file_present(self):
-        for uri in ("..%2fsecret.bin", "a.bin?x=1", "a.bin#frag", "a\\b.bin", "a%20b.bin"):
+    def test_raw_query_fragment_and_backslash_refuse_even_with_the_literal_file_present(self):
+        for uri in ("a.bin?x=1", "a.bin#frag", "a\\b.bin"):
             with self.subTest(uri=uri):
                 doc = json.dumps({"buffers": [{"uri": uri}]}).encode()
                 why = ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf", f"m/{uri}"})
                 self.assertIsNotNone(why)
                 self.assertIn("containing", why)
 
-    def test_the_percent_rule_wins_over_the_dotdot_rule(self):
-        doc = json.dumps({"buffers": [{"uri": "../x%2fy.bin"}]}).encode()
-        self.assertIn("'%'", ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf"}))
+    def test_a_uri_is_decoded_once_and_then_judged(self):
+        def problem(uri, present):
+            return ggold.gltf_format_problem(json.dumps({"buffers": [{"uri": uri}]}).encode(), "m/a.gltf", {"m/a.gltf", *present})
+        self.assertIsNone(problem("a%20b.bin", {"m/a b.bin"}), "a space, encoded as glTF requires, names the decoded file")
+        self.assertIsNotNone(problem("a%20b.bin", {"m/a%20b.bin"}), "the literal encoded name is not what a loader opens")
+        for uri, literal in (("..%2fsecret.bin", "m/..%2fsecret.bin"), ("%252e%252e/s.bin", "m/%2e%2e/s.bin"), ("a%zz.bin", "m/a%zz.bin")):
+            with self.subTest(uri=uri):
+                self.assertIsNotNone(problem(uri, {literal}), "refused although a file of the literal name is present")
 
-    def test_the_golden_turns_green_for_the_wrong_reason_without_the_rule(self):
+    def test_the_goldens_turn_green_for_the_wrong_reason_without_the_decoding(self):
         files, doc = release("gltf-uri-percent")
         self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
-        saved = ggold.CG.URI_FORBIDDEN
-        ggold.CG.URI_FORBIDDEN = ""
+        saved = ggold.CG._decode_gltf_uri
+        ggold.CG._decode_gltf_uri = lambda u: u  # join the raw uri, as the gate once did
         try:
-            self.assertEqual(codes_of(files, doc), [], "the literal file is present, so only the % rule refuses it")
+            self.assertEqual(codes_of(files, doc), [], "the literal file is present, so only decoding refuses it")
         finally:
-            ggold.CG.URI_FORBIDDEN = saved
+            ggold.CG._decode_gltf_uri = saved
 
     def test_images_or_buffers_that_are_not_an_array_are_refused_not_skipped(self):
         for images in ({"0": {"uri": "https://e.invalid/t.png"}}, 5, "t.png"):

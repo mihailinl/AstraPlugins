@@ -144,6 +144,15 @@ RELEASE_FILES = {
     "releases/gltf-uri-percent/models/prop.gltf":
         lambda: gltf_text({"asset": {"version": "2.0"}, "buffers": [{"uri": PCT_URI, "byteLength": 4}]}),
     f"releases/gltf-uri-percent/models/{PCT_URI}": lambda: b"\x00\x01\x02\x03",
+    # glTF 2.0 percent-encodes a space: Base%20Color.bin names "Base Color.bin", which is present
+    "releases/gltf-uri-space-encoded/models/prop.gltf": lambda: gltf_text(
+        {"asset": {"version": "2.0"}, "buffers": [{"uri": "data/Base%20Color.bin", "byteLength": 4}]}),
+    "releases/gltf-uri-space-encoded/models/data/Base Color.bin": lambda: b"\x00\x01\x02\x03",
+    # %252e%252e/ decodes ONCE to the text %2e%2e/: decoded again it would climb out; a literal file of
+    # that once-decoded name is present, so only the double-encoding rule refuses it
+    "releases/gltf-uri-double-encoded/models/prop.gltf": lambda: gltf_text(
+        {"asset": {"version": "2.0"}, "buffers": [{"uri": "%252e%252e/secret.bin", "byteLength": 4}]}),
+    "releases/gltf-uri-double-encoded/models/%2e%2e/secret.bin": lambda: b"\x00\x01\x02\x03",
     # the caps (ingest-v1.md §3 step 10): nesting deeper than 128, the top-level object being 1
     "releases/gltf-too-deep/models/prop.gltf": lambda: deep_gltf(129),
     "releases/gltf-depth-128/models/prop.gltf": lambda: deep_gltf(128),
