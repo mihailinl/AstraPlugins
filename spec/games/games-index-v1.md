@@ -216,19 +216,52 @@ compromise reach another's documents.
 `not_before` onward and stays authorised until a root ceremony says
 otherwise — there is no `not_after` on the key itself. What is short-lived is
 each *signed document*: `expires_at − issued_at ≤ 8 days` (§1) plus a
-**per-kind serial floor** — tracked for the kind `"games"` as a whole, not
-reset by a routine role swap.
+**serial floor per document schema** — this index has its own, the withdrawn
+list has its own (`games-withdrawn-v1.md`) — that a routine role swap never
+resets.
 
 **Routine rotation is the signer moving from `current` to `next`** — no
 client release, no ceremony, the same ratchet as before but now a
 day-to-day operation rather than something a new client build has to compile.
-The first document a client verifies under the kind's `"next"` role retires
-`"current"` for that kind on that client **permanently**, so a forged
-`serial` replayed under a since-retired role cannot hold back the one that
-took over. A later rotation needs a root ceremony to install a fresh `"next"`
-only once both roles of the kind have been spent, or on a suspected
-compromise — not on every rotation, the way a compiled key id used to force
-a client release.
+
+**The switch is one-way, and it retires `current` per DOCUMENT SCHEMA, not
+per kind** (minice `docs/architecture/2026-11-01-content-catalogue.md`
+§11a.9, decided 2026-11-02; the same rule as
+`spec/content/trust-kind-keys-v1.md` §6):
+
+- **The signer** never signs a document of a schema with `current` alone
+  once it has served a `next`-signed document *of that schema*. It may still
+  sign `astra.games.withdrawn/1` with `current` after `astra.games.index/1`
+  has moved to `next`, and the reverse.
+- **The client:** the first `astra.games.index/1` it verifies under the
+  `"next"` role retires `"current"` **for `astra.games.index/1` only**, on
+  that client, **permanently**, and it refuses a later index that only
+  `current` signed — so a forged `serial` replayed under a since-retired role
+  cannot hold back the one that took over. That index retires nothing for
+  `astra.games.withdrawn/1`: a withdrawn list signed by `current` still
+  verifies until a `next`-signed withdrawn list has itself been verified
+  (`games-withdrawn-v1.md`).
+- **What the client stores:** one high-water "seen `next`" mark **per
+  schema** — one for `astra.games.index/1`, one for
+  `astra.games.withdrawn/1`, never one for the kind `"games"`. The mark is the
+  `kind_keys.key_id` that held the `current` role when that schema's first
+  `next`-verified document arrived, i.e. the key id retired for that schema.
+  It only moves forward: no later document clears it. Because it records a
+  key id rather than a role, the ceremony that promotes `next` to `current`
+  (same key id) and adds a fresh `next` un-retires nothing and retires
+  nothing new.
+- **Why per schema:** the index and the withdrawn list are signed and served
+  on separate schedules — separate fetches, separate size caps, separate
+  serial floors (`games-withdrawn-v1.md` §1). Under per-kind retirement, a
+  still-valid `current`-signed withdrawn list fetched in the middle of a
+  rotation would be refused because the index had reached `next` first, and
+  withdrawals are the safety path that must never go dark. The cost is
+  small: each schema retires `current` on its own first `next` document, and
+  each schema's serial floor still stops the replay of an older one.
+
+A later rotation needs a root ceremony to install a fresh `"next"` only once
+both roles have been spent for a schema, or on a suspected compromise — not
+on every rotation, the way a compiled key id used to force a client release.
 
 **The document body names the key's ROLE, never its real id.** The signed
 body's `key_id` (§1, §2) is always the literal string `"games-current"` or
