@@ -4268,9 +4268,16 @@ jobs:
           # honest: the committed generators must reproduce exactly those bytes.
           VECTORS = "testdata/bundles/"
           CLOAKING = "testdata/zip-cloaking/"
+          # testdata/games/content/ is the third: hostile and accepted GI
+          # releases whose archives (a renamed bundle, jars) are the input
+          # under test. testdata/games/content/vrm/gen.py writes every one of
+          # them, and test_check_games_goldens runs its --check, so a hand
+          # edit or a stale archive is red in games-spec.
+          GAMES_CONTENT = "testdata/games/content/"
           artifacts = [f for f in tracked
                        if not (f.startswith(VECTORS) and f.endswith(".astraplugin"))
                        and not (f.startswith(CLOAKING) and f.endswith(".zip"))
+                       and not (f.startswith(GAMES_CONTENT) and f.endswith(".zip"))
                        and (re.search(r"(^|/)(target|node_modules|__pycache__)/", f)
                             or f.endswith((".exe", ".pyc", ".astraplugin", ".zip",
                                            ".crate", ".tgz")))]
