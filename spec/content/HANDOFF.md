@@ -100,5 +100,5 @@ goldens explicitly.
 - **Gate every commit** on the checker and the mutation suite. A gate that goes
   red is a finding: read it before re-running anything.
 - **Key retirement is per (kind, document schema), not per kind**, since
-  the per-schema change (trust-kind-keys-v1.md §6, design §11a.9); the
+  #137 (trust-kind-keys-v1.md §6, design §11a.9); the
   checker's `retirement_scope` is the one place that decides it.
