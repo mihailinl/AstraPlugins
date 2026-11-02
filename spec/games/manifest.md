@@ -298,8 +298,39 @@ first; G4 makes it the *same* rule for a GI's content parts — one gate,
 read the same way, wherever a VRM reaches Astra.
 
 Runs **before any checkbox** — a licence that refuses redistribution is not
-something an author's confirmation can override. It applies to every `.vrm`
-file this table declares, and to the body inside a `.astrachar` bundle
+something an author's confirmation can override. **It applies by content,
+never by name** (the content catalogue's `ingest-v1.md` §4, so that the two
+gates agree on every file): to every declared part whose bytes begin with the
+GLB magic `glTF`, whatever it is called, and to every `.gltf` text file, once
+the file is classified by the extensions its glTF JSON names in `extensions`
+or `extensionsUsed`:
+
+- an **avatar** names `VRM` or `VRMC_vrm` — it gets the verdict below, in any
+  part, so a renamed avatar cannot pass as an animation or as art;
+- an **animation** names `VRMC_vrm_animation` and no avatar extension — no
+  avatar verdict; its part needs the `animations` rights confirmation;
+- a **plain** glTF names neither — judged (and so `unknown`, below) only in a
+  `character` part, since a character is an avatar whatever its extensions;
+  in any other part it is ordinary art.
+
+**Before any of that, every GLB and every `.gltf` — in any part, of any
+class — is held to the format rules** (the content catalogue's `ingest-v1.md`
+§3 step 10), and a file that breaks one is refused **`E_CONTENT_FORMAT`**:
+
+- **a GLB is whole**: its header's total length equals the file's size, and
+  its first chunk is JSON and ends inside the file, so a chunk declared past
+  EOF is never read as whatever bytes happen to be there;
+- **its glTF JSON parses and names no member twice**: one reader's
+  `allowRedistribution: false` is another's `true`, and JSON that does not
+  parse must never fall through to "plain", which an animation part does not
+  judge;
+- **no external reference**: in a GLB every `images[].uri` and
+  `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or a
+  plain relative path (no scheme, no `..`, no leading `/`, no backslash)
+  naming a file the release holds — so nothing Astra loads makes it fetch a
+  URL, which would tell a third party who is looking at the model.
+
+It applies as well to the body inside a `.astrachar` bundle
 *when that bundle's format is readable* (its `astrachar.json` parses, its
 `body` is a `{"file": ...}` pointing at a `.vrm` inside the same zip —
 astra-companion `docs/character-files-and-2d-editor.md` §1.3/§1.4). When it
@@ -308,16 +339,43 @@ the catalogue), never a refusal: an unreadable bundle is a different problem
 than a bundle that reads cleanly and says no.
 
 The gate parses the file's GLB container (the 12-byte header, then the first
-chunk if it is typed `JSON`) and inspects `extensions` in that chunk. It
-refuses with `E_CONTENT_LICENCE_REFUSED`, naming the field and its value,
-when:
+chunk if it is typed `JSON`), or a `.gltf` file's whole text, and reads each
+VRM meta present. Each meta gives two readings, exactly as astra-companion's
+`src/vrm/meta.rs` (`licence_of`, `redistribution_of`, origin/main `045b0bf`)
+and the content catalogue's `ingest-v1.md` §4.2 read them:
 
-- **VRM 0.x** — `extensions.VRM.meta.allowedUserName == "OnlyAuthor"`, or
-  `== "ExplicitlyLicensedPerson"` (named people only, D8 widened), or
-  `extensions.VRM.meta.licenseName == "Redistribution_Prohibited"`;
-- **VRM 1.0** — `extensions.VRMC_vrm.meta.avatarPermission == "onlyAuthor"`,
-  or `== "onlySeparatelyLicensedPerson"` (named people only), or
-  `extensions.VRMC_vrm.meta.allowRedistribution == false`.
+| | value | reading |
+|---|---|---|
+| VRM 1.0 `allowRedistribution` | `true` | allowed |
+| | `false`, absent, or not a bool (the string `"true"` included) | prohibited |
+| VRM 0.x `licenseName` | `CC0`, or any token beginning `CC_` | allowed |
+| | `Redistribution_Prohibited`, absent, or not a string | prohibited |
+| | `Other`, or **any other token** | **unknown** (the terms are elsewhere) |
+| VRM 1.0 `avatarPermission` / VRM 0.x `allowedUserName` | `everyone` / `Everyone` | allowed |
+| | `onlyAuthor`, `onlySeparatelyLicensedPerson` / `OnlyAuthor`, `ExplicitlyLicensedPerson` (named people only, D8 widened), absent, or not a string | prohibited |
+| | **any other token** | **unknown** |
+
+A meta's verdict is **prohibited** if either reading is, else **unknown** if
+either is, else **allowed**. **An unrecognised token is never allowed.** A
+prohibited verdict is refused with `E_CONTENT_LICENCE_REFUSED`, naming the
+field and its value (the redistribution field first).
+
+**A file carrying BOTH blocks is judged on both, never only the first one
+found** (O-2 — the games gate and this document both used to stop at
+`extensions.VRM.meta` when present and never look at `extensions.VRMC_vrm.meta`
+at all, so a file whose VRM 0.x meta allowed and whose VRM 1.0 meta prohibited
+passed outright). The content catalogue's own contract states the same rule
+for the same reason (`ingest-v1.md` §4.2 — "A file carrying BOTH metas is
+judged on both. If they disagree → `E_CONTENT_LICENCE_CONFLICT`"); here, that
+means the rule above runs once per meta (each spec reading its own absent-field
+default below, independently), and the file is refused
+**`E_CONTENT_LICENCE_CONFLICT`**, naming both verdicts, whenever the two
+verdicts differ — an unknown against an allowed included. The usage flags
+(G5, below) are display and are never compared, exactly as the content gate
+does not compare them.
+
+A conflict is refused outright, before `licence_source` (below) is even
+asked — it is never "whichever meta happened to parse first wins".
 
 **An absent field reads as ITS OWN SPEC'S default, never as "allowed"** —
 this replaces this document's earlier text, which said the opposite and was
@@ -336,14 +394,24 @@ So a VRM 1.0 file whose `extensions.VRMC_vrm.meta` carries neither field at
 all is refused exactly as if it had written `avatarPermission: "onlyAuthor"`
 itself — absence is never a gap in this gate, only in the one below.
 
-**`unknown`: no VRM meta at all.** A `.vrm` file (or a readable `.astrachar`
-body) that is a well-formed GLB but carries no `extensions.VRM.meta` and no
-`extensions.VRMC_vrm.meta` block — not every `.vrm` has one — is neither
-refused nor passed silently: it is flagged `F_CONTENT_VRM_META_UNKNOWN` and
+**`unknown`: no readable meta, or a meta whose verdict is unknown.** A file
+the gate judges (above) that carries no `extensions.VRM.meta` and no
+`extensions.VRMC_vrm.meta` block — not every `.vrm` has one — or whose meta
+reads unknown (an unrecognised licence or permission token) is neither
+refused nor passed silently: it is flagged `F_CONTENT_VRM_META_UNKNOWN`, its
+meta is not used as the part's licence (`vrm_licence` is absent), and it
 reaches the release's confirmation step only via §2.7.3's `licence_source`
 fallback below (G4: "`unknown` passes only with the character checkbox and
 the licence line beside it", which is the publish form's job, not this
 gate's).
+
+The verdict is the content catalogue's, file for file; only what follows an
+`unknown` differs, and on purpose. The content catalogue holds an `unknown`
+for a moderator (`ingest-v1.md` §4.1). This catalogue publishes it flagged,
+under the publish-at-once rule every community release follows, because a
+GI's part always carries the author's declared licence (`licence_source =
+"declared"`, or `E_CONTENT_LICENCE_UNDECLARED`) and the per-part rights
+confirmation (`W_CONTENT_UNCONFIRMED` until it is given).
 
 **The usage flags (G5).** Kept with the part in `vrm_licence.fields`
 whichever of these the file actually carries, alongside the
@@ -358,7 +426,11 @@ card can show the whole licence line:
 `vrm_licence.fields` holds the **raw** keys the file carries — an absent
 key's spec default is applied only by the refusal logic above, never
 fabricated here; a display default (if any) is the install sheet's own
-concern, not this gate's.
+concern, not this gate's. **When both blocks are present and agree** (no
+conflict above), `vrm_licence` shows the VRM 1.0 side — the same precedence
+astra-companion's own `licence_of` reads them in for display, "a file
+carrying both is read as 1.0". A conflict carries no `vrm_licence` at all:
+the release is refused before display is ever asked.
 
 **`licence_source`: every covered part needs a licence from somewhere.**
 When the gate found readable VRM meta (`vrm_licence` is present, whether the
@@ -427,10 +499,12 @@ per rule, named for the rule it breaks, and `tools/check-games-goldens.py`
 asserts each one is refused with exactly that code.
 
 §2.7's content-coverage codes (`E_CONTENT_UNDECLARED`, `E_CONTENT_MISSING`,
-`E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED` and
-`E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback with
-nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
-`.vrm`/`.astrachar` body with no readable VRM meta at all — never a
+`E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED`,
+`E_CONTENT_LICENCE_CONFLICT` (§2.7.3's two-meta disagreement),
+`E_CONTENT_FORMAT` (§2.7.3's whole-GLB, duplicate-member and external-reference
+rules) and `E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback
+with nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
+judged glTF with no readable VRM meta, or an unrecognised token — never a
 refusal) are the one exception to "gi-probe check finding": the ingest
 order (§2.7.1) runs
 the content check **before** gi-probe, over the real release zip's bytes,

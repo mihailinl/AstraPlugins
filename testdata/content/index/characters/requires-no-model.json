@@ -1,0 +1,80 @@
+{
+  "signed": {
+    "schema": "astra.characters.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "aiko",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "thumbnail": {
+          "sha256": "ce883b20b1d17b7120cda6d4606c2ba37f1073d02d777bad6b78f552edff9807",
+          "size": 22
+        },
+        "artefact": {
+          "sha256": "08e864ceb9e433ee6e8accfd0b314ae4e1721e355b1a98a11949e3fba654ccf4",
+          "size": 621,
+          "media_type": "application/vnd.astra.character+zip"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "format": "astra.character",
+        "requires": [
+          {
+            "kind": "animset",
+            "id": "wave-set",
+            "version": "1.0.0",
+            "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
+          }
+        ],
+        "parts": [],
+        "content_confirmed": {},
+        "needs": [],
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": [
+          {
+            "name": "test-author",
+            "role": "model",
+            "url": "https://example.invalid/test-author"
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-characters-2026a",
+      "sig": "nTxYKB8zYutzQkh+6pViQ10I7RbORbJDsKiokOlKW2dmqctC/6hl/Yj29d8rxBb0cGtrzv9J8vxHEVBcjgKxDA=="
+    }
+  ]
+}

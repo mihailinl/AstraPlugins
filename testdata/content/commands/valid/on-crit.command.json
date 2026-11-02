@@ -1,0 +1,33 @@
+{
+  "id": "00000000-0000-4000-8000-000000000005",
+  "name": "On crit",
+  "triggers": [],
+  "actions": [],
+  "enabled": true,
+  "workflow": {
+    "nodes": {
+      "t": {
+        "id": "t",
+        "node_type": "trigger",
+        "data": {
+          "trigger_type": "plugin__dice-roller__on_natural_20"
+        }
+      },
+      "a": {
+        "id": "a",
+        "node_type": "action",
+        "data": {
+          "action_type": "speak"
+        }
+      },
+      "n": {
+        "id": "n",
+        "node_type": "sticky_note",
+        "data": {
+          "text": "celebrate"
+        }
+      }
+    },
+    "edges": {}
+  }
+}

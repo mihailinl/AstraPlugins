@@ -1,0 +1,26 @@
+{
+  "signed": {
+    "schema": "astra.models.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "aiko-body",
+        "versions": "<=1.0.0",
+        "act": "security",
+        "floor_effect": "disarm",
+        "reason_code": "security",
+        "reason_text": "test row: security/security",
+        "at": 1798674800
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-models-2026a",
+      "sig": "+qKS9b1maHZCRh/Mc+FxOwo7cISVrjZGf1AHilg8NKd5xjTFEGRBW6OAFrpSdHrL0ocRGMcnj0EN46/u0adnDA=="
+    }
+  ]
+}

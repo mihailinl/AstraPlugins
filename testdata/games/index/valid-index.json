@@ -85,7 +85,11 @@
       "review": "unchecked",
       "supersedes": [],
       "flags": [],
-      "notes": { "en": "First release.", "ru": "Первый релиз." }
+      "notes": { "en": "First release.", "ru": "Первый релиз." },
+      "content": [
+        { "path": "content/peak-emotes.glb", "kind": "animations", "title": "Peak emotes", "credit": "someone", "licence": "CC-BY-4.0", "licence_source": "declared", "sha256": "7777777777777777777777777777777777777777777777777777777777777777" }
+      ],
+      "content_confirmed": { "market.rights.animations": 1 }
     }
   ],
   "games": [

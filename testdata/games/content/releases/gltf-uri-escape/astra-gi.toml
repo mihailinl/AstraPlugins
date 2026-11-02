@@ -1,0 +1,20 @@
+# content check golden: a .gltf whose buffer uri climbs out of the release -- E_CONTENT_FORMAT.
+schema = 1
+
+[integration]
+id = "someone.gltf-uri-escape"
+name = "glTF URI Escape"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "Prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

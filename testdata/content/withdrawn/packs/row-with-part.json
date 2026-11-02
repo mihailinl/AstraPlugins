@@ -1,0 +1,35 @@
+{
+  "signed": {
+    "schema": "astra.packs.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [
+      {
+        "id": "aiko-starter",
+        "versions": "<=1.0.0",
+        "act": "security",
+        "floor_effect": "disarm",
+        "reason_code": "member-withdrawn",
+        "reason_text": "test row: security/member-withdrawn",
+        "at": 1798674900,
+        "cause": {
+          "kind": "model",
+          "id": "aiko-body",
+          "version": "1.0.0"
+        },
+        "part": {
+          "part_kind": "character",
+          "digest": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+        }
+      }
+    ],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-packs-2026a",
+      "sig": "fUWayLhI79zheYLi8qMT8Qr/UW25CNC8g++LIiEc1awTWmNtU8o07QBpH4tUqrrH/U6UkFgf9BANQyZ0XivXCw=="
+    }
+  ]
+}

@@ -79,6 +79,17 @@ class SchemaFilesUseOnlySupportedKeywords(unittest.TestCase):
             _walk(doc, Path(f).name, unsupported)
             self.assertEqual(unsupported, [], f"{f} uses keyword(s) schemalite.py cannot check: {unsupported}")
 
+    def test_every_schema_in_spec_content_schemas(self):
+        """spec/content/schemas/ is generated (tools/gen-content-schemas.py),
+        and a generator can emit a keyword as easily as a hand can."""
+        files = sorted(glob.glob(str(ROOT / "spec/content/schemas/*.json")))
+        self.assertGreater(len(files), 0, "no schema files found -- the glob itself is broken")
+        for f in files:
+            doc = json.loads(Path(f).read_text(encoding="utf-8"))
+            unsupported: list[str] = []
+            _walk(doc, Path(f).name, unsupported)
+            self.assertEqual(unsupported, [], f"{f} uses keyword(s) schemalite.py cannot check: {unsupported}")
+
 
 class CoreSemantics(unittest.TestCase):
     def test_additional_properties_false_refuses_an_extra_key(self):

@@ -3248,6 +3248,45 @@ jobs:
       - name: the checker's rules are not trivially green (mutation self-test)
         run: python3 tools/test_check_games_goldens.py -v
 
+  # ── content-spec ─────────────────────────────────────────────────────────
+  #
+  # spec/content/ is lane L0 of minice's content catalogue
+  # (docs/architecture/2026-11-01-content-catalogue.md §10): the contract the
+  # plugins service (L1/L2), the registry signer (L4) and the Astra client (L8)
+  # pin by this repository's SHA. Same shape as games-spec, same "installs
+  # nothing" rule -- Ed25519 and JCS are tools/contentlite.py, stdlib only.
+  #
+  #   1. the schemas are what tools/gen-content-schemas.py writes (they are
+  #      generated: eleven near-identical files kept by hand would drift);
+  #   2. every golden byte is what testdata/content/gen.py writes, and
+  #      SHA256SUMS records it;
+  #   3. every golden is accepted, held or refused, with the code
+  #      testdata/content/vectors.json states by hand, derived from its bytes;
+  #   4. each checker rule is broken in turn and the run must turn red
+  #      (tools/test_check_content_goldens.py).
+  # The schemalite keyword self-check (games-spec, step 1) covers
+  # spec/content/schemas/ too.
+  content-spec:
+    name: content-spec (content catalogue L0)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: spec/content/schemas/ is current (generated)
+        run: python3 tools/gen-content-schemas.py --check
+
+      - name: testdata/content/ is what its generator writes, and SHA256SUMS agrees
+        run: python3 testdata/content/gen.py --check
+
+      - name: every testdata/content/ golden gets the verdict vectors.json states
+        run: python3 tools/check-content-goldens.py
+
+      - name: the checker's rules are not trivially green (mutation self-test)
+        run: python3 tools/test_check_content_goldens.py -v
+
   couplings:
     name: couplings
     runs-on: ubuntu-24.04
@@ -4434,6 +4473,7 @@ jobs:
       - docs
       - conformance
       - games-spec
+      - content-spec
       - couplings
     runs-on: ubuntu-24.04
     steps:

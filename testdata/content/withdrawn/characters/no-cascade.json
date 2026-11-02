@@ -1,0 +1,16 @@
+{
+  "signed": {
+    "schema": "astra.characters.withdrawn/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "rows": [],
+    "lifts": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-characters-2026a",
+      "sig": "qtz8JMiB8eLFNq2h0/sTzOvpPeTAUlBzrqrxPTasyFhG+oviyAMQ66dp1GGnuJypN1TbbsvR2q7vSA66rbGwBQ=="
+    }
+  ]
+}
