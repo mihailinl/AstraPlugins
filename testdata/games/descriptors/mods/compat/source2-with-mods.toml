@@ -1,0 +1,38 @@
+# Condition 1 of the mods design (engine-descriptor-v1.md §7.1): `mods` is
+# OPTIONAL, and a reader that ignores it -- launcher 0.5.0, which accepts the
+# table and reads nothing in it -- still accepts this descriptor for
+# detection, and detects with it exactly as without it.
+#
+# Its detection half is, member for member, the [integration.engine] of
+# manifests/valid/foundation-owns-engine.toml, a descriptor the launcher
+# already admits (its K17 "the owner of a code is admitted alone").
+# tools/check-games-goldens.py holds that: this file without `mods` IS that
+# descriptor, so the only thing `mods` can change is the digest (§1).
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+# A community loader for the community engine above: a game this descriptor
+# placed, a loader of its own, read-only, side by side.
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [
+  { stat = "{source}/s2loader/s2loader.dll", kind = "file" },
+]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

@@ -1,0 +1,34 @@
+# Hostile `mods` golden: a `versions` OPERAND OUT OF ITS TEMPLATE'S SHAPE
+# (engine-descriptor-v1.md §7.4). `>=1.2.3` has three runs and the template
+# two, so no version could ever satisfy it -- a requirement that silently
+# never holds. The schema sees each string alone; the checker's version rule
+# refuses it: mods-invalid, reason version-invalid.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { stat = "{source}/s2loader/s2loader.dll", kind = "file" } ]
+version = { pe = "{source}/s2loader/s2loader.dll", key = ["ProductVersion"], template = "N{1,2}.N{1,3}", versions = ">=1.2.3" }
+root = "{source}/s2loader/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

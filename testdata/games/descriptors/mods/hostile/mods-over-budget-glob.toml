@@ -1,0 +1,33 @@
+# Hostile `mods` golden: an OVER-BUDGET GLOB (engine-descriptor-v1.md §7.5,
+# §7.8). `**/*.pak` would descend through every folder below the mods root,
+# an unbounded walk no counted budget can price. A §7.5 glob is one file name
+# with one or two `*`, matched within the one listing of `root`; `**` and `/`
+# are refused by the schema: mods-invalid, reason glob-over-budget.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader"
+name = "S2 Loader"
+codes = ["source2"]
+source = ["game", "picked"]
+require = [ { stat = "{source}/s2loader/s2loader.dll", kind = "file" } ]
+root = "{source}/s2loader/mods"
+enabled = [ { format = "file-glob", glob = "**/*.pak" } ]
+coexist = [ { strategy = "side-by-side" } ]

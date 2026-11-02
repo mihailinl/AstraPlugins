@@ -1,0 +1,80 @@
+# Hostile `mods` golden: SLOW RECOGNITION (engine-descriptor-v1.md §7.8).
+# Every loader keeps to the per-loader bound (8 checks), but each check is an
+# `any` of three lookups: 3 loaders x 22 lookups = 66, over the 64 a whole
+# `mods` member may spend. No schema can count across loaders; the checker's
+# budget rule does: mods-invalid, reason over-budget.
+#
+# Its detection half is compat/source2-with-mods.toml's (a valid descriptor), so a
+# CLIENT keeps detecting with it and drops only `mods` (§7.9); ingest and
+# lint refuse it.
+schema = "astra.engine/1"
+engine = { codes = { source2 = "Source 2" } }
+
+[[rule]]
+tier = "strong"
+programs = { ext = ["exe"], at = "{project}/bin/win64", first = 8 }
+require = [
+  { listed = "engine2.dll", kind = "file" },
+  { child = "{project}/core", kind = "dir", as = "core" },
+]
+code = "source2"
+confidence = "high"
+binary = "windows"
+evidence = "{core}"
+
+[[mods.loader]]
+id = "s2-loader-1"
+name = "S2 Loader 1"
+codes = ["source2"]
+source = ["game"]
+require = [
+  { stat = "{source}/l1/s2loader.dll", kind = "file" },
+  { any = [ { stat = "{source}/l1/a1.dll", kind = "file" }, { stat = "{source}/l1/b1.dll", kind = "file" }, { stat = "{source}/l1/c1.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a2.dll", kind = "file" }, { stat = "{source}/l1/b2.dll", kind = "file" }, { stat = "{source}/l1/c2.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a3.dll", kind = "file" }, { stat = "{source}/l1/b3.dll", kind = "file" }, { stat = "{source}/l1/c3.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a4.dll", kind = "file" }, { stat = "{source}/l1/b4.dll", kind = "file" }, { stat = "{source}/l1/c4.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a5.dll", kind = "file" }, { stat = "{source}/l1/b5.dll", kind = "file" }, { stat = "{source}/l1/c5.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a6.dll", kind = "file" }, { stat = "{source}/l1/b6.dll", kind = "file" }, { stat = "{source}/l1/c6.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l1/a7.dll", kind = "file" }, { stat = "{source}/l1/b7.dll", kind = "file" }, { stat = "{source}/l1/c7.dll", kind = "file" } ] },
+]
+root = "{source}/l1/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]
+
+[[mods.loader]]
+id = "s2-loader-2"
+name = "S2 Loader 2"
+codes = ["source2"]
+source = ["game"]
+require = [
+  { stat = "{source}/l2/s2loader.dll", kind = "file" },
+  { any = [ { stat = "{source}/l2/a1.dll", kind = "file" }, { stat = "{source}/l2/b1.dll", kind = "file" }, { stat = "{source}/l2/c1.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a2.dll", kind = "file" }, { stat = "{source}/l2/b2.dll", kind = "file" }, { stat = "{source}/l2/c2.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a3.dll", kind = "file" }, { stat = "{source}/l2/b3.dll", kind = "file" }, { stat = "{source}/l2/c3.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a4.dll", kind = "file" }, { stat = "{source}/l2/b4.dll", kind = "file" }, { stat = "{source}/l2/c4.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a5.dll", kind = "file" }, { stat = "{source}/l2/b5.dll", kind = "file" }, { stat = "{source}/l2/c5.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a6.dll", kind = "file" }, { stat = "{source}/l2/b6.dll", kind = "file" }, { stat = "{source}/l2/c6.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l2/a7.dll", kind = "file" }, { stat = "{source}/l2/b7.dll", kind = "file" }, { stat = "{source}/l2/c7.dll", kind = "file" } ] },
+]
+root = "{source}/l2/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]
+
+[[mods.loader]]
+id = "s2-loader-3"
+name = "S2 Loader 3"
+codes = ["source2"]
+source = ["game"]
+require = [
+  { stat = "{source}/l3/s2loader.dll", kind = "file" },
+  { any = [ { stat = "{source}/l3/a1.dll", kind = "file" }, { stat = "{source}/l3/b1.dll", kind = "file" }, { stat = "{source}/l3/c1.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a2.dll", kind = "file" }, { stat = "{source}/l3/b2.dll", kind = "file" }, { stat = "{source}/l3/c2.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a3.dll", kind = "file" }, { stat = "{source}/l3/b3.dll", kind = "file" }, { stat = "{source}/l3/c3.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a4.dll", kind = "file" }, { stat = "{source}/l3/b4.dll", kind = "file" }, { stat = "{source}/l3/c4.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a5.dll", kind = "file" }, { stat = "{source}/l3/b5.dll", kind = "file" }, { stat = "{source}/l3/c5.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a6.dll", kind = "file" }, { stat = "{source}/l3/b6.dll", kind = "file" }, { stat = "{source}/l3/c6.dll", kind = "file" } ] },
+  { any = [ { stat = "{source}/l3/a7.dll", kind = "file" }, { stat = "{source}/l3/b7.dll", kind = "file" }, { stat = "{source}/l3/c7.dll", kind = "file" } ] },
+]
+root = "{source}/l3/mods"
+enabled = [ { format = "dir-per-mod" } ]
+coexist = [ { strategy = "side-by-side" } ]

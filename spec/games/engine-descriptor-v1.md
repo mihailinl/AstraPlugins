@@ -36,7 +36,8 @@ of the two is fixed. Source: `dev/game-integrations-launcher-client-plan.md`
    this client does not understand yields no match and raises one banner;
    it never stops evaluation of the other descriptors in the same document,
    and it is never a reason to refuse the whole catalogue (merged plan §1,
-   row R4).
+   row R4). The one narrower case is inside the optional `mods` table: an
+   error there drops only `mods`, never the descriptor's detection (§7.1).
 
 ## 1. Identity and digest
 
@@ -60,7 +61,9 @@ of the two is fixed. Source: `dev/game-integrations-launcher-client-plan.md`
   §1.
 - **`deny_unknown_fields` everywhere.** At every nesting level. An unknown
   top-level `schema` value (not the literal string `"astra.engine/1"`) skips
-  the whole descriptor (rule 5 above).
+  the whole descriptor (rule 5 above). Inside `mods` an unknown field voids
+  only `mods` (§7.9); `mods` itself is part of the canonical form, so of the
+  digest and the 16 KiB bound (§4).
 
 ## 2. Grammar
 
@@ -233,6 +236,7 @@ of these four.
    marker table (`games-index-v1.md` §5) — see that document for the full
    signal list, which also includes a system kernel anti-cheat service and
    Steam's own disclosure.
+6. **`mods`** takes no part in any step above (§7.1).
 
 ## 4. Budgets (safety bound, B§3 "Slow detection")
 
@@ -251,6 +255,9 @@ catalogue serial, descriptor digest)` — an implementation detail, not
 normative, kept here only so a client author knows what re-evaluates a
 descriptor and what does not.
 
+`mods` has budgets of its own (§7.8). A mods evaluation draws nothing from
+the bounds above, and detection draws nothing from those.
+
 ## 5. Lint (`gi-probe validate-descriptor`)
 
 A descriptor that parses may still be refused before it ever reaches a
@@ -266,6 +273,8 @@ moderator:
   judgement call.
 - **A reserved or already-owned code** → `engine-code-reserved` /
   `engine-code-taken` (ingest-time; §2.1).
+- **Anything wrong inside `mods`** → `mods-invalid` with `field` and
+  `reason` (§7.9).
 
 ## 6. Schema
 
@@ -276,4 +285,488 @@ budget bounds, or `E_DESCRIPTOR_TOO_BROAD` — those are evaluation-time facts
 about a specific folder tree, not shapes a schema validator sees — so
 `tools/check-games-goldens.py` (§6 of `manifest.md`'s sibling tooling note;
 see this repo's CI) checks the schema and the hostile-fixture goldens as two
-separate passes over `testdata/games/descriptors/`.
+separate passes over `testdata/games/descriptors/`. The optional `mods`
+member is `$defs/mods`; its goldens and the checks the schema cannot make
+are §7.11.
+
+## 7. `mods`: the player's own mod loaders (optional)
+
+`mods` is an optional top-level member. It says how to recognise a mod
+loader the player installed themselves, where that loader keeps their
+mods, which of them are enabled, and how Astra can run beside it. It exists
+so that Astra can start a game "with your mods" on an engine nobody knew
+when the launcher was released: what a loader looks like is data, and the
+launcher implements only the closed vocabularies below. A descriptor holds
+no code.
+
+### 7.1 What `mods` never does, and who reads it
+
+- **It is not detection.** `mods` takes no part in §3: not Pass A, not
+  Pass B's admission or its prefilter, not conflicts, not the anti-cheat
+  union, and not which foundation is offered. A descriptor with `mods` and
+  the same descriptor without it place every folder identically. The only
+  things `mods` changes are the digest (§1), because it is part of the
+  canonical form, and the room left under the 16 KiB bound (§4).
+- **Only a mods-aware install evaluates it**: an install, or a Play, that
+  the player asked to be "with your mods". Ingest and lint validate it
+  (§7.9); nothing else reads it.
+- **Narrow-only holds for it too.** A descriptor's `mods` is consulted only
+  for a game that same descriptor placed. For a game Pass A placed, only
+  the built-in descriptor's `mods` (the launcher's compiled data) is
+  consulted. A community descriptor therefore can never add a loader to a
+  Unity, Unreal or Godot game, nor to another descriptor's games (§7.4,
+  `codes`).
+- **It never names a mod manager** (§7.7) **and never writes** (§7.10).
+
+**Compatibility with readers that ignore it.** Launcher 0.5.0 accepts
+`mods` and reads nothing in it (astra-game-launcher
+`docs/ENGINE-DESCRIPTOR.md`, "Reserved for launcher 0.5.1: `mods`";
+`gi-probe validate-descriptor` reports the notice `mods-not-evaluated`).
+For such a reader to stay correct, `mods` keeps the shape that 0.5.0
+checks:
+
+- it is a table, never an array of tables (`[[mods]]`);
+- it sits only at the top level: inline in the catalogue's JSON, as
+  `[mods]` in a file, or as `[integration.engine.mods]` in a foundation's
+  manifest (§1);
+- it holds no float, no datetime, no `null`, and no integer past
+  2^53 − 1;
+- it nests at most 11 levels of tables and arrays, counting `mods` itself.
+  That follows from §7.4's depth of 3, and it is far below any parser's
+  recursion limit (serde_json's default is 128), so no `mods` can make a
+  reader fail the whole document that carries it. The schema's `require`
+  levels are separate definitions, so validating one never recurses deeper
+  either. A deeper `mods` is reason `over-budget`.
+
+A `mods` that is not a table is `descriptor-invalid` (field `mods`) and
+skips the whole descriptor, as it does in 0.5.0. So do the §1 JCS
+refusals anywhere inside it. Anything else wrong **inside** the table
+voids only `mods` (§7.9): the descriptor still detects, offers and plans
+exactly as it would without it. This is the one exception to §0 rule 5
+and to §1's `deny_unknown_fields`. It lets a later version add a format or
+a strategy without making older readers drop the descriptor's detection.
+`testdata/games/descriptors/mods/compat/` holds both cases (§7.11).
+
+### 7.2 Shape
+
+```toml
+[[mods.loader]]
+id = "bepinex5"                         # §2.1's code pattern; unique in this descriptor
+name = "BepInEx 5"                      # §2.1's display-name rules
+codes = ["unity-mono"]                  # optional (§7.4)
+source = ["game", "manager", "picked"]  # where its install may be (§7.3); closed
+require = [                             # recognition (§7.4): §2.4's lookups
+  { stat = "{source}/BepInEx/core/BepInEx.dll", kind = "file" },
+  { stat = "{source}/BepInEx/core/BepInEx.Preloader.dll", kind = "file" },
+]
+root = "{source}/BepInEx/plugins"       # the mods root (§7.5)
+enabled = [                             # §7.5; closed
+  { format = "dir-per-mod" },
+  { format = "file-glob", glob = "*.dll" },
+]
+coexist = [                             # §7.6; closed
+  { strategy = "chain", entry = "{source}/BepInEx/core/BepInEx.Preloader.dll" },
+]
+
+[mods.loader.version]                   # optional (§7.4)
+pe = "{source}/BepInEx/core/BepInEx.dll"
+key = ["ProductVersion", "FileVersion"]
+template = "N{1,2}.N{1,2}.N{1,3}"
+versions = ">=5.4, <5.5"
+```
+
+`mods` has one member, `loader`: 1 to 4 loader tables, tried in order.
+Every member above is required except `codes` and `version`. A loader's
+`id` is how a foundation names the loader it can run beside (the value of
+astra-bepinex's `[integration.mods] loader`: `bepinex5`,
+`bepinex6-il2cpp`), how the launcher remembers the player's choice, and
+how the player is told which loader was found. So two loaders of one
+descriptor never share one (reason `loader-id-duplicate`).
+
+### 7.3 Paths and the jail
+
+Every path in `mods` begins with `{source}`, followed by zero or more
+`/`-separated components. `{source}` is the root of the player's mod set,
+and it is the jail: nothing outside it is read.
+
+A component is never empty, `.` or `..`, and never longer than 255 bytes.
+It never holds `\`, `:`, `*`, `?`, `<`, `>`, `"`, `|`, a control character
+(C0, DEL or C1), or a `{` or `}` that is not part of a placeholder. It
+never ends in `.` or a space. And it is never a Windows device name, in
+any case and with or without an extension: `CON`, `PRN`, `AUX`, `NUL`,
+`CONIN$`, `CONOUT$`, `COM0`–`COM9`, `LPT0`–`LPT9`, and `COM¹`–`COM³` /
+`LPT¹`–`LPT³`, so `NUL.txt` and `a/LPT1.log` too. These are
+astra-game-launcher `src/paths.rs` `check_component`'s rules, plus C1. A
+device name is refused by its spelling, before anything is opened: opening
+`COM1` reaches a device before any regular-file check could run.
+
+A component also never holds `~` followed by a digit, anywhere in it,
+which covers every Windows 8.3 short name (the `~N` before the extension):
+`XINPUT~1.DLL`, `PROGRA~1`. A direct lookup resolves a short name to some
+other file, so `XINPUT~1.DLL` would be `xinput1_3.dll`, a proxy, under a
+name no list knows. `~mods` is a name, and stays allowed.
+
+An absolute path, a drive letter, a UNC path or a `~` home cannot be
+written, because each would have to begin with something other than
+`{source}` (reason `path-outside-jail`). A `..` component is reason
+`path-escapes`, whatever else is wrong with the path. Every other
+component rule is reason `path-invalid`.
+
+`source` lists where `{source}` may resolve. It is a closed set the
+launcher implements:
+
+| value | `{source}` is |
+|---|---|
+| `game` | the game folder that detection ran on |
+| `manager` | the one profile folder that a launcher adapter (§7.7) reports as the manager's **active** profile for this game. It is never every profile the manager keeps. |
+| `picked` | the folder the player chose in Astra with "Choose folder…" («Указать папку…»), through the native folder picker, and that the launcher remembers in Astra's profile for this game. A picked folder inside the data folder of a manager an adapter knows is read through that adapter, as `manager`, never as `picked` (§7.7). |
+
+The descriptor names none of these folders. It says only which kinds may
+hold this loader. Reads below `{source}` are jailed the way detection's
+reads are (B§3 "Read outside the folder"): a path is resolved one component
+at a time, a symbolic link, junction or reparse point is refused at every
+step, and a probe opens only a regular file.
+
+After `{source}/`, a component may hold §2.4's placeholders (`{project}`,
+`{project.leaf}`, `{project.parent}`, `{stem}`, `{name}`, `{dir}`,
+`{program}`, `{pak}`) and the `as` captures of this descriptor's own rules
+(such as Unity's `{data}`). Any other name is reason
+`placeholder-unknown`. `{source}` itself appears only first.
+
+At evaluation, each placeholder takes the value bound by the rule that
+placed the game: a game-relative path, which may itself hold several
+components. The path is then split on `/` again, and every component is
+checked again by the rules above, with no placeholder left. If anything
+fails, the loader yields nothing: a placeholder that rule did not bind, an
+empty value, a value holding `..`, an absolute value, a device name, or
+anything else those rules refuse. `testdata/games/descriptors/mods/paths.json`
+pins both halves: each path's reason, and each substitution's components.
+
+`mods` has no placeholder for Astra's own profile and no way to name a
+file outside `{source}`: where Astra's files go is the foundation's
+manifest's business (`${profile}`), never a descriptor's.
+
+### 7.4 Recognising a loader
+
+`require` is §2.4's requirement grammar with three narrowings:
+
+1. every path is a §7.3 path, so it holds no `*`;
+2. `as` is not allowed (a loader binds no placeholder);
+3. the lookups are answered in the **mods context**. `listed` and `child`
+   read the `folder` listing (§2.3) of the directory their path names
+   below `{source}`, one `read_dir` per directory, memoised; `stat` is the
+   direct call it always is. As in rule 4, the context decides which
+   listing serves a lookup, never the descriptor.
+
+`any`/`all`/`none` nest to depth 3, as in §2.4; deeper is reason
+`over-budget` (§7.8). A loader is recognised in a source when its whole
+`require` holds there.
+
+**The loader anchor.** At least one top-level entry (never one inside
+`any`/`all`/`none`) is a `listed`, `child` or `stat` lookup of kind `file`
+whose last component holds a literal name that is none of these:
+
+- a name mod loaders hijack-load by (merged plan §2.5: `winhttp.dll`,
+  `version.dll`, `dwmapi.dll`, `dinput8.dll`, the `xinput*` names and the
+  rest of the list the launcher keeps as `src/plan.rs` `HIJACK_NAMES`);
+- a §2.4 ubiquitous runtime name;
+- the game's own program, by §2.4's "must not itself be a program file":
+  a name holding `{program}`, `{stem}` or `{name}`, or ending in `.exe`,
+  `.com`, `.bat`, `.cmd`, `.ps1`, `.sh`, `.x86` or `.x86_64`;
+- a name this descriptor's **own detection** looks up: the last component
+  of any `listed`, `child`, `stat` or `tail` in its `rule`s (a bootstrap's
+  `listed` and an `also_if` `dir` included), compared ignoring ASCII case,
+  with each `*` or placeholder in the detection name matching any run of
+  characters. A name that is nothing but placeholders and wildcards
+  (`{program}`) is the program, which the bullet above covers.
+
+None of those recognises a loader. A proxy DLL says only that *some*
+loader sits in a folder: one name is shared by BepInEx's Doorstop, UE4SS,
+the Ultimate ASI Loader and ReShade. The program, and the files detection
+looks for (`engine2.dll`, `UnityPlayer.dll`), are in every folder this
+descriptor placed, so a loader "found" by one of them would be found in
+every game. And a folder name (`Plugins`, `Mods`) is in countless games. So
+each may appear in a loader's `require`, but never as its only anchor.
+
+**The one exception: a root-anchored loader, which must be passive.** A
+loader is **passive** when, exactly, its `coexist` holds no `chain`
+strategy, no `via-manager` strategy, and no strategy with a `tell`.
+Sending the start through a mod manager changes what Astra does, so
+`via-manager` is not passive. A passive loader may be anchored by a
+top-level `child` or `stat` of kind `dir` whose path is exactly its own
+`root` (and is not a detection name), instead of by a file. It is then
+**root-anchored**: it has no file anchor, and its own mods folder is what
+recognises it. Only `child` and `stat` anchor a root, being the two
+lookups that name a folder; `listed` answers from the parent's listing of
+names and anchors no root.
+
+The reason this is safe: a false "recognised" for a root-anchored loader
+changes only what the player sees on their own machine (a folder's files
+listed as their mods), and Astra loads nothing of it and tells it nothing.
+The `~mods` paks are that case: no file says they are there, and Astra
+only lists them.
+
+A root-anchored loader that also declares `chain`, `via-manager` or a
+`tell` is reason `root-anchor-not-passive`. So a later member can never
+quietly turn a root-anchored loader active: an active loader needs a file
+anchor. A loader with no anchor at all, neither a file nor its own root,
+is reason `loader-anchor-invalid`.
+
+**`codes`** (optional) limits a loader to games this descriptor placed under
+one of the listed codes. Every one must be among this descriptor's own
+`[engine].codes` (else reason `code-undeclared`). When `codes` is absent,
+the loader applies to every code of this descriptor.
+
+**`version`** (optional) reads the loader's own version, so that a version
+can be required:
+
+- `pe`: one §7.3 path to a PE file (a `.dll` or `.exe`) of the loader.
+- `key`: one or two of `ProductVersion` and `FileVersion` (closed), tried
+  in order. The value read for a key is that of the first `String` entry
+  with that key in the file's `StringFileInfo`.
+- `template`: §2.5's version template, matched against the start of the
+  value. The character after the match must not be a digit. `N{a,b}` is a
+  run of a to b digits, with 1 ≤ a ≤ b ≤ 5; anything else is a literal
+  character. A template that does not read this way (`N{5,1}`), or a
+  `versions` that does not, is reason `version-invalid`: a version that
+  cannot be read must never fall through to "supported". So is a
+  `versions` operand that does not read in its template's shape (`>=a.b`,
+  or `>=1.2.3` on a two-run template): at evaluation it could never hold,
+  so lint refuses it rather than ship a requirement nobody can meet.
+- `versions` (optional): one or two comparators joined by `, `. Each is
+  one of `=`, `<`, `<=`, `>`, `>=`, followed by an operand written in the
+  template's own shape and cut after any digit run. The comparison is
+  numeric, digit run by digit run, over the operand's runs only. So
+  `>=5.4, <5.5` holds for `5.4.23.3`, and `=6.0.0-be.788` holds for
+  `6.0.0-be.788+5bd4ae5` but not for `6.0.0-be.789`.
+
+The read is a bounded probe, not a scan of the file. It reads only the PE
+headers, the section table, and the `RT_VERSION` resource reached through
+the resource directory: at most 32 KiB of the file in all (§7.8). The
+loader's version is unknown when there is no such resource, no entry with
+the key, no template match, or an operand that does not read in the
+template's shape.
+
+A loader whose `versions` does not hold, unknown included, is
+**recognised but unsupported**. The player is told which loader was found
+and which version Astra needs, and is offered to play without mods. It is
+never a dead end and never a guess. A foundation may require a narrower
+version than the descriptor does, in its own manifest (astra-bepinex's
+`bepinex_build`), but it can never widen `versions`.
+
+### 7.5 The mods root, and which mods are enabled
+
+`root` is a §7.3 path to the folder that holds the player's mods for this
+loader. `enabled` is a list of one to three formats from a closed set the
+launcher implements. A mod is enabled when any listed format says so.
+
+| `format` | its members | a mod is | it is enabled when |
+|---|---|---|---|
+| `dir-per-mod` | none | a folder directly in `root` | it is there |
+| `enable-list` | `list`: a §7.3 path to a text file; `line`: `name-colon-flag` (closed); `marker` (optional): one file name | a folder directly in `root` | the first line of the list that names it says `1`, or the folder holds a file named `marker` |
+| `file-glob` | `glob` | a file directly in `root` whose name matches `glob` | it is there |
+
+`name-colon-flag` is UE4SS's `mods.txt`: one mod per line, `<name> : 1`
+(enabled) or `<name> : 0` (disabled). Spaces around the colon are optional.
+A line that is empty, starts with `;`, or does not read this way is
+skipped. A name is compared with the folder's name ignoring ASCII case.
+
+`glob` is one file name with one or two `*` (each matches any run of
+characters, including none) and no other wildcard: no `/`, no `**`, no
+`?`, no `[`. So it matches within the one listing of `root` and never
+descends (reason `glob-over-budget`).
+
+The player's mods are read for one purpose: so that the player sees, on
+the install sheet, what will load beside Astra. Astra never enables,
+disables, reorders, renames or removes a mod (§7.10). A `.old` suffix,
+which r2modman and Thunderstore Mod Manager use for "disabled", simply
+does not match a `*.dll` glob.
+
+### 7.6 `coexist`: how Astra runs beside the player's loader
+
+`coexist` is a list of zero to three strategies, in order of preference.
+Each is a table whose `strategy` is one of a closed set the launcher
+implements:
+
+| `strategy` | its members | what happens |
+|---|---|---|
+| `chain` | `entry` (required): a `.dll`, and exactly the path of one of this loader's own top-level `file` lookups in `require`, so a file its recognition found. It is never a proxy, a ubiquitous runtime, the game's own program or a name this descriptor's detection looks up (§7.4's four lists); otherwise reason `chain-entry-invalid`. Only `.dll`: a PE on no list (`.scr`) is still a program. `tell` (optional) | Astra's runner starts first and hands control to the player's loader at `entry`, which then loads their mods as it always does. `entry` is loaded in place by the game process; it is never written, copied or replaced. |
+| `side-by-side` | `tell` (optional) | The player's loader starts as it would without Astra, and Astra's runner runs beside it. Astra's own files stay in Astra's profile. If the player's loader must load something of Astra's, it is told where through `tell` (an environment variable or an argument), never by a file written into the player's tree. Without `tell`, this strategy serves only a foundation that adds nothing to this loader. |
+| `via-manager` | none | The player's mod manager starts the game with its own profile, and Astra rides along through a launcher adapter for that manager (§7.7). It is unavailable when no adapter exists for the manager in use. |
+
+`tell` is closed too. The launcher implements each channel, and the value
+it carries is always a folder in Astra's profile that the foundation's
+manifest names. Whoever starts the player's loader sets it: Astra's runner
+in `chain`, the launcher in `side-by-side`.
+
+| `tell` | channel |
+|---|---|
+| `ue4ss-mods-paths` | the environment variable `UE4SS_MODS_PATHS`, a `;`-separated list of extra Mods folders UE4SS reads. Astra's folder is appended; an existing value is kept. |
+
+**Which strategy a start uses.** A start takes the first strategy in
+`coexist` that the foundation's manifest declares it can do. That
+declaration is the foundation's `[integration.mods]`: today astra-bepinex
+`docs/GAME-INTEGRATION-MANIFEST.md` §7, chain only, and not yet in
+`manifest.md`. "With your mods" is offered only when every loader
+recognised in the source has such a strategy. A loader with none, or with
+`coexist = []` (recognised, and Astra cannot run beside it), makes the
+start "without mods", and the player is told which loader was the reason.
+A descriptor never makes a foundation chain, tell or ride along: the
+descriptor says what the player's loader allows, and the foundation says
+what it can do. From a mods evaluation, a runner is given exactly two
+things: the `entry` path and the `tell` value (§7.10).
+
+### 7.7 Managers are adapters, never data
+
+r2modman, Thunderstore Mod Manager and Gale today, and Mod Organizer 2 and
+Vortex later, are launcher **adapters**: launcher code that knows where a
+manager keeps its profiles and its own enable state, and (for
+`via-manager`) how that manager starts a game. A descriptor says only
+`source = ["manager"]` or `strategy = "via-manager"`.
+
+**The structural rule comes first.** A descriptor reads only below
+`{source}`, and it never chooses what `{source}` is: the launcher does
+(the game folder, an adapter's active profile, the player's pick, §7.3).
+A manager's profile tree is reached only through that manager's adapter,
+so a picked folder inside it is read as `manager`. Nothing a descriptor
+writes can point into a manager's data folder, because that folder is
+never below the game folder's jail.
+
+**The name rule is a second line, and it is only a list of names.** A
+member that names a manager, a manager's profile folder, its config or its
+executable is reason `manager-as-data`, under any key and in any value.
+The check matches `r2modman`, `Thunderstore`, `Mod Organizer` and
+`Overwolf` anywhere, and `Gale`, `MO2`, `Vortex` and `TMM` as words. It
+cannot see a manager under a name it does not know: `{source}/r2mm/profiles/Default`
+passes it. The structural rule is what makes that harmless: such a path is
+a folder inside whatever `{source}` the launcher chose, read like any
+other.
+
+A new manager is a launcher release, reviewed like any other code. It is
+never a catalogue entry.
+
+### 7.8 Budgets
+
+These bounds are counted, never timed (§0 rule 3), and they are separate
+from §4's.
+
+| scope | bound |
+|---|---|
+| per `mods` member | ≤4 loaders. Per loader: ≤8 checks in `require` (§4's per-rule bound), `any`/`all`/`none` depth ≤3, ≤3 `enabled` formats, ≤3 `coexist` strategies. Across all its loaders: ≤64 lookups (`listed`, `child`, `stat`) and ≤8 content probes, where a `tail`, a `version`, an `enable-list` list and an `enable-list` `marker` each count one. Nesting ≤11 (§7.1). It counts toward the descriptor's 16 KiB (§4). |
+| per start | at most one evaluation per source kind: the game folder, the adapter's **active** manager profile (never every profile a manager keeps), and the picked folder |
+| per mods evaluation (one game, one source) | ≤5,000 entries listed in any one directory. ≤1,024 mods in a mods root. ≤2,048 lookups, where every `require` lookup, every directory listed and every `marker` check (one per mod folder) counts one. ≤128 KiB read in all, of which a `version` probe reads ≤32 KiB and a `list` ≤16 KiB. |
+
+Exceeding a per-member bound is reason `over-budget`. Exceeding a
+per-evaluation bound makes that loader yield nothing for that source:
+never a partial list of mods. The start is then "without mods", and the
+player is told why. So the most a start can cost is three evaluations of
+2,048 lookups and 128 KiB each, however many mods, loaders or profiles
+the player has.
+
+### 7.9 An invalid `mods`
+
+Every refusal inside the table is `mods-invalid`, with `field` (the
+member's path, such as `mods.loader[1].root`) and one `reason`:
+
+| `reason` | |
+|---|---|
+| `unknown` | a member or value this version does not know: every one of `source`, `key`, `format`, `line`, `strategy` and `tell` is a closed set |
+| `shape` | a missing member, a wrong type, or a count outside the schema's bounds |
+| `path-outside-jail`, `path-escapes`, `path-invalid`, `placeholder-unknown` | §7.3 |
+| `glob-over-budget` | §7.5 |
+| `loader-anchor-invalid`, `root-anchor-not-passive`, `code-undeclared`, `version-invalid` | §7.4 |
+| `chain-entry-invalid` | §7.6 |
+| `loader-id-duplicate` | §7.2 |
+| `over-budget` | §7.8, and §7.1's nesting |
+| `manager-as-data` | §7.7 |
+
+`tools/check-games-goldens.py` `mods_reasons` derives every one of these
+from the grammar itself, not from the schema's error text, so each hostile
+golden is asserted to be refused for exactly the reasons it is named for.
+
+A `mods` that is not a table is not `mods-invalid`: it is
+`descriptor-invalid` (field `mods`), as §7.1 says.
+
+At ingest, and in `gi-probe validate-descriptor`, `mods-invalid` refuses
+the descriptor, so a catalogue never signs one. A client that evaluates
+`mods` and finds it invalid treats the descriptor as carrying no `mods`
+(§7.1) and says so once. It never stops detecting with that descriptor.
+
+### 7.10 Read-only and private
+
+- **Read-only.** The launcher and every runner open nothing under
+  `{source}` for writing. No mod, loader file, enable list, marker or
+  config of the player's is created, changed, renamed, moved or deleted:
+  not by an install, a Play, an update or an uninstall. Astra's own files
+  stay in Astra's profile. `chain` loads the player's `entry` in place,
+  and `side-by-side` tells their loader where Astra's folder is through
+  `tell`. Choosing "without mods" for one start changes how Astra starts,
+  never the player's files. This is the existing rule that other people's
+  files are not Astra's to change (B§3 "Overwrite a player's file", "Plant
+  code in another loader's folder"), stated for mods.
+- **Private.** What a mods evaluation finds stays on the player's PC: which
+  loaders, their versions, the mods, which of them are enabled, how many
+  there are, the folder paths, and the picked folder. It is shown to the
+  player and used for that start. Nothing else receives it:
+  - not the catalogue, minice.ai or a publisher; not a rating, a problem
+    or crash report, or any analytics;
+  - not Astra Link (`link-v1`) or the companion's bridge, not the plugin
+    host's RPCs, not an AI tool, and not any other plugin or game
+    integration;
+  - not a log. A log may say that a start was with or without mods, and
+    give the refusal code (§7.4–§7.9) that decided it, and nothing the
+    evaluation found. Even that line never goes into any log that a
+    problem report attaches, nor into a support bundle a player sends:
+    whether someone plays with mods is itself about their mods;
+  - not a runner beyond what it needs. A runner is given exactly the
+    `entry` path and the `tell` value: never the list of mods, the other
+    loaders or their versions.
+- **Nothing fetched depends on it.** No download, update check or
+  catalogue request depends on what an evaluation found: what Astra
+  fetches is the same whatever mods the player has.
+- **Nothing is synced.** The picked folder and the player's "with your
+  mods" choice are kept in Astra's profile on this PC, and never synced:
+  no account, no settings sync, no cloud copy.
+
+The descriptor itself holds nothing about any player: it is published
+data about a loader.
+
+### 7.11 Goldens
+
+`testdata/games/descriptors/mods/`, listed in `vectors.json` under
+`descriptors.mods`, and kept out of the `builtin` and `hostile` lists that
+launcher 0.5.0's K17 reads:
+
+| golden | what it pins |
+|---|---|
+| `builtin/unity.mods.toml` | BepInEx 5 (Mono; 5.4.x; chain from the game, a manager or a picked folder) and BepInEx 6 (IL2CPP; exactly `6.0.0-be.788`; chain), as data on `descriptors/builtin/unity.toml` |
+| `builtin/unreal.mods.toml` | UE4SS 3.x (chain, told by `ue4ss-mods-paths`), UE4SS 2.x (recognised, `coexist = []`: it cannot chain) and the `~mods` paks (`file-glob`, present means enabled; side by side), as data on `descriptors/builtin/unreal.toml` |
+| `compat/source2-with-mods.toml` | condition 1: a descriptor with `mods` that a reader ignoring it still accepts for detection. Without `mods`, it is `manifests/valid/foundation-owns-engine.toml`'s `[integration.engine]`, member for member |
+| `compat/source2-with-future-mods.toml` | a `mods` table from a later version: this schema refuses it, while detection and the 0.5.0 reader's view accept the same descriptor |
+| `paths.json` | §7.3: every path's schema verdict and reason, `..` alone and the device names included, and each substitution's re-checked components |
+| `hostile/mods-*.toml` | one per rule, each asserted for exactly its §7.9 reasons: `path-escape`, `absolute-path`, `device-name`, `unknown-placeholder`, `over-budget-glob`, `unknown-enum`, `template-reversed`, `manager-as-data`, `anchor-on-a-proxy`, `short-name`, `anchor-on-the-program`, `anchor-on-the-engine`, `anchor-on-a-folder`, `root-anchor-not-passive`, `root-anchor-via-manager`, `root-anchor-chain` (two reasons, by construction), `root-anchor-listed`, `chain-entry-on-a-proxy`, `chain-entry-on-the-engine`, `chain-entry-not-a-dll`, `chain-entry-unrecognised`, `chain-entry-on-the-program`, `versions-unreadable`, `deep-unknown-member`, `loader-for-another-engine`, `loader-id-duplicate`, `over-budget-lookups`, `over-budget-probes`, `deep-nesting`, `not-a-table` |
+
+`tools/check-games-goldens.py` checks `$defs/mods` and the rules a schema
+cannot express: the loader anchor, a root-anchored loader being passive,
+the chain entry, placeholders, `codes`,
+ids, the §7.8 per-member budget and §7.1's nesting, and `manager-as-data`.
+It derives each golden's §7.9 reasons from the grammar and asserts them,
+and it walks no document recursively, so even a `mods` nested far past any
+bound is refused, never a crash. It checks each built-in `mods` against the
+built-in descriptor it rides on. For every golden that carries `mods`, it
+checks that the same descriptor without `mods` is a valid descriptor
+whatever `mods` holds, which is the 0.5.0 reader's view of §7.1.
+`tools/test_check_games_goldens.py` proves each of those checks by
+mutation, and holds that every definition the schema's `mods` reaches is a
+`mods*` one with no member named like a detection member, so `mods` can
+never carry what detection reads.
+
+**Open** (not in this version):
+
+- UE4SS 3's `mods.json` as an `enable-list` line format;
+- `LogicMods` (Blueprint mods that UE4SS's BPModLoaderMod loads);
+- mods in subfolders of a `file-glob` root;
+- MelonLoader, which is not supported.
+
+Each would arrive as a new closed value, which an older client reads as
+"without mods" (§7.9).

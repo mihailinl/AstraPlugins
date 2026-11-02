@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://astraplugins.minice.ai/spec/games/schemas/engine-descriptor-v1.schema.json",
   "title": "astra.engine/1 descriptor",
-  "description": "Structural shape of engine-descriptor-v1.md. Cannot express: the anchor rule (2.4), the budgets (4), or E_DESCRIPTOR_TOO_BROAD (5) -- those are evaluation-time facts about a real folder tree, checked separately by tools/check-games-goldens.py against testdata/games/descriptors/hostile/.",
+  "description": "Structural shape of engine-descriptor-v1.md. Cannot express: the anchor rule (2.4), the budgets (4), or E_DESCRIPTOR_TOO_BROAD (5) -- those are evaluation-time facts about a real folder tree, checked separately by tools/check-games-goldens.py against testdata/games/descriptors/hostile/. The optional `mods` member (§7) is $defs/mods; its loader anchor, codes, ids, budgets and manager rule are the checker's too, against testdata/games/descriptors/mods/.",
   "type": "object",
   "required": ["schema", "engine", "rule"],
   "additionalProperties": false,
@@ -38,7 +38,8 @@
       "minItems": 1,
       "maxItems": 16,
       "items": { "$ref": "#/$defs/rule" }
-    }
+    },
+    "mods": { "$ref": "#/$defs/mods" }
   },
   "$defs": {
     "placeholderString": {
@@ -225,6 +226,254 @@
           "description": "engine-descriptor-v1.md §2.7: wrapper-shaped names scoped to this rule's own candidate filtering only."
         }
       }
+    },
+
+    "mods": {
+      "description": "engine-descriptor-v1.md §7: the player's own mod loaders, OPTIONAL, read only by a mods-aware install, never by detection (§7.1). A table, never [[mods]] -- the one shape launcher 0.5.0 checks before it reads nothing in it. An error INSIDE this table voids only `mods` at a client (§7.9); this schema is the ingest/lint view, which refuses the descriptor.",
+      "type": "object",
+      "required": ["loader"],
+      "additionalProperties": false,
+      "properties": {
+        "loader": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "$ref": "#/$defs/modsLoader" } }
+      }
+    },
+
+    "modsPath": {
+      "type": "string",
+      "description": "§7.3: `{source}` then /-separated components; no empty, `.` or `..` component, no `\\`, `:`, `*`, control character (C0, DEL, C1), `<>\"|?`, stray brace, `~` followed by a digit (an 8.3 short name such as XINPUT~1.DLL) or trailing dot/space, and is never a Windows device name (CON, NUL.txt, COM1, LPT1.log, CONIN$, ...); placeholders are the §2.4 names and the placing rule's captures, every component re-checked after substitution. Nothing absolute, nothing outside the jail.",
+      "maxLength": 512,
+      "pattern": "^\\{source\\}(?:/(?![^/]*~[0-9])(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?(?:/|$))(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}){0,254}(?:[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]|\\{(?!source\\})[a-z][a-z0-9_]*(?:\\.[a-z]+)?\\}))*$"
+    },
+
+    "modsFileName": {
+      "type": "string",
+      "description": "§7.5: one file name, never a path; the §7.3 component rules, and no placeholder.",
+      "pattern": "^(?!.*~[0-9])(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Nn][Ii][Nn]\\$|[Cc][Oo][Nn][Oo][Uu][Tt]\\$|[Cc][Oo][Mm][0-9¹²³]|[Ll][Pp][Tt][0-9¹²³]) *(?:\\.[^/]*)?$)[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f]{0,254}[^/\\\\:*?<>\"|{}\\x00-\\x1f\\x7f-\\x9f. ]$"
+    },
+
+    "modsLoader": {
+      "type": "object",
+      "required": ["id", "name", "source", "require", "root", "enabled", "coexist"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 48 },
+        "codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }
+        },
+        "source": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "enum": ["game", "manager", "picked"] } },
+        "require": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/modsRequire0" } },
+        "version": { "$ref": "#/$defs/modsVersion" },
+        "root": { "$ref": "#/$defs/modsPath" },
+        "enabled": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/modsEnabled" } },
+        "coexist": { "type": "array", "minItems": 0, "maxItems": 3, "items": { "$ref": "#/$defs/modsCoexist" } }
+      }
+    },
+
+    "modsLookup": {
+      "description": "§7.4: one lookup or probe of §2.4's grammar, with a §7.3 path and no `as`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["listed", "kind"],
+          "additionalProperties": false,
+          "properties": { "listed": { "$ref": "#/$defs/modsPath" }, "kind": { "enum": ["file", "dir"] } }
+        },
+        {
+          "type": "object",
+          "required": ["child", "kind"],
+          "additionalProperties": false,
+          "properties": { "child": { "$ref": "#/$defs/modsPath" }, "kind": { "enum": ["file", "dir"] } }
+        },
+        {
+          "type": "object",
+          "required": ["stat", "kind"],
+          "additionalProperties": false,
+          "properties": { "stat": { "$ref": "#/$defs/modsPath" }, "kind": { "enum": ["file", "dir"] } }
+        },
+        {
+          "type": "object",
+          "required": ["tail"],
+          "additionalProperties": false,
+          "properties": {
+            "tail": { "$ref": "#/$defs/modsPath" },
+            "bytes": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "equals": { "type": "string" },
+            "min_len": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+
+    "modsRequire0": {
+      "description": "§7.4: a `require` entry. any/all/none nest at most 3 deep, so the levels are separate definitions: no input can make a reader recurse further (§7.1).",
+      "oneOf": [
+        { "$ref": "#/$defs/modsLookup" },
+        {
+          "type": "object",
+          "required": ["any"],
+          "additionalProperties": false,
+          "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire1" } } }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "additionalProperties": false,
+          "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire1" } } }
+        },
+        {
+          "type": "object",
+          "required": ["none"],
+          "additionalProperties": false,
+          "properties": { "none": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire1" } } }
+        }
+      ]
+    },
+
+    "modsRequire1": {
+      "description": "§7.4: inside one any/all/none.",
+      "oneOf": [
+        { "$ref": "#/$defs/modsLookup" },
+        {
+          "type": "object",
+          "required": ["any"],
+          "additionalProperties": false,
+          "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire2" } } }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "additionalProperties": false,
+          "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire2" } } }
+        },
+        {
+          "type": "object",
+          "required": ["none"],
+          "additionalProperties": false,
+          "properties": { "none": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsRequire2" } } }
+        }
+      ]
+    },
+
+    "modsRequire2": {
+      "description": "§7.4: inside two; a third holds lookups only.",
+      "oneOf": [
+        { "$ref": "#/$defs/modsLookup" },
+        {
+          "type": "object",
+          "required": ["any"],
+          "additionalProperties": false,
+          "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsLookup" } } }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "additionalProperties": false,
+          "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsLookup" } } }
+        },
+        {
+          "type": "object",
+          "required": ["none"],
+          "additionalProperties": false,
+          "properties": { "none": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/modsLookup" } } }
+        }
+      ]
+    },
+
+    "modsVersion": {
+      "type": "object",
+      "description": "§7.4: a bounded probe of one PE file's version resource, never a scan.",
+      "required": ["pe", "key", "template"],
+      "additionalProperties": false,
+      "properties": {
+        "pe": { "$ref": "#/$defs/modsPath" },
+        "key": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "enum": ["ProductVersion", "FileVersion"] }
+        },
+        "template": {
+          "type": "string",
+          "pattern": "^(?:N\\{(?:1,[1-5]|2,[2-5]|3,[3-5]|4,[45]|5,5)\\}|[A-Za-z.+_-]){1,32}$"
+        },
+        "versions": {
+          "type": "string",
+          "pattern": "^(?:=|<=?|>=?)[0-9A-Za-z.+_-]{1,32}(?:, (?:=|<=?|>=?)[0-9A-Za-z.+_-]{1,32})?$"
+        }
+      }
+    },
+
+    "modsEnabled": {
+      "description": "§7.5: a closed set of formats the launcher implements.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["format"],
+          "additionalProperties": false,
+          "properties": { "format": { "const": "dir-per-mod" } }
+        },
+        {
+          "type": "object",
+          "required": ["format", "list", "line"],
+          "additionalProperties": false,
+          "properties": {
+            "format": { "const": "enable-list" },
+            "list": { "$ref": "#/$defs/modsPath" },
+            "line": { "enum": ["name-colon-flag"] },
+            "marker": { "$ref": "#/$defs/modsFileName" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["format", "glob"],
+          "additionalProperties": false,
+          "properties": {
+            "format": { "const": "file-glob" },
+            "glob": {
+              "type": "string",
+              "description": "§7.5: one file name, one or two `*`, nothing else wild; never descends.",
+              "pattern": "^(?!.*\\*\\*)(?=(?:[^*]*\\*){1,2}[^*]*$)[^/\\\\:?\\[\\]{}<>\\\"|\\x00-\\x1f\\x7f-\\x9f]{1,64}$"
+            }
+          }
+        }
+      ]
+    },
+
+    "modsCoexist": {
+      "description": "§7.6: a closed set of strategies the launcher implements. Managers are adapters, never data (§7.7).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["strategy", "entry"],
+          "additionalProperties": false,
+          "properties": {
+            "strategy": { "const": "chain" },
+            "entry": { "$ref": "#/$defs/modsPath" },
+            "tell": { "$ref": "#/$defs/modsTell" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["strategy"],
+          "additionalProperties": false,
+          "properties": { "strategy": { "const": "side-by-side" }, "tell": { "$ref": "#/$defs/modsTell" } }
+        },
+        {
+          "type": "object",
+          "required": ["strategy"],
+          "additionalProperties": false,
+          "properties": { "strategy": { "const": "via-manager" } }
+        }
+      ]
+    },
+
+    "modsTell": {
+      "description": "§7.6: how the player's loader is told where Astra's folder is; closed.",
+      "enum": ["ue4ss-mods-paths"]
     }
   }
 }
