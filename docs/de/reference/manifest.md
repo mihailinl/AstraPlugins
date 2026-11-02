@@ -55,9 +55,9 @@ Ein `kind`, das kein String ist, wird ebenfalls abgelehnt: `kind` must
 be a string such as "plugin", not &lt;type&gt;.
 
 **`kind`.** **Reserviert, fail-closed: welche ART von
-Marketplace-Element dies ist.** Fehlt oder `"plugin"`.
+Werkstatt-Element dies ist.** Fehlt oder `"plugin"`.
 
-Der Marketplace wird andere Arten führen (Spielintegrationen,
+Die Werkstatt wird andere Arten führen (Spielintegrationen,
 Bibliotheken, Charaktere, Animationspakete — `MARKETPLACE_PLAN.md`),
 jede mit eigenem Installer. Der Rest dieser Struct ist gegenüber
 unbekannten Schlüsseln absichtlich nachsichtig, also würde ein Build,

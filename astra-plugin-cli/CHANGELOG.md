@@ -55,7 +55,11 @@ reads to find out how to get the tool.
 
 ### Changed
 
-- **The vendored `astra-plugin-manifest` is 0.1.1.** Only its README moved: a
+- **The vendored `astra-plugin-manifest` is 0.1.2.** Only doc comments moved:
+  `kind` is a Workshop item, never a "marketplace" one (the owner's naming
+  rule, Astra 795e2cd6c), which the generated manifest reference in all seven
+  languages now follows. No code changed.
+- **The vendored `astra-plugin-manifest` was 0.1.1.** Only its README moved: a
   path that still said `astra-rs/astra-plugin-manifest` after Astra flattened
   its tree. C37 refuses a vendored crate whose bytes differ from the version
   crates.io already holds, because the CLI's release skips a version that is
