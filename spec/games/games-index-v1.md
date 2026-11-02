@@ -108,7 +108,7 @@ ingest refuses a second publisher's claim to an owned code with
 | `source` | **this release's** provenance, re-verified every ingest; identical shape to `publisher`'s two ids so the comparison is a plain equality check |
 | `target` | present for a game-specific entry (`store`, `id`, `exe`) or a foundation/runner (`exe = "*"`, no `store`/`id`); a **non-owning** foundation sharing an already-claimed engine code sets `target.engine = "<code>"` here, mirroring its manifest's `[target].engine` (manifest.md §2.1, "Many foundations, one owner") |
 | `descriptor` / `descriptor_sha256` | present **only** on the entry that owns an engine code: the inline `astra.engine/1` JCS object and its digest (engine-descriptor-v1.md §1) |
-| `foundation` | the mirrored `[integration.foundation]` claim (manifest.md §2.4); `offers.rs` also reads `foundation.engine` to match an exe-less game-specific GI to its engine, generalising the pre-marketplace `pins.rs:571-578` check |
+| `foundation` | the mirrored `[integration.foundation]` claim (manifest.md §2.4); `offers.rs` also reads `foundation.engine` to match an exe-less game-specific GI to its engine, generalising the pre-Workshop `pins.rs:571-578` check |
 | `built_on` | computed by ingest from digests, never trusted from the manifest's claim alone; `verified` is true only on a full file-set match |
 | `engine_versions` | a **foundation's own** declared support range (e.g. `"<6000.3"`), replacing the earlier plan's `versions` on the descriptor itself (R8) — detection and support are different owners |
 | `capabilities` | replaces the earlier `uses_avatar` boolean; `v1`'s only value is `"companion.presentation"` |
