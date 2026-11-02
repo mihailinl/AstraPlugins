@@ -116,18 +116,33 @@ trust one outside `testdata/`.
   cannot replay an older document.
 - **Routine rotation:** the signer switches from `current` to `next`; clients
   already accept both.
-- **The switch is one-way.** The signer never signs with `current` alone once a
-  `next`-signed document is served. **A client that has verified a document of
-  kind K under K's `next` key retires K's `current` key id on that machine**.
-  The verifier tries **every** offered signature against **every** usable key
-  and collects every key id that verifies — never stopping at the first — so a
-  document dual-signed by `current` and `next` retires `current` whatever order
-  its signatures are in (`index/commands/dual-signed-current-first.json`,
+- **The switch is one-way, per document schema.** A kind key signs exactly two
+  document schemas of its kind, `astra.<K>.index/1` and `astra.<K>.withdrawn/1`
+  (`games` included, §1); nothing else is signed with a kind key (`trust.json`
+  is `astra.registry.trust/1`, signed by the root). The signer never signs a
+  schema with `current` alone once a `next`-signed document of THAT schema is
+  served. **A client that has verified an `astra.<K>.<D>/1` document under K's
+  `next` key retires K's `current` key id for (K, D) on that machine** — the
+  retirement state is keyed by (kind, document schema, key id). The client
+  refuses a later (K, D) document that only `current` signed (`key-retired`;
+  scenarios `one-way-switch`, `one-way-switch-index-retires-index`,
+  `one-way-switch-withdrawn-retires-withdrawn`). It does **not** refuse K's
+  other schema: after a `next`-signed index, a `current`-only
+  `astra.<K>.withdrawn/1` still verifies until a `next`-signed withdrawn list
+  of K has been seen, and the same the other way round (scenarios
+  `one-way-switch-index-leaves-withdrawn`,
+  `one-way-switch-withdrawn-leaves-index`). Why per schema: the index and the
+  withdrawn list are signed and served on separate schedules, so retiring per
+  kind would refuse a still-valid withdrawn list mid-rotation, and a withdrawal
+  must never go dark (§7.1; design §11a.9). The verifier tries **every**
+  offered signature against **every** usable key and collects every key id that
+  verifies — never stopping at the first — so a document dual-signed by
+  `current` and `next` retires `current` for its schema whatever order its
+  signatures are in (`index/commands/dual-signed-current-first.json`,
   `…-next-first.json`; scenarios `one-way-switch-dual-*`). A document verifies
-  when at least one NON-retired key verified it. The client refuses a later document of kind K that only `current` signed (`key-retired`;
-  scenario `one-way-switch`). The retirement is by key id, so the ceremony that
-  promotes `next` to `current` (same key id) and adds a fresh `next` does not
-  un-retire anything.
+  when at least one key NOT retired for its (kind, schema) verified it. The
+  retirement is by key id, so the ceremony that promotes `next` to `current`
+  (same key id) and adds a fresh `next` does not un-retire anything.
 - **A ceremony happens only** on a compromise, when both keys of a kind are
   spent, or to add a kind. It re-signs `trust.json` without the compromised key
   and with a fresh `next`.

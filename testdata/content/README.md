@@ -35,7 +35,10 @@ outside a test is a bug. The goldens' clock is `vectors.json` `now`
 (`schema`, `semantic` with the one `rule` that refuses it, `signature` with the
 client `reason`); `code` and `flags` for an ingest; `claim` for a command (what
 the uploader declared); `blocklist` / `declared_licence` for a bundle's ingest
-context; `scenarios[]` for several documents judged together; `external[]` for
+context; `scenarios[]` for several documents judged together (a
+`one-way-switch` sequence takes each file's document schema, `index` or
+`withdrawn`, from its directory, because key retirement is per schema);
+`external[]` for
 goldens other PRs commit (#123's VRM files, `516ba38`; #122's cloaking probes), referenced
 by path and sha256 and never copied — the checker RUNS each one whose file is
 present with that sha256 and says so for each it skips (`CONTENT_EXTERNAL_ROOT`

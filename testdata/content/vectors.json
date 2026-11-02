@@ -1023,6 +1023,14 @@
       "verdict": "accept"
     },
     {
+      "name": "signed-by-next",
+      "kind": "commands",
+      "file": "withdrawn/commands/signed-by-next.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "the withdrawn list switches to next on its own schedule, apart from the index (trust-kind-keys-v1.md §6)"
+    },
+    {
       "name": "seq-1-security",
       "kind": "commands",
       "file": "withdrawn/commands/seq-1-security.json",
@@ -3796,6 +3804,62 @@
       "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
     },
     {
+      "name": "one-way-switch-index-leaves-withdrawn",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/signed-by-next.json",
+        "withdrawn/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "astra-commands-2026a"
+      ],
+      "note": "retirement is per document schema: a next-signed index does not refuse a current-only withdrawn list, which is signed and served on its own schedule and must never go dark mid-rotation"
+    },
+    {
+      "name": "one-way-switch-index-retires-index",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a next-signed index retires current for astra.commands.index/1"
+    },
+    {
+      "name": "one-way-switch-withdrawn-retires-withdrawn",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "withdrawn/commands/signed-by-next.json",
+        "withdrawn/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "the per-schema rule holds for withdrawn too: a next-signed withdrawn list retires current for astra.commands.withdrawn/1"
+    },
+    {
+      "name": "one-way-switch-withdrawn-leaves-index",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "withdrawn/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "astra-commands-2026a"
+      ],
+      "note": "the mirror: a next-signed withdrawn list does not refuse a current-only index"
+    },
+    {
       "name": "sticky-every-row",
       "type": "sticky",
       "kind": "commands",
@@ -4030,5 +4094,5 @@
     "E_CONTENT_PUBLISHING_CLOSED": "a begin-door state (no CSAM scanner configured), not a property of a file; the checker covers no doors",
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors"
   },
-  "expected_checks": 359
+  "expected_checks": 365
 }
