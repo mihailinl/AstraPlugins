@@ -112,9 +112,234 @@ def put_json(rel: str, doc) -> None:
 DOS_TIME, DOS_DATE = 0, (2026 - 1980) << 9 | 1 << 5 | 1
 
 
-def deflate(b: bytes) -> bytes:
-    c = zlib.compressobj(9, zlib.DEFLATED, -15, 9)
-    return c.compress(b) + c.flush()
+# ── a pure-Python raw-DEFLATE (RFC 1951) encoder ──────────────────────────
+#
+# `deflate()` MUST NOT depend on which zlib the interpreter links: CI (stock
+# zlib, Python 3.12) and every workstation here (zlib-ng, Python 3.14)
+# compress the same bytes differently, which turned every golden built with
+# `zlib.compressobj` into a coin flip (content-spec red on #127/c596522,
+# "DRIFT: archives/hostile/gltf-json-utf16.astrapack, SHA256SUMS"). This
+# encoder is a closed function of its input: fixed-Huffman blocks (BTYPE=01,
+# RFC 1951 §3.2.6) over a deterministic greedy LZ77 parse. `zlib.crc32` stays
+# (a CRC is a pure function with one answer); `zlib.compress`/`compressobj`
+# and `zipfile`'s DEFLATED writer must never appear here again — see the
+# guard in tools/test_check_content_goldens.py.
+#
+# LZ77 parse, one pass, left to right:
+#   * a 3-byte rolling hash keyes a chain of every earlier position sharing
+#     that 3-byte prefix, within the 32 KiB window RFC 1951 allows;
+#   * at each position, distance 1 is tried FIRST and extended directly
+#     (byte-for-byte against data[pos-1]) before any chain walk — this is
+#     the fast path for the long single-byte runs the goldens actually use
+#     (`ratio-bomb.astrachar`'s 1 MiB of `\x00`), and it is what keeps
+#     `gen.py --check` well under the ~2 minute budget: a chain walk alone
+#     would re-hash and re-compare the whole run byte by byte, while the
+#     distance-1 path finds the maximum 258-byte match in one scan and the
+#     position jumps straight past it;
+#   * failing that, the hash chain for the current 3-byte key is walked
+#     newest-first, capped at MAX_CHAIN candidates, keeping the longest
+#     match found (ties keep the first — i.e. nearest/most-recent — match,
+#     because the walk is newest-first and only a strictly longer match
+#     replaces it);
+#   * a match shorter than MIN_MATCH (3) is not emitted; the byte is a
+#     literal instead. A match or literal both insert the current position
+#     into the hash chain for its own key (skipped positions inside a match
+#     are not separately hashed — fewer candidates, but the encoder only
+#     has to be correct and deterministic, not optimal).
+#
+# Every Huffman code (literal/length and distance) is written bit (length-1)
+# down to bit 0 — DEFLATE packs Huffman codes most-significant-bit first,
+# unlike every other field (lengths, extra bits), which is least-significant
+# bit first. Mixing the two up is the classic way to write a decoder-shaped
+# bug that only a real `zlib.decompress` catches, which is why the self-test
+# below decompresses every sample instead of trusting the encoder's own math.
+
+_LENGTH_BASE = (3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59,
+                67, 83, 99, 115, 131, 163, 195, 227, 258)
+_LENGTH_EXTRA_BITS = (0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
+                      4, 4, 4, 4, 5, 5, 5, 5, 0)
+_DIST_BASE = (1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769,
+              1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577)
+_DIST_EXTRA_BITS = (0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8,
+                    9, 9, 10, 10, 11, 11, 12, 12, 13, 13)
+_MIN_MATCH = 3
+_MAX_MATCH = 258
+_WINDOW = 32768
+_MAX_CHAIN = 128
+
+
+def _length_code(length: int) -> tuple[int, int, int]:
+    for i in range(len(_LENGTH_BASE) - 1, -1, -1):
+        if length >= _LENGTH_BASE[i]:
+            return 257 + i, _LENGTH_EXTRA_BITS[i], length - _LENGTH_BASE[i]
+    raise ValueError(length)
+
+
+def _dist_code(dist: int) -> tuple[int, int, int]:
+    for i in range(len(_DIST_BASE) - 1, -1, -1):
+        if dist >= _DIST_BASE[i]:
+            return i, _DIST_EXTRA_BITS[i], dist - _DIST_BASE[i]
+    raise ValueError(dist)
+
+
+def _fixed_litlen_code(v: int) -> tuple[int, int]:
+    """RFC 1951 §3.2.6's explicit formulas for the fixed literal/length tree."""
+    if v <= 143:
+        return v + 0x30, 8
+    elif v <= 255:
+        return v - 144 + 0x190, 9
+    elif v <= 279:
+        return v - 256, 7
+    else:
+        return v - 280 + 0xC0, 8
+
+
+class _BitWriter:
+    def __init__(self) -> None:
+        self.out = bytearray()
+        self._cur = 0
+        self._n = 0
+
+    def _push(self, bit: int) -> None:
+        self._cur |= (bit & 1) << self._n
+        self._n += 1
+        if self._n == 8:
+            self.out.append(self._cur)
+            self._cur = 0
+            self._n = 0
+
+    def bits_lsb(self, value: int, n: int) -> None:
+        """Ordinary DEFLATE fields: least-significant bit first."""
+        for i in range(n):
+            self._push((value >> i) & 1)
+
+    def huffman(self, code: int, length: int) -> None:
+        """A Huffman code: most-significant bit first."""
+        for i in range(length - 1, -1, -1):
+            self._push((code >> i) & 1)
+
+    def finish(self) -> bytes:
+        if self._n:
+            self.out.append(self._cur)
+            self._cur = 0
+            self._n = 0
+        return bytes(self.out)
+
+
+def _find_match(data: bytes, pos: int, chains: dict[bytes, list[int]]) -> tuple[int, int]:
+    n = len(data)
+    limit = min(_MAX_MATCH, n - pos)
+    if limit < _MIN_MATCH:
+        return 0, 0
+    # distance-1 fast path: the common case (long single-byte runs) in one
+    # scan, with no hash lookup and no chain walk.
+    best_len, best_dist = 0, 0
+    if pos > 0 and data[pos] == data[pos - 1]:
+        length = 1
+        while length < limit and data[pos + length] == data[pos - 1]:
+            length += 1
+        if length >= _MIN_MATCH:
+            best_len, best_dist = length, 1
+            if best_len >= limit:
+                return best_len, best_dist
+    key = data[pos:pos + 3]
+    cands = chains.get(key)
+    if cands:
+        tried = 0
+        for cpos in reversed(cands):
+            dist = pos - cpos
+            if dist <= 0:
+                continue
+            if dist > _WINDOW:
+                break  # chains are append-only/oldest-first, so nothing further back fits either
+            tried += 1
+            if tried > _MAX_CHAIN:
+                break
+            length = 0
+            while length < limit and data[cpos + length] == data[pos + length]:
+                length += 1
+            if length > best_len:
+                best_len, best_dist = length, dist
+                if best_len >= limit:
+                    break
+    if best_len >= _MIN_MATCH:
+        return best_len, best_dist
+    return 0, 0
+
+
+def deflate(data: bytes) -> bytes:
+    """Raw DEFLATE (no zlib wrapper, matching `zlib.decompressobj(-15)`), one
+    fixed-Huffman final block, built by a deterministic pure-Python LZ77 —
+    see the block comment above. Depends on nothing but `data`."""
+    bw = _BitWriter()
+    bw.bits_lsb(1, 1)  # BFINAL
+    bw.bits_lsb(1, 2)  # BTYPE = 01 (fixed Huffman)
+
+    n = len(data)
+    chains: dict[bytes, list[int]] = {}
+    pos = 0
+    while pos < n:
+        length, dist = _find_match(data, pos, chains)
+        if length >= _MIN_MATCH:
+            code, ebits, eval_ = _length_code(length)
+            huff, hlen = _fixed_litlen_code(code)
+            bw.huffman(huff, hlen)
+            if ebits:
+                bw.bits_lsb(eval_, ebits)
+            dcode, debits, deval = _dist_code(dist)
+            bw.huffman(dcode, 5)
+            if debits:
+                bw.bits_lsb(deval, debits)
+            if n - pos >= 3:
+                chains.setdefault(data[pos:pos + 3], []).append(pos)
+            pos += length
+        else:
+            huff, hlen = _fixed_litlen_code(data[pos])
+            bw.huffman(huff, hlen)
+            if n - pos >= 3:
+                chains.setdefault(data[pos:pos + 3], []).append(pos)
+            pos += 1
+
+    huff, hlen = _fixed_litlen_code(256)  # end-of-block
+    bw.huffman(huff, hlen)
+    return bw.finish()
+
+
+# A fixed vector: this exact input must produce this exact output. Any change
+# to the encoder above that changes a single bit makes this assertion fail,
+# which is the point — it is the generator's own golden.
+_VECTOR_INPUT = b"the quick brown fox jumps over the lazy dog. the quick brown fox."
+_VECTOR_OUTPUT_HEX = (
+    "2bc94855282ccd4cce56482aca2fcf5348cbaf50c82acd2d2856c82f4b2d520"
+    "049e72456552aa4e4a7eb8179688af500"
+)
+
+
+def _self_test_deflate() -> None:
+    """Round-trips varied inputs through `zlib.decompress(…, -15)` and checks
+    the fixed vector. Run on every `gen.py` invocation: a wrong encoder must
+    never reach a committed golden."""
+    import random
+    rng = random.Random(0)
+    samples = [
+        b"", b"a", b"ab", b"abc", b"\x00", b"\x00" * 2, b"\x00" * 3,
+        b"\x00" * 257, b"\x00" * 258, b"\x00" * 259, b"\x00" * 1024,
+        b"\x00" * (1024 * 1024),
+        bytes(range(256)) * 10,
+        b"the quick brown fox jumps over the lazy dog " * 50,
+        bytes(rng.randrange(256) for _ in range(4000)),
+        _VECTOR_INPUT,
+    ]
+    for sample in samples:
+        comp = deflate(sample)
+        got = zlib.decompress(comp, -15)
+        assert got == sample, f"deflate() self-test failed to round-trip {sample[:40]!r}"
+    vector = deflate(_VECTOR_INPUT)
+    assert vector.hex() == _VECTOR_OUTPUT_HEX, (
+        f"deflate() fixed vector changed: got {vector.hex()!r}, want {_VECTOR_OUTPUT_HEX!r}")
+
+
+_self_test_deflate()
 
 
 def zip_bytes(entries: list[dict], tail: bytes = b"", eocd_override=None, cd_order=None) -> bytes:
@@ -1013,6 +1238,47 @@ def gen_archives() -> None:
         bundle("astra.animpack", ASCII_PART, body=None, tweak=two_faults))
     hostile("audio-licence-undeclared.astrachar", bundle(
         "astra.character", {**CHAR_FILES, "characters/aiko/voice/hello.ogg": b"OggS" + b"\x00" * 24}, None))
+
+    # games round 3 (astra-plugins-ops-42): a manifest that is not a JSON object must not crash
+    # the reader -- `ingest_bundle` once called `.get` on whatever `strict_loads` returned
+    def manifest_not_object(es):
+        for e in es:
+            if e["name"] == "astrachar.json":
+                e["data"] = b"[]\n"
+        return es
+    hostile("manifest-not-object.astrachar", bundle("astra.character", model_files, BODY_PATH, tweak=manifest_not_object))
+
+    # `images`/`buffers` must be arrays (bug: `"images": 5` raised TypeError in uri_refusal)
+    images_not_array = json.dumps({"asset": {"version": "2.0"}, "images": 5}).encode()
+    put("archives/hostile/gltf-images-not-array.astrapack", anim({"clips/badimg.gltf": images_not_array}))
+    # `images` as a keyed OBJECT: a JS loader still reads the key "0", so the old code -- which only
+    # walked LIST elements -- let an external uri through unseen (bug 3). The fix refuses the SHAPE,
+    # so this is refused before the uri inside it is ever read
+    images_as_object = json.dumps(
+        {"asset": {"version": "2.0"}, "images": {"0": {"uri": "https://example.invalid/x.png"}}}).encode()
+    put("archives/hostile/gltf-images-object.astrapack", anim({"clips/badimgobj.gltf": images_as_object}))
+
+    # N2bis: `%` is legitimate glTF escaping (a space MUST be written `%20`) -- the old blanket
+    # "no raw %" rule refused `Base%20Color.png`, a uri every real glTF exporter can emit
+    space_png = b"\x89PNG\r\n\x1a\n" + b"SPACE-NAME-PNG"
+    ok_pct_gltf = json.dumps({"asset": {"version": "2.0"}, "images": [{"uri": "Base%20Color.png"}]}).encode()
+    put("archives/valid/animset-gltf-percent-space.astrapack",
+        anim({"clips/pctok.gltf": ok_pct_gltf, "clips/Base Color.png": space_png}))
+    # double percent-encoding: decoding ONCE must not be enough to reach `..` -- `%252e%252e`
+    # decodes once to the literal text "%2e%2e", which still contains `%` and is refused outright
+    # rather than decoded a second time (which would reach "..")
+    dbl_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "%252e%252e", "byteLength": 1}]}).encode()
+    put("archives/hostile/gltf-percent-double-encoded.astrapack", anim({"clips/dbl.gltf": dbl_gltf}))
+    # a malformed escape (not two hex digits) is refused, not silently passed through
+    bad_pct_gltf = json.dumps({"asset": {"version": "2.0"}, "buffers": [{"uri": "%zz", "byteLength": 1}]}).encode()
+    put("archives/hostile/gltf-percent-malformed.astrapack", anim({"clips/badpct.gltf": bad_pct_gltf}))
+
+    # no bundle inside a content bundle: pack members are catalogue REFERENCES, never nested bytes.
+    # `nested_bundle` is a whole, valid .astrachar -- the point is that content ingest refuses it by
+    # its zip SIGNATURE alone, before it is ever opened as a sub-archive, whatever it is named
+    nested_bundle = bundle("astra.character", MODEL_FILES, body=BODY_PATH)
+    put("archives/hostile/nested-astrachar-in-astrapack.astrapack", anim({"clips/nested.astrachar": nested_bundle}))
+    put("archives/hostile/nested-astrachar-renamed-dat.astrapack", anim({"clips/nested.dat": nested_bundle}))
 
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──

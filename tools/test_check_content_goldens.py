@@ -783,8 +783,79 @@ class N1ByteOrderMarks(unittest.TestCase):
 
 
 class N2PercentEncoding(unittest.TestCase):
+    """games round 3 item 4: % is legitimate glTF escaping (a space MUST be written %20), so the
+    rule is "percent-decode exactly once, then judge the decoded path" -- never "no raw %"."""
+
     def test_percent_allowed(self):
-        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("URI_FORBIDDEN", "?#\\"), "archives/pct")
+        # the OLD blanket "no raw %" rule refused a uri every real glTF exporter can emit
+        orig = cg._decode_gltf_uri
+
+        def blanket_percent_forbidden(u):
+            if "%" in u:
+                raise ValueError("containing '%'")
+            return orig(u)
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("_decode_gltf_uri", blanket_percent_forbidden),
+                                               "archives/animset-gltf-percent-space")
+
+    def test_decoding_is_still_needed(self):
+        # skip the decode entirely (treat the uri as already-plain) and N2 reopens: this archive's
+        # file is literally NAMED with the percent-escapes still in it, so an undecoded lookup finds it
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("_decode_gltf_uri", lambda u: u), "archives/pct")
+
+    def test_space_round_trips(self):
+        self.assertEqual(cg._decode_gltf_uri("Base%20Color.png"), "Base Color.png")
+
+    def test_malformed_escape_is_refused(self):
+        with self.assertRaises(ValueError):
+            cg._decode_gltf_uri("%zz")
+
+    def test_double_encoding_is_refused_rather_than_decoded_twice(self):
+        # decoding twice would turn %252e%252e into "..", catchable by the existing ".." guard --
+        # but decoding is only EVER done once, so a leftover % after that one pass is refused
+        # outright instead, which is what actually stops it
+        with self.assertRaises(ValueError):
+            cg._decode_gltf_uri("%252e%252e")
+
+    def test_raw_question_hash_backslash_still_forbidden(self):
+        for bad in ("a?b", "a#b", "a\\b"):
+            with self.assertRaises(ValueError):
+                cg._decode_gltf_uri(bad)
+
+
+class GamesRound3ShapeRefusals(unittest.TestCase):
+    """astra-plugins-ops-42 ran the reference checker on games inputs and found three crashes/
+    silent-skips; two more (percent-encoding, nested bundles) came out of the adversarial review
+    of the fix. Each sub-test mutation-verifies its own fix: it breaks exactly the thing the fix
+    added, confirms the corresponding golden flips, and `Mutation` restores the original after."""
+
+    def test_manifest_not_object_is_refused_not_a_crash(self):
+        # the exact crash astra-plugins-ops-42 hit: `[].get("format")` is AttributeError, not a
+        # Refusal, so it must propagate out of `main()` uncaught -- never silently "red"
+        with Mutation("require_manifest_is_object", lambda man: None):
+            with self.assertRaises(AttributeError):
+                run_quiet()
+
+    def test_images_not_array_is_refused_not_a_crash(self):
+        with Mutation("gltf_array_shape_refusal", lambda v, key: None):
+            with self.assertRaises(TypeError):
+                run_quiet()
+
+    def test_images_as_object_golden_flips_without_the_shape_check(self):
+        # the dict `{"0": {"uri": "https://..."}}` does not crash the OLD one-liner (`for x in
+        # (g.get(k) or [])` iterates the dict's STRING keys, and `isinstance(x, dict)` quietly
+        # skips each one) -- it just never looks at the external uri inside. Let a dict through
+        # the shape check (so it reaches the per-element loop) without touching the int case (so
+        # "images": 5 does not ALSO crash this mutation and pre-empt reaching this golden in the
+        # same run)
+        def let_dicts_through(v, key):
+            return None if isinstance(v, (list, dict)) else f"{key} is a JSON {type(v).__name__}, not an array"
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("gltf_array_shape_refusal", let_dicts_through),
+                                               "archives/gltf-images-object")
+
+    def test_nested_bundle_is_refused_by_its_zip_signature(self):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("ZIP_SIGNATURES", ()),
+                                               "archives/nested-astrachar-in-astrapack",
+                                               "archives/nested-astrachar-renamed-dat")
 
 
 class N8FoldTwice(unittest.TestCase):
@@ -845,6 +916,75 @@ class ReasonCodes(unittest.TestCase):
             rc, out = run_quiet()
         self.assertEqual(rc, 1)
         self.assertTrue(any("cite is in reason-codes.yaml" in f for f in failed(out)), failed(out))
+
+
+class GenDotPyIsZlibImplementationFree(unittest.TestCase):
+    """testdata/content/gen.py must never again depend on which zlib the
+    interpreter links — that dependency is exactly what turned content-spec
+    red on master (#127/c596522: CI's stock zlib and every workstation's
+    zlib-ng compress identical bytes differently, so `zlib.compressobj`
+    output drifted from the committed goldens). `zlib.crc32` stays: a CRC is
+    a pure function with one answer, unlike a compressor's chosen encoding."""
+
+    FORBIDDEN = re.compile(
+        r"\bzlib\.(compress|compressobj)\s*\(|\bzipfile\.ZIP_DEFLATED\b"
+        r"|\bzipfile\.ZipFile\([^)]*compress_type\s*=\s*zipfile\.ZIP_DEFLATED",
+        re.MULTILINE,
+    )
+
+    def _sources(self) -> dict[str, str]:
+        gen_py = ROOT / "testdata/content/gen.py"
+        out = {str(gen_py): gen_py.read_text()}
+        # every module gen.py imports from tools/ (today: contentlite)
+        for line in out[str(gen_py)].splitlines():
+            m = re.match(r"\s*import\s+(\w+)\s+as\s+\w+", line) or re.match(r"\s*import\s+(\w+)\s*$", line)
+            if not m:
+                continue
+            candidate = ROOT / "tools" / f"{m.group(1)}.py"
+            if candidate.is_file():
+                out[str(candidate)] = candidate.read_text()
+        return out
+
+    def test_no_implementation_dependent_compressor_call(self):
+        hits = []
+        for path, text in self._sources().items():
+            for m in self.FORBIDDEN.finditer(text):
+                hits.append(f"{path}: {m.group(0)!r}")
+        self.assertEqual(hits, [], "zlib/zipfile DEFLATE call found: " + "; ".join(hits))
+
+    def test_the_scan_itself_catches_a_reintroduced_call(self):
+        # mutation-verify the guard above: a `zlib.compressobj` call in the
+        # scanned text must be caught, not waved through by a loose regex.
+        poisoned = "def deflate(b):\n    c = zlib.compressobj(9, zlib.DEFLATED, -15, 9)\n    return c.compress(b)\n"
+        self.assertTrue(self.FORBIDDEN.search(poisoned), "the guard regex failed to catch a reintroduced zlib.compressobj call")
+        poisoned2 = 'zipfile.ZipFile(buf, "w", compress_type=zipfile.ZIP_DEFLATED)'
+        self.assertTrue(self.FORBIDDEN.search(poisoned2), "the guard regex failed to catch a reintroduced zipfile DEFLATED writer")
+
+
+class GenDeflateRoundTrips(unittest.TestCase):
+    """gen.py's own `deflate()` round-trips through the real `zlib.decompress`
+    (not its own inverse) and matches a fixed vector — see gen.py's
+    `_self_test_deflate`, which also runs on every `gen.py` invocation."""
+
+    def setUp(self):
+        gen_spec = importlib.util.spec_from_file_location("gendotpy_for_test", ROOT / "testdata/content/gen.py")
+        self.gen = importlib.util.module_from_spec(gen_spec)
+        gen_spec.loader.exec_module(self.gen)
+
+    def test_round_trips_varied_inputs(self):
+        import zlib as _zlib
+        for sample in (b"", b"x", b"\x00" * 1024 * 1024, bytes(range(256)) * 7, b"abcabcabcabc" * 30):
+            comp = self.gen.deflate(sample)
+            self.assertEqual(_zlib.decompress(comp, -15), sample)
+
+    def test_fixed_vector_is_pinned(self):
+        self.assertEqual(self.gen.deflate(self.gen._VECTOR_INPUT).hex(), self.gen._VECTOR_OUTPUT_HEX)
+
+    def test_ratio_bomb_input_exceeds_the_100_to_1_guard(self):
+        # the golden this encoder exists to keep buildable: 1 MiB of zeros,
+        # deflated well past MAX_RATIO (100) so E_ARCHIVE_RATIO still fires
+        comp = self.gen.deflate(b"\x00" * (1024 * 1024))
+        self.assertGreater(len(b"\x00" * (1024 * 1024)), 100 * len(comp))
 
 
 if __name__ == "__main__":

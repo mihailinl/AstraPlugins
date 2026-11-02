@@ -24,8 +24,8 @@
           "size": 22
         },
         "artefact": {
-          "sha256": "6d1712a495da157196278c6f5ce73fc1e913cda042958e78f263eeff70eda70d",
-          "size": 562,
+          "sha256": "08e864ceb9e433ee6e8accfd0b314ae4e1721e355b1a98a11949e3fba654ccf4",
+          "size": 621,
           "media_type": "application/vnd.astra.character+zip"
         },
         "review": "unchecked",
@@ -86,7 +86,7 @@
   "signatures": [
     {
       "key_id": "astra-characters-2026a",
-      "sig": "oRwYAbKW7E3BnyhEnOU1dRceKf9YtT7ZsLnypbPT89DR7MkbBHrTMTYijxSgBlqzv1qEnT1uWCHo2qxIlcIZCw=="
+      "sig": "MLfHgks5cPKk+Gujh4umUg/0IhO/Pw7cH5ErOrbKi2Q68cPT/Z5sF9cdcMkOZ8SIMcROvhdgVON4/WA9p1Q0CA=="
     }
   ]
 }
