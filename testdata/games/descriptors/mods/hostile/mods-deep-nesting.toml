@@ -1,5 +1,7 @@
 # Hostile `mods` golden: UNBOUNDED NESTING (engine-descriptor-v1.md §7.1, §7.8).
-# `any` inside `any`, 40 deep. A reader that recursed on it -- a JSON Schema
+# `any` inside `any`, 39 deep -- one under the toml crate's fixed
+# recursion limit of 80 nested tables and arrays, so a TOML reader still
+# parses the document and only the budget rule refuses `mods`. A reader that recursed on it -- a JSON Schema
 # validator, a parser with a recursion limit such as serde_json's 128 --
 # could fail the WHOLE document carrying it, breaking "an error inside
 # `mods` drops only `mods`". The schema's `require` levels stop at depth 3,
@@ -31,7 +33,7 @@ codes = ["source2"]
 source = ["game", "picked"]
 require = [
   { stat = "{source}/s2loader/s2loader.dll", kind = "file" },
-  { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { stat = "{source}/s2loader/x.dll", kind = "file" } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] },
+  { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { any = [ { stat = "{source}/s2loader/x.dll", kind = "file" } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] } ] },
 ]
 root = "{source}/s2loader/mods"
 enabled = [ { format = "dir-per-mod" } ]

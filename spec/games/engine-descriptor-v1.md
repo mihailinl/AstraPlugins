@@ -333,8 +333,12 @@ checks:
   2^53 − 1;
 - it nests at most 11 levels of tables and arrays, counting `mods` itself.
   That follows from §7.4's depth of 3, and it is far below any parser's
-  recursion limit (serde_json's default is 128), so no `mods` can make a
-  reader fail the whole document that carries it. The schema's `require`
+  recursion limit (the toml crate's fixed limit is 80 nested tables and
+  arrays, serde_json's default 128), so no conformant `mods` can make a
+  reader fail the whole document that carries it. A `mods` nested past
+  the TOML reader's own limit makes the whole file unreadable, and it is
+  refused as any malformed descriptor is; the hostile golden
+  `mods-deep-nesting` therefore stays one level under that limit. The schema's `require`
   levels are separate definitions, so validating one never recurses deeper
   either. A deeper `mods` is reason `over-budget`.
 
