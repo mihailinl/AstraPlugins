@@ -25,6 +25,7 @@ import json
 import pathlib
 import struct
 import sys
+import zlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -218,8 +219,59 @@ PNG16 = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
 MANIFEST_MF = b"Manifest-Version: 1.0\r\nCreated-By: gen.py\r\n"
 
 
+DOS_TIME, DOS_DATE = 0, ((2026 - 1980) << 9) | (1 << 5) | 1  # 2026-01-01 00:00
+
+
+def stored_deflate(data: bytes) -> bytes:
+    """A Deflate stream made of stored blocks only (RFC 1951 §3.2.4): valid
+    Deflate that any inflater reads, written without a compressor, so these
+    bytes cannot move when someone's compressor does."""
+    if not data:
+        return b"\x01\x00\x00\xff\xff"
+    out = bytearray()
+    for at in range(0, len(data), 0xFFFF):
+        block = data[at:at + 0xFFFF]
+        out += bytes([1 if at + 0xFFFF >= len(data) else 0]) + struct.pack("<HH", len(block), len(block) ^ 0xFFFF) + block
+    return bytes(out)
+
+
+def zip_of(entries: list[dict]) -> bytes:
+    """Games' own zip writer, for every zip and bundle these goldens build:
+    each entry Stored, or -- where a golden needs a Deflated entry -- Deflate
+    written as stored blocks. Never the content catalogue's compressor: #130
+    replaced it once and moved every byte built on it. Entries are {name,
+    data, method=0|8, extra, pad_before}; files are regular (unix 0644)."""
+    out, central = bytearray(), bytearray()
+    for e in entries:
+        out += e.get("pad_before", b"")
+        off = len(out)
+        name = e["name"].encode("utf-8")
+        data = e.get("data", b"")
+        method = e.get("method", 0)
+        comp = stored_deflate(data) if method == 8 else data
+        crc = zlib.crc32(data) & 0xFFFFFFFF
+        extra = e.get("extra", b"")
+        flags = 0x800 if any(c > 0x7F for c in name) else 0
+        out += struct.pack("<IHHHHHIIIHH", 0x04034B50, 20, flags, method, DOS_TIME, DOS_DATE,
+                           crc, len(comp), len(data), len(name), len(extra)) + name + extra + comp
+        central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, (3 << 8) | 20, 20, flags, method, DOS_TIME, DOS_DATE,
+                               crc, len(comp), len(data), len(name), len(extra), 0, 0, 0, 0o100644 << 16, off) + name + extra
+    cd_off = len(out)
+    out += central
+    out += struct.pack("<IHHHHIIH", 0x06054B50, 0, 0, len(entries), len(entries), len(central), cd_off, 0)
+    return bytes(out)
+
+
 def jar(entries: list[dict]) -> bytes:
-    return content_gen().zip_bytes(entries)
+    return zip_of(entries)
+
+
+def stored_bundle(fmt: str, files: dict) -> bytes:
+    """A content bundle in the content catalogue's own format (its
+    bundle_entries: the files, then astrachar.json listing their digests),
+    every entry Stored and written by zip_of. The 32 MiB budget these feed is
+    about glTF JSON size, never about compression."""
+    return zip_of([dict(e, method=0) for e in content_gen().bundle_entries(fmt, files, body=None)])
 
 
 def avatar_jar(vrm: bytes, name: str = "assets/avatar.vrm", **tweak) -> bytes:
@@ -256,8 +308,8 @@ RELEASE_FILES.update({
 # 5,000 entries: past the content catalogue's 4,096, within a game archive's 65,536
 SYNTH["jar-5000-entries"] = lambda: jar([{"name": f"assets/lang/{i}.txt", "data": b"x"} for i in range(5000)])
 
-SYNTH["astrapack-gltf-11mib"] = lambda: content_gen()._pack(
-    {"clips/g.gltf": content_gen()._big_json(11 * MIB)}, stored=["clips/g.gltf"])  # three of them: 33 MiB
+SYNTH["astrapack-gltf-11mib"] = lambda: stored_bundle(  # three of them: 33 MiB
+    "astra.animpack", {**content_gen().ASCII_PART, "clips/g.gltf": content_gen()._big_json(11 * MIB)})
 
 
 @functools.lru_cache(maxsize=4)
