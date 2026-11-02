@@ -1,0 +1,21 @@
+# content check golden: the content catalogue's audio-licence-undeclared.astrachar, byte for byte,
+# with NO licence declared for the part -- E_CONTENT_LICENCE_UNDECLARED by content's own step 11: its
+# audio part has no VRM meta, and nothing declares a licence for it.
+schema = 1
+
+[integration]
+id = "someone.bundle-audio-licence-undeclared"
+name = "Bundle Audio Licence Undeclared"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

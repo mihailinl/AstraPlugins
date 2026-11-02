@@ -1,0 +1,14 @@
+# content check golden: a text glTF named data/avatar.json -- E_CONTENT_FORMAT, the content
+# catalogue's own sniff (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.gltf-named-json"
+name = "Gltf Named Json"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

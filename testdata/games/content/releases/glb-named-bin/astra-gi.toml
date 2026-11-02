@@ -1,0 +1,14 @@
+# content check golden: a GLB (it begins with glTF) named data/avatar.bin, carrying a VRM whose
+# licence refuses redistribution -- E_CONTENT_FORMAT: content is judged by its bytes (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.glb-named-bin"
+name = "Glb Named Bin"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

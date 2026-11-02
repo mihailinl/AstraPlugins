@@ -1,0 +1,21 @@
+# content check golden: a jar holding a VRM whose licence refuses redistribution, declared --
+# E_CONTENT_LICENCE_REFUSED: the gate runs inside the archive as at the top level.
+schema = 1
+
+[integration]
+id = "someone.jar-vrm-prohibited"
+name = "Jar Vrm Prohibited"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "mods/avatar.jar!assets/avatar.vrm"
+kind = "character"
+title = "avatar"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

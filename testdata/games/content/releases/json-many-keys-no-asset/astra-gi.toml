@@ -1,0 +1,15 @@
+# content check golden: five 16 MiB JSON files of {"":0,"":0,...} with no asset key (built in memory,
+# gen.py synth) -- accepted, and within max_seconds: a file with no asset key anywhere is not a glTF,
+# decided at C speed before the per-character sniff (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.json-many-keys-no-asset"
+name = "Json Many Keys No Asset"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -1,0 +1,14 @@
+# content check golden: a jar of 5,000 entries (built in memory, gen.py synth) -- accepted, not
+# flagged: past the content catalogue's 4,096 entries, within a game archive's 65,536.
+schema = 1
+
+[integration]
+id = "someone.jar-5000-entries"
+name = "Jar 5000 Entries"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

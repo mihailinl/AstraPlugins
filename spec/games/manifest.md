@@ -261,6 +261,120 @@ naming a loader DLL `climb.fbx`:
 Code, DLLs and loader binaries never count, whatever their extension — this
 table is closed, and nothing outside it is ever treated as content.
 
+**The other direction is read by bytes, for every file in the release —
+declared or not, whatever its name, the manifest alone excepted: that is
+`astra-gi.toml` at the release root, and a file of that name in any folder is
+judged like every other** (golden `vrm-named-manifest-nested`: a prohibited
+VRM saved as `models/astra-gi.toml`) (the content catalogue's
+[`ingest-v1.md`](../content/ingest-v1.md) §3 step 10, called as that
+contract's own code, `tools/check-content-goldens.py`). A name must never
+decide whether a file escapes the gate: three.js and every glTF loader sniff
+the magic, so a prohibited avatar shipped as `data/avatar.bin` would load
+while the gate never opened it. Each of these is **`E_CONTENT_FORMAT`**:
+
+- a file that begins with the GLB magic `glTF` and is not named `.vrm`,
+  `.glb` or `.vrma` (content's `name_matches_magic`; golden `glb-named-bin`).
+  Named as one, it is content-typed by the table above, so undeclared it is
+  `E_CONTENT_UNDECLARED`, as before;
+- a file not named `.gltf` whose bytes are a text glTF by the content
+  catalogue's own sniff (`is_gltf_json`: after an optional UTF-8 BOM the
+  first non-whitespace byte is `{` and the **top-level** object names an
+  `asset` member, read key by key, whether or not the rest parses; golden
+  `gltf-named-json`; a nested `asset` key is not one, golden
+  `json-nested-asset`);
+- a zip that is a content bundle by the content catalogue's own definition —
+  its **last** entry is `astrachar.json`, read with content's `walk_zip`, so
+  only an archive Astra's importer would open as a bundle counts — and is
+  not named `.astrachar` or `.astrapack` (golden `bundle-renamed`). A game's
+  own archive (a `.jar`, a mod `.zip`) has no such entry and is not one.
+  Named as one, it is judged as §2.7.3 says.
+
+**A game's own archives are opened one level deep.** A zip that is not a
+content bundle — a `.jar`, a mod `.zip`, anything that begins with the zip
+magic `PK`, whatever it is called — is walked with the content contract's own
+`walk_zip`, **every cloaking check included** (ingest-v1.md §3 steps 1–4 and
+7: the end record, the headers that must agree, entries that tile the file,
+the names, the raw read), under limits made for game archives rather than
+content bundles: **65,536 entries and 512 MiB uncompressed**, and no
+Stored-only rule, which is a bundle's (golden `jar-5000-entries`, accepted
+past content's 4,096). Inside it:
+
+- every GLB, text glTF and bundle is judged **exactly as a top-level file
+  is** — the rules above, §2.7.3's format rules, caps and VRM gate, an
+  embedded bundle's content verdict — and its glTF JSON counts toward the
+  release's 32 MiB (goldens `jar-glb-named-bin`, `jar-vrm-prohibited`);
+- each such GLB, `.gltf` or bundle is a **part that must be declared**, with
+  the path `<archive path>!<inner path>` — `mods/avatar.jar!assets/avatar.vrm`
+  — and is otherwise `E_CONTENT_UNDECLARED` (goldens `jar-vrm-undeclared`,
+  `jar-vrm-declared`). The owner's per-part rights checkbox must not be
+  bypassable by putting a model in a jar. The manifest schema's `path`
+  already admits `!`. Other content-typed files in an archive (a mod's
+  textures and sounds) are not parts and need no entry;
+- **cloaking is always refused**, with content's own code — an archive that
+  shows one reader different entries than another is never published,
+  whatever its size (golden `jar-cloaked`). An archive whose reader cannot
+  follow it at all is refused `E_CONTENT_FORMAT`. One consequence, stated so
+  nobody is surprised: an Android APK signed with scheme v2 or later puts its
+  signing block between the last entry and the directory, which is exactly
+  the gap a cloaked entry hides in, and is refused;
+- **an archive the walk cannot otherwise open is not refused**: past the
+  limits, zip64 (which a modpack past 65,535 entries or 4 GiB needs), a
+  compression method other than Stored or Deflate, an encrypted or linked
+  entry, a name content's rules refuse, a deflate ratio over 100. It
+  publishes flagged **`F_CONTENT_ARCHIVE_UNSCANNED`**, shown to moderators
+  with the reason, so big modpacks still work (golden `jar-zip64`). A part
+  declared inside such an archive cannot be found, and is
+  `E_CONTENT_MISSING`;
+- **an archive inside an archive is not opened** — one level deep — and is
+  flagged `F_CONTENT_ARCHIVE_UNSCANNED` the same (golden `jar-in-jar`:
+  Fabric's `META-INF/jars/` and Forge's jar-in-jar nest them).
+
+Three deliberate differences from the content catalogue, because a game
+integration ships arbitrary files and a content bundle does not:
+
+- **A text glTF's top-level `asset` is an object.** The content
+  catalogue's sniff decides on a top-level `asset` key whatever its value.
+  three.js reads `asset.version` and refuses a file without one, so a glTF's
+  `asset` is an object; `{"asset": "textures/hero.png", "scale": 2}` is a
+  game's data file, and is accepted here (golden `json-asset-string`). The
+  C-speed test below looks for the key followed by `{`, so a nested object
+  `asset` beside a top-level string one still errs toward refusing.
+
+- **A UTF-16/32 byte-order mark is not refused.** The content catalogue
+  refuses one on its text kinds — `.gltf`, `.json` and `.toml` must be UTF-8
+  (ingest-v1.md §3 step 10, narrowed by #132; any other entry only when it
+  decodes to a glTF) — and a game integration carries UTF-16LE
+  localisation `.json` and `.toml` files (golden `localisation-utf16`,
+  accepted). Here the mark refuses a `.gltf` alone (§2.7.3). Such a text is instead sniffed **as the
+  text it decodes to** — a piece at a time, never the whole file for a test
+  of its first character (golden `pak-utf16-bom`: a 32 MiB archive that
+  begins `FF FE`, checked within 4 MiB of memory; decoded whole, a 128 MiB
+  one cost 658 MB) — so a UTF-16 glTF under another name is still refused
+  (golden `gltf-named-json-utf16`). This only ever over-refuses: a browser's
+  `fetch().text()` and three.js decode UTF-8 whatever the mark, so such a
+  file does not load as a glTF there at all; the margin covers a reader that
+  does detect the encoding (Python's `json.loads` on bytes does). The BOM rule applies to glTF candidates
+  only: every `.gltf` (§2.7.3).
+- **The key-by-key sniff is bounded.** It reads every character in Python
+  (about 4 MiB a second on `{"":0,"":0,…}`; twenty such 16 MiB files once
+  held the gate for 102 s), so it runs only on a JSON-looking file whose
+  bytes name an `asset` key with an object value at all — tested first, at
+  C speed; no such key, no glTF (golden `json-many-keys-no-asset`, five such files, accepted within
+  5 s) — and it reads at most **64 MiB per release**. Past that budget, a
+  JSON-looking file whose bytes name the key is refused unread, as one over
+  16 MiB is.
+- **Over 16 MiB the key-by-key sniff is not run** — it reads every
+  character, and a game's data file may be large. A JSON-looking file (after
+  an optional BOM, `{` first) of more than 16 MiB not named `.gltf` is
+  refused when its bytes name an `asset` key with an object value at all,
+  the key spelt plainly or with `\u` escapes that JSON decodes to the same
+  key, and accepted otherwise
+  (goldens `json-over-16mib-nested-asset`, refused, and
+  `json-over-16mib-plain`, accepted; both built in memory by
+  `testdata/games/content/vrm/gen.py`). Nothing that large is a glTF this
+  gate would accept anyway (§2.7.3's 16 MiB cap), so the cheap test errs
+  only toward refusing.
+
 **Ingest runs in this order: provenance → manifest schema → content check →
 gi-probe.** The content check — this section — runs on the real release zip,
 after the manifest has parsed and validated but *before* gi-probe, because
@@ -323,20 +437,87 @@ class — is held to the format rules** (the content catalogue's `ingest-v1.md`
 - **its glTF JSON parses and names no member twice**: one reader's
   `allowRedistribution: false` is another's `true`, and JSON that does not
   parse must never fall through to "plain", which an animation part does not
-  judge;
-- **no external reference**: in a GLB every `images[].uri` and
-  `buffers[].uri` is a `data:` URI; in a `.gltf` each is a `data:` URI or a
-  plain relative path (no scheme, no `..`, no leading `/`, no backslash)
-  naming a file the release holds — so nothing Astra loads makes it fetch a
-  URL, which would tell a third party who is looking at the model.
+  judge. JSON nested so deep that the parser's own stack gives out is JSON
+  that does not parse — a refusal, never a crash of the gate (golden
+  `gltf-million-deep`, built in memory);
+- **the caps, the content catalogue's own** (`gltf_problem`, ingest-v1.md
+  §3 steps 5 and 10), each naming the cap it breaks: a GLB JSON chunk or a
+  `.gltf` over **16 MiB**, checked from the header or the file's size
+  **before** anything is parsed (goldens `glb-json-over-16mib`,
+  `gltf-over-16mib`); JSON nested **deeper than 128**, the top-level object
+  being depth 1 (goldens `gltf-too-deep`, refused, and `gltf-depth-128`,
+  accepted); and more than **32 MiB of glTF JSON in the whole release** —
+  every GLB's declared first-chunk length plus every `.gltf`'s size, read
+  before any is parsed (golden `gltf-total-over-32mib`: three GLBs of 11 MiB,
+  each fine alone). The reason is the server's memory: one release must not
+  make it hold a gigabyte of parsed JSON (B1: seven 16 MiB `.gltf` once held
+  1.9 GB). These are `E_CONTENT_FORMAT` here; the content catalogue gives
+  its archive-wide budget its own `E_ARCHIVE_TOO_LARGE`;
+- **a `.gltf` carries no byte-order mark** — UTF-8, UTF-16 or UTF-32: glTF
+  2.0 is UTF-8 JSON without one, and a reader that decodes by the mark
+  (Python's `json.loads` on bytes) sees a different text from one that does
+  not (a browser, three.js) (goldens `gltf-with-bom`,
+  `gltf-utf16`). Unlike the content catalogue, which refuses a UTF-16/32
+  mark on any entry, this applies to a `.gltf` alone (§2.7.1);
+- **no external reference** (the content catalogue's own `uri_refusal`): in
+  a GLB every `images[].uri` and `buffers[].uri` is a `data:` URI; in a
+  `.gltf` each is a `data:` URI or a plain relative path naming a file the
+  release holds, so nothing Astra loads makes it fetch a URL, which would
+  tell a third party who is looking at the model. A loader percent-decodes
+  the uri (and splits off a query or fragment) **before** it joins it to the
+  file's folder, so the uri is judged as the loader reads it: **decoded
+  exactly once** — glTF 2.0 encodes a space, and `Base%20Color.bin` names
+  `Base Color.bin` (golden `gltf-uri-space-encoded`, accepted) — with no raw
+  `?`, `#` or `\`, no malformed escape, nothing still percent-encoded once
+  decoded (`%252e%252e/` decodes to `%2e%2e/`, and a second decoding would
+  climb out; golden `gltf-uri-double-encoded`), and, decoded, no scheme, no
+  `..` and no leading `/`: `..%2f..%2f..%2f..%2fetc%2fpasswd` leaves the
+  release once decoded even when a file with that literal name sits beside
+  the `.gltf` (golden `gltf-uri-percent`, the content catalogue's `pct`, N2;
+  its code is pinned, not content's wording). `images` and `buffers` must be
+  arrays of objects: a JavaScript loader indexes an object's `"0"` key as
+  `images[0]`. The content catalogue's further rule — the uri resolves
+  inside the `.gltf`'s own part — has no equivalent here: a game
+  integration's part is one file, and the buffer it names is not a part of
+  its own.
 
-It applies as well to the body inside a `.astrachar` bundle
-*when that bundle's format is readable* (its `astrachar.json` parses, its
-`body` is a `{"file": ...}` pointing at a `.vrm` inside the same zip —
-astra-companion `docs/character-files-and-2d-editor.md` §1.3/§1.4). When it
-is not readable, that is noted as a gap (`F_CONTENT_ASTRACHAR_UNREADABLE` in
-the catalogue), never a refusal: an unreadable bundle is a different problem
-than a bundle that reads cleanly and says no.
+**A `.astrachar` or `.astrapack` part is judged whole, by the content
+contract's own code** — `ingest_bundle` in `tools/check-content-goldens.py`,
+never a second reading of it: `walk_zip` and [`ingest-v1.md`](../content/ingest-v1.md)
+§3 steps 1–8 (the end record, the entry count, the headers and the cloaking
+probes, the names, the sizes and the 32 MiB budget, Stored-only types, the
+raw read, the manifest and its digests), step 10 (every GLB and `.gltf` in
+it, by the rules above), step 11 (the licence verdict on **every** GLB and
+`.gltf` in it, not only the body) and step 12's rule that every file is in
+exactly one part. Two steps have nothing to run on here: step 9 is the
+server's blocklist, which this gate does not hold, and step 12's
+parts-mismatch half compares declared part digests, which a game
+integration does not declare. A refusal **refuses the release with
+content's own code** (`E_ZIP_HEADERS_INCONSISTENT`, `E_BUNDLE_MANIFEST`,
+`E_CONTENT_LICENCE_REFUSED`, …), its detail content's, prefixed
+`<gi path>!` so that a per-file refusal reads `<gi path>!<inner path>`
+(goldens `bundle-vrm-redistribution-prohibited`,
+`bundle-glb-prohibited-beside-allowed-body`, `bundle-vrm-metas-disagree`,
+`bundle-gap-between-entries` — the content catalogue's own hostile bundles,
+byte for byte, which `gen.py --check` keeps equal to `testdata/content/`). An
+`astrachar.json` that is not an object is content's own `E_BUNDLE_MANIFEST`
+(since #131; before it, content's reader raised on one); any bundle shape
+that reader still raises on instead of refusing is refused
+`E_CONTENT_FORMAT` here, never a crash. **A bundle is unzipped once, and its glTF JSON counts toward
+the release's 32 MiB** (§2.7.3's caps): the sum of its GLB chunk lengths and
+`.gltf` sizes, from the walk's headers, is charged before anything in it is
+parsed, and the bundle that would take the release past 32 MiB is refused
+`E_CONTENT_FORMAT` unparsed (golden `bundle-gltf-total-over-32mib`: three
+bundles of 11 MiB each; four of 32 MiB once cost 787 MB and 31 s, and were
+accepted). The part's declared `licence` stands for every part of the
+bundle (content's `declared_licence`); without one, each part needs its own
+allowed VRM meta (golden `bundle-audio-licence-undeclared`, refused by
+content's step 11; `bundle-model-aiko`, accepted with `licence_source =
+"vrm"` from its body; `bundle-animset-wave`, accepted on its declared
+licence). This replaces the earlier reading of the body alone, which passed
+an unreadable bundle as a gap (`F_CONTENT_ASTRACHAR_UNREADABLE`) and never
+opened its accessories: an unreadable bundle is now what the content
+catalogue says it is, a refusal.
 
 The gate parses the file's GLB container (the 12-byte header, then the first
 chunk if it is typed `JSON`), or a `.gltf` file's whole text, and reads each
@@ -411,7 +592,12 @@ for a moderator (`ingest-v1.md` §4.1). This catalogue publishes it flagged,
 under the publish-at-once rule every community release follows, because a
 GI's part always carries the author's declared licence (`licence_source =
 "declared"`, or `E_CONTENT_LICENCE_UNDECLARED`) and the per-part rights
-confirmation (`W_CONTENT_UNCONFIRMED` until it is given).
+confirmation (`W_CONTENT_UNCONFIRMED` until it is given). **The same holds
+inside an embedded bundle**: where `ingest_bundle` returns the content
+catalogue's `held` with `F_CONTENT_VRM_META_UNKNOWN`, this gate publishes the
+release flagged `F_CONTENT_VRM_META_UNKNOWN` on the bundle's path (golden
+`bundle-vrm0-licence-other`), and only with the part's declared licence —
+without it, `E_CONTENT_LICENCE_UNDECLARED`.
 
 **The usage flags (G5).** Kept with the part in `vrm_licence.fields`
 whichever of these the file actually carries, alongside the
@@ -443,6 +629,29 @@ refused with `E_CONTENT_LICENCE_UNDECLARED`, naming the path (G5, Part 1
 rule 2a's `licence.source = declared` fallback, applied to a GI's own
 free-text `licence` field rather than astra-ce's richer structured
 declaration form).
+
+**Reserved: CSAM hash matching — `W_CONTENT_CSAM_PENDING`,
+`F_CONTENT_CSAM_UNSCANNED`.** The owner made CSAM hash matching a gate on
+content publishing (2026-11-01; the content contract's `ingest-v1.md` §1),
+and it applies to a game integration's images too, which would otherwise
+bypass it (astra-plugins-ops `dev/game-integrations-lane-c-minice-design.md`
+§1.6a). **The plugins service scans every image of a GI release** — a
+declared `art` part, a texture inside a GLB or `.gltf` (a bufferView, a
+`data:` uri or a relative file) and every image inside an embedded
+`.astrachar`/`.astrapack` — with minice's own extractor and scanner, after
+the rights gate and before the release is leased for signing. **This
+checker never does, and neither does the catalogue's public Actions run**:
+neither holds a scanner key, and "every image" is defined once, by that
+extractor, not a second time here. The two codes are reserved so that no
+other rule takes them:
+
+| code | class | meaning |
+|---|---|---|
+| `W_CONTENT_CSAM_PENDING` | wait | the release has at least one image and no scanner is configured yet; it clears by itself once one is. A wait, not a refusal, because a release is a tag the author cannot cheaply re-cut. A release with no image publishes as it always did |
+| `F_CONTENT_CSAM_UNSCANNED` | held | a scan errored, timed out or met an image it could not decode; nothing is published unscanned |
+
+A match is not a code of this gate: the service quarantines the release
+and blocks the publisher, as for content.
 
 #### 2.7.4 The catalogue entry
 

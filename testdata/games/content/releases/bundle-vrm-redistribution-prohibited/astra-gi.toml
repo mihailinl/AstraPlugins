@@ -1,0 +1,22 @@
+# content check golden: the content catalogue's vrm-redistribution-prohibited.astrachar, byte for
+# byte, as a game integration's character part -- E_CONTENT_LICENCE_REFUSED by that contract's own
+# code (manifest.md §2.7.3; ingest-v1.md §3 step 11).
+schema = 1
+
+[integration]
+id = "someone.bundle-vrm-redistribution-prohibited"
+name = "Bundle Vrm Redistribution Prohibited"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

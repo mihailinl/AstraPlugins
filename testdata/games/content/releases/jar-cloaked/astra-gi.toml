@@ -1,0 +1,14 @@
+# content check golden: a jar with a gap before an entry, where a cloaked entry hides --
+# E_ZIP_HEADERS_INCONSISTENT: cloaking is always refused, whatever the archive's size.
+schema = 1
+
+[integration]
+id = "someone.jar-cloaked"
+name = "Jar Cloaked"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

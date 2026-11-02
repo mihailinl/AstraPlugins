@@ -1,0 +1,21 @@
+# content check golden: a .gltf beginning with a UTF-8 byte-order mark -- E_CONTENT_FORMAT: glTF 2.0
+# is UTF-8 JSON without one (the content catalogue's gltf-with-bom).
+schema = 1
+
+[integration]
+id = "someone.gltf-with-bom"
+name = "Gltf With Bom"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -1,0 +1,15 @@
+# content check golden: UTF-16 localisation files with byte-order marks -- accepted. The
+# content catalogue refuses any entry that begins with a UTF-16/32 BOM; a game integration
+# ships these, so that rule applies here to glTF candidates only (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.localisation-utf16"
+name = "Localisation Utf16"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

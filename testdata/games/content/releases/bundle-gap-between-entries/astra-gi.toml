@@ -1,0 +1,21 @@
+# content check golden: the content catalogue's gap-between-entries.astrachar, byte for byte -- a
+# gap between two entries, where a cloaked entry hides: E_ZIP_HEADERS_INCONSISTENT (ingest-v1.md §3 step 3).
+schema = 1
+
+[integration]
+id = "someone.bundle-gap-between-entries"
+name = "Bundle Gap Between Entries"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

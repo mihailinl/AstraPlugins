@@ -1,0 +1,21 @@
+# content check golden: a .gltf whose JSON nests exactly 128 deep -- accepted (the content
+# catalogue's animset-gltf-depth-128).
+schema = 1
+
+[integration]
+id = "someone.gltf-depth-128"
+name = "Gltf Depth 128"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

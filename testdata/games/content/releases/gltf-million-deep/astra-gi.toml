@@ -1,0 +1,21 @@
+# content check golden: a .gltf nesting a million arrays deep (built in memory, gen.py synth) --
+# E_CONTENT_FORMAT. A recursive parser raises RecursionError on it; that is a refusal, never a crash.
+schema = 1
+
+[integration]
+id = "someone.gltf-million-deep"
+name = "Gltf Million Deep"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

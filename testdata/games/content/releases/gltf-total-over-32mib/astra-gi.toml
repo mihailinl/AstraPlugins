@@ -1,0 +1,36 @@
+# content check golden: three GLBs of 11 MiB of JSON each (built in memory, gen.py synth) --
+# each under 16 MiB, together over the 32 MiB a release may hold: E_CONTENT_FORMAT, read
+# from their headers before any is parsed (ingest-v1.md §3 step 5, B1).
+schema = 1
+
+[integration]
+id = "someone.gltf-total-over-32mib"
+name = "Gltf Total Over 32mib"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/a.glb"
+kind = "art"
+title = "a"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "models/b.glb"
+kind = "art"
+title = "b"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "models/c.glb"
+kind = "art"
+title = "c"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

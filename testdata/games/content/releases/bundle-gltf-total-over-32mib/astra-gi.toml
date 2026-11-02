@@ -1,0 +1,37 @@
+# content check golden: three .astrapack parts (built in memory, gen.py synth with the content
+# catalogue's own bundle builder), each holding one 11 MiB .gltf -- each fine alone, 33 MiB of glTF
+# JSON together: E_CONTENT_FORMAT. A bundle's glTF JSON counts toward the release's 32 MiB, from its
+# headers, before anything in it is parsed (manifest.md §2.7.3).
+schema = 1
+
+[integration]
+id = "someone.bundle-gltf-total-over-32mib"
+name = "Bundle Gltf Total Over 32mib"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/a.astrapack"
+kind = "animations"
+title = "a"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "packs/b.astrapack"
+kind = "animations"
+title = "b"
+credit = "someone"
+licence = "CC0-1.0"
+
+[[integration.content]]
+path = "packs/c.astrapack"
+kind = "animations"
+title = "c"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

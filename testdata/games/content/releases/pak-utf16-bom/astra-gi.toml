@@ -1,0 +1,15 @@
+# content check golden: a 32 MiB game archive (built in memory, gen.py synth) that begins with the
+# bytes FF FE -- accepted, within max_peak_mib: the sniff decodes only as far as the first character,
+# never the whole file (manifest.md §2.7.1).
+schema = 1
+
+[integration]
+id = "someone.pak-utf16-bom"
+name = "Pak Utf16 Bom"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

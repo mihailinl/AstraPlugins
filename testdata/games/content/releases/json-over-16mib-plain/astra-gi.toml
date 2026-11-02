@@ -1,0 +1,13 @@
+# content check golden: a 16 MiB JSON (built in memory, gen.py synth) with no asset key -- accepted.
+schema = 1
+
+[integration]
+id = "someone.json-over-16mib-plain"
+name = "Json Over 16mib Plain"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

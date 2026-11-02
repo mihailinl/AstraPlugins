@@ -1,0 +1,21 @@
+# content check golden: the same jar, its VRM declared as mods/avatar.jar!assets/avatar.vrm -- accepted.
+# The jar's Deflated .png is fine: Stored-only is a bundle's rule, not a game archive's.
+schema = 1
+
+[integration]
+id = "someone.jar-vrm-declared"
+name = "Jar Vrm Declared"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "mods/avatar.jar!assets/avatar.vrm"
+kind = "character"
+title = "avatar"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

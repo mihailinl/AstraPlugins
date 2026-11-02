@@ -1,0 +1,22 @@
+# content check golden: a .gltf buffer uri data/Base%20Color.bin, naming the file
+# "data/Base Color.bin" the release holds -- accepted: glTF 2.0 percent-encodes a space, and the
+# content catalogue decodes a uri exactly once before it joins it (manifest.md §2.7.3).
+schema = 1
+
+[integration]
+id = "someone.gltf-uri-space-encoded"
+name = "Gltf Uri Space Encoded"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "models/prop.gltf"
+kind = "art"
+title = "prop"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

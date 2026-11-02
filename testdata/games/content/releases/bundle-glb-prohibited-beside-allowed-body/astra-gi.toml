@@ -1,0 +1,21 @@
+# content check golden: the content catalogue's glb-prohibited-beside-allowed-body.astrachar, byte
+# for byte -- E_CONTENT_LICENCE_REFUSED: every GLB in the bundle is judged, not only its body.
+schema = 1
+
+[integration]
+id = "someone.bundle-glb-prohibited-beside-allowed-body"
+name = "Bundle Glb Prohibited Beside Allowed Body"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

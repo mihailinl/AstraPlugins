@@ -1,0 +1,14 @@
+# content check golden: a jar using zip64 (a prohibited VRM inside) -- accepted and flagged
+# F_CONTENT_ARCHIVE_UNSCANNED: an archive the walk cannot open is shown to moderators, not refused.
+schema = 1
+
+[integration]
+id = "someone.jar-zip64"
+name = "Jar Zip64"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

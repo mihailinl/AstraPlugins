@@ -514,6 +514,372 @@ class GltfFormat(unittest.TestCase):
         self.assertIn("external", ggold.gltf_format_problem(glb_of({"images": [{"uri": "t.png"}]}), "a.glb"))
 
 
+VECTORS = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))
+RELEASES = {v["name"]: v for v in VECTORS["content"]["releases"]}
+
+
+def release(name: str) -> tuple[dict, dict]:
+    """A release golden's files (synthesised ones included) and manifest."""
+    v = RELEASES[name]
+    files = ggold.release_files(ggold.DATA / v["dir"])
+    for rel, synth in v.get("synth", {}).items():
+        files[rel] = ggold.gen_module().synth(synth)
+    return files, ggold.load_doc(v["manifest"])
+
+
+def codes_of(files: dict, doc: dict) -> list[str]:
+    return sorted({f["code"] for f in ggold.release_findings(files, doc)["findings"]})
+
+
+class ContentByBytes(unittest.TestCase):
+    """manifest.md §2.7.1: a name never decides whether a file is content --
+    the content catalogue's own sniff and name rule, over EVERY file."""
+
+    def test_a_glb_under_another_name_is_refused_and_its_glb_name_makes_it_content(self):
+        files, doc = release("glb-named-bin")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        files["data/avatar.vrm"] = files.pop("data/avatar.bin")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"], "named as a GLB it is content-typed, and undeclared")
+
+    def test_only_the_root_manifest_is_exempt(self):
+        files, doc = release("vrm-named-manifest-nested")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        self.assertTrue(ggold.is_manifest("astra-gi.toml"))
+        for path in ("models/astra-gi.toml", "a/b/astra-gi.toml"):
+            with self.subTest(path=path):
+                self.assertFalse(ggold.is_manifest(path))
+                self.assertIsNotNone(ggold.name_problem(path, files["models/astra-gi.toml"]))
+
+    def test_a_text_gltf_under_another_name_is_refused_and_as_gltf_it_is_content(self):
+        files, doc = release("gltf-named-json")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        files["data/avatar.gltf"] = files.pop("data/avatar.json")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"])
+
+    def test_the_sniff_is_the_content_catalogues_own(self):
+        raw = ggold.release_files(ggold.DATA / "content/releases/gltf-named-json")["data/avatar.json"]
+        self.assertTrue(ggold.CG.is_gltf_json(raw))
+        self.assertTrue(ggold.is_text_gltf(ggold.CG.UTF8_BOM + raw), "a UTF-8 BOM is skipped, as three.js does")
+        self.assertTrue(ggold.is_text_gltf(b'{"\\u0061sset": {}}'), "the key is compared decoded")
+        self.assertFalse(ggold.is_text_gltf(b'{"meta": {"asset": {}}}'), "only a top-level key decides")
+
+    def test_a_top_level_asset_must_be_an_object(self):
+        files, doc = release("json-asset-string")
+        self.assertTrue(ggold.CG.is_gltf_json(files["data/hero.json"]), "the content catalogue's sniff says glTF")
+        self.assertEqual(codes_of(files, doc), [], "three.js reads asset.version: a string asset is no glTF")
+        for value, gltf in ((b'{"version": "2.0"}', True), (b' \n {}', True), (b'"2.0"', False), (b"1", False),
+                            (b"[]", False), (b"null", False)):
+            with self.subTest(value=value):
+                self.assertEqual(ggold.is_text_gltf(b'{"asset": ' + value + b"}"), gltf)
+
+    def test_a_utf16_text_is_sniffed_as_what_it_decodes_to_and_otherwise_accepted(self):
+        files, doc = release("localisation-utf16")
+        self.assertIsNotNone(ggold.CG.bom_refusal("lang/strings.json", files["lang/strings.json"]),
+                             "the content catalogue would refuse this file")
+        self.assertEqual(codes_of(files, doc), [], "a game integration's localisation file is not")
+        self.assertTrue(ggold.is_text_gltf(release("gltf-named-json-utf16")[0]["data/avatar.json"]))
+
+    def test_over_16_mib_an_asset_key_refuses_in_any_spelling_and_its_absence_accepts(self):
+        pad = b"x" * (ggold.CG.MAX_GLTF_JSON + 1)
+        for key, refused in [(b'"asset": {', True), (b'"\\u0061ss\\u0065t" :{', True), (b'"asset": 1, "x": {', False),
+                             (b'"assets": {', False), (b'"meta": {', False)]:
+            with self.subTest(key=key):
+                raw = b'{"strings": "' + pad + b'", ' + key + b'}}'
+                self.assertEqual(ggold.name_problem("data/big.json", raw) is not None, refused)
+        self.assertIsNone(ggold.name_problem("data/big.bin", b"\x00" + pad + b'"asset"'), "not JSON-looking")
+
+    def test_a_file_with_no_asset_key_never_reaches_the_slow_sniff(self):
+        import time
+        hostile = ggold.gen_module().synth("json-16mib-many-keys")  # ~4 s each through content's sniff
+        files = {f"data/{i}.json": hostile for i in range(20)}  # the review's 102 s release
+        started = time.monotonic()
+        self.assertEqual(codes_of(files, {}), [])
+        self.assertLess(time.monotonic() - started, 5.0, "twenty 16 MiB files with no asset key, at C speed")
+
+    def test_the_slow_sniff_reads_at_most_the_release_budget_and_then_the_key_refuses(self):
+        one = b'{"meta": {"asset": {}}, "pad": "' + b"x" * 1000 + b'"}'  # an asset key, not a glTF
+        files = {f"data/{i}.json": one for i in range(5)}
+        saved = ggold.SNIFF_BUDGET
+        ggold.SNIFF_BUDGET = 3 * len(one)
+        try:
+            got = ggold.release_findings(files, {})
+        finally:
+            ggold.SNIFF_BUDGET = saved
+        refused = sorted(f["path"] for f in got["findings"])
+        self.assertEqual(refused, ["data/3.json", "data/4.json"], "three fit the budget and are read; the rest refuse on the key")
+        budget = ggold.ReleaseBudget()
+        self.assertFalse(ggold.is_text_gltf(one, budget))
+        self.assertEqual(budget.sniffed, len(one), "the sniff is charged what it reads")
+
+    def test_a_large_file_beginning_ff_fe_is_never_decoded_whole(self):
+        import tracemalloc
+        raw = ggold.gen_module().synth("pak-utf16-bom")
+        tracemalloc.start()
+        try:
+            self.assertIsNone(ggold.name_problem("data/level.pak", raw))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 4 * 1024 * 1024, f"{peak} bytes for a test of the first character")
+
+    def test_a_utf16_key_split_across_decoded_chunks_is_still_found(self):
+        import codecs
+        pad = " " * (ggold._CHUNK // 2 - 14)  # the key begins 3 characters before the first chunk ends
+        text = '{"meta": 1,' + pad + '"asset": {"version": "2.0"}}'
+        raw = codecs.BOM_UTF16_LE + text.encode("utf-16-le")
+        self.assertTrue(ggold._names_key(raw, ggold._ASSET_KEY))
+        self.assertTrue(ggold.is_text_gltf(raw))
+
+    def test_turning_the_rule_off_turns_its_goldens_green_for_the_wrong_reason(self):
+        for name in ("glb-named-bin", "gltf-named-json", "gltf-named-json-utf16", "json-over-16mib-nested-asset"):
+            with self.subTest(name=name):
+                files, doc = release(name)
+                original = ggold.name_problem
+                ggold.name_problem = lambda p, b, budget=None: None
+                try:
+                    self.assertEqual(codes_of(files, doc), [], "without the rule the golden is accepted -- so the golden sees it")
+                finally:
+                    ggold.name_problem = original
+
+
+class GltfUris(unittest.TestCase):
+    """The content catalogue's own uri_refusal (N2, and #131): a uri that is
+    not data: is percent-decoded exactly once before it is joined -- a raw ?
+    # or \\, a malformed or a double escape, and a decoded .. are refused."""
+
+    def test_raw_query_fragment_and_backslash_refuse_even_with_the_literal_file_present(self):
+        for uri in ("a.bin?x=1", "a.bin#frag", "a\\b.bin"):
+            with self.subTest(uri=uri):
+                doc = json.dumps({"buffers": [{"uri": uri}]}).encode()
+                why = ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf", f"m/{uri}"})
+                self.assertIsNotNone(why)
+                self.assertIn("containing", why)
+
+    def test_a_uri_is_decoded_once_and_then_judged(self):
+        def problem(uri, present):
+            return ggold.gltf_format_problem(json.dumps({"buffers": [{"uri": uri}]}).encode(), "m/a.gltf", {"m/a.gltf", *present})
+        self.assertIsNone(problem("a%20b.bin", {"m/a b.bin"}), "a space, encoded as glTF requires, names the decoded file")
+        self.assertIsNotNone(problem("a%20b.bin", {"m/a%20b.bin"}), "the literal encoded name is not what a loader opens")
+        for uri, literal in (("..%2fsecret.bin", "m/..%2fsecret.bin"), ("%252e%252e/s.bin", "m/%2e%2e/s.bin"), ("a%zz.bin", "m/a%zz.bin")):
+            with self.subTest(uri=uri):
+                self.assertIsNotNone(problem(uri, {literal}), "refused although a file of the literal name is present")
+
+    def test_the_goldens_turn_green_for_the_wrong_reason_without_the_decoding(self):
+        files, doc = release("gltf-uri-percent")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        saved = ggold.CG._decode_gltf_uri
+        ggold.CG._decode_gltf_uri = lambda u: u  # join the raw uri, as the gate once did
+        try:
+            self.assertEqual(codes_of(files, doc), [], "the literal file is present, so only decoding refuses it")
+        finally:
+            ggold.CG._decode_gltf_uri = saved
+
+    def test_images_or_buffers_that_are_not_an_array_are_refused_not_skipped(self):
+        for images in ({"0": {"uri": "https://e.invalid/t.png"}}, 5, "t.png"):
+            with self.subTest(images=images):
+                doc = json.dumps({"asset": {"version": "2.0"}, "images": images}).encode()
+                self.assertIn("not an array", ggold.gltf_format_problem(doc, "m/a.gltf", {"m/a.gltf"}))
+
+
+class GltfCaps(unittest.TestCase):
+    """The content catalogue's caps, by its own gltf_problem: 16 MiB per JSON
+    chunk or .gltf before parsing, depth 128, 32 MiB per release; any BOM on
+    a .gltf; and a JSON too deep to parse is a refusal, never a crash."""
+
+    def gen(self):
+        return ggold.gen_module()
+
+    def test_depth_128_passes_and_129_is_refused_in_a_glb_and_a_gltf(self):
+        for depth, ok in ((128, True), (129, False)):
+            text = self.gen().deep_gltf(depth)
+            chunk = text + b" " * ((-len(text)) % 4)
+            glb = struct.pack("<4sII", b"glTF", 2, 20 + len(chunk)) + struct.pack("<I4s", len(chunk), b"JSON") + chunk
+            for raw, path in ((text, "m/a.gltf"), (glb, "m/a.glb")):
+                with self.subTest(depth=depth, path=path):
+                    self.assertEqual(ggold.gltf_format_problem(raw, path) is None, ok)
+
+    def test_a_json_too_deep_to_parse_is_a_format_error_not_a_crash(self):
+        raw = self.gen().synth("gltf-million-deep")
+        with self.assertRaises(ggold.GltfFormatError):
+            ggold._strict_json(raw)
+        self.assertIn("does not parse", ggold.gltf_format_problem(raw, "m/a.gltf"))
+
+    def test_the_16_mib_cap_is_read_before_the_json_is_parsed(self):
+        n = ggold.CG.MAX_GLTF_JSON + 4
+        glb = struct.pack("<4sII", b"glTF", 2, 20 + n) + struct.pack("<I4s", n, b"JSON") + b"{" * n  # never valid JSON
+        self.assertIn("over 16777216", ggold.gltf_format_problem(glb, "m/a.glb"))
+        self.assertIn("over 16777216", ggold.gltf_format_problem(b"{" * (n - 3), "m/a.gltf"))
+
+    def test_any_bom_on_a_gltf_is_refused_by_contents_bom_rule(self):
+        for bom in (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff", b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"):
+            with self.subTest(bom=bom.hex()):
+                raw = bom + b'{"asset": {"version": "2.0"}}'
+                reason = ggold.CG.bom_refusal("m/a.gltf", raw)
+                self.assertIsNotNone(reason)
+                # the BOM rule is what decides, whatever content words it as -- not a parse failure
+                self.assertEqual(ggold.gltf_format_problem(raw, "m/a.gltf"), reason)
+                self.assertIsNone(ggold.gltf_format_problem(raw, "m/a.json"), "the .gltf format rules are a .gltf's")
+
+    def test_a_utf16_text_that_is_no_gltf_is_accepted_though_content_refuses_its_kind(self):
+        # #132 narrowed content's BOM rule to text kinds -- .gltf, .json, .toml must be UTF-8. A game
+        # integration's UTF-16 localisation .json or .toml stays accepted here: the BOM refuses a
+        # glTF candidate only (manifest.md §2.7.1)
+        text = '{"greeting": "Привет"}'
+        for bom, codec in ggold.CG.UNICODE_BOMS.items():
+            for name in ("lang/strings.json", "lang/strings.toml", "lang/strings.txt", "data/blob.bin"):
+                with self.subTest(bom=bom.hex(), name=name):
+                    raw = bom + text.encode(codec)
+                    if name.endswith((".json", ".toml")):
+                        self.assertIsNotNone(ggold.CG.bom_refusal(name, raw), "the content catalogue refuses it")
+                    self.assertEqual(codes_of({name: raw}, {}), [], "a game integration's text is not refused")
+                    gltf = bom + '{"asset": {"version": "2.0"}}'.encode(codec)
+                    self.assertEqual(codes_of({name: gltf}, {}), ["E_CONTENT_FORMAT"], "the same encoding of a glTF is")
+
+    def test_the_release_budget_counts_every_glb_and_gltf_and_two_of_three_fit(self):
+        files, doc = release("gltf-total-over-32mib")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_FORMAT"])
+        del files["models/c.glb"]
+        doc["integration"]["content"] = [e for e in doc["integration"]["content"] if e["path"] != "models/c.glb"]
+        self.assertEqual(codes_of(files, doc), [], "22 MiB of glTF JSON is under the 32 MiB a release may hold")
+
+
+class EmbeddedBundles(unittest.TestCase):
+    """manifest.md §2.7.3: a .astrachar/.astrapack inside a release is judged
+    by the content contract's own ingest_bundle, refusals keeping its codes."""
+
+    ENTRY = {"path": "characters/x.astrachar", "kind": "character", "title": "t", "credit": "c", "licence": "CC0-1.0"}
+
+    def test_the_refusal_is_contents_own_code_naming_the_inner_path(self):
+        files, doc = release("bundle-glb-prohibited-beside-allowed-body")
+        (f,) = ggold.release_findings(files, doc)["findings"]
+        self.assertEqual(f["code"], "E_CONTENT_LICENCE_REFUSED")
+        self.assertEqual(f["detail"], "characters/scout.astrachar!characters/aiko/accessories/hat/hat.glb")
+
+    def test_a_manifest_that_is_not_an_object_is_refused_with_contents_code(self):
+        raw = ggold.gen_module().zip_of([{"name": "astrachar.json", "data": b"[]"}])
+        with self.assertRaises(ggold.CG.Refusal):  # since #131 content refuses it; before, it raised AttributeError
+            ggold.CG.ingest_bundle(raw, {})
+        pl = ggold.part_licence(self.ENTRY, raw)
+        self.assertEqual(pl["gate_status"], "bundle")
+        self.assertEqual(pl["refusal"]["code"], "E_BUNDLE_MANIFEST")
+
+    def test_a_shape_content_raises_on_is_refused_never_a_crash(self):
+        files, _doc = release("bundle-model-aiko")
+        raw = files["characters/aiko.astrachar"]
+        real = ggold.CG.ingest_bundle
+
+        def raises(_raw, _ctx):
+            raise TypeError("a shape the content checker does not handle")
+        ggold.CG.ingest_bundle = raises
+        try:
+            pl = ggold.part_licence(self.ENTRY, raw)
+        finally:
+            ggold.CG.ingest_bundle = real
+        self.assertEqual((pl["gate_status"], pl["refusal"]["code"]), ("bundle", "E_CONTENT_FORMAT"))
+
+    def test_a_valid_bundle_accepts_and_a_declared_licence_covers_its_parts(self):
+        files, doc = release("bundle-animset-wave")
+        self.assertEqual(codes_of(files, doc), [])
+        doc["integration"]["content"][0]["licence"] = ""
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_LICENCE_UNDECLARED"], "nothing else covers the animations")
+
+    def test_a_renamed_bundle_named_back_is_content_typed_and_a_plain_zip_is_not_a_bundle(self):
+        files, doc = release("bundle-renamed")
+        files["packs/wave.astrapack"] = files.pop("packs/wave.zip")
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"])
+        jar = ggold.gen_module().zip_of([{"name": "META-INF/MANIFEST.MF", "data": b"Manifest-Version: 1.0\n"}])
+        self.assertIsNone(ggold.name_problem("mods/loader.jar", jar), "a game's own zip is not a bundle")
+
+    def test_an_unknown_inside_needs_the_declared_licence(self):
+        files, doc = release("bundle-vrm0-licence-other")
+        got = ggold.release_findings(files, doc)
+        self.assertEqual([f["flag"] for f in got["flags"]], ["F_CONTENT_VRM_META_UNKNOWN"])
+        doc["integration"]["content"][0]["licence"] = ""
+        self.assertEqual(codes_of(files, doc), ["E_CONTENT_LICENCE_UNDECLARED"])
+
+    def test_each_bundle_is_unzipped_once(self):
+        files, doc = release("bundle-model-aiko")
+        calls = []
+        real = ggold.CG.walk_zip
+        ggold.CG.walk_zip = lambda b: calls.append(len(b)) or real(b)
+        try:
+            self.assertEqual(codes_of(files, doc), [])
+        finally:
+            ggold.CG.walk_zip = real
+        self.assertEqual(len(calls), 1, "content's walk_zip ran once for the one bundle")
+
+    def test_a_bundles_gltf_json_is_charged_to_the_release_before_it_is_parsed(self):
+        files, doc = release("bundle-gltf-total-over-32mib")
+        parsed = []
+        real = ggold.CG.gltf_problem
+        ggold.CG.gltf_problem = lambda p, b: parsed.append(p) or real(p, b)
+        try:
+            (f,) = ggold.release_findings(files, doc)["findings"]
+        finally:
+            ggold.CG.gltf_problem = real
+        self.assertEqual(f["path"], "packs/c.astrapack", "the bundle that takes the release past 32 MiB")
+        self.assertEqual(len(parsed), 2, "the third bundle's .gltf is never parsed")
+        del files["packs/c.astrapack"]
+        doc["integration"]["content"].pop()
+        self.assertEqual(codes_of(files, doc), [], "two of them are 22 MiB")
+
+    def test_the_cloaked_bundle_turns_green_for_the_wrong_reason_under_a_lenient_reader(self):
+        import io
+        import zipfile
+        files, doc = release("bundle-gap-between-entries")
+        self.assertEqual(codes_of(files, doc), ["E_ZIP_HEADERS_INCONSISTENT"])
+        raw = files["characters/scout.astrachar"]
+        zipfile.ZipFile(io.BytesIO(raw)).testzip()  # Python's zipfile reads it without complaint
+
+
+class GameArchives(unittest.TestCase):
+    """manifest.md §2.7.1: a game's own zip, one level deep, by content's walk_zip."""
+
+    def test_the_walk_runs_under_game_archive_limits_and_restores_contents_own(self):
+        seen = []
+        real = ggold.CG.walk_zip
+        before = (ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY)
+        ggold.CG.walk_zip = lambda b: seen.append((ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY)) or real(b)
+        try:
+            files, doc = release("jar-vrm-declared")
+            self.assertEqual(codes_of(files, doc), [])
+        finally:
+            ggold.CG.walk_zip = real
+        self.assertIn((65_536, 512 * 1024 * 1024, ()), seen)
+        self.assertEqual((ggold.CG.MAX_ENTRIES, ggold.CG.MAX_TOTAL, ggold.CG.STORED_ONLY), before)
+
+    def test_an_archive_over_the_limits_is_flagged_never_refused(self):
+        files, doc = release("jar-vrm-prohibited")
+        saved = ggold.CONTAINER_MAX_TOTAL
+        ggold.CONTAINER_MAX_TOTAL = 100  # the jar holds some 400 bytes
+        try:
+            got = ggold.release_findings(files, {})
+        finally:
+            ggold.CONTAINER_MAX_TOTAL = saved
+        self.assertEqual(got["findings"], [])
+        self.assertEqual([(f["flag"], f["path"]) for f in got["flags"]], [("F_CONTENT_ARCHIVE_UNSCANNED", "mods/avatar.jar")])
+        self.assertIn("E_ARCHIVE_TOO_LARGE", got["flags"][0]["detail"])
+
+    def test_a_part_inside_an_archive_is_declared_by_archive_bang_inner_path(self):
+        doc = ggold.load_doc("content/releases/jar-vrm-declared/astra-gi.toml")
+        self.assertEqual(doc["integration"]["content"][0]["path"], "mods/avatar.jar!assets/avatar.vrm")
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        ok, detail = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok, f"the manifest schema admits '!' in a content path: {detail}")
+
+    def test_a_top_level_file_named_like_an_archive_member_is_refused(self):
+        files, doc = release("jar-vrm-declared")
+        files["mods/avatar.jar!assets/avatar.vrm"] = files["mods/avatar.jar"]
+        self.assertIn("E_CONTENT_FORMAT", codes_of(files, doc))
+
+    def test_a_non_bundle_zip_is_an_archive_whatever_it_is_called(self):
+        raw = ggold.release_files(ggold.DATA / "content/releases/jar-vrm-undeclared")["mods/avatar.jar"]
+        for name in ("mods/avatar.jar", "mods/avatar.zip", "data/blob.bin"):
+            with self.subTest(name=name):
+                self.assertTrue(ggold.is_container(name, raw))
+        self.assertFalse(ggold.is_container("packs/x.astrapack", raw), "a bundle name is a bundle's")
+
+
 class VrmGoldensGenerator(unittest.TestCase):
     def test_every_vrm_golden_is_what_gen_py_writes(self):
         gen = ggold.DATA / "content/vrm/gen.py"

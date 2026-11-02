@@ -1,0 +1,22 @@
+# content check golden: the content catalogue's vrm0-licence-other.astrachar, byte for byte --
+# held there for a moderator; here published flagged F_CONTENT_VRM_META_UNKNOWN, since the part declares
+# its licence (manifest.md §2.7.3).
+schema = 1
+
+[integration]
+id = "someone.bundle-vrm0-licence-other"
+name = "Bundle Vrm0 Licence Other"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "characters/scout.astrachar"
+kind = "character"
+title = "scout"
+credit = "someone"
+licence = "CC-BY-4.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

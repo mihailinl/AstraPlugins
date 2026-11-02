@@ -1,0 +1,14 @@
+# content check golden: a jar holding a GLB named assets/avatar.bin -- E_CONTENT_FORMAT: inside an
+# archive, too, a name never decides whether a file is content.
+schema = 1
+
+[integration]
+id = "someone.jar-glb-named-bin"
+name = "Jar Glb Named Bin"
+version = "0.1.0"
+license = "MIT"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
