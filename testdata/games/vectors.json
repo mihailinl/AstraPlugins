@@ -293,6 +293,10 @@
   },
 
   "link": {
+    "digest": [
+      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "e26a440ebf1c3cacc9891fc8b031d9c0d8cbde9276ceeba68d1866a972a35ea2", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
+      { "name": "edge", "manifest": "link/digest/edge.toml", "digest": "e1ddacccb882c0a240d26f933b883cc9ea23da7e50cfb3679c432539d5b95dd2", "note": "keys out of order, non-ASCII, a quote, a backslash, an empty array, absent keys left absent; checked against two other JCS implementations" }
+    ],
     "message_schema": "spec/games/schemas/link-v1-message.schema.json",
     "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema" },

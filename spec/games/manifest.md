@@ -215,6 +215,36 @@ at most 16 tools, 16 triggers and 32 events; every named JSON Schema file
 patterns (§6 of `link-v1.md` gives the exact restricted profile and its own
 schema).
 
+#### 2.6.1 The link digest
+
+The consent digest of a GI's AI-facing surface, carried as `link.digest` in
+its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
+`gi-probe check` compute it by this one rule, and each is tested against
+`testdata/games/vectors.json`'s `link.digest` vectors:
+
+1. Take the `[integration.link]` table of the astra-gi.toml **as shipped in
+   the release**, parsed as TOML 1.0, **exactly as written**:
+   - **No default is added** for a key the table leaves out. An absent
+     optional key (`skill`, `tools`, `triggers`, `events`) is absent, never
+     `false`, `[]` or `null`.
+   - Writing a default out explicitly therefore changes the digest. That
+     asks the player to consent again, which is the conservative reading:
+     no two implementations ever have to agree on what a default is.
+2. Map it to JSON: a string stays a string, a boolean a boolean, an array an
+   array, a table an object. The table's schema admits nothing else, so no
+   number, float or datetime ever reaches the digest.
+3. Canonicalise with RFC 8785 (JCS), the same function as every other JCS
+   in these specs (`tools/contentlite.py`):
+   - members are sorted by their names' UTF-16 code units;
+   - strings are UTF-8, escaped only as RFC 8785 requires.
+4. `digest` = lowercase hex of SHA-256 over those bytes.
+
+A GI with no `[integration.link]` table has `link: null` and no digest. The
+digest covers the table's text only. The bytes of the files it names are
+covered separately: `link.skill_digest` covers the skill file, and
+`schema_digests` covers every `params`/`data` schema. A client asks for
+consent again when any of the three changes.
+
 ### 2.7 `[[integration.content]]` — this GI's own animations, models, art and audio
 
 ```toml

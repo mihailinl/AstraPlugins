@@ -1,0 +1,11 @@
+# link digest golden (manifest.md §2.6.1): keys written out of order, a
+# non-ASCII description, a quote and a backslash, an empty array. The digest
+# hashes this table exactly as parsed: no default is added for any key it
+# leaves out.
+[integration.link]
+shares_other_players = true
+tools = [
+  { params = "astra/tools/wave.json", name = "wave", description = "Помахать — \"привет\" \\ 👋" },
+]
+events = []
+context = false
