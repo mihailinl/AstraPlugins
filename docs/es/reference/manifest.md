@@ -53,9 +53,9 @@ Un `kind` que no es una cadena también se rechaza: `kind` must be a
 string such as "plugin", not &lt;type&gt;.
 
 **`kind`.** **Reservada, fail-closed: qué TIPO de elemento del
-Workshop es este.** Ausente o `"plugin"`.
+Taller es este.** Ausente o `"plugin"`.
 
-El Workshop llevará otros tipos (integraciones de juegos,
+El Taller llevará otros tipos (integraciones de juegos,
 bibliotecas, personajes, paquetes de animación — `MARKETPLACE_PLAN.md`),
 cada uno con su propio instalador. El resto de este struct es
 deliberadamente tolerante con las claves desconocidas, así que sin esto
