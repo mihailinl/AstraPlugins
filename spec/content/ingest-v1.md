@@ -28,6 +28,29 @@ the `begin` door refuses **every** content kind with
 as a closed state ("publishing is not open yet"), never as an error, and does
 not retry it as one. RU stays closed the same way until Stage 2.
 
+**Publishing is closed by REGION where the operator has not opened it**
+(design note §7a, `arch/after-m1` `c791fe7d9`; the owner, 2026-11-01: EU and
+EEA closed at launch, browsing and downloads open everywhere). The knob
+`content.publish_regions = {mode: allow|deny, regions: [ISO 3166-1 alpha-2]}`
+compiles to `{mode: allow, regions: []}`, which lets nobody publish. The region
+is the account's country claim if minice-id ever carries one, and otherwise the
+country the edge derives from the request (a trusted header). **An unknown
+country is closed.** Nothing about it is stored. `begin` refuses with
+**`E_PUBLISH_REGION_CLOSED`**, and a client renders it as a closed state
+(«Публикация в вашем регионе пока недоступна»), never as an error.
+
+**The order of the `begin` checks:**
+1. `E_CONTENT_PUBLISHING_CLOSED`;
+2. the publish permission;
+3. `E_PUBLISH_REGION_CLOSED`;
+4. everything below.
+
+**The eligibility read.** `GET content/publish/eligibility?kind=<kind>` answers
+`{allowed: bool, reason: null | "publishing_closed" | "not_owner" |
+"region_closed" | "suspended"}` from the SAME function as `begin`'s first three
+checks and the sanction check, so a client can show the state before the person
+starts and the two answers can never disagree.
+
 At `begin`, against the DECLARED values: the size caps (§2), the author's
 quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, and the declared
 bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`). At `finalize`: the

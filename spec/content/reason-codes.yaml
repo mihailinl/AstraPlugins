@@ -24,6 +24,8 @@
 ingest:
   # the begin door, before any other check: no CSAM scanner configured (ingest-v1.md §1, design §8a)
   E_CONTENT_PUBLISHING_CLOSED: live
+  # the begin door, after the permission: the request's region is not open to publishing (ingest-v1.md §1, design §7a)
+  E_PUBLISH_REGION_CLOSED: live
   E_ZIP_END_RECORD: live
   E_ARCHIVE_TOO_MANY_ENTRIES: live
   E_ARCHIVE_ENCRYPTED: live
