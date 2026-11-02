@@ -710,12 +710,30 @@ class GltfCaps(unittest.TestCase):
         self.assertIn("over 16777216", ggold.gltf_format_problem(glb, "m/a.glb"))
         self.assertIn("over 16777216", ggold.gltf_format_problem(b"{" * (n - 3), "m/a.gltf"))
 
-    def test_any_bom_on_a_gltf_is_refused_and_the_same_bytes_under_another_name_are_only_sniffed(self):
+    def test_any_bom_on_a_gltf_is_refused_by_contents_bom_rule(self):
         for bom in (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff", b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"):
             with self.subTest(bom=bom.hex()):
                 raw = bom + b'{"asset": {"version": "2.0"}}'
-                self.assertIn("byte-order mark", ggold.gltf_format_problem(raw, "m/a.gltf"))
-                self.assertIsNone(ggold.gltf_format_problem(raw, "m/a.json"))
+                reason = ggold.CG.bom_refusal("m/a.gltf", raw)
+                self.assertIsNotNone(reason)
+                # the BOM rule is what decides, whatever content words it as -- not a parse failure
+                self.assertEqual(ggold.gltf_format_problem(raw, "m/a.gltf"), reason)
+                self.assertIsNone(ggold.gltf_format_problem(raw, "m/a.json"), "the .gltf format rules are a .gltf's")
+
+    def test_a_utf16_text_that_is_no_gltf_is_accepted_though_content_refuses_its_kind(self):
+        # #132 narrowed content's BOM rule to text kinds -- .gltf, .json, .toml must be UTF-8. A game
+        # integration's UTF-16 localisation .json or .toml stays accepted here: the BOM refuses a
+        # glTF candidate only (manifest.md §2.7.1)
+        text = '{"greeting": "Привет"}'
+        for bom, codec in ggold.CG.UNICODE_BOMS.items():
+            for name in ("lang/strings.json", "lang/strings.toml", "lang/strings.txt", "data/blob.bin"):
+                with self.subTest(bom=bom.hex(), name=name):
+                    raw = bom + text.encode(codec)
+                    if name.endswith((".json", ".toml")):
+                        self.assertIsNotNone(ggold.CG.bom_refusal(name, raw), "the content catalogue refuses it")
+                    self.assertEqual(codes_of({name: raw}, {}), [], "a game integration's text is not refused")
+                    gltf = bom + '{"asset": {"version": "2.0"}}'.encode(codec)
+                    self.assertEqual(codes_of({name: gltf}, {}), ["E_CONTENT_FORMAT"], "the same encoding of a glTF is")
 
     def test_the_release_budget_counts_every_glb_and_gltf_and_two_of_three_fit(self):
         files, doc = release("gltf-total-over-32mib")

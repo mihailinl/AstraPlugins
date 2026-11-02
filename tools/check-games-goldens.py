@@ -360,7 +360,7 @@ def find_content_files(root: pathlib.Path) -> dict[str, bytes]:
 #     which JSON decodes to the same key -- and accepted otherwise. Nothing
 #     that large is a glTF the gate would accept anyway (16 MiB cap, below).
 
-_BOM_CODECS = dict(zip(CG.UNICODE_BOMS, ("utf-32-be", "utf-32-le", "utf-16-le", "utf-16-be")))
+_BOM_CODECS = dict(CG.UNICODE_BOMS)  # content's own mark -> encoding map, UTF-32 first (#132)
 _ASSET_KEY = re.compile(rb'"(?:a|\\u0061)(?:s|\\u0073)(?:s|\\u0073)(?:e|\\u0065)(?:t|\\u0074)"')
 # ... whose value is an object: three.js reads asset.version, so a glTF's asset is one. A games-only
 # difference (manifest.md §2.7.1): {"asset": "textures/hero.png"} is a game's data, not a glTF.
@@ -751,10 +751,12 @@ def gltf_format_problem(raw: bytes, path: str | None = None, present=None) -> st
     if not is_glb:
         # glTF 2.0 is UTF-8 JSON without a byte-order mark: any BOM on a .gltf,
         # UTF-8 or UTF-16/32, is refused by the content catalogue's own rule
-        # (N1) -- here, and only for a .gltf (§2.7.1's deliberate difference)
+        # (N1, narrowed by #132 to text kinds) -- called here for a .gltf ONLY:
+        # content also refuses a UTF-16 .json or .toml, which a game
+        # integration ships as localisation (§2.7.1's deliberate difference)
         why = CG.bom_refusal(path, raw) or _cap_problem(path, raw)
         if why:
-            return f"a .gltf that {why}" if why.startswith("begins") else why
+            return why
     try:
         doc = parse_glb_strict(raw) if is_glb else _strict_json(raw)
     except GltfFormatError as e:

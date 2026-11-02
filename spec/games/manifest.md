@@ -341,9 +341,11 @@ integration ships arbitrary files and a content bundle does not:
   `asset` beside a top-level string one still errs toward refusing.
 
 - **A UTF-16/32 byte-order mark is not refused.** The content catalogue
-  refuses any entry that begins with one, since no content part can; a game
-  integration carries UTF-16LE localisation files (golden
-  `localisation-utf16`, accepted). Such a text is instead sniffed **as the
+  refuses one on its text kinds — `.gltf`, `.json` and `.toml` must be UTF-8
+  (ingest-v1.md §3 step 10, narrowed by #132; any other entry only when it
+  decodes to a glTF) — and a game integration carries UTF-16LE
+  localisation `.json` and `.toml` files (golden `localisation-utf16`,
+  accepted). Here the mark refuses a `.gltf` alone (§2.7.3). Such a text is instead sniffed **as the
   text it decodes to** — a piece at a time, never the whole file for a test
   of its first character (golden `pak-utf16-bom`: a 32 MiB archive that
   begins `FF FE`, checked within 4 MiB of memory; decoded whole, a 128 MiB
