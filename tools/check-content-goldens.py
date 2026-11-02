@@ -1032,17 +1032,31 @@ def has_duplicate_json(b: bytes) -> bool:
 
 
 UTF8_BOM = b"\xef\xbb\xbf"
-# N1: UTF-32 first, since FF FE 00 00 also begins FF FE. No allowed part type can begin with one:
-# GLB "glTF", PNG 89 50, JPEG FF D8, WebP/WAV "RIFF", KTX2 AB 4B, OGG "OggS", FLAC "fLaC", FBX
-# "Kaydara"/"; FBX", TOML and JSON text (UTF-8 by their specs), MP3 "ID3" or a Layer III frame
-# FF E2/E3/F2/F3/FA/FB -- FF FE would be an MPEG-1 Layer I frame, which is not MP3.
-UNICODE_BOMS = (b"\x00\x00\xfe\xff", b"\xff\xfe\x00\x00", b"\xff\xfe", b"\xfe\xff")
+# N1, revised (astra-companion-5f): UTF-32 first, since FF FE 00 00 also begins FF FE.
+UNICODE_BOMS = {b"\x00\x00\xfe\xff": "utf-32-be", b"\xff\xfe\x00\x00": "utf-32-le",
+                b"\xff\xfe": "utf-16-le", b"\xfe\xff": "utf-16-be"}
+TEXT_EXTS = (".gltf", ".json", ".toml")  # text kinds: UTF-8 by their own specs
+
+
+def decoded_has_asset(b: bytes, bom: bytes) -> bool:
+    """A non-text entry led by a UTF-16/32 BOM: decoded in that encoding, is it optional JSON
+    whitespace, then `{`, then a top-level `asset` key? (The same tolerant sniff as S5.)"""
+    text = b[len(bom):].decode(UNICODE_BOMS[bom], "replace")
+    return text.lstrip(" \t\r\n")[:1] == "{" and top_level_has_asset(text)
 
 
 def bom_refusal(p: str, b: bytes) -> str | None:
+    """Text kinds must be UTF-8: a UTF-16/32 BOM refuses them, and a UTF-8 BOM refuses a .gltf
+    (glTF 2.0) and is skipped by the sniff elsewhere. ANY OTHER entry is binary as far as a BOM
+    goes -- a .bin buffer of floats can begin FF FE -- and is refused only when it decodes to a
+    glTF: a random binary would need a BOM, then `{` in that encoding, then a top-level `asset`."""
     for bom in UNICODE_BOMS:
         if b.startswith(bom):
-            return f"begins with the UTF-16/32 byte-order mark {bom.hex()}"
+            if p.lower().endswith(TEXT_EXTS):
+                return f"a text file ({p.rsplit('.', 1)[-1]}) must be UTF-8, not {UNICODE_BOMS[bom]}"
+            if decoded_has_asset(b, bom):
+                return f"a glTF encoded {UNICODE_BOMS[bom]} under a non-.gltf name"
+            return None
     if p.lower().endswith(".gltf") and b.startswith(UTF8_BOM):
         return "a .gltf must be UTF-8 JSON without a byte-order mark (glTF 2.0)"
     return None
