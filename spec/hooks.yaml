@@ -209,7 +209,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:444"
+    daemon_calls: "src/plugins/manager/voice.rs:438"
     summary: "Extra TTS settings fields, rendered by DynamicField on the Voice page."
     note: "Routed through the daemon's `optional_hook` helper (manager/voice.rs:450), so UNIMPLEMENTED means absent and a real fault is still a fault."
     rust: stable
@@ -240,7 +240,7 @@ hooks:
     routing: live
     since: 1
     streaming: bidi
-    daemon_calls: "src/plugins/manager/voice.rs:221"
+    daemon_calls: "src/plugins/manager/voice.rs:218"
     summary: "Audio chunks in, transcript events out; carries both one-shot and streaming STT."
     note: "Also driven live at manager/voice.rs:342. Channel capacity on both ends is spec/limits.yaml:stt_audio_channel_capacity."
     rust: stable
@@ -255,7 +255,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:412"
+    daemon_calls: "src/plugins/manager/voice.rs:406"
     summary: "The language codes this recognizer accepts."
     rust: stable
     python: stable
@@ -269,7 +269,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:468"
+    daemon_calls: "src/plugins/manager/voice.rs:462"
     summary: "Extra STT settings fields, rendered by DynamicField on the Voice page."
     rust: stable
     python: stable
@@ -283,7 +283,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:492"
+    daemon_calls: "src/plugins/manager/voice.rs:486"
     summary: "Load the recognizer model, with the daemon-resolved path and GPU toggle."
     note: "manager/voice.rs:488 routes it through `optional_hook`, which is why this is optional."
     rust: stable
@@ -298,7 +298,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:565"
+    daemon_calls: "src/plugins/manager/voice.rs:559"
     summary: "Drop the recognizer model so idle-unload actually frees VRAM."
     rust: stable
     python: stable
@@ -312,7 +312,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/voice.rs:516"
+    daemon_calls: "src/plugins/manager/voice.rs:510"
     summary: "Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload."
     note: "manager/voice.rs:530 maps an absent hook to NotNeeded, which is the pre-hook behaviour."
     rust: stable
@@ -361,7 +361,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:519"
+    daemon_calls: "src/plugins/manager/capabilities.rs:530"
     summary: "Answer one web search for the assistant's web_search tool, as a provider the user picks."
     note: "A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence."
     rust: stable
@@ -407,7 +407,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/music.rs:142"
+    daemon_calls: "src/plugins/manager/music.rs:157"
     summary: "List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue."
     rust: stable
     python: stable
@@ -435,7 +435,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/music.rs:172"
+    daemon_calls: "src/plugins/manager/music.rs:187"
     summary: "Start, or queue next / at the end, an item or the first match for words — what the AI's play_music and the widget's search rows call."
     rust: stable
     python: stable
@@ -450,7 +450,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:342"
+    daemon_calls: "src/plugins/manager/capabilities.rs:346"
     summary: "Run one command-step action this plugin contributed."
     rust: stable
     python: stable
@@ -493,7 +493,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/capabilities.rs:442"
+    daemon_calls: "src/plugins/manager/capabilities.rs:446"
     summary: "Which of this plugin's trigger types a command is currently listening for."
     note: "manager/capabilities.rs:438 routes it through `optional_hook`."
     rust: stable
@@ -538,7 +538,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/manager/ui_surface.rs:460"
+    daemon_calls: "src/plugins/manager/ui_surface.rs:494"
     summary: "The user saved new settings; here is the whole config as JSON."
     rust: stable
     python: stable

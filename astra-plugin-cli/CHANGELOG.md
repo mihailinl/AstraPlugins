@@ -28,6 +28,62 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [Unreleased]
+
+### Added
+
+- **The UI Kit matches Astra `ff6f952e92c4` (main).** `astra-plugin new` vendors
+  the kit's declarations into `frontend/vendor/astra-plugin-ui/`, resynced
+  after `ASTRA_REF` was deleted and `proto-upstream` started checking out
+  Astra `main` again instead of the `release/0.2.7-final` branch that had been
+  hiding this drift. The snapshot gains:
+  - `Slider` takes `marks`, `aria-label` and `aria-valuetext`;
+  - `CardBaseProps.variant` gains `"solid"`, alongside `"surface"` and
+    `"subtle"`;
+  - the theme exposes `--color-plate`, `--color-plate-hover`,
+    `--surface-frost`, `--surface-standalone`, `--surface-standalone-hover`
+    and `--surface-standalone-raised`;
+  - three icons: `briefcase`, `waveform` and `astroid`.
+  Nothing was removed or renamed.
+
+- **The plugin protocol follows Astra main to `ff6f952e92c4`.**
+  `SettingsResponse` gains `fast_reasoning_effort = 36` (optional string, the
+  saved reasoning default for Fast chats), and `FieldSchema` gains
+  `validation_pattern = 19` / `validation_message = 20` (an optional Unicode
+  regexp and its i18n refusal string). Protocol stays generation 1; nothing
+  removed or renumbered.
+
+### Changed
+
+- **The vendored `astra-plugin-manifest` is 0.1.1.** Only its README moved: a
+  path that still said `astra-rs/astra-plugin-manifest` after Astra flattened
+  its tree. C37 refuses a vendored crate whose bytes differ from the version
+  crates.io already holds, because the CLI's release skips a version that is
+  already published and would ship the older copy; so the README fix is a
+  patch release of the crate, published before this CLI. No code changed.
+
+### Fixed
+
+- **A bundle built on Windows verifies, and hashes like the same build on
+  Linux.** Since the move to `zip` 9, every entry of a Windows build was
+  recorded as made by DOS, because `zip` 9 takes the host's system unless told
+  otherwise. DOS attributes carry no Unix mode, so the build's own check read a
+  synthesised `0664` back and refused with `Mode mismatch … MANIFEST says 0644,
+  archive has 0664`. The same sources also produced a different digest on each
+  OS. Every entry is now made by Unix on every host. The bug was never released:
+  it came in after 0.5.1, and CI's Windows scaffold jobs caught it on `master`.
+
+### Security
+
+- **Opening a bundle refuses archives that two readers would read
+  differently** (`zip` 9.2.0 plus our own checks): local and central headers must
+  agree (`validate_header_consistency`), a deflate stream must end exactly at its
+  recorded compressed size, and an entry may not carry general-purpose bit 3 (a
+  trailing data descriptor) or the `0x7075` Unicode Path extra field. A manifest
+  entry with a ZIP64 size is refused. The vectors these checks are tested against
+  live in `testdata/zip-cloaking/`, shared by digest with the registry bot, the
+  games catalogue, minice and the daemon. MSRV is now 1.88.
+
 ## [0.5.1] — 2026-10-25
 
 Additions only, so the patch slot ([`docs/en/versioning.md`](../docs/en/versioning.md)).

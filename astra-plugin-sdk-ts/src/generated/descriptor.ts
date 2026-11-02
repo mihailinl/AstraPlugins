@@ -4524,6 +4524,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "widgetPanel": {
               "type": "WidgetPanelSettings",
               "id": 24
+            },
+            "reminders": {
+              "type": "RemindersSettings",
+              "id": 25
+            }
+          }
+        },
+        "RemindersSettings": {
+          "fields": {
+            "sound": {
+              "type": "bool",
+              "id": 1
+            },
+            "soundVolume": {
+              "type": "uint32",
+              "id": 2
             }
           }
         },
@@ -5460,6 +5476,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "workWorkerModel"
               ]
+            },
+            "_fastReasoningEffort": {
+              "oneof": [
+                "fastReasoningEffort"
+              ]
             }
           },
           "fields": {
@@ -5630,6 +5651,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "workWorkerModel": {
               "type": "string",
               "id": 35,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "fastReasoningEffort": {
+              "type": "string",
+              "id": 36,
               "options": {
                 "proto3_optional": true
               }
@@ -6705,6 +6733,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "advanced": {
               "type": "bool",
               "id": 18
+            },
+            "validationPattern": {
+              "type": "string",
+              "id": 19
+            },
+            "validationMessage": {
+              "type": "string",
+              "id": 20
             }
           }
         },

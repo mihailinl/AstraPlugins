@@ -4259,13 +4259,48 @@ jobs:
           # produces, and testdata/bundles/SHA256SUMS pins the bytes that all
           # three repositories share. The exemption is a path prefix, so an
           # `.astraplugin` committed anywhere else is still caught.
+          #
+          # testdata/zip-cloaking/*.zip is the second exception, for the same
+          # reason: hand-built hostile archives that every reader of an
+          # installable archive (this CLI, the registry bot, the games
+          # catalogue, minice's content ingest, the daemon) pins by the sha256
+          # in that directory's SHA256SUMS. C10b below is what keeps them
+          # honest: the committed generators must reproduce exactly those bytes.
           VECTORS = "testdata/bundles/"
+          CLOAKING = "testdata/zip-cloaking/"
           artifacts = [f for f in tracked
                        if not (f.startswith(VECTORS) and f.endswith(".astraplugin"))
+                       and not (f.startswith(CLOAKING) and f.endswith(".zip"))
                        and (re.search(r"(^|/)(target|node_modules|__pycache__)/", f)
                             or f.endswith((".exe", ".pyc", ".astraplugin", ".zip",
                                            ".crate", ".tgz")))]
           check(not artifacts, "C10 no build artifacts are tracked", repr(artifacts))
+
+          # ── C10b  the zip-cloaking vectors are what their generators make ──
+          # Run each generator in an empty directory and compare every archive
+          # it writes that SHA256SUMS names with both the committed bytes and
+          # the pinned digest. An archive edited by hand, a generator edited
+          # without regenerating, or a SHA256SUMS that drifted from either all
+          # fail here instead of in five other repositories' copies.
+          import hashlib, shutil, tempfile
+          cloak = pathlib.Path(CLOAKING)
+          pinned = dict(reversed(l.split()) for l in (cloak / "SHA256SUMS").read_text().splitlines() if l.strip())
+          committed = sorted(f[len(CLOAKING):] for f in tracked if f.startswith(CLOAKING) and f.endswith(".zip"))
+          check(sorted(pinned) == committed, "C10b SHA256SUMS names exactly the committed zip-cloaking archives",
+                f"pinned {sorted(pinned)}, committed {committed}")
+          made = {}
+          for gen in sorted(cloak.glob("gen*.py")):
+              with tempfile.TemporaryDirectory() as tmp:
+                  shutil.copy(gen, tmp)
+                  subprocess.run([sys.executable, gen.name], cwd=tmp, check=True)
+                  for out in pathlib.Path(tmp).glob("*.zip"):
+                      made[out.name] = out.read_bytes()
+          for name in committed:
+              body = (cloak / name).read_bytes()
+              digest = hashlib.sha256(body).hexdigest()
+              check(digest == pinned.get(name), f"C10b {name} matches its SHA256SUMS pin", f"{digest} vs {pinned.get(name)}")
+              check(made.get(name) == body, f"C10b {name} is what its committed generator writes",
+                    "not written by any gen*.py" if name not in made else "the generator writes different bytes")
 
           # ── C11  the CLI's SDK pins accept the SDKs in this tree ───────────
           # A scaffold resolves its pin against a REGISTRY, so the pin must name

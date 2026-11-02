@@ -15,7 +15,7 @@ type ActionableCardProps = {
 };
 interface CardBaseProps extends React.HTMLAttributes<HTMLDivElement> {
     padding?: "none" | "sm" | "md" | "lg";
-    variant?: "surface" | "subtle";
+    variant?: "surface" | "subtle" | "solid";
     selected?: boolean;
     as?: "div" | "section" | "article" | "li";
 }
