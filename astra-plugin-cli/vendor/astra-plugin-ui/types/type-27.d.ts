@@ -12,5 +12,8 @@ export interface SliderProps {
     id?: string;
     className?: string;
     formatValue?: (value: number) => string;
+    marks?: boolean;
+    "aria-label"?: string;
+    "aria-valuetext"?: string;
 }
-export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, }: SliderProps): import("react/jsx-runtime").JSX.Element;
+export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, marks, "aria-label": ariaLabel, "aria-valuetext": ariaValueText, }: SliderProps): import("react/jsx-runtime").JSX.Element;

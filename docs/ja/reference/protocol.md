@@ -4,10 +4,10 @@
 
 プロトコル世代 **1**。10 個のサービス、192 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: 18f46f438afa12f6…`
+`astra.proto` から生成された一部(`surface-sha256: b519b8f732b021bc…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:b15b0c45d21c6346…` に固定されています。3 つの SDK
+によって `sha256:4b0766209eb1f83c…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
