@@ -731,22 +731,33 @@ class EmbeddedBundles(unittest.TestCase):
 
     ENTRY = {"path": "characters/x.astrachar", "kind": "character", "title": "t", "credit": "c", "licence": "CC0-1.0"}
 
-    def cgen(self):
-        return ggold.CG.gen_module()
-
     def test_the_refusal_is_contents_own_code_naming_the_inner_path(self):
         files, doc = release("bundle-glb-prohibited-beside-allowed-body")
         (f,) = ggold.release_findings(files, doc)["findings"]
         self.assertEqual(f["code"], "E_CONTENT_LICENCE_REFUSED")
         self.assertEqual(f["detail"], "characters/scout.astrachar!characters/aiko/accessories/hat/hat.glb")
 
-    def test_a_manifest_content_cannot_read_is_refused_never_a_crash(self):
-        raw = self.cgen().zip_bytes([{"name": "astrachar.json", "data": b"[]", "method": 0}])
-        with self.assertRaises(AttributeError):  # the content checker's own reader raises on it
+    def test_a_manifest_that_is_not_an_object_is_refused_with_contents_code(self):
+        raw = ggold.gen_module().zip_of([{"name": "astrachar.json", "data": b"[]"}])
+        with self.assertRaises(ggold.CG.Refusal):  # since #131 content refuses it; before, it raised AttributeError
             ggold.CG.ingest_bundle(raw, {})
         pl = ggold.part_licence(self.ENTRY, raw)
         self.assertEqual(pl["gate_status"], "bundle")
-        self.assertEqual(pl["refusal"]["code"], "E_CONTENT_FORMAT")
+        self.assertEqual(pl["refusal"]["code"], "E_BUNDLE_MANIFEST")
+
+    def test_a_shape_content_raises_on_is_refused_never_a_crash(self):
+        files, _doc = release("bundle-model-aiko")
+        raw = files["characters/aiko.astrachar"]
+        real = ggold.CG.ingest_bundle
+
+        def raises(_raw, _ctx):
+            raise TypeError("a shape the content checker does not handle")
+        ggold.CG.ingest_bundle = raises
+        try:
+            pl = ggold.part_licence(self.ENTRY, raw)
+        finally:
+            ggold.CG.ingest_bundle = real
+        self.assertEqual((pl["gate_status"], pl["refusal"]["code"]), ("bundle", "E_CONTENT_FORMAT"))
 
     def test_a_valid_bundle_accepts_and_a_declared_licence_covers_its_parts(self):
         files, doc = release("bundle-animset-wave")
@@ -758,7 +769,7 @@ class EmbeddedBundles(unittest.TestCase):
         files, doc = release("bundle-renamed")
         files["packs/wave.astrapack"] = files.pop("packs/wave.zip")
         self.assertEqual(codes_of(files, doc), ["E_CONTENT_UNDECLARED"])
-        jar = self.cgen().zip_bytes([{"name": "META-INF/MANIFEST.MF", "data": b"Manifest-Version: 1.0\n"}])
+        jar = ggold.gen_module().zip_of([{"name": "META-INF/MANIFEST.MF", "data": b"Manifest-Version: 1.0\n"}])
         self.assertIsNone(ggold.name_problem("mods/loader.jar", jar), "a game's own zip is not a bundle")
 
     def test_an_unknown_inside_needs_the_declared_licence(self):

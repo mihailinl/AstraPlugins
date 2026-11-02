@@ -497,10 +497,11 @@ content's own code** (`E_ZIP_HEADERS_INCONSISTENT`, `E_BUNDLE_MANIFEST`,
 (goldens `bundle-vrm-redistribution-prohibited`,
 `bundle-glb-prohibited-beside-allowed-body`, `bundle-vrm-metas-disagree`,
 `bundle-gap-between-entries` — the content catalogue's own hostile bundles,
-byte for byte, which `gen.py --check` keeps equal to `testdata/content/`). A
-bundle shape content's reader raises on instead of refusing (an
-`astrachar.json` that is an array, say) is refused `E_CONTENT_FORMAT` here,
-never a crash. **A bundle is unzipped once, and its glTF JSON counts toward
+byte for byte, which `gen.py --check` keeps equal to `testdata/content/`). An
+`astrachar.json` that is not an object is content's own `E_BUNDLE_MANIFEST`
+(since #131; before it, content's reader raised on one); any bundle shape
+that reader still raises on instead of refusing is refused
+`E_CONTENT_FORMAT` here, never a crash. **A bundle is unzipped once, and its glTF JSON counts toward
 the release's 32 MiB** (§2.7.3's caps): the sum of its GLB chunk lengths and
 `.gltf` sizes, from the walk's headers, is charged before anything in it is
 parsed, and the bundle that would take the release past 32 MiB is refused
