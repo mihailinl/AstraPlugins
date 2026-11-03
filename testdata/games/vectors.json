@@ -293,6 +293,12 @@
   },
 
   "link": {
+    "digest": [
+      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "e26a440ebf1c3cacc9891fc8b031d9c0d8cbde9276ceeba68d1866a972a35ea2", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
+      { "name": "edge", "manifest": "link/digest/edge.toml", "digest": "e1ddacccb882c0a240d26f933b883cc9ea23da7e50cfb3679c432539d5b95dd2", "note": "keys out of order, non-ASCII, a quote, a backslash, an empty array, absent keys left absent; checked against two other JCS implementations" },
+      { "name": "crlf", "manifest": "link/digest/crlf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "crlf": true, "note": "CRLF line endings and a multi-line string with CRLF newlines: normalised to LF, so this equals crlf-as-lf" },
+      { "name": "crlf-as-lf", "manifest": "link/digest/crlf-as-lf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "note": "the same table with LF line endings" }
+    ],
     "message_schema": "spec/games/schemas/link-v1-message.schema.json",
     "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema" },

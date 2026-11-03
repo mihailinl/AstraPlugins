@@ -8,3 +8,7 @@
 # NUL-byte heuristic happens to classify them as binary. A stored-only,
 # NUL-free vector would not be so lucky.
 *.astraplugin binary
+
+# The link-digest CRLF golden must keep its CRLF bytes: it tests that the
+# digest normalises them (manifest.md §2.6.1). text=auto would strip them.
+testdata/games/link/digest/crlf.toml -text

@@ -221,6 +221,20 @@ def _load_content_checker():
 
 
 CG = _load_content_checker()  # spec/content/ingest-v1.md §3-§4, the content contract's own code
+
+
+def link_digest(manifest: dict) -> str | None:
+    """manifest.md §2.6.1: the consent digest of a GI's `[integration.link]`
+    table -- lowercase-hex SHA-256 of the RFC 8785 JCS of the table EXACTLY
+    as parsed from the shipped astra-gi.toml (no default added for a key it
+    leaves out; key order irrelevant), or None when there is no such table.
+    The JCS is spec/content's own (tools/contentlite.py), so this digest and
+    every other JCS this repository defines are computed by one function."""
+    import hashlib
+    link = (manifest.get("integration") or {}).get("link") if isinstance(manifest, dict) else None
+    if link is None:
+        return None
+    return hashlib.sha256(CG.C.jcs(link)).hexdigest()
 MANIFEST_NAME = "astra-gi.toml"
 _GEN = None
 
@@ -2110,6 +2124,13 @@ def main() -> int:
                 report(f"content/vrm/{v['name']}", ok, json.dumps(gate))
 
     # -- link -------------------------------------------------------------
+    for v in vectors["link"].get("digest", []):
+        if v.get("crlf"):
+            # the golden only tests normalisation while it really holds CRLF
+            raw = (DATA / v["manifest"]).read_bytes()
+            report(f"link/digest/{v['name']} holds CRLF", b"\r\n" in raw)
+        got = link_digest(load_doc(v["manifest"]))
+        report(f"link/digest/{v['name']}", got == v["digest"], f"{got} vs {v['digest']}")
     message_schema = load_schema(vectors["link"]["message_schema"])
     transcript = load_doc(vectors["link"]["transcript"]["file"])
     all_msgs_ok = True
