@@ -252,7 +252,9 @@ class RuleMutationsTurnTheRunRed(unittest.TestCase):
     def test_no_one_way_switch(self):
         orig = cg.verify_doc
         self.assertRedOn(Mutation("verify_doc", lambda env, kind, doc, member, now, retired=frozenset():
-                                  orig(env, kind, doc, member, now)), "scenario/one-way-switch")
+                                  orig(env, kind, doc, member, now)), "scenario/one-way-switch",
+                         "scenario/one-way-switch-index-retires-index",
+                         "scenario/one-way-switch-withdrawn-retires-withdrawn")
 
     def test_a_pack_digest_that_is_a_part_digest(self):
         orig = cg.scenario_ingest_refs
@@ -510,6 +512,40 @@ class F9EveryVerifyingKey(unittest.TestCase):
             return set(), "signature-invalid"
         RuleMutationsTurnTheRunRed.assertRedOn(self, Mutation("verified_by", first_only),
                                                "scenario/one-way-switch-dual-current-first")
+
+
+class RetirementIsPerDocumentSchema(unittest.TestCase):
+    """trust-kind-keys-v1.md §6 (design §11a.9): a `next` verification retires the kind's
+    `current` key id per (kind, document schema), never per kind. The index and the withdrawn
+    list are signed and served on separate schedules, so per-kind retirement would refuse a
+    still-valid withdrawn list mid-rotation, and withdrawals must never go dark."""
+
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_retiring_per_kind(self):
+        self.assertRedOn(Mutation("retirement_scope", lambda kind, doc: (kind, "*")),
+                         "scenario/one-way-switch-index-leaves-withdrawn",
+                         "scenario/one-way-switch-withdrawn-leaves-index")
+
+    def test_never_retiring(self):
+        self.assertRedOn(Mutation("retire_after", lambda *a, **k: None),
+                         "scenario/one-way-switch-index-retires-index",
+                         "scenario/one-way-switch-withdrawn-retires-withdrawn")
+
+    def test_judging_every_sequence_file_as_an_index(self):
+        # the runner this replaced verified every file under astra.<kind>.index/1
+        self.assertRedOn(Mutation("sequence_doc", lambda path, kind: "index"),
+                         "scenario/one-way-switch-index-leaves-withdrawn",
+                         "scenario/one-way-switch-withdrawn-retires-withdrawn")
+
+    def test_taking_the_schema_from_the_body(self):
+        # D must be the verifier's domain constant: read from the body's `schema`, a withdrawn
+        # list offered where an index is verified verifies, and retires withdrawn/1's current
+        def from_body(path, kind):
+            return cg.load_json(path)["signed"]["schema"].split(".")[2].split("/")[0]
+        self.assertRedOn(Mutation("sequence_doc", from_body),
+                         "scenario/one-way-switch-cross-schema-retires-nothing")
 
 
 class F14StickyRowsAndCanonicalRanges(unittest.TestCase):

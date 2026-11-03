@@ -99,3 +99,7 @@ goldens explicitly.
   line it came from.
 - **Gate every commit** on the checker and the mutation suite. A gate that goes
   red is a finding: read it before re-running anything.
+- **Key retirement is per (kind, document schema), not per kind**, since
+  #137 (trust-kind-keys-v1.md §6, design §11a.9). The schema is the verifier's
+  domain constant, never the body's `schema`; the checker's `retirement_scope`
+  is the one place that decides the scope.

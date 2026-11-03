@@ -168,6 +168,62 @@ def verify_doc(env: dict, kind: str, doc: str, member: dict, now: int, retired: 
     return sorted(live, key=lambda k: (role.get(k) != "next", k))[0], None
 
 
+# ── the one-way switch (trust-kind-keys-v1.md §6) ─────────────────────────
+
+# the per-kind document schemas a kind key signs: astra.<kind>.index/1, astra.<kind>.withdrawn/1
+KIND_DOCS = ("index", "withdrawn")
+
+
+def retirement_scope(kind: str, doc: str) -> tuple[str, str]:
+    """What a `next` verification retires `current` FOR: one (kind, document schema). Per
+    kind would refuse a still-valid `current`-only withdrawn list after the index switched,
+    because the two are signed and served on separate schedules, and a withdrawal must never
+    go dark mid-rotation (design §11a.9)."""
+    return (kind, doc)
+
+
+def retired_ids(retired: set[tuple[str, str, str]], kind: str, doc: str) -> set[str]:
+    """The key ids retired for this document: the state is (kind, document schema, key id)."""
+    scope = retirement_scope(kind, doc)
+    return {kid for (k, d, kid) in retired if (k, d) == scope}
+
+
+def retire_after(retired: set[tuple[str, str, str]], env: dict, kind: str, doc: str, member: dict, now: int) -> None:
+    """A document of (kind, doc) that verified under `next` retires the kind's `current` key
+    id for that scope. By key id, so promoting `next` to `current` un-retires nothing."""
+    role = {r["key_id"]: r["role"] for r in member["kind_keys"] if r.get("kind") == kind}
+    ids, _ = verified_by(env, kind, doc, member, now)
+    if any(role.get(k) == "next" for k in ids):
+        retired |= {(*retirement_scope(kind, doc), k) for k, r in role.items() if r == "current"}
+
+
+def sequence_doc(path: str, kind: str) -> str:
+    """WHICH VERIFIER a scenario file is offered to, from the corpus layout `<doc>/<kind>/…`.
+    The directory stands for the client's code path (fetching the index, or the withdrawn
+    list), whose domain constant is the D a verification retires for. It is never read from
+    the document's `schema`, and a client never takes it from a URL or a path."""
+    parts = path.split("/")
+    if len(parts) < 3 or parts[0] not in KIND_DOCS or parts[1] != kind:
+        raise ValueError(f"one-way-switch: {path} is not a {kind} index/withdrawn golden")
+    return parts[0]
+
+
+def scenario_one_way_switch(sc: dict, now: int, member: dict) -> list[str]:
+    """Each document in order, against the retirement state the earlier ones left: the key
+    id that verified it, or the client reason it was refused with."""
+    kind = sc["kind"]
+    retired: set[tuple[str, str, str]] = set()
+    got = []
+    for f in sc["sequence"]:
+        doc = sequence_doc(f, kind)
+        env = load_json(f)
+        kid, why = verify_doc(env, kind, doc, member, now, retired_ids(retired, kind, doc))
+        got.append(kid or why)
+        if kid:
+            retire_after(retired, env, kind, doc, member, now)
+    return got
+
+
 # ── semantic rules over a document (common-v1.md, <kind>-index-v1.md) ───
 
 def rule_expiry_span(s, ctx) -> bool:
@@ -1709,17 +1765,9 @@ def main() -> int:
             elif t == "sticky":
                 got = scenario_sticky(v, now, member)
             elif t == "one-way-switch":
-                # trust-kind-keys-v1.md §6: verifying under K's `next` retires K's `current` KEY ID
-                role = {r["key_id"]: r["role"] for r in member["kind_keys"] if r.get("kind") == v["kind"]}
-                retired: set[str] = set()
-                got = []
-                for f in v["sequence"]:
-                    env = load_json(f)
-                    kid, why = verify_doc(env, v["kind"], "index", member, now, retired)
-                    got.append(kid or why)
-                    ids, _ = verified_by(env, v["kind"], "index", member, now)
-                    if kid and any(role.get(k) == "next" for k in ids):
-                        retired |= {k for k, r in role.items() if r == "current"}
+                # trust-kind-keys-v1.md §6: verifying a (kind, schema) under `next` retires the
+                # kind's `current` KEY ID for that schema only
+                got = scenario_one_way_switch(v, now, member)
             elif t == "client-floor":
                 env = load_json(v["file"])
                 got = [client_effect(r) for r in env["signed"]["rows"]]

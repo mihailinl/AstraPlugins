@@ -742,6 +742,14 @@
       "note": "the right key over the wrong domain: the verifier's constant decides"
     },
     {
+      "name": "withdrawn-list-offered-as-index",
+      "kind": "commands",
+      "file": "index/commands/withdrawn-list-offered-as-index.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "a real next-signed withdrawn list served where an index is verified: the index schema refuses it first; scenario one-way-switch-cross-schema-retires-nothing shows its signature alone also fails under the index domain"
+    },
+    {
       "name": "duplicate-member-name",
       "kind": "commands",
       "file": "index/commands/duplicate-member-name.json",
@@ -1021,6 +1029,14 @@
       "kind": "commands",
       "file": "withdrawn/commands/valid.json",
       "verdict": "accept"
+    },
+    {
+      "name": "signed-by-next",
+      "kind": "commands",
+      "file": "withdrawn/commands/signed-by-next.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026b",
+      "note": "the withdrawn list switches to next on its own schedule, apart from the index (trust-kind-keys-v1.md §6)"
     },
     {
       "name": "seq-1-security",
@@ -3796,6 +3812,78 @@
       "note": "a dual-signed document retires current whatever the order of its signatures (F9)"
     },
     {
+      "name": "one-way-switch-index-leaves-withdrawn",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/signed-by-next.json",
+        "withdrawn/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "astra-commands-2026a"
+      ],
+      "note": "retirement is per document schema: a next-signed index does not refuse a current-only withdrawn list, which is signed and served on its own schedule and must never go dark mid-rotation"
+    },
+    {
+      "name": "one-way-switch-index-retires-index",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "a next-signed index retires current for astra.commands.index/1"
+    },
+    {
+      "name": "one-way-switch-withdrawn-retires-withdrawn",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "withdrawn/commands/signed-by-next.json",
+        "withdrawn/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "key-retired"
+      ],
+      "note": "the per-schema rule holds for withdrawn too: a next-signed withdrawn list retires current for astra.commands.withdrawn/1"
+    },
+    {
+      "name": "one-way-switch-withdrawn-leaves-index",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "withdrawn/commands/signed-by-next.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "astra-commands-2026b",
+        "astra-commands-2026a"
+      ],
+      "note": "the mirror: a next-signed withdrawn list does not refuse a current-only index"
+    },
+    {
+      "name": "one-way-switch-cross-schema-retires-nothing",
+      "type": "one-way-switch",
+      "kind": "commands",
+      "sequence": [
+        "index/commands/withdrawn-list-offered-as-index.json",
+        "withdrawn/commands/valid.json",
+        "index/commands/valid.json"
+      ],
+      "expect": [
+        "signature-invalid",
+        "astra-commands-2026a",
+        "astra-commands-2026a"
+      ],
+      "note": "D in (K, D) is the verifier's domain constant, never the body's `schema`, URL or path: a next-signed withdrawn list offered to the index verifier fails verification, so it retires current in neither schema (common-v1.md §1)"
+    },
+    {
       "name": "sticky-every-row",
       "type": "sticky",
       "kind": "commands",
@@ -4030,5 +4118,5 @@
     "E_CONTENT_PUBLISHING_CLOSED": "a begin-door state (no CSAM scanner configured), not a property of a file; the checker covers no doors",
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors"
   },
-  "expected_checks": 359
+  "expected_checks": 367
 }
