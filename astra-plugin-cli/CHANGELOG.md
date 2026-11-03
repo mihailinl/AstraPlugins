@@ -62,6 +62,14 @@ reads to find out how to get the tool.
   already published and would ship the older copy; so the README fix is a
   patch release of the crate, published before this CLI. No code changed.
 
+- **The vendored `astra-plugin-manifest` is 0.1.2.** Resynced against Astra
+  main `b0d0b51ed19b`: two doc comments and one test comment in
+  `src/manifest.rs` were reworded from "Workshop" to "marketplace" (the
+  reserved `kind` field, `MARKETPLACE_PLAN.md`). No field, type or behavior
+  changed — comments only — but C37 still treats any vendored-byte drift as
+  a release, so the crate moves to 0.1.2, the CLI now requires 0.1.2, and
+  both `Cargo.lock`s follow.
+
 ### Fixed
 
 - **A bundle built on Windows verifies, and hashes like the same build on

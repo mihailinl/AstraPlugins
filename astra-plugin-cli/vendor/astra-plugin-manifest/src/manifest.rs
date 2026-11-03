@@ -45,9 +45,9 @@ pub struct PluginManifest {
     pub build: Option<BuildSection>,
     #[serde(default)]
     pub ui: Option<UiSection>,
-    /// **Reserved, fail-closed: what KIND of marketplace item this is.** Absent or `"plugin"`.
+    /// **Reserved, fail-closed: what KIND of Workshop item this is.** Absent or `"plugin"`.
     ///
-    /// The marketplace will carry other kinds (game integrations, libraries, characters, animation
+    /// The Workshop will carry other kinds (game integrations, libraries, characters, animation
     /// packs — `MARKETPLACE_PLAN.md`), each with its own installer. The rest of this struct is
     /// deliberately lenient about unknown keys, so without this a build that predates kinds would
     /// read a game integration's `kind = "game-integration"` as noise and install it as a plugin.
@@ -861,7 +861,7 @@ requirements_lock = "requirements.lock"
         assert!(manifest.check_min_astra_version("not-a-version").is_ok());
     }
 
-    // ── The reserved keys `kind` / `requires` (marketplace kinds, MARKETPLACE_PLAN.md) ──
+    // ── The reserved keys `kind` / `requires` (Workshop kinds, MARKETPLACE_PLAN.md) ──
 
     /// A minimal valid plugin with extra top-level lines prepended (top-level keys must come
     /// before the first table).
