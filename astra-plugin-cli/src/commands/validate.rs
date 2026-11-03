@@ -409,7 +409,7 @@ struct RegistryFinding {
 ///
 /// # Why every command asks this first
 ///
-/// The marketplace will carry items that are not plugins, and the manifest
+/// The Workshop will carry items that are not plugins, and the manifest
 /// keeps top-level keys it does not know. So to any reader without this rule a
 /// `kind = "game-integration"` is noise, and the item is checked, packed,
 /// published and run AS a plugin. The crate refuses it (`check_reserved_keys`,

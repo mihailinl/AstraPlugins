@@ -46,9 +46,9 @@ Two keys sit above every table, and both are **reserved**. A plugin today leaves
 
 A `kind` that is not a string is refused as well: `kind` must be a string such as "plugin", not &lt;type&gt;.
 
-**`kind`.** **Reserved, fail-closed: what KIND of marketplace item this is.** Absent or `"plugin"`.
+**`kind`.** **Reserved, fail-closed: what KIND of Workshop item this is.** Absent or `"plugin"`.
 
-The marketplace will carry other kinds (game integrations, libraries, characters, animation packs — `MARKETPLACE_PLAN.md`), each with its own installer. The rest of this struct is deliberately lenient about unknown keys, so without this a build that predates kinds would read a game integration's `kind = "game-integration"` as noise and install it as a plugin. [`check_reserved_keys`] refuses it instead, with a sentence a person can act on.
+The Workshop will carry other kinds (game integrations, libraries, characters, animation packs — `MARKETPLACE_PLAN.md`), each with its own installer. The rest of this struct is deliberately lenient about unknown keys, so without this a build that predates kinds would read a game integration's `kind = "game-integration"` as noise and install it as a plugin. [`check_reserved_keys`] refuses it instead, with a sentence a person can act on.
 
 **`requires`.** **Reserved, fail-closed: other items this one needs** (`[{ id, range }]`). Absent or empty.
 

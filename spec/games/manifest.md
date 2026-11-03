@@ -5,7 +5,7 @@ Copyright (C) 2026 Minice — https://minice.ai
 
 # The game-integration manifest: `[integration.*]`, schema 1
 
-This is the normative spec for the keys the games marketplace adds to
+This is the normative spec for the keys the games Workshop adds to
 `astra-gi.toml`. It does not replace
 [`astra-bepinex`'s `GAME-INTEGRATION-MANIFEST.md`](https://github.com/mihailinl/astra-bepinex/blob/main/docs/GAME-INTEGRATION-MANIFEST.md),
 which stays authoritative for `schema = 1`'s existing sections

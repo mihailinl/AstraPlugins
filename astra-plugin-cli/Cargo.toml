@@ -100,7 +100,7 @@ path = "src/main.rs"
 # the vendored crate's own `version`, the publish order, and the crates.io copy
 # of that version to the vendored bytes. A sync that changes the vendored
 # `src/` bumps the vendored `version`, and this requirement with it.
-astra-plugin-manifest = { version = "0.1.1", path = "vendor/astra-plugin-manifest" }
+astra-plugin-manifest = { version = "0.1.2", path = "vendor/astra-plugin-manifest" }
 # `astra-plugin test` is the SDK's own level-2 harness pointed at a process
 # instead of at a type. It reuses `astra_plugin_sdk::testing::MockDaemon` — the
 # same PluginHostService, the same session-token gate, the same permission gate
