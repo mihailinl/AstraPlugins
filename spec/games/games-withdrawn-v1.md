@@ -9,10 +9,22 @@ Copyright (C) 2026 Minice — https://minice.ai
 a `withdrawn[]` array inside `astra.games.index/1`, which an over-cap check
 would refuse along with the takedown it carries). Same envelope, same
 `kind_keys` key pair and freshness numbers as `games-index-v1.md` §1 and §3,
-its own per-kind serial floor (tracked separately from the index
-document's — a replayed `withdrawn` serial must not hold back a fresh one,
-and vice versa), and its own client-side size cap — a document this small
+its own serial floor (tracked separately from the index document's — a
+replayed `withdrawn` serial must not hold back a fresh one, and vice versa), and its own client-side size cap — a document this small
 has no excuse to ever approach it.
+
+**This list retires the `current` key on its own** (`games-index-v1.md` §3;
+minice design §11a.9, 2026-11-02). Key retirement is per document schema, not
+per kind: a client that has verified a `next`-signed `astra.games.index/1`
+keeps accepting an `astra.games.withdrawn/1` signed by `current`, and refuses
+a `current`-only withdrawn list only after it has verified a `next`-signed
+withdrawn list itself. The client keeps a separate high-water "seen `next`"
+mark for this schema — the key id it retired for it — beside the index's
+mark, never one mark for the kind. The signer, likewise, never goes back to
+`current` for this list once it has served a `next`-signed one, whatever the
+index has done. The reason: this list and the index are signed and served on
+separate schedules, and a takedown must never be refused because the index
+finished its rotation first.
 
 ## 1. Why a separate document, precisely
 
