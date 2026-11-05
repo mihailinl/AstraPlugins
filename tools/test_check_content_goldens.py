@@ -452,11 +452,12 @@ class F2VerdictFollowsContent(unittest.TestCase):
     def test_files_outside_parts_ignored(self):
         orig = cg.parts_of
 
-        def lax(files, body, settings_dir=None, strict=True, pack=None):
+        def lax(files, body, settings_dir=None, strict=True, pack=None, man=None):
             try:
-                return orig(files, body, settings_dir, strict, pack)
+                return orig(files, body, settings_dir, strict, pack, man=man)
             except cg.Refusal:
-                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir, strict, pack)
+                return orig({p: b for p, b in files.items() if not p.endswith(".bin")}, body, settings_dir, strict,
+                            pack, man=man)
         self.assertRedOn(Mutation("parts_of", lax), "archives/file-outside-parts")
 
 

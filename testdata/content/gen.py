@@ -42,6 +42,8 @@ WEEK = 7 * 86400
 CURRENT_NB = "2026-10-01T00:00:00Z"
 NEXT_NB = "2026-12-01T00:00:00Z"
 NOV15 = 1794700800  # 2026-11-15T00:00:00Z: after current's not_before, before next's
+NEXT_NB_TS = 1796083200  # 2026-12-01T00:00:00Z epoch, matching NEXT_NB
+BEFORE_NEXT_NB = NEXT_NB_TS - 3600  # an hour before next's key opens, still after current's
 
 OUT: dict[str, bytes] = {}
 
@@ -448,26 +450,31 @@ def vrm_both(meta0: dict, meta1: dict) -> bytes:
 
 # ── character / animset bundles (astra-companion docs/character-files.md) ─
 
-def manifest(fmt: str, kind: str, files: dict[str, bytes], body: str | None) -> bytes:
+def manifest(fmt: str, kind: str, files: dict[str, bytes], body: str | None,
+             packs: list[dict] | None = None) -> bytes:
     m = {
         "format": fmt, "format_version": 1, "needs": [], "schema": 5,
         "generator": "testdata/content/gen.py", "kind": kind,
         "character": {"id": "aiko", "name": "Aiko", "dir": "characters/aiko"},
         "body": {"file": body} if body else None,
-        "packs": [], "accessories": [], "builtins": {},
+        # `packs` entries ({"id", "kind"}) are an OPTIONAL per-pack kind declaration
+        # (part-digest-v1.md §1): absent by default, as before this PR
+        "packs": packs or [], "accessories": [], "builtins": {},
         "files": {p: {"sha256": "sha256:" + sha(b), "size": len(b)} for p, b in sorted(files.items())},
         "excluded": [],
     }
-    return json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8") + b"\n"
+    return C._escape_hidden_controls(
+        json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True)).encode("utf-8") + b"\n"
 
 
 def bundle_entries(fmt: str, files: dict[str, bytes], body: str | None = None, kind: str = "vrm",
                    methods: dict[str, int] | None = None, listed: dict[str, bytes] | None = None,
-                   tweak=None, manifest_last: bool = True) -> list[dict]:
+                   tweak=None, manifest_last: bool = True, packs: list[dict] | None = None) -> list[dict]:
     methods = methods or {}
     entries = [{"name": p, "data": b, "method": methods.get(p, 0 if p.endswith((".vrm", ".glb", ".png")) else 8)}
                for p, b in sorted(files.items())]
-    man = {"name": "astrachar.json", "data": manifest(fmt, kind, listed if listed is not None else files, body),
+    man = {"name": "astrachar.json",
+           "data": manifest(fmt, kind, listed if listed is not None else files, body, packs=packs),
            "method": 8}
     if manifest_last:
         entries.append(man)
@@ -746,9 +753,14 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     # signatures and scoping (trust-kind-keys-v1.md §5)
     v = valid["commands"]
     put_doc("index/commands/signed-by-next.json", "commands", "index", v, role="next")
-    # issued while only `current` is valid, and signed by `next`: refused until next's not_before
+    # issued while only `current` is valid, and signed by `next`: refused until next's not_before.
+    # The span is the max allowed (8 days) so the document is still live once next's key opens
+    # (re-dated 2026-11-05: at the old issued time + the old 1-week span, the document expired
+    # on 2026-11-22, nine days before next's key even opened on 2026-12-01, so it could never
+    # pass a real verifier's header step)
     put_doc("index/commands/next-before-not-before.json", "commands", "index",
-            index_signed("commands", copy.deepcopy(c_entries), issued=NOV15 - 3600), role="next")
+            index_signed("commands", copy.deepcopy(c_entries), issued=BEFORE_NEXT_NB - 3600, span=8 * 86400),
+            role="next")
     # dual-signed during a switch, in both orders (F9): either order must retire `current`
     a, b = kind_key_id("commands", "current"), kind_key_id("commands", "next")
     put_json("index/commands/dual-signed-current-first.json", envelope("astra.commands.index/1", v, [a, b]))
@@ -1296,6 +1308,65 @@ def gen_archives() -> None:
     nested_bundle = bundle("astra.character", MODEL_FILES, body=BODY_PATH)
     put("archives/hostile/nested-astrachar-in-astrapack.astrapack", anim({"clips/nested.astrachar": nested_bundle}))
     put("archives/hostile/nested-astrachar-renamed-dat.astrapack", anim({"clips/nested.dat": nested_bundle}))
+
+    # ── pack kind: read from the pack's OWN animpack.toml (part-digest-v1.md §1) ──
+
+    pixel_part = {
+        "animpack.toml": b'name = "pixel-wave"\n\n[animpack]\nkind = "pixel"\n',
+        "clips/a.fbx": b"FBX-PIXEL-A",
+        "clips/b.fbx": b"FBX-PIXEL-B",
+    }
+    # the manifest's own top-level `kind` is passed to agree with the derived one (`art`),
+    # the same way ASCII_PART's goldens pass `kind="vrm"` to agree with `animations`
+    put("archives/valid/animset-pixel.astrapack", bundle("astra.animpack", pixel_part, body=None, kind="pixel"))
+    # the SAME pack inside a .astrachar: its part digest equals animset-pixel's (§2, same as character-with-pack)
+    put("archives/valid/character-with-pixel-pack.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **in_pack("pixel-pack", pixel_part)}, body=None))
+
+    # normalisation pin: ASCII whitespace trimmed, ASCII-lowercased, `2d` a synonym for `pixel`
+    mixed_case_part = {
+        "animpack.toml": b'name = "mixed"\n\n[animpack]\nkind = " 2D "\n',
+        "clips/a.fbx": b"FBX-MIXED-A",
+    }
+    put("archives/valid/animset-kind-mixed-case.astrapack",
+        bundle("astra.animpack", mixed_case_part, body=None, kind="pixel"))
+
+    # \x0b (vertical tab) is NOT ascii whitespace to Rust's `char::is_ascii_whitespace`, so it is
+    # not trimmed and the token stays unrecognised -> animations
+    leading_vt_part = {
+        # TOML escape \u000B, so the parsed string actually begins with a raw VT byte
+        "animpack.toml": b'name = "vt"\n\n[animpack]\nkind = "\\u000Bpixel"\n',
+        "clips/a.fbx": b"FBX-VT-A",
+    }
+    put("archives/valid/pack-kind-leading-vt.astrapack",
+        bundle("astra.animpack", leading_vt_part, body=None, kind="vrm"))
+
+    # hostile: a name disagrees with its content, the same rule as the GLB magic
+    hostile("pack-kind-manifest-disagrees.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **in_pack("mismatched-pack", pixel_part)}, body=None,
+        packs=[{"id": "mismatched-pack", "kind": "vrm"}]))
+    hostile("astrapack-kind-disagrees.astrapack",
+            bundle("astra.animpack", ASCII_PART, body=None, kind="pixel"))
+    bad_toml_part = {"animpack.toml": b"this is not [[[ toml", "clips/a.fbx": b"FBX-BAD-TOML"}
+    hostile("pack-toml-unparsable.astrapack", bundle("astra.animpack", bad_toml_part, body=None, kind="vrm"))
+    not_string_part = {"animpack.toml": b"[animpack]\nkind = 7\n", "clips/a.fbx": b"FBX-NOT-STRING"}
+    hostile("pack-kind-not-string.astrapack", bundle("astra.animpack", not_string_part, body=None, kind="vrm"))
+    # `[animpack]` present but not a table: a bare scalar, a bool and an array each raised
+    # AttributeError out of the old `(doc.get("animpack") or {}).get("kind")` instead of a Refusal
+    not_table_part = {"animpack.toml": b"animpack = 5\n", "clips/a.fbx": b"FBX-NOT-TABLE"}
+    hostile("pack-animpack-not-table.astrapack", bundle("astra.animpack", not_table_part, body=None, kind="vrm"))
+    # animpack.toml is TOML 1.0, UTF-8 without a BOM (part-digest-v1.md §1, games manifest.md §2.6.1):
+    # a UTF-8 BOM before otherwise-valid TOML
+    bom_part = {"animpack.toml": b'\xef\xbb\xbfname = "bom"\n\n[animpack]\nkind = "pixel"\n',
+                "clips/a.fbx": b"FBX-BOM"}
+    # kind="pixel" agrees with the toml's own (once parsed) content, so the ONLY thing that can
+    # refuse this bundle is the BOM itself -- a disagreement refusal must not mask it
+    hostile("pack-toml-bom.astrapack", bundle("astra.animpack", bom_part, body=None, kind="pixel"))
+    # a TOML 1.1-only construct (the `\e` string escape): refused as TOML 1.0, never accepted by
+    # luck of whichever parser version happens to be running
+    toml_1_1_part = {"animpack.toml": b'name = "test"\nnote = "\\e"\n\n[animpack]\nkind = "pixel"\n',
+                      "clips/a.fbx": b"FBX-TOML11"}
+    hostile("pack-toml-1-1-syntax.astrapack", bundle("astra.animpack", toml_1_1_part, body=None, kind="vrm"))
 
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──
