@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 9854f4c5bfcf5543bf4c81ccac03eec0fb965781b559fdef83cf1004b5de48fc
+// surface-sha256: e113cfbfdd292e9f0df30a7264a13f3a8bb89b00d8cd9e8486e92416663d161a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -413,6 +413,8 @@ message AstraEvent {
         // An utterance bound to a «Код» conversation, dictated into its composer
         // instead of sent. See `VoiceDictatedEvent`.
         VoiceDictatedEvent voice_dictated = 44;
+        // A Workshop publish moved (PublishService). The nudge between two PublishStatus reads.
+        PublishProgressEvent publish_progress = 45;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -6762,3 +6764,10 @@ message CreditsChangedEvent {}
 // `ListGames` is the one document, and a client that missed this still
 // converges on the next call.
 message GamesChangedEvent {}
+
+message PublishProgressEvent {
+    string publish_id = 1;
+    string state = 2;
+    int64 sent_bytes = 3;
+    int64 total_bytes = 4;
+}

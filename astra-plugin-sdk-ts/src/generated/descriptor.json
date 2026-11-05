@@ -368,7 +368,8 @@
                 "shelfChanged",
                 "pluginConfigUpdated",
                 "pttCaptureChanged",
-                "voiceDictated"
+                "voiceDictated",
+                "publishProgress"
               ]
             }
           },
@@ -532,6 +533,10 @@
             "voiceDictated": {
               "type": "VoiceDictatedEvent",
               "id": 44
+            },
+            "publishProgress": {
+              "type": "PublishProgressEvent",
+              "id": 45
             },
             "capabilityEpoch": {
               "type": "string",
@@ -10775,6 +10780,26 @@
         },
         "GamesChangedEvent": {
           "fields": {}
+        },
+        "PublishProgressEvent": {
+          "fields": {
+            "publishId": {
+              "type": "string",
+              "id": 1
+            },
+            "state": {
+              "type": "string",
+              "id": 2
+            },
+            "sentBytes": {
+              "type": "int64",
+              "id": 3
+            },
+            "totalBytes": {
+              "type": "int64",
+              "id": 4
+            }
+          }
         }
       }
     }

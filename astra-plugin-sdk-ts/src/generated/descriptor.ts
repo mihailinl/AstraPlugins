@@ -376,7 +376,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "shelfChanged",
                 "pluginConfigUpdated",
                 "pttCaptureChanged",
-                "voiceDictated"
+                "voiceDictated",
+                "publishProgress"
               ]
             }
           },
@@ -540,6 +541,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "voiceDictated": {
               "type": "VoiceDictatedEvent",
               "id": 44
+            },
+            "publishProgress": {
+              "type": "PublishProgressEvent",
+              "id": 45
             },
             "capabilityEpoch": {
               "type": "string",
@@ -10783,6 +10788,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "GamesChangedEvent": {
           "fields": {}
+        },
+        "PublishProgressEvent": {
+          "fields": {
+            "publishId": {
+              "type": "string",
+              "id": 1
+            },
+            "state": {
+              "type": "string",
+              "id": 2
+            },
+            "sentBytes": {
+              "type": "int64",
+              "id": 3
+            },
+            "totalBytes": {
+              "type": "int64",
+              "id": 4
+            }
+          }
         }
       }
     }
