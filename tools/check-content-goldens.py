@@ -1220,11 +1220,68 @@ def part_digest_of(label: str, files: dict[str, bytes]) -> str:
     return C.part_digest(files, root=None if single else label)
 
 
-def pack_kind(man: dict) -> str | None:
-    """A .astrapack is one pack: animations, or art for a 2D (pixel) set (§11a.10)."""
+# Rust `char::is_ascii_whitespace`: space, \t, \n, \x0c, \r -- NOT \x0b (part-digest-v1.md §1).
+ASCII_WS = " \t\n\x0c\r"
+
+
+def ascii_lower(s: str) -> str:
+    """ASCII-only lowercasing, so a non-ASCII letter is left alone rather than
+    following Python's full-Unicode `str.lower()` (part-digest-v1.md §1)."""
+    return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in s)
+
+
+def normalize_pack_kind_token(raw: str) -> str:
+    """part-digest-v1.md §1: trim ASCII whitespace, ASCII-lowercase, then
+    `pixel` | `2d` -> `art`; anything else -> `animations`."""
+    norm = ascii_lower(raw.strip(ASCII_WS))
+    return "art" if norm in ("pixel", "2d") else "animations"
+
+
+def read_animpack_toml_kind(files: dict[str, bytes], root: str) -> str:
+    """part-digest-v1.md §1: a pack's kind comes from its OWN `animpack.toml` at
+    its part root (`animpacks/<id>/animpack.toml` in a `.astrachar`, the zip
+    root of a `.astrapack`), `[animpack] kind`. Absent file, absent `animpack`
+    table or absent `kind` -> `animations`. `animpack.toml` is TOML 1.0, UTF-8
+    without a byte-order mark -- a BOM is checked for explicitly, BEFORE
+    parsing, never left to whatever a given parser version happens to refuse
+    (games manifest.md §2.6.1 pins the same grammar the same way). Anything
+    that does not parse as TOML 1.0, an `animpack` present but not a table, or
+    a `kind` present but not a string, refuses the bundle."""
+    path = f"{root}/animpack.toml" if root else "animpack.toml"
+    raw = files.get(path)
+    if raw is None:
+        return "animations"
+    if raw.startswith(UTF8_BOM) or any(raw.startswith(bom) for bom in UNICODE_BOMS):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: must be UTF-8 without a byte-order mark")
+    try:
+        doc = tomllib.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: does not parse as TOML 1.0") from None
+    animpack = doc.get("animpack")
+    if animpack is None:
+        return "animations"
+    if not isinstance(animpack, dict):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: [animpack] is not a table")
+    kind = animpack.get("kind")
+    if kind is None:
+        return "animations"
+    if not isinstance(kind, str):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: [animpack] kind is not a string")
+    return normalize_pack_kind_token(kind)
+
+
+def pack_kind(man: dict, files: dict[str, bytes]) -> str | None:
+    """A `.astrapack` is one pack, at the zip root: its kind comes from its own
+    `animpack.toml` (§1 above). If the manifest's own top-level `kind` also
+    names one and it normalises to a different answer, the name disagrees with
+    the content -- the same rule as the GLB magic (ingest-v1.md §3 step 8)."""
     if man.get("format") != "astra.animpack":
         return None
-    return "art" if man.get("kind") == "pixel" else "animations"
+    derived = read_animpack_toml_kind(files, "")
+    declared_raw = man.get("kind")
+    if isinstance(declared_raw, str) and normalize_pack_kind_token(declared_raw) != derived:
+        raise Refusal("E_BUNDLE_MANIFEST", f"astrachar.json kind {declared_raw!r} disagrees with animpack.toml")
+    return derived
 
 
 def is_settings(p: str, settings_dir: str | None) -> bool:
@@ -1244,13 +1301,20 @@ def check_settings(files: dict[str, bytes], settings_dir: str | None) -> None:
 
 
 def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True,
-             pack: str | None = None):
+             pack: str | None = None, man: dict | None = None):
     """ingest-v1.md §5: the body, each animpacks/<id>/, each accessories/<id>/,
     each standalone image (art) and audio file (audio). Every other file is
     refused, except the character's settings file. `pack` (a part kind) says the
     bundle IS one pack, a `.astrapack`, whose part root is the zip root: label `""`.
-    Each part is keyed (part kind, root label); `part_digest_of` derives its root."""
+    Each part is keyed (part kind, root label); `part_digest_of` derives its root.
+    `man`'s `packs[]` entries ({"id", "kind"}), when present for an animpack's
+    id, must agree with that pack's own `animpack.toml` (part-digest-v1.md §1;
+    E_BUNDLE_MANIFEST on disagreement) -- an optional declaration, never a
+    requirement that every pack be listed."""
     parts: dict[tuple[str, str], dict[str, bytes]] = {}
+    pack_kind_cache: dict[str, str] = {}
+    declared_pack_kinds = {e.get("id"): e.get("kind") for e in (man or {}).get("packs", []) or []
+                            if isinstance(e, dict) and isinstance(e.get("id"), str)}
     for p, b in files.items():
         if p == "astrachar.json" or p.startswith("\0"):
             continue
@@ -1263,7 +1327,14 @@ def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None
         if body and p == body:
             parts.setdefault(("character", p), {})[p] = b
         elif segs[0] == "animpacks" and len(segs) > 2:
-            parts.setdefault(("animations", "/".join(segs[:2])), {})[p] = b
+            root = "/".join(segs[:2])
+            if root not in pack_kind_cache:
+                derived = read_animpack_toml_kind(files, root)
+                declared_raw = declared_pack_kinds.get(segs[1])
+                if isinstance(declared_raw, str) and normalize_pack_kind_token(declared_raw) != derived:
+                    raise Refusal("E_BUNDLE_MANIFEST", f"{root}: packs[] kind {declared_raw!r} disagrees with animpack.toml")
+                pack_kind_cache[root] = derived
+            parts.setdefault((pack_kind_cache[root], root), {})[p] = b
         elif "accessories" in segs[:-2]:
             i = segs.index("accessories")
             parts.setdefault(("character", "/".join(segs[:i + 2])), {})[p] = b
@@ -1320,7 +1391,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     body = (man.get("body") or {}).get("file")
     part_root_of = {f: root for (_pk, root), pf in
                     parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False,
-                             pack=pack_kind(man)).items() for f in pf}
+                             pack=pack_kind(man, files), man=man).items() for f in pf}
     for p, b in files.items():
         why = bom_refusal(p, b)
         if why:
@@ -1350,14 +1421,15 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
     settings_dir = (man.get("character") or {}).get("dir")
     check_settings(files, settings_dir)
-    kind_of = {f: pk for (pk, _root), pf in parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man)).items()
+    kind_of = {f: pk for (pk, _root), pf in
+               parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man, files), man=man).items()
                for f in pf}
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for want in ("conflict", "prohibited"):
         for p, v in verdicts.items():
             if v == want:
                 raise Refusal("E_CONTENT_LICENCE_CONFLICT" if want == "conflict" else "E_CONTENT_LICENCE_REFUSED", p)
-    parts = parts_of(files, body, (man.get("character") or {}).get("dir"), pack=pack_kind(man))
+    parts = parts_of(files, body, (man.get("character") or {}).get("dir"), pack=pack_kind(man, files), man=man)
     declared = set(ctx.get("declared_licence", []))
     flags = []
     for (pk, root), pf in sorted(parts.items()):

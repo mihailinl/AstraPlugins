@@ -1,9 +1,9 @@
 {
   "signed": {
     "schema": "astra.commands.index/1",
-    "serial": 1794697200,
-    "issued_at": 1794697200,
-    "expires_at": 1795302000,
+    "serial": 1796076000,
+    "issued_at": 1796076000,
+    "expires_at": 1796767200,
     "entries": [
       {
         "id": "greet",
@@ -462,7 +462,7 @@
   "signatures": [
     {
       "key_id": "astra-commands-2026b",
-      "sig": "lviaqcLvpcibmg/WK3dHRxZge3xbJ6qC9aFjdMADBpFiWB2BLKom2xXBWFg4G89I4bwsD5KppYQ39fLWo4+gCg=="
+      "sig": "xpXLuRiEqRLkQ3PMK4DToSjYznaxtRwYWBadKIzNNrkhCShwTg4eUivDYJaTVEd+8FHDehypOSHNIQdD8ElxCg=="
     }
   ]
 }
