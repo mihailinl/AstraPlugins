@@ -1240,18 +1240,29 @@ def normalize_pack_kind_token(raw: str) -> str:
 def read_animpack_toml_kind(files: dict[str, bytes], root: str) -> str:
     """part-digest-v1.md §1: a pack's kind comes from its OWN `animpack.toml` at
     its part root (`animpacks/<id>/animpack.toml` in a `.astrachar`, the zip
-    root of a `.astrapack`), `[animpack] kind`. Absent file or absent `kind` ->
-    `animations`. An `animpack.toml` that does not parse as TOML, or a `kind`
-    present but not a string, refuses the bundle."""
+    root of a `.astrapack`), `[animpack] kind`. Absent file, absent `animpack`
+    table or absent `kind` -> `animations`. `animpack.toml` is TOML 1.0, UTF-8
+    without a byte-order mark -- a BOM is checked for explicitly, BEFORE
+    parsing, never left to whatever a given parser version happens to refuse
+    (games manifest.md §2.6.1 pins the same grammar the same way). Anything
+    that does not parse as TOML 1.0, an `animpack` present but not a table, or
+    a `kind` present but not a string, refuses the bundle."""
     path = f"{root}/animpack.toml" if root else "animpack.toml"
     raw = files.get(path)
     if raw is None:
         return "animations"
+    if raw.startswith(UTF8_BOM) or any(raw.startswith(bom) for bom in UNICODE_BOMS):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: must be UTF-8 without a byte-order mark")
     try:
         doc = tomllib.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError):
-        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: does not parse as TOML") from None
-    kind = (doc.get("animpack") or {}).get("kind")
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: does not parse as TOML 1.0") from None
+    animpack = doc.get("animpack")
+    if animpack is None:
+        return "animations"
+    if not isinstance(animpack, dict):
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: [animpack] is not a table")
+    kind = animpack.get("kind")
     if kind is None:
         return "animations"
     if not isinstance(kind, str):

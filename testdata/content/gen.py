@@ -1351,6 +1351,22 @@ def gen_archives() -> None:
     hostile("pack-toml-unparsable.astrapack", bundle("astra.animpack", bad_toml_part, body=None, kind="vrm"))
     not_string_part = {"animpack.toml": b"[animpack]\nkind = 7\n", "clips/a.fbx": b"FBX-NOT-STRING"}
     hostile("pack-kind-not-string.astrapack", bundle("astra.animpack", not_string_part, body=None, kind="vrm"))
+    # `[animpack]` present but not a table: a bare scalar, a bool and an array each raised
+    # AttributeError out of the old `(doc.get("animpack") or {}).get("kind")` instead of a Refusal
+    not_table_part = {"animpack.toml": b"animpack = 5\n", "clips/a.fbx": b"FBX-NOT-TABLE"}
+    hostile("pack-animpack-not-table.astrapack", bundle("astra.animpack", not_table_part, body=None, kind="vrm"))
+    # animpack.toml is TOML 1.0, UTF-8 without a BOM (part-digest-v1.md §1, games manifest.md §2.6.1):
+    # a UTF-8 BOM before otherwise-valid TOML
+    bom_part = {"animpack.toml": b'\xef\xbb\xbfname = "bom"\n\n[animpack]\nkind = "pixel"\n',
+                "clips/a.fbx": b"FBX-BOM"}
+    # kind="pixel" agrees with the toml's own (once parsed) content, so the ONLY thing that can
+    # refuse this bundle is the BOM itself -- a disagreement refusal must not mask it
+    hostile("pack-toml-bom.astrapack", bundle("astra.animpack", bom_part, body=None, kind="pixel"))
+    # a TOML 1.1-only construct (the `\e` string escape): refused as TOML 1.0, never accepted by
+    # luck of whichever parser version happens to be running
+    toml_1_1_part = {"animpack.toml": b'name = "test"\nnote = "\\e"\n\n[animpack]\nkind = "pixel"\n',
+                      "clips/a.fbx": b"FBX-TOML11"}
+    hostile("pack-toml-1-1-syntax.astrapack", bundle("astra.animpack", toml_1_1_part, body=None, kind="vrm"))
 
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──

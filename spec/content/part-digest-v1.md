@@ -42,18 +42,26 @@ bytes in the bundle, is **not** a part and contributes nothing.
 astra-companion-2c `src/avatar_kind.rs::parse_token`, and the architect,
 minice-b9, 2026-11-05): the kind comes from the pack's OWN `animpack.toml` at
 its part root — `animpacks/<id>/animpack.toml` in a `.astrachar`, the zip
-root of a `.astrapack` — read from `[animpack] kind`. Normalise: trim exactly
-Rust `char::is_ascii_whitespace` (space, `\t`, `\n`, `\x0c`, `\r` — **not**
-`\x0b`, so a leading vertical tab is not trimmed and the token is left
-unrecognised), then ASCII-lowercase. `pixel` or `2d` → `art`; anything else,
-including an absent `kind`, → `animations`. An `animpack.toml` that does not
-parse as TOML, or a `kind` that is present but not a string, refuses the
-bundle (`E_BUNDLE_MANIFEST`) rather than defaulting. If the bundle's own
-manifest ALSO names a kind for the same pack — the `.astrachar` character
-manifest's `packs[]` entry for that pack's id, or a `.astrapack` manifest's
-own top-level `kind` — and it normalises to a different answer, the bundle is
-refused the same way: a name agrees with its content, the rule already
-applied to the GLB magic (ingest-v1.md §3 step 8).
+root of a `.astrapack` — read from `[animpack] kind`. **`animpack.toml` is
+TOML 1.0, UTF-8 without a byte-order mark; anything else is
+`E_BUNDLE_MANIFEST`** — the same grammar games manifest.md §2.6.1 pins for
+`astra-gi.toml`, and pinned for the same reason: a Rust `toml` crate on the
+server or in the engine might accept TOML 1.1 syntax or a BOM that a TOML 1.0
+reader refuses, and then the server and the checker would disagree on the
+same bytes. An ABSENT `animpack.toml`, an absent `[animpack]` table, or an
+absent `kind` within it, all mean the same thing: `animations`. Normalise a
+present `kind`: trim exactly Rust `char::is_ascii_whitespace` (space, `\t`,
+`\n`, `\x0c`, `\r` — **not** `\x0b`, so a leading vertical tab is not trimmed
+and the token is left unrecognised), then ASCII-lowercase. `pixel` or `2d` →
+`art`; anything else → `animations`. A file that does not parse as TOML 1.0,
+an `[animpack]` present but not a table, or a `kind` present but not a
+string, each refuses the bundle (`E_BUNDLE_MANIFEST`) rather than
+defaulting. If the bundle's own manifest ALSO names a kind for the same
+pack — the `.astrachar` character manifest's `packs[]` entry for that pack's
+id, or a `.astrapack` manifest's own top-level `kind` — and it normalises to
+a different answer, the bundle is refused the same way: a name agrees with
+its content, the rule already applied to the GLB magic (ingest-v1.md §3 step
+8).
 
 **The part digest keys confirmations and nothing else.** The blocklist and every
 deletion work on each FILE's sha256 (`content_file`), whatever its path

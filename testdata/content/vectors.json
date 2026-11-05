@@ -2807,6 +2807,27 @@
       "verdict": "refuse",
       "code": "E_BUNDLE_MANIFEST",
       "note": "[animpack] kind = 7, present but not a string: refuse, never default to animations"
+    },
+    {
+      "name": "pack-animpack-not-table",
+      "file": "archives/hostile/pack-animpack-not-table.astrapack",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "note": "animpack = 5, present but not a table: refuse, never AttributeError and never default to animations"
+    },
+    {
+      "name": "pack-toml-bom",
+      "file": "archives/hostile/pack-toml-bom.astrapack",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "note": "animpack.toml is TOML 1.0, UTF-8 without a BOM: a UTF-8 BOM before otherwise-valid TOML is checked for explicitly, before parsing"
+    },
+    {
+      "name": "pack-toml-1-1-syntax",
+      "file": "archives/hostile/pack-toml-1-1-syntax.astrapack",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "note": "a TOML 1.1-only construct (the \\e string escape): refused as TOML 1.0, as games manifest.md §2.6.1 pins for astra-gi.toml"
     }
   ],
   "scenarios": [
@@ -4189,5 +4210,5 @@
     "E_CONTENT_PUBLISHING_CLOSED": "a begin-door state (no CSAM scanner configured), not a property of a file; the checker covers no doors",
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors"
   },
-  "expected_checks": 377
+  "expected_checks": 380
 }
