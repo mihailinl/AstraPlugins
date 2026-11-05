@@ -15,5 +15,6 @@ export interface SelectTriggerProps {
     title?: string;
     popup?: "listbox" | "menu" | "dialog";
     onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
+    ariaLabelledBy?: string;
 }
 export declare const SelectTrigger: import("react").ForwardRefExoticComponent<SelectTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;

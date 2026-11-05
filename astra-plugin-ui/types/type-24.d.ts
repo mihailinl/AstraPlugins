@@ -23,10 +23,11 @@ export interface SelectProps<T extends string> {
     variant?: "default" | "described";
     width?: "longest" | "content" | "full";
     title?: string;
+    ariaLabelledBy?: string;
 }
 export declare function SelectLayout<T extends string>({ options, value, size, width, disabled, className, rootRef, children }: Pick<SelectProps<T>, "options" | "value" | "size" | "width" | "disabled" | "className"> & {
     rootRef?: React.RefObject<HTMLDivElement | null>;
     children: React.ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
 export declare function SelectOptions<T extends string>({ options, value, onChange, variant }: Pick<SelectProps<T>, "options" | "value" | "onChange" | "variant">): import("react/jsx-runtime").JSX.Element;
-export declare function Select<T extends string>({ value, onChange, options, placeholder, size, disabled, id, className, bare, variant, width, title, }: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function Select<T extends string>({ value, onChange, options, placeholder, size, disabled, id, className, bare, variant, width, title, ariaLabelledBy, }: SelectProps<T>): import("react/jsx-runtime").JSX.Element;
