@@ -202,17 +202,20 @@ by the two entries of kind `"games"` in the root-signed `trust.json`'s
 ```
 
 **Validity window, stated explicitly.** A `kind_keys` entry for `"games"`
-counts toward verifying a document only when its `not_before` is at or
-before BOTH the document's own `issued_at` AND the verifier's clock —
-`not_before ≤ issued_at` and `not_before ≤ window_now`, with
-`window_now = max(local, server Date)` (`spec/content/trust-kind-keys-v1.md`
-§3; `docs/en/spec/registry-index.md` §4.3) — so a key added by a root
-ceremony can never authorise a document dated, or arriving, before the key
-existed. The document itself is valid only while `now < expires_at`,
+counts toward verifying a document when `window_now ≥ not_before`, with
+`window_now = max(local, server Date)` — the verifier's clock, never the
+document's own `issued_at` (`spec/content/trust-kind-keys-v1.md` §3;
+`docs/en/spec/registry-index.md` §4.3). A document issued before `next`'s
+`not_before` still verifies under `next` once the verifier's clock reaches
+it — the same bytes, checked later (the content goldens'
+`next-before-not-before` refuses that check now, `next-before-not-before-later`
+accepts it once `not_before` has passed) — so games does not add an
+`issued_at` bound of its own; one rule for the key window across every
+Workshop kind beats a stricter games-only reading that would drift from it.
+Independent of the key, the document itself is valid only while
+`now < expires_at`,
 **exclusive**: at `now = expires_at` it has already expired (§1), never at
-the instant after. `spec/content/trust-kind-keys-v1.md` does not yet spell
-out either half this precisely; it is being brought to the same reading
-(minice #71 review).
+the instant after.
 
 `trust.json` carries **exactly two** entries for kind `"games"` — one
 `role: "current"`, one `role: "next"` — both already authorised the moment
@@ -309,7 +312,13 @@ one of the roles in that collected set: a document whose `key_id` is
 `"games-current"` but that only the `"games-next"` key verifies — or the
 reverse — is refused, never accepted on the strength of a role that turned
 out not to have signed it. This is what keeps the ratchet above keyed to
-what actually verified, rather than to a string the signer wrote.
+what actually verified, rather than to a string the signer wrote. Read
+this way, `games-index-v1.md` §3 and `spec/content/trust-kind-keys-v1.md`
+§6 could be heard as two different rules — the content contract's "verifies
+under K's next key" naming the key that checked out, this spec's own body
+`key_id` naming only a claim. This paragraph settles that reading for
+games in favour of the stricter one: a claim the signature itself does not
+back is refused, not merely logged.
 
 ## 3a. References to a catalogue item (packs, `requires`)
 
