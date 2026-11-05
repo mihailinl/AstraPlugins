@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: e113cfbfdd292e9f0df30a7264a13f3a8bb89b00d8cd9e8486e92416663d161a
+// surface-sha256: f321bbf8ae7cd994b3e63fb85305a39b8b24b6a51a5d055dd236ff77bdaff14a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -5305,6 +5305,20 @@ message PluginBrowseRequest {
     // refresh gesture, never by opening a page — a fetch per tab visit is a
     // request to the registry for every glance.
     bool refresh = 6;
+
+    // Ask for exactly this one listing instead of a list or a search — the
+    // "get one catalogue plugin" shape §5.4's revocation banner needs. When
+    // set, `query`/`capability_filter` are ignored and the result is this id
+    // alone (empty `entries` when the catalogue has none).
+    //
+    // **The one case that bypasses the revocation hide.** A plugin whose
+    // CURRENT listed version a blocking revocation (`disable` or
+    // `block_install`) covers is left out of an ordinary list or search
+    // (empty `plugin_id`); asking for it BY ID still returns its card, with
+    // `PluginRegistryEntry.revocation` filled in, so a direct open can show
+    // the banner. See `hide_revoked` / `revocation_banner_for` in
+    // `server/services/plugin.rs`.
+    string plugin_id = 7;
 }
 
 message PluginBrowseResponse {
@@ -5520,6 +5534,37 @@ message PluginRegistryEntry {
     // only from five ratings (the owner, 2026-10-21; OPEN-OWNER-29's k), and
     // nothing for any other shape. `stars` (10) stays retired, always 0.
     repeated int32 rating_histogram = 24;
+
+    // §5.4: present only when a signed `revocations.json` covers this
+    // entry's CURRENT listed version (`version` above) with a BLOCKING
+    // action (`disable` or `block_install`) — the one case a listing is
+    // hidden from `BrowsePluginRegistry`'s list/search and reachable only by
+    // asking for its id directly (`PluginBrowseRequest.plugin_id`). Absent
+    // for every entry an ordinary list or search returns (those are never
+    // the hidden ones), for a `warn`-level revocation, and for a revocation
+    // of an OLDER version — all three leave the listing exactly as it was.
+    // See `PluginRevocationMsg`.
+    PluginRevocationMsg revocation = 25;
+}
+
+// §5.4's revocation, attached to a `PluginRegistryEntry` whose current
+// listed version a signed `revocations.json` entry covers with a blocking
+// action. Drives the direct-open banner: the advisory id and reason, what to
+// do about an already-installed copy (decided client-side from `action`),
+// and the advisory link.
+message PluginRevocationMsg {
+    // The advisory this withdrawal belongs to, e.g. "ASTRA-2026-0002".
+    string advisory_id = 1;
+
+    // Human-readable, from the signed list, shown verbatim.
+    string reason = 2;
+
+    // "" when the advisory names none.
+    string advisory_url = 3;
+
+    // "disable" | "block_install" (`RevocationAction::as_str()`). Never
+    // "warn" — a warn-level revocation never attaches this message at all.
+    string action = 4;
 }
 
 // Which plugin's provenance to report.

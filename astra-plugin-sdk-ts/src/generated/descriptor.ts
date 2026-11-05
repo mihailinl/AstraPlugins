@@ -8647,6 +8647,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "refresh": {
               "type": "bool",
               "id": 6
+            },
+            "pluginId": {
+              "type": "string",
+              "id": 7
             }
           }
         },
@@ -8783,6 +8787,30 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "int32",
               "id": 24
+            },
+            "revocation": {
+              "type": "PluginRevocationMsg",
+              "id": 25
+            }
+          }
+        },
+        "PluginRevocationMsg": {
+          "fields": {
+            "advisoryId": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
+            },
+            "advisoryUrl": {
+              "type": "string",
+              "id": 3
+            },
+            "action": {
+              "type": "string",
+              "id": 4
             }
           }
         },
