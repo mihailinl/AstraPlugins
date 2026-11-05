@@ -201,17 +201,43 @@ by the two entries of kind `"games"` in the root-signed `trust.json`'s
   "alg": "ed25519", "public_key": "<base64, 32 bytes>", "not_before": "<RFC 3339>" }
 ```
 
+**Validity window, stated explicitly.** A `kind_keys` entry for `"games"`
+counts toward verifying a document when `window_now ≥ not_before`, with
+`window_now = max(local, server Date)` — the verifier's clock, never the
+document's own `issued_at` (`spec/content/trust-kind-keys-v1.md` §3;
+`docs/en/spec/registry-index.md` §4.3). A document issued before `next`'s
+`not_before` still verifies under `next` once the verifier's clock reaches
+it — the same bytes, checked later (the content goldens'
+`next-before-not-before` refuses that check now, `next-before-not-before-later`
+accepts it once `not_before` has passed) — so games does not add an
+`issued_at` bound of its own; one rule for the key window across every
+Workshop kind beats a stricter games-only reading that would drift from it.
+Independent of the key, the document itself is valid only while
+`now < expires_at`,
+**exclusive**: at `now = expires_at` it has already expired (§1), never at
+the instant after.
+
 `trust.json` carries **exactly two** entries for kind `"games"` — one
 `role: "current"`, one `role: "next"` — both already authorised the moment
 the root signature that covers `trust.json` itself verifies. Adding a games
 key, or replacing one outright, is a root ceremony (the owner's passphrase,
 CLAUDE.md §3); *using* the `next` one routinely is not. A kind key never
 appears in `trust.json`'s `index_keys` (the plugin registry's own key list)
-and a kind key for `"games"` is never shared with any other kind — a
-`trust.json` that breaks either separation is refused whole, because it is
-exactly the thing that would let a client predating `kind_keys` (which reads
-only `index_keys`) accept a games key for the plugin index, or let one kind's
-compromise reach another's documents.
+and a kind key for `"games"` is never shared with any other kind.
+
+**A `trust.json` that breaks either separation, or carries a malformed
+`"games"` row, costs only the `"games"` kind its keys — fail closed per
+kind, never the whole document** (`spec/content/trust-kind-keys-v1.md` §4:
+not exactly one `current` and one `next` row, a bad `role`/`alg`/
+`public_key`, an unparseable `not_before`, `next.not_before` not strictly
+later than `current.not_before`, `current` equal to `next`, or a `"games"`
+public key shared with `index_keys` or another kind — a shared key costs
+every kind it appears under). With no keys, `"games"` cannot verify
+`astra.games.index/1` or `astra.games.withdrawn/1`: installs and updates of
+games content stop and the client keeps the last verified copy of each
+(`kind-keys-unusable`), while `index_keys` and every other content kind
+keep verifying off the same `trust.json`. One bad `"games"` row must not
+take every Workshop kind offline.
 
 **No per-key lifetime.** A `kind_keys` entry is authorised from its
 `not_before` onward and stays authorised until a root ceremony says
@@ -234,19 +260,23 @@ per kind** (minice `docs/architecture/2026-11-01-content-catalogue.md`
   once it has served a `next`-signed document *of that schema*. It may still
   sign `astra.games.withdrawn/1` with `current` after `astra.games.index/1`
   has moved to `next`, and the reverse.
-- **The client:** the first `astra.games.index/1` it verifies under the
-  `"next"` role retires `"current"` **for `astra.games.index/1` only**, on
-  that client, **permanently**, and it refuses a later index that only
-  `current` signed — so a forged `serial` replayed under a since-retired role
-  cannot hold back the one that took over. That index retires nothing for
-  `astra.games.withdrawn/1`: a withdrawn list signed by `current` still
-  verifies until a `next`-signed withdrawn list has itself been verified
+- **The client:** the first `astra.games.index/1` it verifies that **moves
+  the rotation** retires `"current"` **for `astra.games.index/1` only**, on
+  that client, **permanently**. A document moves the rotation when its body
+  `key_id` is `"games-next"` **or** the `next` key is among the keys that
+  verified it, whatever its body names (the union below). From then on it
+  refuses a later index that only `current` signed, so a forged `serial`
+  replayed under a since-retired role cannot hold back the one that took
+  over. That index retires nothing for `astra.games.withdrawn/1`: a
+  withdrawn list signed by `current` still verifies until a withdrawn list
+  that moves the rotation has itself been verified
   (`games-withdrawn-v1.md`).
 - **What the client stores:** one high-water "seen `next`" mark **per
   schema** — one for `astra.games.index/1`, one for
   `astra.games.withdrawn/1`, never one for the kind `"games"`. The mark is the
   `kind_keys.key_id` that held the `current` role when that schema's first
-  `next`-verified document arrived, i.e. the key id retired for that schema.
+  document that moves the rotation arrived, i.e. the key id retired for that
+  schema.
   It only moves forward: no later document clears it. Because it records a
   key id rather than a role, the ceremony that promotes `next` to `current`
   (same key id) and adds a fresh `next` un-retires nothing and retires
@@ -275,8 +305,36 @@ actually signed) carries the real `kind_keys.key_id` that did the signing
 (e.g. `"astra-games-2026a"`). A client verifies a games document only against
 the two `kind_keys` public keys of kind `"games"` — never an `index_keys` key
 and never another kind's `kind_keys` key, whatever either `key_id` claims —
-and uses the body's role string only to decide the ratchet above, never to
-pick which public key to try.
+and never uses the body's role string to pick which public key to try.
+
+**The ratchet moves on the UNION** (minice RG delta re-check, 2026-11-05):
+a document retires `current` for its schema when **its body names
+`"games-next"`, or the `next` public key is among the keys that verified
+it**. Either one is enough. A document signed by BOTH keys whose body says
+`"games-current"` therefore retires `current`, just as
+`spec/content/trust-kind-keys-v1.md` §6 ("verifies under K's next key")
+requires. Under the body role alone it would retire nothing, and a §6
+client and a games client would disagree on the same bytes. The union is
+the refusing reading: it satisfies this section and §6 at once, and a
+later `current`-only document is refused under either. A verifier takes
+the next state from the verification itself (the role set it collected),
+never from re-reading the body.
+
+**The claimed role must be among the keys that verified.** The verifier
+tries both of kind `"games"`'s public keys against every offered signature
+and collects every role that verified — never stopping at the first
+(`spec/content/trust-kind-keys-v1.md` §6). The body's `key_id` must name
+one of the roles in that collected set: a document whose `key_id` is
+`"games-current"` but that only the `"games-next"` key verifies — or the
+reverse — is refused, never accepted on the strength of a role that turned
+out not to have signed it. This is what keeps the ratchet above keyed to
+what actually verified, rather than to a string the signer wrote. Read
+this way, `games-index-v1.md` §3 and `spec/content/trust-kind-keys-v1.md`
+§6 could be heard as two different rules — the content contract's "verifies
+under K's next key" naming the key that checked out, this spec's own body
+`key_id` naming only a claim. This paragraph settles that reading for
+games in favour of the stricter one: a claim the signature itself does not
+back is refused, not merely logged.
 
 ## 3a. References to a catalogue item (packs, `requires`)
 

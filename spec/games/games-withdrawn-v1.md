@@ -15,10 +15,12 @@ has no excuse to ever approach it.
 
 **This list retires the `current` key on its own** (`games-index-v1.md` §3;
 minice design §11a.9, 2026-11-02). Key retirement is per document schema, not
-per kind: a client that has verified a `next`-signed `astra.games.index/1`
-keeps accepting an `astra.games.withdrawn/1` signed by `current`, and refuses
-a `current`-only withdrawn list only after it has verified a `next`-signed
-withdrawn list itself. The client keeps a separate high-water "seen `next`"
+per kind: a client that has verified an `astra.games.index/1` that moves the
+rotation keeps accepting an `astra.games.withdrawn/1` signed by `current`, and
+refuses a `current`-only withdrawn list only after it has verified a withdrawn
+list that moves the rotation itself. A document moves the rotation when its
+body names `"games-next"` OR the `next` key is among the keys that verified it
+(`games-index-v1.md` §3, the union). The client keeps a separate high-water "seen `next`"
 mark for this schema — the key id it retired for it — beside the index's
 mark, never one mark for the kind. The signer, likewise, never goes back to
 `current` for this list once it has served a `next`-signed one, whatever the
