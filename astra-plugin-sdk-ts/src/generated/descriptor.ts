@@ -1373,6 +1373,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "handoffFrom": {
               "type": "string",
               "id": 14
+            },
+            "sourceKind": {
+              "type": "string",
+              "id": 15
+            },
+            "sourceName": {
+              "type": "string",
+              "id": 16
             }
           }
         },
@@ -2214,6 +2222,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "BackgroundReportMsg": {
+          "fields": {
+            "kind": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "outcome": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
         "AttributionMsg": {
           "fields": {
             "voice": {
@@ -2283,6 +2307,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "stated": {
               "type": "bool",
               "id": 17
+            },
+            "reports": {
+              "rule": "repeated",
+              "type": "BackgroundReportMsg",
+              "id": 18
             }
           }
         },

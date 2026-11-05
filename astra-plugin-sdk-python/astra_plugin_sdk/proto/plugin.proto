@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: b519b8f732b021bcc71cd5d023d5b8724c4d31411a09d1487f7b671c6c1f6f12
+// surface-sha256: 9854f4c5bfcf5543bf4c81ccac03eec0fb965781b559fdef83cf1004b5de48fc
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1036,6 +1036,10 @@ message Conversation {
     // is its thread; "" otherwise. A client keeps a blank chat from following
     // the thread's turns by it, and says where the work came from.
     string handoff_from = 14;
+
+    // Display snapshots, separate from client_label's stable machine key.
+    string source_kind = 15;  // plugin | command | scheduler | editor | ""
+    string source_name = 16;
 }
 
 message CreateConversationRequest {
@@ -1577,12 +1581,17 @@ message CommandExecutedEvt {
 // `rebuild_ai_history_from_events` — which already takes `&[Arc<StoredEvent>]`
 // — can rebuild the MODEL's copy of it after a Regenerate.
 //
-// FLAT, and never nested one level deeper than this. Both hand-written mappers
-// build these fields INLINE inside their envelope literal — never via a shared
-// helper, because check-ipc-parity.ts extracts a bounded region and a helper's
-// body is outside it.
+// Built INLINE in both hand-written shell mappers, inside the envelope. The
+// scalar attribution and its repeated report items have separately scoped
+// parity checks; helpers outside that region would hide a dropped field.
 //
 // Every human-readable string is a SNAPSHOT taken when the run started.
+message BackgroundReportMsg {
+    string kind = 1;  // work | agent | coding | job | unknown
+    string label = 2;  // short task label, never its prompt or shell command
+    string outcome = 3;  // completed | failed | stopped | incomplete | unknown
+}
+
 message AttributionMsg {
     // WHOSE decision. Closed vocabulary, a string not an enum — the same reason
     // CommandExecutedEvt.status is one: it keeps this on the generic Electron
@@ -1635,6 +1644,9 @@ message AttributionMsg {
     // re-derive this from the fields above; it may only decide how COMPACTLY to
     // draw something already stated.
     bool stated = 17;
+
+    // Display-only facts carried by this wake and all its descendant runs.
+    repeated BackgroundReportMsg reports = 18;
 }
 
 // Daemon proposed saving (or extending) a command based on an AI turn's

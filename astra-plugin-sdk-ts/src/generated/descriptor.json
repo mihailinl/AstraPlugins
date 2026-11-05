@@ -1365,6 +1365,14 @@
             "handoffFrom": {
               "type": "string",
               "id": 14
+            },
+            "sourceKind": {
+              "type": "string",
+              "id": 15
+            },
+            "sourceName": {
+              "type": "string",
+              "id": 16
             }
           }
         },
@@ -2206,6 +2214,22 @@
             }
           }
         },
+        "BackgroundReportMsg": {
+          "fields": {
+            "kind": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "outcome": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
         "AttributionMsg": {
           "fields": {
             "voice": {
@@ -2275,6 +2299,11 @@
             "stated": {
               "type": "bool",
               "id": 17
+            },
+            "reports": {
+              "rule": "repeated",
+              "type": "BackgroundReportMsg",
+              "id": 18
             }
           }
         },
