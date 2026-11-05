@@ -376,7 +376,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "shelfChanged",
                 "pluginConfigUpdated",
                 "pttCaptureChanged",
-                "voiceDictated"
+                "voiceDictated",
+                "publishProgress"
               ]
             }
           },
@@ -540,6 +541,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "voiceDictated": {
               "type": "VoiceDictatedEvent",
               "id": 44
+            },
+            "publishProgress": {
+              "type": "PublishProgressEvent",
+              "id": 45
             },
             "capabilityEpoch": {
               "type": "string",
@@ -1373,6 +1378,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "handoffFrom": {
               "type": "string",
               "id": 14
+            },
+            "sourceKind": {
+              "type": "string",
+              "id": 15
+            },
+            "sourceName": {
+              "type": "string",
+              "id": 16
             }
           }
         },
@@ -2214,6 +2227,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             }
           }
         },
+        "BackgroundReportMsg": {
+          "fields": {
+            "kind": {
+              "type": "string",
+              "id": 1
+            },
+            "label": {
+              "type": "string",
+              "id": 2
+            },
+            "outcome": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
         "AttributionMsg": {
           "fields": {
             "voice": {
@@ -2283,6 +2312,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "stated": {
               "type": "bool",
               "id": 17
+            },
+            "reports": {
+              "rule": "repeated",
+              "type": "BackgroundReportMsg",
+              "id": 18
             }
           }
         },
@@ -8613,6 +8647,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "refresh": {
               "type": "bool",
               "id": 6
+            },
+            "pluginId": {
+              "type": "string",
+              "id": 7
             }
           }
         },
@@ -8749,6 +8787,30 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "int32",
               "id": 24
+            },
+            "revocation": {
+              "type": "PluginRevocationMsg",
+              "id": 25
+            }
+          }
+        },
+        "PluginRevocationMsg": {
+          "fields": {
+            "advisoryId": {
+              "type": "string",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
+            },
+            "advisoryUrl": {
+              "type": "string",
+              "id": 3
+            },
+            "action": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -10754,6 +10816,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "GamesChangedEvent": {
           "fields": {}
+        },
+        "PublishProgressEvent": {
+          "fields": {
+            "publishId": {
+              "type": "string",
+              "id": 1
+            },
+            "state": {
+              "type": "string",
+              "id": 2
+            },
+            "sentBytes": {
+              "type": "int64",
+              "id": 3
+            },
+            "totalBytes": {
+              "type": "int64",
+              "id": 4
+            }
+          }
         }
       }
     }
