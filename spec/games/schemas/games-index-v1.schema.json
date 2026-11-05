@@ -187,7 +187,7 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "content": { "type": "array", "items": { "$ref": "#/$defs/contentPart" } },
+        "content": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/contentPart" } },
         "content_confirmed": {
           "type": "object",
           "description": "manifest.md §2.7: {text_id: version} for the confirmation texts this release's content parts were confirmed under. Never carries an account; confirmation records (who, when) live in the plugins service, not here.",
