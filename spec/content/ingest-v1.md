@@ -39,17 +39,29 @@ country is closed.** Nothing about it is stored. `begin` refuses with
 **`E_PUBLISH_REGION_CLOSED`**, and a client renders it as a closed state
 («Публикация в вашем регионе пока недоступна»), never as an error.
 
+**Publishing requires a PUBLIC NAME (handle)** (architect minice-b9,
+2026-11-03; Astra `e506c8d12`, Terms 2.4, Privacy INTL 12.5 / RU 8.9.5, G49). A
+person must choose a public name in minice-id before publishing Workshop
+content: the handle comes from the minice-id claims `minice:handle` and
+`minice:display_name`, which minice-id mints only once the person has set
+one, and both claims are public. `begin` refuses with
+**`E_CONTENT_HANDLE_REQUIRED`**, and a client renders it as "choose a public
+name first", at `/profile#public-name`.
+
 **The order of the `begin` checks:**
 1. `E_CONTENT_PUBLISHING_CLOSED`;
 2. the publish permission;
 3. `E_PUBLISH_REGION_CLOSED`;
-4. everything below.
+4. the sanction check;
+5. `E_CONTENT_HANDLE_REQUIRED`;
+6. everything below.
 
 **The eligibility read.** `GET content/publish/eligibility?kind=<kind>` answers
 `{allowed: bool, reason: null | "publishing_closed" | "not_owner" |
-"region_closed" | "suspended"}` from the SAME function as `begin`'s first three
-checks and the sanction check, so a client can show the state before the person
-starts and the two answers can never disagree.
+"region_closed" | "suspended" | "handle_required"}` from the SAME function as
+`begin`'s first three checks, the sanction check and the handle check, so a
+client can show the state before the person starts and the two answers can
+never disagree.
 
 At `begin`, against the DECLARED values: the size caps (§2), the author's
 quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, and the declared

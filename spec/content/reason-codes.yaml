@@ -26,6 +26,8 @@ ingest:
   E_CONTENT_PUBLISHING_CLOSED: live
   # the begin door, after the permission: the request's region is not open to publishing (ingest-v1.md §1, design §7a)
   E_PUBLISH_REGION_CLOSED: live
+  # the begin door, after the sanction check: no public name (minice:handle / minice:display_name) set in minice-id yet (ingest-v1.md §1, architect minice-b9 2026-11-03)
+  E_CONTENT_HANDLE_REQUIRED: live
   E_ZIP_END_RECORD: live
   E_ARCHIVE_TOO_MANY_ENTRIES: live
   E_ARCHIVE_ENCRYPTED: live
