@@ -260,19 +260,23 @@ per kind** (minice `docs/architecture/2026-11-01-content-catalogue.md`
   once it has served a `next`-signed document *of that schema*. It may still
   sign `astra.games.withdrawn/1` with `current` after `astra.games.index/1`
   has moved to `next`, and the reverse.
-- **The client:** the first `astra.games.index/1` it verifies under the
-  `"next"` role retires `"current"` **for `astra.games.index/1` only**, on
-  that client, **permanently**, and it refuses a later index that only
-  `current` signed — so a forged `serial` replayed under a since-retired role
-  cannot hold back the one that took over. That index retires nothing for
-  `astra.games.withdrawn/1`: a withdrawn list signed by `current` still
-  verifies until a `next`-signed withdrawn list has itself been verified
+- **The client:** the first `astra.games.index/1` it verifies that **moves
+  the rotation** retires `"current"` **for `astra.games.index/1` only**, on
+  that client, **permanently**. A document moves the rotation when its body
+  `key_id` is `"games-next"` **or** the `next` key is among the keys that
+  verified it, whatever its body names (the union below). From then on it
+  refuses a later index that only `current` signed, so a forged `serial`
+  replayed under a since-retired role cannot hold back the one that took
+  over. That index retires nothing for `astra.games.withdrawn/1`: a
+  withdrawn list signed by `current` still verifies until a withdrawn list
+  that moves the rotation has itself been verified
   (`games-withdrawn-v1.md`).
 - **What the client stores:** one high-water "seen `next`" mark **per
   schema** — one for `astra.games.index/1`, one for
   `astra.games.withdrawn/1`, never one for the kind `"games"`. The mark is the
   `kind_keys.key_id` that held the `current` role when that schema's first
-  `next`-verified document arrived, i.e. the key id retired for that schema.
+  document that moves the rotation arrived, i.e. the key id retired for that
+  schema.
   It only moves forward: no later document clears it. Because it records a
   key id rather than a role, the ceremony that promotes `next` to `current`
   (same key id) and adds a fresh `next` un-retires nothing and retires
@@ -301,8 +305,20 @@ actually signed) carries the real `kind_keys.key_id` that did the signing
 (e.g. `"astra-games-2026a"`). A client verifies a games document only against
 the two `kind_keys` public keys of kind `"games"` — never an `index_keys` key
 and never another kind's `kind_keys` key, whatever either `key_id` claims —
-and uses the body's role string only to decide the ratchet above, never to
-pick which public key to try.
+and never uses the body's role string to pick which public key to try.
+
+**The ratchet moves on the UNION** (minice RG delta re-check, 2026-11-05):
+a document retires `current` for its schema when **its body names
+`"games-next"`, or the `next` public key is among the keys that verified
+it**. Either one is enough. A document signed by BOTH keys whose body says
+`"games-current"` therefore retires `current`, just as
+`spec/content/trust-kind-keys-v1.md` §6 ("verifies under K's next key")
+requires. Under the body role alone it would retire nothing, and a §6
+client and a games client would disagree on the same bytes. The union is
+the refusing reading: it satisfies this section and §6 at once, and a
+later `current`-only document is refused under either. A verifier takes
+the next state from the verification itself (the role set it collected),
+never from re-reading the body.
 
 **The claimed role must be among the keys that verified.** The verifier
 tries both of kind `"games"`'s public keys against every offered signature
