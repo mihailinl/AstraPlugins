@@ -201,17 +201,40 @@ by the two entries of kind `"games"` in the root-signed `trust.json`'s
   "alg": "ed25519", "public_key": "<base64, 32 bytes>", "not_before": "<RFC 3339>" }
 ```
 
+**Validity window, stated explicitly.** A `kind_keys` entry for `"games"`
+counts toward verifying a document only when its `not_before` is at or
+before BOTH the document's own `issued_at` AND the verifier's clock —
+`not_before ≤ issued_at` and `not_before ≤ window_now`, with
+`window_now = max(local, server Date)` (`spec/content/trust-kind-keys-v1.md`
+§3; `docs/en/spec/registry-index.md` §4.3) — so a key added by a root
+ceremony can never authorise a document dated, or arriving, before the key
+existed. The document itself is valid only while `now < expires_at`,
+**exclusive**: at `now = expires_at` it has already expired (§1), never at
+the instant after. `spec/content/trust-kind-keys-v1.md` does not yet spell
+out either half this precisely; it is being brought to the same reading
+(minice #71 review).
+
 `trust.json` carries **exactly two** entries for kind `"games"` — one
 `role: "current"`, one `role: "next"` — both already authorised the moment
 the root signature that covers `trust.json` itself verifies. Adding a games
 key, or replacing one outright, is a root ceremony (the owner's passphrase,
 CLAUDE.md §3); *using* the `next` one routinely is not. A kind key never
 appears in `trust.json`'s `index_keys` (the plugin registry's own key list)
-and a kind key for `"games"` is never shared with any other kind — a
-`trust.json` that breaks either separation is refused whole, because it is
-exactly the thing that would let a client predating `kind_keys` (which reads
-only `index_keys`) accept a games key for the plugin index, or let one kind's
-compromise reach another's documents.
+and a kind key for `"games"` is never shared with any other kind.
+
+**A `trust.json` that breaks either separation, or carries a malformed
+`"games"` row, costs only the `"games"` kind its keys — fail closed per
+kind, never the whole document** (`spec/content/trust-kind-keys-v1.md` §4:
+not exactly one `current` and one `next` row, a bad `role`/`alg`/
+`public_key`, an unparseable `not_before`, `next.not_before` not strictly
+later than `current.not_before`, `current` equal to `next`, or a `"games"`
+public key shared with `index_keys` or another kind — a shared key costs
+every kind it appears under). With no keys, `"games"` cannot verify
+`astra.games.index/1` or `astra.games.withdrawn/1`: installs and updates of
+games content stop and the client keeps the last verified copy of each
+(`kind-keys-unusable`), while `index_keys` and every other content kind
+keep verifying off the same `trust.json`. One bad `"games"` row must not
+take every Workshop kind offline.
 
 **No per-key lifetime.** A `kind_keys` entry is authorised from its
 `not_before` onward and stays authorised until a root ceremony says
@@ -277,6 +300,16 @@ the two `kind_keys` public keys of kind `"games"` — never an `index_keys` key
 and never another kind's `kind_keys` key, whatever either `key_id` claims —
 and uses the body's role string only to decide the ratchet above, never to
 pick which public key to try.
+
+**The claimed role must be among the keys that verified.** The verifier
+tries both of kind `"games"`'s public keys against every offered signature
+and collects every role that verified — never stopping at the first
+(`spec/content/trust-kind-keys-v1.md` §6). The body's `key_id` must name
+one of the roles in that collected set: a document whose `key_id` is
+`"games-current"` but that only the `"games-next"` key verifies — or the
+reverse — is refused, never accepted on the strength of a role that turned
+out not to have signed it. This is what keeps the ratchet above keyed to
+what actually verified, rather than to a string the signer wrote.
 
 ## 3a. References to a catalogue item (packs, `requires`)
 
