@@ -535,7 +535,7 @@ def _bundle_layout(files: dict[str, bytes]):
         man = CG.C.strict_loads(files["astrachar.json"])
         body = (man.get("body") or {}).get("file")
         settings = (man.get("character") or {}).get("dir")
-        parts = CG.parts_of(files, body, settings, strict=False, pack=CG.pack_kind(man))
+        parts = CG.parts_of(files, body, settings, strict=False, pack=CG.pack_kind(man, files), man=man)
         return sorted(root for _kind, root in parts), body, files.get(body) if isinstance(body, str) else None
     except Exception:  # noqa: BLE001
         return [], None, None
