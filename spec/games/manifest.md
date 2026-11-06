@@ -279,6 +279,11 @@ file.
 | `credit` | shown next to the checkbox |
 | `licence` | an SPDX id or free text (unlike `[integration] license`, which is the *code's* licence and is SPDX-allowlist-checked, §4 of the ingest order below never allowlist-checks this field — it is shown, not policed) |
 
+A manifest declares at most 1024 content parts (contract 6.13.0 §4.6): the
+schema's `maxItems` on `[[integration.content]]` refuses one past that bound,
+so an over-long table never reaches ingest and the catalogue never builds a
+candidate the service must refuse.
+
 #### 2.7.1 Content-typed files, and the ingest order
 
 A **content-typed** file is one whose extension **and** magic bytes both say

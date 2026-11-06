@@ -151,7 +151,8 @@
 
     "integrationContent": {
       "type": "array",
-      "description": "manifest.md §2.7. One entry per non-built-in asset this GI ships (its own animations, models, art or audio). Cross-entry rules a JSON Schema cannot express -- a path declared more than once, a content-typed file with no entry or an entry with no file, the HARD VRM licence gate -- are gi-probe check's and the catalogue ingest's job, not this schema's.",
+      "description": "manifest.md §2.7. One entry per non-built-in asset this GI ships (its own animations, models, art or audio). Cross-entry rules a JSON Schema cannot express -- a path declared more than once, a content-typed file with no entry or an entry with no file, the HARD VRM licence gate -- are gi-probe check's and the catalogue ingest's job, not this schema's. maxItems 1024 is contract 6.13.0 §4.6's candidate bound (at most 1024 parts[]), enforced here so a manifest past it is refused before it ever reaches ingest.",
+      "maxItems": 1024,
       "items": { "$ref": "#/$defs/integrationContentEntry" }
     },
 

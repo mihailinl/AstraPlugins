@@ -24,7 +24,8 @@
       { "name": "unknown-top-level-key", "file": "manifests/invalid/unknown-top-level-key.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-kind-not-allowed", "file": "manifests/invalid/content-kind-not-allowed.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-path-traversal", "file": "manifests/invalid/content-path-traversal.toml", "verdict": "refuse", "check": "schema" },
-      { "name": "integration-uses-reserved", "file": "manifests/invalid/integration-uses-reserved.toml", "verdict": "refuse", "check": "schema" }
+      { "name": "integration-uses-reserved", "file": "manifests/invalid/integration-uses-reserved.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "content-parts-over-1024", "file": "manifests/invalid/content-parts-over-1024.toml", "verdict": "refuse", "check": "schema" }
     ]
   },
 
