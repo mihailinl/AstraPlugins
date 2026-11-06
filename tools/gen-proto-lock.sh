@@ -162,6 +162,11 @@ Fix in the Astra repo, never here:
     (astra-rs/tools/proto-slice/Cargo.toml on a checkout at v0.2.7 or earlier)
 then copy astra-proto/generated/plugin.proto to AstraPlugins/proto/plugin.proto
 and run tools/sync-proto.sh.
+
+Or, from an AstraPlugins checkout, run that whole recipe — this step, the two
+vendored copies, the Python and TypeScript stubs, this lock, and the docs
+digests in every locale — in one command:
+    tools/resync-astra.sh --astra-dir <path-to-Astra>
 MSG
     exit 1
 fi
