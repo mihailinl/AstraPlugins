@@ -53,6 +53,8 @@ ingest:
   E_CONTENT_LICENCE_CONFLICT: live
   E_CONTENT_LICENCE_REFUSED: live
   E_CONTENT_LICENCE_UNDECLARED: live
+  # begin, before upload: a declared licence (common-v1.md §3.1) does not parse -- one bad entry refuses the whole begin
+  E_CONTENT_LICENCE_DECLARATION_INVALID: live
   E_COMMAND_FORMAT: live
   E_COMMAND_UNKNOWN_ACTION: live
   E_COMMAND_UNKNOWN_TRIGGER: live
@@ -74,6 +76,8 @@ ingest:
 # not refusals: a flag holds the version for a moderator, or orders the queue
 flags:
   F_CONTENT_VRM_META_UNKNOWN: live
+  # a declared licence (no VRM meta) ALWAYS holds, an established author too (ingest-v1.md §4.3)
+  F_CONTENT_LICENCE_DECLARED: live
   F_COMMAND_EXEC_AND_NETWORK: live
   # held: a CSAM scanner error or timeout, or an image that cannot be decoded (§8a)
   F_CONTENT_CSAM_UNSCANNED: live

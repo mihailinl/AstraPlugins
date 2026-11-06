@@ -64,10 +64,14 @@ client can show the state before the person starts and the two answers can
 never disagree.
 
 At `begin`, against the DECLARED values: the size caps (§2), the author's
-quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, and the declared
-bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`). At `finalize`: the
-assembled file's sha256 and size equal what `begin` declared
-(`E_CONTENT_DIGEST_MISMATCH`).
+quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, the declared
+bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`), and **every
+`BeginRequest.parts[].licence` / `DeclaredPart.licence`** (common-v1.md §3.1):
+each must be one of the closed SPDX ids or a well-formed `custom:<URL>`, or
+the whole `begin` is refused with **`E_CONTENT_LICENCE_DECLARATION_INVALID`**,
+naming the part digest — a bundle with nine declared parts and one malformed
+entry refuses all nine, not eight. At `finalize`: the assembled file's
+sha256 and size equal what `begin` declared (`E_CONTENT_DIGEST_MISMATCH`).
 
 **The scan itself** (§8a) runs on every image the upload carries, including
 textures embedded in a VRM, GLB or glTF (through a `bufferView`, a `data:` URI or
@@ -86,6 +90,12 @@ sanction, quarantine, report) is §8a's and has no code here.
 | one author's live objects plus every upload session whose staging bytes still exist, at its declared size | 1 GiB | `E_CONTENT_QUOTA` |
 | an image | ≤ 8192 px per side and ≤ 64 Mpx | `E_CONTENT_IMAGE_DIMENSIONS` |
 | an audio file | a type on the audio allowlist | `E_CONTENT_MEDIA_TYPE` |
+| one `animpack.toml` | 256 KiB | `E_BUNDLE_MANIFEST` |
+| every TOML file in one bundle, together (the character settings file plus every `animpack.toml`) | 2 MiB | `E_BUNDLE_MANIFEST` |
+
+Both TOML caps are mirrored in the engine (astra-companion-4e), so the two
+disagree only if one side's compiled default drifts from the other — the same
+risk the per-config-struct defaults elsewhere in this estate exist to avoid.
 
 ## 3. A bundle: the order of the checks
 
@@ -217,6 +227,28 @@ and `character-plain-glb-accessory`, held). This is the games gate's rule too
 A part with neither readable VRM meta nor a declared licence (`licence_source`
 none) → `E_CONTENT_LICENCE_UNDECLARED`. A part whose only VRM file is
 `Unknown` is held (§4.1), not refused as undeclared.
+
+**The declared licence (G5/W1; agreed with the client, astra-d6, and the
+architect, minice-b9).** A part with no VRM-judged file at all (an animation
+or 2D/art pack of plain clips or images, most commonly — §5) may instead
+carry a declared licence: `BeginRequest.parts[].licence` /
+`DeclaredPart.licence`, validated at `begin`, before any byte of the bundle
+is uploaded (§1 above; `E_CONTENT_LICENCE_DECLARATION_INVALID`).
+
+- **A declaration on a part that HAS readable VRM meta is ignored; the meta
+  wins.** Readable here means ANY VRM-judged verdict, Unknown included — an
+  Unknown part is already held for a moderator (§4.1, `F_CONTENT_VRM_META_UNKNOWN`)
+  and a declaration cannot stand in for the meta the ingest could not read.
+  Only a part with ZERO VRM-judged files is eligible.
+- **A declared licence ALWAYS holds the version for a moderator**, with
+  **`F_CONTENT_LICENCE_DECLARED`** — for an established author too, and even
+  though the string itself was already validated at `begin`: the licence
+  object is signed, but a human confirms the mapping was the right one for
+  THIS content before it publishes.
+- The server maps the declared string to the signed licence object
+  (common-v1.md §3.1) from the pinned table there. The declaration itself
+  carries no other field — no usage flags, no commercial detail — all of
+  which the mapping fixes to `unknown` or `null`.
 
 ### 4.4 The games gate's goldens (AstraPlugins #123)
 

@@ -578,14 +578,18 @@ def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None 
                 f"over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)"}}
     budget.gltf_json += own
     roots, body_path, body = _bundle_layout(files)
+    # a game-integration's own `licence` toggle covers every part uniformly, with a real (always
+    # valid) declared licence string -- content's own mapping table decides the object (common-v1.md §3.1.1)
+    declared = {r: "CC-BY-4.0" for r in roots} if licence else {}
     try:
-        got = _ingest_walked(raw, files, {"declared_licence": roots if licence else []})
+        got = _ingest_walked(raw, files, {"declared_licence": declared})
     except CG.Refusal as r:
         return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
     except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
         return {"status": "bundle", "body": None, "refusal": {
             "code": "E_CONTENT_FORMAT", "detail": f"{path}!: the content checker cannot read it ({type(e).__name__}: {e})"}}
-    status = "unknown" if "F_CONTENT_VRM_META_UNKNOWN" in got["flags"] else "ok"
+    # a declared licence ALWAYS holds for a moderator too (ingest-v1.md §4.3, F_CONTENT_LICENCE_DECLARED)
+    status = "unknown" if ("F_CONTENT_VRM_META_UNKNOWN" in got["flags"] or "F_CONTENT_LICENCE_DECLARED" in got["flags"]) else "ok"
     return {"status": status, "refusal": None, "body": (body_path, body) if body is not None else None}
 
 

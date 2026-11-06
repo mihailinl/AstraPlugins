@@ -534,6 +534,37 @@ DECLARED_CC_BY = {
     "avatar_permission": "unknown", "modification": "allowed", "commercial": "allowed", "credit_required": True,
     "spdx": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/", "usage": UNKNOWN_USAGE,
 }
+
+
+def _declared(spdx, url, redistribution, modification, commercial, credit_required) -> dict:
+    """common-v1.md §3.1.1's pinned mapping table, hand-written here (never imported from the
+    checker) so the index goldens are an INDEPENDENT pin of the same table."""
+    return {"source": "declared", "spec": "none", "commercial_detail": None, "redistribution": redistribution,
+            "avatar_permission": "unknown", "modification": modification, "commercial": commercial,
+            "credit_required": credit_required, "spdx": spdx, "license_url": url, "usage": dict(UNKNOWN_USAGE)}
+
+
+# every row of common-v1.md §3.1.1's table, by declared id -- DECLARED_CC_BY above is CC-BY-4.0's row
+DECLARED_LICENCES = {
+    "CC0-1.0": _declared("CC0-1.0", "https://creativecommons.org/publicdomain/zero/1.0/",
+                         "allowed", "allowed", "allowed", False),
+    "CC-BY-4.0": DECLARED_CC_BY,
+    "CC-BY-SA-4.0": _declared("CC-BY-SA-4.0", "https://creativecommons.org/licenses/by-sa/4.0/",
+                              "allowed", "allowed", "allowed", True),
+    "CC-BY-NC-4.0": _declared("CC-BY-NC-4.0", "https://creativecommons.org/licenses/by-nc/4.0/",
+                              "allowed", "allowed", "prohibited", True),
+    "CC-BY-NC-SA-4.0": _declared("CC-BY-NC-SA-4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                                 "allowed", "allowed", "prohibited", True),
+    "CC-BY-ND-4.0": _declared("CC-BY-ND-4.0", "https://creativecommons.org/licenses/by-nd/4.0/",
+                             "allowed", "prohibited", "allowed", True),
+    "CC-BY-NC-ND-4.0": _declared("CC-BY-NC-ND-4.0", "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+                                 "allowed", "prohibited", "prohibited", True),
+    "MIT": _declared("MIT", "https://spdx.org/licenses/MIT.html", "allowed", "allowed", "allowed", True),
+    "Apache-2.0": _declared("Apache-2.0", "https://www.apache.org/licenses/LICENSE-2.0",
+                            "allowed", "allowed", "allowed", True),
+    "custom:https://example.invalid/my-licence": _declared(None, "https://example.invalid/my-licence",
+                                                            "unknown", "unknown", "unknown", True),
+}
 VRM1_LICENCE = {
     "source": "vrm", "spec": "vrm1", "commercial_detail": "personalProfit", "redistribution": "allowed",
     "avatar_permission": "everyone", "modification": "allowed", "commercial": "allowed", "credit_required": True,
@@ -718,6 +749,17 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     # display-only, never compared (design §11a.9): a detail that disagrees with `commercial` is still valid
     c_entries[0]["licence"] = dict(DECLARED_CC_BY, commercial_detail="Disallow")
     valid["commands"] = index_signed("commands", c_entries)
+
+    # common-v1.md §3.1.1's mapping table, pinned: one index entry per declared id (plus one
+    # custom:), each reusing "greet"'s artefact bytes -- only the `licence` field is the point
+    dl_entries = []
+    for i, (lic_id, obj) in enumerate(DECLARED_LICENCES.items()):
+        slug = "declared-custom" if lic_id.startswith("custom:") else f"declared-{lic_id.lower().replace('.', '-')}"
+        e = command_entry(f"greet-{i}", cmds["greet"], ["on_phrase", "plays_audio", "uses_ai"], "low")
+        e["id"] = slug
+        e["licence"] = obj
+        dl_entries.append(e)
+    put_doc("index/commands/declared-licences.json", "commands", "index", index_signed("commands", dl_entries))
 
     model = base_entry("aiko-body", bundles["model"], "application/vnd.astra.character+zip")
     model.update({"format": "astra.character", "body_kind": "vrm",
@@ -1367,6 +1409,37 @@ def gen_archives() -> None:
     toml_1_1_part = {"animpack.toml": b'name = "test"\nnote = "\\e"\n\n[animpack]\nkind = "pixel"\n',
                       "clips/a.fbx": b"FBX-TOML11"}
     hostile("pack-toml-1-1-syntax.astrapack", bundle("astra.animpack", toml_1_1_part, body=None, kind="vrm"))
+
+    # ingest-v1.md §2's archive limits (mirrored in the engine, astra-companion-4e):
+    # one animpack.toml at most 256 KiB, and every TOML file in a bundle together at most 2 MiB
+    oversized_header = b'name = "big"\n'
+    oversized_pad = 256 * 1024 + 1 - len(oversized_header) - 2  # "#" and the trailing "\n"
+    oversized_toml = oversized_header + b"#" + b"a" * oversized_pad + b"\n"
+    assert len(oversized_toml) == 256 * 1024 + 1
+    oversized_part = {"animpack.toml": oversized_toml, "clips/a.fbx": b"FBX-OVERSIZED"}
+    # Stored, not Deflated: a run of "a" compresses over the 100:1 ratio cap (step 5), which would
+    # mask the size cap this golden exists to test
+    hostile("pack-toml-oversized.astrapack", bundle("astra.animpack", oversized_part, body=None, kind="vrm",
+                                                     methods={"animpack.toml": 0}))
+
+    def padded_toml(label: bytes, size: int) -> bytes:
+        header = b'name = "' + label + b'"\n'
+        pad = size - len(header) - 2  # "#" and the trailing "\n"
+        return header + b"#" + b"a" * pad + b"\n"
+
+    PER_PACK_TOML = 240_000  # under the 256 KiB per-file cap
+    many_packs = {}
+    for i in range(9):  # 9 * 240,000 = 2,160,000 bytes: under the per-file cap, over the 2 MiB total
+        pid = f"big{i}"
+        many_packs.update(in_pack(pid, {"animpack.toml": padded_toml(f"p{i}".encode(), PER_PACK_TOML),
+                                         "clips/a.fbx": f"FBX-{i}".encode()}))
+    assert all(len(v) <= 256 * 1024 for k, v in many_packs.items() if k.endswith("animpack.toml"))
+    total_toml = sum(len(v) for k, v in many_packs.items() if k.endswith("animpack.toml")) + len(
+        next(iter(CHAR_FILES.values())))
+    assert total_toml > 2 * 1024 * 1024, total_toml
+    toml_methods = {p: 0 for p in many_packs if p.endswith("animpack.toml")}  # Stored: see pack-toml-oversized
+    hostile("pack-toml-total-oversized.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **many_packs}, body=None, methods=toml_methods))
 
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──

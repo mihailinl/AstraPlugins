@@ -1211,6 +1211,9 @@ def is_vrm_body(raw: bytes) -> bool:
 
 SETTINGS_NAME = "character.toml"  # astra-companion docs/character-files.md: characters/<id>/character.toml
 MAX_SETTINGS = 256 * 1024
+# ingest-v1.md's archive limits table (astra-companion-4e mirrors both numbers in the engine):
+MAX_ANIMPACK_TOML = 256 * 1024          # one animpack.toml
+MAX_TOTAL_TOML = 2 * 1024 * 1024        # character.toml + every animpack.toml, together
 
 
 def part_digest_of(label: str, files: dict[str, bytes]) -> str:
@@ -1237,6 +1240,89 @@ def normalize_pack_kind_token(raw: str) -> str:
     return "art" if norm in ("pixel", "2d") else "animations"
 
 
+# ── the declared licence for a part with no VRM meta (common-v1.md §3.1, G5/W1) ──
+
+CUSTOM_LICENCE_PREFIX = "custom:"
+MAX_LICENCE_DECLARATION = 512
+
+UNKNOWN_USAGE = {"violent": "unknown", "sexual": "unknown", "political": "unknown", "antisocial": "unknown"}
+
+# common-v1.md §3.1's pinned mapping table: every fixed field (source, spec,
+# commercial_detail, avatar_permission, usage) is the same for every row and
+# is added by `declared_licence_object`, not repeated here.
+LICENCE_TABLE: dict[str, dict] = {
+    "CC0-1.0": {"spdx": "CC0-1.0", "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                "redistribution": "allowed", "modification": "allowed", "commercial": "allowed", "credit_required": False},
+    "CC-BY-4.0": {"spdx": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/",
+                  "redistribution": "allowed", "modification": "allowed", "commercial": "allowed", "credit_required": True},
+    "CC-BY-SA-4.0": {"spdx": "CC-BY-SA-4.0", "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+                     "redistribution": "allowed", "modification": "allowed", "commercial": "allowed", "credit_required": True},
+    "CC-BY-NC-4.0": {"spdx": "CC-BY-NC-4.0", "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+                     "redistribution": "allowed", "modification": "allowed", "commercial": "prohibited", "credit_required": True},
+    "CC-BY-NC-SA-4.0": {"spdx": "CC-BY-NC-SA-4.0", "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                        "redistribution": "allowed", "modification": "allowed", "commercial": "prohibited", "credit_required": True},
+    "CC-BY-ND-4.0": {"spdx": "CC-BY-ND-4.0", "license_url": "https://creativecommons.org/licenses/by-nd/4.0/",
+                     "redistribution": "allowed", "modification": "prohibited", "commercial": "allowed", "credit_required": True},
+    "CC-BY-NC-ND-4.0": {"spdx": "CC-BY-NC-ND-4.0", "license_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+                        "redistribution": "allowed", "modification": "prohibited", "commercial": "prohibited", "credit_required": True},
+    "MIT": {"spdx": "MIT", "license_url": "https://spdx.org/licenses/MIT.html",
+            "redistribution": "allowed", "modification": "allowed", "commercial": "allowed", "credit_required": True},
+    "Apache-2.0": {"spdx": "Apache-2.0", "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+                   "redistribution": "allowed", "modification": "allowed", "commercial": "allowed", "credit_required": True},
+}
+
+
+def validate_licence_declaration(licence: str, part: str = "") -> None:
+    """`BeginRequest.parts[].licence` / `DeclaredPart.licence` (common-v1.md
+    §3.1): ONE string, either a member of the closed SPDX list above, or
+    `custom:<URL>` -- at most 512 characters IN TOTAL, the URL `https://`
+    only, no userinfo, no fragment, no whitespace. Refused at BEGIN, before
+    upload, naming the part digest -- one bad entry refuses the whole begin."""
+    label = f"{part}: " if part else ""
+    if len(licence) > MAX_LICENCE_DECLARATION:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}over {MAX_LICENCE_DECLARATION} characters")
+    if licence in LICENCE_TABLE:
+        return
+    if not licence.startswith(CUSTOM_LICENCE_PREFIX):
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}{licence!r} is not a recognised licence id")
+    url = licence[len(CUSTOM_LICENCE_PREFIX):]
+    if not url:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}custom: with no URL")
+    if any(c.isspace() for c in licence):
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}whitespace in a declared licence")
+    if not url.startswith("https://"):
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must be https://")
+    if "#" in url:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must carry no fragment")
+    authority = url[len("https://"):].split("/", 1)[0]
+    if "@" in authority:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must carry no userinfo")
+
+
+def validate_begin_licences(declared: dict[str, str]) -> None:
+    """Every declared part is checked; the FIRST invalid one refuses the
+    whole begin (common-v1.md §3.1). Sorted so the answer is deterministic."""
+    for root, licence in sorted(declared.items()):
+        validate_licence_declaration(licence, part=root)
+
+
+def declared_licence_object(licence: str) -> dict:
+    """The signed licence object (common-v1.md §3.1) a declared `licence`
+    string maps to. Call only after `validate_licence_declaration` -- an
+    unrecognised id or a malformed `custom:` URL has no row."""
+    if licence in LICENCE_TABLE:
+        row = LICENCE_TABLE[licence]
+    else:
+        url = licence[len(CUSTOM_LICENCE_PREFIX):]
+        row = {"spdx": None, "license_url": url, "redistribution": "unknown",
+               "modification": "unknown", "commercial": "unknown", "credit_required": True}
+    return {"source": "declared", "spec": "none", "commercial_detail": None,
+            "redistribution": row["redistribution"], "avatar_permission": "unknown",
+            "modification": row["modification"], "commercial": row["commercial"],
+            "credit_required": row["credit_required"], "spdx": row["spdx"], "license_url": row["license_url"],
+            "usage": dict(UNKNOWN_USAGE)}
+
+
 def read_animpack_toml_kind(files: dict[str, bytes], root: str) -> str:
     """part-digest-v1.md §1: a pack's kind comes from its OWN `animpack.toml` at
     its part root (`animpacks/<id>/animpack.toml` in a `.astrachar`, the zip
@@ -1251,6 +1337,8 @@ def read_animpack_toml_kind(files: dict[str, bytes], root: str) -> str:
     raw = files.get(path)
     if raw is None:
         return "animations"
+    if len(raw) > MAX_ANIMPACK_TOML:
+        raise Refusal("E_BUNDLE_MANIFEST", f"{path}: over {MAX_ANIMPACK_TOML} bytes")
     if raw.startswith(UTF8_BOM) or any(raw.startswith(bom) for bom in UNICODE_BOMS):
         raise Refusal("E_BUNDLE_MANIFEST", f"{path}: must be UTF-8 without a byte-order mark")
     try:
@@ -1298,6 +1386,16 @@ def check_settings(files: dict[str, bytes], settings_dir: str | None) -> None:
                 tomllib.loads(b.decode("utf-8"))
             except (UnicodeDecodeError, ValueError) as e:  # tomllib.TOMLDecodeError is a ValueError
                 raise Refusal("E_CONTENT_FORMAT", f"{p}: not UTF-8 TOML of at most {MAX_SETTINGS} bytes ({e})") from None
+
+
+def check_toml_total_size(files: dict[str, bytes], settings_dir: str | None) -> None:
+    """ingest-v1.md's archive limits table: the character settings file plus
+    EVERY animpack.toml, together, at most 2 MiB (astra-companion-4e mirrors
+    this in the engine, alongside the 256 KiB per-animpack.toml cap)."""
+    total = sum(len(b) for p, b in files.items()
+                if is_settings(p, settings_dir) or p == "animpack.toml" or p.endswith("/animpack.toml"))
+    if total > MAX_TOTAL_TOML:
+        raise Refusal("E_BUNDLE_MANIFEST", f"TOML files together: {total} bytes, over {MAX_TOTAL_TOML}")
 
 
 def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True,
@@ -1421,6 +1519,7 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
     settings_dir = (man.get("character") or {}).get("dir")
     check_settings(files, settings_dir)
+    check_toml_total_size(files, settings_dir)
     kind_of = {f: pk for (pk, _root), pf in
                parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man, files), man=man).items()
                for f in pf}
@@ -1430,14 +1529,20 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             if v == want:
                 raise Refusal("E_CONTENT_LICENCE_CONFLICT" if want == "conflict" else "E_CONTENT_LICENCE_REFUSED", p)
     parts = parts_of(files, body, (man.get("character") or {}).get("dir"), pack=pack_kind(man, files), man=man)
-    declared = set(ctx.get("declared_licence", []))
+    declared: dict[str, str] = ctx.get("declared_licence", {})  # {root: licence string}, common-v1.md §3.1
     flags = []
     for (pk, root), pf in sorted(parts.items()):
-        has_meta = any(verdicts.get(p) == "allowed" for p in pf)
-        if not has_meta and root not in declared:
-            unknown = any(verdicts.get(p) == "unknown" for p in pf)
-            if not unknown:
-                raise Refusal("E_CONTENT_LICENCE_UNDECLARED", root)
+        part_verdicts = [verdicts[p] for p in pf if p in verdicts]
+        if any(v == "allowed" for v in part_verdicts):
+            continue  # a part with readable VRM meta: the meta wins, a declaration here is ignored
+        if any(v == "unknown" for v in part_verdicts):
+            continue  # held for a moderator already (F_CONTENT_VRM_META_UNKNOWN below), unaffected by a declaration
+        if root in declared:
+            # begin already refused a malformed declaration; this is defence in depth
+            validate_licence_declaration(declared[root], part=root)
+            flags.append("F_CONTENT_LICENCE_DECLARED")  # ALWAYS holds, an established author too (ingest-v1.md §4.3)
+        else:
+            raise Refusal("E_CONTENT_LICENCE_UNDECLARED", root)
     if "declared_parts" in ctx:  # step 12: the parts the uploader declared at `begin`
         derived = {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()}
         if derived != ctx["declared_parts"]:
@@ -1740,6 +1845,30 @@ def main() -> int:
     for v in V["part_digest_refusals"]:
         report(f"part-digest refuses {v['name']}", C.path_refusal(v["path"]) == v["rule"], str(C.path_refusal(v["path"])))
 
+    # -- the declared licence, common-v1.md §3.1.1 --------------------------
+    DL = V["declared_licence"]
+    for v in DL["valid"]:
+        try:
+            validate_licence_declaration(v["id"])
+            got = declared_licence_object(v["id"])
+            err = None
+        except Refusal as r:
+            got, err = None, r.code
+        report(f"declared-licence/{v['id']}", err is None and got == v["object"], f"err={err} got={got}")
+    for v in DL["refusals"]:
+        try:
+            validate_licence_declaration(v["licence"])
+            got = "accept"
+        except Refusal as r:
+            got = r.code
+        report(f"declared-licence refuses {v['name']}", got == DL["code"], got)
+    try:
+        validate_begin_licences(DL["begin_refuses_on_first_bad"])
+        got = "accept"
+    except Refusal as r:
+        got = r.code
+    report("declared-licence: one bad entry refuses the whole begin", got == DL["code"], got)
+
     # -- index and withdrawn documents --------------------------------------
     cmd_by_sha = {}
     for p in sorted((DATA / "commands").rglob("*.command.json")):
@@ -1876,6 +2005,8 @@ def main() -> int:
     # -- every ingest code has a golden, or says why only L1 can test it (F16) -------
     expected_codes = {v.get("code") for v in V["commands"] + V["archives"]}
     expected_codes |= {v["expect"] for v in V["scenarios"] if isinstance(v["expect"], str)}
+    if V.get("declared_licence", {}).get("refusals"):
+        expected_codes.add(V["declared_licence"]["code"])
     l1 = V.get("l1_only", {})
     bare = [c for c in codes["ingest"] if c not in expected_codes and not str(l1.get(c, "")).strip()]
     report("every ingest code has a golden or an l1_only reason", not bare, str(bare))
