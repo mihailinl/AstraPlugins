@@ -640,6 +640,17 @@ release flagged `F_CONTENT_VRM_META_UNKNOWN` on the bundle's path (golden
 `bundle-vrm0-licence-other`), and only with the part's declared licence —
 without it, `E_CONTENT_LICENCE_UNDECLARED`.
 
+**`F_CONTENT_LICENCE_DECLARED`: a pack part inside an embedded bundle whose
+rights come from a declared licence (common-v1.md §3.1.1), never VRM meta**
+(`ingest-v1.md` §4.3; a pack part never carries an avatar's own verdict —
+`E_CONTENT_AVATAR_IN_PACK` refuses that outright). This is a DIFFERENT flag
+from `F_CONTENT_VRM_META_UNKNOWN`, named for what it actually is, but it
+carries the SAME consequence: never a refusal, held for a moderator, and
+published flagged on the bundle's path (golden `bundle-animset-wave`) --
+exactly the publish-at-once treatment the `unknown` case gets above, because
+`ingest_bundle`'s own `held` verdict does not distinguish WHY a version
+needs a human, only that it does.
+
 **The usage flags (G5).** Kept with the part in `vrm_licence.fields`
 whichever of these the file actually carries, alongside the
 redistribution/permission fields above, so the install sheet and the public
@@ -752,9 +763,12 @@ asserts each one is refused with exactly that code.
 `E_CONTENT_DUPLICATE`), the VRM gate's `E_CONTENT_LICENCE_REFUSED`,
 `E_CONTENT_LICENCE_CONFLICT` (§2.7.3's two-meta disagreement),
 `E_CONTENT_FORMAT` (§2.7.3's whole-GLB, duplicate-member and external-reference
-rules) and `E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's `licence_source` fallback
-with nothing to fall back to), and the flag `F_CONTENT_VRM_META_UNKNOWN` (a
-judged glTF with no readable VRM meta, or an unrecognised token — never a
+rules), `E_CONTENT_AVATAR_IN_PACK` (an avatar file inside a pack part, refused
+whatever its verdict) and `E_CONTENT_LICENCE_UNDECLARED` (§2.7.3's
+`licence_source` fallback with nothing to fall back to), and the flags
+`F_CONTENT_VRM_META_UNKNOWN` (a judged glTF with no readable VRM meta, or an
+unrecognised token — never a refusal) and `F_CONTENT_LICENCE_DECLARED` (a
+pack part's rights are a declared licence, never VRM meta — also never a
 refusal) are the one exception to "gi-probe check finding": the ingest
 order (§2.7.1) runs
 the content check **before** gi-probe, over the real release zip's bytes,

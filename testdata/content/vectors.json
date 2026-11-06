@@ -682,7 +682,7 @@
       "file": "index/commands/declared-licences.json",
       "verdict": "accept",
       "signed_by": "astra-commands-2026a",
-      "note": "one entry per common-v1.md §3.1.1 declared id, plus one custom: -- pins the mapping table through the ordinary index pipeline, independently of declared_licence_object's own goldens"
+      "note": "one entry per common-v1.md §3.1.1 declared id, plus one custom: -- the ordinary index pipeline (schema, signature, claim derivation) proves these objects are valid index entries; the real pin on the mapping TABLE is the hand-written `declared_licence` vectors above, checked against gen.py's independently hand-written DECLARED_LICENCES"
     },
     {
       "name": "next-before-not-before",
@@ -1922,7 +1922,7 @@
       "declared_licence": {
         "": "CC-BY-4.0"
       },
-      "note": "a .vrma declaring VRMC_vrm_animation and no avatar extension is an animation: the animations rights checkbox, no avatar verdict, not held",
+      "note": "a .vrma declaring VRMC_vrm_animation and no avatar extension is an animation: no avatar verdict, no E_CONTENT_AVATAR_IN_PACK -- held only for the usual declared-licence reason (F_CONTENT_LICENCE_DECLARED), not for anything about the VRM meta",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
       ]
@@ -1934,7 +1934,7 @@
       "declared_licence": {
         "": "CC-BY-4.0"
       },
-      "note": "a plain GLB clip (no avatar extension, no VRMC_vrm_animation) in an animset part takes the part's rights confirmation: never judged, never held",
+      "note": "a plain GLB clip (no avatar extension, no VRMC_vrm_animation) in an animset part takes the part's rights confirmation, never a VRM verdict -- held only for the usual declared-licence reason (F_CONTENT_LICENCE_DECLARED)",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
       ]
@@ -2436,11 +2436,44 @@
       "name": "vrma-avatar-prohibited",
       "file": "archives/hostile/vrma-avatar-prohibited.astrapack",
       "verdict": "refuse",
-      "code": "E_CONTENT_LICENCE_REFUSED",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
       "declared_licence": {
         "": "CC-BY-4.0"
       },
-      "note": "named .vrma and declaring VRMC_vrm_animation, but it carries VRMC_vrm: an avatar, judged as one"
+      "note": "named .vrma and declaring VRMC_vrm_animation, but it carries VRMC_vrm: an avatar in an animations pack part, refused outright, whatever its verdict (ingest-v1.md §4.3, B1)"
+    },
+    {
+      "name": "decoy-allowed-vrm-in-animset",
+      "file": "archives/hostile/decoy-allowed-vrm-in-animset.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: a decoy avatar with ALLOWED meta inside an animations pack -- the old bug let 'allowed -> continue' both lift the pack's hold and override the author's own declared licence"
+    },
+    {
+      "name": "decoy-unknown-vrm-in-animset",
+      "file": "archives/hostile/decoy-unknown-vrm-in-animset.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: an Unknown-verdict avatar inside an animations pack is refused outright too, not merely held"
+    },
+    {
+      "name": "decoy-allowed-vrm-in-astrachar-pack",
+      "file": "archives/hostile/decoy-allowed-vrm-in-astrachar-pack.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: the same decoy inside a .astrachar pack part (animpacks/<id>/), not only a standalone .astrapack"
+    },
+    {
+      "name": "vrm-no-meta-plus-declaration",
+      "file": "archives/hostile/vrm-no-meta-plus-declaration.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
+      ],
+      "declared_licence": {
+        "characters/aiko/body.vrm": "CC-BY-4.0"
+      },
+      "note": "S4: a body with an Unknown VRM (no readable meta) plus a declaration on the SAME part: the meta's own hold stands alone, never combined with F_CONTENT_LICENCE_DECLARED -- the declaration is ignored outright on a character/model part"
     },
     {
       "name": "character-plain-glb-accessory",
@@ -2885,7 +2918,123 @@
       "file": "archives/hostile/pack-toml-total-oversized.astrachar",
       "verdict": "refuse",
       "code": "E_BUNDLE_MANIFEST",
-      "note": "9 animpack.toml files, each under the 256 KiB per-file cap, together over the 2 MiB total cap (ingest-v1.md §2)"
+      "detail_contains": "TOML files together:",
+      "note": "9 animpack.toml files, each under the 256 KiB per-file cap, together over the 2 MiB total cap (ingest-v1.md §2); detail pins that this is a BYTE-total check, distinct from a count-based one (B2)"
+    },
+    {
+      "name": "pack-toml-nine-small-packs",
+      "file": "archives/valid/pack-toml-nine-small-packs.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/small0": "CC-BY-4.0",
+        "animpacks/small1": "CC-BY-4.0",
+        "animpacks/small2": "CC-BY-4.0",
+        "animpacks/small3": "CC-BY-4.0",
+        "animpacks/small4": "CC-BY-4.0",
+        "animpacks/small5": "CC-BY-4.0",
+        "animpacks/small6": "CC-BY-4.0",
+        "animpacks/small7": "CC-BY-4.0",
+        "animpacks/small8": "CC-BY-4.0"
+      },
+      "note": "B2: 9 packs, each a tiny animpack.toml, accepted (held, for the usual declared-licence reason): the total check sums bytes, never merely counts files past some N"
+    },
+    {
+      "name": "pack-toml-at-cap",
+      "file": "archives/valid/pack-toml-at-cap.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "boundary: exactly 256 KiB (262,144 bytes), not one byte over the per-file cap -- accepted (held)"
+    },
+    {
+      "name": "pack-toml-total-at-cap",
+      "file": "archives/valid/pack-toml-total-at-cap.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/cap0": "CC-BY-4.0",
+        "animpacks/cap1": "CC-BY-4.0",
+        "animpacks/cap2": "CC-BY-4.0",
+        "animpacks/cap3": "CC-BY-4.0",
+        "animpacks/cap4": "CC-BY-4.0",
+        "animpacks/cap5": "CC-BY-4.0",
+        "animpacks/cap6": "CC-BY-4.0",
+        "animpacks/capR": "CC-BY-4.0"
+      },
+      "note": "boundary: settings (34 bytes) + 7 packs at the 256 KiB per-file cap + 1 remainder pack = exactly 2,097,152 bytes, not one byte over the total cap -- accepted (held)"
+    },
+    {
+      "name": "pack-toml-deep-not-counted",
+      "file": "archives/valid/pack-toml-deep-not-counted.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "S1: a 2 MiB clips/animpack.toml is NOT at the pack's own root, so it does not count toward the TOML total at all -- an ordinary file, judged by the other caps alone"
+    },
+    {
+      "name": "pack-toml-total-oversized-plus-utf16",
+      "file": "archives/hostile/pack-toml-total-oversized-plus-utf16.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "detail_contains": "TOML files together:",
+      "note": "S2: the order -- an over-total bundle whose settings file is ALSO UTF-16 still refuses on the total-size check (the manifest step), never on settings' own UTF-8 format check, because the size caps run first"
+    },
+    {
+      "name": "declared-licence-null-is-absent",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_UNDECLARED",
+      "declared_licence": {
+        "": null
+      },
+      "note": "S7: licence `null` on a part means no declaration, exactly as an absent key -- E_CONTENT_LICENCE_UNDECLARED, the same as today"
+    },
+    {
+      "name": "declared-licence-empty-string-is-malformed",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
+      "declared_licence": {
+        "": ""
+      },
+      "note": "S7: an empty string IS a present declaration -- malformed, never treated as absent"
+    },
+    {
+      "name": "pack-same-digest-different-declaration",
+      "file": "archives/valid/pack-same-digest-twice.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
+      "declared_licence": {
+        "animpacks/dup-a": "CC-BY-4.0",
+        "animpacks/dup-b": "CC0-1.0"
+      },
+      "note": "S7: the SAME part digest (dup-a and dup-b are byte-for-byte the same pack) declared two different licences -- refused"
+    },
+    {
+      "name": "pack-same-digest-same-declaration",
+      "file": "archives/valid/pack-same-digest-twice.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/dup-a": "CC-BY-4.0",
+        "animpacks/dup-b": "CC-BY-4.0"
+      },
+      "note": "S7: the SAME part digest declared the SAME licence twice -- fine"
     },
     {
       "name": "model-aiko-meta-wins-over-declaration",
@@ -2896,6 +3045,12 @@
       },
       "parts": {
         "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+      },
+      "licence_of": {
+        "characters/aiko/body.vrm": {
+          "licence_source": "vrm",
+          "licence": null
+        }
       },
       "note": "the body has readable, allowed VRM meta: a declaration on that same part is ignored outright, not even validated -- the meta wins (ingest-v1.md §4.3)"
     },
@@ -2909,7 +3064,30 @@
       "declared_licence": {
         "": "custom:https://example.invalid/my-licence"
       },
-      "note": "a custom: declared licence on a part with no VRM meta at all: always held for a moderator, an established author too (ingest-v1.md §4.3)"
+      "licence_of": {
+        "": {
+          "licence_source": "declared",
+          "licence": {
+            "source": "declared",
+            "spec": "none",
+            "commercial_detail": null,
+            "redistribution": "unknown",
+            "avatar_permission": "unknown",
+            "modification": "unknown",
+            "commercial": "unknown",
+            "credit_required": true,
+            "spdx": null,
+            "license_url": "https://example.invalid/my-licence",
+            "usage": {
+              "violent": "unknown",
+              "sexual": "unknown",
+              "political": "unknown",
+              "antisocial": "unknown"
+            }
+          }
+        }
+      },
+      "note": "a custom: declared licence on a part with no VRM meta at all: always held for a moderator, an established author too (ingest-v1.md §4.3); licence_of pins the exact mapped object (nit)"
     }
   ],
   "scenarios": [
@@ -4293,7 +4471,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 417,
+  "expected_checks": 443,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [
@@ -4544,11 +4722,49 @@
       {
         "name": "custom-no-url",
         "licence": "custom:"
+      },
+      {
+        "name": "https-empty",
+        "licence": "custom:https://"
+      },
+      {
+        "name": "https-triple-slash",
+        "licence": "custom:https:///x"
+      },
+      {
+        "name": "nul",
+        "licence": "custom:https://ex\u0000ample.invalid/x"
+      },
+      {
+        "name": "del",
+        "licence": "custom:https://ex\u007fample.invalid/x"
+      },
+      {
+        "name": "rtl-override",
+        "licence": "custom:https://example.invalid/x‮"
+      },
+      {
+        "name": "zero-width-space",
+        "licence": "custom:https://example.invalid/x​"
+      },
+      {
+        "name": "idn-host",
+        "licence": "custom:https://exämple.invalid/x"
+      },
+      {
+        "name": "whitespace-only",
+        "licence": "   "
       }
     ],
     "begin_refuses_on_first_bad": {
       "a": "CC-BY-4.0",
       "b": "not-a-licence"
-    }
+    },
+    "accepts": [
+      {
+        "name": "query-with-at",
+        "licence": "custom:https://x.com/?q=a@b"
+      }
+    ]
   }
 }

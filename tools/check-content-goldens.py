@@ -1274,13 +1274,15 @@ LICENCE_TABLE: dict[str, dict] = {
 
 def validate_licence_declaration(licence: str, part: str = "") -> None:
     """`BeginRequest.parts[].licence` / `DeclaredPart.licence` (common-v1.md
-    §3.1): ONE string, either a member of the closed SPDX list above, or
-    `custom:<URL>` -- at most 512 characters IN TOTAL, the URL `https://`
-    only, no userinfo, no fragment, no whitespace. Refused at BEGIN, before
+    §3.1.1): ONE string, either a member of the closed SPDX list above, or
+    `custom:<URL>` -- the whole string at most 512 BYTES, the URL printable
+    ASCII only (U+0021-U+007E), `https://`, a non-empty authority carrying no
+    `@`, and no `#` anywhere. An empty or whitespace-only string is a
+    PRESENT, malformed declaration, never "absent". Refused at BEGIN, before
     upload, naming the part digest -- one bad entry refuses the whole begin."""
     label = f"{part}: " if part else ""
-    if len(licence) > MAX_LICENCE_DECLARATION:
-        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}over {MAX_LICENCE_DECLARATION} characters")
+    if len(licence.encode("utf-8")) > MAX_LICENCE_DECLARATION:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}over {MAX_LICENCE_DECLARATION} bytes")
     if licence in LICENCE_TABLE:
         return
     if not licence.startswith(CUSTOM_LICENCE_PREFIX):
@@ -1288,22 +1290,39 @@ def validate_licence_declaration(licence: str, part: str = "") -> None:
     url = licence[len(CUSTOM_LICENCE_PREFIX):]
     if not url:
         raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}custom: with no URL")
-    if any(c.isspace() for c in licence):
-        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}whitespace in a declared licence")
+    if any(not (0x21 <= ord(c) <= 0x7E) for c in licence):
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID",
+                       f"{label}a custom licence URL must be printable ASCII (U+0021-U+007E) only")
     if not url.startswith("https://"):
         raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must be https://")
     if "#" in url:
         raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must carry no fragment")
-    authority = url[len("https://"):].split("/", 1)[0]
+    rest = url[len("https://"):]
+    cut = min((i for i in (rest.find("/"), rest.find("?"), rest.find("#")) if i != -1), default=len(rest))
+    authority = rest[:cut]
+    if not authority:
+        raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL needs a non-empty authority")
     if "@" in authority:
         raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID", f"{label}a custom licence URL must carry no userinfo")
 
 
-def validate_begin_licences(declared: dict[str, str]) -> None:
+def validate_begin_licences(declared: dict[str, str], digests: dict[str, str] | None = None) -> None:
     """Every declared part is checked; the FIRST invalid one refuses the
-    whole begin (common-v1.md §3.1). Sorted so the answer is deterministic."""
+    whole begin (common-v1.md §3.1.1). Sorted so the answer is deterministic.
+    `digests`, when given ({root: part digest}), additionally refuses two
+    roots sharing a part digest with different declared licences (S7)."""
     for root, licence in sorted(declared.items()):
         validate_licence_declaration(licence, part=root)
+    if digests:
+        by_digest: dict[str, str] = {}
+        for root, licence in sorted(declared.items()):
+            d = digests.get(root)
+            if d is None:
+                continue
+            if d in by_digest and by_digest[d] != licence:
+                raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID",
+                               f"{root}: part digest {d} already declared differently")
+            by_digest[d] = licence
 
 
 def declared_licence_object(licence: str) -> dict:
@@ -1388,12 +1407,24 @@ def check_settings(files: dict[str, bytes], settings_dir: str | None) -> None:
                 raise Refusal("E_CONTENT_FORMAT", f"{p}: not UTF-8 TOML of at most {MAX_SETTINGS} bytes ({e})") from None
 
 
+def is_pack_toml_name(p: str) -> bool:
+    """A pack's OWN animpack.toml, AT ITS PART ROOT: the zip root of a
+    `.astrapack` (`animpack.toml`), or `animpacks/<id>/animpack.toml` in a
+    `.astrachar` -- never a deeper `clips/animpack.toml` (S1; the same rule
+    as the server's `is_pack_toml_name`). A path ending `/animpack.toml` at
+    any other depth is an ordinary file, judged by the other caps alone."""
+    if p == "animpack.toml":
+        return True
+    segs = p.split("/")
+    return len(segs) == 3 and segs[0] == "animpacks" and segs[2] == "animpack.toml"
+
+
 def check_toml_total_size(files: dict[str, bytes], settings_dir: str | None) -> None:
-    """ingest-v1.md's archive limits table: the character settings file plus
-    EVERY animpack.toml, together, at most 2 MiB (astra-companion-4e mirrors
-    this in the engine, alongside the 256 KiB per-animpack.toml cap)."""
-    total = sum(len(b) for p, b in files.items()
-                if is_settings(p, settings_dir) or p == "animpack.toml" or p.endswith("/animpack.toml"))
+    """ingest-v1.md's archive limits table (§3 step 8, E_BUNDLE_MANIFEST):
+    the character settings file plus EVERY pack-root animpack.toml (S1),
+    together, at most 2 MiB (astra-companion-4e mirrors this in the engine,
+    alongside the 256 KiB per-animpack.toml cap)."""
+    total = sum(len(b) for p, b in files.items() if is_settings(p, settings_dir) or is_pack_toml_name(p))
     if total > MAX_TOTAL_TOML:
         raise Refusal("E_BUNDLE_MANIFEST", f"TOML files together: {total} bytes, over {MAX_TOTAL_TOML}")
 
@@ -1487,9 +1518,17 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         if hashlib.sha256(b).hexdigest() in blocked:
             raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
+    settings_dir = (man.get("character") or {}).get("dir")
+    # S2: both archive-limit caps are the manifest step (§3 step 8, E_BUNDLE_MANIFEST) -- before
+    # format (step 10) AND before settings' own format check, so an over-total bundle, or one
+    # animpack.toml over its own cap, is never masked by a later refusal (the total check first,
+    # since it is pure byte-counting with nothing to parse; the per-file cap lives inside
+    # `read_animpack_toml_kind`, reached from `pack_kind`/`parts_of` below)
+    check_toml_total_size(files, settings_dir)
     part_root_of = {f: root for (_pk, root), pf in
-                    parts_of(files, body, (man.get("character") or {}).get("dir"), strict=False,
+                    parts_of(files, body, settings_dir, strict=False,
                              pack=pack_kind(man, files), man=man).items() for f in pf}
+    check_settings(files, settings_dir)
     for p, b in files.items():
         why = bom_refusal(p, b)
         if why:
@@ -1517,40 +1556,66 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
-    settings_dir = (man.get("character") or {}).get("dir")
-    check_settings(files, settings_dir)
-    check_toml_total_size(files, settings_dir)
     kind_of = {f: pk for (pk, _root), pf in
                parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man, files), man=man).items()
                for f in pf}
+    # ingest-v1.md §3 step 11 / §4.3: an avatar-classified GLB or .gltf outside a character's or
+    # model's own part -- in an animations or art pack part -- is refused whatever its verdict
+    # would have been. Checked before the verdict itself, so Allowed, Unknown and Prohibited all
+    # refuse the same way (a decoy avatar must never lift a pack's hold or stand in for a licence).
+    for p, b in files.items():
+        if judged(p, b) and glb_class(b) == "avatar" and kind_of.get(p) not in AVATAR_PART_KINDS:
+            raise Refusal("E_CONTENT_AVATAR_IN_PACK", p)
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for want in ("conflict", "prohibited"):
         for p, v in verdicts.items():
             if v == want:
                 raise Refusal("E_CONTENT_LICENCE_CONFLICT" if want == "conflict" else "E_CONTENT_LICENCE_REFUSED", p)
-    parts = parts_of(files, body, (man.get("character") or {}).get("dir"), pack=pack_kind(man, files), man=man)
-    declared: dict[str, str] = ctx.get("declared_licence", {})  # {root: licence string}, common-v1.md §3.1
-    flags = []
+    parts = parts_of(files, body, settings_dir, pack=pack_kind(man, files), man=man)
+    declared: dict[str, str | None] = ctx.get("declared_licence", {})  # {root: licence string}, common-v1.md §3.1.1
+    any_declared = False  # F_CONTENT_LICENCE_DECLARED is emitted ONCE per version, never once per part
+    licence_of: dict[str, dict] = {}  # root -> {"licence_source", "licence"} -- nits: assert in archive goldens
     for (pk, root), pf in sorted(parts.items()):
         part_verdicts = [verdicts[p] for p in pf if p in verdicts]
         if any(v == "allowed" for v in part_verdicts):
-            continue  # a part with readable VRM meta: the meta wins, a declaration here is ignored
+            # a part with readable VRM meta: the meta wins, a declaration here is ignored outright
+            licence_of[root] = {"licence_source": "vrm", "licence": None}
+            continue
         if any(v == "unknown" for v in part_verdicts):
-            continue  # held for a moderator already (F_CONTENT_VRM_META_UNKNOWN below), unaffected by a declaration
-        if root in declared:
+            # held for a moderator already (F_CONTENT_VRM_META_UNKNOWN below), unaffected by a declaration
+            licence_of[root] = {"licence_source": None, "licence": None}
+            continue
+        decl = declared.get(root)  # absent or `null` means no declaration (common-v1.md §3.1.1)
+        if decl is not None:
             # begin already refused a malformed declaration; this is defence in depth
-            validate_licence_declaration(declared[root], part=root)
-            flags.append("F_CONTENT_LICENCE_DECLARED")  # ALWAYS holds, an established author too (ingest-v1.md §4.3)
+            validate_licence_declaration(decl, part=root)
+            licence_of[root] = {"licence_source": "declared", "licence": declared_licence_object(decl)}
+            any_declared = True  # ALWAYS holds, an established author too (ingest-v1.md §4.3)
         else:
             raise Refusal("E_CONTENT_LICENCE_UNDECLARED", root)
+    # S7: two parts with the SAME part digest must declare the SAME licence
+    by_digest: dict[str, str] = {}
+    for (pk, root), pf in parts.items():
+        decl = declared.get(root)
+        if decl is None:
+            continue
+        digest = part_digest_of(root, pf)
+        if digest in by_digest and by_digest[digest] != decl:
+            raise Refusal("E_CONTENT_LICENCE_DECLARATION_INVALID",
+                           f"{root}: part digest {digest} declared differently elsewhere")
+        by_digest[digest] = decl
     if "declared_parts" in ctx:  # step 12: the parts the uploader declared at `begin`
         derived = {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()}
         if derived != ctx["declared_parts"]:
             raise Refusal("E_CONTENT_PARTS_MISMATCH", f"derived {derived}")
+    flags = []
     if any(v == "unknown" for v in verdicts.values()):
         flags.append("F_CONTENT_VRM_META_UNKNOWN")
+    if any_declared:
+        flags.append("F_CONTENT_LICENCE_DECLARED")
     return {"verdict": "held" if flags else "accept", "flags": flags,
-            "parts": {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()}}
+            "parts": {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()},
+            "licence_of": licence_of}
 
 
 # ── scenarios ────────────────────────────────────────────────────────────
@@ -1862,6 +1927,13 @@ def main() -> int:
         except Refusal as r:
             got = r.code
         report(f"declared-licence refuses {v['name']}", got == DL["code"], got)
+    for v in DL.get("accepts", []):  # S3: a shape that must NOT be refused (the @ is past the authority)
+        try:
+            validate_licence_declaration(v["licence"])
+            got = "accept"
+        except Refusal as r:
+            got = r.code
+        report(f"declared-licence accepts {v['name']}", got == "accept", got)
     try:
         validate_begin_licences(DL["begin_refuses_on_first_bad"])
         got = "accept"
@@ -1939,15 +2011,23 @@ def main() -> int:
                    hashlib.sha256(raw).hexdigest() == v["sha256"])
         else:
             raw = (DATA / v["file"]).read_bytes()
+        detail = ""
         try:
             got = ingest_bundle(raw, v)
             outcome, flags, parts = got["verdict"], got["flags"], got["parts"]
+            licence_of = got.get("licence_of", {})
         except Refusal as r:
-            outcome, flags, parts = r.code, [], {}
+            outcome, flags, parts, licence_of, detail = r.code, [], {}, {}, r.detail
         want = v["verdict"] if v["verdict"] in ("accept", "held") else v["code"]
         report(f"archives/{v['name']}", outcome == want and flags == v.get("flags", []), f"got {outcome} flags={flags}")
+        if "detail_contains" in v:  # B2: the code alone can't tell a real size check from a
+            # server-side capture artefact; pin a stable fragment of WHY, not only the code
+            report(f"archives/{v['name']} detail", v["detail_contains"] in detail, detail)
         for pk, digest in v.get("parts", {}).items():
             report(f"archives/{v['name']} part {pk}", parts.get(pk) == digest, f"got {parts.get(pk)}")
+        for root, want_licence in v.get("licence_of", {}).items():
+            report(f"archives/{v['name']} licence_of {root}", licence_of.get(root) == want_licence,
+                   f"got {licence_of.get(root)}")
 
     # -- scenarios -----------------------------------------------------------
     for v in V["scenarios"]:

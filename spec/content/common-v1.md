@@ -141,22 +141,46 @@ never absent.
 
 For a part with no VRM meta at all ([`ingest-v1.md`](ingest-v1.md) §4.3), the
 publisher declares ONE string instead, `BeginRequest.parts[].licence` /
-`DeclaredPart.licence`, exactly one of:
+`DeclaredPart.licence`. **Absent, or `null`, means no declaration** — the
+part is `E_CONTENT_LICENCE_UNDECLARED` unless a readable VRM meta covers it.
+A PRESENT value is exactly one of:
 
 - the closed SPDX id list: `CC0-1.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`,
   `CC-BY-NC-4.0`, `CC-BY-NC-SA-4.0`, `CC-BY-ND-4.0`, `CC-BY-NC-ND-4.0`,
   `MIT`, `Apache-2.0` — exact spelling, case included (`cc-by-4.0` is not
   `CC-BY-4.0`);
-- `custom:<URL>`: the whole string at most 512 characters, the URL
-  `https://` only, with no userinfo, no fragment and no whitespace anywhere
-  in the string.
+- `custom:<URL>`, where `<URL>`:
+  - is **printable ASCII only, U+0021–U+007E** (so no control character, no
+    DEL, no space or other whitespace, and no character outside ASCII —
+    U+202E, U+200B and a raw non-ASCII IDN host are all refused this way,
+    never specially);
+  - begins `https://`, case-sensitive;
+  - has an AUTHORITY — the bytes from just after `https://` up to the
+    first `/`, `?` or `#` (whichever comes first), or to the end of the
+    string if none does — that is NON-EMPTY and contains no `@` (so
+    `https://user@host/x` is refused, while `https://host/?q=a@b` is fine:
+    the `@` is in the query, past the authority's own end);
+  - carries no `#` anywhere (no fragment, even past a valid authority and
+    path).
+- An EMPTY string, or one that is whitespace only, is a declaration that
+  IS present and IS malformed — not the same as absent — and is refused the
+  same way.
 
-Anything else — an unrecognised id, a non-`https://` scheme, a userinfo or
-fragment, whitespace, a string over 512 characters, or `custom:` with no URL
-at all — is `E_CONTENT_LICENCE_DECLARATION_INVALID` at `begin`
+The whole string, `custom:` prefix included, is **at most 512 BYTES**
+(UTF-8), not 512 characters — moot for a conforming string, since every
+character the rule admits is already one byte, but the limit is a byte
+limit on principle, the way every other size cap in this contract is.
+
+Anything that fails any rule above — an unrecognised id, a non-`https://`
+scheme, an empty or `@`-bearing authority, a fragment, a control character
+or non-ASCII byte anywhere in the string, over 512 bytes, or `custom:` with
+no URL at all — is `E_CONTENT_LICENCE_DECLARATION_INVALID` at `begin`
 ([`ingest-v1.md`](ingest-v1.md) §1), before any byte of the bundle is
 uploaded. One malformed entry refuses every declared part in that `begin`,
-not only its own.
+not only its own. **Two declared parts with the SAME part digest must carry
+the SAME declaration** — a `begin` naming one digest twice with two
+different declared licences is refused the same way; the same digest with
+the same declaration twice is fine.
 
 **The server maps the string to this `licence` object, from this table.**
 Every row shares the same fixed fields: `source: "declared"`, `spec: "none"`,
