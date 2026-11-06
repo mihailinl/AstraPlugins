@@ -677,6 +677,14 @@
       "note": "next is valid at `now`: both keys are pre-authorised"
     },
     {
+      "name": "declared-licences",
+      "kind": "commands",
+      "file": "index/commands/declared-licences.json",
+      "verdict": "accept",
+      "signed_by": "astra-commands-2026a",
+      "note": "one entry per common-v1.md §3.1.1 declared id, plus one custom: -- the ordinary index pipeline (schema, signature, claim derivation) proves these objects are valid index entries; the real pin on the mapping TABLE is the hand-written `declared_licence` vectors above, checked against gen.py's independently hand-written DECLARED_LICENCES"
+    },
+    {
       "name": "next-before-not-before",
       "kind": "commands",
       "file": "index/commands/next-before-not-before.json",
@@ -1895,32 +1903,41 @@
     {
       "name": "animset-wave",
       "file": "archives/valid/animset-wave.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "parts": {
         "animations:": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
       },
-      "note": "its one part, at the zip root, is the ASCII part-digest golden; character-with-pack holds the same pack under animpacks/<id>/ and gets the same digest"
+      "note": "its one part, at the zip root, is the ASCII part-digest golden; character-with-pack holds the same pack under animpacks/<id>/ and gets the same digest",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "animset-vrma",
       "file": "archives/valid/animset-vrma.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "a .vrma declaring VRMC_vrm_animation and no avatar extension is an animation: the animations rights checkbox, no avatar verdict, not held"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "a .vrma declaring VRMC_vrm_animation and no avatar extension is an animation: no avatar verdict, no E_CONTENT_AVATAR_IN_PACK -- held only for the usual declared-licence reason (F_CONTENT_LICENCE_DECLARED), not for anything about the VRM meta",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "animset-plain-glb",
       "file": "archives/valid/animset-plain-glb.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "a plain GLB clip (no avatar extension, no VRMC_vrm_animation) in an animset part takes the part's rights confirmation: never judged, never held"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "a plain GLB clip (no avatar extension, no VRMC_vrm_animation) in an animset part takes the part's rights confirmation, never a VRM verdict -- held only for the usual declared-licence reason (F_CONTENT_LICENCE_DECLARED)",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "character-aiko",
@@ -1931,14 +1948,17 @@
     {
       "name": "character-with-pack",
       "file": "archives/valid/character-with-pack.astrachar",
-      "verdict": "accept",
-      "declared_licence": [
-        "animpacks/moves (2)"
-      ],
+      "verdict": "held",
+      "declared_licence": {
+        "animpacks/moves (2)": "CC-BY-4.0"
+      },
       "parts": {
         "animations:animpacks/moves (2)": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255"
       },
-      "note": "the SAME pack as animset-wave, inside a .astrachar under the per-machine id \"moves (2)\": the SAME digest, so the catalogue sees the referenced set is the animset item"
+      "note": "the SAME pack as animset-wave, inside a .astrachar under the per-machine id \"moves (2)\": the SAME digest, so the catalogue sees the referenced set is the animset item",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "model-vrm0-cc-by-nc",
@@ -2052,9 +2072,9 @@
       "verdict": "refuse",
       "code": "E_ARCHIVE_LINK",
       "note": "made-by host 19, unix mode 0o120777: the crate reads the mode for any non-DOS host",
-      "declared_licence": [
-        ""
-      ]
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      }
     },
     {
       "name": "symlink-host-10",
@@ -2062,9 +2082,9 @@
       "verdict": "refuse",
       "code": "E_ARCHIVE_LINK",
       "note": "made-by host 10, unix mode 0o120777: the crate reads the mode for any non-DOS host",
-      "declared_licence": [
-        ""
-      ]
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      }
     },
     {
       "name": "encrypted-entry",
@@ -2101,9 +2121,9 @@
       "file": "archives/hostile/upath-local-only.astrapack",
       "verdict": "refuse",
       "code": "E_ZIP_HEADERS_INCONSISTENT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a Unicode Path extra field in the local header and not the central one"
     },
     {
@@ -2285,11 +2305,14 @@
     {
       "name": "animset-gltf-percent-space",
       "file": "archives/valid/animset-gltf-percent-space.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "Base%20Color.png naming a sibling file \"Base Color.png\": % is legitimate glTF escaping, not a forbidden character"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "Base%20Color.png naming a sibling file \"Base Color.png\": % is legitimate glTF escaping, not a forbidden character",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "gltf-percent-double-encoded",
@@ -2373,9 +2396,9 @@
       "file": "archives/hostile/accessory-duplicate-key.astrachar",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        "characters/aiko/accessories/hat"
-      ],
+      "declared_licence": {
+        "characters/aiko/accessories/hat": "CC-BY-4.0"
+      },
       "note": "allowRedistribution false then true in an accessory GLB: a last-wins reader sees allowed"
     },
     {
@@ -2383,9 +2406,9 @@
       "file": "archives/hostile/animset-glb-duplicate-key.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "the same GLB as an animset clip: an unparseable JSON must not read as a plain GLB that is never judged"
     },
     {
@@ -2413,11 +2436,64 @@
       "name": "vrma-avatar-prohibited",
       "file": "archives/hostile/vrma-avatar-prohibited.astrapack",
       "verdict": "refuse",
-      "code": "E_CONTENT_LICENCE_REFUSED",
-      "declared_licence": [
-        ""
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "named .vrma and declaring VRMC_vrm_animation, but it carries VRMC_vrm: an avatar in an animations pack part, refused outright, whatever its verdict (ingest-v1.md §4.3, B1)"
+    },
+    {
+      "name": "decoy-allowed-vrm-in-animset",
+      "file": "archives/hostile/decoy-allowed-vrm-in-animset.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: a decoy avatar with ALLOWED meta inside an animations pack -- the old bug let 'allowed -> continue' both lift the pack's hold and override the author's own declared licence"
+    },
+    {
+      "name": "decoy-unknown-vrm-in-animset",
+      "file": "archives/hostile/decoy-unknown-vrm-in-animset.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: an Unknown-verdict avatar inside an animations pack is refused outright too, not merely held"
+    },
+    {
+      "name": "decoy-allowed-vrm-in-astrachar-pack",
+      "file": "archives/hostile/decoy-allowed-vrm-in-astrachar-pack.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_AVATAR_IN_PACK",
+      "note": "B1: the same decoy inside a .astrachar pack part (animpacks/<id>/), not only a standalone .astrapack"
+    },
+    {
+      "name": "vrm-no-meta-plus-declaration",
+      "file": "archives/hostile/vrm-no-meta-plus-declaration.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN"
       ],
-      "note": "named .vrma and declaring VRMC_vrm_animation, but it carries VRMC_vrm: an avatar, judged as one"
+      "declared_licence": {
+        "characters/aiko/body.vrm": "CC-BY-4.0"
+      },
+      "note": "S4: a body with an Unknown VRM (no readable meta) plus a declaration on the SAME part: the meta's own hold stands alone, never combined with F_CONTENT_LICENCE_DECLARED -- the declaration is ignored outright on a character/model part"
+    },
+    {
+      "name": "stray-avatar-outside-every-part",
+      "file": "archives/hostile/stray-avatar-outside-every-part.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FILE_OUTSIDE_PARTS",
+      "note": "item 5: an avatar-classified GLB in NO part at all (not the body, not under animpacks/ or accessories/, no image/audio extension) is not judged by E_CONTENT_AVATAR_IN_PACK -- that check only applies to a file that IS in some part. This one falls to step 12 instead"
+    },
+    {
+      "name": "character-unknown-body-plus-declared-pack",
+      "file": "archives/valid/character-unknown-body-plus-declared-pack.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN",
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/wave-both": "CC-BY-4.0"
+      },
+      "note": "item 3: ONE bundle needing BOTH flags at once -- an Unknown body plus a separate declared pack with no VRM meta. Neither flag is dropped"
     },
     {
       "name": "character-plain-glb-accessory",
@@ -2432,9 +2508,9 @@
       "name": "glb-remote-uri",
       "file": "archives/hostile/glb-remote-uri.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a GLB whose images[].uri is https://, not a data: URI",
       "code": "E_CONTENT_FORMAT"
     },
@@ -2442,28 +2518,31 @@
       "name": "gltf-uri-escape",
       "file": "archives/hostile/gltf-uri-escape.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a .gltf buffer uri ../../etc/passwd",
       "code": "E_CONTENT_FORMAT"
     },
     {
       "name": "animset-gltf-relative-uri",
       "file": "archives/valid/animset-gltf-relative-uri.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "a .gltf whose uri names a file in the same part: allowed"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "a .gltf whose uri names a file in the same part: allowed",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "name-device-superscript",
       "file": "archives/hostile/name-device-superscript.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "com¹ is a Windows device name",
       "code": "E_ARCHIVE_NAME_UNSAFE"
     },
@@ -2471,9 +2550,9 @@
       "name": "name-device-conin",
       "file": "archives/hostile/name-device-conin.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "CONIN$ is a Windows device name, case-insensitively",
       "code": "E_ARCHIVE_NAME_UNSAFE"
     },
@@ -2481,9 +2560,9 @@
       "name": "file-and-directory",
       "file": "archives/hostile/file-and-directory.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a.fbx is a file and the directory of a.fbx/b.fbx",
       "code": "E_ARCHIVE_NAME_UNSAFE"
     },
@@ -2492,9 +2571,9 @@
       "file": "archives/hostile/gltf-named-json-in-animset.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "S5: clips/avatar.json IS a glTF (a JSON object with a top-level asset) carrying VRMC_vrm with allowRedistribution false"
     },
     {
@@ -2502,9 +2581,9 @@
       "file": "archives/hostile/gltf-named-json-accessory.astrachar",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        "characters/aiko/accessories/x"
-      ],
+      "declared_licence": {
+        "characters/aiko/accessories/x": "CC-BY-4.0"
+      },
       "note": "S5: the same glTF as accessories/x/model.json"
     },
     {
@@ -2513,9 +2592,9 @@
       "sha256": "629316e4bc81d2ff64a5c7cba522b10aed89f80403321c8a66fe2ae3359cf816",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "built in memory by testdata/content/gen.py synth() (16 MiB), pinned by this sha256"
     },
     {
@@ -2524,18 +2603,18 @@
       "sha256": "af1abb42ccd5d6c7d7993d6da284a999529cb5b2caa5adc6b5cad30f8dbeaa83",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "built in memory by testdata/content/gen.py synth() (16 MiB), pinned by this sha256"
     },
     {
       "name": "glb-invalid-json",
       "file": "archives/hostile/glb-invalid-json.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a GLB whose JSON chunk is not valid JSON",
       "code": "E_CONTENT_FORMAT"
     },
@@ -2543,9 +2622,9 @@
       "name": "gltf-invalid-json",
       "file": "archives/hostile/gltf-invalid-json.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a .gltf that is not valid JSON",
       "code": "E_CONTENT_FORMAT"
     },
@@ -2553,20 +2632,23 @@
       "name": "gltf-too-deep",
       "file": "archives/hostile/gltf-too-deep.astrapack",
       "verdict": "refuse",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "nesting 129 deep",
       "code": "E_CONTENT_FORMAT"
     },
     {
       "name": "animset-gltf-depth-128",
       "file": "archives/valid/animset-gltf-depth-128.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "nesting exactly 128 deep is readable"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "nesting exactly 128 deep is readable",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "gltf-total-over-32mib",
@@ -2574,9 +2656,9 @@
       "sha256": "d7919e8be8d76a107f3053da1dd74e8e9d7c8115d0549527a87c03ce4fa92081",
       "verdict": "refuse",
       "code": "E_ARCHIVE_TOO_LARGE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "B1: three readable 11 MiB .gltf, 33 MiB of glTF JSON in one archive (built in memory, 33 MiB)"
     },
     {
@@ -2584,9 +2666,9 @@
       "file": "archives/hostile/name-fold-long-s.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "ſ / s"
     },
     {
@@ -2594,9 +2676,9 @@
       "file": "archives/hostile/name-fold-micro.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "µ (U+00B5) / μ"
     },
     {
@@ -2604,9 +2686,9 @@
       "file": "archives/hostile/name-fold-final-sigma.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "ς / σ"
     },
     {
@@ -2614,9 +2696,9 @@
       "file": "archives/hostile/name-fold-dotless-i.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "ı / i"
     },
     {
@@ -2624,9 +2706,9 @@
       "file": "archives/hostile/name-fold-kelvin.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "K (U+212A) / k — already refused by the NFC rule, U+212A is not NFC"
     },
     {
@@ -2634,9 +2716,9 @@
       "file": "archives/hostile/name-fold-sharp-s.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "ß / ss — the refusing direction"
     },
     {
@@ -2644,9 +2726,9 @@
       "file": "archives/hostile/gltf-json-utf8-bom.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "N1: a UTF-8 BOM before a VRMC_vrm glTF named avatar.json"
     },
     {
@@ -2654,9 +2736,9 @@
       "file": "archives/hostile/gltf-with-bom.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "N1: a .gltf must be UTF-8 JSON WITHOUT a BOM (glTF 2.0)"
     },
     {
@@ -2664,9 +2746,9 @@
       "file": "archives/hostile/gltf-json-utf16.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a UTF-16LE glTF named clips/avatar.json: a text kind (.json) must be UTF-8"
     },
     {
@@ -2674,9 +2756,9 @@
       "file": "archives/hostile/pct.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "N2: buffers[0].uri ..%2f..%2f..%2f..%2fetc%2fpasswd, beside an entry literally so named: percent-decoded, it leaves the archive"
     },
     {
@@ -2684,9 +2766,9 @@
       "file": "archives/hostile/name-fold-capital-sharp-s.astrapack",
       "verdict": "refuse",
       "code": "E_ARCHIVE_NAME_UNSAFE",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "N8: ß / ẞ (U+1E9E): one round trip gives ss and ß, two give ss and ss; APFS folds both to ss"
     },
     {
@@ -2694,9 +2776,9 @@
       "file": "archives/hostile/gltf-sniff-garbage.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "{\"asset\":1,<garbage> in clips/x.json: the sniff reads the top-level key, the rest need not parse"
     },
     {
@@ -2704,28 +2786,31 @@
       "file": "archives/hostile/order-zip64-before-encrypted.astrapack",
       "verdict": "refuse",
       "code": "E_ZIP_END_RECORD",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "two faults: clips/a.fbx encrypted (step 3) comes first in the directory, clips/b.fbx carries a zip64 extra; the zip64 pre-pass over ALL entries decides"
     },
     {
       "name": "animset-gltf-bin-bom",
       "file": "archives/valid/animset-gltf-bin-bom.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "a glTF .bin buffer whose bytes happen to begin FF FE: binary, accepted"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "a glTF .bin buffer whose bytes happen to begin FF FE: binary, accepted",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "gltf-utf16-dat",
       "file": "archives/hostile/gltf-utf16-dat.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a UTF-16LE glTF named clips/x.dat: the decoded text has a top-level asset"
     },
     {
@@ -2733,52 +2818,64 @@
       "file": "archives/hostile/toml-utf16.astrapack",
       "verdict": "refuse",
       "code": "E_CONTENT_FORMAT",
-      "declared_licence": [
-        ""
-      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "note": "a text kind (.toml) must be UTF-8"
     },
     {
       "name": "animset-pixel",
       "file": "archives/valid/animset-pixel.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
       "parts": {
         "art:": "d30ab1e8005dffbc9822c9fa84b2baec10b325e50b9fcbad17b21713bb88f2f8"
       },
-      "note": "its own animpack.toml says kind = \"pixel\"; the manifest's top-level kind agrees"
+      "note": "its own animpack.toml says kind = \"pixel\"; the manifest's top-level kind agrees",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "character-with-pixel-pack",
       "file": "archives/valid/character-with-pixel-pack.astrachar",
-      "verdict": "accept",
-      "declared_licence": [
-        "animpacks/pixel-pack"
-      ],
+      "verdict": "held",
+      "declared_licence": {
+        "animpacks/pixel-pack": "CC-BY-4.0"
+      },
       "parts": {
         "art:animpacks/pixel-pack": "d30ab1e8005dffbc9822c9fa84b2baec10b325e50b9fcbad17b21713bb88f2f8"
       },
-      "note": "the SAME pack as animset-pixel, inside a .astrachar: the SAME part digest and the SAME derived kind (art), not always-animations"
+      "note": "the SAME pack as animset-pixel, inside a .astrachar: the SAME part digest and the SAME derived kind (art), not always-animations",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "animset-kind-mixed-case",
       "file": "archives/valid/animset-kind-mixed-case.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "kind = \" 2D \" normalises (trim, ASCII-lowercase) to art"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "kind = \" 2D \" normalises (trim, ASCII-lowercase) to art",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "pack-kind-leading-vt",
       "file": "archives/valid/pack-kind-leading-vt.astrapack",
-      "verdict": "accept",
-      "declared_licence": [
-        ""
-      ],
-      "note": "kind = \"\\u000bpixel\": \\x0b is not ascii whitespace to Rust's char::is_ascii_whitespace, so it is not trimmed and the token is unrecognised -> animations"
+      "verdict": "held",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "kind = \"\\u000bpixel\": \\x0b is not ascii whitespace to Rust's char::is_ascii_whitespace, so it is not trimmed and the token is unrecognised -> animations",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ]
     },
     {
       "name": "pack-kind-manifest-disagrees",
@@ -2828,6 +2925,189 @@
       "verdict": "refuse",
       "code": "E_BUNDLE_MANIFEST",
       "note": "a TOML 1.1-only construct (the \\e string escape): refused as TOML 1.0, as games manifest.md §2.6.1 pins for astra-gi.toml"
+    },
+    {
+      "name": "pack-toml-oversized",
+      "file": "archives/hostile/pack-toml-oversized.astrapack",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "note": "one animpack.toml, 256 KiB + 1 byte: over the per-file cap (ingest-v1.md §2, mirrored in astra-companion-4e)"
+    },
+    {
+      "name": "pack-toml-total-oversized",
+      "file": "archives/hostile/pack-toml-total-oversized.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "detail_contains": "all TOML together: larger than",
+      "note": "9 animpack.toml files, each under the 256 KiB per-file cap, together over the 2 MiB total cap (ingest-v1.md §2); detail pins that this is a BYTE-total check, distinct from a count-based one (B2)"
+    },
+    {
+      "name": "pack-toml-nine-small-packs",
+      "file": "archives/valid/pack-toml-nine-small-packs.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/small0": "CC-BY-4.0",
+        "animpacks/small1": "CC-BY-4.0",
+        "animpacks/small2": "CC-BY-4.0",
+        "animpacks/small3": "CC-BY-4.0",
+        "animpacks/small4": "CC-BY-4.0",
+        "animpacks/small5": "CC-BY-4.0",
+        "animpacks/small6": "CC-BY-4.0",
+        "animpacks/small7": "CC-BY-4.0",
+        "animpacks/small8": "CC-BY-4.0"
+      },
+      "note": "B2: 9 packs, each a tiny animpack.toml, accepted (held, for the usual declared-licence reason): the total check sums bytes, never merely counts files past some N"
+    },
+    {
+      "name": "pack-toml-at-cap",
+      "file": "archives/valid/pack-toml-at-cap.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "boundary: exactly 256 KiB (262,144 bytes), not one byte over the per-file cap -- accepted (held)"
+    },
+    {
+      "name": "pack-toml-total-at-cap",
+      "file": "archives/valid/pack-toml-total-at-cap.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/cap0": "CC-BY-4.0",
+        "animpacks/cap1": "CC-BY-4.0",
+        "animpacks/cap2": "CC-BY-4.0",
+        "animpacks/cap3": "CC-BY-4.0",
+        "animpacks/cap4": "CC-BY-4.0",
+        "animpacks/cap5": "CC-BY-4.0",
+        "animpacks/cap6": "CC-BY-4.0",
+        "animpacks/capR": "CC-BY-4.0"
+      },
+      "note": "boundary: settings (34 bytes) + 7 packs at the 256 KiB per-file cap + 1 remainder pack = exactly 2,097,152 bytes, not one byte over the total cap -- accepted (held)"
+    },
+    {
+      "name": "pack-toml-deep-not-counted",
+      "file": "archives/valid/pack-toml-deep-not-counted.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "S1: a 2 MiB clips/animpack.toml is NOT at the pack's own root, so it does not count toward the TOML total at all -- an ordinary file, judged by the other caps alone"
+    },
+    {
+      "name": "pack-toml-total-oversized-plus-utf16",
+      "file": "archives/hostile/pack-toml-total-oversized-plus-utf16.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "detail_contains": "all TOML together: larger than",
+      "note": "S2: the order -- an over-total bundle whose settings file is ALSO UTF-16 still refuses on the total-size check (the manifest step), never on settings' own UTF-8 format check, because the size caps run first"
+    },
+    {
+      "name": "declared-licence-null-is-absent",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_UNDECLARED",
+      "declared_licence": {
+        "": null
+      },
+      "note": "S7: licence `null` on a part means no declaration, exactly as an absent key -- E_CONTENT_LICENCE_UNDECLARED, the same as today"
+    },
+    {
+      "name": "declared-licence-empty-string-is-malformed",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
+      "declared_licence": {
+        "": ""
+      },
+      "note": "S7: an empty string IS a present declaration -- malformed, never treated as absent"
+    },
+    {
+      "name": "pack-same-digest-different-declaration",
+      "file": "archives/valid/pack-same-digest-twice.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
+      "declared_licence": {
+        "animpacks/dup-a": "CC-BY-4.0",
+        "animpacks/dup-b": "CC0-1.0"
+      },
+      "note": "S7: the SAME part digest (dup-a and dup-b are byte-for-byte the same pack) declared two different licences -- refused"
+    },
+    {
+      "name": "pack-same-digest-same-declaration",
+      "file": "archives/valid/pack-same-digest-twice.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/dup-a": "CC-BY-4.0",
+        "animpacks/dup-b": "CC-BY-4.0"
+      },
+      "note": "S7: the SAME part digest declared the SAME licence twice -- fine"
+    },
+    {
+      "name": "model-aiko-meta-wins-over-declaration",
+      "file": "archives/valid/model-aiko.astrachar",
+      "verdict": "accept",
+      "declared_licence": {
+        "characters/aiko/body.vrm": "not a licence at all, but begin -- not ingest -- is the only place that would reject it"
+      },
+      "parts": {
+        "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
+      },
+      "licence_of": {
+        "characters/aiko/body.vrm": {
+          "licence_source": "vrm",
+          "licence": null
+        }
+      },
+      "note": "the body has readable, allowed VRM meta: a declaration on that same part is ignored AT INGEST -- never mapped, never flagged -- even though begin would have validated the same string (ingest-v1.md §4.3). The meta wins"
+    },
+    {
+      "name": "animset-wave-declared-custom",
+      "file": "archives/valid/animset-wave.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "custom:https://example.invalid/my-licence"
+      },
+      "licence_of": {
+        "": {
+          "licence_source": "declared",
+          "licence": {
+            "source": "declared",
+            "spec": "none",
+            "commercial_detail": null,
+            "redistribution": "unknown",
+            "avatar_permission": "unknown",
+            "modification": "unknown",
+            "commercial": "unknown",
+            "credit_required": true,
+            "spdx": null,
+            "license_url": "https://example.invalid/my-licence",
+            "usage": {
+              "violent": "unknown",
+              "sexual": "unknown",
+              "political": "unknown",
+              "antisocial": "unknown"
+            }
+          }
+        }
+      },
+      "note": "a custom: declared licence on a part with no VRM meta at all: always held for a moderator, an established author too (ingest-v1.md §4.3); licence_of pins the exact mapped object (nit)"
     }
   ],
   "scenarios": [
@@ -4211,5 +4491,300 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 380
+  "expected_checks": 445,
+  "declared_licence": {
+    "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
+    "valid": [
+      {
+        "id": "CC0-1.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": false,
+          "spdx": "CC0-1.0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-SA-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-SA-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-NC-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "prohibited",
+          "credit_required": true,
+          "spdx": "CC-BY-NC-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-NC-SA-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "prohibited",
+          "credit_required": true,
+          "spdx": "CC-BY-NC-SA-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-ND-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "prohibited",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-ND-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nd/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "CC-BY-NC-ND-4.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "prohibited",
+          "commercial": "prohibited",
+          "credit_required": true,
+          "spdx": "CC-BY-NC-ND-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "MIT",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "MIT",
+          "license_url": "https://spdx.org/licenses/MIT.html",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "Apache-2.0",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "Apache-2.0",
+          "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      },
+      {
+        "id": "custom:https://example.invalid/my-licence",
+        "object": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "unknown",
+          "avatar_permission": "unknown",
+          "modification": "unknown",
+          "commercial": "unknown",
+          "credit_required": true,
+          "spdx": null,
+          "license_url": "https://example.invalid/my-licence",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        }
+      }
+    ],
+    "refusals": [
+      {
+        "name": "unknown-id",
+        "licence": "GPL-3.0"
+      },
+      {
+        "name": "case",
+        "licence": "cc-by-4.0"
+      },
+      {
+        "name": "http-scheme",
+        "licence": "custom:http://example.invalid/x"
+      },
+      {
+        "name": "userinfo",
+        "licence": "custom:https://user@example.invalid/x"
+      },
+      {
+        "name": "fragment",
+        "licence": "custom:https://example.invalid/x#frag"
+      },
+      {
+        "name": "whitespace",
+        "licence": "custom:https://example.invalid/x y"
+      },
+      {
+        "name": "too-long",
+        "licence": "custom:https://example.invalid/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "empty",
+        "licence": ""
+      },
+      {
+        "name": "custom-no-url",
+        "licence": "custom:"
+      },
+      {
+        "name": "https-empty",
+        "licence": "custom:https://"
+      },
+      {
+        "name": "https-triple-slash",
+        "licence": "custom:https:///x"
+      },
+      {
+        "name": "nul",
+        "licence": "custom:https://ex\u0000ample.invalid/x"
+      },
+      {
+        "name": "del",
+        "licence": "custom:https://ex\u007fample.invalid/x"
+      },
+      {
+        "name": "rtl-override",
+        "licence": "custom:https://example.invalid/x‮"
+      },
+      {
+        "name": "zero-width-space",
+        "licence": "custom:https://example.invalid/x​"
+      },
+      {
+        "name": "idn-host",
+        "licence": "custom:https://exämple.invalid/x"
+      },
+      {
+        "name": "whitespace-only",
+        "licence": "   "
+      }
+    ],
+    "begin_refuses_on_first_bad": {
+      "a": "CC-BY-4.0",
+      "b": "not-a-licence"
+    },
+    "accepts": [
+      {
+        "name": "query-with-at",
+        "licence": "custom:https://x.com/?q=a@b"
+      }
+    ]
+  }
 }

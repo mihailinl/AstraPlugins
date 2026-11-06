@@ -534,6 +534,37 @@ DECLARED_CC_BY = {
     "avatar_permission": "unknown", "modification": "allowed", "commercial": "allowed", "credit_required": True,
     "spdx": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/", "usage": UNKNOWN_USAGE,
 }
+
+
+def _declared(spdx, url, redistribution, modification, commercial, credit_required) -> dict:
+    """common-v1.md §3.1.1's pinned mapping table, hand-written here (never imported from the
+    checker) so the index goldens are an INDEPENDENT pin of the same table."""
+    return {"source": "declared", "spec": "none", "commercial_detail": None, "redistribution": redistribution,
+            "avatar_permission": "unknown", "modification": modification, "commercial": commercial,
+            "credit_required": credit_required, "spdx": spdx, "license_url": url, "usage": dict(UNKNOWN_USAGE)}
+
+
+# every row of common-v1.md §3.1.1's table, by declared id -- DECLARED_CC_BY above is CC-BY-4.0's row
+DECLARED_LICENCES = {
+    "CC0-1.0": _declared("CC0-1.0", "https://creativecommons.org/publicdomain/zero/1.0/",
+                         "allowed", "allowed", "allowed", False),
+    "CC-BY-4.0": DECLARED_CC_BY,
+    "CC-BY-SA-4.0": _declared("CC-BY-SA-4.0", "https://creativecommons.org/licenses/by-sa/4.0/",
+                              "allowed", "allowed", "allowed", True),
+    "CC-BY-NC-4.0": _declared("CC-BY-NC-4.0", "https://creativecommons.org/licenses/by-nc/4.0/",
+                              "allowed", "allowed", "prohibited", True),
+    "CC-BY-NC-SA-4.0": _declared("CC-BY-NC-SA-4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                                 "allowed", "allowed", "prohibited", True),
+    "CC-BY-ND-4.0": _declared("CC-BY-ND-4.0", "https://creativecommons.org/licenses/by-nd/4.0/",
+                             "allowed", "prohibited", "allowed", True),
+    "CC-BY-NC-ND-4.0": _declared("CC-BY-NC-ND-4.0", "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+                                 "allowed", "prohibited", "prohibited", True),
+    "MIT": _declared("MIT", "https://spdx.org/licenses/MIT.html", "allowed", "allowed", "allowed", True),
+    "Apache-2.0": _declared("Apache-2.0", "https://www.apache.org/licenses/LICENSE-2.0",
+                            "allowed", "allowed", "allowed", True),
+    "custom:https://example.invalid/my-licence": _declared(None, "https://example.invalid/my-licence",
+                                                            "unknown", "unknown", "unknown", True),
+}
 VRM1_LICENCE = {
     "source": "vrm", "spec": "vrm1", "commercial_detail": "personalProfit", "redistribution": "allowed",
     "avatar_permission": "everyone", "modification": "allowed", "commercial": "allowed", "credit_required": True,
@@ -718,6 +749,17 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     # display-only, never compared (design §11a.9): a detail that disagrees with `commercial` is still valid
     c_entries[0]["licence"] = dict(DECLARED_CC_BY, commercial_detail="Disallow")
     valid["commands"] = index_signed("commands", c_entries)
+
+    # common-v1.md §3.1.1's mapping table, pinned: one index entry per declared id (plus one
+    # custom:), each reusing "greet"'s artefact bytes -- only the `licence` field is the point
+    dl_entries = []
+    for i, (lic_id, obj) in enumerate(DECLARED_LICENCES.items()):
+        slug = "declared-custom" if lic_id.startswith("custom:") else f"declared-{lic_id.lower().replace('.', '-')}"
+        e = command_entry(f"greet-{i}", cmds["greet"], ["on_phrase", "plays_audio", "uses_ai"], "low")
+        e["id"] = slug
+        e["licence"] = obj
+        dl_entries.append(e)
+    put_doc("index/commands/declared-licences.json", "commands", "index", index_signed("commands", dl_entries))
 
     model = base_entry("aiko-body", bundles["model"], "application/vnd.astra.character+zip")
     model.update({"format": "astra.character", "body_kind": "vrm",
@@ -1168,6 +1210,37 @@ def gen_archives() -> None:
         "extensionsUsed": ["VRMC_vrm_animation", "VRMC_vrm"]})
     put("archives/hostile/vrma-avatar-prohibited.astrapack", bundle(
         "astra.animpack", {**dance, "clips/dance.vrma": avatar_vrma}, body=None))
+    # B1: a decoy avatar, ALLOWED meta, inside an animations pack: refused outright, not accepted
+    # with the meta "winning" over the declaration -- a pack part's only rights source is its
+    # declaration, never a file that happens to carry an avatar extension
+    decoy_allowed = glb({"asset": {"version": "2.0"}, "extensions": {
+        "VRMC_vrm_animation": {"specVersion": "1.0"},
+        "VRMC_vrm": {"specVersion": "1.0", "meta": VRM1_ALLOWED}},
+        "extensionsUsed": ["VRMC_vrm_animation", "VRMC_vrm"]})
+    hostile("decoy-allowed-vrm-in-animset.astrapack", bundle(
+        "astra.animpack", {**dance, "clips/decoy.vrma": decoy_allowed}, body=None))
+    # the same decoy, Unknown instead of Allowed (no meta at all): still refused, not merely held
+    decoy_unknown = glb({"asset": {"version": "2.0"}, "extensions": {"VRMC_vrm": {"specVersion": "1.0"}},
+                         "extensionsUsed": ["VRMC_vrm"]})
+    hostile("decoy-unknown-vrm-in-animset.astrapack", bundle(
+        "astra.animpack", {**dance, "clips/decoy.vrm": decoy_unknown}, body=None))
+    # the same decoy, inside a .astrachar pack part rather than a standalone .astrapack
+    hostile("decoy-allowed-vrm-in-astrachar-pack.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **in_pack("moves-decoy", {**dance, "clips/decoy.vrma": decoy_allowed})},
+        body=None))
+    # S4: an Unknown body (no readable meta) PLUS a declaration on the same part: the meta's hold
+    # stands alone -- F_CONTENT_VRM_META_UNKNOWN only, never combined with F_CONTENT_LICENCE_DECLARED
+    put("archives/hostile/vrm-no-meta-plus-declaration.astrachar", bundle(
+        "astra.character", {BODY_PATH: decoy_unknown}, BODY_PATH))
+    # a stray avatar in NO part at all (not the body, not under animpacks/ or accessories/, not an
+    # image or audio extension): E_CONTENT_FILE_OUTSIDE_PARTS, never E_CONTENT_AVATAR_IN_PACK --
+    # the avatar-in-pack check judges only a file that IS in some part
+    hostile("stray-avatar-outside-every-part.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/stray.vrm": decoy_allowed}, body=None))
+    # item 3: ONE bundle needing BOTH flags at once -- an Unknown body (no readable meta) plus a
+    # SEPARATE pack with no VRM meta at all, declared. Both flags are kept, never collapsed to one
+    put("archives/valid/character-unknown-body-plus-declared-pack.astrachar", bundle(
+        "astra.character", {BODY_PATH: decoy_unknown, **in_pack("wave-both", ASCII_PART)}, BODY_PATH))
     # a PLAIN GLB (no avatar extension, no VRMC_vrm_animation) is judged only in a character or
     # model part: a clip in an animset takes the part's rights confirmation; an accessory is held
     plain = glb({"asset": {"version": "2.0"}})
@@ -1367,6 +1440,94 @@ def gen_archives() -> None:
     toml_1_1_part = {"animpack.toml": b'name = "test"\nnote = "\\e"\n\n[animpack]\nkind = "pixel"\n',
                       "clips/a.fbx": b"FBX-TOML11"}
     hostile("pack-toml-1-1-syntax.astrapack", bundle("astra.animpack", toml_1_1_part, body=None, kind="vrm"))
+
+    # ingest-v1.md §2's archive limits (mirrored in the engine, astra-companion-4e):
+    # one animpack.toml at most 256 KiB, and every TOML file in a bundle together at most 2 MiB
+    oversized_header = b'name = "big"\n'
+    oversized_pad = 256 * 1024 + 1 - len(oversized_header) - 2  # "#" and the trailing "\n"
+    oversized_toml = oversized_header + b"#" + b"a" * oversized_pad + b"\n"
+    assert len(oversized_toml) == 256 * 1024 + 1
+    oversized_part = {"animpack.toml": oversized_toml, "clips/a.fbx": b"FBX-OVERSIZED"}
+    # Stored, not Deflated: a run of "a" compresses over the 100:1 ratio cap (step 5), which would
+    # mask the size cap this golden exists to test
+    hostile("pack-toml-oversized.astrapack", bundle("astra.animpack", oversized_part, body=None, kind="vrm",
+                                                     methods={"animpack.toml": 0}))
+
+    def padded_toml(label: bytes, size: int) -> bytes:
+        header = b'name = "' + label + b'"\n'
+        pad = size - len(header) - 2  # "#" and the trailing "\n"
+        return header + b"#" + b"a" * pad + b"\n"
+
+    PER_PACK_TOML = 240_000  # under the 256 KiB per-file cap
+    many_packs = {}
+    for i in range(9):  # 9 * 240,000 = 2,160,000 bytes: under the per-file cap, over the 2 MiB total
+        pid = f"big{i}"
+        many_packs.update(in_pack(pid, {"animpack.toml": padded_toml(f"p{i}".encode(), PER_PACK_TOML),
+                                         "clips/a.fbx": f"FBX-{i}".encode()}))
+    assert all(len(v) <= 256 * 1024 for k, v in many_packs.items() if k.endswith("animpack.toml"))
+    total_toml = sum(len(v) for k, v in many_packs.items() if k.endswith("animpack.toml")) + len(
+        next(iter(CHAR_FILES.values())))
+    assert total_toml > 2 * 1024 * 1024, total_toml
+    toml_methods = {p: 0 for p in many_packs if p.endswith("animpack.toml")}  # Stored: see pack-toml-oversized
+    hostile("pack-toml-total-oversized.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **many_packs}, body=None, methods=toml_methods))
+
+    # B2: an ACCEPT golden with >= 9 small packs -- proves the total check sums BYTES, never
+    # merely counts files (minice main's own `capture_budget` charges each TOML its full 256 KiB+1
+    # budget past a point, which is a capture-side artefact, not this rule; this golden is small
+    # enough that no capture budget could possibly be at stake)
+    nine_small = {}
+    for i in range(9):
+        nine_small.update(in_pack(f"small{i}", {"animpack.toml": f'name = "p{i}"\n'.encode(),
+                                                 "clips/a.fbx": f"FBX-{i}".encode()}))
+    put("archives/valid/pack-toml-nine-small-packs.astrachar",
+        bundle("astra.character", {**CHAR_FILES, **nine_small}, body=None))
+
+    # boundary ACCEPT: exactly the 256 KiB per-file cap, not one byte over
+    at_cap_toml = padded_toml(b"cap", 256 * 1024)
+    assert len(at_cap_toml) == 256 * 1024
+    put("archives/valid/pack-toml-at-cap.astrapack", bundle(
+        "astra.animpack", {"animpack.toml": at_cap_toml, "clips/a.fbx": b"FBX-AT-CAP"}, body=None,
+        kind="vrm", methods={"animpack.toml": 0}))
+
+    # boundary ACCEPT: settings (34 bytes) + 7 packs at the 256 KiB per-file cap + 1 remainder
+    # pack = exactly the 2 MiB total cap, not one byte over
+    settings_size = len(next(iter(CHAR_FILES.values())))
+    remainder = 2 * 1024 * 1024 - settings_size - 7 * (256 * 1024)
+    assert 0 < remainder <= 256 * 1024, remainder
+    at_total_cap = {}
+    for i in range(7):
+        at_total_cap.update(in_pack(f"cap{i}", {"animpack.toml": padded_toml(f"c{i}".encode(), 256 * 1024),
+                                                 "clips/a.fbx": f"FBX-C{i}".encode()}))
+    at_total_cap.update(in_pack("capR", {"animpack.toml": padded_toml(b"cr", remainder), "clips/a.fbx": b"FBX-CR"}))
+    assert sum(len(v) for k, v in at_total_cap.items() if k.endswith("animpack.toml")) + settings_size \
+        == 2 * 1024 * 1024
+    at_total_cap_methods = {p: 0 for p in at_total_cap if p.endswith("animpack.toml")}
+    put("archives/valid/pack-toml-total-at-cap.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **at_total_cap}, body=None, methods=at_total_cap_methods))
+
+    # S1: a 2 MiB `clips/animpack.toml` -- NOT at the pack's own root -- is not counted toward the
+    # TOML total at all; it is an ordinary file, judged by the other caps (here, none refuse it)
+    deep_toml = padded_toml(b"deep", 2 * 1024 * 1024)
+    deep_not_counted = {"animpack.toml": b'name = "shallow"\n', "clips/animpack.toml": deep_toml,
+                        "clips/a.fbx": b"FBX-DEEP"}
+    put("archives/valid/pack-toml-deep-not-counted.astrapack", bundle(
+        "astra.animpack", deep_not_counted, body=None, kind="vrm", methods={"clips/animpack.toml": 0}))
+
+    # S2: the order -- the total-size check (manifest step) runs BEFORE settings' own format
+    # check, so an over-total bundle whose settings file also happens to be UTF-16 still refuses
+    # E_BUNDLE_MANIFEST (the total check), never the settings format refusal
+    utf16_settings = "name = \"Aiko\"\nmodel = \"aiko-body\"\n".encode("utf-16")
+    hostile("pack-toml-total-oversized-plus-utf16.astrachar", bundle(
+        "astra.character", {"characters/aiko/character.toml": utf16_settings, **many_packs}, body=None,
+        methods=toml_methods))
+
+    # S7: two packs that are byte-for-byte the SAME part (same part digest, two different ids).
+    # The SAME file is used for both the "different declarations" (hostile) and the "same
+    # declaration twice" (valid) vectors -- only the declared licence in each vector's ctx differs
+    put("archives/valid/pack-same-digest-twice.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **in_pack("dup-a", ASCII_PART), **in_pack("dup-b", ASCII_PART)},
+        body=None))
 
 
 # ── goldens too large to commit: built in memory, pinned by sha256 in vectors.json ──

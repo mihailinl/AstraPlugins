@@ -137,6 +137,78 @@ never absent.
   flags only; `redistribution` and `commercial` of a present meta use the spec
   default (§11a.9).
 
+#### 3.1.1 The declared licence (G5/W1)
+
+For a part with no VRM meta at all ([`ingest-v1.md`](ingest-v1.md) §4.3), the
+publisher declares ONE string instead, `BeginRequest.parts[].licence` /
+`DeclaredPart.licence`. **Absent, or `null`, means no declaration** — the
+part is `E_CONTENT_LICENCE_UNDECLARED` unless a readable VRM meta covers it.
+A PRESENT value is exactly one of:
+
+- the closed SPDX id list: `CC0-1.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`,
+  `CC-BY-NC-4.0`, `CC-BY-NC-SA-4.0`, `CC-BY-ND-4.0`, `CC-BY-NC-ND-4.0`,
+  `MIT`, `Apache-2.0` — exact spelling, case included (`cc-by-4.0` is not
+  `CC-BY-4.0`);
+- `custom:<URL>`, where `<URL>`:
+  - is **printable ASCII only, U+0021–U+007E** (so no control character, no
+    DEL, no space or other whitespace, and no character outside ASCII —
+    U+202E, U+200B and a raw non-ASCII IDN host are all refused this way,
+    never specially);
+  - begins `https://`, case-sensitive;
+  - has an AUTHORITY — the bytes from just after `https://` up to the
+    first `/`, `?` or `#` (whichever comes first), or to the end of the
+    string if none does — that is NON-EMPTY and contains no `@` (so
+    `https://user@host/x` is refused, while `https://host/?q=a@b` is fine:
+    the `@` is in the query, past the authority's own end);
+  - carries no `#` anywhere (no fragment, even past a valid authority and
+    path).
+- An EMPTY string, or one that is whitespace only, is a declaration that
+  IS present and IS malformed — not the same as absent — and is refused the
+  same way.
+
+The whole string, `custom:` prefix included, is **at most 512 BYTES**
+(UTF-8), not 512 characters — moot for a conforming string, since every
+character the rule admits is already one byte, but the limit is a byte
+limit on principle, the way every other size cap in this contract is.
+
+Anything that fails any rule above — an unrecognised id, a non-`https://`
+scheme, an empty or `@`-bearing authority, a fragment, a control character
+or non-ASCII byte anywhere in the string, over 512 bytes, or `custom:` with
+no URL at all — is `E_CONTENT_LICENCE_DECLARATION_INVALID` at `begin`
+([`ingest-v1.md`](ingest-v1.md) §1), before any byte of the bundle is
+uploaded. One malformed entry refuses every declared part in that `begin`,
+not only its own. **Two declared parts with the SAME part digest must carry
+the SAME declaration** — a `begin` naming one digest twice with two
+different declared licences is refused the same way; the same digest with
+the same declaration twice is fine.
+
+**The server maps the string to this `licence` object, from this table.**
+Every row shares the same fixed fields: `source: "declared"`, `spec: "none"`,
+`commercial_detail: null`, `avatar_permission: "unknown"`, every `usage`
+flag `"unknown"`. `spdx` is the id as declared, or `null` for a `custom:`
+licence; `license_url` is the licence's own canonical URL (the CC deed for
+each Creative Commons id, `https://spdx.org/licenses/MIT.html` for `MIT`,
+`https://www.apache.org/licenses/LICENSE-2.0` for `Apache-2.0`) or the
+declared `custom:` URL.
+
+| id | `redistribution` | `modification` | `commercial` | `credit_required` |
+|---|---|---|---|---|
+| `CC0-1.0` | allowed | allowed | allowed | `false` |
+| `CC-BY-4.0`, `CC-BY-SA-4.0` | allowed | allowed | allowed | `true` |
+| `CC-BY-NC-4.0`, `CC-BY-NC-SA-4.0` | allowed | allowed | **prohibited** | `true` |
+| `CC-BY-ND-4.0` | allowed | **prohibited** | allowed | `true` |
+| `CC-BY-NC-ND-4.0` | allowed | **prohibited** | **prohibited** | `true` |
+| `MIT`, `Apache-2.0` | allowed | allowed | allowed | `true` |
+| `custom:<URL>` | unknown | unknown | unknown | `true` |
+
+`redistribution` is always `allowed` for every row this table can produce —
+the whole closed list is a redistribution-permissive one, and `custom:`
+reads `unknown` rather than assume a permission nobody declared. Rule
+`licence-allowed` (§3.1) therefore never refuses a declared licence on
+`redistribution` alone; it is `avatar_permission` and the ingest's own
+mandatory hold (`F_CONTENT_LICENCE_DECLARED`, ingest-v1.md §4.3) that keep a
+human in the loop.
+
 ### 3.2 `credits`
 
 `[{name ≤ 128, role ≤ 64, url: https | null}]`, ≤ 32 rows. They reproduce only

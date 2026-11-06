@@ -739,7 +739,8 @@ class R7UrisDevicesAndFileDirectory(unittest.TestCase):
 
     def test_a_relative_uri_inside_the_part_is_allowed(self):
         raw = (cg.DATA / "archives/valid/animset-gltf-relative-uri.astrapack").read_bytes()
-        self.assertEqual(cg.ingest_bundle(raw, {"declared_licence": [""]})["verdict"], "accept")  # the zip-root pack
+        # the zip-root pack has no VRM meta: a declared licence now always holds (ingest-v1.md §4.3)
+        self.assertEqual(cg.ingest_bundle(raw, {"declared_licence": {"": "CC-BY-4.0"}})["verdict"], "held")
 
 
 class PartRootRelativePaths(unittest.TestCase):

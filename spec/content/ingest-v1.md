@@ -64,10 +64,26 @@ client can show the state before the person starts and the two answers can
 never disagree.
 
 At `begin`, against the DECLARED values: the size caps (§2), the author's
-quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, and the declared
-bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`). At `finalize`: the
-assembled file's sha256 and size equal what `begin` declared
-(`E_CONTENT_DIGEST_MISMATCH`).
+quota (`E_CONTENT_QUOTA`), the per-author caps of design §3.1, the declared
+bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`), and **every
+`BeginRequest.parts[].licence` / `DeclaredPart.licence`** (common-v1.md
+§3.1.1):
+
+- **absent, or `null`, means no declaration** — not a check failure, simply
+  nothing to validate for that part;
+- a PRESENT value must be one of the closed SPDX ids or a well-formed
+  `custom:<URL>` (common-v1.md §3.1.1's exact grammar), or the whole `begin`
+  is refused with **`E_CONTENT_LICENCE_DECLARATION_INVALID`**, naming the
+  part digest — a bundle with nine declared parts and one malformed entry
+  refuses all nine, not eight. An EMPTY string or a whitespace-only one is
+  PRESENT and malformed, never treated as absent;
+- **two declared parts sharing a part digest must declare the SAME
+  licence** — a `begin` naming one digest twice with two different
+  declarations is refused the same way; the same digest with the same
+  declaration twice is fine.
+
+At `finalize`: the assembled file's sha256 and size equal what `begin`
+declared (`E_CONTENT_DIGEST_MISMATCH`).
 
 **The scan itself** (§8a) runs on every image the upload carries, including
 textures embedded in a VRM, GLB or glTF (through a `bufferView`, a `data:` URI or
@@ -86,6 +102,12 @@ sanction, quarantine, report) is §8a's and has no code here.
 | one author's live objects plus every upload session whose staging bytes still exist, at its declared size | 1 GiB | `E_CONTENT_QUOTA` |
 | an image | ≤ 8192 px per side and ≤ 64 Mpx | `E_CONTENT_IMAGE_DIMENSIONS` |
 | an audio file | a type on the audio allowlist | `E_CONTENT_MEDIA_TYPE` |
+| one `animpack.toml` | 256 KiB | `E_BUNDLE_MANIFEST` |
+| the settings file plus each PACK-ROOT `animpack.toml` (`animpack.toml` at the zip root of a `.astrapack`, or `animpacks/<id>/animpack.toml` in a `.astrachar` — never a deeper `clips/animpack.toml`, which is an ordinary file), together | 2 MiB | `E_BUNDLE_MANIFEST` |
+
+Both TOML caps are mirrored in the engine (astra-companion-4e), so the two
+disagree only if one side's compiled default drifts from the other — the same
+risk the per-config-struct defaults elsewhere in this estate exist to avoid.
 
 ## 3. A bundle: the order of the checks
 
@@ -118,10 +140,10 @@ the first is the answer, and the one every golden pins.
 | 5 | ≤ 128 MiB uncompressed in total; ≤ 100 : 1 per deflated entry; **and at most 32 MiB of glTF JSON in the whole archive** — the sum of every GLB's declared first-chunk length and every `.gltf`'s size, read from headers before any is parsed (B1: a server held 1.9 GB of memory on seven 16 MiB `.gltf` in a 30 MiB archive; a client must not build an archive the server refuses; golden `gltf-total-over-32mib`, built in memory; the 128 MiB case is L1's, at test time, since a committed fixture would be over 1.3 MiB). Decompression is streamed against a byte budget and NEVER trusts a declared size | `E_ARCHIVE_TOO_LARGE`, `E_ARCHIVE_RATIO` |
 | 6 | `.vrm .glb .png .jpg .webp .ktx2` are Stored | `E_ARCHIVE_MUST_BE_STORED` |
 | 7 | **the raw read** (§11a.8): every Deflated entry, bit 3 or not, is inflated from its raw bytes and the deflate stream must end EXACTLY at the central directory's `compressed_size`, with the inflated length and CRC equal to the declared ones (drain the inflater before judging the end); the bit-3 descriptor rule itself is checked at step 3 | `E_ZIP_HEADERS_INCONSISTENT` |
-| 8 | **the manifest**: `astrachar.json` is the last entry — by directory order, which step 3 made the same as position in the file — ≤ 1 MiB, parses as a JSON **object** (games round 3, astra-plugins-ops-42: a manifest of `[]` or any other non-object JSON is refused here, not left to crash the next line's `.get` — golden `manifest-not-object`), with no duplicate member name, `format` ∈ {`astra.character`, `astra.animpack`}, a supported `format_version` (1) and `schema` (5). Every other file is listed in its `files` with an equal `sha256:` digest and size, and every listed file exists. The verified list becomes the `content_file` rows. **An animation pack's kind, read from its own `animpack.toml` (part-digest-v1.md §1), must agree with whatever kind the bundle's manifest also declares for it** — the `.astrachar` `packs[]` entry for that pack's id, or a `.astrapack` manifest's own top-level `kind` — the same name-agrees-with-content rule as the GLB magic; `animpack.toml` must be TOML 1.0, UTF-8 without a byte-order mark (part-digest-v1.md §1, the same grammar games manifest.md §2.6.1 pins for `astra-gi.toml`), with its `[animpack]`, when present, a table; a file that does not parse, a BOM, TOML 1.1-only syntax, an `[animpack]` not a table, or a `[animpack] kind` present but not a string, is refused the same way, never defaulted (goldens `pack-kind-manifest-disagrees`, `astrapack-kind-disagrees`, `pack-toml-unparsable`, `pack-kind-not-string`, `pack-animpack-not-table`, `pack-toml-bom`, `pack-toml-1-1-syntax`) | `E_BUNDLE_MANIFEST`, `E_BUNDLE_FILE_UNLISTED`, `E_BUNDLE_FILE_DIGEST` |
+| 8 | **the manifest**: `astrachar.json` is the last entry — by directory order, which step 3 made the same as position in the file — ≤ 1 MiB, parses as a JSON **object** (games round 3, astra-plugins-ops-42: a manifest of `[]` or any other non-object JSON is refused here, not left to crash the next line's `.get` — golden `manifest-not-object`), with no duplicate member name, `format` ∈ {`astra.character`, `astra.animpack`}, a supported `format_version` (1) and `schema` (5). Every other file is listed in its `files` with an equal `sha256:` digest and size, and every listed file exists. The verified list becomes the `content_file` rows. **An animation pack's kind, read from its own `animpack.toml` (part-digest-v1.md §1), must agree with whatever kind the bundle's manifest also declares for it** — the `.astrachar` `packs[]` entry for that pack's id, or a `.astrapack` manifest's own top-level `kind` — the same name-agrees-with-content rule as the GLB magic; `animpack.toml` must be TOML 1.0, UTF-8 without a byte-order mark (part-digest-v1.md §1, the same grammar games manifest.md §2.6.1 pins for `astra-gi.toml`), with its `[animpack]`, when present, a table; a file that does not parse, a BOM, TOML 1.1-only syntax, an `[animpack]` not a table, or a `[animpack] kind` present but not a string, is refused the same way, never defaulted (goldens `pack-kind-manifest-disagrees`, `astrapack-kind-disagrees`, `pack-toml-unparsable`, `pack-kind-not-string`, `pack-animpack-not-table`, `pack-toml-bom`, `pack-toml-1-1-syntax`). **Both §2 TOML size caps are checked HERE too, in this order, before step 10's format and before the settings file's own TOML-parses check (which stays after step 10): the 2 MiB total first (pure byte-counting, nothing to parse), then each pack-root `animpack.toml`'s own 256 KiB cap** (goldens `pack-toml-oversized`, `pack-toml-total-oversized`, `pack-toml-nine-small-packs`, `pack-toml-at-cap`, `pack-toml-total-at-cap`, `pack-toml-deep-not-counted`; `pack-toml-total-oversized-plus-utf16` pins the order against a settings file that would otherwise fail its own check first) | `E_BUNDLE_MANIFEST`, `E_BUNDLE_FILE_UNLISTED`, `E_BUNDLE_FILE_DIGEST` |
 | 9 | **the blocklist**: no FILE has a `file_sha256` in `content_blocked_file`, and the bundle is not an object deleted for `rights` or `security`. An object deleted as `refused` or `unreferenced` blocks nothing | `E_CONTENT_BLOCKED` |
 | 10 | **the format**: **a GLB or `.gltf` is READABLE, whole, in every part** — unreadable is refused, never treated as "plain" (which an animset part does not judge): a GLB whose first chunk is not JSON, a JSON chunk over 16 MiB, a `.gltf` over 16 MiB (both sizes checked before anything is parsed), JSON that does not parse or is not an object, a duplicate member (below), and nesting deeper than 128 (the top-level object is depth 1) are all `E_CONTENT_FORMAT` (goldens `glb-json-over-16mib` and `gltf-over-16mib`, built in memory and pinned by sha256; `glb-invalid-json`, `gltf-invalid-json`, `gltf-too-deep`; `animset-gltf-depth-128` is accepted); **a GLB is whole** — its header's total length equals the file's size and its first chunk ends inside it, so a JSON chunk declared past EOF is not read as the bytes that happen to be there (golden `vrm-chunk-past-eof`); **no external reference** — `images` and `buffers`, when present, must be JSON arrays, and every element an object (games round 3: `"images": 5` once crashed the reader with TypeError, and `"images": {"0": {"uri": "https://…"}}` — which a JS loader still reads by the key `"0"` — passed an element-only check silently, so the external uri inside was never looked at; both are now refused by their SHAPE alone, before any `uri` inside is read; goldens `gltf-images-not-array`, `gltf-images-object`); in a GLB every `images[].uri` and `buffers[].uri` is a `data:` URI; in a `.gltf` each is percent-decoded EXACTLY ONCE and the DECODED path judged: a raw `?`, `#` or `\` is refused outright (a loader strips/splits on these before it even looks at `%`); a `%` not followed by two hex digits, bytes that are not valid UTF-8 once decoded, a control character, or a decoded string that still contains `%` (double-encoded — decoding `%252e%252e` AGAIN, instead of refusing the leftover `%` after one pass, would reach `..`) are all refused; the decoded path then has no scheme, no `..`, no leading `/`, no `\` and resolves inside the same part to a file present in the archive — so `Base%20Color.png` (legitimate glTF escaping for a space, goldens `animset-gltf-percent-space`) is accepted while `..%2f..%2fetc%2fpasswd` is still refused, now because the DECODED `../../etc/passwd` fails the `..` test rather than because `%` itself was forbidden (N2; golden `pct`; `gltf-uri-escape`; `gltf-percent-double-encoded`, `gltf-percent-malformed`; `animset-gltf-relative-uri` is accepted); **no nested bundle** — any entry whose bytes begin with a zip signature (`PK\x03\x04`, `PK\x05\x06`, `PK\x07\x08`), whatever its name or extension, is refused: pack members are catalogue REFERENCES (`packs-index-v1.md`), so a content upload never needs a bundle nested inside a bundle, and no allowed part type's own magic collides with one of these three (a GLB starts `glTF`; PNG, JPEG, WebP/WAV, KTX2, OGG, FLAC and FBX each have their own; TOML/JSON settings are UTF-8 text) — games judges an embedded bundle recursively, by its own choice (`spec/games/`), but that is a different format and this rule is content-only (goldens `nested-astrachar-in-astrapack`, `nested-astrachar-renamed-dat`); **a name and its content agree** — an entry that begins with the GLB magic `glTF` is named `.vrm`, `.glb` or `.vrma`, and an entry so named begins with it; **byte-order marks** (N1, revised with astra-companion-5f): **TEXT kinds** — `.gltf`, `.json`, `.toml` — must be UTF-8: one that begins with a UTF-16 or UTF-32 BOM (`FF FE`, `FE FF`, `00 00 FE FF`, `FF FE 00 00`) is refused, and a `.gltf` that begins with a UTF-8 BOM is refused too (glTF 2.0 requires UTF-8 JSON without one; elsewhere the sniff skips it). **Every other entry is binary as far as a BOM goes** — a glTF `.bin` buffer of floats can begin `FF FE` — so it is refused only if, after a UTF-16/32 BOM, the following code units decoded in that encoding are optional JSON whitespace, then `{`, then a top-level `asset` key under the same tolerant sniff; otherwise it is accepted. A random binary would need a BOM, then `{` in that encoding, then a top-level `asset` key, so a false refusal is negligible (goldens `animset-gltf-bin-bom` accepted; `gltf-json-utf16` — `clips/avatar.json` — `gltf-utf16-dat`, `toml-utf16`, `gltf-with-bom` refused); **and a text glTF is named `.gltf`**: an entry NOT so named whose bytes are a JSON object with a top-level `asset` member (sniffed: a leading UTF-8 BOM is skipped — three.js's `TextDecoder` strips it, so such a file loads as glTF after a rename; golden `gltf-json-utf8-bom` — then the first non-whitespace byte is `{`, and only the top-level KEYS are read: the sniff decides on a top-level `asset` key alone, **whether or not the rest of the file parses** — golden `gltf-sniff-garbage`, `{"asset":1,<garbage>`) is refused, so a glTF cannot escape the verdict as `clips/avatar.json` or `accessories/x/model.json` (S5; goldens `gltf-named-json-in-animset`, `gltf-named-json-accessory`); `body.file` ends in `.vrm` and is glTF binary carrying the `VRM` (0.x) or `VRMC_vrm` (1.0) extension (goldens `body-renamed-bin`, `accessory-glb-renamed`); **no GLB or `.gltf` — the body, an accessory, an animset clip, in any part and of any class — has a duplicate member name in its glTF JSON** (one reader's `allowRedistribution: false` is another's `true`; a JSON that does not parse must never fall through to "plain", which an animset part does not judge — goldens `vrm-duplicate-key`, `accessory-duplicate-key`, `animset-glb-duplicate-key`); images and audio as §2 | `E_CONTENT_FORMAT` |
-| 11 | **the licence verdict** on every entry that begins with the GLB magic and on every `.gltf` (§4) — chosen by CONTENT, never by extension | `E_CONTENT_LICENCE_CONFLICT`, `E_CONTENT_LICENCE_REFUSED`, `E_CONTENT_LICENCE_UNDECLARED`; flag `F_CONTENT_VRM_META_UNKNOWN` |
+| 11 | **the licence verdict** on every entry that begins with the GLB magic and on every `.gltf` (§4) — chosen by CONTENT, never by extension. **An avatar-classified entry (a 0.x `VRM` or 1.0 `VRMC_vrm` extension, §4) outside a character's or model's own part — in an animations or art pack part — is refused whatever its verdict: Allowed, Unknown and Prohibited all refuse** (§4.3; a pack part's own GLBs/`.gltf` never reach the verdict at all otherwise) | `E_CONTENT_LICENCE_CONFLICT`, `E_CONTENT_LICENCE_REFUSED`, `E_CONTENT_AVATAR_IN_PACK`, `E_CONTENT_LICENCE_UNDECLARED`; flag `F_CONTENT_VRM_META_UNKNOWN` |
 | 12 | every listed file is in exactly one part (§5) or is the character's settings; the derived parts equal the declared ones (§6) | `E_CONTENT_FILE_OUTSIDE_PARTS`, `E_CONTENT_PARTS_MISMATCH` |
 
 Rust `zip` ≥ 9.0.5 with `ZipArchive::validate_header_consistency`, plus the two
@@ -215,8 +237,64 @@ and `character-plain-glb-accessory`, held). This is the games gate's rule too
 ### 4.3 A part with no licence at all
 
 A part with neither readable VRM meta nor a declared licence (`licence_source`
-none) → `E_CONTENT_LICENCE_UNDECLARED`. A part whose only VRM file is
-`Unknown` is held (§4.1), not refused as undeclared.
+none) → `E_CONTENT_LICENCE_UNDECLARED`.
+
+**An avatar file belongs to a character's or model's OWN part, never to a
+pack (G5/W1, architect's decision after a review found a decoy avatar could
+both lift a pack's hold and silently override the author's own declared
+licence).** `glb_class` (§4) classifies a GLB or `.gltf` by its extensions
+alone, never by its part — so an avatar extension can appear in an animations
+or art pack exactly as easily as in a body. **Whenever it does, the entry is
+refused with `E_CONTENT_AVATAR_IN_PACK`, whatever its verdict would have
+been** — Allowed, Unknown and Prohibited all refuse (§3 step 11). An
+`.vrma` (animation-only, no avatar extension) and a plain GLB are unaffected:
+neither is ever classified `avatar`.
+
+This makes a pack part's rights source exactly one of two things, never
+both at once:
+
+- **On a character's or model's own part (the body, an accessory): the meta
+  wins, unchanged.** A part with a readable, Allowed VRM meta needs no
+  declaration. Any declaration present is still VALIDATED at `begin` like
+  any other present value (§1 above; common-v1.md §3.1.1) — a malformed
+  string refuses the begin whether or not the part it names turns out to
+  have VRM meta — but it is ignored AT INGEST: it is never mapped, never
+  flagged, and plays no further part once the part has a verdict. A part
+  whose only VRM file is `Unknown` is held (§4.1, `F_CONTENT_VRM_META_UNKNOWN`)
+  and a declaration there is ignored the same way: the hold already stands,
+  and the flag is `F_CONTENT_VRM_META_UNKNOWN` alone, never combined with
+  `F_CONTENT_LICENCE_DECLARED`.
+- **On every other part (animations, art, audio, command): the ONLY rights
+  source is the declaration**, because `E_CONTENT_AVATAR_IN_PACK` has
+  already refused any avatar file that would otherwise contend for the
+  verdict. Undeclared → `E_CONTENT_LICENCE_UNDECLARED`, as above.
+
+**The declared licence (G5/W1; agreed with the client, astra-d6, and the
+architect, minice-b9).** `BeginRequest.parts[].licence` /
+`DeclaredPart.licence`, validated at `begin`, before any byte of the bundle
+is uploaded (§1 above; `E_CONTENT_LICENCE_DECLARATION_INVALID`).
+
+- **A declared licence ALWAYS holds the version for a moderator**, with
+  **`F_CONTENT_LICENCE_DECLARED`** — for an established author too, and even
+  though the string itself was already validated at `begin`: the licence
+  object is signed, but a human confirms the mapping was the right one for
+  THIS content before it publishes. The flag is emitted ONCE per version,
+  however many declared parts it has, never once per part.
+- The server maps the declared string to the signed licence object
+  (common-v1.md §3.1.1) from the pinned table there. The declaration itself
+  carries no other field — no usage flags, no commercial detail — all of
+  which the mapping fixes to `unknown` or `null`.
+- `null` or an absent `licence` on a part means no declaration, exactly as
+  today. An EMPTY string or a whitespace-only one is a malformed
+  declaration, not "none" — `E_CONTENT_LICENCE_DECLARATION_INVALID`, same as
+  any other malformed string (common-v1.md §3.1.1).
+- **Two declared parts that are byte-for-byte the SAME part (an identical
+  part digest) must declare the SAME licence.** A `begin` naming the same
+  digest twice with two different declarations is refused
+  (`E_CONTENT_LICENCE_DECLARATION_INVALID`); the same digest with the same
+  declaration twice is fine — the same bytes under two ids is not a new
+  question, and a server that let the answer change on a whim would be
+  letting a second declaration retroactively launder the first.
 
 ### 4.4 The games gate's goldens (AstraPlugins #123)
 

@@ -578,15 +578,24 @@ def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None 
                 f"over {CG.MAX_GLTF_JSON_TOTAL} (32 MiB)"}}
     budget.gltf_json += own
     roots, body_path, body = _bundle_layout(files)
+    # a game-integration's own `licence` toggle covers every part uniformly, with a real (always
+    # valid) declared licence string -- content's own mapping table decides the object (common-v1.md §3.1.1)
+    declared = {r: "CC-BY-4.0" for r in roots} if licence else {}
     try:
-        got = _ingest_walked(raw, files, {"declared_licence": roots if licence else []})
+        got = _ingest_walked(raw, files, {"declared_licence": declared})
     except CG.Refusal as r:
         return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
     except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
         return {"status": "bundle", "body": None, "refusal": {
             "code": "E_CONTENT_FORMAT", "detail": f"{path}!: the content checker cannot read it ({type(e).__name__}: {e})"}}
-    status = "unknown" if "F_CONTENT_VRM_META_UNKNOWN" in got["flags"] else "ok"
-    return {"status": status, "refusal": None, "body": (body_path, body) if body is not None else None}
+    # a declared licence ALWAYS holds for a moderator too (ingest-v1.md §4.3), with its OWN flag --
+    # never relabelled as F_CONTENT_VRM_META_UNKNOWN (S6; spec/games/manifest.md §2.7.3 names
+    # both). A bundle can need BOTH at once (an Unknown body elsewhere, a declared pack here):
+    # both flags are kept, never collapsed to one (item 3 of the review).
+    held_flags = [f for f in ("F_CONTENT_VRM_META_UNKNOWN", "F_CONTENT_LICENCE_DECLARED") if f in got["flags"]]
+    status = "unknown" if held_flags else "ok"
+    return {"status": status, "refusal": None, "held_flags": held_flags,
+            "body": (body_path, body) if body is not None else None}
 
 
 # ── a game's own archives, one level deep (manifest.md §2.7.1) ─────────────
@@ -977,6 +986,7 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
     gate_status = None
     vrm_licence = None
     refusal = None
+    held_flags: list[str] = []  # which flag(s) "unknown" means -- BOTH can apply at once (item 3)
     spath = path if isinstance(path, str) else None
     problem = gltf_format_problem(raw, spath, present) if raw is not None else None
     if problem is not None:
@@ -991,11 +1001,14 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
             refusal = gate["refusal"]
             if gate_status != "unknown":
                 vrm_licence = gate["vrm_licence"]
+            else:
+                held_flags.append("F_CONTENT_VRM_META_UNKNOWN")
     if spath is not None and raw is not None and spath.lower().endswith(BUNDLE_EXTS) and _is_zip(raw[:4]):
         # an embedded bundle: the content contract's own verdict decides; its
         # body's readable VRM licence, when it has one, is the part's licence
         bv = bundle_verdict(spath, raw, entry.get("licence"), budget)
         gate_status, refusal = bv["status"], bv["refusal"]
+        held_flags = bv.get("held_flags") or []
         if bv["status"] == "ok" and bv["body"] is not None:
             body_gate = vrm_gate(bv["body"][1], bv["body"][0])
             if body_gate["status"] == "ok":
@@ -1006,7 +1019,8 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
         licence_source = "declared"
     else:
         licence_source = None
-    return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status, "refusal": refusal}
+    return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status,
+            "refusal": refusal, "held_flags": held_flags}
 
 
 GATE_CODES = {"refused": "E_CONTENT_LICENCE_REFUSED", "conflict": "E_CONTENT_LICENCE_CONFLICT", "format": "E_CONTENT_FORMAT"}
@@ -1109,7 +1123,8 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
             refuse(pl["refusal"]["code"], p, pl["refusal"]["detail"])
             continue
         if status == "unknown":
-            flags.append({"flag": "F_CONTENT_VRM_META_UNKNOWN", "path": p})
+            for flag in (pl.get("held_flags") or ["F_CONTENT_VRM_META_UNKNOWN"]):
+                flags.append({"flag": flag, "path": p})
         if pl["licence_source"] is None:
             refuse("E_CONTENT_LICENCE_UNDECLARED", p, "no readable VRM licence and no declared licence")
     return {"findings": findings, "flags": flags}
