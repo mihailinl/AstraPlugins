@@ -1421,12 +1421,15 @@ def is_pack_toml_name(p: str) -> bool:
 
 def check_toml_total_size(files: dict[str, bytes], settings_dir: str | None) -> None:
     """ingest-v1.md's archive limits table (§3 step 8, E_BUNDLE_MANIFEST):
-    the character settings file plus EVERY pack-root animpack.toml (S1),
-    together, at most 2 MiB (astra-companion-4e mirrors this in the engine,
-    alongside the 256 KiB per-animpack.toml cap)."""
+    the settings file plus each PACK-ROOT `animpack.toml` (S1 -- never a
+    deeper `clips/animpack.toml`), together, at most 2 MiB (astra-companion-4e
+    mirrors this in the engine, alongside the 256 KiB per-animpack.toml cap).
+    The detail's wording is the server's own ("all TOML together: larger
+    than"), pinned so both sides can be told apart from a count-based check
+    by the SAME fragment (the review's item 6)."""
     total = sum(len(b) for p, b in files.items() if is_settings(p, settings_dir) or is_pack_toml_name(p))
     if total > MAX_TOTAL_TOML:
-        raise Refusal("E_BUNDLE_MANIFEST", f"TOML files together: {total} bytes, over {MAX_TOTAL_TOML}")
+        raise Refusal("E_BUNDLE_MANIFEST", f"all TOML together: larger than {MAX_TOTAL_TOML} ({total} bytes)")
 
 
 def parts_of(files: dict[str, bytes], body: str | None, settings_dir: str | None = None, strict: bool = True,
@@ -1520,15 +1523,15 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     body = (man.get("body") or {}).get("file")
     settings_dir = (man.get("character") or {}).get("dir")
     # S2: both archive-limit caps are the manifest step (§3 step 8, E_BUNDLE_MANIFEST) -- before
-    # format (step 10) AND before settings' own format check, so an over-total bundle, or one
-    # animpack.toml over its own cap, is never masked by a later refusal (the total check first,
-    # since it is pure byte-counting with nothing to parse; the per-file cap lives inside
-    # `read_animpack_toml_kind`, reached from `pack_kind`/`parts_of` below)
+    # format (step 10), so an over-total bundle, or one animpack.toml over its own cap, is never
+    # masked by a later refusal. The total check runs first (pure byte-counting, nothing to
+    # parse); the per-file cap lives inside `read_animpack_toml_kind`, reached from
+    # `pack_kind`/`parts_of` below. `check_settings` is NOT one of these two caps and stays after
+    # the format loop, matching the server (bundle.rs: settings after the format loop).
     check_toml_total_size(files, settings_dir)
     part_root_of = {f: root for (_pk, root), pf in
                     parts_of(files, body, settings_dir, strict=False,
                              pack=pack_kind(man, files), man=man).items() for f in pf}
-    check_settings(files, settings_dir)
     for p, b in files.items():
         why = bom_refusal(p, b)
         if why:
@@ -1556,15 +1559,19 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
+    check_settings(files, settings_dir)  # after the format loop, matching the server (bundle.rs) -- S2 moved only the size caps
     kind_of = {f: pk for (pk, _root), pf in
                parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man, files), man=man).items()
                for f in pf}
-    # ingest-v1.md §3 step 11 / §4.3: an avatar-classified GLB or .gltf outside a character's or
-    # model's own part -- in an animations or art pack part -- is refused whatever its verdict
-    # would have been. Checked before the verdict itself, so Allowed, Unknown and Prohibited all
-    # refuse the same way (a decoy avatar must never lift a pack's hold or stand in for a licence).
+    # ingest-v1.md §3 step 11 / §4.3: an avatar-classified GLB or .gltf in ANY part that is not a
+    # character's or model's own part -- animations, art, audio or command alike -- is refused
+    # whatever its verdict would have been. Checked before the verdict itself, so Allowed, Unknown
+    # and Prohibited all refuse the same way (a decoy avatar must never lift a pack's hold or stand
+    # in for a licence). A file in NO part at all is not judged HERE -- that is step 12's
+    # E_CONTENT_FILE_OUTSIDE_PARTS, below, never this check.
     for p, b in files.items():
-        if judged(p, b) and glb_class(b) == "avatar" and kind_of.get(p) not in AVATAR_PART_KINDS:
+        pk = kind_of.get(p)
+        if judged(p, b) and glb_class(b) == "avatar" and pk is not None and pk not in AVATAR_PART_KINDS:
             raise Refusal("E_CONTENT_AVATAR_IN_PACK", p)
     verdicts = {p: vrm_verdict(b, p) for p, b in files.items() if judged(p, b) and gets_verdict(glb_class(b), kind_of.get(p))}
     for want in ("conflict", "prohibited"):

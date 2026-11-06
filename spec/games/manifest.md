@@ -651,6 +651,14 @@ exactly the publish-at-once treatment the `unknown` case gets above, because
 `ingest_bundle`'s own `held` verdict does not distinguish WHY a version
 needs a human, only that it does.
 
+**Both flags can apply to the SAME embedded bundle, and both are kept.**
+An Unknown body and a declared pack are different parts of one bundle, so
+`ingest_bundle` can return both `F_CONTENT_VRM_META_UNKNOWN` and
+`F_CONTENT_LICENCE_DECLARED` in one `flags` list — this gate must publish
+both, on the bundle's path, never collapse them to one (golden
+`bundle-two-flags`). Dropping either one would hide from a moderator a
+reason the version is held for.
+
 **The usage flags (G5).** Kept with the part in `vrm_licence.fields`
 whichever of these the file actually carries, alongside the
 redistribution/permission fields above, so the install sheet and the public

@@ -52,8 +52,9 @@ ingest:
   E_CONTENT_FILE_OUTSIDE_PARTS: live
   E_CONTENT_LICENCE_CONFLICT: live
   E_CONTENT_LICENCE_REFUSED: live
-  # an avatar-classified GLB/.gltf (0.x VRM or 1.0 VRMC_vrm) outside a character's or model's own
-  # part -- in an animations or art pack -- whatever its verdict (ingest-v1.md §3 step 11, §4.3)
+  # an avatar-classified GLB/.gltf (0.x VRM or 1.0 VRMC_vrm) in ANY part that is not a character's
+  # or model's own part -- animations, art, audio or command alike -- whatever its verdict; never
+  # a file in NO part at all, which is E_CONTENT_FILE_OUTSIDE_PARTS (ingest-v1.md §3 step 11, §4.3)
   E_CONTENT_AVATAR_IN_PACK: live
   E_CONTENT_LICENCE_UNDECLARED: live
   # begin, before upload: a declared licence (common-v1.md §3.1) does not parse -- one bad entry refuses the whole begin

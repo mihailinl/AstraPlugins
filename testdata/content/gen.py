@@ -1232,6 +1232,15 @@ def gen_archives() -> None:
     # stands alone -- F_CONTENT_VRM_META_UNKNOWN only, never combined with F_CONTENT_LICENCE_DECLARED
     put("archives/hostile/vrm-no-meta-plus-declaration.astrachar", bundle(
         "astra.character", {BODY_PATH: decoy_unknown}, BODY_PATH))
+    # a stray avatar in NO part at all (not the body, not under animpacks/ or accessories/, not an
+    # image or audio extension): E_CONTENT_FILE_OUTSIDE_PARTS, never E_CONTENT_AVATAR_IN_PACK --
+    # the avatar-in-pack check judges only a file that IS in some part
+    hostile("stray-avatar-outside-every-part.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, "characters/aiko/stray.vrm": decoy_allowed}, body=None))
+    # item 3: ONE bundle needing BOTH flags at once -- an Unknown body (no readable meta) plus a
+    # SEPARATE pack with no VRM meta at all, declared. Both flags are kept, never collapsed to one
+    put("archives/valid/character-unknown-body-plus-declared-pack.astrachar", bundle(
+        "astra.character", {BODY_PATH: decoy_unknown, **in_pack("wave-both", ASCII_PART)}, BODY_PATH))
     # a PLAIN GLB (no avatar extension, no VRMC_vrm_animation) is judged only in a character or
     # model part: a clip in an animset takes the part's rights confirmation; an accessory is held
     plain = glb({"asset": {"version": "2.0"}})

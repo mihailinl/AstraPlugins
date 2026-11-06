@@ -1,0 +1,22 @@
+# content check golden: one embedded bundle that needs BOTH flags at once -- an Unknown body
+# (no readable VRM meta) plus a separate pack with no VRM meta at all, declared through this
+# release's own `licence` toggle. Neither flag may be dropped (review item 3).
+schema = 1
+
+[integration]
+id = "someone.bundle-two-flags"
+name = "Bundle Two Flags"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/char.astrachar"
+kind = "character"
+title = "aiko"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -589,14 +589,12 @@ def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None 
         return {"status": "bundle", "body": None, "refusal": {
             "code": "E_CONTENT_FORMAT", "detail": f"{path}!: the content checker cannot read it ({type(e).__name__}: {e})"}}
     # a declared licence ALWAYS holds for a moderator too (ingest-v1.md §4.3), with its OWN flag --
-    # never relabelled as F_CONTENT_VRM_META_UNKNOWN (S6; spec/games/manifest.md §2.7.3 names both)
-    held_flag = None
-    if "F_CONTENT_VRM_META_UNKNOWN" in got["flags"]:
-        held_flag = "F_CONTENT_VRM_META_UNKNOWN"
-    if "F_CONTENT_LICENCE_DECLARED" in got["flags"]:
-        held_flag = "F_CONTENT_LICENCE_DECLARED"  # the more specific reason, when both are present
-    status = "unknown" if held_flag else "ok"
-    return {"status": status, "refusal": None, "held_flag": held_flag,
+    # never relabelled as F_CONTENT_VRM_META_UNKNOWN (S6; spec/games/manifest.md §2.7.3 names
+    # both). A bundle can need BOTH at once (an Unknown body elsewhere, a declared pack here):
+    # both flags are kept, never collapsed to one (item 3 of the review).
+    held_flags = [f for f in ("F_CONTENT_VRM_META_UNKNOWN", "F_CONTENT_LICENCE_DECLARED") if f in got["flags"]]
+    status = "unknown" if held_flags else "ok"
+    return {"status": status, "refusal": None, "held_flags": held_flags,
             "body": (body_path, body) if body is not None else None}
 
 
@@ -988,7 +986,7 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
     gate_status = None
     vrm_licence = None
     refusal = None
-    held_flag = None  # which flag "unknown" means: F_CONTENT_VRM_META_UNKNOWN or F_CONTENT_LICENCE_DECLARED (S6)
+    held_flags: list[str] = []  # which flag(s) "unknown" means -- BOTH can apply at once (item 3)
     spath = path if isinstance(path, str) else None
     problem = gltf_format_problem(raw, spath, present) if raw is not None else None
     if problem is not None:
@@ -1004,13 +1002,13 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
             if gate_status != "unknown":
                 vrm_licence = gate["vrm_licence"]
             else:
-                held_flag = "F_CONTENT_VRM_META_UNKNOWN"
+                held_flags.append("F_CONTENT_VRM_META_UNKNOWN")
     if spath is not None and raw is not None and spath.lower().endswith(BUNDLE_EXTS) and _is_zip(raw[:4]):
         # an embedded bundle: the content contract's own verdict decides; its
         # body's readable VRM licence, when it has one, is the part's licence
         bv = bundle_verdict(spath, raw, entry.get("licence"), budget)
         gate_status, refusal = bv["status"], bv["refusal"]
-        held_flag = bv.get("held_flag")
+        held_flags = bv.get("held_flags") or []
         if bv["status"] == "ok" and bv["body"] is not None:
             body_gate = vrm_gate(bv["body"][1], bv["body"][0])
             if body_gate["status"] == "ok":
@@ -1022,7 +1020,7 @@ def part_licence(entry: dict, raw, present=None, budget: ReleaseBudget | None = 
     else:
         licence_source = None
     return {"licence_source": licence_source, "vrm_licence": vrm_licence, "gate_status": gate_status,
-            "refusal": refusal, "held_flag": held_flag}
+            "refusal": refusal, "held_flags": held_flags}
 
 
 GATE_CODES = {"refused": "E_CONTENT_LICENCE_REFUSED", "conflict": "E_CONTENT_LICENCE_CONFLICT", "format": "E_CONTENT_FORMAT"}
@@ -1125,7 +1123,8 @@ def release_findings(files: dict[str, bytes], manifest: dict) -> dict:
             refuse(pl["refusal"]["code"], p, pl["refusal"]["detail"])
             continue
         if status == "unknown":
-            flags.append({"flag": pl.get("held_flag") or "F_CONTENT_VRM_META_UNKNOWN", "path": p})
+            for flag in (pl.get("held_flags") or ["F_CONTENT_VRM_META_UNKNOWN"]):
+                flags.append({"flag": flag, "path": p})
         if pl["licence_source"] is None:
             refuse("E_CONTENT_LICENCE_UNDECLARED", p, "no readable VRM licence and no declared licence")
     return {"findings": findings, "flags": flags}

@@ -2476,6 +2476,26 @@
       "note": "S4: a body with an Unknown VRM (no readable meta) plus a declaration on the SAME part: the meta's own hold stands alone, never combined with F_CONTENT_LICENCE_DECLARED -- the declaration is ignored outright on a character/model part"
     },
     {
+      "name": "stray-avatar-outside-every-part",
+      "file": "archives/hostile/stray-avatar-outside-every-part.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FILE_OUTSIDE_PARTS",
+      "note": "item 5: an avatar-classified GLB in NO part at all (not the body, not under animpacks/ or accessories/, no image/audio extension) is not judged by E_CONTENT_AVATAR_IN_PACK -- that check only applies to a file that IS in some part. This one falls to step 12 instead"
+    },
+    {
+      "name": "character-unknown-body-plus-declared-pack",
+      "file": "archives/valid/character-unknown-body-plus-declared-pack.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_VRM_META_UNKNOWN",
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "animpacks/wave-both": "CC-BY-4.0"
+      },
+      "note": "item 3: ONE bundle needing BOTH flags at once -- an Unknown body plus a separate declared pack with no VRM meta. Neither flag is dropped"
+    },
+    {
       "name": "character-plain-glb-accessory",
       "file": "archives/hostile/character-plain-glb-accessory.astrachar",
       "verdict": "held",
@@ -2918,7 +2938,7 @@
       "file": "archives/hostile/pack-toml-total-oversized.astrachar",
       "verdict": "refuse",
       "code": "E_BUNDLE_MANIFEST",
-      "detail_contains": "TOML files together:",
+      "detail_contains": "all TOML together: larger than",
       "note": "9 animpack.toml files, each under the 256 KiB per-file cap, together over the 2 MiB total cap (ingest-v1.md §2); detail pins that this is a BYTE-total check, distinct from a count-based one (B2)"
     },
     {
@@ -2989,7 +3009,7 @@
       "file": "archives/hostile/pack-toml-total-oversized-plus-utf16.astrachar",
       "verdict": "refuse",
       "code": "E_BUNDLE_MANIFEST",
-      "detail_contains": "TOML files together:",
+      "detail_contains": "all TOML together: larger than",
       "note": "S2: the order -- an over-total bundle whose settings file is ALSO UTF-16 still refuses on the total-size check (the manifest step), never on settings' own UTF-8 format check, because the size caps run first"
     },
     {
@@ -3041,7 +3061,7 @@
       "file": "archives/valid/model-aiko.astrachar",
       "verdict": "accept",
       "declared_licence": {
-        "characters/aiko/body.vrm": "not a licence at all, never even validated"
+        "characters/aiko/body.vrm": "not a licence at all, but begin -- not ingest -- is the only place that would reject it"
       },
       "parts": {
         "character:characters/aiko/body.vrm": "16c69d26d5462cc9f570e90b4ad8afed2b42074fc2e588b8bbe6aabc208e9f14"
@@ -3052,7 +3072,7 @@
           "licence": null
         }
       },
-      "note": "the body has readable, allowed VRM meta: a declaration on that same part is ignored outright, not even validated -- the meta wins (ingest-v1.md §4.3)"
+      "note": "the body has readable, allowed VRM meta: a declaration on that same part is ignored AT INGEST -- never mapped, never flagged -- even though begin would have validated the same string (ingest-v1.md §4.3). The meta wins"
     },
     {
       "name": "animset-wave-declared-custom",
@@ -4471,7 +4491,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 443,
+  "expected_checks": 445,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [
