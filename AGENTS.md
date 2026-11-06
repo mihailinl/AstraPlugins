@@ -144,6 +144,12 @@ fails on the drift. Change the source, re-run the generator, commit both.
 | `astra-plugin-cli/vendor/astra-plugin-manifest/src/**` | `tools/check-manifest-crate.sh --sync` (source is in `Astra`) |
 | `astra-plugin-cli/src/conformance.json` | copied from `spec/generated/conformance.json` |
 
+The proto row, its two stub rows and the UI Kit row above all move together
+whenever Astra's plugin proto or UI Kit changes upstream. **`tools/resync-astra.sh
+--astra-dir <path-to-Astra>`** runs that whole recipe — slice, vendored copies,
+both stub regenerations, `ASTRA_PROTO.lock`, the docs digests in every locale,
+and the UI Kit snapshot — in one command, and commits only what moved.
+
 **[`spec/hooks.yaml`](spec/hooks.yaml) and [`spec/limits.yaml`](spec/limits.yaml)
 are the source of truth** — for the 41 hooks, and for the numbers that must be
 identical in the daemon and the SDKs. Both are shared with `Astra`, so changing
