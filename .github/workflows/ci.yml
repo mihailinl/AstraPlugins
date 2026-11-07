@@ -611,6 +611,31 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # spec/content/schemas/portable-command-v1.schema.json is a byte-for-byte
+      # vendor of Astra's own astra-core/schemas/portable-command.schema.json
+      # (tools/resync-astra.sh copies it in); this repo is a fork PR here, with
+      # no Astra checkout to diff against, so the only thing checkable is
+      # whether the vendored file still matches the lock a FULL-mode run wrote
+      # the last time it was confirmed against a real Astra tree. A hand-edit
+      # to the schema (instead of running tools/resync-astra.sh) changes the
+      # file without updating the lock, and this catches exactly that — the
+      # same shape as `verify proto/ASTRA_PROTO.lock (degraded mode)` above,
+      # much simpler because there is no surface to extract: the whole file is
+      # the vendored copy.
+      - name: command schema matches its lock (degraded mode)
+        if: env.MODE == 'degraded'
+        run: |
+          set -euo pipefail
+          cd spec/content/schemas
+          if ! sha256sum -c PORTABLE_COMMAND_SCHEMA.lock; then
+            echo "::error::spec/content/schemas/portable-command-v1.schema.json does not match" >&2
+            echo "::error::PORTABLE_COMMAND_SCHEMA.lock. If you edited the schema by hand, don't —" >&2
+            echo "::error::it is generated. Run tools/resync-astra.sh --astra-dir <path-to-Astra> and commit both files it touches." >&2
+            exit 1
+          fi
+          echo
+          echo "NOTE: upstream was NOT contacted. This is the degraded check."
+
       # ── full mode ────────────────────────────────────────────────────────
       #
       # `ref` is a repository variable, not a hard-coded branch. The slicer
@@ -655,6 +680,31 @@ jobs:
           fi
           echo "ASTRA_ROOT=$root" >> "$GITHUB_ENV"
           echo "the daemon's tree is at $root"
+
+      # The real check the degraded-mode lock above stands in for: Astra is
+      # checked out right here, so this compares the vendored schema against
+      # astra-core/schemas/portable-command.schema.json byte-for-byte, not
+      # against a hash recorded at some earlier commit. Deliberately ahead of
+      # the slicer/toolchain steps below, same reasoning as C12 a few lines
+      # up: an unrelated protocol drift must not take this check out too.
+      - name: the vendored portable-command schema matches Astra's (full)
+        if: env.MODE == 'full'
+        run: |
+          set -euo pipefail
+          src="$ASTRA_ROOT/astra-core/schemas/portable-command.schema.json"
+          dst="spec/content/schemas/portable-command-v1.schema.json"
+          [ -f "$src" ] || { echo "::error::$src not found in this Astra checkout — astra-core/schemas moved or was renamed." >&2; exit 1; }
+          if ! diff -q "$src" "$dst" >/dev/null; then
+            echo "::error::spec/content/schemas/portable-command-v1.schema.json has drifted from" >&2
+            echo "::error::Astra's astra-core/schemas/portable-command.schema.json. Fix:" >&2
+            echo "::error::tools/resync-astra.sh --astra-dir <path-to-Astra>" >&2
+            diff -u "$dst" "$src" >&2 || true
+            exit 1
+          fi
+          echo "ok   spec/content/schemas/portable-command-v1.schema.json matches Astra@$(git -C _astra rev-parse HEAD)"
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
+          ### command schema: **full** — the vendored portable-command schema was compared byte-for-byte with Astra's own
+          MSG
 
       # C22 below reads a RELEASE — `git show <newest v* tag>:<path>` — and the
       # checkout above brings no tags. That is why C22 has never once read one:

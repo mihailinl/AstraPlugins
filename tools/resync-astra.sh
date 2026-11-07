@@ -276,15 +276,23 @@ fi
 # golden disagree with the real client twice before (AstraPlugins#154).
 SCHEMA_SRC="$ASTRA_ROOT/astra-core/schemas/portable-command.schema.json"
 SCHEMA_DEST="$REPO_ROOT/spec/content/schemas/portable-command-v1.schema.json"
+SCHEMA_LOCK="$REPO_ROOT/spec/content/schemas/PORTABLE_COMMAND_SCHEMA.lock"
 [ -f "$SCHEMA_SRC" ] || die "$SCHEMA_SRC not found in this Astra checkout — astra-core/schemas moved or was renamed."
 
 schema_commit=""
 cp -- "$SCHEMA_SRC" "$SCHEMA_DEST"
-git add -- "$SCHEMA_DEST"
-if [ -n "$(git status --porcelain -- "$SCHEMA_DEST")" ]; then
+# A plain sha256sum(1)-checkable lock, so degraded-mode CI (a fork PR, no
+# token, no Astra checkout to diff against) can still refuse a HAND edit to
+# the vendored copy: `sha256sum -c` on this file, nothing bespoke to parse.
+# Full-mode CI does the real thing instead — a byte-for-byte diff against a
+# live Astra checkout — and this lock is rewritten every run so it always
+# describes whatever is committed, never a stale prior resync.
+(cd "$REPO_ROOT/spec/content/schemas" && sha256sum portable-command-v1.schema.json > "$SCHEMA_LOCK")
+git add -- "$SCHEMA_DEST" "$SCHEMA_LOCK"
+if [ -n "$(git status --porcelain -- "$SCHEMA_DEST" "$SCHEMA_LOCK")" ]; then
     if [ "$no_commit" = 1 ]; then
         log "--no-commit: the portable-command schema changed. Stopping before the commit."
-        git status --short -- "$SCHEMA_DEST"
+        git status --short -- "$SCHEMA_DEST" "$SCHEMA_LOCK"
         exit 0
     fi
     git commit --quiet -m "$(cat <<EOF
