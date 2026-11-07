@@ -4514,7 +4514,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 449,
+  "expected_checks": 477,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [

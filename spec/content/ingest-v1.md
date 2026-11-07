@@ -385,6 +385,23 @@ requires per [`capabilities-v1.md`](capabilities-v1.md) (`E_COMMAND_FORMAT`,
 `E_COMMAND_REQUIRES_MISMATCH`, `E_COMMAND_REQUIRES_UNLISTED`). The `declared`
 values are kept for the mismatch record; the index carries only the derived.
 
+The derivation above reads a command's SHAPE by hand; the authority for that
+shape is [`schemas/portable-command-v1.schema.json`](schemas/portable-command-v1.schema.json)
+— a byte-identical vendor of the client's own generated JSON Schema of the
+type it actually parses a command into (Astra
+`astra-core/schemas/portable-command.schema.json`), kept current by
+`tools/resync-astra.sh` and drift-checked against Astra main in CI.
+`tools/check-content-goldens.py` runs every command golden
+(`testdata/content/commands/{valid,hostile}/`) through it. Two things it does
+not express: (a) a graph node's `data` is a free object
+(`additionalProperties: true`) — only the client's own node reader gives its
+keys meaning, never this schema; (b) a repeated JSON member name, caught
+separately (`E_COMMAND_FORMAT`) by a raw-text scan that runs before any
+parser — including this schema — ever sees the bytes. A
+capability/danger/requires mismatch between a claim and the derived set is
+never a shape question either way: both can be well-formed and still
+disagree, which is this section's job, not the schema's.
+
 ## 7. References to other items, against the SERVED documents
 
 Every check below reads the documents the registry SERVES (verified under
