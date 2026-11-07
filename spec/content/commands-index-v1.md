@@ -32,7 +32,7 @@ The base fields (common-v1.md §3), with `artefact.media_type` =
 | `requires` | `[{kind: "plugin", id, version_req}]` — exactly the `uses_plugin:<id>` words (rule `requires-match-capabilities`) |
 | `parts` | exactly ONE part of kind `command` (rule `one-command-part`: the artefact, a single-file part whose one pair has the path `""`), plus any `art` / `audio` part it carries |
 | `content_confirmed` | `{text_id: version}`, non-empty (rule `parts-confirmed`) |
-| `licence`, `credits` | common-v1.md §3.1–§3.2; a command's licence is `source: declared` |
+| `licence`, `credits` | common-v1.md §3.1–§3.2. **A command takes no licence declaration at all** (ingest-v1.md §4.3: its upload is one JSON artefact, not a bundle, and carries no media) — its `licence` object still reads `source: declared`, the schema's only option once `vrm` can never apply to a text-only artefact, never because a publisher declared one |
 
 ## 3. Client rules specific to commands
 
