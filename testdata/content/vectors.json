@@ -2974,6 +2974,18 @@
       "note": "boundary: exactly 256 KiB (262,144 bytes), not one byte over the per-file cap -- accepted (held)"
     },
     {
+      "name": "character-settings-deflated-over-1kib",
+      "file": "archives/valid/character-settings-deflated-over-1kib.astrachar",
+      "verdict": "accept",
+      "note": "no settings golden before this one was ever larger than CHAR_FILES' 34 bytes or Deflated (bundle_entries deflates a .toml by default): a server that truncated a deflate read-back of character.toml would have passed every golden until this one. settings_filler is a sha256 chain, not a repeated byte, so Deflate cannot collapse it past the step-5 100:1 ratio cap"
+    },
+    {
+      "name": "character-settings-at-cap",
+      "file": "archives/valid/character-settings-at-cap.astrachar",
+      "verdict": "accept",
+      "note": "boundary: the settings file at EXACTLY the 256 KiB (262,144 byte) MAX_SETTINGS cap, deflated -- accepted, not refused"
+    },
+    {
       "name": "pack-toml-total-at-cap",
       "file": "archives/valid/pack-toml-total-at-cap.astrachar",
       "verdict": "held",
@@ -3011,6 +3023,17 @@
       "code": "E_BUNDLE_MANIFEST",
       "detail_contains": "all TOML together: larger than",
       "note": "S2: the order -- an over-total bundle whose settings file is ALSO UTF-16 still refuses on the total-size check (the manifest step), never on settings' own UTF-8 format check, because the size caps run first"
+    },
+    {
+      "name": "pack-toml-total-oversized-and-blocked",
+      "file": "archives/hostile/pack-toml-total-oversized-and-blocked.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "detail_contains": "all TOML together: larger than",
+      "blocklist": [
+        "971e1babfdef9efe2e2dd1b3d3f98a8695e4f27991235c11d99d6df6b58a00ba"
+      ],
+      "note": "ingest-v1.md §3: both step-8 TOML caps run BEFORE step 9's blocklist, so a bundle holding a file that IS on the blocklist (the body, same bytes as blocked-file-renamed's) AND an over-total TOML refuses E_BUNDLE_MANIFEST -- the TOML cap wins, never E_CONTENT_BLOCKED"
     },
     {
       "name": "declared-licence-null-is-absent",
@@ -4491,7 +4514,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 445,
+  "expected_checks": 449,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [

@@ -2,10 +2,17 @@
 # a content publisher check or the client can answer with, and its state.
 #
 # This file is the CONTRACT side. The server's table
-# (minice plugins/crates/plugins-api/src/guest/reason_codes/table.rs, lane L2)
+# (minice plugins/crates/plugins-api/src/guest/reason_codes/content.rs, lane L2)
 # and the client's refusal enum (Astra, lane L8) carry these exact spellings;
 # a door refusal is HTTP 422 with the token, never 401 or 403 (crowdsec counts
 # those; design §3.1).
+#
+# content.rs is GENERATED, not hand-maintained: minice's
+# `plugins/scripts/gen_content_reason_codes.py` reads a vendored copy of this
+# file (`plugins/crates/plugins-ingest/tests/fixtures/content/reason-codes.yaml`)
+# and writes `plugins/crates/plugins-api/src/guest/reason_codes/content.rs`.
+# Renaming or removing a code here is a coordinated change with that
+# generator and its vendored copy, not a local edit.
 #
 # `tools/check-content-goldens.py` holds the three directions that can drift:
 #   * every `E_*` / `F_*` token any spec/content/*.md cites is listed here;
