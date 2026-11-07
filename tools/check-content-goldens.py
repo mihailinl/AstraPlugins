@@ -90,6 +90,14 @@ def schema_ok(doc, sch: dict) -> tuple[bool, str]:
         return False, str(e)
 
 
+def command_golden_doc(relpath: str):
+    """One command golden, read exactly as the vendored portable-command
+    schema sees it: a PLAIN json.loads, never load_json()/contentlite's
+    strict parser. See the comment above COMMAND_SCHEMA_TABLE's use in
+    main() for why that difference is deliberate."""
+    return json.loads((DATA / relpath).read_text(encoding="utf-8"))
+
+
 # ── trust: the kind_keys reading (trust-kind-keys-v1.md §4) ──────────────
 
 def rfc3339(s) -> int | None:
@@ -2125,7 +2133,7 @@ def main() -> int:
            len(COMMAND_SCHEMA_TABLE) >= COMMAND_SCHEMA_FLOOR, f"got {len(COMMAND_SCHEMA_TABLE)}")
     pc_schema = schema("portable-command-v1.schema.json")
     for relpath, tag in sorted(COMMAND_SCHEMA_TABLE.items()):
-        cdoc = json.loads((DATA / relpath).read_text(encoding="utf-8"))
+        cdoc = command_golden_doc(relpath)
         sok, detail = schema_ok(cdoc, pc_schema)
         expect_pass = tag not in ("fail", "fail-154")
         report(f"commands schema: {relpath} ({tag})", sok == expect_pass,
