@@ -1281,7 +1281,7 @@
         "requires": []
       },
       "verdict": "accept",
-      "note": "prompt-only"
+      "note": "prompt-only; also the no-licence golden (ingest-v1.md §4.3): this claim carries no `licence` anywhere, `ingest_command` has no licence step at all, and the command is accepted with no flags -- never F_CONTENT_LICENCE_DECLARED, which a command can never earn"
     },
     {
       "name": "build-and-ask",

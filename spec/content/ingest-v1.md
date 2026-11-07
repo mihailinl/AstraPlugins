@@ -264,10 +264,12 @@ both at once:
   and a declaration there is ignored the same way: the hold already stands,
   and the flag is `F_CONTENT_VRM_META_UNKNOWN` alone, never combined with
   `F_CONTENT_LICENCE_DECLARED`.
-- **On every other part (animations, art, audio, command): the ONLY rights
+- **On every other part (animations, art, audio): the ONLY rights
   source is the declaration**, because `E_CONTENT_AVATAR_IN_PACK` has
   already refused any avatar file that would otherwise contend for the
-  verdict. Undeclared → `E_CONTENT_LICENCE_UNDECLARED`, as above.
+  verdict. Undeclared → `E_CONTENT_LICENCE_UNDECLARED`, as above. A command
+  is not a bundle (§5): its upload is one JSON artefact, which carries no
+  media, only references, so it takes no licence declaration.
 
 **The declared licence (G5/W1; agreed with the client, astra-d6, and the
 architect, minice-b9).** `BeginRequest.parts[].licence` /
