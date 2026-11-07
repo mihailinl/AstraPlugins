@@ -1,0 +1,24 @@
+# content check golden: the content catalogue's decoy-allowed-vrm-in-animset.astrapack, byte for
+# byte, declared as an animations part -- an avatar-classified clip (clips/decoy.vrma) inside an
+# animations pack, Allowed VRM meta and all, is refused outright (ingest-v1.md §3 step 11, §4.3).
+# This is the same bundle the content catalogue's own goldens refuse directly, wrapped into a game
+# integration release so the catalogue, the launcher's gi-probe and the server refuse it alike.
+schema = 1
+
+[integration]
+id = "someone.bundle-avatar-in-pack"
+name = "Bundle Avatar In Pack"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/decoy.astrapack"
+kind = "animations"
+title = "decoy"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
