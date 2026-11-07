@@ -13,6 +13,19 @@ with the token named here, never 401 or 403 (§3.1); the full list is
 (`chunk_out_of_range`, `chunk_conflict`, the eligibility refusals) belong to the
 door table, not to this page.
 
+**The refusal body.** Every content door answers a refusal as the
+`astra.plugins.error/1` schema: `{"schema": "astra.plugins.error/1", "error":
+<token>, "message": <compiled sentence>}`, plus an integer `retry_after`
+(seconds) when and only when the token is `rate_limited`. The status is
+**422 for every content refusal**, including `rate_limited` and
+`unavailable` — the content doors do not follow the general service table's
+409/410/429/503 split (`plugins-core::refusal`); they always answer 422. A
+`Retry-After` HEADER is set only alongside `rate_limited`'s `retry_after`
+field; `unavailable` carries neither the field nor the header at a content
+door. `message` is one of the compiled sentences in
+`plugins-api/src/guest/reason_codes/content.rs` (§1 above), never built from
+request data.
+
 `tools/check-content-goldens.py` `ingest_bundle` / `ingest_command` is a stdlib
 reading of this page over `testdata/content/archives/` and
 `testdata/content/commands/`. The real ingest is Rust (lane L1, `plugins-ingest`);
@@ -73,10 +86,15 @@ bundle sha256 against the blocklist (`E_CONTENT_BLOCKED`), and **every
   nothing to validate for that part;
 - a PRESENT value must be one of the closed SPDX ids or a well-formed
   `custom:<URL>` (common-v1.md §3.1.1's exact grammar), or the whole `begin`
-  is refused with **`E_CONTENT_LICENCE_DECLARATION_INVALID`**, naming the
-  part digest — a bundle with nine declared parts and one malformed entry
-  refuses all nine, not eight. An EMPTY string or a whitespace-only one is
-  PRESENT and malformed, never treated as absent;
+  is refused with **`E_CONTENT_LICENCE_DECLARATION_INVALID`** — a bundle with
+  nine declared parts and one malformed entry refuses all nine, not eight.
+  The refusal BODY carries only the token and the compiled message (see
+  "The refusal body" above); it does not name the part digest. A client
+  validates its own declarations locally against the bundle it is sending,
+  so it already knows which part failed. The digest is only in the
+  server's refusal detail and its log, for an operator reading afterwards.
+  An EMPTY string or a whitespace-only one is PRESENT and malformed, never
+  treated as absent;
 - **two declared parts sharing a part digest must declare the SAME
   licence** — a `begin` naming one digest twice with two different
   declarations is refused the same way; the same digest with the same
