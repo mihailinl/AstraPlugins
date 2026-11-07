@@ -180,8 +180,9 @@ both together.
 | `astra-plugin-sdk-ts/src/generated/*` | `bun run generate` in `astra-plugin-sdk-ts/` |
 | `astra-plugin-cli/vendor/astra-plugin-manifest/src/**` | `tools/check-manifest-crate.sh --sync` (real source is in the `Astra` repository) |
 | `astra-plugin-cli/src/conformance.json` | `cp spec/generated/conformance.json astra-plugin-cli/src/conformance.json` |
+| `spec/content/schemas/portable-command-v1.schema.json` | copied byte-identically by `tools/resync-astra.sh` (real source is `astra-core/schemas/portable-command.schema.json` in the `Astra` repository) |
 
-The proto row above and the two generated-stub rows above it, plus `reference/protocol.md`'s digests in every locale and the UI Kit vendored snapshot, all move together whenever Astra's plugin proto or UI Kit changes upstream — which is most of what `proto (upstream drift)` and `UI Kit` catch in CI. **`tools/resync-astra.sh --astra-dir <path-to-Astra>`** runs that whole recipe in one command instead of the eight manual steps; it makes no commit when nothing actually moved.
+The proto row above and the two generated-stub rows above it, plus `reference/protocol.md`'s digests in every locale, the portable-command schema row and the UI Kit vendored snapshot, all move together whenever Astra's plugin proto, command schema or UI Kit changes upstream — which is most of what `proto (upstream drift)` and `UI Kit` catch in CI. **`tools/resync-astra.sh --astra-dir <path-to-Astra>`** runs that whole recipe in one command instead of the eight manual steps; it makes no commit when nothing actually moved.
 
 [`spec/hooks.yaml`](spec/hooks.yaml) and [`spec/limits.yaml`](spec/limits.yaml)
 are the source of truth for the cross-language contracts. They are shared with
