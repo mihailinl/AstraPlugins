@@ -1490,6 +1490,36 @@ def gen_archives() -> None:
         "astra.animpack", {"animpack.toml": at_cap_toml, "clips/a.fbx": b"FBX-AT-CAP"}, body=None,
         kind="vrm", methods={"animpack.toml": 0}))
 
+    # No settings golden before these two was larger than CHAR_FILES' 34 bytes or ever deflated
+    # (bundle_entries defaults a .toml to Deflate, method 8, unless overridden -- CHAR_FILES was
+    # never big enough to tell a server that truncates a deflate read-back from one that does not).
+    # `settings_filler` is sha256-chain hex, not a repeated byte: high enough entropy that Deflate
+    # cannot collapse it past the 100:1 ratio cap (step 5), so these two exercise the SIZE caps and
+    # a real inflate round-trip, never the ratio cap.
+    def settings_filler(label: bytes, n: int) -> bytes:
+        out = bytearray()
+        i = 0
+        while len(out) < n:
+            out += hashlib.sha256(label + str(i).encode()).hexdigest().encode()
+            i += 1
+        return bytes(out[:n])
+
+    def padded_settings(label: bytes, size: int) -> bytes:
+        header, trailer = b'name = "Aiko"\nmodel = "aiko-body"\n# ', b"\n"
+        return header + settings_filler(label, size - len(header) - len(trailer)) + trailer
+
+    # ACCEPT: a deflated character.toml over 1 KiB (method 8, the bundle_entries default for .toml)
+    settings_1kib = padded_settings(b"settings-1kib", 1024 + 200)
+    assert len(settings_1kib) > 1024
+    put("archives/valid/character-settings-deflated-over-1kib.astrachar", bundle(
+        "astra.character", {"characters/aiko/character.toml": settings_1kib}, body=None))
+
+    # boundary ACCEPT: the settings file at EXACTLY the 256 KiB (MAX_SETTINGS) cap, deflated
+    settings_at_cap = padded_settings(b"settings-at-cap", 256 * 1024)
+    assert len(settings_at_cap) == 256 * 1024
+    put("archives/valid/character-settings-at-cap.astrachar", bundle(
+        "astra.character", {"characters/aiko/character.toml": settings_at_cap}, body=None))
+
     # boundary ACCEPT: settings (34 bytes) + 7 packs at the 256 KiB per-file cap + 1 remainder
     # pack = exactly the 2 MiB total cap, not one byte over
     settings_size = len(next(iter(CHAR_FILES.values())))
