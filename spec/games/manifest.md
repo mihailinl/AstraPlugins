@@ -149,7 +149,9 @@ keep_if_present = ["s2bridge.ini"]
 The two lists must be **disjoint**: a name in both is `loader-policy-conflict`
 at `gi-probe check` time. This table only *labels* the files this install's
 own `[[game_files]]`/`[launch]` already places or touches — it grants nothing
-by itself. The catalogue's separate `loaders.json` allowlist (merged §2.5,
+by itself. A community release must still name here every hijack-loadable
+DLL its `[[game_files]]` place, or it is refused `loader-undeclared` (§4.1).
+The catalogue's separate `loaders.json` allowlist (merged §2.5,
 "Classification") decides what the install **sheet** and the moderator queue
 show about a loader the manifest did not declare; a manifest cannot widen what
 it is allowed to do by naming something here that `[[game_files]]` never
@@ -791,6 +793,32 @@ manifest goldens; `check-games-goldens.py`'s own Python implementation and
 the catalogue's `lib/content.mjs` are independent implementations of the
 same rule, each pinned against these same goldens, in the same spirit as
 every other semantic rule in this document.
+
+### 4.1 What a community integration may not do
+
+A release from any repository that is not one of Astra's own
+(`astra-games-catalogue`'s `first-party.json`) is checked as
+`gi-probe check <zip> --provenance community`, and the launcher plans its
+install the same way. Five refusals apply, from four checks, and every one is read from
+the manifest alone. They are the launcher's, and its code is the definition:
+[`astra-game-launcher` `src/plan.rs`, `community_limits`](https://github.com/mihailinl/astra-game-launcher/blob/ede231babfc101df6c57e4a56bd4e346d233efb7/src/plan.rs#L402-L423).
+`gi-probe check` reports every one it finds. The install refuses with the
+first. Astra's own integrations are not asked.
+
+| code | what it refuses | what to do instead |
+|---|---|---|
+| `loader-undeclared{file}` | a `[[game_files]]` entry whose file name is a DLL a game may hijack-load (`winhttp.dll`, `version.dll`, `dinput8.dll`, `dxgi.dll`, `d3d9.dll`, `winmm.dll` and the rest of `HIJACK_NAMES` in the same file) that `[integration.loader] proxies` does not name | name it: `[integration.loader] proxies = ["winhttp.dll"]` (§2.2). A BepInEx build that ships Doorstop's `winhttp.dll` needs exactly this line |
+| `community-limit{rule=game-file-folder, file}` | a `[[game_files]]` destination other than directly beside the program (`${game}/<name>`) or below a folder named after the integration's id (`${game}/<id>/…`), or one under another loader's folder (`BepInEx`, `MelonLoader`, `ue4ss`, `Mods`, `~mods`) | put the file beside the program or under `${game}/<your id>/`. Files inside BepInEx's tree go in `[[files]]` (the profile), not into the game folder |
+| `community-limit{rule=launch-env}` | any `[launch] env` | none for a community release; pass what you need as a `[launch]` argument |
+| `community-limit{rule=launch-override, field}` | a Proton DLL override for a DLL that this manifest's own `[[game_files]]` does not place directly beside the program, or any value other than `native,builtin` / `n,b` | override only the proxy you place beside the program, and only with `native,builtin` |
+| `community-limit{rule=launch-arg-path, field}` | a `[launch]` argument holding a path outside `${profile}/` and `${game}/` | keep every path argument under one of the two |
+
+A first-party manifest is not a template for a community one. Astra's own
+BepInEx integrations place `winhttp.dll` without `[integration.loader]`,
+because they are planned as first-party. The same lines in a community
+repository are refused with `loader-undeclared`. This was found on
+2026-11-07, when the first community C# integration
+(`astra-test-author/astra-gi-staging-csharp`) was built from one.
 
 ## 5. The author release template
 
