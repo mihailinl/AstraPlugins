@@ -294,6 +294,53 @@ A later rotation needs a root ceremony to install a fresh `"next"` only once
 both roles have been spent for a schema, or on a suspected compromise — not
 on every rotation, the way a compiled key id used to force a client release.
 
+**A ceremony that promotes `next` to `current` is bridged by a
+co-signature, and the order is fixed** (astra-a3, 2026-11-07). The body
+names a ROLE, and a promotion changes the role of the key that is signing.
+Say trust.json N lists `current` A and `next` B, the signer has moved to B,
+and every served document of a schema reads `"games-next"`. Trust.json N+1
+lists `current` B and a fresh `next` C. Under N+1, B verifies those same
+bytes as `current`, the body still claims `"games-next"`, and the rule above
+("the claimed role must be among the keys that verified") refuses them. A
+client that takes N+1 then discards its stored copies, and a newer trust.json
+that would cure it does not exist. Re-signing first with B alone and the
+body `"games-current"` does not help: under N, B is still `next`, so the same
+rule refuses that document. One document has to verify under both N and N+1.
+So:
+
+1. **Bridge first.** Before N+1 is published, the signer signs each schema
+   with **both** of N's games keys, the spent `current` A and the active
+   `next` B, under body `key_id: "games-current"`. Under N both roles verify,
+   the claim is among them, and the union moves only a ratchet that B has
+   already moved. Under N+1, A is no longer listed, so only B verifies, now as
+   `current`, which is what the claim names. A retirement mark records a key
+   id (above), so a client that retired A for this schema still accepts the
+   document, because B verified it. The mark refuses a document that only A
+   verified, and that is the only document it refuses. Co-signing with a
+   spent key never signs with it **alone**, so the signer rule above still
+   holds. It also gives nobody a new capability: a client accepts only what B
+   verified.
+2. **Publish N+1 only when every served document of both schemas is a
+   bridged one,** so the origin and the CDN hold no B-only `"games-next"`
+   document. The order is per schema, as everything else here is. The index
+   and the withdrawn list each need their own bridged document before N+1.
+3. **Keep co-signing with A until the next ceremony replaces it.** A B-only
+   `"games-current"` document is refused under N, and nothing tells the
+   signer that the last client still holding N has re-read trust.json. So
+   the bridge is never timed out: A keeps co-signing under N+1, where no
+   client can verify it and it changes nothing. The next promotion bridges
+   with B and C in the same way, and A's seed leaves the signing environment
+   then. C stays the spare `next` for the following routine rotation.
+
+A ceremony that only adds a fresh `next` and keeps `current` (a compromise
+of the unused `next`, for example) changes no role of a signing key, so it
+needs no bridge. Verifiers need no rule of their own for any of this. The
+bridge is a signer obligation, written here so that the client, the
+service's verifier and the catalogue's signer all test the same two-trust
+case: a document co-signed by A and B with body `"games-current"`, accepted
+under N and under N+1, including by a client whose mark already retired A
+for that schema.
+
 **The document body names the key's ROLE, never its real id.** The signed
 body's `key_id` (§1, §2) is always the literal string `"games-current"` or
 `"games-next"` — a reference to a `kind_keys` **role** for kind `"games"`,

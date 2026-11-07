@@ -28,6 +28,13 @@ index has done. The reason: this list and the index are signed and served on
 separate schedules, and a takedown must never be refused because the index
 finished its rotation first.
 
+**A ceremony that promotes `next` to `current` is bridged for this list on
+its own** (`games-index-v1.md` §3, the bridge). Before the new trust.json is
+published, a withdrawn list co-signed by the old `current` and `next` under
+`"games-current"` must be the one served. A takedown signed `"games-next"` by
+the promoted key would be refused under the new trust.json, and a client
+would then drop the last withdrawals it holds.
+
 ## 1. Why a separate document, precisely
 
 `plugins/registry_client.rs::read_capped` refuses an over-cap document
