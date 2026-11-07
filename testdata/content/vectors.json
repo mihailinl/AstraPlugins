@@ -3013,6 +3013,17 @@
       "note": "S2: the order -- an over-total bundle whose settings file is ALSO UTF-16 still refuses on the total-size check (the manifest step), never on settings' own UTF-8 format check, because the size caps run first"
     },
     {
+      "name": "pack-toml-total-oversized-and-blocked",
+      "file": "archives/hostile/pack-toml-total-oversized-and-blocked.astrachar",
+      "verdict": "refuse",
+      "code": "E_BUNDLE_MANIFEST",
+      "detail_contains": "all TOML together: larger than",
+      "blocklist": [
+        "971e1babfdef9efe2e2dd1b3d3f98a8695e4f27991235c11d99d6df6b58a00ba"
+      ],
+      "note": "ingest-v1.md §3: both step-8 TOML caps run BEFORE step 9's blocklist, so a bundle holding a file that IS on the blocklist (the body, same bytes as blocked-file-renamed's) AND an over-total TOML refuses E_BUNDLE_MANIFEST -- the TOML cap wins, never E_CONTENT_BLOCKED"
+    },
+    {
       "name": "declared-licence-null-is-absent",
       "file": "archives/valid/animset-wave.astrapack",
       "verdict": "refuse",
@@ -4491,7 +4502,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 445,
+  "expected_checks": 447,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [

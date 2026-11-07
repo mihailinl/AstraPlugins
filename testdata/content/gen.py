@@ -1522,6 +1522,14 @@ def gen_archives() -> None:
         "astra.character", {"characters/aiko/character.toml": utf16_settings, **many_packs}, body=None,
         methods=toml_methods))
 
+    # order: both TOML caps (step 8) run BEFORE the blocklist (step 9), so a bundle holding a
+    # BLOCKED file and an over-total TOML must refuse E_BUNDLE_MANIFEST, never E_CONTENT_BLOCKED --
+    # the body here is the SAME allowed VRM as blocked-file-renamed.astrachar, so its sha256 is the
+    # one vectors.json lists in this golden's "blocklist"
+    hostile("pack-toml-total-oversized-and-blocked.astrachar", bundle(
+        "astra.character", {**CHAR_FILES, **many_packs, BODY_PATH: BODY}, body=BODY_PATH,
+        methods=toml_methods))
+
     # S7: two packs that are byte-for-byte the SAME part (same part digest, two different ids).
     # The SAME file is used for both the "different declarations" (hostile) and the "same
     # declaration twice" (valid) vectors -- only the declared licence in each vector's ctx differs

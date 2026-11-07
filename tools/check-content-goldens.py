@@ -1516,15 +1516,12 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     for p in listed:
         if p not in files:
             raise Refusal("E_BUNDLE_FILE_UNLISTED", f"{p} listed and absent")
-    blocked = set(ctx.get("blocklist", []))
-    for p, b in files.items():
-        if hashlib.sha256(b).hexdigest() in blocked:
-            raise Refusal("E_CONTENT_BLOCKED", p)
     body = (man.get("body") or {}).get("file")
     settings_dir = (man.get("character") or {}).get("dir")
     # S2: both archive-limit caps are the manifest step (§3 step 8, E_BUNDLE_MANIFEST) -- before
-    # format (step 10), so an over-total bundle, or one animpack.toml over its own cap, is never
-    # masked by a later refusal. The total check runs first (pure byte-counting, nothing to
+    # the blocklist (step 9) and before format (step 10), so an over-total bundle, or one
+    # animpack.toml over its own cap, is never masked by a later refusal, and never races the
+    # blocklist for which code wins. The total check runs first (pure byte-counting, nothing to
     # parse); the per-file cap lives inside `read_animpack_toml_kind`, reached from
     # `pack_kind`/`parts_of` below. `check_settings` is NOT one of these two caps and stays after
     # the format loop, matching the server (bundle.rs: settings after the format loop).
@@ -1532,6 +1529,13 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     part_root_of = {f: root for (_pk, root), pf in
                     parts_of(files, body, settings_dir, strict=False,
                              pack=pack_kind(man, files), man=man).items() for f in pf}
+    # step 9: the blocklist, AFTER both step-8 TOML caps above -- a bundle holding a blocked file
+    # AND an over-total TOML must refuse E_BUNDLE_MANIFEST, the TOML cap, not E_CONTENT_BLOCKED
+    # (golden `blocked-file-and-toml-total-oversized`).
+    blocked = set(ctx.get("blocklist", []))
+    for p, b in files.items():
+        if hashlib.sha256(b).hexdigest() in blocked:
+            raise Refusal("E_CONTENT_BLOCKED", p)
     for p, b in files.items():
         why = bom_refusal(p, b)
         if why:
