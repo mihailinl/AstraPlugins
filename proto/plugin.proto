@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: f321bbf8ae7cd994b3e63fb85305a39b8b24b6a51a5d055dd236ff77bdaff14a
+// surface-sha256: e59f6ad58908e5a1e560d67bbd7c4b0df3f9b00bd82c4882fae726560f7d3431
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -415,6 +415,18 @@ message AstraEvent {
         VoiceDictatedEvent voice_dictated = 44;
         // A Workshop publish moved (PublishService). The nudge between two PublishStatus reads.
         PublishProgressEvent publish_progress = 45;
+        // A catalogue apply moved, keyed by its plan id (CatalogueService.Apply's progress bar).
+        // Never delivered to plugins (plugins::event_view).
+        CatalogueProgressEvent catalogue_progress = 46;
+        // What the catalogue holds moved: re-read ListKinds / ListInstalled for these kinds.
+        // Never delivered to plugins (plugins::event_view).
+        CatalogueChangedEvent catalogue_changed = 47;
+        // A command run waits for a person to allow one of its actions; answered through
+        // ChatService.RespondToConfirmation. Never delivered to plugins (plugins::event_view).
+        RunActionConfirmationEvent run_action_confirmation = 48;
+        // A run-action card ended (allowed, denied, expired, stopped, cancelled, refused). Never
+        // delivered to plugins (plugins::event_view).
+        RunActionConfirmationEndedEvent run_action_confirmation_ended = 49;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -6815,4 +6827,54 @@ message PublishProgressEvent {
     string state = 2;
     int64 sent_bytes = 3;
     int64 total_bytes = 4;
+}
+
+// A catalogue apply moved (`AstraEvent::CatalogueProgress`, CATALOGUE_CORE_PLAN.md §10): the plan
+// `plan_id` names reached stage `phase` (the core's word: `applying`, `downloading`,
+// `verifying`, …), `done` of `total` into it (`0` of `0` for a stage that only begins; `total`
+// `0` when it is not known). Strings and int64 only, the OptimizeService rule. Never delivered to
+// plugins (plugins::event_view).
+message CatalogueProgressEvent {
+    string plan_id = 1;
+    string phase = 2;
+    int64 done = 3;
+    int64 total = 4;
+}
+
+// What the catalogue holds moved (`AstraEvent::CatalogueChanged`): the kinds' wire words whose
+// installed rows may read differently now. A doorbell: ListKinds / ListInstalled are the documents.
+// Never delivered to plugins (plugins::event_view).
+message CatalogueChangedEvent {
+    repeated string kinds = 1;
+}
+
+// A command run waits for a person to allow one of its actions (`AstraEvent::RunActionConfirmation`,
+// CATALOGUE_CORE_PLAN.md §4.8 point 4; raised by `run::action_card::raise`). Answer it through
+// ChatService.RespondToConfirmation with `request_id`; an "allow like this" mints no rule for it.
+// `danger_level` is `high` or `critical`; `expires_at` is Unix seconds, past which the card is
+// refused whatever is pressed. Never delivered to plugins (plugins::event_view).
+message RunActionConfirmationEvent {
+    string run_id = 1;
+    string request_id = 2;
+    string command_id = 3;
+    string command_name = 4;
+    string action_label = 5;
+    string danger_level = 6;
+    string description = 7;
+    int64 expires_at = 8;
+
+    // Who started the run when the person did not: the plugin whose decision it descends from,
+    // by its display name (its id when this machine has none). Empty when the person started
+    // it themselves — a hotkey, their voice, a button, the chat.
+    string initiator = 9;
+}
+
+// A run-action card ended (`AstraEvent::RunActionConfirmationEnded`): `outcome` is `allowed`,
+// `denied`, `expired`, `stopped`, `cancelled`, or `refused` (no card was shown: what the action
+// would do is too long to show whole, and a card never shows part of it — the end then arrives
+// with no raise before it). Every card ends with exactly one. Never delivered to plugins
+// (plugins::event_view).
+message RunActionConfirmationEndedEvent {
+    string request_id = 1;
+    string outcome = 2;
 }
