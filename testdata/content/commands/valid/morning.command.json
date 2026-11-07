@@ -10,7 +10,8 @@
   "actions": [
     {
       "type": "notify",
-      "title": "Good morning"
+      "title": "Good morning",
+      "message": "Your day starts now."
     }
   ],
   "enabled": true
