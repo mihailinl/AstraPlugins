@@ -77,7 +77,7 @@ unknown variant). A **graph-node** action type is any row of the table below.
 |---|---|---|
 | `code` | `runs_code` | critical |
 | `execute` | `executes_shell` | critical |
-| `execute` with `shell: "open"` (`EXECUTE_OPEN_MODE`) — LINEAR only; a node's `execute` is always the row above | `file_access` | low |
+| `execute` with `shell: "open"` (`EXECUTE_OPEN_MODE`) — LINEAR only; a node's `execute` is always the row above | `file_access`, `launches_apps` | high |
 | `run_command` | `runs_command` | critical |
 | `macro` | `controls_input` | critical |
 | `system`, `kill_process` | `system_control` | high |
@@ -86,13 +86,21 @@ unknown variant). A **graph-node** action type is any row of the table below.
 | `screenshot` | `takes_screenshots`, `uses_ai` | high |
 | `open_url` | `opens_urls` | high |
 | `open_application` | `file_access`, `launches_apps` | high |
-| `open_file` | `file_access` | high |
+| `open_file` | `file_access`, `launches_apps` | high |
 | `plugin__<id>__<action>` (node) / `dynamic` with that `handler_id` (linear) | `uses_plugin:<id>` | high |
 | `clipboard` | `accesses_clipboard` | low |
 | `send_to_ai`, `ai_request`, `stream_to_chat`, `work_task` | `uses_ai` | low |
 | `play_sound`, `control_music`, `speak`, `youtube_play` | `plays_audio` | low |
 | `set_volume` | `system_control` | low |
 | `notify` | `sends_notifications` | low |
+
+**Opening a file with its default application is launching an application** (since 2026-11-07, Astra
+`65775237c`). Whatever the spelling (a linear `execute` with `shell: "open"`, an `open_file` node, or
+`open_application` on a file), the operating system runs whatever is registered for that file, and that can be
+a `.desktop` entry, an `.exe` or a script. So all three derive `file_access` and `launches_apps` at **high**.
+Until that commit the client rated the linear `execute` "open" as `file_access` / low, "matching the old
+OpenFile action it replaced", while it rated the same act as high when it arrived by another spelling, so a
+locally made command and the same bytes from the catalogue could disagree (astra-50, C7).
 | `companion_animation`, `set_companion_enabled` | `drives_companion` | low |
 | `condition`, `loop` | — (their `if_true` / `if_false` / `body` are scanned) | low |
 | `set_variable`, `wait`, `noop` | — | low |
