@@ -143,6 +143,18 @@ on:
   # release-sdks.yml gates the publish on this whole matrix by calling it, so
   # the release cannot run a weaker CI than a PR does.
   workflow_call:
+    inputs:
+      live_astra_ref:
+        description: >-
+          Compare proto-upstream against Astra's LIVE main, never the pinned
+          commit proto/ASTRA_PROTO.lock names. An ordinary pull_request/push
+          run of this workflow pins (see "decide which Astra ref..." in the
+          proto-upstream job) so that an upstream commit landing between
+          resyncs does not turn every open PR red; a release must not inherit
+          that concession — it has to know about drift that happened AFTER
+          the last resync, not just before it. release-sdks.yml sets this true.
+        type: boolean
+        default: false
     secrets:
       ASTRA_REPO_TOKEN:
         description: >-
@@ -388,8 +400,10 @@ jobs:
       # it only when this is `yes`, so no step is handed the token.
       #
       # Every other trigger evaluates exactly as before: push, pull_request,
-      # the daily cron, a plain dispatch, and release-sdks.yml's call. ci.yml
-      # declares no workflow_call inputs, so `inputs.degraded` is unset there.
+      # the daily cron, a plain dispatch, and release-sdks.yml's call. ci.yml's
+      # only workflow_call input is `live_astra_ref` (see `on.workflow_call`
+      # above) — it declares no `degraded` input there, so `inputs.degraded`
+      # is still unset on release-sdks.yml's call.
       HAVE_TOKEN: ${{ (inputs.degraded || github.event.schedule == '43 18 * * 1') && 'withheld' || secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
     steps:
       - uses: actions/checkout@v4
@@ -453,7 +467,22 @@ jobs:
       # 107 began. This holds the two together on every run, in both modes.
       # A misspelt `inputs.<name>` is the `actionlint` job's to catch; it
       # checks every `inputs` property against the declared inputs.
-      - name: the weekly degraded run's schedule is one this workflow fires
+      #
+      # The second assertion below guards a DIFFERENT regression this same
+      # job already lived through once: the "checkout Astra" step's `ref:`
+      # used to be `vars.ASTRA_REF || 'main'` — always Astra's live main, on
+      # every trigger, which is exactly how an unrelated upstream commit
+      # turned every open pull request red on 2026-11-07 (three resync PRs,
+      # two `gh pr update-branch` rounds on #154/#155 in one day). The fix
+      # moved that step's `ref:` behind `env.ASTRA_CHECKOUT_REF`, a value the
+      # "decide which Astra ref to compare against" step computes from the
+      # event name and only resolves to live `main` for `schedule`,
+      # `workflow_dispatch`, `inputs.live_astra_ref` (a release) or an
+      # explicit `vars.ASTRA_REF`. Nothing stops a future edit from putting
+      # the literal fallback back — this reads ci.yml's own checked-out text
+      # the same way the cron check above does, and fails loudly if the
+      # Astra checkout's `ref:` is anything but that one expression.
+      - name: the weekly degraded run's schedule is one this workflow fires, and the PR path is pinned
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -463,6 +492,30 @@ jobs:
           crons = re.findall(r'^\s*- cron: "([^"]*)"\s*$', text, re.M)
           named = re.findall(r"github\.event\.schedule == '([^']*)'", text)
           bad = []
+
+          # An ordinary pull_request/push must compare against the commit
+          # ASTRA_PROTO.lock pins, not live main — see the block comment
+          # above. Built by concatenation, not written as one literal: GitHub
+          # scans this whole run: block's TEXT for its own expression syntax
+          # before python ever sees it, even inside a python comment, so the
+          # literal four characters dollar-brace-brace-space must never
+          # appear verbatim anywhere in this step.
+          expected_ref_expr = "$" + "{{ env.ASTRA_CHECKOUT_REF }}"
+          # ALL of them, not the first: `re.search` used to stop at the first
+          # match, so a second checkout of mihailinl/Astra added anywhere
+          # later in this file (a new job, a copy-pasted step) could carry a
+          # literal `main` forever with this self-check still green, because
+          # it never looked past the one it already found.
+          checkouts = list(re.finditer(r"repository: mihailinl/Astra\n\s*ref: (.+)\n", text))
+          if not checkouts:
+              bad.append("no 'repository: mihailinl/Astra' checkout step found in ci.yml to "
+                         "check its ref: against")
+          for m in checkouts:
+              if m.group(1).strip() != expected_ref_expr:
+                  line_no = text.count("\n", 0, m.start()) + 1
+                  bad.append(f"ci.yml line {line_no}'s Astra checkout ref is {m.group(1).strip()!r}, "
+                             f"not {expected_ref_expr!r} — an ordinary pull_request/push would "
+                             f"compare against live main again, the exact bug this pin exists to fix.")
           if len(named) != 1:
               bad.append(f"{path} compares github.event.schedule with {len(named)} string(s) "
                          f"{named}; HAVE_TOKEN compares it with exactly one, the weekly cron.")
@@ -483,6 +536,8 @@ jobs:
           full = [c for c in crons if c not in named]
           print(f"ok    the weekly degraded run's cron '{named[0]}' is in on.schedule, "
                 f"and {full} still run full")
+          print(f"ok    all {len(checkouts)} 'repository: mihailinl/Astra' checkout(s) in this "
+                f"file use {expected_ref_expr!r}, not a literal 'main'")
           PY
 
       # ── degraded mode ────────────────────────────────────────────────────
@@ -638,20 +693,86 @@ jobs:
 
       # ── full mode ────────────────────────────────────────────────────────
       #
-      # `ref` is a repository variable, not a hard-coded branch. The slicer
-      # (`tools/proto-slice`, `astra-rs/tools/proto-slice` through v0.2.7) and
-      # the surface file it reads land in Astra on `feat/plugin-production`
-      # and reach `main` only when that merges
-      # — so between the two events, a checkout pinned to `main` gives this job
-      # a tree with no slicer in it. Set `vars.ASTRA_REF` to the branch during
-      # that window and DELETE the variable once it is on main; the default is
-      # `main`, which is where this must end up.
+      # Astra's main moves independently of this repository: a commit there
+      # that touches the plugin proto or the UI Kit used to turn EVERY open
+      # pull request red at once, over drift that PR had nothing to do with
+      # (2026-11-07: three resync PRs and two `gh pr update-branch` rounds
+      # on #154/#155 in one day, astra-plugins-ops register). An ordinary
+      # pull_request or push now compares against the commit
+      # `proto/ASTRA_PROTO.lock`'s `astra_commit` names instead — the commit
+      # a resync last actually confirmed everything against — so upstream
+      # moving between resyncs cannot do that again. `schedule` and
+      # `workflow_dispatch` exist to CATCH that drift (see "WHY A CRON"
+      # above), so they keep comparing against live `main`;
+      # `inputs.live_astra_ref` is release-sdks.yml asking for the same
+      # thing on behalf of a release, which must not inherit a PR's
+      # concession — it has to see drift that happened AFTER the last
+      # resync, not just before it. `vars.ASTRA_REF` still overrides
+      # everything: the escape hatch for testing against a branch that
+      # moved the slicer before it reached `main` (unchanged from before
+      # this pin existed).
+      - name: decide which Astra ref to compare against
+        if: env.MODE == 'full'
+        env:
+          ASTRA_REF_VAR: ${{ vars.ASTRA_REF }}
+          LIVE_ASTRA_REF: ${{ inputs.live_astra_ref }}
+        run: |
+          set -euo pipefail
+          is_pin=false
+          if [ -n "$ASTRA_REF_VAR" ]; then
+            ref="$ASTRA_REF_VAR"
+            why="vars.ASTRA_REF override"
+          elif [ "$LIVE_ASTRA_REF" = "true" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            ref="main"
+            if [ "$LIVE_ASTRA_REF" = "true" ]; then
+              why="inputs.live_astra_ref (a release)"
+            else
+              why="$GITHUB_EVENT_NAME: upstream drift is what this run exists to catch"
+            fi
+          else
+            ref="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
+            if [ -z "$ref" ]; then
+              echo "::error::proto/ASTRA_PROTO.lock has no astra_commit= line. Regenerate with" >&2
+              echo "::error::tools/resync-astra.sh --astra-dir <path-to-Astra> (runs tools/gen-proto-lock.sh)." >&2
+              exit 1
+            fi
+            why="$GITHUB_EVENT_NAME: pinned to the last resync, not live main"
+            is_pin=true
+          fi
+          # Empty would check out Astra's default branch — silently, no error —
+          # which is exactly live main again by a different door. Every branch
+          # above sets $ref to something non-empty or exits already; this is
+          # the belt the "resolve the Astra checkout to a concrete commit" step
+          # wears too, after this value has round-tripped through GITHUB_ENV.
+          if [ -z "$ref" ]; then
+            echo "::error::decide which Astra ref to compare against: resolved an empty ref." >&2
+            exit 1
+          fi
+          # `$ref` goes into GITHUB_ENV below, read back as `${{ env.ASTRA_CHECKOUT_REF }}`
+          # by the "checkout Astra" step's `ref:`. GITHUB_ENV is a plain
+          # `KEY=VALUE` file GitHub appends to and parses back; a value
+          # containing a newline can forge a second `KEY=VALUE` line after it
+          # and set an env var this step never named. `vars.ASTRA_REF` is the
+          # one branch above that is not already constrained — "main", the
+          # pin (a 40-hex SHA from our own lock file), or nothing — so a
+          # maintainer repository variable is the only route an unexpected
+          # character could take. A real git ref name never needs anything
+          # outside this set.
+          if ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Astra ref '$ref' ($why) contains characters outside" >&2
+            echo "::error::[A-Za-z0-9._/-] — refusing to write it into GITHUB_ENV." >&2
+            exit 1
+          fi
+          echo "ASTRA_CHECKOUT_REF=$ref" >> "$GITHUB_ENV"
+          echo "ASTRA_REF_IS_PIN=$is_pin" >> "$GITHUB_ENV"
+          echo "comparing against Astra@$ref ($why)"
+
       - name: checkout Astra
         if: env.MODE == 'full'
         uses: actions/checkout@v4
         with:
           repository: mihailinl/Astra
-          ref: ${{ vars.ASTRA_REF || 'main' }}
+          ref: ${{ env.ASTRA_CHECKOUT_REF }}
           # Only when HAVE_TOKEN is `yes`, which is also the only value under
           # which this step runs. A run that withholds the token hands it to
           # no step at all, even if this step's `if:` is ever loosened.
@@ -681,14 +802,203 @@ jobs:
           echo "ASTRA_ROOT=$root" >> "$GITHUB_ENV"
           echo "the daemon's tree is at $root"
 
+      # `env.ASTRA_CHECKOUT_REF` is "main", a pinned SHA, or whatever
+      # `vars.ASTRA_REF` named — a BRANCH name only gets an `origin/<branch>`
+      # tracking ref from `actions/checkout`; a SHA gets none (there is
+      # nothing to call it). `git show <ref>:<path>` below (C12, C22) needs a
+      # ref that resolves either way, so this step resolves the checkout to
+      # its own concrete commit ONCE, here, rather than have the C12/C22 step
+      # guess whether to prepend `origin/`.
+      #
+      # Two assertions guard the "checkout Astra" step above from a value
+      # that round-tripped through GITHUB_ENV wrong: an empty `ref:` checks
+      # out Astra's own default branch with no error from `actions/checkout`
+      # at all — live main again, silently, the exact bug the pin exists to
+      # fix, just reached through GITHUB_ENV losing the value instead of a
+      # hard-coded fallback. And on the pinned path specifically, the ref we
+      # asked for WAS the pin itself (the "decide which Astra ref" step reads
+      # it straight out of proto/ASTRA_PROTO.lock), so what got checked out
+      # had better resolve to that exact commit — if it does not, `actions/checkout`
+      # silently gave us something else (a short SHA colliding with a tag, a
+      # ref GitHub resolved differently than expected) and every downstream
+      # comparison in this job would be against the wrong Astra entirely.
+      - name: resolve the Astra checkout to a concrete commit
+        if: env.MODE == 'full'
+        env:
+          ASTRA_CHECKOUT_REF: ${{ env.ASTRA_CHECKOUT_REF }}
+          ASTRA_REF_IS_PIN: ${{ env.ASTRA_REF_IS_PIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ASTRA_CHECKOUT_REF" ]; then
+            echo "::error::ASTRA_CHECKOUT_REF is empty — 'decide which Astra ref to compare" >&2
+            echo "::error::against' should have set it or failed outright. Refusing to let" >&2
+            echo "::error::'checkout Astra' fall back to Astra's own default branch silently." >&2
+            exit 1
+          fi
+          sha="$(git -C _astra rev-parse HEAD)"
+          echo "ASTRA_RESOLVED_SHA=$sha" >> "$GITHUB_ENV"
+          echo "_astra is at $sha"
+          if [ "$ASTRA_REF_IS_PIN" = "true" ] && [ "$sha" != "$ASTRA_CHECKOUT_REF" ]; then
+            echo "::error::asked actions/checkout for the pin $ASTRA_CHECKOUT_REF, but _astra" >&2
+            echo "::error::resolved to $sha instead. Every comparison in this job would be" >&2
+            echo "::error::against the wrong Astra commit." >&2
+            exit 1
+          fi
+
+      # Nothing above asks whether `astra_commit` is real Astra history. The
+      # byte-for-byte slice diff and the header hashes prove the SLICE is
+      # right for whatever commit this pins to — they say nothing about
+      # whether that commit is reachable from Astra's main, a detached
+      # commit nobody can see any more, or a branch that got force-pushed
+      # away. The GitHub compare API answers exactly that: for `BASE...HEAD`,
+      # `status` is `ahead` when HEAD contains BASE plus more commits,
+      # `identical` when they are the same commit, and `behind`/`diverged`
+      # otherwise — the four states that matter here.
+      #
+      #   * PINNED path (env.ASTRA_REF_IS_PIN == 'true', an ordinary
+      #     pull_request/push): load-bearing. The pin is what a fork PR's
+      #     degraded mode trusts without ever contacting upstream, so if it
+      #     is not really on Astra's main, that trust is void. An API
+      #     failure here (rate limit, network, a revoked token) fails the
+      #     same way — a check that silently skips on API trouble is worse
+      #     than no check.
+      #   * Every other path: this run already compares against something
+      #     OTHER than the pin on purpose (the step above's --live), so
+      #     there is nothing to gate here. This is purely informative: how
+      #     far behind main is the pin a maintainer last resynced against.
+      #     An API failure is noted and ignored.
+      - name: the pin is on Astra main
+        if: env.MODE == 'full'
+        env:
+          GH_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
+          ASTRA_REF_IS_PIN: ${{ env.ASTRA_REF_IS_PIN }}
+          ASTRA_RESOLVED_SHA: ${{ env.ASTRA_RESOLVED_SHA }}
+        run: |
+          set -euo pipefail
+          pin="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
+          if [ -z "$pin" ]; then
+            echo "::error::proto/ASTRA_PROTO.lock has no astra_commit= line to check against Astra main." >&2
+            exit 1
+          fi
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            target="main"
+          else
+            target="$ASTRA_RESOLVED_SHA"
+          fi
+          if [ "$pin" = "$target" ]; then
+            echo "ok   pin $pin is exactly what this run compares against — nothing to ask upstream"
+            exit 0
+          fi
+          if ! resp="$(gh api "repos/mihailinl/Astra/compare/${pin}...${target}" 2>&1)"; then
+            if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+              echo "::error::could not reach the GitHub compare API for mihailinl/Astra@${pin}...${target}:" >&2
+              echo "::error::$resp" >&2
+              exit 1
+            fi
+            echo "note  could not reach the GitHub compare API ($resp) — skipping the informational pin-vs-main distance"
+            exit 0
+          fi
+          status="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+          ahead="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["ahead_by"])')"
+          behind="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["behind_by"])')"
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            case "$status" in
+              ahead|identical)
+                echo "ok   pin $pin is on Astra main ($status, main is $ahead commit(s) ahead of it)" ;;
+              *)
+                echo "::error::proto/ASTRA_PROTO.lock's astra_commit=$pin is NOT on Astra main" >&2
+                echo "::error::(compare status: $status, ahead_by=$ahead, behind_by=$behind). A pin must" >&2
+                echo "::error::be real Astra history. Re-run tools/resync-astra.sh against a checkout" >&2
+                echo "::error::that is actually on main." >&2
+                exit 1 ;;
+            esac
+          else
+            echo "note  pin $pin vs this run's Astra@$target: $status (main is $ahead commit(s) ahead, $behind behind) — informational only"
+          fi
+
+      # The pin above being on main is not enough by itself: it still lets a
+      # pull request MOVE the pin BACKWARD relative to its base branch — to
+      # an older commit still technically on main — and stay green, because
+      # "on main" says nothing about direction. A PR that does that would
+      # make the merged master's pin regress the moment it lands, undoing
+      # whatever the base branch's last resync actually confirmed. This
+      # compares the base branch's own committed pin against the PR's pin
+      # with the same compare API, in the same base...head order, so
+      # `ahead`/`identical` means the PR's pin is the base's pin or newer.
+      # pull_request only: push and schedule/dispatch/release have no "base"
+      # to regress against.
+      - name: the pin did not move backward from the PR's base
+        if: env.MODE == 'full' && github.event_name == 'pull_request'
+        # SECURITY: through `env`, never interpolated into the script — see
+        # "the Astra checkout carries the slicer" above. A branch name is not
+        # restricted to the character set that comment assumes for a repository
+        # VARIABLE; git ref names permit `$`, backticks and quotes.
+        env:
+          GH_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          base_ref="$BASE_REF"
+          git fetch -q origin "$base_ref"
+          base_lock="$(git show "origin/${base_ref}:proto/ASTRA_PROTO.lock" 2>/dev/null || true)"
+          if [ -z "$base_lock" ]; then
+            echo "::error::could not read proto/ASTRA_PROTO.lock from origin/${base_ref}." >&2
+            exit 1
+          fi
+          pr_pin="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
+          if [ -z "$pr_pin" ]; then
+            echo "::error::this PR's own proto/ASTRA_PROTO.lock has no astra_commit= line." >&2
+            exit 1
+          fi
+          # Reproduced on #158 itself: `astra_commit` is this same pin's own
+          # first appearance in the lock format, so ${base_ref}'s lock
+          # (master, before #158 merges) carries none yet. That is not a
+          # backward move — there is no earlier pin to regress from — so
+          # this is informative, not a failure, for exactly as long as the
+          # base branch predates the field.
+          base_pin="$(printf '%s\n' "$base_lock" | sed -n 's/^astra_commit=//p' | head -n1)"
+          if [ -z "$base_pin" ]; then
+            echo "note  ${base_ref}'s proto/ASTRA_PROTO.lock has no astra_commit= line yet (it predates the pin) — nothing to regress from"
+            exit 0
+          fi
+          if [ "$base_pin" = "$pr_pin" ]; then
+            echo "ok   this PR's pin is unchanged from ${base_ref}'s ($pr_pin)"
+            exit 0
+          fi
+          if ! resp="$(gh api "repos/mihailinl/Astra/compare/${base_pin}...${pr_pin}" 2>&1)"; then
+            echo "::error::could not reach the GitHub compare API for ${base_pin}...${pr_pin}:" >&2
+            echo "::error::$resp" >&2
+            exit 1
+          fi
+          status="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+          case "$status" in
+            ahead|identical)
+              echo "ok   this PR's pin $pr_pin is ahead of or equal to ${base_ref}'s pin $base_pin ($status)" ;;
+            *)
+              echo "::error::this PR's astra_commit=$pr_pin is not a descendant of ${base_ref}'s" >&2
+              echo "::error::astra_commit=$base_pin (compare status: $status). The pin must only move" >&2
+              echo "::error::forward; re-run tools/resync-astra.sh from a checkout that includes" >&2
+              echo "::error::${base_ref}'s resync." >&2
+              exit 1 ;;
+          esac
+
       # The real check the degraded-mode lock above stands in for: Astra is
       # checked out right here, so this compares the vendored schema against
       # astra-core/schemas/portable-command.schema.json byte-for-byte, not
       # against a hash recorded at some earlier commit. Deliberately ahead of
       # the slicer/toolchain steps below, same reasoning as C12 a few lines
       # up: an unrelated protocol drift must not take this check out too.
+      # `$ASTRA_ROOT` is this job's checkout of `env.ASTRA_CHECKOUT_REF` —
+      # the pin on an ordinary pull_request/push, live `main` on
+      # schedule/dispatch/release — so this compares against whatever ref
+      # was actually resolved and checked out above, never an independent
+      # `main`. `ASTRA_RESOLVED_SHA` (set by the step just above) names it
+      # in the log for the same reason "C12, C22 (full)" below takes it
+      # through `env` rather than recomputing its own answer.
       - name: the vendored portable-command schema matches Astra's (full)
         if: env.MODE == 'full'
+        env:
+          ASTRA_REF: ${{ env.ASTRA_RESOLVED_SHA }}
         run: |
           set -euo pipefail
           src="$ASTRA_ROOT/astra-core/schemas/portable-command.schema.json"
@@ -701,7 +1011,7 @@ jobs:
             diff -u "$dst" "$src" >&2 || true
             exit 1
           fi
-          echo "ok   spec/content/schemas/portable-command-v1.schema.json matches Astra@$(git -C _astra rev-parse HEAD)"
+          echo "ok   spec/content/schemas/portable-command-v1.schema.json matches Astra@$ASTRA_REF"
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### command schema: **full** — the vendored portable-command schema was compared byte-for-byte with Astra's own
           MSG
@@ -770,12 +1080,12 @@ jobs:
       - name: the Astra checkout carries the slicer
         if: env.MODE == 'full'
         # SECURITY: the ref reaches the shell through `env`, never through `${{ }}`
-        # interpolated into the script. A repository variable is maintainer-set,
-        # but a value containing a quote would still be pasted straight into the
-        # command line, and "it is only a maintainer" is how that class of bug
-        # gets written everywhere.
+        # interpolated into the script. `env.ASTRA_CHECKOUT_REF` is written by
+        # the "decide which Astra ref..." step above, so this names whatever
+        # was ACTUALLY checked out (a pin, live main, or vars.ASTRA_REF) rather
+        # than recomputing a possibly different answer of its own.
         env:
-          ASTRA_REF: ${{ vars.ASTRA_REF || 'main' }}
+          ASTRA_REF: ${{ env.ASTRA_CHECKOUT_REF }}
         run: |
           set -euo pipefail
           ref="$ASTRA_REF"
@@ -861,12 +1171,18 @@ jobs:
       # exit 2, by name (entry 115; `couplings` proves it on fixtures).
       - name: C12, C22 (full) the vocabulary, and whether the scaffold's flip is due
         if: env.MODE == 'full'
+        # SECURITY: through `env`, never interpolated into the script — see
+        # "the Astra checkout carries the slicer" above. `ASTRA_RESOLVED_SHA`
+        # (not `origin/$ASTRA_REF`): a pinned SHA gets no `origin/<sha>`
+        # tracking ref from actions/checkout, only a branch name does, and
+        # check-locales.py's own `--astra-ref` doc says "never HEAD" for this
+        # anchor — a concrete SHA satisfies both.
         env:
-          ASTRA_REF: ${{ vars.ASTRA_REF || 'main' }}
+          ASTRA_REF: ${{ env.ASTRA_RESOLVED_SHA }}
         run: |
           set -euo pipefail
           python3 tools/check-locales.py --rules C12,C22 --require C22 \
-            --astra-dir "$ASTRA_ROOT" --astra-ref "origin/${ASTRA_REF}"
+            --astra-dir "$ASTRA_ROOT" --astra-ref "$ASTRA_REF"
           cat >> "$GITHUB_STEP_SUMMARY" <<'MSG'
           ### locales: **full** — `spec/locales.yaml` was compared with the daemon's own vocabulary, and C22 read a real release tag
           MSG
@@ -904,9 +1220,26 @@ jobs:
       # checkouts had no supported way to do the work. Phase 3b was stuck on
       # exactly that. The check and the write are now one code path, so they
       # cannot disagree about the file's contents.
+      #
+      # `--live` on every path except the pin itself: `env.ASTRA_REF_IS_PIN`
+      # is 'true' only on an ordinary pull_request/push, where `astra_commit`
+      # IS the ref this job checked out, so strict `--check` is the right
+      # proof. Every other path (`vars.ASTRA_REF`, schedule, dispatch, a
+      # release's `inputs.live_astra_ref`) checks out something that is NOT
+      # the pin on purpose, which used to fail this exact step on
+      # `astra_commit` alone — every single live run, protocol drift or
+      # none, which is how the daily cron stayed red regardless of whether
+      # plugin.proto had actually moved. `--live` drops that one field from
+      # the comparison and reports it as information instead.
       - name: the slice is current, and so is proto/ASTRA_PROTO.lock
         if: env.MODE == 'full'
-        run: bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check
+        run: |
+          set -euo pipefail
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check
+          else
+            bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check --live
+          fi
 
       # C1 with the other half attached. The `couplings` job runs
       # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the
@@ -973,11 +1306,16 @@ jobs:
       # branch they left it on, and reading that is how it once reported drift
       # that did not exist and advised `--sync` over a constant only the vendored
       # copy had. Here the checkout is `actions/checkout` a dozen lines above, at
-      # `vars.ASTRA_REF || 'main'`, fetched fresh at depth 1 — so HEAD *is* the
-      # named ref, and naming it directly is also what keeps this step correct if
-      # `vars.ASTRA_REF` is ever set again: that fetch refspec brings down only
-      # the requested branch, so `origin/main` would not exist here to compare
-      # against. The script prints the sha and subject it resolved either way.
+      # whatever `env.ASTRA_CHECKOUT_REF` decided (the pin on an ordinary PR,
+      # live `main` on a schedule/dispatch/release, or `vars.ASTRA_REF`),
+      # fetched fresh at depth 1 — so HEAD *is* that ref, whichever one it
+      # was, and naming it directly is also what keeps this step correct for a
+      # pinned SHA: that fetch refspec brings down only the requested commit,
+      # so there is no `origin/<sha>` here to compare against at all (a
+      # branch name at least gets `origin/<branch>`; a SHA gets nothing — see
+      # "resolve the Astra checkout to a concrete commit" above, which exists
+      # for exactly this). The script prints the sha and subject it resolved
+      # either way.
       #
       # `ASTRA_REPO` must be the top of Astra's OWN checkout. An `_astra` that
       # lost its `.git` sits inside this checkout, and the script used to resolve

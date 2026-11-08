@@ -423,6 +423,11 @@ jobs:
           if ! cmp -s /tmp/upstream-plugin.proto proto/plugin.proto; then
             echo "FAIL proto/plugin.proto is not what the daemon's proto slices to." >&2
             diff -u proto/plugin.proto /tmp/upstream-plugin.proto | head -60 >&2 || true
+            echo >&2
+            echo "Fix: tools/resync-astra.sh --astra-dir <path-to-Astra>, from a maintainer's" >&2
+            echo "checkout. It regenerates this slice, the vendored copies, the stubs, this" >&2
+            echo "lock and the docs digests in one command, and opens the PR this gate then" >&2
+            echo "passes. Never hand-edit proto/plugin.proto to match." >&2
             exit 1
           fi
           echo "ok   proto/plugin.proto == the regenerated slice"
@@ -447,10 +452,20 @@ jobs:
   # The whole matrix, by calling ci.yml rather than restating it. A release must
   # not be able to run a weaker CI than a pull request does, and the only way to
   # guarantee that is for there to be one file.
+  #
+  # `live_astra_ref: true` is why this gate is not weaker than gate 3 above:
+  # ci.yml's own proto-upstream job otherwise pins an ordinary pull_request/
+  # push to the commit proto/ASTRA_PROTO.lock names (so that an unrelated
+  # upstream commit landing between resyncs cannot turn every open PR red —
+  # see ci.yml's "decide which Astra ref..." step), and this run must not
+  # inherit that concession: it has to see drift that happened AFTER the last
+  # resync, not just before it, same as gate 3's own live checkout above.
   ci:
     name: "gate 5"
     needs: parity
     uses: ./.github/workflows/ci.yml
+    with:
+      live_astra_ref: true
     secrets:
       ASTRA_REPO_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
 

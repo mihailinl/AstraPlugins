@@ -6,7 +6,7 @@
 # and found it byte-identical to proto/plugin.proto, which means it can only be
 # written by someone holding a checkout of the private Astra repository: CI's
 # proto-upstream job in full mode, or a maintainer running the script directly.
-# Runs WITHOUT that access (every fork PR) verify these three values instead,
+# Runs WITHOUT that access (every fork PR) verify these values instead,
 # and say plainly that they did not contact upstream.
 #
 #   protocol             the `// protocol: N` header of proto/plugin.proto
@@ -21,7 +21,19 @@
 #                        is kept in the Astra repository beside the source. The
 #                        line is absent once the slicer stops emitting the
 #                        header, and its absence is reported, not assumed.
+#   astra_commit         the full SHA of the Astra commit this lock was written
+#                        from (--astra-dir's checkout, at the time this script
+#                        ran) — not necessarily the commit the PROTOCOL moved
+#                        at, just the one a resync last confirmed everything
+#                        upstream-compared against. ci.yml's proto-upstream job
+#                        checks this commit out on an ordinary pull_request/push
+#                        instead of Astra's live main, so an upstream commit
+#                        landing between resyncs cannot turn every open PR red;
+#                        its schedule and workflow_dispatch runs, and
+#                        release-sdks.yml's own always-live proto-drift gate,
+#                        still compare against live main regardless of this.
 #
 protocol=1
 plugin_proto_sha256=ea9924cef0817f4587e0a068f45d3128c34870d8173a5181e4bc1e310472443b
 surface_sha256=7a4f3ba3323e2ad81322c99a5085f3ce0681472935d9f6bc136b8f255cf0b060
+astra_commit=ede22b51b0139a14cec4878bd8e3d21c667eff5d

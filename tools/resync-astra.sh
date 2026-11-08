@@ -9,12 +9,21 @@
 #   tools/resync-astra.sh --astra-dir ../Astra --skip-ui-kit --skip-docgen-check
 #
 # Astra main moves the plugin proto slice and the UI Kit out from under this
-# repository with no warning: nothing here subscribes to Astra's commits, so
-# the first sign is `proto (upstream drift)` or `proto (vendored copies)`
-# turning red in a pull request that touched neither file. On 2026-11-05 that
-# happened three times in one day, and each time a human re-typed the same
-# eight-step recipe by hand from tools/sync-proto.sh's comments,
-# gen-proto-lock.sh's comments and CONTRIBUTING.md's generated-files table.
+# repository with no warning: nothing here subscribes to Astra's commits. The
+# first sign USED TO BE `proto (upstream drift)` or `proto (vendored copies)`
+# turning red in a pull request that touched neither file — any open PR, the
+# moment an unrelated Astra commit landed, because ci.yml's proto-upstream job
+# compared an ordinary pull_request/push against Astra's LIVE main. On
+# 2026-11-05 that happened three times in one day, and each time a human
+# re-typed the same eight-step recipe by hand from tools/sync-proto.sh's
+# comments, gen-proto-lock.sh's comments and CONTRIBUTING.md's generated-files
+# table — which is also why `proto/ASTRA_PROTO.lock` now pins an ordinary
+# pull_request/push to the Astra commit this script last resynced against
+# (see gen-proto-lock.sh's `astra_commit` comment and ci.yml's "decide which
+# Astra ref..." step). The first sign today is the daily schedule run or
+# release-sdks.yml's own live gate going red — a run this script's caller did
+# not necessarily trigger, but one that is always about THIS repository being
+# behind, never about an unrelated PR.
 # The docs digest swap (step 7 below) was forgotten once, which is how a proto
 # resync turned the `mirror` job red too — a second CI failure with no
 # connection to the first one a reader could see without already knowing this
@@ -109,6 +118,24 @@ export TMPDIR CARGO_TARGET_DIR
 [ -z "$(git -C "$REPO_ROOT" status --porcelain)" ] || die "this checkout ($REPO_ROOT) is dirty. Commit or stash before resyncing."
 [ -z "$(git -C "$ASTRA_DIR" status --porcelain)" ] || die "the Astra checkout ($ASTRA_DIR) is dirty. resync-astra writes into it (step 2 regenerates the committed slice in place); it must start clean."
 log "both checkouts are clean"
+
+# ---- 1b. refuse an Astra checkout that is not actually on main -------------
+#
+# This script's whole output is a pin: proto/ASTRA_PROTO.lock's astra_commit
+# becomes the commit ci.yml's proto-upstream job compares an ordinary
+# pull_request/push against instead of Astra's live main (see
+# gen-proto-lock.sh's astra_commit comment). That guarantee is worth exactly
+# as much as "this commit is really Astra history" — a detached commit, a
+# stale fork, or a branch that will never reach main would pin just as
+# green as a real resync, and look identical in every file this script
+# writes. Fetching main fresh (rather than trusting whatever `origin/main`
+# this checkout already has) catches a checkout whose remote has since
+# moved past a commit it once called main, too.
+git -C "$ASTRA_DIR" fetch -q origin main
+if ! git -C "$ASTRA_DIR" merge-base --is-ancestor HEAD origin/main; then
+    die "$ASTRA_DIR's HEAD ($(git -C "$ASTRA_DIR" rev-parse --short HEAD)) is not an ancestor of its origin/main. Resync against a checkout that is actually on Astra's main — not a feature branch, a detached commit, or a stale fork — or the pin this writes would mean nothing."
+fi
+log "$ASTRA_DIR's HEAD is on Astra's origin/main"
 
 astra_sha="$(git -C "$ASTRA_DIR" rev-parse HEAD)"
 log "following Astra@${astra_sha:0:12}… ($ASTRA_DIR, root $ASTRA_ROOT)"

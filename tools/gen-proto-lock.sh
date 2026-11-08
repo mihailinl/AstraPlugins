@@ -10,7 +10,7 @@
 #
 # Astra is private. Every pull request from a fork runs CI without
 # ASTRA_REPO_TOKEN, so it cannot see the daemon's astra.proto at all. Those runs
-# check proto/ASTRA_PROTO.lock instead: three values recorded the last time the
+# check proto/ASTRA_PROTO.lock instead: the values recorded the last time the
 # two repositories were really compared. Verifying them proves the protocol has
 # not moved since that comparison — nothing more, and the workflow says so.
 #
@@ -40,7 +40,7 @@
 #      astra.proto it was cut from, so a doctored header cannot launder a
 #      protocol change through the lock.
 #
-# Only then are the three values written. `--check` runs all of it and diffs the
+# Only then are the values written. `--check` runs all of it and diffs the
 # result against the committed file instead of writing.
 #
 # Requires: cargo (builds the slicer), sha256sum or shasum.
@@ -53,10 +53,11 @@ PROTO_REL="proto/plugin.proto"
 
 astra_dir=""
 check_only=0
+live=0
 
 usage() {
     cat <<'USAGE'
-usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check]
+usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check] [--live]
 
   --astra-dir <path>  the daemon's tree: the top of a flat Astra checkout
                       (since 2026-10-23), or its astra-rs/ directory on a
@@ -66,6 +67,20 @@ usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check]
                       resolves which shape it is — this script does not guess.
   --check             do not write; fail if proto/ASTRA_PROTO.lock differs from
                       what this run would have written.
+  --live              only with --check. --astra-dir is NOT the commit
+                      proto/ASTRA_PROTO.lock pins — it is Astra's live main
+                      (ci.yml's schedule/workflow_dispatch/release paths), or
+                      some other ref a maintainer is comparing against on
+                      purpose (vars.ASTRA_REF). `astra_commit` is therefore
+                      EXPECTED to differ from the committed lock on every
+                      such run — comparing it would fail every single time,
+                      on protocol drift or none, which is exactly what made
+                      every live run red regardless of whether plugin.proto
+                      had moved. This drops `astra_commit` from the
+                      comparison and reports the distance between the two
+                      commits as information instead. Without --live, --check
+                      is the strict comparison an ordinary pull_request/push
+                      needs: the pin itself is part of what must be current.
 
 Also read from the environment as ASTRA_RS_DIR, which is what tools/gen-limits.mjs
 and tools/check-manifest-crate.sh already use.
@@ -76,10 +91,18 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --astra-dir) astra_dir="${2:-}"; shift 2 ;;
         --check) check_only=1; shift ;;
+        --live) live=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'gen-proto-lock: unknown argument %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
 done
+
+if [ "$live" = 1 ] && [ "$check_only" != 1 ]; then
+    printf 'gen-proto-lock: --live only makes sense with --check (it changes nothing about\n' >&2
+    printf '                      what a write would produce — astra_commit is always the\n' >&2
+    printf '                      real HEAD of --astra-dir either way).\n' >&2
+    exit 2
+fi
 
 if [ -z "$astra_dir" ]; then
     astra_dir="${ASTRA_RS_DIR:-}"
@@ -142,6 +165,27 @@ MSG
     fi
 done
 printf 'gen-proto-lock: ok   %s carries the slicer and its surface file\n' "$astra_dir"
+
+# ---- 1b. the commit this checkout is actually at ------------------------
+#
+# ci.yml and tools/resync-astra.sh pin the Astra commit a pull_request/push
+# run checks out against, instead of always reading Astra's live main — so
+# that an upstream commit landing between resyncs cannot turn every open PR
+# red at once (astra-plugins-ops register: three resync PRs and two
+# `gh pr update-branch` rounds on one day from exactly that). This is the
+# commit they pin to. `git -C "$astra_dir" rev-parse HEAD` resolves correctly
+# whether `$astra_dir` is the checkout's own top or its astra-rs/ (git finds
+# the repository root by walking up from either), and works the same for a
+# worktree at a detached commit as for a branch checkout.
+astra_commit="$(git -C "$astra_dir" rev-parse HEAD 2>/dev/null || true)"
+if ! [[ "$astra_commit" =~ ^[0-9a-f]{40}$ ]]; then
+    printf 'gen-proto-lock: FAIL %s has no resolvable git HEAD commit.\n' "$astra_dir" >&2
+    printf '                      It must be a real git checkout (a clone or a worktree) of Astra —\n' >&2
+    printf '                      ci.yml and tools/resync-astra.sh pin against exactly this commit,\n' >&2
+    printf '                      so without one there is nothing to record.\n' >&2
+    exit 1
+fi
+printf 'gen-proto-lock: ok   %s is Astra@%s\n' "$astra_dir" "${astra_commit:0:12}"
 
 # ---- 2. the slice regenerates byte-identically
 tmp="$(mktemp -d)"
@@ -254,7 +298,7 @@ cat > "$tmp/ASTRA_PROTO.lock" <<EOF
 # and found it byte-identical to proto/plugin.proto, which means it can only be
 # written by someone holding a checkout of the private Astra repository: CI's
 # proto-upstream job in full mode, or a maintainer running the script directly.
-# Runs WITHOUT that access (every fork PR) verify these three values instead,
+# Runs WITHOUT that access (every fork PR) verify these values instead,
 # and say plainly that they did not contact upstream.
 #
 #   protocol             the \`// protocol: N\` header of proto/plugin.proto
@@ -269,16 +313,67 @@ cat > "$tmp/ASTRA_PROTO.lock" <<EOF
 #                        is kept in the Astra repository beside the source. The
 #                        line is absent once the slicer stops emitting the
 #                        header, and its absence is reported, not assumed.
+#   astra_commit         the full SHA of the Astra commit this lock was written
+#                        from (--astra-dir's checkout, at the time this script
+#                        ran) — not necessarily the commit the PROTOCOL moved
+#                        at, just the one a resync last confirmed everything
+#                        upstream-compared against. ci.yml's proto-upstream job
+#                        checks this commit out on an ordinary pull_request/push
+#                        instead of Astra's live main, so an upstream commit
+#                        landing between resyncs cannot turn every open PR red;
+#                        its schedule and workflow_dispatch runs, and
+#                        release-sdks.yml's own always-live proto-drift gate,
+#                        still compare against live main regardless of this.
 #
 protocol=$protocol
 plugin_proto_sha256=$plugin_sha
 surface_sha256=$surface_sha
+astra_commit=$astra_commit
 EOF
 if [ -n "$astra_sha" ]; then
     printf 'astra_proto_sha256=%s\n' "$astra_sha" >> "$tmp/ASTRA_PROTO.lock"
 fi
 
 if [ "$check_only" = 1 ]; then
+    if [ "$live" = 1 ]; then
+        # Drop the astra_commit line from BOTH sides before comparing — see
+        # --live's usage text for why it must not be part of this comparison
+        # on a live run. Everything else (protocol, plugin_proto_sha256,
+        # surface_sha256, and astra_proto_sha256 if present) still has to
+        # match byte for byte; those are the actual proof that the slice is
+        # current, and --live does not weaken them at all.
+        grep -v '^astra_commit=' "$tmp/ASTRA_PROTO.lock" > "$tmp/without-commit.new"
+        grep -v '^astra_commit=' "$REPO_ROOT/$LOCK_REL" > "$tmp/without-commit.old"
+        if ! cmp -s "$tmp/without-commit.new" "$tmp/without-commit.old"; then
+            printf 'gen-proto-lock: FAIL %s is stale even ignoring astra_commit — the slice itself\n' "$LOCK_REL" >&2
+            printf '                      has moved, not just the pin. Commit this:\n\n' >&2
+            cat "$tmp/ASTRA_PROTO.lock" >&2
+            printf '\nRegenerate with: tools/gen-proto-lock.sh --astra-dir %s\n' "$astra_dir" >&2
+            exit 1
+        fi
+        printf 'gen-proto-lock: ok   %s is current (ignoring astra_commit — this is a live comparison)\n' "$LOCK_REL"
+        pinned_commit="$(sed -n 's/^astra_commit=//p' "$REPO_ROOT/$LOCK_REL" | head -n1)"
+        if [ "$pinned_commit" = "$astra_commit" ]; then
+            printf 'gen-proto-lock: note %s already pins this exact commit\n' "$LOCK_REL"
+        else
+            printf 'gen-proto-lock: note %s pins %s; this run compared against %s\n' \
+                "$LOCK_REL" "${pinned_commit:-<none>}" "${astra_commit:0:12}"
+            # Best effort only: --astra-dir is usually a shallow CI checkout
+            # (fetch-depth 1), which does not have the pinned commit's object
+            # at all, so `rev-list` below fails quietly and this says so
+            # rather than treating that as a problem. A maintainer running
+            # this against a full clone gets the real number.
+            if [ -n "$pinned_commit" ] && \
+               behind="$(git -C "$astra_dir" rev-list --count "$pinned_commit..$astra_commit" 2>/dev/null)"; then
+                printf 'gen-proto-lock: note the pin is %s commit(s) behind this run'\''s %s\n' \
+                    "$behind" "${astra_commit:0:12}"
+            else
+                printf 'gen-proto-lock: note commit distance not computable from this checkout (likely\n'
+                printf '                      shallow); not a failure, just not available here.\n'
+            fi
+        fi
+        exit 0
+    fi
     if ! cmp -s "$tmp/ASTRA_PROTO.lock" "$REPO_ROOT/$LOCK_REL"; then
         printf 'gen-proto-lock: FAIL %s is stale. Commit this:\n\n' "$LOCK_REL" >&2
         cat "$tmp/ASTRA_PROTO.lock" >&2
@@ -300,9 +395,9 @@ fi
 # an empty value reads as a truncated hash rather than as an absence, which is
 # the same trick as a check that skips quietly, in one line of output.
 if [ -n "$astra_sha" ]; then
-    printf '                protocol=%s surface=%s… plugin=%s… astra=%s…\n' \
-        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}" "${astra_sha:0:12}"
+    printf '                protocol=%s surface=%s… plugin=%s… astra=%s… commit=%s…\n' \
+        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}" "${astra_sha:0:12}" "${astra_commit:0:12}"
 else
-    printf '                protocol=%s surface=%s… plugin=%s… (no source-sha256 in this slice)\n' \
-        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}"
+    printf '                protocol=%s surface=%s… plugin=%s… commit=%s… (no source-sha256 in this slice)\n' \
+        "$protocol" "${surface_sha:0:12}" "${plugin_sha:0:12}" "${astra_commit:0:12}"
 fi
