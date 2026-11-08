@@ -1480,6 +1480,21 @@
       "code": "E_COMMAND_UNKNOWN_ACTION"
     },
     {
+      "name": "retry-count-over-max",
+      "file": "commands/hostile/retry-count-over-max.command.json",
+      "claim": {
+        "capabilities": [
+          "on_phrase",
+          "plays_audio"
+        ],
+        "danger": "low",
+        "requires": []
+      },
+      "verdict": "refuse",
+      "code": "E_COMMAND_FORMAT",
+      "note": "a step's data.retry_count of 11: the Commands editor stops at 10, so no editor wrote it (capabilities-v1.md §1)"
+    },
+    {
       "name": "unknown-node-action",
       "file": "commands/hostile/unknown-node-action.command.json",
       "claim": {
@@ -4515,7 +4530,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 477,
+  "expected_checks": 479,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [

@@ -31,6 +31,16 @@ execute to another; golden `duplicate-type-key`). The extractor reads three memb
 `triggers[]` (serde tag `type`), `actions[]` (serde tag `type`) and
 `workflow.nodes{}` (`node_type`, `data`).
 
+**One key of a node's `data` is bounded: `retry_count`.** The Commands editor
+lets a step be tried again at most 10 times (its retry field's `max`; Astra
+`astra-daemon/src/command/catalogue_steps.rs` `MAX_RETRIES`). An artefact with a
+node whose `data.retry_count` is a JSON integer above 10 is `E_COMMAND_FORMAT`
+(golden `retry-count-over-max`). This holds on the client at parse and on the
+server at ingest, so such a command never reaches Browse only to be refused at
+every install. The value is read the way the client's executor reads it, as an
+unsigned 64-bit integer: a string, a negative number, a fraction or a number
+past that range is not a retry count at all, means no retries, and passes.
+
 ## 2. The allowlists are CLOSED
 
 **Any action type, node type or trigger type that is not on the pinned

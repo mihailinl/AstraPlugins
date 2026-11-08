@@ -671,6 +671,9 @@ COMMANDS = {
     "sub-workflow": command(UUID + "23", "Sub workflow", workflow=graph(
         node("t", "trigger", {"trigger_type": "text", "phrases": ["x"]}),
         node("w", "sub_workflow", {"workflow_id": UUID + "10"}))),
+    "retry-count-over-max": command(UUID + "28", "Retry eleven times", workflow=graph(
+        node("t", "trigger", {"trigger_type": "text", "config": {"phrases": ["go"]}}),
+        node("a", "action", {"action_type": "speak", "action": {"type": "speak", "text": "hi"}, "retry_count": 11}))),
     "requires-unlisted": command(UUID + "22", "Ghost plugin", [{"type": "text", "phrases": ["boo"]}],
                                  [{"type": "dynamic", "handler_id": "plugin__ghost-plugin__haunt"}]),
 }
