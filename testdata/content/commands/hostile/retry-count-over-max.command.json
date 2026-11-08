@@ -1,0 +1,36 @@
+{
+  "id": "00000000-0000-4000-8000-000000000028",
+  "name": "Retry eleven times",
+  "triggers": [],
+  "actions": [],
+  "enabled": true,
+  "workflow": {
+    "nodes": {
+      "t": {
+        "id": "t",
+        "node_type": "trigger",
+        "data": {
+          "trigger_type": "text",
+          "config": {
+            "phrases": [
+              "go"
+            ]
+          }
+        }
+      },
+      "a": {
+        "id": "a",
+        "node_type": "action",
+        "data": {
+          "action_type": "speak",
+          "action": {
+            "type": "speak",
+            "text": "hi"
+          },
+          "retry_count": 11
+        }
+      }
+    },
+    "edges": {}
+  }
+}

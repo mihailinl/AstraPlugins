@@ -395,7 +395,9 @@ type it actually parses a command into (Astra
 (`testdata/content/commands/{valid,hostile}/`) through it. Two things it does
 not express: (a) a graph node's `data` is a free object
 (`additionalProperties: true`) — only the client's own node reader gives its
-keys meaning, never this schema; (b) a repeated JSON member name, caught
+keys meaning, never this schema; the one key the ingest bounds there,
+`retry_count` (at most 10, [`capabilities-v1.md`](capabilities-v1.md) §1), is
+checked by the extractor; (b) a repeated JSON member name, caught
 separately (`E_COMMAND_FORMAT`) by a raw-text scan that runs before any
 parser — including this schema — ever sees the bytes. A
 capability/danger/requires mismatch between a claim and the derived set is

@@ -520,10 +520,20 @@ def _trigger(kind, data: dict, caps: set, req: set) -> None:
         raise Refusal("E_COMMAND_UNKNOWN_TRIGGER", repr(kind))
 
 
+# capabilities-v1.md §1: the Commands editor's bound on a step's retries (Astra `catalogue_steps::MAX_RETRIES`)
+MAX_RETRIES = 10
+
+
 def derive_command(cmd) -> dict:
     """{capabilities, danger, requires, flags} or Refusal."""
     if not isinstance(cmd, dict) or not isinstance(cmd.get("triggers", []), list) or not isinstance(cmd.get("actions", []), list):
         raise Refusal("E_COMMAND_FORMAT")
+    wf = cmd.get("workflow")
+    for n in (wf.get("nodes") or {}).values() if isinstance(wf, dict) and isinstance(wf.get("nodes"), dict) else ():
+        r = n.get("data", {}).get("retry_count") if isinstance(n, dict) and isinstance(n.get("data"), dict) else None
+        # read as the client's executor reads it (`as_u64`): only a JSON integer in u64's range is a retry count
+        if isinstance(r, int) and not isinstance(r, bool) and MAX_RETRIES < r <= 2**64 - 1:
+            raise Refusal("E_COMMAND_FORMAT", f"retry_count {r} > {MAX_RETRIES}")
     caps: set[str] = set()
     req: set[str] = set()
     danger = "low"
@@ -636,6 +646,7 @@ COMMAND_SCHEMA_TABLE: dict[str, str] = {
     "commands/hostile/caps-mismatch.command.json": "semantic",
     "commands/hostile/unknown-action.command.json": "fail",
     "commands/hostile/unknown-node-action.command.json": "blind-a",
+    "commands/hostile/retry-count-over-max.command.json": "blind-a",
     "commands/hostile/unknown-node.command.json": "fail",
     "commands/hostile/unknown-trigger.command.json": "fail",
     "commands/hostile/unknown-trigger-node.command.json": "blind-a",
