@@ -192,6 +192,21 @@ class ContentSchema(unittest.TestCase):
         self.assertFalse(ok, "a builtin: reference must never read as a declared part")
 
 
+class IntegrationIdLength(unittest.TestCase):
+    """manifest.md §3: an `[integration] id` is at most 100 characters, the plugins service's entry-id segment bound
+    (contract 6.16.0). Mutation: drop `maxLength` from the schema's integration id and the 101-character case passes."""
+
+    def test_a_101_character_id_is_refused_and_100_passes(self):
+        doc = copy.deepcopy(manifest("content-parts.toml"))
+        schema = ggold.load_schema("spec/games/schemas/manifest.schema.json")
+        doc["integration"]["id"] = "a" * 100
+        ok, detail = ggold.schema_ok(doc, schema)
+        self.assertTrue(ok, detail)
+        doc["integration"]["id"] = "a" * 101
+        ok2, _detail2 = ggold.schema_ok(doc, schema)
+        self.assertFalse(ok2, "a 101-character id makes an entry id the service cannot route")
+
+
 class IntegrationUsesReserved(unittest.TestCase):
     def test_removing_the_uses_table_makes_the_manifest_valid_again(self):
         doc = copy.deepcopy(ggold.load_doc("manifests/invalid/integration-uses-reserved.toml"))
