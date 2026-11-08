@@ -328,9 +328,27 @@ So:
    `"games-current"` document is refused under N, and nothing tells the
    signer that the last client still holding N has re-read trust.json. So
    the bridge is never timed out: A keeps co-signing under N+1, where no
-   client can verify it and it changes nothing. The next promotion bridges
-   with B and C in the same way, and A's seed leaves the signing environment
-   then. C stays the spare `next` for the following routine rotation.
+   client can verify it and it changes nothing. A leaves at the next
+   routine rotation, B to C. The signing environment holds two seeds, and
+   once the signer moves to C those two are B and C. A client still on N
+   then refuses the first C-signed document with a claimed-role error
+   (under N, C is unknown and B is only `next`). That refusal forces one
+   trust.json re-read, and the client accepts the document under N+1. A
+   third seed would keep such a client on N a little longer and buy nothing
+   else. From that rotation on, the signer co-signs with B and C, which is
+   the bridge the next promotion (current C, a fresh next D) needs, built
+   the same way.
+
+A signer may bridge **always**: whenever it holds the seeds of both
+trust.json roles, it signs with both under body `"games-current"`. Under
+the trust.json that lists both keys, that document has the same effect as a
+`next`-only one: the `next` key is among its verifiers, so it moves the
+rotation (the union above). And every served document is then ready for a
+promotion at any moment, so a ceremony has no "bridge first" step to forget.
+The games catalogue's signer works this way (`astra-games-catalogue` #15).
+Its `bin/ceremony-ready.mjs` is step 2's check: it refuses unless every
+document served on both hosts verifies under N and under N+1, and unless a
+key other than N's `current` verifies it.
 
 A ceremony that only adds a fresh `next` and keeps `current` (a compromise
 of the unused `next`, for example) changes no role of a signing key, so it
