@@ -9,12 +9,21 @@
 #   tools/resync-astra.sh --astra-dir ../Astra --skip-ui-kit --skip-docgen-check
 #
 # Astra main moves the plugin proto slice and the UI Kit out from under this
-# repository with no warning: nothing here subscribes to Astra's commits, so
-# the first sign is `proto (upstream drift)` or `proto (vendored copies)`
-# turning red in a pull request that touched neither file. On 2026-11-05 that
-# happened three times in one day, and each time a human re-typed the same
-# eight-step recipe by hand from tools/sync-proto.sh's comments,
-# gen-proto-lock.sh's comments and CONTRIBUTING.md's generated-files table.
+# repository with no warning: nothing here subscribes to Astra's commits. The
+# first sign USED TO BE `proto (upstream drift)` or `proto (vendored copies)`
+# turning red in a pull request that touched neither file — any open PR, the
+# moment an unrelated Astra commit landed, because ci.yml's proto-upstream job
+# compared an ordinary pull_request/push against Astra's LIVE main. On
+# 2026-11-05 that happened three times in one day, and each time a human
+# re-typed the same eight-step recipe by hand from tools/sync-proto.sh's
+# comments, gen-proto-lock.sh's comments and CONTRIBUTING.md's generated-files
+# table — which is also why `proto/ASTRA_PROTO.lock` now pins an ordinary
+# pull_request/push to the Astra commit this script last resynced against
+# (see gen-proto-lock.sh's `astra_commit` comment and ci.yml's "decide which
+# Astra ref..." step). The first sign today is the daily schedule run or
+# release-sdks.yml's own live gate going red — a run this script's caller did
+# not necessarily trigger, but one that is always about THIS repository being
+# behind, never about an unrelated PR.
 # The docs digest swap (step 7 below) was forgotten once, which is how a proto
 # resync turned the `mirror` job red too — a second CI failure with no
 # connection to the first one a reader could see without already knowing this
