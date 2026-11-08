@@ -845,6 +845,133 @@ jobs:
             exit 1
           fi
 
+      # Nothing above asks whether `astra_commit` is real Astra history. The
+      # byte-for-byte slice diff and the header hashes prove the SLICE is
+      # right for whatever commit this pins to — they say nothing about
+      # whether that commit is reachable from Astra's main, a detached
+      # commit nobody can see any more, or a branch that got force-pushed
+      # away. The GitHub compare API answers exactly that: for `BASE...HEAD`,
+      # `status` is `ahead` when HEAD contains BASE plus more commits,
+      # `identical` when they are the same commit, and `behind`/`diverged`
+      # otherwise — the four states that matter here.
+      #
+      #   * PINNED path (env.ASTRA_REF_IS_PIN == 'true', an ordinary
+      #     pull_request/push): load-bearing. The pin is what a fork PR's
+      #     degraded mode trusts without ever contacting upstream, so if it
+      #     is not really on Astra's main, that trust is void. An API
+      #     failure here (rate limit, network, a revoked token) fails the
+      #     same way — a check that silently skips on API trouble is worse
+      #     than no check.
+      #   * Every other path: this run already compares against something
+      #     OTHER than the pin on purpose (the step above's --live), so
+      #     there is nothing to gate here. This is purely informative: how
+      #     far behind main is the pin a maintainer last resynced against.
+      #     An API failure is noted and ignored.
+      - name: the pin is on Astra main
+        if: env.MODE == 'full'
+        env:
+          GH_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
+          ASTRA_REF_IS_PIN: ${{ env.ASTRA_REF_IS_PIN }}
+          ASTRA_RESOLVED_SHA: ${{ env.ASTRA_RESOLVED_SHA }}
+        run: |
+          set -euo pipefail
+          pin="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
+          if [ -z "$pin" ]; then
+            echo "::error::proto/ASTRA_PROTO.lock has no astra_commit= line to check against Astra main." >&2
+            exit 1
+          fi
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            target="main"
+          else
+            target="$ASTRA_RESOLVED_SHA"
+          fi
+          if [ "$pin" = "$target" ]; then
+            echo "ok   pin $pin is exactly what this run compares against — nothing to ask upstream"
+            exit 0
+          fi
+          if ! resp="$(gh api "repos/mihailinl/Astra/compare/${pin}...${target}" 2>&1)"; then
+            if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+              echo "::error::could not reach the GitHub compare API for mihailinl/Astra@${pin}...${target}:" >&2
+              echo "::error::$resp" >&2
+              exit 1
+            fi
+            echo "note  could not reach the GitHub compare API ($resp) — skipping the informational pin-vs-main distance"
+            exit 0
+          fi
+          status="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+          ahead="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["ahead_by"])')"
+          behind="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["behind_by"])')"
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            case "$status" in
+              ahead|identical)
+                echo "ok   pin $pin is on Astra main ($status, main is $ahead commit(s) ahead of it)" ;;
+              *)
+                echo "::error::proto/ASTRA_PROTO.lock's astra_commit=$pin is NOT on Astra main" >&2
+                echo "::error::(compare status: $status, ahead_by=$ahead, behind_by=$behind). A pin must" >&2
+                echo "::error::be real Astra history. Re-run tools/resync-astra.sh against a checkout" >&2
+                echo "::error::that is actually on main." >&2
+                exit 1 ;;
+            esac
+          else
+            echo "note  pin $pin vs this run's Astra@$target: $status (main is $ahead commit(s) ahead, $behind behind) — informational only"
+          fi
+
+      # The pin above being on main is not enough by itself: it still lets a
+      # pull request MOVE the pin BACKWARD relative to its base branch — to
+      # an older commit still technically on main — and stay green, because
+      # "on main" says nothing about direction. A PR that does that would
+      # make the merged master's pin regress the moment it lands, undoing
+      # whatever the base branch's last resync actually confirmed. This
+      # compares the base branch's own committed pin against the PR's pin
+      # with the same compare API, in the same base...head order, so
+      # `ahead`/`identical` means the PR's pin is the base's pin or newer.
+      # pull_request only: push and schedule/dispatch/release have no "base"
+      # to regress against.
+      - name: the pin did not move backward from the PR's base
+        if: env.MODE == 'full' && github.event_name == 'pull_request'
+        # SECURITY: through `env`, never interpolated into the script — see
+        # "the Astra checkout carries the slicer" above. A branch name is not
+        # restricted to the character set that comment assumes for a repository
+        # VARIABLE; git ref names permit `$`, backticks and quotes.
+        env:
+          GH_TOKEN: ${{ secrets.ASTRA_REPO_TOKEN }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          base_ref="$BASE_REF"
+          git fetch -q origin "$base_ref"
+          base_lock="$(git show "origin/${base_ref}:proto/ASTRA_PROTO.lock" 2>/dev/null || true)"
+          if [ -z "$base_lock" ]; then
+            echo "::error::could not read proto/ASTRA_PROTO.lock from origin/${base_ref}." >&2
+            exit 1
+          fi
+          base_pin="$(printf '%s\n' "$base_lock" | sed -n 's/^astra_commit=//p' | head -n1)"
+          pr_pin="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
+          if [ -z "$base_pin" ] || [ -z "$pr_pin" ]; then
+            echo "::error::missing astra_commit (base=${base_pin:-<empty>} pr=${pr_pin:-<empty>})." >&2
+            exit 1
+          fi
+          if [ "$base_pin" = "$pr_pin" ]; then
+            echo "ok   this PR's pin is unchanged from ${base_ref}'s ($pr_pin)"
+            exit 0
+          fi
+          if ! resp="$(gh api "repos/mihailinl/Astra/compare/${base_pin}...${pr_pin}" 2>&1)"; then
+            echo "::error::could not reach the GitHub compare API for ${base_pin}...${pr_pin}:" >&2
+            echo "::error::$resp" >&2
+            exit 1
+          fi
+          status="$(printf '%s' "$resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+          case "$status" in
+            ahead|identical)
+              echo "ok   this PR's pin $pr_pin is ahead of or equal to ${base_ref}'s pin $base_pin ($status)" ;;
+            *)
+              echo "::error::this PR's astra_commit=$pr_pin is not a descendant of ${base_ref}'s" >&2
+              echo "::error::astra_commit=$base_pin (compare status: $status). The pin must only move" >&2
+              echo "::error::forward; re-run tools/resync-astra.sh from a checkout that includes" >&2
+              echo "::error::${base_ref}'s resync." >&2
+              exit 1 ;;
+          esac
+
       # The real check the degraded-mode lock above stands in for: Astra is
       # checked out right here, so this compares the vendored schema against
       # astra-core/schemas/portable-command.schema.json byte-for-byte, not
@@ -1083,9 +1210,26 @@ jobs:
       # checkouts had no supported way to do the work. Phase 3b was stuck on
       # exactly that. The check and the write are now one code path, so they
       # cannot disagree about the file's contents.
+      #
+      # `--live` on every path except the pin itself: `env.ASTRA_REF_IS_PIN`
+      # is 'true' only on an ordinary pull_request/push, where `astra_commit`
+      # IS the ref this job checked out, so strict `--check` is the right
+      # proof. Every other path (`vars.ASTRA_REF`, schedule, dispatch, a
+      # release's `inputs.live_astra_ref`) checks out something that is NOT
+      # the pin on purpose, which used to fail this exact step on
+      # `astra_commit` alone — every single live run, protocol drift or
+      # none, which is how the daily cron stayed red regardless of whether
+      # plugin.proto had actually moved. `--live` drops that one field from
+      # the comparison and reports it as information instead.
       - name: the slice is current, and so is proto/ASTRA_PROTO.lock
         if: env.MODE == 'full'
-        run: bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check
+        run: |
+          set -euo pipefail
+          if [ "$ASTRA_REF_IS_PIN" = "true" ]; then
+            bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check
+          else
+            bash tools/gen-proto-lock.sh --astra-dir "$ASTRA_ROOT" --check --live
+          fi
 
       # C1 with the other half attached. The `couplings` job runs
       # `gen-limits.mjs --check` WITHOUT an Astra checkout, so it verifies the

@@ -53,10 +53,11 @@ PROTO_REL="proto/plugin.proto"
 
 astra_dir=""
 check_only=0
+live=0
 
 usage() {
     cat <<'USAGE'
-usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check]
+usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check] [--live]
 
   --astra-dir <path>  the daemon's tree: the top of a flat Astra checkout
                       (since 2026-10-23), or its astra-rs/ directory on a
@@ -66,6 +67,20 @@ usage: tools/gen-proto-lock.sh --astra-dir <path-to-daemon-tree> [--check]
                       resolves which shape it is — this script does not guess.
   --check             do not write; fail if proto/ASTRA_PROTO.lock differs from
                       what this run would have written.
+  --live              only with --check. --astra-dir is NOT the commit
+                      proto/ASTRA_PROTO.lock pins — it is Astra's live main
+                      (ci.yml's schedule/workflow_dispatch/release paths), or
+                      some other ref a maintainer is comparing against on
+                      purpose (vars.ASTRA_REF). `astra_commit` is therefore
+                      EXPECTED to differ from the committed lock on every
+                      such run — comparing it would fail every single time,
+                      on protocol drift or none, which is exactly what made
+                      every live run red regardless of whether plugin.proto
+                      had moved. This drops `astra_commit` from the
+                      comparison and reports the distance between the two
+                      commits as information instead. Without --live, --check
+                      is the strict comparison an ordinary pull_request/push
+                      needs: the pin itself is part of what must be current.
 
 Also read from the environment as ASTRA_RS_DIR, which is what tools/gen-limits.mjs
 and tools/check-manifest-crate.sh already use.
@@ -76,10 +91,18 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --astra-dir) astra_dir="${2:-}"; shift 2 ;;
         --check) check_only=1; shift ;;
+        --live) live=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'gen-proto-lock: unknown argument %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
 done
+
+if [ "$live" = 1 ] && [ "$check_only" != 1 ]; then
+    printf 'gen-proto-lock: --live only makes sense with --check (it changes nothing about\n' >&2
+    printf '                      what a write would produce — astra_commit is always the\n' >&2
+    printf '                      real HEAD of --astra-dir either way).\n' >&2
+    exit 2
+fi
 
 if [ -z "$astra_dir" ]; then
     astra_dir="${ASTRA_RS_DIR:-}"
@@ -312,6 +335,45 @@ if [ -n "$astra_sha" ]; then
 fi
 
 if [ "$check_only" = 1 ]; then
+    if [ "$live" = 1 ]; then
+        # Drop the astra_commit line from BOTH sides before comparing — see
+        # --live's usage text for why it must not be part of this comparison
+        # on a live run. Everything else (protocol, plugin_proto_sha256,
+        # surface_sha256, and astra_proto_sha256 if present) still has to
+        # match byte for byte; those are the actual proof that the slice is
+        # current, and --live does not weaken them at all.
+        grep -v '^astra_commit=' "$tmp/ASTRA_PROTO.lock" > "$tmp/without-commit.new"
+        grep -v '^astra_commit=' "$REPO_ROOT/$LOCK_REL" > "$tmp/without-commit.old"
+        if ! cmp -s "$tmp/without-commit.new" "$tmp/without-commit.old"; then
+            printf 'gen-proto-lock: FAIL %s is stale even ignoring astra_commit — the slice itself\n' "$LOCK_REL" >&2
+            printf '                      has moved, not just the pin. Commit this:\n\n' >&2
+            cat "$tmp/ASTRA_PROTO.lock" >&2
+            printf '\nRegenerate with: tools/gen-proto-lock.sh --astra-dir %s\n' "$astra_dir" >&2
+            exit 1
+        fi
+        printf 'gen-proto-lock: ok   %s is current (ignoring astra_commit — this is a live comparison)\n' "$LOCK_REL"
+        pinned_commit="$(sed -n 's/^astra_commit=//p' "$REPO_ROOT/$LOCK_REL" | head -n1)"
+        if [ "$pinned_commit" = "$astra_commit" ]; then
+            printf 'gen-proto-lock: note %s already pins this exact commit\n' "$LOCK_REL"
+        else
+            printf 'gen-proto-lock: note %s pins %s; this run compared against %s\n' \
+                "$LOCK_REL" "${pinned_commit:-<none>}" "${astra_commit:0:12}"
+            # Best effort only: --astra-dir is usually a shallow CI checkout
+            # (fetch-depth 1), which does not have the pinned commit's object
+            # at all, so `rev-list` below fails quietly and this says so
+            # rather than treating that as a problem. A maintainer running
+            # this against a full clone gets the real number.
+            if [ -n "$pinned_commit" ] && \
+               behind="$(git -C "$astra_dir" rev-list --count "$pinned_commit..$astra_commit" 2>/dev/null)"; then
+                printf 'gen-proto-lock: note the pin is %s commit(s) behind this run'\''s %s\n' \
+                    "$behind" "${astra_commit:0:12}"
+            else
+                printf 'gen-proto-lock: note commit distance not computable from this checkout (likely\n'
+                printf '                      shallow); not a failure, just not available here.\n'
+            fi
+        fi
+        exit 0
+    fi
     if ! cmp -s "$tmp/ASTRA_PROTO.lock" "$REPO_ROOT/$LOCK_REL"; then
         printf 'gen-proto-lock: FAIL %s is stale. Commit this:\n\n' "$LOCK_REL" >&2
         cat "$tmp/ASTRA_PROTO.lock" >&2
