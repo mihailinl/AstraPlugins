@@ -620,14 +620,14 @@ COMMANDS = {
         node("a", "action", {"action_type": "plugin__dice-roller__roll"}),
         node("e", "end"))),
     "morning": command(UUID + "04", "Morning", [{"type": "event", "event_name": "startup"}],
-                       [{"type": "notify", "title": "Good morning"}]),
+                       [{"type": "notify", "title": "Good morning", "message": "Your day starts now."}]),
     "on-crit": command(UUID + "05", "On crit", workflow=graph(
         node("t", "trigger", {"trigger_type": "plugin__dice-roller__on_natural_20"}),
         node("a", "action", {"action_type": "speak"}),
         node("n", "sticky_note", {"text": "celebrate"}))),
     "conditional": command(UUID + "06", "Conditional", [{"type": "text", "phrases": ["maybe"]}],
-                           [{"type": "condition", "if_true": [{"type": "open_url", "url": "https://example.invalid"}],
-                             "if_false": [{"type": "wait", "ms": 10}]}]),
+                           [{"type": "condition", "expression": "true", "if_true": [{"type": "open_url", "url": "https://example.invalid"}],
+                             "if_false": [{"type": "wait", "milliseconds": 10}]}]),
     "open-file": command(UUID + "07", "Open notes", [{"type": "text", "phrases": ["notes"]}],
                          [{"type": "execute", "shell": "open", "path": "~/notes.txt"}]),
     "event-node-startup": command(UUID + "08", "Startup node", workflow=graph(

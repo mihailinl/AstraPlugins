@@ -251,8 +251,8 @@
           "size": 22
         },
         "artefact": {
-          "sha256": "fc6a74d6341cfeb18cabd63731f1f51c515bef63ce60d4d22890e02608b16983",
-          "size": 263,
+          "sha256": "eefa70a81ea9deb0c20b3261c2c68f46c70f41662b2419122495a7470791e569",
+          "size": 304,
           "media_type": "application/vnd.astra.command+json"
         },
         "review": "unchecked",
@@ -272,8 +272,8 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "e37f1c5cd4650ab13858763ef4c5e6643abebeed3a5337e9ba369af164c830b0",
-            "size": 263
+            "digest": "03210e5413fed2f2185c08e6b6ace30249c953917936b12897e4b256feef9636",
+            "size": 304
           }
         ],
         "content_confirmed": {
@@ -403,8 +403,8 @@
           "size": 22
         },
         "artefact": {
-          "sha256": "a5050ef6577280a4345c28dbbb6b09623546701edc0db18eeb60df99373cd8ad",
-          "size": 466,
+          "sha256": "b7659a70ff8b110e84a7e580e018b66fab71795892d8fb30e097d493a39f3d72",
+          "size": 504,
           "media_type": "application/vnd.astra.command+json"
         },
         "review": "unchecked",
@@ -424,8 +424,8 @@
         "parts": [
           {
             "part_kind": "command",
-            "digest": "e9e27ec8a26c5ce5e6548e1d9aa7138fe6eb4984ef9f56fb1b3ef591322f03e7",
-            "size": 466
+            "digest": "de3067dc9ad82bb7465149a1247fcf65bffe7c4b8eaa599f79ffd3901d4ac915",
+            "size": 504
           }
         ],
         "content_confirmed": {
@@ -462,7 +462,7 @@
   "signatures": [
     {
       "key_id": "astra-index-test",
-      "sig": "N/VaKDpcPtUfHG9AW4w+dwMKKcoUOu50UaY2N+YUibCyB5543BXwyhm5EupPHqN/cTUxO21aiNXDBTtGduVyDg=="
+      "sig": "DO8t7doQ0TBSWz0D0SotHXzR+agJrF5O7dZuujAUZIi2Mc8hEVGKBOMH6Dr1uNwi5VUh9fQbVCNaZpylHwidCw=="
     }
   ]
 }
