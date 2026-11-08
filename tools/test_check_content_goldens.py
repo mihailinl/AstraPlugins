@@ -388,13 +388,13 @@ class PortableCommandSchemaTable(unittest.TestCase):
         # it accepts every document -- the same failure mode as a schema file
         # quietly losing its content. Every "pass"/"blind-*"/"semantic" row
         # stays green (the schema was already expected to accept them); the
-        # "fail"/"fail-154" rows -- hostile vectors the real schema correctly
-        # refuses -- flip to red, because the table expected a refusal this
-        # gutted schema no longer gives.
+        # "fail" rows -- hostile vectors the real schema correctly refuses --
+        # flip to red, because the table expected a refusal this gutted
+        # schema no longer gives.
         self.assertRedOn(Mutation("_SCHEMAS", {"portable-command-v1.schema.json": {}}),
                           "commands/hostile/unknown-action.command.json",
                           "commands/hostile/unknown-trigger.command.json",
-                          "commands/valid/morning.command.json")
+                          "commands/hostile/linear-open-file.command.json")
 
     def test_reclassifying_a_hostile_golden_as_expected_pass_is_caught(self):
         # unknown-action really is refused by the schema (download_and_run

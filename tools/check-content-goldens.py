@@ -594,18 +594,14 @@ def ingest_command(cmd, claim: dict, served_plugins: dict | None = None) -> dict
 # schema that quietly stops checking something is a red run, not a smaller
 # green one.
 #
+# #154 fixed the golden bytes this table used to carry a "fail-154" row for
+# (`morning` was missing NotifyAction's required `message`; `conditional` had
+# a wait spelled `ms` instead of `milliseconds` and a condition missing its
+# `expression`) -- both are "pass" rows now, same as every other accept-
+# vector, and the tag is gone: nothing else ever needed it.
+#
 # Four outcomes, one tag each:
 #   "pass"     an accept-vector whose shape the schema must accept.
-#   "fail-154" an accept-vector the schema correctly refuses TODAY, because
-#              the golden's own bytes (testdata/content/gen.py) have not
-#              been fixed for #154 yet: `morning` is missing NotifyAction's
-#              required `message`, `conditional` is missing ConditionAction's
-#              required `expression` (and its nested wait is missing
-#              `milliseconds`). This is a KNOWN, pre-existing defect in the
-#              golden bytes, not in this schema or this check -- the fix is
-#              `testdata/content/gen.py` + `python3 testdata/content/gen.py`,
-#              never a schema edit, and belongs to #154, not this change.
-#              Until #154 lands, these two rows are an EXPECTED red.
 #   "fail"     a hostile vector refused at a genuine shape violation (an
 #              unknown Action/Trigger/NodeType tag) -- the schema must refuse
 #              it too, independently of ingest_command()'s own refusal.
@@ -629,9 +625,9 @@ COMMAND_SCHEMA_TABLE: dict[str, str] = {
     "commands/valid/greet.command.json": "pass",
     "commands/valid/build-and-ask.command.json": "pass",
     "commands/valid/roll-dice.command.json": "pass",
-    "commands/valid/morning.command.json": "fail-154",
+    "commands/valid/morning.command.json": "pass",
     "commands/valid/on-crit.command.json": "pass",
-    "commands/valid/conditional.command.json": "fail-154",
+    "commands/valid/conditional.command.json": "pass",
     "commands/valid/open-file.command.json": "pass",
     "commands/valid/event-node-startup.command.json": "pass",
     "commands/hostile/linear-open-file.command.json": "fail",
@@ -656,9 +652,6 @@ COMMAND_SCHEMA_TABLE: dict[str, str] = {
 
 COMMAND_SCHEMA_REASON = {
     "pass": "an accept-vector; the schema must match the client's own types",
-    "fail-154": "KNOWN pre-existing defect, not caused by this change: the golden's bytes "
-                "predate AstraPlugins#154 (notify.message / wait.milliseconds / "
-                "condition.expression). Fix belongs in testdata/content/gen.py, never here.",
     "fail": "a hostile vector refused at a genuine Action/Trigger/NodeType shape violation",
     "blind-a": "blind spot: inside a graph node's data (additionalProperties: true) -- "
                "the client's own GraphNode reader decides this, not the schema",
@@ -2137,7 +2130,7 @@ def main() -> int:
     for relpath, tag in sorted(COMMAND_SCHEMA_TABLE.items()):
         cdoc = command_golden_doc(relpath)
         sok, detail = schema_ok(cdoc, pc_schema)
-        expect_pass = tag not in ("fail", "fail-154")
+        expect_pass = tag != "fail"
         report(f"commands schema: {relpath} ({tag})", sok == expect_pass,
                f"expected {'pass' if expect_pass else 'fail'}, schema said "
                f"{'pass' if sok else 'fail'} ({detail}) — {COMMAND_SCHEMA_REASON[tag]}")
