@@ -28,7 +28,7 @@
       "required": ["id", "name", "version"],
       "additionalProperties": true,
       "properties": {
-        "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$" },
+        "id": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9._-]+$" },
         "name": { "type": "string", "minLength": 1 },
         "version": { "type": "string", "minLength": 1 },
         "authors": { "type": "array", "items": { "type": "string" } },

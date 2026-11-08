@@ -743,6 +743,13 @@ they mean by it."
 
 ## 3. Reserved names and ids
 
+**An `[integration] id` is 1 to 100 characters of `[A-Za-z0-9._-]`**
+([`schemas/manifest.schema.json`](schemas/manifest.schema.json)). The games
+catalogue builds the entry id from it as `<GitHub login>/<slug>`, where the
+slug is the id without a leading `<login>.` and with each `.` turned into `-`.
+The plugins service bounds each segment of an entry id at 100 characters
+(contract 6.16.0), so a longer id would make an entry nobody could moderate.
+
 [`spec/games/reserved.yaml`](reserved.yaml) is the **one list** of:
 
 - reserved engine codes (the four built-ins plus the `unknown` sentinel);
