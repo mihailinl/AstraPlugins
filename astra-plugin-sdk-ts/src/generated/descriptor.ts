@@ -3432,6 +3432,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "priority": {
               "type": "int32",
               "id": 12
+            },
+            "sourceMarker": {
+              "type": "CatalogueSourceMarker",
+              "id": 13
             }
           }
         },
@@ -3764,6 +3768,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "priority": {
               "type": "int32",
               "id": 16
+            },
+            "catalogueSource": {
+              "type": "CatalogueSourceMarker",
+              "id": 17
             }
           }
         },
@@ -10923,6 +10931,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "initiator": {
               "type": "string",
               "id": 9
+            },
+            "conversationId": {
+              "type": "string",
+              "id": 10
             }
           }
         },
@@ -10935,6 +10947,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "outcome": {
               "type": "string",
               "id": 2
+            }
+          }
+        },
+        "CatalogueSourceMarker": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "version": {
+              "type": "string",
+              "id": 2
+            },
+            "artefactSha256": {
+              "type": "string",
+              "id": 3
             }
           }
         }
