@@ -945,11 +945,21 @@ jobs:
             echo "::error::could not read proto/ASTRA_PROTO.lock from origin/${base_ref}." >&2
             exit 1
           fi
-          base_pin="$(printf '%s\n' "$base_lock" | sed -n 's/^astra_commit=//p' | head -n1)"
           pr_pin="$(sed -n 's/^astra_commit=//p' proto/ASTRA_PROTO.lock | head -n1)"
-          if [ -z "$base_pin" ] || [ -z "$pr_pin" ]; then
-            echo "::error::missing astra_commit (base=${base_pin:-<empty>} pr=${pr_pin:-<empty>})." >&2
+          if [ -z "$pr_pin" ]; then
+            echo "::error::this PR's own proto/ASTRA_PROTO.lock has no astra_commit= line." >&2
             exit 1
+          fi
+          # Reproduced on #158 itself: `astra_commit` is this same pin's own
+          # first appearance in the lock format, so ${base_ref}'s lock
+          # (master, before #158 merges) carries none yet. That is not a
+          # backward move — there is no earlier pin to regress from — so
+          # this is informative, not a failure, for exactly as long as the
+          # base branch predates the field.
+          base_pin="$(printf '%s\n' "$base_lock" | sed -n 's/^astra_commit=//p' | head -n1)"
+          if [ -z "$base_pin" ]; then
+            echo "note  ${base_ref}'s proto/ASTRA_PROTO.lock has no astra_commit= line yet (it predates the pin) — nothing to regress from"
+            exit 0
           fi
           if [ "$base_pin" = "$pr_pin" ]; then
             echo "ok   this PR's pin is unchanged from ${base_ref}'s ($pr_pin)"
