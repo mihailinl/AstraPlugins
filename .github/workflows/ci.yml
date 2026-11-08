@@ -493,9 +493,11 @@ jobs:
 
           # An ordinary pull_request/push must compare against the commit
           # ASTRA_PROTO.lock pins, not live main — see the block comment
-          # above. Built by concatenation, not written as one literal, so
-          # GitHub's own `${{ }}` expression pass over this run script does
-          # not try to evaluate it before python ever sees it.
+          # above. Built by concatenation, not written as one literal: GitHub
+          # scans this whole run: block's TEXT for its own expression syntax
+          # before python ever sees it, even inside a python comment, so the
+          # literal four characters dollar-brace-brace-space must never
+          # appear verbatim anywhere in this step.
           expected_ref_expr = "$" + "{{ env.ASTRA_CHECKOUT_REF }}"
           m = re.search(r"repository: mihailinl/Astra\n\s*ref: (.+)\n", text)
           if not m:
