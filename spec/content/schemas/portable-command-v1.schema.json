@@ -1,0 +1,2343 @@
+{
+  "$defs": {
+    "Action": {
+      "description": "An action to execute as part of a command\n\n`EnumDiscriminants` generates the fieldless [`ActionDiscriminants`] with\n`EnumIter` — the consistency canary iterates it to assert every variant is\neither wired into the UI type registry or explicitly exempt.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SpeakAction",
+          "description": "Speak text using TTS",
+          "properties": {
+            "type": {
+              "const": "speak",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/ExecuteAction",
+          "description": "Execute a program or command",
+          "properties": {
+            "type": {
+              "const": "execute",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/OpenUrlAction",
+          "description": "Open a URL in browser",
+          "properties": {
+            "type": {
+              "const": "open_url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/OpenApplicationAction",
+          "description": "Open an application or a file through the host OS.",
+          "properties": {
+            "type": {
+              "const": "open_application",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/TypeTextAction",
+          "description": "Type text (keyboard input)",
+          "properties": {
+            "type": {
+              "const": "type_text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/PressKeysAction",
+          "description": "Press keyboard keys",
+          "properties": {
+            "type": {
+              "const": "press_keys",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/MouseClickAction",
+          "description": "Mouse click",
+          "properties": {
+            "type": {
+              "const": "mouse_click",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/SetVariableAction",
+          "description": "Set a variable",
+          "properties": {
+            "type": {
+              "const": "set_variable",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/WaitAction",
+          "description": "Wait/delay",
+          "properties": {
+            "type": {
+              "const": "wait",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/ConditionAction",
+          "description": "Conditional execution",
+          "properties": {
+            "type": {
+              "const": "condition",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/LoopAction",
+          "description": "Loop execution",
+          "properties": {
+            "type": {
+              "const": "loop",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/SendToAiAction",
+          "description": "Send prompt to AI",
+          "properties": {
+            "type": {
+              "const": "send_to_ai",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/KillProcessAction",
+          "description": "Kill a process",
+          "properties": {
+            "type": {
+              "const": "kill_process",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/SystemAction",
+          "description": "System action (shutdown, restart, etc.)",
+          "properties": {
+            "type": {
+              "const": "system",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/ClipboardAction",
+          "description": "Clipboard operation",
+          "properties": {
+            "type": {
+              "const": "clipboard",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/NotifyAction",
+          "description": "Show notification",
+          "properties": {
+            "type": {
+              "const": "notify",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/PlaySoundAction",
+          "description": "Play a sound",
+          "properties": {
+            "type": {
+              "const": "play_sound",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/ControlMusicAction",
+          "description": "Control music playback (play, pause, next, previous, etc.)",
+          "properties": {
+            "type": {
+              "const": "control_music",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "No-op pass-through (routing junction, does nothing)",
+          "properties": {
+            "type": {
+              "const": "noop",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/CodeAction",
+          "description": "Execute a JavaScript script",
+          "properties": {
+            "type": {
+              "const": "code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/AiRequestAction",
+          "description": "Send prompt to AI, store result (non-streaming, no chat output)",
+          "properties": {
+            "type": {
+              "const": "ai_request",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/StreamToChatAction",
+          "description": "Stream AI response to chat with optional TTS",
+          "properties": {
+            "type": {
+              "const": "stream_to_chat",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/SetVolumeAction",
+          "description": "Set system volume (absolute or relative)",
+          "properties": {
+            "type": {
+              "const": "set_volume",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/ScreenshotAction",
+          "description": "Take a screenshot (save to file or store in variable)",
+          "properties": {
+            "type": {
+              "const": "screenshot",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/UiClickAction",
+          "description": "Click a UI element using Windows UI Automation",
+          "properties": {
+            "type": {
+              "const": "ui_click",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/UiTypeAction",
+          "description": "Type text into a UI element using Windows UI Automation",
+          "properties": {
+            "type": {
+              "const": "ui_type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/YoutubePlayAction",
+          "description": "Search YouTube and open a video in the browser",
+          "properties": {
+            "type": {
+              "const": "youtube_play",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/RunCommandAction",
+          "description": "Run another saved command inline (compose/reuse commands).",
+          "properties": {
+            "type": {
+              "const": "run_command",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/CompanionAnimationAction",
+          "description": "Ask the companion to play an animation — enter a state, or raise a token.",
+          "properties": {
+            "type": {
+              "const": "companion_animation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/SetCompanionEnabledAction",
+          "description": "Enable or disable the desktop companion's visual body.",
+          "properties": {
+            "type": {
+              "const": "set_companion_enabled",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/WorkTaskAction",
+          "description": "Start a «Рабочий» task in the background — a ROUTINE: a saved, repeatable\njob (`work-mode` builds; elsewhere the executor refuses it).",
+          "properties": {
+            "type": {
+              "const": "work_task",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/MacroAction",
+          "description": "Replay a recorded input macro (keyboard + mouse).\n\nThe most dangerous action in the product: a step list can drive any\nprogram the user can. See [`MacroAction`](crate::command::MacroAction).",
+          "properties": {
+            "type": {
+              "const": "macro",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/DynamicAction",
+          "description": "A dynamically-registered action type (for plugins).\nThe `handler_id` references a registered ActionHandler.",
+          "properties": {
+            "type": {
+              "const": "dynamic",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "AiRequestAction": {
+      "description": "AI request — send prompt, store result, no chat output",
+      "properties": {
+        "include_context": {
+          "default": false,
+          "description": "Include conversation context from chat history",
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "Prompt to send (supports variables)",
+          "type": "string"
+        },
+        "store_result_in": {
+          "default": "",
+          "description": "Variable name to store the AI response in",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    },
+    "CatalogueProvenance": {
+      "description": "Where a command installed from the Workshop's CATALOGUE came from: the catalogue item, the\nversion installed, and the SHA-256 of the artefact that version served (catalogue core §39,\nC7). It is the catalogue's twin of [`MarketplaceSource`] and is set only by the catalogue's\ncommands installer, never by a save request; the portable form clears it\n(`command::portable::portable_command`), as it does `marketplace_source`.",
+      "properties": {
+        "artefact_sha256": {
+          "description": "Lowercase hex SHA-256 of the artefact that version served.",
+          "type": "string"
+        },
+        "id": {
+          "description": "The catalogue item id.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version that was installed.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "artefact_sha256"
+      ],
+      "type": "object"
+    },
+    "ClipboardAction": {
+      "description": "Clipboard operation",
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/ClipboardOperation",
+          "description": "Operation to perform"
+        },
+        "store_in": {
+          "default": "",
+          "description": "Variable to store result for get operation",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "description": "Text for set operation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "type": "object"
+    },
+    "ClipboardOperation": {
+      "description": "Clipboard operations",
+      "enum": [
+        "get",
+        "set"
+      ],
+      "type": "string"
+    },
+    "CodeAction": {
+      "description": "Execute a script (JavaScript or Python)",
+      "properties": {
+        "language": {
+          "default": "javascript",
+          "description": "Language: \"javascript\" (default) or \"python\"",
+          "type": "string"
+        },
+        "script": {
+          "description": "Source code to execute",
+          "type": "string"
+        }
+      },
+      "required": [
+        "script"
+      ],
+      "type": "object"
+    },
+    "CommandExecutionOverride": {
+      "description": "Per-command override of the global execution budget\n([`crate::config::CommandExecutionSettings`]).\n\nEach field is independent: `None` = inherit the global default; `Some(n)`\noverrides it, with the SAME sentinel meaning as the global setting — a `0`\nceiling falls back to the engine default, and `timeout_seconds == 0` means\n**no** wall-clock deadline. This lets one command opt into \"no time limit\"\neven when the global has one (a long-running monitor), while a quick command\ncaps itself with a small timeout — the whole point of a per-command budget.",
+      "properties": {
+        "max_loop_iterations": {
+          "description": "Override for a single loop node's iteration ceiling. `None` = inherit.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_steps": {
+          "description": "Override for the run's step ceiling. `None` = inherit global.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "timeout_seconds": {
+          "description": "Override for the wall-clock deadline in seconds. `None` = inherit;\n`Some(0)` = explicitly no time limit.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CompanionAnimationAction": {
+      "description": "Ask the companion to play something.\n\n# Two fields of VALUE under one `mode` key, and never one shared field\n\nA node is a DOCUMENT that gets edited. A user who flips the dropdown to look\nat the other mode and flips back must find their own value where they left\nit — and with one shared field the flip REINTERPRETS it: a state name\ndelivered as a trigger token matches no out-edge under any state, so it is a\npermanent, silent no-op. That is the exact outcome\n`astra_daemon::companion::animation` exists to refuse, and it would arrive\nhere by an edit nobody considered an edit. The second `String` makes it\nimpossible rather than unlikely.\n\nBoth values support `{variable}` substitution, resolved against the run's\ncontext before the cue is built — so a trigger slot can carry the state name.",
+      "properties": {
+        "mode": {
+          "default": "",
+          "description": "`state` — enter a state and let the ENGINE pick the variant by that\nstate's own weighted / shuffle / sequential policy — or `trigger`, raise\na token into the state graph and take the current state's matching\nout-edge.\n\nA CLOSED set, and anything else is an error at execution time rather\nthan a default: `Cue::from_mode` answers `None`, and defaulting would\nsend one mode's value down the other mode's arm. Empty preserves a\ndocument written before a mode existed — which is also an error, and\ndeliberately so.",
+          "type": "string"
+        },
+        "state": {
+          "default": "",
+          "description": "The state to enter, read only when `mode == \"state\"`.",
+          "type": "string"
+        },
+        "trigger": {
+          "default": "",
+          "description": "The token to raise, read only when `mode == \"trigger\"`.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CompanionSwitch": {
+      "description": "What a companion node does to the setting. `Toggle` reads the setting when\nthe node runs, not when it was saved.",
+      "enum": [
+        "on",
+        "off",
+        "toggle"
+      ],
+      "type": "string"
+    },
+    "ConditionAction": {
+      "description": "Conditional execution",
+      "properties": {
+        "expression": {
+          "description": "Lua expression to evaluate",
+          "type": "string"
+        },
+        "if_false": {
+          "default": [],
+          "description": "Actions if false",
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        },
+        "if_true": {
+          "default": [],
+          "description": "Actions if true",
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "expression"
+      ],
+      "type": "object"
+    },
+    "ControlMusicAction": {
+      "description": "Control music playback",
+      "properties": {
+        "action": {
+          "description": "Action to perform: play, pause, toggle, next, previous, stop",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "DynamicAction": {
+      "description": "A dynamically-registered action type (for plugins).",
+      "properties": {
+        "handler_id": {
+          "description": "Handler identifier — maps to a registered ActionHandler",
+          "type": "string"
+        },
+        "params": {
+          "default": null,
+          "description": "Arbitrary parameters as a JSON object"
+        }
+      },
+      "required": [
+        "handler_id"
+      ],
+      "type": "object"
+    },
+    "DynamicTrigger": {
+      "description": "A dynamically-registered trigger type (for plugins).",
+      "properties": {
+        "config": {
+          "default": null,
+          "description": "Arbitrary configuration as a JSON object"
+        },
+        "handler_id": {
+          "description": "Handler identifier — maps to a plugin trigger type (e.g. `plugin__dice_roller__on_natural_20`)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handler_id"
+      ],
+      "type": "object"
+    },
+    "EditorMode": {
+      "description": "Editor mode for a command.",
+      "oneOf": [
+        {
+          "const": "linear",
+          "description": "Legacy sequential action list — not used at runtime.",
+          "type": "string"
+        },
+        {
+          "const": "graph",
+          "description": "Visual node-graph editor (all commands use this).",
+          "type": "string"
+        }
+      ]
+    },
+    "EventTrigger": {
+      "description": "System event trigger",
+      "properties": {
+        "event_name": {
+          "description": "Event name",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Optional parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "event_name"
+      ],
+      "type": "object"
+    },
+    "ExecuteAction": {
+      "description": "Execute a program or command.\n\nThe `shell` field selects the runner:\n- empty → the OS default shell (PowerShell on Windows, `$SHELL`/`sh` on Unix),\n- a shell id (`\"powershell\"`, `\"cmd\"`, `\"bash\"`, `\"zsh\"`, `\"fish\"`, …) → run\n  `command` as a script in that shell, capturing its output,\n- [`EXECUTE_OPEN_MODE`] (`\"open\"`) → open `path` with `arguments` via the OS\n  shell association (like the Windows Run dialog / `xdg-open`).",
+      "properties": {
+        "arguments": {
+          "default": "",
+          "description": "Arguments passed to the opened target (open-mode only).",
+          "type": "string"
+        },
+        "capture_output": {
+          "default": true,
+          "description": "Capture stdout/stderr/exit code and surface them (shell modes).\nDefaults to true — the user wants to see real output and errors.",
+          "type": "boolean"
+        },
+        "command": {
+          "default": "",
+          "description": "Command/script to execute (shell modes), possibly multiline.",
+          "type": "string"
+        },
+        "icon_path": {
+          "default": "",
+          "description": "A picture the user chose by hand for the companion's app badge, and it\nOVERRIDES whatever the daemon would extract from `path` (open-mode only).\n\nIt exists because extraction has no chance at all on some targets: a\n`.url` launcher and a wrapper script *are* the file that gets opened, and\nneither carries the icon of the application it starts. Without a manual\nanswer those launches draw no badge, which on screen is indistinguishable\nfrom the companion being switched off — so the user is given the one\nthing the extractor cannot infer.\n\n`#[serde(default)]` is what keeps every `commands.json` written before\nthis field readable: the absent key reads as empty, empty means \"no\noverride\", and extraction behaves exactly as it did.",
+          "type": "string"
+        },
+        "path": {
+          "default": "",
+          "description": "Target path to open/run (open-mode only).",
+          "type": "string"
+        },
+        "run_as_admin": {
+          "default": false,
+          "description": "Run elevated / as administrator (best-effort; Windows).",
+          "type": "boolean"
+        },
+        "shell": {
+          "default": "",
+          "description": "Runner: empty = OS default shell, a shell id, or `\"open\"` (open-mode).",
+          "type": "string"
+        },
+        "show_window": {
+          "default": false,
+          "description": "Open an interactive terminal window instead of capturing (shell modes).\nMutually exclusive with capture.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "GraphEdge": {
+      "description": "An edge connecting two nodes.",
+      "properties": {
+        "id": {
+          "description": "Unique edge ID.",
+          "type": "string"
+        },
+        "source_node": {
+          "description": "Source node ID.",
+          "type": "string"
+        },
+        "source_port": {
+          "default": "default",
+          "description": "Source port name (e.g. \"default\", \"true\", \"false\").",
+          "type": "string"
+        },
+        "target_node": {
+          "description": "Target node ID.",
+          "type": "string"
+        },
+        "target_port": {
+          "default": "default",
+          "description": "Target port name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_node",
+        "target_node"
+      ],
+      "type": "object"
+    },
+    "GraphNode": {
+      "description": "A single node in the workflow graph.",
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Configuration data for this node (action fields, etc.).\n\nDeliberately FREE-FORM — a bag the UI, the AI tools and every node\nkind write their own keys into (`action_type`/`action`/`config`,\n`trigger_type`, `disabled`, `wait_for_completion`, …), none of it\nenforced at this layer; only the graph executor and `GraphNode`'s own\nreaders give any of those keys meaning. `deserialize_node_data`\n(`opening.rs`) migrates a couple of legacy spellings in place before\nthe map is built, but never refuses a shape, so the schema says exactly\nwhat the type is — any object — and invents no structure the\ndeserializer does not itself enforce.",
+          "type": "object"
+        },
+        "id": {
+          "description": "Unique node ID (typically a UUID string).",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "description": "Display label (optional, for UI).",
+          "type": "string"
+        },
+        "node_type": {
+          "$ref": "#/$defs/NodeType",
+          "description": "The type of this node."
+        },
+        "position_x": {
+          "default": 0.0,
+          "description": "X position on the editor canvas.",
+          "format": "double",
+          "type": "number"
+        },
+        "position_y": {
+          "default": 0.0,
+          "description": "Y position on the editor canvas.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "node_type"
+      ],
+      "type": "object"
+    },
+    "HotkeyTrigger": {
+      "description": "Hotkey trigger",
+      "properties": {
+        "key": {
+          "description": "Main key",
+          "type": "string"
+        },
+        "modifiers": {
+          "description": "Modifier keys (Ctrl, Alt, Shift, Win)",
+          "items": {
+            "$ref": "#/$defs/Modifier"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "modifiers",
+        "key"
+      ],
+      "type": "object"
+    },
+    "KeyCombination": {
+      "properties": {
+        "delay_ms": {
+          "default": 100,
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "keys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "type": "object"
+    },
+    "KeyDir": {
+      "description": "Whether a key step presses, releases, or does both.",
+      "oneOf": [
+        {
+          "enum": [
+            "up"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "click",
+          "description": "Press and release — the common case.",
+          "type": "string"
+        },
+        {
+          "const": "down",
+          "description": "Press and leave held (a later `Up` step releases it).",
+          "type": "string"
+        }
+      ]
+    },
+    "KillProcessAction": {
+      "description": "Kill a process",
+      "properties": {
+        "force": {
+          "default": false,
+          "description": "Force kill",
+          "type": "boolean"
+        },
+        "pid": {
+          "default": 0,
+          "description": "Process ID (0 to use process_name)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "process_name": {
+          "default": "",
+          "description": "Process name",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LoopAction": {
+      "description": "Loop execution",
+      "properties": {
+        "body": {
+          "default": [],
+          "description": "Actions to execute",
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        },
+        "count": {
+          "default": 0,
+          "description": "Number of iterations (0 for infinite)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "while_condition": {
+          "default": "",
+          "description": "While condition (Lua expression)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MacroAction": {
+      "description": "Replay a recorded input macro.\n\nEvery field defaults, so a freshly dropped node (`config: {}`) deserializes —\nwhich is what lets the generic workflow-graph pre-deserializer handle this\naction with no arm of its own.",
+      "properties": {
+        "coordinates": {
+          "$ref": "#/$defs/MacroCoordinateMode",
+          "default": "absolute"
+        },
+        "delay_mode": {
+          "$ref": "#/$defs/MacroDelayMode",
+          "default": "recorded"
+        },
+        "fixed_delay_ms": {
+          "default": 50,
+          "description": "Used when `delay_mode == Fixed`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "description": "Provenance written by the recorder (\"Recorded 2026-07-28 · 41 steps ·\n12.4 s\"). Free text; the user may edit or clear it.",
+          "type": "string"
+        },
+        "repeat": {
+          "default": 1,
+          "description": "How many times to run the whole list. `0` is coerced to `1` — an\naccidental infinity here would be a macro nobody can stop.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repeat_delay_ms": {
+          "default": 0,
+          "description": "Pause between repeats.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "speed": {
+          "default": 1.0,
+          "description": "Playback speed multiplier. **Divides** every delay: 2.0 replays twice as\nfast. Clamped to 0.25..=10.0 at execute time.",
+          "format": "float",
+          "type": "number"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MacroStep"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "MacroCoordinateMode": {
+      "description": "How a macro's coordinates are interpreted at playback.",
+      "oneOf": [
+        {
+          "const": "absolute",
+          "description": "Virtual-desktop screen pixels. Breaks if the target window moves.",
+          "type": "string"
+        },
+        {
+          "const": "active_window",
+          "description": "Relative to the window that was focused while recording, re-found by\nclass and title at playback. Survives the window moving; fails loudly\n(never clicks the bare desktop) when the window is gone.",
+          "type": "string"
+        }
+      ]
+    },
+    "MacroDelayMode": {
+      "description": "Where a macro's timing comes from at playback.",
+      "oneOf": [
+        {
+          "const": "recorded",
+          "description": "Use each step's recorded `delay_before_ms`.",
+          "type": "string"
+        },
+        {
+          "const": "fixed",
+          "description": "Ignore recorded timing; wait `fixed_delay_ms` before every step.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Replay as fast as the OS accepts. Fine for text, usually too fast for\nUI that animates.",
+          "type": "string"
+        }
+      ]
+    },
+    "MacroStep": {
+      "description": "One step of a recorded macro.\n\nInternally tagged on `op`, so the wire shape, the JSON stored in a workflow\nnode's `config`, and this enum are all the same vocabulary — the frontend\nnever translates.",
+      "oneOf": [
+        {
+          "description": "A run of typed characters, coalesced from individual keystrokes.",
+          "properties": {
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "text",
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A single key, using `action_ops::input::parse_key`'s vocabulary.",
+          "properties": {
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "dir": {
+              "$ref": "#/$defs/KeyDir",
+              "default": "click"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "key": {
+              "type": "string"
+            },
+            "op": {
+              "const": "key",
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A modifier chord (Ctrl+C). Pressed in order, released in reverse.",
+          "properties": {
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "hold_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "keys": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "op": {
+              "const": "chord",
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "keys"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Move the pointer without clicking. Only recorded during a drag.",
+          "properties": {
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "move",
+              "type": "string"
+            },
+            "x": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "y": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Move then press-and-release. `clicks: 2` is a double-click.",
+          "properties": {
+            "button": {
+              "$ref": "#/$defs/MouseButton",
+              "default": "left"
+            },
+            "clicks": {
+              "default": 1,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "click",
+              "type": "string"
+            },
+            "x": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "y": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Move then press and hold (a later `MouseUp` releases it).",
+          "properties": {
+            "button": {
+              "$ref": "#/$defs/MouseButton",
+              "default": "left"
+            },
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "mouse_down",
+              "type": "string"
+            },
+            "x": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "y": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "button": {
+              "$ref": "#/$defs/MouseButton",
+              "default": "left"
+            },
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "mouse_up",
+              "type": "string"
+            },
+            "x": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "y": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/ScrollAxis",
+              "default": "vertical"
+            },
+            "clicks": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "delay_before_ms": {
+              "default": 0,
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "op": {
+              "const": "scroll",
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "clicks"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "An explicit pause. The recorder never emits one — timing lives on\n`delay_before_ms`; this is for the user to insert in the editor.",
+          "properties": {
+            "disabled": {
+              "type": "boolean"
+            },
+            "ms": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "wait",
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "ms"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A labelled divider. Does nothing; makes a long list readable.",
+          "properties": {
+            "op": {
+              "const": "comment",
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "text"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MarketplaceSource": {
+      "description": "Tracks where a command was installed from in the marketplace",
+      "properties": {
+        "author_name": {
+          "description": "Author display name",
+          "type": "string"
+        },
+        "listing_id": {
+          "description": "Marketplace listing UUID",
+          "type": "string"
+        },
+        "version": {
+          "description": "Version that was installed",
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "listing_id",
+        "version",
+        "author_name"
+      ],
+      "type": "object"
+    },
+    "Modifier": {
+      "description": "Keyboard modifier keys",
+      "enum": [
+        "ctrl",
+        "alt",
+        "shift",
+        "win"
+      ],
+      "type": "string"
+    },
+    "MouseButton": {
+      "description": "Mouse button.\n\n`X1`/`X2` are the side buttons (Back/Forward on most mice). They exist\nbecause a *recorded* macro can contain one — the alternative was a second\nbutton enum living next to this one. The `mouse_click` action's dropdown\ndeliberately still offers only the three primary buttons; a type wider than\nthe UI offers is safe, the reverse is not.",
+      "enum": [
+        "left",
+        "right",
+        "middle",
+        "x1",
+        "x2"
+      ],
+      "type": "string"
+    },
+    "MouseClickAction": {
+      "description": "Mouse click action",
+      "properties": {
+        "button": {
+          "anyOf": [
+            {
+              "pattern": "^(?i:left|right|middle|x1|x2)$",
+              "type": "string"
+            },
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            }
+          ],
+          "description": "Button to click. `deserialize_mouse_button` accepts this field's own\nlowercase name OR any case of it, OR the legacy numeric encoding\n(0-4) a recorded macro can carry — wider than [`MouseButton`]'s own\nderived schema, so the field's schema is built from that acceptance\ndirectly rather than from the Rust type."
+        },
+        "clicks": {
+          "default": 1,
+          "description": "Number of clicks",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "default": -1,
+          "description": "X coordinate (-1 for current)",
+          "format": "int32",
+          "type": "integer"
+        },
+        "y": {
+          "default": -1,
+          "description": "Y coordinate (-1 for current)",
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "button"
+      ],
+      "type": "object"
+    },
+    "NodeType": {
+      "description": "The kind of a graph node.",
+      "oneOf": [
+        {
+          "const": "start",
+          "description": "Entry point of the graph. Exactly one per workflow.",
+          "type": "string"
+        },
+        {
+          "const": "end",
+          "description": "Terminal node. Execution stops here.",
+          "type": "string"
+        },
+        {
+          "const": "action",
+          "description": "Executes an `Action` (same types as the linear editor).",
+          "type": "string"
+        },
+        {
+          "const": "condition",
+          "description": "Conditional branch (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "loop",
+          "description": "Loop construct (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "parallel",
+          "description": "Fork into parallel branches (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "merge",
+          "description": "Join parallel branches (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "error_handler",
+          "description": "Error-handling wrapper (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "sub_workflow",
+          "description": "Nested workflow invocation (Phase 2+).",
+          "type": "string"
+        },
+        {
+          "const": "trigger",
+          "description": "Trigger entry point — replaces Start with trigger configuration.",
+          "type": "string"
+        },
+        {
+          "const": "sticky_note",
+          "description": "Frontend-only sticky note (not executed).",
+          "type": "string"
+        },
+        {
+          "const": "switch",
+          "description": "Multi-way branching based on expression matching.",
+          "type": "string"
+        },
+        {
+          "const": "delay",
+          "description": "Delay/wait for a specified duration.",
+          "type": "string"
+        }
+      ]
+    },
+    "NotificationLevel": {
+      "description": "Notification level",
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "success"
+      ],
+      "type": "string"
+    },
+    "NotifyAction": {
+      "description": "Show notification",
+      "properties": {
+        "duration_ms": {
+          "default": 5000,
+          "description": "Duration in ms",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "level": {
+          "$ref": "#/$defs/NotificationLevel",
+          "default": "info",
+          "description": "Notification level"
+        },
+        "message": {
+          "description": "Notification message",
+          "type": "string"
+        },
+        "title": {
+          "description": "Notification title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "message"
+      ],
+      "type": "object"
+    },
+    "OpenApplicationAction": {
+      "description": "Cross-platform Open node. The persisted tag stays `open_application` so\nexisting commands keep their identity.",
+      "properties": {
+        "app_id": {
+          "default": "",
+          "description": "Application target: a `.desktop` id on Linux, or an Apps-folder target /\nexecutable path on Windows.",
+          "type": "string"
+        },
+        "app_name": {
+          "default": "",
+          "description": "Human-readable name, stored by the picker for display when the app\nisn't installed on the running machine.",
+          "type": "string"
+        },
+        "args": {
+          "default": null,
+          "description": "Optional extra arguments appended to the launch command.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "icon_path": {
+          "default": "",
+          "description": "A picture the user chose by hand for the companion's app badge, and it\nOVERRIDES whatever the daemon would extract from the `.desktop` entry.\n\nIt exists because extraction has no chance at all on some targets: most\nentries name an icon by THEME name, and a theme this daemon cannot read\nresolves to nothing at all (`LINUX_PARITY_DEBT.md`) — as does an entry\nthat simply declares no icon. A launch that draws no badge looks exactly\nlike the companion being switched off, so the user is given the one\nthing the extractor cannot infer.\n\n`#[serde(default)]` is what keeps every `commands.json` written before\nthis field readable: the absent key reads as empty, empty means \"no\noverride\", and extraction behaves exactly as it did.",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/OpenMode",
+          "default": "application"
+        },
+        "path": {
+          "default": "",
+          "description": "File/folder path in file mode.",
+          "type": "string"
+        },
+        "run_as_admin": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "OpenMode": {
+      "description": "What the cross-platform Open node opens. Missing on legacy Linux app nodes.",
+      "enum": [
+        "application",
+        "file"
+      ],
+      "type": "string"
+    },
+    "OpenUrlAction": {
+      "description": "Open a URL in browser",
+      "properties": {
+        "browser": {
+          "default": "",
+          "description": "Browser to use (optional)",
+          "type": "string"
+        },
+        "mode": {
+          "default": "url",
+          "description": "\"url\" = open given URL; \"search\" = build search URL from search_query",
+          "type": "string"
+        },
+        "search_query": {
+          "default": "",
+          "description": "Search query text (used when mode == \"search\"); opens e.g. Google search",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "description": "URL to open (used when mode == \"url\")",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "PlaySoundAction": {
+      "description": "Play a sound",
+      "properties": {
+        "path": {
+          "description": "Sound file path or built-in name",
+          "type": "string"
+        },
+        "volume": {
+          "default": 1.0,
+          "description": "Volume (0.0 to 1.0)",
+          "format": "float",
+          "type": "number"
+        },
+        "wait_for_completion": {
+          "default": false,
+          "description": "Wait for sound to complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "PressKeysAction": {
+      "description": "Press keyboard keys",
+      "properties": {
+        "combinations": {
+          "description": "Additional chords, each with a delay after the preceding chord releases.",
+          "items": {
+            "$ref": "#/$defs/KeyCombination"
+          },
+          "type": "array"
+        },
+        "hold_ms": {
+          "default": 0,
+          "description": "Hold duration (ms)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "keys": {
+          "description": "Keys to press (e.g., [\"ctrl\", \"c\"])",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "type": "object"
+    },
+    "RunCommandAction": {
+      "description": "Run another saved command inline.\n\nReferences the target by its `command` NAME (matched case-insensitively,\nlike the AI `execute_command` tool) so the picker and the graph node show\nthe human-readable name directly. `input` optionally seeds the sub-command's\n`original_input` / `{capture}` so a sub-command that reads `{input}` /\n`{capture}` receives a value; it supports `{variable}` substitution against\nthe parent context. Recursion / cycles are bounded centrally in\n`graph_executor::execute_graph` via the execution `command_stack`.",
+      "properties": {
+        "command": {
+          "default": "",
+          "description": "Name of the saved command to run (case-insensitive match).",
+          "type": "string"
+        },
+        "input": {
+          "default": "",
+          "description": "Optional input passed to the sub-command (seeds its `original_input` /\n`{capture}`). Supports `{variable}` substitution. Default empty.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ScreenshotAction": {
+      "description": "Take a screenshot",
+      "properties": {
+        "mode": {
+          "default": "",
+          "description": "Operation mode: `save` writes a PNG, `ask_ai` sends the capture to AI.\nEmpty preserves commands saved before modes were introduced.",
+          "type": "string"
+        },
+        "monitor_index": {
+          "default": 0,
+          "description": "Monitor index (0 = primary, used when window_name is empty)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prompt": {
+          "default": "",
+          "description": "Prompt used by `ask_ai` mode (supports variables).",
+          "type": "string"
+        },
+        "save_path": {
+          "default": "",
+          "description": "Save directory (supports variables). In `save` mode, empty uses system Pictures.\nLegacy commands without a mode use a literal file path, or base64 when empty.",
+          "type": "string"
+        },
+        "store_in": {
+          "default": "",
+          "description": "Variable name to store result (file path or base64)",
+          "type": "string"
+        },
+        "window_name": {
+          "default": "",
+          "description": "Window name to capture (empty = full screen)\n\nKept for backwards compatibility with hand-written/AI-created commands.\nThe Commands editor does not expose window or region selection.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ScrollAxis": {
+      "description": "Wheel axis. Positive `clicks` is up (vertical) / right (horizontal) — the OS\nconvention; `InputSession::scroll` owns the conversion to enigo's.",
+      "enum": [
+        "vertical",
+        "horizontal"
+      ],
+      "type": "string"
+    },
+    "SendToAiAction": {
+      "description": "Send prompt to AI",
+      "properties": {
+        "include_context": {
+          "default": true,
+          "description": "Include conversation context",
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "Prompt to send",
+          "type": "string"
+        },
+        "store_result_in": {
+          "default": "",
+          "description": "Variable name to store result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    },
+    "SetCompanionEnabledAction": {
+      "description": "Persist the companion on/off setting, shared with the AI tool of the same name.\n\nSaved before `state` existed as `{\"enabled\": bool}`; that spelling is still\nread (`state` wins when both are present) and never written.\n\n`#[serde(from = \"SetCompanionEnabledWire\")]` means the struct's own field\n(`state: CompanionSwitch`, required) is NOT the wire shape — the wire accepts\n`SetCompanionEnabledWire`'s two optional fields instead, defaulting when\nneither is present. `#[schemars(with = \"SetCompanionEnabledWire\")]` makes the\nSCHEMA built from that wire struct too, so it does not claim `state` is\nrequired when the real deserializer never does.",
+      "properties": {
+        "enabled": {
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "state": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompanionSwitch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "SetVariableAction": {
+      "description": "Set a variable",
+      "properties": {
+        "name": {
+          "description": "Variable name",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/VariableScope",
+          "default": "local",
+          "description": "Variable scope"
+        },
+        "value": {
+          "description": "Value (supports expressions)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "SetVolumeAction": {
+      "description": "Set system volume (absolute or relative)",
+      "properties": {
+        "mode": {
+          "default": "set",
+          "description": "Mode: \"set\" (absolute 0-100) or \"add\" (relative, can be negative)",
+          "type": "string"
+        },
+        "value": {
+          "default": "",
+          "description": "Volume value as string (supports variables like {myVar}).\nParsed to f64 at runtime. Range: 0-100 for \"set\", any signed value for \"add\".",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SpeakAction": {
+      "description": "Speak text using TTS",
+      "properties": {
+        "text": {
+          "description": "Text to speak (supports variables)",
+          "type": "string"
+        },
+        "tts_pitch": {
+          "default": 1.0,
+          "description": "TTS pitch (0.5–2.0) when use_settings_voice is false",
+          "format": "float",
+          "type": "number"
+        },
+        "tts_speed": {
+          "default": 1.0,
+          "description": "TTS speed (0.5–2.0) when use_settings_voice is false",
+          "format": "float",
+          "type": "number"
+        },
+        "use_settings_voice": {
+          "default": true,
+          "description": "When true, use the voice from app settings; when false, use this\nnode's own `voices` / `tts_speed` / `tts_pitch`.",
+          "type": "boolean"
+        },
+        "voices": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Per-provider voice memory for this node (used when `use_settings_voice`\nis false). The TTS provider is always the globally-selected one — this\nnode no longer overrides it; the voice is resolved against that\nprovider, falling back to the settings voice when no entry exists.\n\n[`VoiceSelection`] is `#[serde(transparent)]` over a provider→voice\nstring map, so the schema is built directly from that wire shape\n(`voice_selection_schema`) rather than from `crate::voice`, which this\nschema does not otherwise reach into.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "StreamToChatAction": {
+      "description": "Stream to chat — AI request that streams response to chat and optionally speaks",
+      "properties": {
+        "include_context": {
+          "default": true,
+          "description": "Include conversation context from chat history",
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "Prompt to send (supports variables)",
+          "type": "string"
+        },
+        "store_result_in": {
+          "default": "",
+          "description": "Variable name to store the full AI response in",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    },
+    "SystemAction": {
+      "description": "System action",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/SystemActionType",
+          "description": "Action to perform"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "SystemActionType": {
+      "description": "System action types",
+      "enum": [
+        "shutdown",
+        "restart",
+        "sleep",
+        "hibernate",
+        "lock",
+        "logoff"
+      ],
+      "type": "string"
+    },
+    "TextTrigger": {
+      "description": "Text phrase trigger",
+      "properties": {
+        "case_sensitive": {
+          "default": false,
+          "description": "Case sensitive matching",
+          "type": "boolean"
+        },
+        "exact_match": {
+          "default": false,
+          "description": "Disable fuzzy typo matching; every trigger requires the complete phrase.",
+          "type": "boolean"
+        },
+        "phrases": {
+          "description": "Phrases that trigger this command",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "phrases"
+      ],
+      "type": "object"
+    },
+    "Trigger": {
+      "description": "A trigger that activates a command",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextTrigger",
+          "description": "Text phrase trigger",
+          "properties": {
+            "type": {
+              "const": "text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/HotkeyTrigger",
+          "description": "Hotkey trigger",
+          "properties": {
+            "type": {
+              "const": "hotkey",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/EventTrigger",
+          "description": "System event trigger",
+          "properties": {
+            "type": {
+              "const": "event",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/DynamicTrigger",
+          "description": "A dynamically-registered trigger type (for plugins).",
+          "properties": {
+            "type": {
+              "const": "dynamic",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TypeTextAction": {
+      "description": "Type text using keyboard",
+      "properties": {
+        "delay_ms": {
+          "default": 0,
+          "description": "Delay between characters (ms)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "description": "Text to type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "UiClickAction": {
+      "description": "Click a UI element using Windows UI Automation",
+      "properties": {
+        "automation_id": {
+          "default": "",
+          "description": "Automation ID to find",
+          "type": "string"
+        },
+        "click_type": {
+          "default": "single",
+          "description": "Click type: \"single\", \"double\", \"right\"",
+          "type": "string"
+        },
+        "control_type": {
+          "default": "",
+          "description": "Control type filter (e.g., \"Button\", \"MenuItem\")",
+          "type": "string"
+        },
+        "element_name": {
+          "default": "",
+          "description": "Element name to find (supports variables)",
+          "type": "string"
+        },
+        "window_name": {
+          "default": "",
+          "description": "Window to scope search to (supports variables)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "UiTypeAction": {
+      "description": "Type text into a UI element using Windows UI Automation",
+      "properties": {
+        "automation_id": {
+          "default": "",
+          "description": "Automation ID to find",
+          "type": "string"
+        },
+        "clear_first": {
+          "default": true,
+          "description": "Clear existing text before typing",
+          "type": "boolean"
+        },
+        "control_type": {
+          "default": "",
+          "description": "Control type filter",
+          "type": "string"
+        },
+        "element_name": {
+          "default": "",
+          "description": "Element name to find (supports variables)",
+          "type": "string"
+        },
+        "text": {
+          "description": "Text to type (supports variables)",
+          "type": "string"
+        },
+        "window_name": {
+          "default": "",
+          "description": "Window to scope search to (supports variables)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "VariableScope": {
+      "description": "Variable scope",
+      "oneOf": [
+        {
+          "const": "local",
+          "description": "This command execution only",
+          "type": "string"
+        },
+        {
+          "const": "session",
+          "description": "Until daemon restarts",
+          "type": "string"
+        },
+        {
+          "const": "persistent",
+          "description": "Saved to disk",
+          "type": "string"
+        }
+      ]
+    },
+    "WaitAction": {
+      "description": "Wait/delay action",
+      "properties": {
+        "milliseconds": {
+          "description": "Milliseconds to wait",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "milliseconds"
+      ],
+      "type": "object"
+    },
+    "WorkTaskAction": {
+      "description": "A routine: start a «Рабочий» task in the background, the way «Быстрый» hands\none over (`start_work`), and get its report in the conversation the command\nran in (Goose's recipes — phase 4 of `docs/arcs/ASSISTANT_MODES_PLAN.md`).\n\n`task` is the whole job — the goal, the form of the result, every file and\nfact it needs — and supports `{variable}` substitution, so a trigger phrase's\n`{slots}` are the routine's parameters. Starting it is all the node does: the\nwork runs in its own «Рабочий» thread, under the user's permission mode, and\nthe command moves on at once.",
+      "properties": {
+        "task": {
+          "default": "",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "description": "The card's and the thread's title; empty = taken from the task.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "WorkflowGraph": {
+      "description": "A complete workflow graph.",
+      "properties": {
+        "edge_order": {
+          "description": "Authored wire-array order for presentation; run order remains `fan_out`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GraphEdge"
+          },
+          "description": "All edges keyed by their ID.",
+          "type": "object"
+        },
+        "nodes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GraphNode"
+          },
+          "description": "All nodes keyed by their ID.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges"
+      ],
+      "type": "object"
+    },
+    "YoutubePlayAction": {
+      "description": "Search YouTube and open a video",
+      "properties": {
+        "max_results": {
+          "default": 5,
+          "description": "Max results returned when mode == \"search_results\"",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "play",
+          "description": "\"play\" = open first result; \"search_results\" = return JSON list (no browser open)",
+          "type": "string"
+        },
+        "query": {
+          "description": "Search query (supports variables)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://astra.minice.ai/schemas/portable-command-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A CommandDefinition as a .astra file or a Workshop catalogue command artefact carries it — the local fields (id, created_at, updated_at, group_id, enabled, marketplace_source, catalogue_source) are optional here; an installer stamps its own.",
+  "properties": {
+    "actions": {
+      "description": "Actions to execute.\n\n`deserialize_actions` (`opening.rs`) migrates the legacy\n`{\"type\":\"execute\",\"shell\":\"open\",…}` shape to `open_application`\nBEFORE each element is decoded as an [`Action`] — but every field that\nshape sets (`shell`, `path`, `arguments`) already exists, unconstrained,\non [`ExecuteAction`], so the migration is invisible to this field's\nschema: that legacy shape, and today's `open_application` shape, both\nalready validate as themselves. The schema therefore needs no override\nhere, only this note.",
+      "items": {
+        "$ref": "#/$defs/Action"
+      },
+      "type": "array"
+    },
+    "catalogue_source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CatalogueProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Workshop catalogue source info (set when the command was installed from the catalogue)."
+    },
+    "created_at": {
+      "description": "Creation timestamp",
+      "format": "date-time",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "description": "Optional description",
+      "type": "string"
+    },
+    "editor_mode": {
+      "$ref": "#/$defs/EditorMode",
+      "default": "graph",
+      "description": "Editor mode: linear (action list) or graph (node editor)."
+    },
+    "enabled": {
+      "description": "Whether command is enabled",
+      "type": "boolean"
+    },
+    "execution": {
+      "$ref": "#/$defs/CommandExecutionOverride",
+      "default": {},
+      "description": "Per-command override of the global execution budget. Default (all-`None`)\n= inherit the global limits. Resolved at the run root by the daemon's\n`resolve_budget`; when this command is called from another (a nested\n`run_command`) its override may TIGHTEN the inherited budget but never\nloosen it past the root's wall-clock cap."
+    },
+    "group_id": {
+      "description": "Group (folder) this command belongs to. `None` = ungrouped.",
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "id": {
+      "description": "Unique command ID",
+      "format": "uuid",
+      "type": "string"
+    },
+    "marketplace_source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MarketplaceSource"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Marketplace source info (set when command was installed from marketplace)"
+    },
+    "name": {
+      "description": "Command name",
+      "type": "string"
+    },
+    "priority": {
+      "default": 4,
+      "description": "Text-matching priority. Higher levels are considered before lower ones;\ncommands on lower levels are ignored once a higher level has a match.\nAny integer is accepted and clamped into 1..=10\n(`MIN_COMMAND_PRIORITY..=MAX_COMMAND_PRIORITY`); absent defaults to 4\n(`DEFAULT_COMMAND_PRIORITY`).",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "slash_description": {
+      "default": "",
+      "description": "One-line label shown next to `/name` in the chat slash menu (e.g. \"Turn\ninto a bullet list\"). Deliberately separate from [`Self::description`]:\nthat one feeds semantic matching (the embeddings index + the voice\nprefilter), so a menu subtitle written here can't silently change which\nspoken phrases fire the command. Empty = the slash registry falls back to\n`description`.",
+      "type": "string"
+    },
+    "slash_enabled": {
+      "default": false,
+      "description": "Whether this command is reachable from chat as a `/name` slash command.\nOpt-in (default `false`): only user commands the user explicitly enables\nappear in the `/` menu and respond to `/name`. Gated together with\n`enabled` + a valid single-token name by the slash registry.",
+      "type": "boolean"
+    },
+    "tags": {
+      "default": [],
+      "description": "Optional tags for organization",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "triggers": {
+      "description": "Triggers that activate this command",
+      "items": {
+        "$ref": "#/$defs/Trigger"
+      },
+      "type": "array"
+    },
+    "updated_at": {
+      "description": "Last update timestamp",
+      "format": "date-time",
+      "type": "string"
+    },
+    "workflow": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowGraph"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Workflow graph (only used when `editor_mode == Graph`)."
+    }
+  },
+  "required": [
+    "name",
+    "triggers",
+    "actions"
+  ],
+  "title": "Astra portable command",
+  "type": "object"
+}

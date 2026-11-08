@@ -264,6 +264,56 @@ else
     log "nothing to change: proto and docs already match Astra@${astra_sha:0:12}"
 fi
 
+# ---- 8b. command schema: vendor Astra's own generated JSON Schema ---------
+#
+# astra-core/schemas/portable-command.schema.json is schemars' own reading
+# of the exact type the client parses a command into — the shape authority
+# spec/content/ingest-v1.md §6 points readers at, and what
+# tools/check-content-goldens.py's COMMAND_SCHEMA_TABLE checks every command
+# golden against. Nothing on this side regenerates it, only copies it in, so
+# without this step a schema that moved upstream would silently stop being
+# the client's own types — the same kind of silent drift that let a command
+# golden disagree with the real client twice before (AstraPlugins#154).
+SCHEMA_SRC="$ASTRA_ROOT/astra-core/schemas/portable-command.schema.json"
+SCHEMA_DEST="$REPO_ROOT/spec/content/schemas/portable-command-v1.schema.json"
+SCHEMA_LOCK="$REPO_ROOT/spec/content/schemas/PORTABLE_COMMAND_SCHEMA.lock"
+[ -f "$SCHEMA_SRC" ] || die "$SCHEMA_SRC not found in this Astra checkout — astra-core/schemas moved or was renamed."
+
+schema_commit=""
+cp -- "$SCHEMA_SRC" "$SCHEMA_DEST"
+# A plain sha256sum(1)-checkable lock, so degraded-mode CI (a fork PR, no
+# token, no Astra checkout to diff against) can still refuse a HAND edit to
+# the vendored copy: `sha256sum -c` on this file, nothing bespoke to parse.
+# Full-mode CI does the real thing instead — a byte-for-byte diff against a
+# live Astra checkout — and this lock is rewritten every run so it always
+# describes whatever is committed, never a stale prior resync.
+(cd "$REPO_ROOT/spec/content/schemas" && sha256sum portable-command-v1.schema.json > "$SCHEMA_LOCK")
+git add -- "$SCHEMA_DEST" "$SCHEMA_LOCK"
+if [ -n "$(git status --porcelain -- "$SCHEMA_DEST" "$SCHEMA_LOCK")" ]; then
+    if [ "$no_commit" = 1 ]; then
+        log "--no-commit: the portable-command schema changed. Stopping before the commit."
+        git status --short -- "$SCHEMA_DEST" "$SCHEMA_LOCK"
+        exit 0
+    fi
+    git commit --quiet -m "$(cat <<EOF
+spec(content): resync the portable-command schema against Astra@${astra_sha:0:12}
+
+astra-core/schemas/portable-command.schema.json moved upstream; nothing
+here regenerates it, only tools/resync-astra.sh copies it in, so without
+this commit tools/check-content-goldens.py's COMMAND_SCHEMA_TABLE would
+go on checking every command golden against a schema that is no longer
+the client's own types.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01H9xxVvoEHGt2DBkwvVFrRA
+EOF
+)"
+    schema_commit="$(git rev-parse HEAD)"
+    log "committed command schema resync: ${schema_commit:0:12}"
+else
+    log "nothing to change: the portable-command schema already matches Astra@${astra_sha:0:12}"
+fi
+
 ui_kit_commit=""
 if [ "$skip_ui_kit" = 1 ]; then
     log "--skip-ui-kit: leaving the UI Kit as already committed"
@@ -314,6 +364,8 @@ else
 fi
 python3 docs/tools/mirror.py >/dev/null
 log "mirror.py: ok (re-checked post-commit)"
+python3 tools/check-content-goldens.py >/dev/null
+log "check-content-goldens.py: ok (every command golden still parses against the resynced schema)"
 
 # ---- 10. summary ------------------------------------------------------------
 echo
@@ -326,6 +378,11 @@ if [ -n "$proto_commit" ]; then
 else
     echo "  proto+docs commit: none (no change)"
 fi
+if [ -n "$schema_commit" ]; then
+    echo "  command schema commit: $schema_commit"
+else
+    echo "  command schema commit: none (no change)"
+fi
 if [ "$skip_ui_kit" = 1 ]; then
     echo "  UI Kit commit:     skipped (--skip-ui-kit)"
 elif [ -n "$ui_kit_commit" ]; then
@@ -333,6 +390,6 @@ elif [ -n "$ui_kit_commit" ]; then
 else
     echo "  UI Kit commit:     none (no change)"
 fi
-if [ -z "$proto_commit" ] && [ -z "$ui_kit_commit" ]; then
+if [ -z "$proto_commit" ] && [ -z "$schema_commit" ] && [ -z "$ui_kit_commit" ]; then
     echo "resync-astra: nothing to change."
 fi

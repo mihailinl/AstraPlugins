@@ -26,7 +26,7 @@ nothing here re-decides it. The server (L1/L2), the signer (L4) and the client
 | [`ingest-v1.md`](ingest-v1.md) | what the server refuses, in which order, with which code; the VRM licence verdict |
 | [`reason-codes.yaml`](reason-codes.yaml) | every code and client token, hand-parsed |
 | [`OPEN.md`](OPEN.md) | where the design note is ambiguous, and the reading chosen — **read it before you build** |
-| `schemas/` | **GENERATED** by `tools/gen-content-schemas.py`; never hand-edit |
+| `schemas/` | **GENERATED** by `tools/gen-content-schemas.py`; never hand-edit. One file, `portable-command-v1.schema.json`, is vendored instead — byte-identically, by `tools/resync-astra.sh` — from Astra's own `astra-core/schemas/portable-command.schema.json`; it is the shape authority ingest-v1.md §6 names for a command artefact, and never hand-edit it either |
 
 ## Checks
 
