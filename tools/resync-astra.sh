@@ -119,6 +119,24 @@ export TMPDIR CARGO_TARGET_DIR
 [ -z "$(git -C "$ASTRA_DIR" status --porcelain)" ] || die "the Astra checkout ($ASTRA_DIR) is dirty. resync-astra writes into it (step 2 regenerates the committed slice in place); it must start clean."
 log "both checkouts are clean"
 
+# ---- 1b. refuse an Astra checkout that is not actually on main -------------
+#
+# This script's whole output is a pin: proto/ASTRA_PROTO.lock's astra_commit
+# becomes the commit ci.yml's proto-upstream job compares an ordinary
+# pull_request/push against instead of Astra's live main (see
+# gen-proto-lock.sh's astra_commit comment). That guarantee is worth exactly
+# as much as "this commit is really Astra history" — a detached commit, a
+# stale fork, or a branch that will never reach main would pin just as
+# green as a real resync, and look identical in every file this script
+# writes. Fetching main fresh (rather than trusting whatever `origin/main`
+# this checkout already has) catches a checkout whose remote has since
+# moved past a commit it once called main, too.
+git -C "$ASTRA_DIR" fetch -q origin main
+if ! git -C "$ASTRA_DIR" merge-base --is-ancestor HEAD origin/main; then
+    die "$ASTRA_DIR's HEAD ($(git -C "$ASTRA_DIR" rev-parse --short HEAD)) is not an ancestor of its origin/main. Resync against a checkout that is actually on Astra's main — not a feature branch, a detached commit, or a stale fork — or the pin this writes would mean nothing."
+fi
+log "$ASTRA_DIR's HEAD is on Astra's origin/main"
+
 astra_sha="$(git -C "$ASTRA_DIR" rev-parse HEAD)"
 log "following Astra@${astra_sha:0:12}… ($ASTRA_DIR, root $ASTRA_ROOT)"
 
