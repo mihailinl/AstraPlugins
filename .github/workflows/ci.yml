@@ -400,8 +400,10 @@ jobs:
       # it only when this is `yes`, so no step is handed the token.
       #
       # Every other trigger evaluates exactly as before: push, pull_request,
-      # the daily cron, a plain dispatch, and release-sdks.yml's call. ci.yml
-      # declares no workflow_call inputs, so `inputs.degraded` is unset there.
+      # the daily cron, a plain dispatch, and release-sdks.yml's call. ci.yml's
+      # only workflow_call input is `live_astra_ref` (see `on.workflow_call`
+      # above) — it declares no `degraded` input there, so `inputs.degraded`
+      # is still unset on release-sdks.yml's call.
       HAVE_TOKEN: ${{ (inputs.degraded || github.event.schedule == '43 18 * * 1') && 'withheld' || secrets.ASTRA_REPO_TOKEN != '' && 'yes' || 'no' }}
     steps:
       - uses: actions/checkout@v4
@@ -499,14 +501,21 @@ jobs:
           # literal four characters dollar-brace-brace-space must never
           # appear verbatim anywhere in this step.
           expected_ref_expr = "$" + "{{ env.ASTRA_CHECKOUT_REF }}"
-          m = re.search(r"repository: mihailinl/Astra\n\s*ref: (.+)\n", text)
-          if not m:
+          # ALL of them, not the first: `re.search` used to stop at the first
+          # match, so a second checkout of mihailinl/Astra added anywhere
+          # later in this file (a new job, a copy-pasted step) could carry a
+          # literal `main` forever with this self-check still green, because
+          # it never looked past the one it already found.
+          checkouts = list(re.finditer(r"repository: mihailinl/Astra\n\s*ref: (.+)\n", text))
+          if not checkouts:
               bad.append("no 'repository: mihailinl/Astra' checkout step found in ci.yml to "
                          "check its ref: against")
-          elif m.group(1).strip() != expected_ref_expr:
-              bad.append(f"ci.yml's Astra checkout ref is {m.group(1).strip()!r}, not "
-                         f"{expected_ref_expr!r} — an ordinary pull_request/push would compare "
-                         f"against live main again, the exact bug this pin exists to fix.")
+          for m in checkouts:
+              if m.group(1).strip() != expected_ref_expr:
+                  line_no = text.count("\n", 0, m.start()) + 1
+                  bad.append(f"ci.yml line {line_no}'s Astra checkout ref is {m.group(1).strip()!r}, "
+                             f"not {expected_ref_expr!r} — an ordinary pull_request/push would "
+                             f"compare against live main again, the exact bug this pin exists to fix.")
           if len(named) != 1:
               bad.append(f"{path} compares github.event.schedule with {len(named)} string(s) "
                          f"{named}; HAVE_TOKEN compares it with exactly one, the weekly cron.")
@@ -527,7 +536,8 @@ jobs:
           full = [c for c in crons if c not in named]
           print(f"ok    the weekly degraded run's cron '{named[0]}' is in on.schedule, "
                 f"and {full} still run full")
-          print(f"ok    the Astra checkout's ref is {expected_ref_expr!r}, not a literal 'main'")
+          print(f"ok    all {len(checkouts)} 'repository: mihailinl/Astra' checkout(s) in this "
+                f"file use {expected_ref_expr!r}, not a literal 'main'")
           PY
 
       # ── degraded mode ────────────────────────────────────────────────────
@@ -708,6 +718,7 @@ jobs:
           LIVE_ASTRA_REF: ${{ inputs.live_astra_ref }}
         run: |
           set -euo pipefail
+          is_pin=false
           if [ -n "$ASTRA_REF_VAR" ]; then
             ref="$ASTRA_REF_VAR"
             why="vars.ASTRA_REF override"
@@ -726,8 +737,34 @@ jobs:
               exit 1
             fi
             why="$GITHUB_EVENT_NAME: pinned to the last resync, not live main"
+            is_pin=true
+          fi
+          # Empty would check out Astra's default branch — silently, no error —
+          # which is exactly live main again by a different door. Every branch
+          # above sets $ref to something non-empty or exits already; this is
+          # the belt the "resolve the Astra checkout to a concrete commit" step
+          # wears too, after this value has round-tripped through GITHUB_ENV.
+          if [ -z "$ref" ]; then
+            echo "::error::decide which Astra ref to compare against: resolved an empty ref." >&2
+            exit 1
+          fi
+          # `$ref` goes into GITHUB_ENV below, read back as `${{ env.ASTRA_CHECKOUT_REF }}`
+          # by the "checkout Astra" step's `ref:`. GITHUB_ENV is a plain
+          # `KEY=VALUE` file GitHub appends to and parses back; a value
+          # containing a newline can forge a second `KEY=VALUE` line after it
+          # and set an env var this step never named. `vars.ASTRA_REF` is the
+          # one branch above that is not already constrained — "main", the
+          # pin (a 40-hex SHA from our own lock file), or nothing — so a
+          # maintainer repository variable is the only route an unexpected
+          # character could take. A real git ref name never needs anything
+          # outside this set.
+          if ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Astra ref '$ref' ($why) contains characters outside" >&2
+            echo "::error::[A-Za-z0-9._/-] — refusing to write it into GITHUB_ENV." >&2
+            exit 1
           fi
           echo "ASTRA_CHECKOUT_REF=$ref" >> "$GITHUB_ENV"
+          echo "ASTRA_REF_IS_PIN=$is_pin" >> "$GITHUB_ENV"
           echo "comparing against Astra@$ref ($why)"
 
       - name: checkout Astra
@@ -772,13 +809,41 @@ jobs:
       # ref that resolves either way, so this step resolves the checkout to
       # its own concrete commit ONCE, here, rather than have the C12/C22 step
       # guess whether to prepend `origin/`.
+      #
+      # Two assertions guard the "checkout Astra" step above from a value
+      # that round-tripped through GITHUB_ENV wrong: an empty `ref:` checks
+      # out Astra's own default branch with no error from `actions/checkout`
+      # at all — live main again, silently, the exact bug the pin exists to
+      # fix, just reached through GITHUB_ENV losing the value instead of a
+      # hard-coded fallback. And on the pinned path specifically, the ref we
+      # asked for WAS the pin itself (the "decide which Astra ref" step reads
+      # it straight out of proto/ASTRA_PROTO.lock), so what got checked out
+      # had better resolve to that exact commit — if it does not, `actions/checkout`
+      # silently gave us something else (a short SHA colliding with a tag, a
+      # ref GitHub resolved differently than expected) and every downstream
+      # comparison in this job would be against the wrong Astra entirely.
       - name: resolve the Astra checkout to a concrete commit
         if: env.MODE == 'full'
+        env:
+          ASTRA_CHECKOUT_REF: ${{ env.ASTRA_CHECKOUT_REF }}
+          ASTRA_REF_IS_PIN: ${{ env.ASTRA_REF_IS_PIN }}
         run: |
           set -euo pipefail
+          if [ -z "$ASTRA_CHECKOUT_REF" ]; then
+            echo "::error::ASTRA_CHECKOUT_REF is empty — 'decide which Astra ref to compare" >&2
+            echo "::error::against' should have set it or failed outright. Refusing to let" >&2
+            echo "::error::'checkout Astra' fall back to Astra's own default branch silently." >&2
+            exit 1
+          fi
           sha="$(git -C _astra rev-parse HEAD)"
           echo "ASTRA_RESOLVED_SHA=$sha" >> "$GITHUB_ENV"
           echo "_astra is at $sha"
+          if [ "$ASTRA_REF_IS_PIN" = "true" ] && [ "$sha" != "$ASTRA_CHECKOUT_REF" ]; then
+            echo "::error::asked actions/checkout for the pin $ASTRA_CHECKOUT_REF, but _astra" >&2
+            echo "::error::resolved to $sha instead. Every comparison in this job would be" >&2
+            echo "::error::against the wrong Astra commit." >&2
+            exit 1
+          fi
 
       # The real check the degraded-mode lock above stands in for: Astra is
       # checked out right here, so this compares the vendored schema against
