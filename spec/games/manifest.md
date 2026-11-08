@@ -275,7 +275,7 @@ file.
 
 | key | meaning |
 |---|---|
-| `path` | the part's id: relative to the release zip's root, no `..` segment, no `:` (so a `builtin:` reference can never be mistaken for a declared part, below). **Must be unique** across this table — a path declared twice is `content-duplicate`, §2.7.2 |
+| `path` | the part's id: relative to the release zip's root, no `..` segment, no `:` (so a `builtin:` reference can never be mistaken for a declared part, below), and no control character (C0, DEL or C1, [`part-digest-v1.md`](../content/part-digest-v1.md) §2's rule for an entry name: `E_ARCHIVE_NAME_UNSAFE`). A path is an identity, matched with its SHA-256 by a rights confirmation, so it is refused, never rewritten. **Must be unique** across this table — a path declared twice is `content-duplicate`, §2.7.2 |
 | `kind` | `"animations"` \| `"character"` \| `"art"` \| `"audio"`. The shared asset-rights rule astra-ce uses also has a `command` kind (a character macro), and it is deliberately **not** in this enum: a GI is a native process already, running what it likes, and "confirm you have the rights to run this command" is not a sentence that means anything here |
 | `title` | shown next to the checkbox |
 | `credit` | shown next to the checkbox |
