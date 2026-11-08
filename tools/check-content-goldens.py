@@ -412,7 +412,7 @@ ACTION_CAPS = {
     "mouse_click": ["controls_input"], "macro": ["controls_input"], "ui_click": ["ui_automation"],
     "ui_type": ["ui_automation"], "clipboard": ["accesses_clipboard"], "screenshot": ["takes_screenshots", "uses_ai"],
     "send_to_ai": ["uses_ai"], "ai_request": ["uses_ai"], "stream_to_chat": ["uses_ai"], "work_task": ["uses_ai"],
-    "open_url": ["opens_urls"], "open_file": ["file_access"], "open_application": ["file_access", "launches_apps"],
+    "open_url": ["opens_urls"], "open_file": ["file_access", "launches_apps"], "open_application": ["file_access", "launches_apps"],
     "play_sound": ["plays_audio"], "control_music": ["plays_audio"], "speak": ["plays_audio"],
     "youtube_play": ["plays_audio"], "set_volume": ["system_control"], "notify": ["sends_notifications"],
     "run_command": ["runs_command"], "companion_animation": ["drives_companion"],
@@ -428,7 +428,7 @@ LINEAR_TAGS = {
     "screenshot", "ui_click", "ui_type", "youtube_play", "run_command", "companion_animation",
     "set_companion_enabled", "work_task", "macro", "dynamic",
 }
-EXECUTE_OPEN_MODE = "open"  # astra-core action.rs: `Execute` with this shell opens a file, it runs nothing
+EXECUTE_OPEN_MODE = "open"  # astra-core action.rs: `Execute` with this shell opens `path` with its default app
 CRITICAL = {"code", "execute", "run_command", "macro"}
 HIGH = {"system", "kill_process", "type_text", "press_keys", "mouse_click", "ui_click", "ui_type", "screenshot",
         "open_url", "open_application", "dynamic", "open_file"}
@@ -473,8 +473,10 @@ def _linear(a, caps, req) -> str:
     if t not in LINEAR_TAGS:
         raise Refusal("E_COMMAND_UNKNOWN_ACTION", f"linear {t!r} is not an Action tag")
     if t == "execute" and a.get("shell") == EXECUTE_OPEN_MODE:
-        caps.add("file_access")  # scan_action / action_danger: `Execute(e) if e.is_open_mode()`
-        return "low"
+        # scan_action / action_danger at Astra 65775237c: `Execute(e) if e.is_open_mode()` is file_access +
+        # launches_apps, High — the default application can be anything (capabilities-v1.md, the table's note)
+        caps.update(("file_access", "launches_apps"))
+        return "high"
     if t == "dynamic":
         pid = plugin_of(str(a.get("handler_id", "")))
         caps.add(f"uses_plugin:{pid}")

@@ -12,6 +12,7 @@
   "actions": [
     {
       "type": "condition",
+      "expression": "true",
       "if_true": [
         {
           "type": "open_url",
@@ -21,7 +22,7 @@
       "if_false": [
         {
           "type": "wait",
-          "ms": 10
+          "milliseconds": 10
         }
       ]
     }
