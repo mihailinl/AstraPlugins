@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: f321bbf8ae7cd994b3e63fb85305a39b8b24b6a51a5d055dd236ff77bdaff14a
+// surface-sha256: 7a4f3ba3323e2ad81322c99a5085f3ce0681472935d9f6bc136b8f255cf0b060
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -415,6 +415,18 @@ message AstraEvent {
         VoiceDictatedEvent voice_dictated = 44;
         // A Workshop publish moved (PublishService). The nudge between two PublishStatus reads.
         PublishProgressEvent publish_progress = 45;
+        // A catalogue apply moved, keyed by its plan id (CatalogueService.Apply's progress bar).
+        // Never delivered to plugins (plugins::event_view).
+        CatalogueProgressEvent catalogue_progress = 46;
+        // What the catalogue holds moved: re-read ListKinds / ListInstalled for these kinds.
+        // Never delivered to plugins (plugins::event_view).
+        CatalogueChangedEvent catalogue_changed = 47;
+        // A command run waits for a person to allow one of its actions; answered through
+        // ChatService.RespondToConfirmation. Never delivered to plugins (plugins::event_view).
+        RunActionConfirmationEvent run_action_confirmation = 48;
+        // A run-action card ended (allowed, denied, expired, stopped, cancelled, refused). Never
+        // delivered to plugins (plugins::event_view).
+        RunActionConfirmationEndedEvent run_action_confirmation_ended = 49;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -2275,6 +2287,12 @@ message CreateCommandRequest {
 
     // Text-matching priority (1..10, default 4; higher levels win).
     int32 priority = 12;
+
+    // The catalogue item an imported command's file says it came from (its exported
+    // `catalogue_source`), forwarded as found. A MARKER, never provenance: the daemon looks
+    // it up in the ledger and it can only LOWER the command's authority (§4.8's copy rule);
+    // unset for a command made here.
+    CatalogueSourceMarker source_marker = 13;
 }
 
 message UpdateCommandRequest {
@@ -2370,6 +2388,11 @@ message CommandDefinition {
 
     // Text-matching priority (1..10, default 4; higher levels win).
     int32 priority = 16;
+
+    // The catalogue release this command was installed from (or is a copy of): the
+    // definition's own `catalogue_source`, set only by the commands kind's install and by the
+    // copy rule (§4.8). Unset for a command made here. Read only; a request never sets it.
+    CatalogueSourceMarker catalogue_source = 17;
 }
 
 // Per-command override of the global CommandExecutionSettings. Mirrors
@@ -6815,4 +6838,68 @@ message PublishProgressEvent {
     string state = 2;
     int64 sent_bytes = 3;
     int64 total_bytes = 4;
+}
+
+// A catalogue apply moved (`AstraEvent::CatalogueProgress`, CATALOGUE_CORE_PLAN.md §10): the plan
+// `plan_id` names reached stage `phase` (the core's word: `applying`, `downloading`,
+// `verifying`, …), `done` of `total` into it (`0` of `0` for a stage that only begins; `total`
+// `0` when it is not known). Strings and int64 only, the OptimizeService rule. Never delivered to
+// plugins (plugins::event_view).
+message CatalogueProgressEvent {
+    string plan_id = 1;
+    string phase = 2;
+    int64 done = 3;
+    int64 total = 4;
+}
+
+// What the catalogue holds moved (`AstraEvent::CatalogueChanged`): the kinds' wire words whose
+// installed rows may read differently now. A doorbell: ListKinds / ListInstalled are the documents.
+// Never delivered to plugins (plugins::event_view).
+message CatalogueChangedEvent {
+    repeated string kinds = 1;
+}
+
+// A command run waits for a person to allow one of its actions (`AstraEvent::RunActionConfirmation`,
+// CATALOGUE_CORE_PLAN.md §4.8 point 4; raised by `run::action_card::raise`). Answer it through
+// ChatService.RespondToConfirmation with `request_id`; an "allow like this" mints no rule for it.
+// `danger_level` is `high` or `critical`; `expires_at` is Unix seconds, past which the card is
+// refused whatever is pressed. Never delivered to plugins (plugins::event_view).
+message RunActionConfirmationEvent {
+    string run_id = 1;
+    string request_id = 2;
+    string command_id = 3;
+    string command_name = 4;
+    string action_label = 5;
+    string danger_level = 6;
+    string description = 7;
+    int64 expires_at = 8;
+
+    // Who started the run when the person did not: the plugin whose decision it descends from,
+    // by its display name (its id when this machine has none). Empty when the person started
+    // it themselves — a hotkey, their voice, a button, the chat.
+    string initiator = 9;
+
+    // The conversation the run writes into (its sink, off the run's scope), so a chat whose
+    // open conversation it is can draw the card inline. Empty when the run has none.
+    string conversation_id = 10;
+}
+
+// A run-action card ended (`AstraEvent::RunActionConfirmationEnded`): `outcome` is `allowed`,
+// `denied`, `expired`, `stopped`, `cancelled`, or `refused` (no card was shown: what the action
+// would do is too long to show whole, and a card never shows part of it — the end then arrives
+// with no raise before it). Every card ends with exactly one. Never delivered to plugins
+// (plugins::event_view).
+message RunActionConfirmationEndedEvent {
+    string request_id = 1;
+    string outcome = 2;
+}
+
+// **A catalogue release, as a command names it** (§4.8): the item id, the version and the
+// artefact's sha256. On `CommandDefinition.catalogue_source` it is the definition's provenance;
+// on `CreateCommandRequest.source_marker` it is what an imported file SAYS, which the daemon
+// only looks up.
+message CatalogueSourceMarker {
+    string id = 1;
+    string version = 2;
+    string artefact_sha256 = 3;
 }

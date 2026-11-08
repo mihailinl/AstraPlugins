@@ -377,7 +377,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "pluginConfigUpdated",
                 "pttCaptureChanged",
                 "voiceDictated",
-                "publishProgress"
+                "publishProgress",
+                "catalogueProgress",
+                "catalogueChanged",
+                "runActionConfirmation",
+                "runActionConfirmationEnded"
               ]
             }
           },
@@ -545,6 +549,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "publishProgress": {
               "type": "PublishProgressEvent",
               "id": 45
+            },
+            "catalogueProgress": {
+              "type": "CatalogueProgressEvent",
+              "id": 46
+            },
+            "catalogueChanged": {
+              "type": "CatalogueChangedEvent",
+              "id": 47
+            },
+            "runActionConfirmation": {
+              "type": "RunActionConfirmationEvent",
+              "id": 48
+            },
+            "runActionConfirmationEnded": {
+              "type": "RunActionConfirmationEndedEvent",
+              "id": 49
             },
             "capabilityEpoch": {
               "type": "string",
@@ -3412,6 +3432,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "priority": {
               "type": "int32",
               "id": 12
+            },
+            "sourceMarker": {
+              "type": "CatalogueSourceMarker",
+              "id": 13
             }
           }
         },
@@ -3744,6 +3768,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "priority": {
               "type": "int32",
               "id": 16
+            },
+            "catalogueSource": {
+              "type": "CatalogueSourceMarker",
+              "id": 17
             }
           }
         },
@@ -10834,6 +10862,107 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "totalBytes": {
               "type": "int64",
               "id": 4
+            }
+          }
+        },
+        "CatalogueProgressEvent": {
+          "fields": {
+            "planId": {
+              "type": "string",
+              "id": 1
+            },
+            "phase": {
+              "type": "string",
+              "id": 2
+            },
+            "done": {
+              "type": "int64",
+              "id": 3
+            },
+            "total": {
+              "type": "int64",
+              "id": 4
+            }
+          }
+        },
+        "CatalogueChangedEvent": {
+          "fields": {
+            "kinds": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "RunActionConfirmationEvent": {
+          "fields": {
+            "runId": {
+              "type": "string",
+              "id": 1
+            },
+            "requestId": {
+              "type": "string",
+              "id": 2
+            },
+            "commandId": {
+              "type": "string",
+              "id": 3
+            },
+            "commandName": {
+              "type": "string",
+              "id": 4
+            },
+            "actionLabel": {
+              "type": "string",
+              "id": 5
+            },
+            "dangerLevel": {
+              "type": "string",
+              "id": 6
+            },
+            "description": {
+              "type": "string",
+              "id": 7
+            },
+            "expiresAt": {
+              "type": "int64",
+              "id": 8
+            },
+            "initiator": {
+              "type": "string",
+              "id": 9
+            },
+            "conversationId": {
+              "type": "string",
+              "id": 10
+            }
+          }
+        },
+        "RunActionConfirmationEndedEvent": {
+          "fields": {
+            "requestId": {
+              "type": "string",
+              "id": 1
+            },
+            "outcome": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "CatalogueSourceMarker": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "version": {
+              "type": "string",
+              "id": 2
+            },
+            "artefactSha256": {
+              "type": "string",
+              "id": 3
             }
           }
         }

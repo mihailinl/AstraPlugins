@@ -4,10 +4,10 @@
 
 Поколение протокола **1**. 10 сервисов, 192 RPC. Источник:
 [`proto/plugin.proto`](../../../proto/plugin.proto), сгенерированный срез
-`astra.proto` Astra (`surface-sha256: f321bbf8ae7cd994…` — дайджест
+`astra.proto` Astra (`surface-sha256: 7a4f3ba3323e2ad8…` — дайджест
 обращённого к плагинам тела, о котором и идёт речь), закреплённый
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:31698fcd956c63ff…`. У каждой завендоренной копии в трёх SDK тот же
+`sha256:ea9924cef0817f45…`. У каждой завендоренной копии в трёх SDK тот же
 самый хеш; `tools/check-proto.sh` — то, что это подтверждает.
 
 ## Три сервиса плагина

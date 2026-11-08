@@ -1385,13 +1385,14 @@
       "claim": {
         "capabilities": [
           "file_access",
+          "launches_apps",
           "on_phrase"
         ],
-        "danger": "low",
+        "danger": "high",
         "requires": []
       },
       "verdict": "accept",
-      "note": "a linear execute with shell \"open\" opens a file and runs nothing: file_access, low (scan_action / action_danger at Astra 5d5ae5e83)"
+      "note": "a linear execute with shell \"open\" opens a file with its default application, which can run anything: file_access, launches_apps, high (scan_action / action_danger at Astra 65775237c)"
     },
     {
       "name": "event-node-startup",
