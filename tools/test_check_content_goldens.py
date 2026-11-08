@@ -358,6 +358,64 @@ class F15ExtractorMatchesAstra(unittest.TestCase):
         self.assertRedOn(Mutation("derive_command", derive), "commands/event-node-no-config")
 
 
+class PortableCommandSchemaTable(unittest.TestCase):
+    """cg.COMMAND_SCHEMA_TABLE states, per command golden, whether the
+    vendored portable-command schema must accept or refuse it. Three ways
+    that table (or the schema behind it) could stop meaning anything, each
+    turning the run red on exactly the golden(s) it breaks."""
+
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_dropping_a_required_field_turns_its_golden_red(self):
+        # greet is tag "pass": SpeakAction requires `text`. Removing it from
+        # ONLY this golden (every other read is untouched) must turn exactly
+        # this golden red -- the same class of defect as #154's
+        # notify.message / wait.milliseconds / condition.expression, caught
+        # here instead of three more times.
+        orig = cg.command_golden_doc
+
+        def mutated(relpath):
+            doc = orig(relpath)
+            if relpath == "commands/valid/greet.command.json":
+                doc = copy.deepcopy(doc)
+                del doc["actions"][0]["text"]
+            return doc
+        self.assertRedOn(Mutation("command_golden_doc", mutated), "commands/valid/greet.command.json")
+
+    def test_a_schema_that_accepts_everything_turns_the_hostile_expectations_red(self):
+        # An empty JSON Schema ({}) has no keyword for schemalite to check, so
+        # it accepts every document -- the same failure mode as a schema file
+        # quietly losing its content. Every "pass"/"blind-*"/"semantic" row
+        # stays green (the schema was already expected to accept them); the
+        # "fail" rows -- hostile vectors the real schema correctly refuses --
+        # flip to red, because the table expected a refusal this gutted
+        # schema no longer gives.
+        self.assertRedOn(Mutation("_SCHEMAS", {"portable-command-v1.schema.json": {}}),
+                          "commands/hostile/unknown-action.command.json",
+                          "commands/hostile/unknown-trigger.command.json",
+                          "commands/hostile/linear-open-file.command.json")
+
+    def test_reclassifying_a_hostile_golden_as_expected_pass_is_caught(self):
+        # unknown-action really is refused by the schema (download_and_run
+        # matches no Action tag). Relabelling its table row "pass" claims the
+        # opposite; the schema's real answer (still "fail") now disagrees
+        # with the table, which is exactly the drift this table exists to
+        # catch rather than silently inherit from whoever last edited it.
+        table = dict(cg.COMMAND_SCHEMA_TABLE)
+        table["commands/hostile/unknown-action.command.json"] = "pass"
+        self.assertRedOn(Mutation("COMMAND_SCHEMA_TABLE", table), "commands/hostile/unknown-action.command.json")
+
+    def test_the_floor_catches_a_gutted_table(self):
+        # Half the table deleted (never mind which half) must drop the count
+        # below the pinned floor -- a smaller table is a red run, not a
+        # smaller green one.
+        table = dict(sorted(cg.COMMAND_SCHEMA_TABLE.items())[: len(cg.COMMAND_SCHEMA_TABLE) // 2])
+        self.assertRedOn(Mutation("COMMAND_SCHEMA_TABLE", table),
+                          "every command golden is schema-checked",
+                          "COMMAND_SCHEMA_TABLE matches the command goldens on disk exactly")
+
+
 def _swallowing(detail_words, fallback=None):
     """A walk_zip mutation: the refusal whose detail names one of `detail_words` is not raised."""
     orig = cg.walk_zip

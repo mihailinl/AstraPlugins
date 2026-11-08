@@ -16,6 +16,13 @@ express (security => act security, a model's single part, the not_before
 order) are NOT here: they are tools/check-content-goldens.py's named
 semantic rules, and each spec says which rule is which.
 
+One file in the directory, `portable-command-v1.schema.json`, is NOT this
+generator's: it is vendored byte-identically from Astra's own
+`astra-core/schemas/portable-command.schema.json` by `tools/resync-astra.sh`,
+because the shape it states is the client's own serde types, not a shape
+this repository defines. `VENDORED` below is the one place `--check` is told
+to leave it alone rather than flag it as an orphan.
+
     python3 tools/gen-content-schemas.py           # write
     python3 tools/gen-content-schemas.py --check   # exit 1 on drift
 """
@@ -30,6 +37,12 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "spec" / "content" / "schemas"
 BASE_ID = "https://astraplugins.minice.ai/spec/content/schemas/"
+
+# Vendored by tools/resync-astra.sh from Astra's own astra-core/schemas/, not
+# written by this generator -- see the module docstring. `--check` must not
+# call it an orphan, and this generator must never overwrite it either; the
+# lock beside it (PORTABLE_COMMAND_SCHEMA.lock) is also resync-astra.sh's.
+VENDORED = {"portable-command-v1.schema.json"}
 
 KINDS = ["commands", "characters", "models", "animsets", "packs"]
 KEY_KINDS = KINDS + ["games"]
@@ -506,7 +519,7 @@ def main(argv: list[str]) -> int:
         else:
             OUT.mkdir(parents=True, exist_ok=True)
             p.write_text(text, encoding="utf-8")
-    extra = sorted(p.name for p in OUT.glob("*.json") if p.name not in want) if OUT.exists() else []
+    extra = sorted(p.name for p in OUT.glob("*.json") if p.name not in want and p.name not in VENDORED) if OUT.exists() else []
     if check:
         if drift or extra:
             print("gen-content-schemas: DRIFT in " + ", ".join(drift + [f"{e} (not generated)" for e in extra]))

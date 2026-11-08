@@ -29,13 +29,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import schemalite as S  # noqa: E402
 
-_SUPPORTED = {
-    "$ref", "$schema", "$id", "$defs", "$comment", "title", "description",
-    "oneOf", "anyOf", "const", "enum", "type", "minLength", "maxLength",
-    "pattern", "minimum", "maximum", "minItems", "maxItems", "items",
-    "minProperties", "maxProperties", "required", "propertyNames",
-    "properties", "additionalProperties",
-}
+# Imported, not copied: a keyword added to the validator without updating
+# this self-check (or vice versa) used to be a silent drift between two
+# hand-maintained lists. See schemalite.SUPPORTED_KEYWORDS's own comment.
+_SUPPORTED = S.SUPPORTED_KEYWORDS
 
 
 def _walk(schema, path, out):
