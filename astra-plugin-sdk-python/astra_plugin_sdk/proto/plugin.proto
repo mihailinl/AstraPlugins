@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: e59f6ad58908e5a1e560d67bbd7c4b0df3f9b00bd82c4882fae726560f7d3431
+// surface-sha256: 7a4f3ba3323e2ad81322c99a5085f3ce0681472935d9f6bc136b8f255cf0b060
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2287,6 +2287,12 @@ message CreateCommandRequest {
 
     // Text-matching priority (1..10, default 4; higher levels win).
     int32 priority = 12;
+
+    // The catalogue item an imported command's file says it came from (its exported
+    // `catalogue_source`), forwarded as found. A MARKER, never provenance: the daemon looks
+    // it up in the ledger and it can only LOWER the command's authority (§4.8's copy rule);
+    // unset for a command made here.
+    CatalogueSourceMarker source_marker = 13;
 }
 
 message UpdateCommandRequest {
@@ -2382,6 +2388,11 @@ message CommandDefinition {
 
     // Text-matching priority (1..10, default 4; higher levels win).
     int32 priority = 16;
+
+    // The catalogue release this command was installed from (or is a copy of): the
+    // definition's own `catalogue_source`, set only by the commands kind's install and by the
+    // copy rule (§4.8). Unset for a command made here. Read only; a request never sets it.
+    CatalogueSourceMarker catalogue_source = 17;
 }
 
 // Per-command override of the global CommandExecutionSettings. Mirrors
@@ -6867,6 +6878,10 @@ message RunActionConfirmationEvent {
     // by its display name (its id when this machine has none). Empty when the person started
     // it themselves — a hotkey, their voice, a button, the chat.
     string initiator = 9;
+
+    // The conversation the run writes into (its sink, off the run's scope), so a chat whose
+    // open conversation it is can draw the card inline. Empty when the run has none.
+    string conversation_id = 10;
 }
 
 // A run-action card ended (`AstraEvent::RunActionConfirmationEnded`): `outcome` is `allowed`,
@@ -6877,4 +6892,14 @@ message RunActionConfirmationEvent {
 message RunActionConfirmationEndedEvent {
     string request_id = 1;
     string outcome = 2;
+}
+
+// **A catalogue release, as a command names it** (§4.8): the item id, the version and the
+// artefact's sha256. On `CommandDefinition.catalogue_source` it is the definition's provenance;
+// on `CreateCommandRequest.source_marker` it is what an imported file SAYS, which the daemon
+// only looks up.
+message CatalogueSourceMarker {
+    string id = 1;
+    string version = 2;
+    string artefact_sha256 = 3;
 }
