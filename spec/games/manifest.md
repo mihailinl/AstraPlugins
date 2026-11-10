@@ -801,10 +801,15 @@ refuse a release whose `[integration] id`:
 The holding repository's own later releases are updates, never a finding.
 **A withdrawn, delisted or revoked holder keeps its id.** Its installs still
 hold data under that id in people's engines; a new publisher taking the name
-would inherit them. No act moves an `[integration] id` to another
-repository today. Like `engine-code-taken` (§2.1), these are not
-manifest-parse concerns: only ingest, which holds the catalogue's state, can
-raise them, so `gi-probe check` does not, and they have no golden in
+would inherit them. An id moves only between first-party repositories, for
+a successor integration: a repository in the catalogue's first-party list
+may list an id another first-party repository holds, so a person's engine
+data under it carries over (a third party never takes a first-party id, and
+a first-party repository never takes a third party's).
+
+Like `engine-code-taken` (§2.1), these are not manifest-parse concerns:
+only ingest, which holds the catalogue's state, can raise them, so
+`gi-probe check` does not, and they have no golden in
 `testdata/games/manifests/`.
 
 [`spec/games/reserved.yaml`](reserved.yaml) is the **one list** of:
