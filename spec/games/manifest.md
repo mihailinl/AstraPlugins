@@ -775,6 +775,38 @@ slug is the id without a leading `<login>.` and with each `.` turned into `-`.
 The plugins service bounds each segment of an entry id at 100 characters
 (contract 6.16.0), so a longer id would make an entry nobody could moderate.
 
+**An `[integration] id` is unique across the whole catalogue, and the first
+repository that lists it holds it.** The Astra game engine keys an
+integration's packages, inbox and `games/<integration id>.json` by this id,
+not by the entry id, so two publishers sharing one id would have their data
+mixed under one name on the machine of anyone who installs both. The entry id
+alone does not prevent that: `alice` and `bob` can both declare
+`id = "foo.game"` and get the distinct entries `alice/foo-game` and
+`bob/foo-game`. So ingest, and the signer again before it lists a release,
+refuse a release whose `[integration] id`:
+
+- is already listed by a **different repository** — `E_ID_TAKEN`, naming the
+  holder. Repositories are compared by the immutable GitHub `repo_id`, never
+  by account: one account's second repository collides in the engine just
+  like a stranger's, and a renamed or transferred repository keeps its
+  `repo_id` and so keeps its id. Two ids that differ only in ASCII case are
+  the same id (they are one file name on a Windows disk);
+- reads the same as an id a different repository lists — `E_ID_CONFUSABLE`,
+  when the two are equal after the catalogue's confusable fold (case, the
+  separators `.` `-` `_`, and look-alike characters such as `0`/`o`, `1`/`l`);
+- or writes an entry id another publisher already lists, or one that reads
+  the same — the same two codes (`alice.foo` and `foo` both become
+  `alice/foo`).
+
+The holding repository's own later releases are updates, never a finding.
+**A withdrawn, delisted or revoked holder keeps its id.** Its installs still
+hold data under that id in people's engines; a new publisher taking the name
+would inherit them. No act moves an `[integration] id` to another
+repository today. Like `engine-code-taken` (§2.1), these are not
+manifest-parse concerns: only ingest, which holds the catalogue's state, can
+raise them, so `gi-probe check` does not, and they have no golden in
+`testdata/games/manifests/`.
+
 [`spec/games/reserved.yaml`](reserved.yaml) is the **one list** of:
 
 - reserved engine codes (the four built-ins plus the `unknown` sentinel);
