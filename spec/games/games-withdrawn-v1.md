@@ -171,9 +171,11 @@ every list before it signs:
   and no row carries the subject and second of a lift the list still holds.
   When an act's row would, the publisher gives it the first free second after
   the act's own; the act is not refused, because a security revoke must not
-  wait for a retry. The only rows of one subject that share a second are the
-  two **one** act writes together, the banner and the `yank` of a foundation
-  cascade (§3).
+  wait for a retry. The move ends where an act's own `at` must (below): at
+  the signer's clock plus five minutes. With no second free up to there the
+  act is refused, never dated later. The only rows of one subject that share
+  a second are the two **one** act writes together, the banner and the `yank`
+  of a foundation cascade (§3).
 
 **So one lift lifts exactly what one act wrote for that subject at that
 second**: one row, or a cascade's banner and its `yank` together. It lifts no
@@ -183,11 +185,31 @@ of their own subjects and are lifted by their own acts.
 **A lift is a moderator act** (`M_LIFT`), taken like every other: one console
 confirmation, an `at`, a `by` and a `reason_text`, recorded in the
 catalogue's public act log. The list carries the act's `at`; who lifted and
-why are in the log, as they are for a row's own act. The publisher bounds it:
+why are in the log, as they are for a row's own act.
 
-- **`lifts_at` ≤ `at`, and `at` is not ahead of the signer's clock** (beyond
-  five minutes of skew). A lift is dated when it was taken, never before the
-  row it lifts and never in the future.
+**The act says what it lifts.** Beside the subject and `lifts_at` it carries
+`kinds`: a non-empty array of distinct values out of `yank`, `delist`,
+`deprecate` and `revoke` (a row's `act`, §2.1), the kinds of the rows it is
+expected to remove. The publisher refuses the act unless the rows of that
+subject and second, in the list or still waiting over the takedown limit,
+are of **exactly** those kinds, and says both sets. A row's `at` is not
+always its act's `at` (it may have taken the next free second, above), so a
+moderator who copies the wrong second would otherwise lift another act's
+row, and a client could not tell: `lifts_at` naming a `delist` act's own
+second must not release the security `revoke` that sits there. `kinds` is in
+the act and so in the public act log. **The list's `lifts` element does not
+carry it**: a client matches by subject and `at` alone, and this document
+does not change.
+
+The publisher bounds the act:
+
+- **Every act's `at` is Unix seconds, and is not ahead of the signer's
+  clock** (beyond five minutes of skew): a withdrawal as much as a lift. A
+  row dated in the future is published at once and could then never be
+  lifted, because its lift needs `lifts_at` ≤ `at` ≤ the clock. A timestamp
+  in milliseconds (10^11 or more) is refused as that.
+- **`lifts_at` ≤ `at`.** A lift is dated when it was taken, never before the
+  row it lifts.
 - **At most 3 lifts of security revokes in any 24 hours**, counted by when
   the signer applies them. The fourth is refused, not queued: a lift is never
   urgent, and one console session must not be able to re-arm everything.
@@ -214,6 +236,12 @@ in this order, and no other:
    in force, which is the safe failure;
 3. otherwise nothing leaves, and a new lift of a security revoke is refused:
    "the lift list is full". That takes 256 security lifts in one year.
+
+A lift's age is counted **from when the signer applied it**, not from its
+own `at`, which is only bounded from above: a lift honestly dated a year
+back is as young as the day it was applied. So no lift of a security revoke
+is ever accepted and dropped in the same issue, unpublished; it is kept, or
+its act is refused.
 
 256 is a count the document's size can always afford: a lift as the
 catalogue writes it is at most about half a kibibyte, so a full list is about
