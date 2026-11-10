@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://astraplugins.minice.ai/spec/games/schemas/games-withdrawn-v1.schema.json",
   "title": "astra.games.withdrawn/1",
-  "description": "games-withdrawn-v1.md. The security+revoke pairing rule is cross-field and checked by tools/check-games-goldens.py, not by this schema.",
+  "description": "games-withdrawn-v1.md. Four rules are not this schema's and are checked by tools/check-games-goldens.py: the security+revoke pairing (security-requires-revoke), that no lift names a row of the same document (lift-not-contradicted), that no two acts' rows of one subject share an `at` (one-act-per-second) and that every entry_id is one a client can read (entry-id-readable). `lifts` is optional: a document without it carries no lift.",
   "type": "object",
   "required": ["schema", "serial", "issued_at", "expires_at", "key_id", "rows"],
   "additionalProperties": false,
@@ -12,7 +12,8 @@
     "issued_at": { "type": "integer", "minimum": 0 },
     "expires_at": { "type": "integer", "minimum": 0 },
     "key_id": { "enum": ["games-current", "games-next"] },
-    "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } }
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } },
+    "lifts": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/lift" } }
   },
   "$defs": {
     "row": {
@@ -27,6 +28,19 @@
         "floor_effect": { "enum": ["no-offer", "no-update", "no-play"] },
         "reason_code": { "enum": ["security", "broken", "author-request", "rights-holder", "policy"] },
         "reason_text": { "type": "string" },
+        "at": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lift": {
+      "description": "games-withdrawn-v1.md §2.2. repo_id, versions and entry_id are the lifted row's own, as written (entry_id absent when the row had none); lifts_at is that row's `at`; `at` is when the lift was taken.",
+      "type": "object",
+      "required": ["repo_id", "versions", "lifts_at", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "repo_id": { "type": "integer", "minimum": 1 },
+        "versions": { "type": "string", "minLength": 1 },
+        "entry_id": { "type": "string" },
+        "lifts_at": { "type": "integer", "minimum": 0 },
         "at": { "type": "integer", "minimum": 0 }
       }
     }

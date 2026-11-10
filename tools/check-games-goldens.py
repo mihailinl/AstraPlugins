@@ -40,6 +40,7 @@ import re
 import sys
 import time
 import tomllib
+import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SPEC = ROOT / "spec" / "games"
@@ -194,6 +195,152 @@ def rule_expiry_span_too_long(doc: dict) -> bool:
 
 def rule_security_requires_revoke(doc: dict) -> bool:
     return all(row["act"] == "revoke" for row in doc["rows"] if row["reason_code"] == "security")
+
+
+# ── lifts (games-withdrawn-v1.md §2.2) ───────────────────────────────────
+# The client's rule, as a reference: Astra's games reader
+# (astra-daemon/src/games/catalogue_kind.rs `canonical_id` and
+# `parse_withdrawn`) and the catalogue core's `InForce::advance`. Where this
+# file and that reader disagree, the reader is right and this is the bug.
+
+# Rust's `str::trim` strips Unicode White_Space: these 25 code points. It is
+# NOT Python's str.strip() (which also strips U+001C..U+001F) and not
+# JavaScript's trim() (which strips U+FEFF and keeps U+0085).
+_WHITE_SPACE = "\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000"
+_RUST_TRIM = re.compile(f"^[{_WHITE_SPACE}]+|[{_WHITE_SPACE}]+$")
+NO_ENTRY = "-"
+
+
+def client_entry_id(row: dict):
+    """An `entry_id` as a client keys it (§2.2, the first reading rule):
+    `NO_ENTRY` when the member is absent or null; otherwise trimmed (Rust's
+    `trim`) and lowercased (Unicode, not ASCII only), with a `=` before it so
+    no id can spell `NO_ENTRY`; `None` when the client cannot read it: not a
+    string, empty once trimmed, or holding a control character.
+
+    Lowercase comes from each reader's own Unicode tables. Compared over
+    every code point on 2026-11-10, Node 26.13 and rustc 1.99 agree on all
+    1,488 mappings, and this interpreter's older tables differ from them on
+    28 recently added letters. That is why the publisher refuses an act
+    whose entry_id holds a non-ASCII character that is not already lowercase
+    (`entry-id-readable`), and why the goldens here use only old letters."""
+    raw = row.get("entry_id")
+    if raw is None:
+        return NO_ENTRY
+    if not isinstance(raw, str):
+        return None
+    trimmed = _RUST_TRIM.sub("", raw)
+    if not trimmed or any(unicodedata.category(ch) == "Cc" for ch in trimmed):
+        return None
+    return "=" + trimmed.lower()
+
+
+def withdrawn_subject(x: dict):
+    """What a row or a lift is ABOUT, as a client keys it, or `None` when it
+    cannot be keyed. The three reading rules of §2.2: `repo_id` a
+    non-negative JSON integer (a string or a fraction is no repo_id);
+    `entry_id` per `client_entry_id`; `versions` byte for byte, no trim and
+    no normalisation (`<= 1.0.0` is not `<=1.0.0`), an absent one read as ""."""
+    repo = x.get("repo_id")
+    if isinstance(repo, bool) or not isinstance(repo, int) or repo < 0:
+        return None
+    entry = client_entry_id(x)
+    if entry is None:
+        return None
+    versions = x.get("versions", "")
+    return (repo, entry, versions if isinstance(versions, str) else "")
+
+
+def lift_names(lift: dict, row: dict) -> bool:
+    """A lift names a row when both subjects can be keyed and are equal AND
+    the lift's `lifts_at` is the row's `at`. Nothing else is compared: not
+    the act, not the reason. So a lift names every row of its subject and
+    second, which the publisher keeps to what ONE act wrote
+    (`one-act-per-second`)."""
+    subject = withdrawn_subject(lift)
+    lifts_at = lift.get("lifts_at")
+    if subject is None or isinstance(lifts_at, bool) or not isinstance(lifts_at, int):
+        return False
+    return subject == withdrawn_subject(row) and lifts_at == row["at"]
+
+
+def rule_lift_not_contradicted(doc: dict) -> bool:
+    """A publisher rule: no lift names a row the same list carries. The
+    lifted row leaves `rows` in the issue that first carries its lift."""
+    return not any(lift_names(lift, row) for lift in doc.get("lifts", []) for row in doc["rows"])
+
+
+def rule_one_act_per_second(doc: dict) -> bool:
+    """A publisher rule: no two acts' rows of one subject share an `at`. The
+    rows that may are the two ONE act writes for one subject, the banner
+    (`deprecate`) and the `yank` of a foundation cascade (§3). Without it one
+    lift would name the rows of two acts."""
+    groups: dict = {}
+    for row in doc["rows"]:
+        subject = withdrawn_subject(row)
+        if subject is not None:
+            groups.setdefault((subject, row["at"]), []).append(row["act"])
+    return all(len(acts) == 1 or sorted(acts) == ["deprecate", "yank"] for acts in groups.values())
+
+
+def rule_entry_id_readable(doc: dict) -> bool:
+    """A publisher rule: every `entry_id` written, in a row or in a lift, is
+    one a client can read. A client that cannot key a ROW retracts nothing
+    from that list; one that cannot read a LIFT skips it."""
+    return all(client_entry_id(x) is not None for x in [*doc["rows"], *doc.get("lifts", [])])
+
+
+def row_is_sticky(row: dict) -> bool:
+    """A `revoke` for `security` stays in force on a client until a lift
+    names it. Every other row retracts when a later list omits it."""
+    return row["act"] == "revoke" and row["reason_code"] == "security"
+
+
+def withdrawn_in_force(sequence: list) -> list:
+    """The rows in force on a client after it verifies each list of
+    `sequence` in turn (`InForce::advance`). Per list:
+
+    1. its lifts release the remembered sticky rows they name;
+    2. every row it carries that can be keyed is in force, and a row beats a
+       lift for it in the same list;
+    3. a remembered sticky row it omits stays;
+    4. a list with a row that cannot be keyed retracts nothing: every row in
+       force before it stays, save a lifted one."""
+    remembered: list = []
+    in_force: list = []
+    out = []
+    serial = -1
+    for doc in sequence:
+        if doc["serial"] <= serial:
+            raise ValueError(f"serial {doc['serial']} does not rise above {serial}: a client refuses this list")
+        serial = doc["serial"]
+        lifts = doc.get("lifts", [])
+
+        def lifted(r, lifts=lifts):
+            return any(lift_names(lift, r) for lift in lifts)
+
+        rows = [r for r in doc["rows"] if withdrawn_subject(r) is not None]
+        unkeyable = len(rows) != len(doc["rows"])
+        rows += [r for r in remembered if not lifted(r) and r not in rows]
+        if unkeyable:
+            rows += [r for r in in_force if not lifted(r) and r not in rows]
+        remembered = [r for r in rows if row_is_sticky(r)]
+        in_force = rows
+        out.append(rows)
+    return out
+
+
+def row_words(row: dict) -> str:
+    """One row as vectors.json's scenarios spell it."""
+    return f"{row['repo_id']} {row.get('entry_id', '-')} {row['versions']} {row['act']}@{row['at']}"
+
+
+SEMANTIC_WITHDRAWN_RULES = {
+    "security-requires-revoke": rule_security_requires_revoke,
+    "lift-not-contradicted": rule_lift_not_contradicted,
+    "one-act-per-second": rule_one_act_per_second,
+    "entry-id-readable": rule_entry_id_readable,
+}
 
 
 # ── content (manifest.md §2.7, merged plan §5.4) ──────────────────────────
@@ -2052,7 +2199,8 @@ def main() -> int:
     for v in vectors["withdrawn"]["valid"]:
         doc = load_doc(v["file"])
         ok, detail = schema_ok(doc, withdrawn_schema)
-        report(f"withdrawn/valid/{v['name']}", ok == (v["verdict"] == "accept"), detail)
+        broken = [name for name, rule in SEMANTIC_WITHDRAWN_RULES.items() if ok and not rule(doc)]
+        report(f"withdrawn/valid/{v['name']}", (ok and not broken) == (v["verdict"] == "accept"), detail or ", ".join(broken))
 
     for v in vectors["withdrawn"]["invalid"]:
         doc = load_doc(v["file"])
@@ -2060,8 +2208,15 @@ def main() -> int:
         if v["check"] == "schema":
             report(f"withdrawn/invalid/{v['name']}", sok is False, detail)
         else:
-            semantic_ok = rule_security_requires_revoke(doc)
-            report(f"withdrawn/invalid/{v['name']}", sok is True and semantic_ok is False)
+            # the golden breaks the ONE rule it is named for, and no other
+            broken = [name for name, rule in SEMANTIC_WITHDRAWN_RULES.items() if sok and not rule(doc)]
+            report(f"withdrawn/invalid/{v['name']}", sok is True and broken == [v["rule"]], f"schema_ok={sok} broken={broken}")
+
+    for v in vectors["withdrawn"].get("scenarios", []):
+        docs = [load_doc(f) for f in v["sequence"]]
+        got = [sorted(row_words(r) for r in rows) for rows in withdrawn_in_force(docs)]
+        want = [sorted(step) for step in v["expect"]]
+        report(f"withdrawn/scenario/{v['name']}", v["type"] == "in-force" and got == want, json.dumps(got))
 
     # -- content (manifest.md §2.7, merged plan §5.4 / legal DRAFT-v3.md
     # Part 6 G4-G5) -----------------------------------------------------

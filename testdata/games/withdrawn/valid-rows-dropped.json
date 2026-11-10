@@ -1,0 +1,9 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798682400,
+  "issued_at": 1798682400,
+  "expires_at": 1799287200,
+  "key_id": "games-current",
+  "rows": [],
+  "lifts": []
+}

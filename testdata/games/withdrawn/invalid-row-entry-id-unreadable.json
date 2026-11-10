@@ -1,0 +1,20 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798678800,
+  "issued_at": 1798678800,
+  "expires_at": 1799283600,
+  "key_id": "games-current",
+  "rows": [
+    {
+      "repo_id": 300000002,
+      "versions": "<=1.1.9",
+      "entry_id": "   ",
+      "act": "revoke",
+      "floor_effect": "no-play",
+      "reason_code": "security",
+      "reason_text": "A dependency pulled in a credential stealer; see advisory GHSA-xxxx.",
+      "at": 1798675100
+    }
+  ],
+  "lifts": []
+}

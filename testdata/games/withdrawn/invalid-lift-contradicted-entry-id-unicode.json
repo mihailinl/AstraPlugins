@@ -1,0 +1,28 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798678800,
+  "issued_at": 1798678800,
+  "expires_at": 1799283600,
+  "key_id": "games-current",
+  "rows": [
+    {
+      "repo_id": 300000005,
+      "versions": "*",
+      "entry_id": "ünï/peak-astra",
+      "act": "revoke",
+      "floor_effect": "no-play",
+      "reason_code": "security",
+      "reason_text": "Backdoored.",
+      "at": 1798675100
+    }
+  ],
+  "lifts": [
+    {
+      "repo_id": 300000005,
+      "versions": "*",
+      "entry_id": "ÜNÏ/Peak-Astra",
+      "lifts_at": 1798675100,
+      "at": 1798678700
+    }
+  ]
+}

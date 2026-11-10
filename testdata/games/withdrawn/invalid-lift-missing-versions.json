@@ -1,0 +1,16 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798686000,
+  "issued_at": 1798686000,
+  "expires_at": 1799290800,
+  "key_id": "games-current",
+  "rows": [],
+  "lifts": [
+    {
+      "repo_id": 300000002,
+      "entry_id": "someone/peak-astra",
+      "lifts_at": 1798675100,
+      "at": 1798685900
+    }
+  ]
+}
