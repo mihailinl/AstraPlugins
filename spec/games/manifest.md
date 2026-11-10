@@ -178,8 +178,15 @@ grants must not look granted on an older one.
 manifest declares is shown to the person on the install consent, and again on
 the consent of an update, in words a person understands: what the integration
 will be able to do, never the bare id. A consent that did not show a
-capability is not consent for it, and the capability stays ungranted. An
-install path that asks for no consent grants none.
+capability is not consent for it. An install path that asks for no consent
+grants none.
+
+**Consent in `v1` is for the whole install; there is no partial grant.** A
+person who declines installs nothing, so no integration is ever installed
+with a capability it declares and was not granted, and the `${bridge_token}`
+config write is never made ungranted. An update that adds a capability, or
+changes the list in any way, asks for consent again (§2.6.1 lists what
+does); declined, the installed version stays as it is.
 
 ### 2.4 `[integration.foundation]` — building on someone else's engine support
 
@@ -259,6 +266,17 @@ digest covers the table's text only. The bytes of the files it names are
 covered separately: `link.skill_digest` covers the skill file, and
 `schema_digests` covers every `params`/`data` schema. A client asks for
 consent again when any of the three changes.
+
+**What asks for consent again on an update**, all of it read from the
+catalogue entry (games-index-v1.md §2.1), so a client can be tested against
+two entries that differ in one member:
+
+| the entry's | changed when |
+|---|---|
+| `link.digest` | the `[integration.link]` table differs in any way (the rule above) |
+| `link.skill_digest` | the skill file's bytes differ |
+| `schema_digests` | a `params`/`data` schema is added, removed or differs |
+| `capabilities` | the list differs as a set: a capability added, removed or replaced (§2.3) |
 
 ### 2.7 `[[integration.content]]` — this GI's own animations, models, art and audio
 

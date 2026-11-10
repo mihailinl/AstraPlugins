@@ -284,9 +284,11 @@
     "schema": "spec/games/schemas/games-withdrawn-v1.schema.json",
     "valid": [
       { "name": "valid-withdrawn", "file": "withdrawn/valid-withdrawn.json", "verdict": "accept" },
-      { "name": "lift-near-miss", "file": "withdrawn/valid-lift-near-miss.json", "verdict": "accept", "note": "four lifts, each one member away from the security row the list still carries (versions by one byte, lifts_at by one second, entry_id absent, another repo_id): none names the row, so the list is not contradicted and the row stays in force" },
+      { "name": "lift-near-miss", "file": "withdrawn/valid-lift-near-miss.json", "verdict": "accept", "note": "six lifts, each one member away from the security row the list still carries (versions by one byte, lifts_at by one second, entry_id absent, another repo_id, versions with a space inside, versions with a space before): none names the row, so the list is not contradicted and the row stays in force. versions is read byte for byte, with no trim" },
       { "name": "rows-dropped", "file": "withdrawn/valid-rows-dropped.json", "verdict": "accept", "note": "no row and `lifts: []`: the member may be present and empty" },
-      { "name": "lift-no-row", "file": "withdrawn/valid-lift-no-row.json", "verdict": "accept", "note": "a lift and no row: the lifted row left `rows` in the issue that carries its lift" }
+      { "name": "lift-no-row", "file": "withdrawn/valid-lift-no-row.json", "verdict": "accept", "note": "a lift and no row: the lifted row left `rows` in the issue that carries its lift" },
+      { "name": "lift-entry-id-as-a-client-reads-it", "file": "withdrawn/valid-lift-entry-id-as-a-client-reads-it.json", "verdict": "accept", "note": "a lift whose entry_id is ' Someone/PEAK-Astra ': a client trims and lowercases it, so it names the row of someone/peak-astra (scenario entry-id-as-a-client-reads-it)" },
+      { "name": "cascade-banner-and-yank", "file": "withdrawn/valid-cascade-banner-and-yank.json", "verdict": "accept", "note": "the two rows ONE act writes for one subject, a cascade's banner (deprecate) and its yank, share their at: the one pair one-act-per-second allows" }
     ],
     "invalid": [
       { "name": "security-not-revoke", "file": "withdrawn/invalid-security-not-revoke.json", "verdict": "refuse", "check": "semantic", "rule": "security-requires-revoke" },
@@ -297,7 +299,12 @@
       { "name": "lift-lifts-at-not-integer", "file": "withdrawn/invalid-lift-lifts-at-not-integer.json", "verdict": "refuse", "check": "schema" },
       { "name": "lift-missing-repo-id", "file": "withdrawn/invalid-lift-missing-repo-id.json", "verdict": "refuse", "check": "schema" },
       { "name": "lift-missing-versions", "file": "withdrawn/invalid-lift-missing-versions.json", "verdict": "refuse", "check": "schema" },
-      { "name": "lift-unknown-member", "file": "withdrawn/invalid-lift-unknown-member.json", "verdict": "refuse", "check": "schema" }
+      { "name": "lift-unknown-member", "file": "withdrawn/invalid-lift-unknown-member.json", "verdict": "refuse", "check": "schema" },
+      { "name": "lift-contradicted-entry-id-as-a-client-reads-it", "file": "withdrawn/invalid-lift-contradicted-entry-id-as-a-client-reads-it.json", "verdict": "refuse", "check": "semantic", "rule": "lift-not-contradicted" },
+      { "name": "lift-contradicted-entry-id-unicode", "file": "withdrawn/invalid-lift-contradicted-entry-id-unicode.json", "verdict": "refuse", "check": "semantic", "rule": "lift-not-contradicted" },
+      { "name": "two-acts-one-second", "file": "withdrawn/invalid-two-acts-one-second.json", "verdict": "refuse", "check": "semantic", "rule": "one-act-per-second" },
+      { "name": "row-entry-id-unreadable", "file": "withdrawn/invalid-row-entry-id-unreadable.json", "verdict": "refuse", "check": "semantic", "rule": "entry-id-readable" },
+      { "name": "lift-entry-id-unreadable", "file": "withdrawn/invalid-lift-entry-id-unreadable.json", "verdict": "refuse", "check": "semantic", "rule": "entry-id-readable" }
     ],
     "scenarios": [
       {
@@ -314,7 +321,7 @@
           ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100"],
           []
         ],
-        "note": "games-withdrawn-v1.md §2.2. The rows in force on a client after it verifies each list in turn (strictly rising serials). A yank and a delist retract when a later list omits them; the security revoke does not: four near-miss lifts release nothing, dropping the row releases nothing, and only the lift whose subject is the row's as written and whose lifts_at is the row's at releases it."
+        "note": "games-withdrawn-v1.md §2.2. The rows in force on a client after it verifies each list in turn (strictly rising serials). A yank and a delist retract when a later list omits them; the security revoke does not: six near-miss lifts release nothing, dropping the row releases nothing, and only the lift whose subject is the row's as written and whose lifts_at is the row's at releases it."
       },
       {
         "name": "lift-contradicted-row-wins", "type": "in-force",
@@ -327,6 +334,42 @@
           ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"]
         ],
         "note": "a list that carries a row and a lift naming it is a publisher defect (lift-not-contradicted, the signer refuses to sign it); a client that meets one anyway lets the ROW win"
+      },
+      {
+        "name": "entry-id-as-a-client-reads-it", "type": "in-force",
+        "sequence": [
+          "withdrawn/valid-withdrawn.json",
+          "withdrawn/valid-lift-entry-id-as-a-client-reads-it.json"
+        ],
+        "expect": [
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"],
+          []
+        ],
+        "note": "§2.2, the first reading rule: entry_id is trimmed and lowercased before it is compared, in a row and in a lift alike, so ' Someone/PEAK-Astra ' names the row of someone/peak-astra and releases the security revoke"
+      },
+      {
+        "name": "unreadable-row-retracts-nothing", "type": "in-force",
+        "sequence": [
+          "withdrawn/valid-withdrawn.json",
+          "withdrawn/invalid-row-entry-id-unreadable.json"
+        ],
+        "expect": [
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"],
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"]
+        ],
+        "note": "a row whose entry_id is empty once trimmed cannot be keyed. A client reports it and, while the list carries it, retracts NOTHING: the yank and the delist the list omits stay in force with the security revoke. This is why the publisher never writes one (entry-id-readable)"
+      },
+      {
+        "name": "unreadable-lift-is-skipped", "type": "in-force",
+        "sequence": [
+          "withdrawn/valid-withdrawn.json",
+          "withdrawn/invalid-lift-entry-id-unreadable.json"
+        ],
+        "expect": [
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"],
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100"]
+        ],
+        "note": "a lift whose entry_id holds a control character is skipped and the rest of the list is read: the yank and the delist retract because the list omits them, and the security revoke stays because nothing named it"
       }
     ]
   },

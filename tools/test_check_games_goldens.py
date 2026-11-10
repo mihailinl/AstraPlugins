@@ -988,18 +988,108 @@ class WithdrawnLifts(unittest.TestCase):
         self.assertFalse(ggold.lift_names(without_entry, row), "a row that names an entry is not named by a lift that names none")
         self.assertFalse(ggold.lift_names(lift, {k: v for k, v in row.items() if k != "entry_id"}), "and the other way round")
 
-    def test_entry_id_is_compared_as_a_client_keys_it(self):
+    def test_entry_id_is_read_as_a_client_reads_it(self):
+        """The first reading rule: Rust's `trim()` then `to_lowercase()`;
+        null and absent are none, and none equals no id; empty once trimmed
+        or a control character cannot be read at all."""
+        key = lambda entry_id: ggold.client_entry_id({"entry_id": entry_id})  # noqa: E731
+        self.assertEqual(ggold.client_entry_id({}), ggold.NO_ENTRY)
+        self.assertEqual(key(None), ggold.NO_ENTRY)
+        self.assertEqual(key(" Someone/Peak-Astra\t"), "=someone/peak-astra")
+        self.assertEqual(key("ÜNÏ/Peak"), "=ünï/peak", "Unicode lowercase, not ASCII only")
+        self.assertEqual(key("İd"), "=i\u0307d", "U+0130 lowercases to i + U+0307")
+        self.assertEqual(key("\u0085x\u0085"), "=x", "U+0085 is White_Space to Rust's trim")
+        self.assertEqual(key("\ufeffx"), "=\ufeffx", "U+FEFF is not White_Space to Rust (JavaScript's trim strips it)")
+        self.assertEqual(key("\u001fx"), None, "U+001F is a control character, and not White_Space to Rust (Python's strip removes it)")
+        self.assertEqual(key("-"), "=-", "an id that spells the no-entry marker is still an id")
+        for unreadable in ("", "   ", "\t\n", "\u0085", "a\u0007b", "a\u007fb", "a\u009fb", 7, [], {}):
+            self.assertIsNone(key(unreadable), repr(unreadable))
         row = self.base()["rows"][0]
         lift = self.lift_doc()["lifts"][0]
         self.assertTrue(ggold.lift_names(dict(lift, entry_id=" Someone/Peak-Astra "), row))
+        self.assertFalse(ggold.lift_names(dict(lift, entry_id=None), row), "none is not this id")
+        no_entry = {k: v for k, v in row.items() if k != "entry_id"}
+        self.assertTrue(ggold.lift_names(dict(lift, entry_id=None), no_entry), "null and absent are the same none")
+        self.assertFalse(ggold.lift_names(dict(lift, entry_id="  "), no_entry), "an unreadable lift names nothing, not even a row with no entry")
+        self.assertFalse(ggold.lift_names(dict(lift, entry_id="  "), dict(row, entry_id="  ")), "nor a row that cannot be read either: two unreadable subjects are not one subject")
+
+    def test_versions_and_repo_id_are_read_as_a_client_reads_them(self):
+        """The second and third reading rules."""
+        row = self.base()["rows"][0]
+        lift = self.lift_doc()["lifts"][0]
+        for versions in ("<= 1.1.9", " <=1.1.9", "<=1.1.9 ", "<=1.1.09", "<=1.1.9\n"):
+            self.assertFalse(ggold.lift_names(dict(lift, versions=versions), row), repr(versions))
+        without = {k: v for k, v in lift.items() if k != "versions"}
+        self.assertEqual(ggold.withdrawn_subject(without), ggold.withdrawn_subject(dict(lift, versions="")), "an absent versions reads as the empty string")
+        for repo_id in ("300000002", 300000002.5, None, True, -1):
+            self.assertIsNone(ggold.withdrawn_subject(dict(lift, repo_id=repo_id)), repr(repo_id))
+            self.assertFalse(ggold.lift_names(dict(lift, repo_id=repo_id), row))
+        self.assertIsNotNone(ggold.withdrawn_subject(dict(lift, repo_id=0)), "zero is a non-negative integer to the reader; the schema asks for more")
+        for lifts_at in ("1798675100", 1798675100.0, None, True):
+            self.assertFalse(ggold.lift_names(dict(lift, lifts_at=lifts_at), row), repr(lifts_at))
+
+    def test_the_entry_id_goldens_stop_contradicting_when_the_ids_differ_after_reading(self):
+        for name in ("invalid-lift-contradicted-entry-id-as-a-client-reads-it", "invalid-lift-contradicted-entry-id-unicode"):
+            doc = copy.deepcopy(ggold.load_doc(f"withdrawn/{name}.json"))
+            self.assertFalse(ggold.rule_lift_not_contradicted(doc), name)
+            self.assertNotEqual(doc["lifts"][0]["entry_id"], doc["rows"][0]["entry_id"], "the two are spelled differently")
+            doc["lifts"][0]["entry_id"] += "x"
+            self.assertTrue(ggold.rule_lift_not_contradicted(doc), name)
+
+    def test_one_act_per_second(self):
+        doc = copy.deepcopy(ggold.load_doc("withdrawn/invalid-two-acts-one-second.json"))
+        self.assertFalse(ggold.rule_one_act_per_second(doc))
+        revoke, delist = doc["rows"]
+        self.assertTrue(ggold.rule_one_act_per_second(dict(doc, rows=[revoke, dict(delist, at=delist["at"] + 1)])), "a second apart")
+        self.assertTrue(ggold.rule_one_act_per_second(dict(doc, rows=[revoke, dict(delist, versions="*")])), "another subject")
+        self.assertFalse(ggold.rule_one_act_per_second(dict(doc, rows=[revoke, dict(delist, entry_id=" Someone/PEAK-Astra ")])), "the same subject, as a client reads it")
+        self.assertFalse(ggold.rule_one_act_per_second(dict(doc, rows=[revoke, dict(revoke)])), "the same act twice")
+        pair = copy.deepcopy(ggold.load_doc("withdrawn/valid-cascade-banner-and-yank.json"))
+        self.assertTrue(ggold.rule_one_act_per_second(pair), "one cascade's banner and yank")
+        banner, yank = pair["rows"]
+        self.assertFalse(ggold.rule_one_act_per_second(dict(pair, rows=[banner, yank, dict(yank, act="delist")])), "three")
+        self.assertFalse(ggold.rule_one_act_per_second(dict(pair, rows=[banner, dict(banner)])), "two banners")
+        self.assertFalse(ggold.rule_one_act_per_second(dict(pair, rows=[yank, dict(yank, act="revoke", floor_effect="no-play")])), "a yank and a revoke")
+
+    def test_entry_id_readable(self):
+        row_doc = copy.deepcopy(ggold.load_doc("withdrawn/invalid-row-entry-id-unreadable.json"))
+        self.assertFalse(ggold.rule_entry_id_readable(row_doc))
+        row_doc["rows"][0]["entry_id"] = " x "
+        self.assertTrue(ggold.rule_entry_id_readable(row_doc))
+        lift_doc = copy.deepcopy(ggold.load_doc("withdrawn/invalid-lift-entry-id-unreadable.json"))
+        self.assertFalse(ggold.rule_entry_id_readable(lift_doc))
+        lift_doc["lifts"][0]["entry_id"] = lift_doc["lifts"][0]["entry_id"].replace("\u0007", "-")
+        self.assertTrue(ggold.rule_entry_id_readable(lift_doc))
+        self.assertTrue(ggold.rule_entry_id_readable(self.base()), "a row with no entry_id is readable: it names none")
+
+    def test_a_list_with_a_row_that_cannot_be_keyed_retracts_nothing(self):
+        base = self.base()
+        security, yank, delist = base["rows"]
+        unreadable = dict(yank, entry_id=" ", repo_id=yank["repo_id"] + 50)
+        after = self.after(base, rows=[unreadable])
+        self.assertEqual(ggold.withdrawn_in_force([base, after]), [[security, yank, delist], [security, yank, delist]])
+        # the same list without that row retracts the two that are not sticky
+        self.assertEqual(ggold.withdrawn_in_force([base, self.after(base)])[1], [security])
+        # a lift in such a list still releases what it names, and nothing else comes back
+        lift = self.lift_doc()["lifts"][0]
+        with_lift = self.after(base, rows=[unreadable], lifts=[lift])
+        self.assertEqual(ggold.withdrawn_in_force([base, with_lift])[1], [yank, delist])
+        # a row with no repo_id at all is the same case
+        no_repo = {k: v for k, v in yank.items() if k != "repo_id"}
+        self.assertEqual(ggold.withdrawn_in_force([base, self.after(base, rows=[no_repo])])[1], [security, yank, delist])
+        # and the list after it, readable again, retracts as usual
+        later = self.after(after)
+        self.assertEqual(ggold.withdrawn_in_force([base, after, later])[2], [security])
 
     def test_the_near_miss_golden_is_one_member_from_contradicting_itself(self):
         doc = copy.deepcopy(ggold.load_doc("withdrawn/valid-lift-near-miss.json"))
         row = doc["rows"][0]
         self.assertTrue(ggold.rule_lift_not_contradicted(doc))
-        self.assertEqual(len(doc["lifts"]), 4)
+        self.assertEqual(len(doc["lifts"]), 6)
+        self.assertEqual([lift["versions"] for lift in doc["lifts"][4:]], ["<= 1.1.9", " <=1.1.9"], "a space inside, a space before: versions is never trimmed")
         repaired = [dict(doc["lifts"][0], versions=row["versions"]), dict(doc["lifts"][1], lifts_at=row["at"]),
-                    dict(doc["lifts"][2], entry_id=row["entry_id"]), dict(doc["lifts"][3], repo_id=row["repo_id"])]
+                    dict(doc["lifts"][2], entry_id=row["entry_id"]), dict(doc["lifts"][3], repo_id=row["repo_id"]),
+                    dict(doc["lifts"][4], versions=row["versions"]), dict(doc["lifts"][5], versions=row["versions"])]
         for i, lift in enumerate(repaired):
             self.assertFalse(ggold.rule_lift_not_contradicted(dict(doc, lifts=[lift])), f"lift {i}, with its one differing member repaired, names the row")
 
@@ -1087,6 +1177,9 @@ class WithdrawnLifts(unittest.TestCase):
         self.assertTrue(ggold.lift_names(lift, revoke) and ggold.lift_names(lift, delist))
         doc = dict(self.base(), rows=[delist], lifts=[lift])
         self.assertFalse(ggold.rule_lift_not_contradicted(doc), "the delist left beside the lift is a contradiction, whatever its act")
+        # which is why the publisher never lets two acts share a subject and a second
+        self.assertFalse(ggold.rule_one_act_per_second(dict(self.base(), rows=[revoke, delist])))
+        self.assertTrue(ggold.rule_one_act_per_second(dict(self.base(), rows=[banner, yank])))
 
     def test_a_serial_that_does_not_rise_is_not_a_sequence(self):
         base = self.base()
@@ -1111,7 +1204,7 @@ class WithdrawnLifts(unittest.TestCase):
     def test_every_scenario_names_goldens_that_exist_and_rise(self):
         vectors = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))
         scenarios = vectors["withdrawn"]["scenarios"]
-        self.assertGreaterEqual(len(scenarios), 2)
+        self.assertGreaterEqual(len(scenarios), 5)
         for s in scenarios:
             docs = [ggold.load_doc(f) for f in s["sequence"]]
             self.assertEqual(len(docs), len(s["expect"]), s["name"])

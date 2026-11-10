@@ -82,12 +82,12 @@ since, `[]` when there is none.
 |---|---|
 | `repo_id` | keyed by repository, not by catalogue entry id — this is what still reaches a 0.2.7-era install (via an upgraded client) and an address install, neither of which the catalogue otherwise knows about |
 | `versions` | a semver range this act covers |
-| `entry_id` | **mandatory when the repository hosts more than one catalogue entry** (R43 — astra-bepinex alone hosts two). Omitted only for a single-entry repo |
+| `entry_id` | **mandatory when the repository hosts more than one catalogue entry** (R43 — astra-bepinex alone hosts two). Omitted only for a single-entry repo. Always one a client can read (§2.2, `entry-id-readable`) |
 | `act` | `yank` \| `delist` \| `deprecate` \| `revoke` — see §3 |
 | `floor_effect` | what a client that does not recognise `act` must still do (§4) |
 | `reason_code` | `security` \| `broken` \| `author-request` \| `rights-holder` \| `policy` |
 | `reason_text` | shown to the user verbatim; never secrets, never a person's real name beyond what the author/reporter already made public |
-| `at` | Unix seconds the act was taken |
+| `at` | Unix seconds the act was taken, or the first second after it that no other row or lift of the same subject carries (§2.2, `one-act-per-second`). A takedown that waited over the limit of §3 carries the second it entered the list |
 
 **`security` is always paired with `act = "revoke"`.** A `security` row with
 any other act is a contradiction `gi-probe`/ingest must refuse — a security
@@ -119,25 +119,36 @@ longer carries a row is no evidence the row was withdrawn, and a withheld or
 replayed list must not re-arm a credential stealer. So omitting the row can
 never undo it. A lift is the signed statement that does.
 
-**A lift names a row** when its `repo_id`, `versions` and `entry_id` equal
-the row's **as written** and its `lifts_at` equals the row's `at`, exactly.
-Nothing else is compared, neither the act nor the reason.
+**A lift names a row** when the two have the same **subject** (`repo_id`,
+`entry_id`, `versions`) and the lift's `lifts_at` equals the row's `at`,
+exactly. Nothing else is compared, neither the act nor the reason.
 
-- `versions` is compared as a string: `<= 1.1.9` does not lift `<=1.1.9`, and
-  `<=1.1.8` does not either. A lift whose `lifts_at` is one second off lifts
-  nothing. A lift without `entry_id` does not name a row that has one, nor
-  the other way round.
-- `entry_id` is the one member a client does not compare byte for byte: it
-  trims and lowercases every entry id it reads, a row's and a lift's alike.
-  The publisher copies the row's `entry_id` unchanged, so the two readings
-  never disagree about a lift the publisher wrote.
-- **Rows that share a subject and an `at` are named by one lift, all of
-  them.** That is the banner and the `yank` a foundation cascade writes for
-  one dependant (§3), and it is also two separate acts taken on one subject
-  with the same `versions` within one second, a `revoke` and a `delist` for
-  instance. A lift carries no act, so it cannot tell them apart; the publisher
-  removes every row it names, and a moderator who wants one of them back takes
-  it again.
+**How a subject is read.** A client reads a row's subject and a lift's by
+these three rules, and the publisher compares subjects by the same three
+everywhere it compares them (naming a row, the rules below), never byte for
+byte where a client would not:
+
+| member | read as |
+|---|---|
+| `repo_id` | a non-negative JSON integer. A string or a fraction is no `repo_id`: the row cannot be keyed, the lift is skipped |
+| `entry_id` | absent and `null` are the same, **none**, and none equals no id. Otherwise the string is trimmed of leading and trailing white space (Unicode `White_Space`, Rust's `trim`) and lowercased (Unicode lowercase, not ASCII only: `ÜNÏ/Peak` is `ünï/peak`). **Empty once trimmed, or holding a control character, it cannot be read**: the row cannot be keyed, the lift is skipped |
+| `versions` | byte for byte, with no trim and no normalisation: `<= 1.1.9` and ` <=1.1.9` are not `<=1.1.9`. An absent member reads as the empty string |
+
+So ` Someone/PEAK-Astra ` names the row of `someone/peak-astra`, a lift whose
+`lifts_at` is one second off names nothing, and a lift without `entry_id`
+does not name a row that has one, nor the other way round.
+
+A row a client cannot key costs more than that row: **while a list carries
+one, the client retracts nothing from it**, and every row in force before it
+stays, save a lifted one. Hence the first publisher rule:
+
+- **`entry-id-readable`: every `entry_id` the publisher writes, in a row or
+  in a lift, is one a client can read.** An act that would write another is
+  refused. Because lowercase is computed from each reader's own Unicode
+  tables, which differ between versions for recently added letters, the
+  publisher also refuses an act whose `entry_id` holds a non-ASCII character
+  that is not already lowercase: an id is written the way every client will
+  read it.
 
 **What releases a row on a client**, once it verifies a list with a strictly
 greater serial:
@@ -149,57 +160,96 @@ greater serial:
 
 **A row in the same list beats a lift for it.** A client applies a list's
 lifts to the rows it remembers, then puts every row the list carries in
-force. So for the publisher:
+force. And a lift carries no act, so it names **every** row of its subject
+and second. The publisher therefore holds two more rules, and checks both on
+every list before it signs:
 
 - **`lift-not-contradicted`: no lift names a row of the same list.** The
-  lifted row leaves `rows` in the issue that first carries its lift. A list
-  that carries both is a publisher defect the signer refuses to sign; a client
-  that meets one anyway keeps the row in force.
-- **A lift stays in the list.** A client that was offline when the lift was
-  first served still has the row remembered and needs to read the lift when it
-  returns. The list holds **at most 256 lifts**; only past that is the oldest
-  one (the smallest `at`) dropped. A client that missed a dropped lift keeps
-  the row in force, which is the safe failure. 256 is a count the document's
-  size can always afford: a lift as the catalogue writes it is at most about
-  half a kibibyte, so a full list is about 128 KiB, an eighth of the 1 MiB
-  the service serves a document up to, and lifts can never crowd a takedown
-  out.
-- **A lift is a moderator act** (`M_LIFT`), taken like every other: one
-  console confirmation, an `at`, a `by` and a `reason_text`, recorded in the
-  catalogue's public act log. The list carries the act's `at`; who lifted and
-  why are in the log, as they are for a row's own act.
-- **A lift lifts what it names and nothing else.** The rows a revoke cascaded
-  onto its dependants (§3) are rows of their own subjects and are lifted by
-  their own acts.
+  lifted row leaves `rows` in the issue that first carries its lift. A client
+  that meets a list carrying both keeps the row in force.
+- **`one-act-per-second`: no two acts' rows of one subject share an `at`**,
+  and no row carries the subject and second of a lift the list still holds.
+  When an act's row would, the publisher gives it the first free second after
+  the act's own; the act is not refused, because a security revoke must not
+  wait for a retry. The only rows of one subject that share a second are the
+  two **one** act writes together, the banner and the `yank` of a foundation
+  cascade (§3).
+
+**So one lift lifts exactly what one act wrote for that subject at that
+second**: one row, or a cascade's banner and its `yank` together. It lifts no
+other subject: the rows a revoke cascaded onto its dependants (§3) are rows
+of their own subjects and are lifted by their own acts.
+
+**A lift is a moderator act** (`M_LIFT`), taken like every other: one console
+confirmation, an `at`, a `by` and a `reason_text`, recorded in the
+catalogue's public act log. The list carries the act's `at`; who lifted and
+why are in the log, as they are for a row's own act. The publisher bounds it:
+
+- **`lifts_at` ≤ `at`, and `at` is not ahead of the signer's clock** (beyond
+  five minutes of skew). A lift is dated when it was taken, never before the
+  row it lifts and never in the future.
+- **At most 3 lifts of security revokes in any 24 hours**, counted by when
+  the signer applies them. The fourth is refused, not queued: a lift is never
+  urgent, and one console session must not be able to re-arm everything.
+  Lifts of other rows are not counted.
 - **A lifted takedown still counts** toward the limit of 3 takedowns per 24
-  hours (§3): revoking and lifting must not be a way around the limit.
-- A row taken again after its lift is a new act with a new `at`, so the old
-  lift does not name it. Should a new row ever share the subject and the `at`
-  of a lift the list still holds, that lift leaves the list: the row wins.
+  hours (§3), which is likewise counted by when the signer applies a
+  takedown, not by the act's own `at`: revoking and lifting is no way round
+  it, and neither is a back-dated act.
+- **A takedown still waiting over that limit** has reached no client. A lift
+  that names it removes it and writes nothing into `lifts`. When a
+  foundation's revoke is lifted, the takedowns it cascaded that are still
+  waiting go with it; the ones already in the list keep their rows and need
+  their own lifts.
+
+**A lift stays in the list.** A client that was offline when the lift was
+first served still has the row remembered and must read the lift when it
+returns. The list holds **at most 256 lifts**. When it is full, room is made
+in this order, and no other:
+
+1. a lift of a row that was **not** sticky, oldest first. No client needs
+   it: the row's absence already released the act;
+2. a lift of a security revoke that is **older than 365 days**, oldest first
+   (the content kinds' retention). A client offline for longer keeps the row
+   in force, which is the safe failure;
+3. otherwise nothing leaves, and a new lift of a security revoke is refused:
+   "the lift list is full". That takes 256 security lifts in one year.
+
+256 is a count the document's size can always afford: a lift as the
+catalogue writes it is at most about half a kibibyte, so a full list is about
+128 KiB, an eighth of the 1 MiB the service serves a document up to, and
+lifts can never crowd a takedown out.
 
 **This is the content kinds' `lift`, with three differences**
 ([`../content/common-v1.md`](../content/common-v1.md) §6 and §6.5,
 [`../content/trust-kind-keys-v1.md`](../content/trust-kind-keys-v1.md) §7.2).
-The member is `lifts`, the match is the subject as written plus `lifts_at`,
-a row beats its lift, and the rule's name is `lift-not-contradicted`, all as
-there. What differs follows the client's reader
-(`parse_withdrawn` in Astra's `astra-daemon/src/games/catalogue_kind.rs`),
-which is authoritative where this section and it disagree:
+The member is `lifts`, the match is the subject plus `lifts_at`, a row beats
+its lift, a security lift is kept 365 days and the rule's name is
+`lift-not-contradicted`, all as there. What differs follows the client's
+reader (`canonical_id` and `parse_withdrawn` in Astra's
+`astra-daemon/src/games/catalogue_kind.rs`), which is authoritative where
+this section and it disagree:
 
 1. the subject is `{repo_id, entry_id, versions}`, not `{id, versions}`,
-   because a games row is keyed by repository (§2.1);
+   because a games row is keyed by repository (§2.1), and `entry_id` is read
+   trimmed and lowercased;
 2. only a `revoke` for `security` is sticky. In the content kinds every row
    is, and here that would make a `yank` permanent until someone remembered
    to lift it;
-3. a lift is kept by count (256), not for 365 days, and carries its own `at`.
+3. a lift carries its own `at`, and the list is bounded by count as well.
 
-Goldens: `testdata/games/withdrawn/valid-lift-no-row.json`,
-`valid-lift-near-miss.json`, `valid-rows-dropped.json`,
-`invalid-lift-contradicted.json` and four schema refusals; `vectors.json`'s
-`withdrawn.scenarios` (`sticky-security-revoke`,
-`lift-contradicted-row-wins`) hold the rows in force after each list of a
-sequence, computed by `withdrawn_in_force` in
-`tools/check-games-goldens.py`.
+Goldens (`testdata/games/withdrawn/`, verdicts in `vectors.json`):
+`valid-lift-no-row`, `valid-lift-near-miss` (six lifts one member away from a
+row), `valid-rows-dropped`, `valid-lift-entry-id-as-a-client-reads-it`,
+`valid-cascade-banner-and-yank`; refused by a rule,
+`invalid-lift-contradicted` and its two `entry-id` variants (case and space;
+non-ASCII), `invalid-two-acts-one-second`, `invalid-row-entry-id-unreadable`,
+`invalid-lift-entry-id-unreadable`; and four schema refusals.
+`vectors.json`'s `withdrawn.scenarios` hold the rows in force on a client
+after each list of a sequence (`sticky-security-revoke`,
+`lift-contradicted-row-wins`, `entry-id-as-a-client-reads-it`,
+`unreadable-row-retracts-nothing`, `unreadable-lift-is-skipped`), computed by
+`withdrawn_in_force` in `tools/check-games-goldens.py`.
 
 ## 3. Acts
 

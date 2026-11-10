@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://astraplugins.minice.ai/spec/games/schemas/games-withdrawn-v1.schema.json",
   "title": "astra.games.withdrawn/1",
-  "description": "games-withdrawn-v1.md. Two rules are cross-field and checked by tools/check-games-goldens.py, not by this schema: the security+revoke pairing (security-requires-revoke) and that no lift names a row of the same document (lift-not-contradicted). `lifts` is optional: a document without it carries no lift.",
+  "description": "games-withdrawn-v1.md. Four rules are not this schema's and are checked by tools/check-games-goldens.py: the security+revoke pairing (security-requires-revoke), that no lift names a row of the same document (lift-not-contradicted), that no two acts' rows of one subject share an `at` (one-act-per-second) and that every entry_id is one a client can read (entry-id-readable). `lifts` is optional: a document without it carries no lift.",
   "type": "object",
   "required": ["schema", "serial", "issued_at", "expires_at", "key_id", "rows"],
   "additionalProperties": false,

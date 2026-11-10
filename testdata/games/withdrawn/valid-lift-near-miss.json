@@ -43,6 +43,20 @@
       "entry_id": "someone/peak-astra",
       "lifts_at": 1798675100,
       "at": 1798678700
+    },
+    {
+      "repo_id": 300000002,
+      "versions": "<= 1.1.9",
+      "entry_id": "someone/peak-astra",
+      "lifts_at": 1798675100,
+      "at": 1798678700
+    },
+    {
+      "repo_id": 300000002,
+      "versions": " <=1.1.9",
+      "entry_id": "someone/peak-astra",
+      "lifts_at": 1798675100,
+      "at": 1798678700
     }
   ]
 }

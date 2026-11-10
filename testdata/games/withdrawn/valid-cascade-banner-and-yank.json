@@ -1,0 +1,30 @@
+{
+  "schema": "astra.games.withdrawn/1",
+  "serial": 1798678800,
+  "issued_at": 1798678800,
+  "expires_at": 1799283600,
+  "key_id": "games-current",
+  "rows": [
+    {
+      "repo_id": 300000006,
+      "versions": "=1.0.0",
+      "entry_id": "third/built-on-foo",
+      "act": "deprecate",
+      "floor_effect": "no-offer",
+      "reason_code": "broken",
+      "reason_text": "Built on a foundation release that was revoked (first/foo 0.1.0).",
+      "at": 1798675100
+    },
+    {
+      "repo_id": 300000006,
+      "versions": "=1.0.0",
+      "entry_id": "third/built-on-foo",
+      "act": "yank",
+      "floor_effect": "no-offer",
+      "reason_code": "broken",
+      "reason_text": "Built on a foundation release that was revoked (first/foo 0.1.0).",
+      "at": 1798675100
+    }
+  ],
+  "lifts": []
+}
