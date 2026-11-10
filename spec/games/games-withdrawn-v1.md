@@ -131,8 +131,13 @@ Nothing else is compared, neither the act nor the reason.
   trims and lowercases every entry id it reads, a row's and a lift's alike.
   The publisher copies the row's `entry_id` unchanged, so the two readings
   never disagree about a lift the publisher wrote.
-- Two rows one act wrote for one subject share their `at` (the banner and the
-  `yank` of a foundation cascade, §3). One lift names both.
+- **Rows that share a subject and an `at` are named by one lift, all of
+  them.** That is the banner and the `yank` a foundation cascade writes for
+  one dependant (§3), and it is also two separate acts taken on one subject
+  with the same `versions` within one second, a `revoke` and a `delist` for
+  instance. A lift carries no act, so it cannot tell them apart; the publisher
+  removes every row it names, and a moderator who wants one of them back takes
+  it again.
 
 **What releases a row on a client**, once it verifies a list with a strictly
 greater serial:

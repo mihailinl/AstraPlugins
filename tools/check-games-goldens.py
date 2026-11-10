@@ -214,8 +214,9 @@ def withdrawn_subject(x: dict) -> tuple:
 def lift_names(lift: dict, row: dict) -> bool:
     """A lift names a row when their subjects are equal AND the lift's
     `lifts_at` is the row's `at`. Nothing else is compared: not the act, not
-    the reason. Two rows one act wrote for one subject (a cascade's banner
-    and its yank) are therefore named by one lift."""
+    the reason. Rows that share a subject and an `at` (a cascade's banner
+    and its yank; two acts on one subject within one second) are therefore
+    named by one lift, all of them."""
     return withdrawn_subject(lift) == withdrawn_subject(row) and lift["lifts_at"] == row["at"]
 
 

@@ -1076,11 +1076,17 @@ class WithdrawnLifts(unittest.TestCase):
         third = self.after(second)
         self.assertEqual(ggold.withdrawn_in_force([first, second, third]), [[], [security], [security]])
 
-    def test_one_lift_names_both_rows_of_a_cascade(self):
+    def test_one_lift_names_every_row_of_its_subject_and_second(self):
         banner = {"repo_id": 5, "entry_id": "a/b", "versions": "=1.0.0", "act": "deprecate", "floor_effect": "no-offer", "reason_code": "policy", "at": 10}
         yank = dict(banner, act="yank")
         lift = {"repo_id": 5, "entry_id": "a/b", "versions": "=1.0.0", "lifts_at": 10, "at": 20}
         self.assertTrue(ggold.lift_names(lift, banner) and ggold.lift_names(lift, yank))
+        # two separate acts in one second: a security revoke and a delist of the same subject
+        revoke = dict(banner, act="revoke", floor_effect="no-play", reason_code="security")
+        delist = dict(banner, act="delist")
+        self.assertTrue(ggold.lift_names(lift, revoke) and ggold.lift_names(lift, delist))
+        doc = dict(self.base(), rows=[delist], lifts=[lift])
+        self.assertFalse(ggold.rule_lift_not_contradicted(doc), "the delist left beside the lift is a contradiction, whatever its act")
 
     def test_a_serial_that_does_not_rise_is_not_a_sequence(self):
         base = self.base()
