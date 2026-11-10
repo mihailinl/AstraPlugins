@@ -34,6 +34,11 @@ One JCS document, detached Ed25519 signatures, in the plugin envelope.
   display, Play and repair of an already-installed version run on the last
   verified copy regardless of its age (merged plan R24) — only *new* code
   needs a fresh signature.
+- **Where it is served.** A client reads this document at `games/index.json`
+  and the withdrawn list at `games/withdrawn.json`, both beside the plugin
+  registry's `index.json` (`<registry base>/games/…`; `document_url` in
+  Astra's `astra-daemon/src/catalogue/hosts.rs`), and verifies both against
+  the one `trust.json` of that base (§3).
 
 ## 2. Body
 

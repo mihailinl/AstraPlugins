@@ -842,3 +842,70 @@ comment for what it deliberately does not do (sign, resolve dependencies, or
 run `gi-probe` itself — that happens at ingest, against the built artifact,
 not inside the author's own CI, where a hostile build could fake a clean
 result).
+
+### 5.1 One integration per release, and the tag names the version
+
+**A release carries one integration.** Ingest takes exactly one asset from a
+release, `astra-gi.zip`, and lists it under that release's tag; any other zip
+in the release is never read. So a repository that holds several integrations
+publishes each one in a release of its own (the owner's decision of
+2026-11-05), and because one repository cannot hold two tags named `v0.8.1`,
+each integration's tags carry a prefix: `il2cpp-v0.8.1` in `astra-bepinex`,
+`gta3-v0.3.1` in `astra-reshade`, `ds1-v0.1.1` and `ds2-v0.1.1` in
+`astra-in-death-stranding`.
+
+**A listed version is the tag it was built from.** A release tag names version
+*V* when it is exactly one of:
+
+| tag | example | used by |
+|---|---|---|
+| `V` | `0.8.1` | a repository that tags without a `v` |
+| `vV` | `v0.8.1` | a repository with one integration — what the template's `v*` trigger fires on |
+| `<prefix>-vV` | `il2cpp-v0.8.1` | a repository with several integrations, one prefix each |
+
+`<prefix>` is `[a-z0-9]([a-z0-9.-]*[a-z0-9])?`: lowercase letters, digits,
+`.` and `-`, beginning and ending with a letter or a digit. A release whose
+tag does not name its manifest's `[integration] version` is refused with
+`E_VERSION_TAG_MISMATCH`. Like every `E_` code that is final for the tag: the
+author corrects the manifest or the tag and releases again.
+
+- ***V* is compared with `[integration] version` as a string**, byte for
+  byte, with no semver normalisation: `v1.0` does not name `1.0.0`, and
+  `v0.8.1` does not name `0.8.1+build.5`.
+- **The `-v` after a prefix is required.** `il2cpp-0.8.1` does not name
+  `0.8.1`. This is what keeps a prefix apart from a version's own prerelease
+  part: `v0.1.0-discovery` names `0.1.0-discovery` and never `0.1.0`, and
+  `0.1.0-0.2.0` names only itself.
+- **A prefix is lowercase and is not empty.** None of `IL2CPP-v0.8.1`,
+  `-v0.8.1`, `il2cpp--v0.8.1`, `il2cpp_v0.8.1` and `vv0.8.1` names `0.8.1`.
+- **The tag as a whole is still a plain tag name**,
+  `^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$` (the plugins service's contract;
+  ingest refuses a request whose tag is not one). The rule above adds no
+  second limit.
+- **A prefix names the integration, never a version.** `a-v1.0.0-v2.0.0`
+  names both `2.0.0` and `1.0.0-v2.0.0`; a release carries one manifest, so
+  ingest only ever asks about one of them, but nobody reading the tag can
+  tell which.
+
+**Old `v*` tags stay.** A client older than the catalogue (Astra 0.2.7)
+finds a first-party integration by its repository's `v*` tags and a
+per-integration asset name: `astra-bepinex`'s `v0.8.1` release carries
+`astra-gi.zip` and `astra-gi-il2cpp.zip`, and its `il2cpp-v0.8.1` release
+carries the IL2CPP integration alone, as `astra-gi.zip`. Such a client reads
+a tag as a version only when it begins with `v` and the rest parses as semver
+(`version_after` in `astra-game-launcher`'s `src/bin/gi-probe/v027.rs` records
+that client's rule), so a prefixed tag is not a release to it. The one
+exception is a prefix that is itself `v` and a version, as in
+`v1.0.0-x-v2.0.0`: one more reason a prefix never holds a version. A
+repository keeps publishing its `v*` releases for those clients beside the
+prefixed ones, and the catalogue takes `astra-gi.zip` from either.
+
+`templates/gi-release.yml` triggers on `v*`. A repository with several
+integrations adds one pattern per prefix (`il2cpp-v*`) and builds, as
+`astra-gi.zip`, the integration its tag names.
+
+This rule was written down on 2026-11-09, after the catalogue's ingest had
+compared the version with the tag minus one leading `v` and so refused every
+prefixed tag — four of them pinned in its own `first-party.json`. It was
+found by ingesting the real releases, not by a test: every fixture was tagged
+`v1.0.0`.
