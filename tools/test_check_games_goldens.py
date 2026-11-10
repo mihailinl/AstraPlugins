@@ -955,6 +955,163 @@ class WithdrawnSecurity(unittest.TestCase):
         self.assertTrue(ggold.rule_security_requires_revoke(doc))
 
 
+class WithdrawnLifts(unittest.TestCase):
+    """games-withdrawn-v1.md §2.2: a lift names a row by its subject as
+    written and its `at`, a security revoke is released by nothing else, and
+    a row beats a lift for it in the same list."""
+
+    SCHEMA = ggold.load_schema("spec/games/schemas/games-withdrawn-v1.schema.json")
+
+    def base(self):
+        return copy.deepcopy(ggold.load_doc("withdrawn/valid-withdrawn.json"))
+
+    def lift_doc(self):
+        return copy.deepcopy(ggold.load_doc("withdrawn/valid-lift-no-row.json"))
+
+    def after(self, doc, **members):
+        """A later list: `doc`'s envelope one day on, with these members."""
+        out = {k: v for k, v in doc.items() if k not in ("rows", "lifts")}
+        out.update(serial=doc["serial"] + 86400, issued_at=doc["issued_at"] + 86400, expires_at=doc["expires_at"] + 86400)
+        out["rows"] = members.get("rows", [])
+        if "lifts" in members:
+            out["lifts"] = members["lifts"]
+        return out
+
+    def test_the_exact_lift_names_the_row_and_each_near_miss_does_not(self):
+        row = self.base()["rows"][0]
+        lift = self.lift_doc()["lifts"][0]
+        self.assertTrue(ggold.lift_names(lift, row))
+        for member, value in (("versions", "<=1.1.8"), ("versions", "<= 1.1.9"), ("lifts_at", row["at"] + 1),
+                              ("lifts_at", row["at"] - 1), ("repo_id", row["repo_id"] + 1), ("entry_id", "someone/peak-astr")):
+            self.assertFalse(ggold.lift_names(dict(lift, **{member: value}), row), f"{member}={value!r}")
+        without_entry = {k: v for k, v in lift.items() if k != "entry_id"}
+        self.assertFalse(ggold.lift_names(without_entry, row), "a row that names an entry is not named by a lift that names none")
+        self.assertFalse(ggold.lift_names(lift, {k: v for k, v in row.items() if k != "entry_id"}), "and the other way round")
+
+    def test_entry_id_is_compared_as_a_client_keys_it(self):
+        row = self.base()["rows"][0]
+        lift = self.lift_doc()["lifts"][0]
+        self.assertTrue(ggold.lift_names(dict(lift, entry_id=" Someone/Peak-Astra "), row))
+
+    def test_the_near_miss_golden_is_one_member_from_contradicting_itself(self):
+        doc = copy.deepcopy(ggold.load_doc("withdrawn/valid-lift-near-miss.json"))
+        row = doc["rows"][0]
+        self.assertTrue(ggold.rule_lift_not_contradicted(doc))
+        self.assertEqual(len(doc["lifts"]), 4)
+        repaired = [dict(doc["lifts"][0], versions=row["versions"]), dict(doc["lifts"][1], lifts_at=row["at"]),
+                    dict(doc["lifts"][2], entry_id=row["entry_id"]), dict(doc["lifts"][3], repo_id=row["repo_id"])]
+        for i, lift in enumerate(repaired):
+            self.assertFalse(ggold.rule_lift_not_contradicted(dict(doc, lifts=[lift])), f"lift {i}, with its one differing member repaired, names the row")
+
+    def test_the_contradicted_golden_stops_being_one_when_its_row_leaves(self):
+        doc = copy.deepcopy(ggold.load_doc("withdrawn/invalid-lift-contradicted.json"))
+        self.assertFalse(ggold.rule_lift_not_contradicted(doc))
+        doc["rows"] = doc["rows"][1:]
+        self.assertTrue(ggold.rule_lift_not_contradicted(doc))
+
+    def test_a_list_without_the_member_carries_no_lift(self):
+        doc = self.base()
+        self.assertNotIn("lifts", doc)
+        self.assertTrue(ggold.schema_ok(doc, self.SCHEMA)[0])
+        self.assertTrue(ggold.rule_lift_not_contradicted(doc))
+
+    def test_the_schema_bounds_a_lift(self):
+        doc = self.lift_doc()
+        lift = doc["lifts"][0]
+        ok = lambda lifts: ggold.schema_ok(dict(doc, lifts=lifts), self.SCHEMA)[0]  # noqa: E731
+        self.assertTrue(ok([lift]))
+        self.assertTrue(ok([{k: v for k, v in lift.items() if k != "entry_id"}]), "entry_id is absent when the row had none")
+        for member in ("repo_id", "versions", "lifts_at", "at"):
+            self.assertFalse(ok([{k: v for k, v in lift.items() if k != member}]), f"without {member}")
+        for member, value in (("lifts_at", "1798675100"), ("lifts_at", 1798675100.5), ("lifts_at", None), ("lifts_at", True),
+                              ("lifts_at", -1), ("at", "now"), ("repo_id", 0), ("repo_id", "300000002"), ("versions", ""),
+                              ("versions", 1), ("entry_id", None), ("entry_id", 7), ("act", "revoke"), ("reason_text", "why")):
+            self.assertFalse(ok([dict(lift, **{member: value})]), f"{member}={value!r}")
+        self.assertFalse(ggold.schema_ok(dict(doc, lifts={"0": lift}), self.SCHEMA)[0], "lifts is an array")
+        self.assertFalse(ggold.schema_ok(dict(doc, lifts=None), self.SCHEMA)[0])
+
+    def test_the_list_holds_at_most_256_lifts(self):
+        doc = self.lift_doc()
+        many = [dict(doc["lifts"][0], lifts_at=i) for i in range(257)]
+        self.assertTrue(ggold.schema_ok(dict(doc, lifts=many[:256]), self.SCHEMA)[0])
+        self.assertFalse(ggold.schema_ok(dict(doc, lifts=many), self.SCHEMA)[0])
+
+    def test_a_security_revoke_outlives_its_row_and_every_other_row_does_not(self):
+        base = self.base()
+        security, yank, delist = base["rows"]
+        self.assertEqual([ggold.row_is_sticky(r) for r in base["rows"]], [True, False, False])
+        dropped = self.after(base)
+        self.assertEqual(ggold.withdrawn_in_force([base, dropped]), [[security, yank, delist], [security]])
+        # a revoke for any other reason is not sticky
+        broken = dict(security, reason_code="broken")
+        self.assertEqual(ggold.withdrawn_in_force([dict(base, rows=[broken]), dropped]), [[broken], []])
+        # and neither is a security row that is not a revoke (a defect the pairing rule refuses anyway)
+        self.assertFalse(ggold.row_is_sticky(dict(security, act="yank")))
+
+    def test_only_the_exact_lift_releases_and_a_row_beats_its_lift(self):
+        base = self.base()
+        security = base["rows"][0]
+        lift = self.lift_doc()["lifts"][0]
+        wrong = dict(lift, lifts_at=lift["lifts_at"] + 1)
+        step2 = self.after(base, lifts=[wrong])
+        step3 = self.after(step2, lifts=[lift])
+        step4 = self.after(step3)
+        self.assertEqual(ggold.withdrawn_in_force([base, step2, step3, step4]), [base["rows"], [security], [], []])
+        # the row re-asserted beside its lift: the row wins, and is remembered again
+        both = self.after(base, rows=[security], lifts=[lift])
+        later = self.after(both)
+        self.assertEqual(ggold.withdrawn_in_force([base, both, later]), [base["rows"], [security], [security]])
+
+    def test_a_lift_is_read_from_the_list_being_verified_only(self):
+        """A lift releases what a client REMEMBERS. One that arrives before
+        the client ever saw the row releases nothing later: the publisher
+        never lifts a row it has not served, and re-serving the row after
+        its lift is a new takedown (rule lift-not-contradicted keeps both
+        out of one list)."""
+        base = self.base()
+        security = base["rows"][0]
+        lift = self.lift_doc()["lifts"][0]
+        first = dict(base, rows=[], lifts=[lift])
+        second = self.after(first, rows=[security])
+        third = self.after(second)
+        self.assertEqual(ggold.withdrawn_in_force([first, second, third]), [[], [security], [security]])
+
+    def test_one_lift_names_both_rows_of_a_cascade(self):
+        banner = {"repo_id": 5, "entry_id": "a/b", "versions": "=1.0.0", "act": "deprecate", "floor_effect": "no-offer", "reason_code": "policy", "at": 10}
+        yank = dict(banner, act="yank")
+        lift = {"repo_id": 5, "entry_id": "a/b", "versions": "=1.0.0", "lifts_at": 10, "at": 20}
+        self.assertTrue(ggold.lift_names(lift, banner) and ggold.lift_names(lift, yank))
+
+    def test_a_serial_that_does_not_rise_is_not_a_sequence(self):
+        base = self.base()
+        with self.assertRaises(ValueError):
+            ggold.withdrawn_in_force([base, base])
+
+    def test_every_accepted_list_is_fresh_at_the_goldens_reference_clock(self):
+        """The catalogue's K12 runs every accepted golden through its own
+        freshness rules with valid-index.json's issued_at as the clock, so a
+        list issued more than a day after it is refused there, not here."""
+        vectors = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))
+        now = ggold.load_doc(vectors["index"]["valid"][0]["file"])["issued_at"]
+        for v in vectors["withdrawn"]["valid"]:
+            doc = ggold.load_doc(v["file"])
+            self.assertEqual(doc["serial"], doc["issued_at"], v["name"])
+            self.assertTrue(ggold.rule_issued_at_too_far_ahead(doc, now), v["name"])
+            self.assertTrue(ggold.rule_expiry_span_too_long(doc), v["name"])
+            for lift in doc.get("lifts", []):
+                self.assertLessEqual(lift["at"], doc["issued_at"], v["name"])
+                self.assertLess(lift["lifts_at"], lift["at"], v["name"])
+
+    def test_every_scenario_names_goldens_that_exist_and_rise(self):
+        vectors = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))
+        scenarios = vectors["withdrawn"]["scenarios"]
+        self.assertGreaterEqual(len(scenarios), 2)
+        for s in scenarios:
+            docs = [ggold.load_doc(f) for f in s["sequence"]]
+            self.assertEqual(len(docs), len(s["expect"]), s["name"])
+            self.assertEqual([d["serial"] for d in docs], sorted({d["serial"] for d in docs}), s["name"])
+
+
 # ── mods (engine-descriptor-v1.md §7) ────────────────────────────────────
 
 DESCRIPTOR_SCHEMA = ggold.load_schema("spec/games/schemas/engine-descriptor-v1.schema.json")

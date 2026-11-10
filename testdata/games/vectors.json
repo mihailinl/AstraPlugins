@@ -283,13 +283,51 @@
   "withdrawn": {
     "schema": "spec/games/schemas/games-withdrawn-v1.schema.json",
     "valid": [
-      { "name": "valid-withdrawn", "file": "withdrawn/valid-withdrawn.json", "verdict": "accept" }
+      { "name": "valid-withdrawn", "file": "withdrawn/valid-withdrawn.json", "verdict": "accept" },
+      { "name": "lift-near-miss", "file": "withdrawn/valid-lift-near-miss.json", "verdict": "accept", "note": "four lifts, each one member away from the security row the list still carries (versions by one byte, lifts_at by one second, entry_id absent, another repo_id): none names the row, so the list is not contradicted and the row stays in force" },
+      { "name": "rows-dropped", "file": "withdrawn/valid-rows-dropped.json", "verdict": "accept", "note": "no row and `lifts: []`: the member may be present and empty" },
+      { "name": "lift-no-row", "file": "withdrawn/valid-lift-no-row.json", "verdict": "accept", "note": "a lift and no row: the lifted row left `rows` in the issue that carries its lift" }
     ],
     "invalid": [
       { "name": "security-not-revoke", "file": "withdrawn/invalid-security-not-revoke.json", "verdict": "refuse", "check": "semantic", "rule": "security-requires-revoke" },
       { "name": "missing-repo-id", "file": "withdrawn/invalid-missing-repo-id.json", "verdict": "refuse", "check": "schema" },
       { "name": "bad-act-enum", "file": "withdrawn/invalid-bad-act-enum.json", "verdict": "refuse", "check": "schema" },
-      { "name": "bad-reason-code-enum", "file": "withdrawn/invalid-bad-reason-code-enum.json", "verdict": "refuse", "check": "schema" }
+      { "name": "bad-reason-code-enum", "file": "withdrawn/invalid-bad-reason-code-enum.json", "verdict": "refuse", "check": "schema" },
+      { "name": "lift-contradicted", "file": "withdrawn/invalid-lift-contradicted.json", "verdict": "refuse", "check": "semantic", "rule": "lift-not-contradicted" },
+      { "name": "lift-lifts-at-not-integer", "file": "withdrawn/invalid-lift-lifts-at-not-integer.json", "verdict": "refuse", "check": "schema" },
+      { "name": "lift-missing-repo-id", "file": "withdrawn/invalid-lift-missing-repo-id.json", "verdict": "refuse", "check": "schema" },
+      { "name": "lift-missing-versions", "file": "withdrawn/invalid-lift-missing-versions.json", "verdict": "refuse", "check": "schema" },
+      { "name": "lift-unknown-member", "file": "withdrawn/invalid-lift-unknown-member.json", "verdict": "refuse", "check": "schema" }
+    ],
+    "scenarios": [
+      {
+        "name": "sticky-security-revoke", "type": "in-force",
+        "sequence": [
+          "withdrawn/valid-withdrawn.json",
+          "withdrawn/valid-lift-near-miss.json",
+          "withdrawn/valid-rows-dropped.json",
+          "withdrawn/valid-lift-no-row.json"
+        ],
+        "expect": [
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"],
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100"],
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100"],
+          []
+        ],
+        "note": "games-withdrawn-v1.md §2.2. The rows in force on a client after it verifies each list in turn (strictly rising serials). A yank and a delist retract when a later list omits them; the security revoke does not: four near-miss lifts release nothing, dropping the row releases nothing, and only the lift whose subject is the row's as written and whose lifts_at is the row's at releases it."
+      },
+      {
+        "name": "lift-contradicted-row-wins", "type": "in-force",
+        "sequence": [
+          "withdrawn/valid-withdrawn.json",
+          "withdrawn/invalid-lift-contradicted.json"
+        ],
+        "expect": [
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"],
+          ["300000002 someone/peak-astra <=1.1.9 revoke@1798675100", "300000003 - <2.0.0 yank@1798675050", "300000004 - * delist@1798674900"]
+        ],
+        "note": "a list that carries a row and a lift naming it is a publisher defect (lift-not-contradicted, the signer refuses to sign it); a client that meets one anyway lets the ROW win"
+      }
     ]
   },
 

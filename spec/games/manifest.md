@@ -174,6 +174,13 @@ explicit declaration. An id this launcher does not recognise is
 `needs-newer-astra`, never silently dropped: a capability a newer Astra
 grants must not look granted on an older one.
 
+**A capability is granted by a consent that showed it.** Every capability a
+manifest declares is shown to the person on the install consent, and again on
+the consent of an update, in words a person understands: what the integration
+will be able to do, never the bare id. A consent that did not show a
+capability is not consent for it, and the capability stays ungranted. An
+install path that asks for no consent grants none.
+
 ### 2.4 `[integration.foundation]` — building on someone else's engine support
 
 ```toml

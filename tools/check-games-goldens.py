@@ -196,6 +196,73 @@ def rule_security_requires_revoke(doc: dict) -> bool:
     return all(row["act"] == "revoke" for row in doc["rows"] if row["reason_code"] == "security")
 
 
+# ── lifts (games-withdrawn-v1.md §2.2) ───────────────────────────────────
+# The client's rule, as a reference: Astra's games reader
+# (astra-daemon/src/games/catalogue_kind.rs `parse_withdrawn`) and the
+# catalogue core's `InForce::advance`. Where this file and that reader
+# disagree, the reader is right and this is the bug.
+
+def withdrawn_subject(x: dict) -> tuple:
+    """What a row or a lift is ABOUT, as a client keys it: `repo_id`,
+    `entry_id` (absent when the row names none; a client compares it trimmed
+    and lowercased, as it does every entry id) and `versions` exactly as
+    written -- `<= 1.0.0` is not `<=1.0.0`."""
+    entry = x.get("entry_id")
+    return (x["repo_id"], entry.strip().lower() if isinstance(entry, str) else None, x.get("versions", ""))
+
+
+def lift_names(lift: dict, row: dict) -> bool:
+    """A lift names a row when their subjects are equal AND the lift's
+    `lifts_at` is the row's `at`. Nothing else is compared: not the act, not
+    the reason. Two rows one act wrote for one subject (a cascade's banner
+    and its yank) are therefore named by one lift."""
+    return withdrawn_subject(lift) == withdrawn_subject(row) and lift["lifts_at"] == row["at"]
+
+
+def rule_lift_not_contradicted(doc: dict) -> bool:
+    """A publisher rule: no lift names a row the same list carries. The
+    lifted row leaves `rows` in the issue that first carries its lift."""
+    return not any(lift_names(lift, row) for lift in doc.get("lifts", []) for row in doc["rows"])
+
+
+def row_is_sticky(row: dict) -> bool:
+    """A `revoke` for `security` stays in force on a client until a lift
+    names it. Every other row retracts when a later list omits it."""
+    return row["act"] == "revoke" and row["reason_code"] == "security"
+
+
+def withdrawn_in_force(sequence: list) -> list:
+    """The rows in force on a client after it verifies each list of
+    `sequence` in turn. Per list: its lifts release the remembered sticky
+    rows they name; every row it carries is in force, and a row beats a lift
+    for it in the same list; a remembered sticky row it omits stays."""
+    remembered: list = []
+    out = []
+    serial = -1
+    for doc in sequence:
+        if doc["serial"] <= serial:
+            raise ValueError(f"serial {doc['serial']} does not rise above {serial}: a client refuses this list")
+        serial = doc["serial"]
+        lifts = doc.get("lifts", [])
+        kept = [r for r in remembered if not any(lift_names(lift, r) for lift in lifts)]
+        rows = list(doc["rows"])
+        rows += [r for r in kept if r not in rows]
+        remembered = [r for r in rows if row_is_sticky(r)]
+        out.append(rows)
+    return out
+
+
+def row_words(row: dict) -> str:
+    """One row as vectors.json's scenarios spell it."""
+    return f"{row['repo_id']} {row.get('entry_id', '-')} {row['versions']} {row['act']}@{row['at']}"
+
+
+SEMANTIC_WITHDRAWN_RULES = {
+    "security-requires-revoke": rule_security_requires_revoke,
+    "lift-not-contradicted": rule_lift_not_contradicted,
+}
+
+
 # ── content (manifest.md §2.7, merged plan §5.4) ──────────────────────────
 # Independent of schemalite and of the launcher's descriptor rules above:
 # these need real bytes, not only a parsed TOML/JSON document, so they are
@@ -2052,7 +2119,8 @@ def main() -> int:
     for v in vectors["withdrawn"]["valid"]:
         doc = load_doc(v["file"])
         ok, detail = schema_ok(doc, withdrawn_schema)
-        report(f"withdrawn/valid/{v['name']}", ok == (v["verdict"] == "accept"), detail)
+        broken = [name for name, rule in SEMANTIC_WITHDRAWN_RULES.items() if ok and not rule(doc)]
+        report(f"withdrawn/valid/{v['name']}", (ok and not broken) == (v["verdict"] == "accept"), detail or ", ".join(broken))
 
     for v in vectors["withdrawn"]["invalid"]:
         doc = load_doc(v["file"])
@@ -2060,8 +2128,15 @@ def main() -> int:
         if v["check"] == "schema":
             report(f"withdrawn/invalid/{v['name']}", sok is False, detail)
         else:
-            semantic_ok = rule_security_requires_revoke(doc)
-            report(f"withdrawn/invalid/{v['name']}", sok is True and semantic_ok is False)
+            # the golden breaks the ONE rule it is named for, and no other
+            broken = [name for name, rule in SEMANTIC_WITHDRAWN_RULES.items() if sok and not rule(doc)]
+            report(f"withdrawn/invalid/{v['name']}", sok is True and broken == [v["rule"]], f"schema_ok={sok} broken={broken}")
+
+    for v in vectors["withdrawn"].get("scenarios", []):
+        docs = [load_doc(f) for f in v["sequence"]]
+        got = [sorted(row_words(r) for r in rows) for rows in withdrawn_in_force(docs)]
+        want = [sorted(step) for step in v["expect"]]
+        report(f"withdrawn/scenario/{v['name']}", v["type"] == "in-force" and got == want, json.dumps(got))
 
     # -- content (manifest.md §2.7, merged plan §5.4 / legal DRAFT-v3.md
     # Part 6 G4-G5) -----------------------------------------------------

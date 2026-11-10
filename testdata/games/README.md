@@ -21,7 +21,7 @@ run against — `vectors.json` names which).
 | `descriptors/builtin/` | the three first-party engines, as `astra.engine/1` | launcher `tests/detect.rs` (K1, K17) |
 | `descriptors/hostile/` | one fixture per `dev/game-integrations-launcher-client-plan.md` §3 row that is a descriptor-grammar attack | launcher `tests/corpus/` (K3), `gi-probe validate-descriptor` |
 | `descriptors/mods/` | the optional `mods` member (`engine-descriptor-v1.md` §7): the built-in loaders as data, two compat goldens, the path and substitution cases (`paths.json`), one hostile golden per rule (`vectors.json` `descriptors.mods`, which 0.5.0's K17 does not read) | launcher 0.5.1 (`mods`), `gi-probe validate-descriptor` |
-| `index/`, `withdrawn/` | `astra.games.index/1` / `astra.games.withdrawn/1` goldens | the catalogue's ingest/sign validator and the daemon's client verifier (K12) |
+| `index/`, `withdrawn/` | `astra.games.index/1` / `astra.games.withdrawn/1` goldens. `withdrawn/*lift*` and `vectors.json`'s `withdrawn.scenarios` are the lift rule (`games-withdrawn-v1.md` §2.2): each scenario is a sequence of lists and the rows in force on a client after each | the catalogue's ingest/sign validator and the daemon's client verifier (K12) |
 | `link/` | a Link v1 transcript plus restricted data-schema goldens | the daemon's Link serde (K10), `astra-link-mock` (0.2.8.x) |
 
 ## Using it
