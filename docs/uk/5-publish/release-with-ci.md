@@ -203,7 +203,7 @@ Minice: OIDC-токен GitHub, випущений для аудиторії
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | по одному на ключ платформи |
 | `<id>-<version>-windows-x64.astraplugin` | |
-| `<id>-<version>-macos-arm64.astraplugin` | збирається на `macos-14`; збірка перевіряє arm64 Mach-O і чинний підпис коду |
+| `<id>-<version>-macos-arm64.astraplugin` | збирається на `macos-15`; збірка перевіряє arm64 Mach-O і чинний підпис коду |
 | `<id>-<version>.sigstore.jsonl` | пакет атестації, тож користувач без мережі до GitHub все одно може перевірити |
 | `SHA256SUMS.txt` | ті самі дайджести, що записує реєстр |
 

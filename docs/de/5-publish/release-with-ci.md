@@ -211,7 +211,7 @@ nächsten Nachsehen.
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | eines pro Plattform-Schlüssel |
 | `<id>-<version>-windows-x64.astraplugin` | |
-| `<id>-<version>-macos-arm64.astraplugin` | gebaut auf `macos-14`; der Build prüft arm64-Mach-O und eine gültige Code-Signatur |
+| `<id>-<version>-macos-arm64.astraplugin` | gebaut auf `macos-15`; der Build prüft arm64-Mach-O und eine gültige Code-Signatur |
 | `<id>-<version>.sigstore.jsonl` | das Attestation-Bundle, sodass ein Nutzer ohne Netzwerkzugriff auf GitHub trotzdem prüfen kann |
 | `SHA256SUMS.txt` | dieselben Digests, die die Registry aufzeichnet |
 

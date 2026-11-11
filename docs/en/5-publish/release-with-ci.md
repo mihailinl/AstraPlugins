@@ -196,7 +196,7 @@ looks.
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | one per platform key |
 | `<id>-<version>-windows-x64.astraplugin` | |
-| `<id>-<version>-macos-arm64.astraplugin` | built on `macos-14`; the build checks arm64 Mach-O and a valid code signature |
+| `<id>-<version>-macos-arm64.astraplugin` | built on `macos-15`; the build checks arm64 Mach-O and a valid code signature |
 | `<id>-<version>.sigstore.jsonl` | the attestation bundle, so a user with no network to GitHub can still check |
 | `SHA256SUMS.txt` | the same digests the registry records |
 

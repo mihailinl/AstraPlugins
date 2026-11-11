@@ -34,7 +34,7 @@ astra-plugin build --all-targets
 
 - **Rust** compila a código nativo, así que necesita un paquete por
   plataforma. El workflow de release los construye en una matriz —
-  `ubuntu-24.04`, `windows-2022` y `macos-14` (Apple Silicon) — porque un cross-build trae consigo un
+  `ubuntu-24.04`, `windows-2022` y `macos-15` (Apple Silicon) — porque un cross-build trae consigo un
   conjunto de errores distinto.
 - **TypeScript y Python** producen un único paquete `noarch`. El índice
   escribe la misma URL y el mismo digest bajo cada clave de plataforma

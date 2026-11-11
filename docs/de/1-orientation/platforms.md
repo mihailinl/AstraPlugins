@@ -34,7 +34,7 @@ astra-plugin build --all-targets
 
 - **Rust** kompiliert zu nativem Code, braucht also ein Bundle pro Plattform.
   Der Release-Workflow baut sie auf einer Matrix — `ubuntu-24.04`,
-  `windows-2022` und `macos-14` (Apple Silicon) — weil ein Cross-Build eine andere Klasse von Bugs mit sich
+  `windows-2022` und `macos-15` (Apple Silicon) — weil ein Cross-Build eine andere Klasse von Bugs mit sich
   bringt.
 - **TypeScript und Python** erzeugen ein einziges `noarch`-Bundle. Der Index
   schreibt dieselbe URL und denselben Digest unter jedem unterstützten

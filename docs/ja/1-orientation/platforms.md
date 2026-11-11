@@ -35,7 +35,7 @@ astra-plugin build --all-targets
 
 - **Rust** はネイティブコードにコンパイルされるため、プラットフォームごと
   に 1 つのバンドルが必要です。リリースワークフローはこれらをマトリクス
-  でビルドします — `ubuntu-24.04`、`windows-2022`、`macos-14`(Apple Silicon) です — なぜなら
+  でビルドします — `ubuntu-24.04`、`windows-2022`、`macos-15`(Apple Silicon) です — なぜなら
   クロスビルドは別種のバグ集合だからです。
 - **TypeScript と Python** は単一の `noarch` バンドルを生成します。
   インデックスは、サポートされているすべてのプラットフォームキーの下に

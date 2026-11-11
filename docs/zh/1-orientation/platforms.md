@@ -30,7 +30,7 @@ astra-plugin build --all-targets
 ```
 
 - **Rust** 编译成原生代码，所以每个平台都需要一个独立的包。发布工作流
-  在一个矩阵上构建它们 —— `ubuntu-24.04`、`windows-2022` 和 `macos-14`（Apple Silicon） —— 因为
+  在一个矩阵上构建它们 —— `ubuntu-24.04`、`windows-2022` 和 `macos-15`（Apple Silicon） —— 因为
   跨平台构建会遇到另一套完全不同的 bug。
 - **TypeScript 和 Python** 生成单一的 `noarch` 包。索引会把同一个 URL
   和摘要写在每一个受支持的平台键下面，所以一个 `noarch` 包和其他任何

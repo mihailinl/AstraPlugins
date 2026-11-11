@@ -322,7 +322,7 @@ jobs:
                   # the attestation covers a binary GitHub built, and an arm64
                   # Mach-O is not valid until it is code-signed, which the
                   # native linker does and a cross-link from Linux does not.
-                  {"target": "macos-arm64", "runner": "macos-14"},
+                  {"target": "macos-arm64", "runner": "macos-15"},
               ]
           else:
               legs = [{"target": "noarch", "runner": "ubuntu-24.04"}]
@@ -574,7 +574,7 @@ jobs:
           # shellcheck disable=SC2086
           sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
 
-      # `runner.os` is a sufficient key: the only macOS leg is macos-14, arm64, so
+      # `runner.os` is a sufficient key: the only macOS leg is macos-15, arm64, so
       # one OS name is one architecture. Add an Intel Mac leg and this key must
       # gain `runner.arch`, or the two would restore each other's binary.
       #

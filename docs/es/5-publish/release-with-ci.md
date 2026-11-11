@@ -204,7 +204,7 @@ token. Así el registro empieza con tu tag ya, en vez de cuando vuelva a mirar.
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | uno por clave de plataforma |
 | `<id>-<version>-windows-x64.astraplugin` | |
-| `<id>-<version>-macos-arm64.astraplugin` | se compila en `macos-14`; la compilación comprueba Mach-O arm64 y una firma de código válida |
+| `<id>-<version>-macos-arm64.astraplugin` | se compila en `macos-15`; la compilación comprueba Mach-O arm64 y una firma de código válida |
 | `<id>-<version>.sigstore.jsonl` | el paquete de attestation, para que un usuario sin acceso a GitHub aún pueda comprobar |
 | `SHA256SUMS.txt` | los mismos digests que registra el registro |
 

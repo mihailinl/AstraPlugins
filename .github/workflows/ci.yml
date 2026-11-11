@@ -1908,14 +1908,14 @@ jobs:
   # plugin-release.yml's macos-arm64 leg had never run on a macOS runner when it
   # was written, which is how this repository's releases have broken before: a
   # step described, reviewed, and first executed by a user's tag. This job runs
-  # the leg's own commands on `macos-14` against THIS checkout: it builds the
+  # the leg's own commands on `macos-15` against THIS checkout: it builds the
   # CLI from the branch, packs one native example for macos-arm64, and then
   # executes the very `run:` text of the release workflow's gate step, lifted
   # out of the file below, not a copy of it. If the gate is edited, this runs
   # the edit; if the step is renamed or removed, the extraction fails loudly.
   macos-release-leg:
-    name: macos-arm64 release leg (macos-14)
-    runs-on: macos-14
+    name: macos-arm64 release leg (macos-15)
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
