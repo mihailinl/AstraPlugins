@@ -6,6 +6,7 @@
     python3 tools/check-protocol-counts.py                       # the couplings job
     python3 tools/check-protocol-counts.py --count sdk-v0.7.1    # print the numbers
     python3 tools/check-protocol-counts.py --count sdk-v0.7.1 --head sdk-v0.7.2
+    python3 tools/check-protocol-counts.py --rewrite [--astra-sha b15eb1f55]
 
 Rust 0.7.2's CHANGELOG said the protocol slice "gained 37 fields on messages
 that existed at `sdk-v0.7.1`, and 13 new messages". That was counted on
@@ -34,6 +35,14 @@ What is compared:
   at its tag when the tag exists, otherwise from this tree while Y is the Rust
   SDK's version and that CHANGELOG entry is unreleased; otherwise the sentence
   names a release nobody can measure, and that is a failure.
+
+`--rewrite` is what `tools/resync-astra.sh` calls after it has moved the proto:
+it writes the numbers this checker computes into the sentences this checker
+reads (each unreleased CHANGELOG's "Between ... gained F fields ..." and the
+one bare integer in each `docs/<locale>/versioning.md` paragraph), and, with
+`--astra-sha`, the "Proto re-synced to Astra main `sha`" line. It uses the
+same `Checker.counts`, so the counter cannot drift from the check; a sentence
+it cannot read is left alone and the check then says why.
 
 How it counts. A field is keyed by its number inside its message, a message
 by its dotted name (nested messages included), an rpc by `Service.Method`. A
@@ -73,6 +82,11 @@ SENTENCE = re.compile(
 )
 # `sdk-v0.7.1` and 0.7.2 / und / y / から / и / і / 到 — the connector is one
 # short word in every locale, and the code span is never translated.
+# The same sentence read off the file as written: wrapped lines, no emphasis
+# stripping. `--rewrite` edits through this one; `Checker.changelogs` reads the
+# flattened text through SENTENCE.
+RAW_SENTENCE = re.compile(SENTENCE.pattern.replace(" ", r"\s+"))
+ASTRA_LINE = re.compile(r"(Proto re-synced to Astra main `)[0-9a-f]+(`)")
 DOCS_PAIR = re.compile(rf"`sdk-v(?P<base>{SEMVER})`\s*\S{{1,6}}\s*(?P<head>{SEMVER})")
 BARE_INT = re.compile(r"(?<![\w.`-])\d+(?![\w.`])")
 
@@ -306,6 +320,76 @@ class Checker:
             for m in claims:
                 self.compare(f"{path} [{version}]", m, self.counts(m["base"], None), m["base"], "this tree")
 
+    def rewrite(self, astra_sha: str | None = None) -> list[str]:
+        """Bring every statement `changelogs` and `docs` would compare up to the
+        proto's numbers, in place. Returns the paths written."""
+        written: list[str] = []
+
+        def put(path: str, old: str, new: str) -> None:
+            if new != old:
+                (self.root / path).write_text(new, encoding="utf-8")
+                written.append(path)
+
+        for path in CHANGELOGS.values():
+            text = (self.root / path).read_text(encoding="utf-8")
+            entry = newest_entry(text)
+            if entry is None or not entry[1]:
+                continue
+            start = ENTRY.search(text).end()
+            end = start + len(entry[2])
+            body = entry[2]
+            if astra_sha:
+                body = ASTRA_LINE.sub(lambda m: f"{m[1]}{astra_sha}{m[2]}", body)
+            body = RAW_SENTENCE.sub(self._restate, body)
+            put(path, text, text[:start] + body + text[end:])
+
+        rust_v = rust_version(self.root)
+        rust_entry = newest_entry((self.root / CHANGELOGS["rust"]).read_text(encoding="utf-8"))
+        for loc in docs_locales(self.root):
+            path = f"docs/{loc}/versioning.md"
+            text = (self.root / path).read_text(encoding="utf-8")
+            paras = [m for m in re.finditer(r"(?:[^\n]+\n?)+", text)
+                     if DOCS_PAIR.search(" ".join(m[0].split()))]
+            if len(paras) != 1:
+                continue
+            para = paras[0][0]
+            pair = DOCS_PAIR.search(" ".join(para.split()))
+            base, head_v = f"sdk-v{pair['base']}", pair["head"]
+            if tag_exists(self.root, f"sdk-v{head_v}"):
+                head = f"sdk-v{head_v}"
+            elif head_v == rust_v and rust_entry and rust_entry[1]:
+                head = None
+            else:
+                continue
+            c = self.counts(base, head)
+            ints = list(BARE_INT.finditer(para))
+            if c is None or len(ints) != 1:
+                continue
+            i = ints[0]
+            new_para = para[:i.start()] + str(c.fields) + para[i.end():]
+            put(path, text, text[:paras[0].start()] + new_para + text[paras[0].end():])
+        return written
+
+    def _restate(self, m: re.Match) -> str:
+        """One raw (whitespace-tolerant) sentence, with the real numbers."""
+        c = self.counts(m["base"], None)
+        if c is None:
+            return m[0]
+        s = m[0]
+        word = lambda n, one, many: one if n == 1 else many
+        s = re.sub(r"\d+(\s+)fields?(\s+on\s+)\d+(\s+)messages?",
+                   lambda x: f"{c.fields}{x[1]}{word(c.fields, 'field', 'fields')}{x[2]}"
+                             f"{c.touched}{x[3]}{word(c.touched, 'message', 'messages')}", s, count=1)
+        s = re.sub(r"\d+(\s+)new(\s+)messages?(\s+and\s+)\d+(\s+)new(\s+)rpcs?",
+                   lambda x: f"{c.messages}{x[1]}new{x[2]}{word(c.messages, 'message', 'messages')}{x[3]}"
+                             f"{c.rpcs}{x[4]}new{x[5]}{word(c.rpcs, 'rpc', 'rpcs')}", s, count=1)
+        if m["retyped"] is not None:
+            s = re.sub(r"retyped(\s+)\d+(\s+)rpcs?",
+                       lambda x: f"retyped{x[1]}{c.retyped}{x[2]}{word(c.retyped, 'rpc', 'rpcs')}", s, count=1)
+        elif c.retyped:
+            s = re.sub(r"(new\s+rpcs?)", lambda x: f"{x[1]}; it retyped {c.retyped} {word(c.retyped, 'rpc', 'rpcs')}", s, count=1)
+        return s
+
     def compare(self, where: str, m: re.Match, c: Counts | None, base: str, head: str) -> None:
         if c is None:
             self.check(False, f"C39 {where} names {base}, which this checkout cannot read",
@@ -363,7 +447,14 @@ def main() -> int:
     ap.add_argument("--root", type=Path, default=ROOT)
     ap.add_argument("--count", metavar="BASE", help="print what the protocol gained since BASE")
     ap.add_argument("--head", metavar="REF", help="with --count: a ref instead of the working tree")
+    ap.add_argument("--rewrite", action="store_true",
+                    help="write this checker's numbers into the sentences it compares (resync-astra.sh)")
+    ap.add_argument("--astra-sha", metavar="SHA", help="with --rewrite: the Astra commit the CHANGELOG names")
     a = ap.parse_args()
+    if a.rewrite:
+        for path in Checker(a.root).rewrite(a.astra_sha):
+            print(f"rewrote {path}")
+        return 0
     if a.count:
         b, h = proto_at(a.root, a.count), proto_at(a.root, a.head)
         if b is None or h is None:
