@@ -90,6 +90,23 @@ danach greifst, lies zuerst
 [das Sicherheitsmodell](../1-orientation/security.md) und stell sicher,
 dass `push_to_ui` in dein eigenes Panel nicht ausreicht.
 
+## Was ein `dom_access`-Skript darf
+
+Ab Astra 0.2.8 kann ein Plugin, das die Capability `dom_access` **und** die Erlaubnis des Nutzers dafür hat, in der `url` einer Contribution ein Skript benennen. Astra führt dieses Skript in seinem eigenen Dokument aus, ohne eine der Grenzen eines iframes. Einer von Hand importierten `.astraplugin` wird diese Surface verweigert.
+
+Astra lädt zuerst seine Bridge und dann dein Skript; das Script-Tag trägt `data-plugin-id`, die Id deines Plugins. Die Bridge ist die gesamte API des Skripts, unter `window.__astraPluginBridge[id]`:
+
+- `callBackend(method, params)` ruft dein eigenes Backend auf.
+- `navigateTo(tab)` wechselt in Astra zu einem Tab.
+- `getData(key)` und `setData(key, value)` lesen und schreiben die gespeicherten Daten deines Plugins.
+- `getTheme()`, `onThemeChange(cb)`, `getWindowSize()` und `getCssVariables()` lesen das Aussehen des Fensters.
+
+Zum Aufräumen registrierst du eine Funktion unter `window.__astraPluginCleanup[id]`.
+
+Bleib innerhalb dieser Bridge. Rufe die IPC der Shell nicht direkt auf (`window.__TAURI_INTERNALS__`, `window.electronBridge`) und klicke oder fülle keine Bedienelemente von Astra selbst: beides handelt als der Nutzer.
+
+Solange ein `dom_access`-Skript im Fenster ist, fragt Astra den Nutzer in einem separaten Systemfenster, in dem dein Plugin genannt wird, bevor etwas geschieht, das bestimmt, was Astra darf: eine Freigabe, eine Einstellung, eine Installation, das Ausführen eines Befehls oder ein Aufruf eines anderen Plugins. `callBackend` an dein eigenes Backend löst nie eine Frage aus. Das gilt, bis das Fenster neu lädt, auch wenn das Plugin zwischenzeitlich ausgeschaltet wird.
+
 ## Argumente
 
 Zwei IDs nehmen Argumente, und beide schränken ein, was du bekommst.

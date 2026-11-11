@@ -79,6 +79,23 @@
 [安全模型](../1-orientation/security.md)，并确认在自己面板里用
 `push_to_ui` 真的不够用。
 
+## `dom_access` 脚本能做什么
+
+自 Astra 0.2.8 起，拥有 `dom_access` 能力**并**获得用户许可的插件，可以在贡献的 `url` 中指定一个脚本。Astra 在自己的文档中运行该脚本，不受 iframe 的任何限制。手动导入的 `.astraplugin` 不会获得这一界面层。
+
+Astra 先加载自己的桥接，再加载你的脚本；脚本标签带有 `data-plugin-id`，即插件的 id。脚本的全部 API 就是 `window.__astraPluginBridge[id]` 这个桥接：
+
+- `callBackend(method, params)` 调用你自己的后端。
+- `navigateTo(tab)` 让 Astra 切换到某个标签页。
+- `getData(key)` 和 `setData(key, value)` 读写插件保存的数据。
+- `getTheme()`、`onThemeChange(cb)`、`getWindowSize()` 和 `getCssVariables()` 读取窗口的外观。
+
+清理时，在 `window.__astraPluginCleanup[id]` 注册一个函数。
+
+请只使用这个桥接。不要直接调用外壳的 IPC（`window.__TAURI_INTERNALS__`、`window.electronBridge`），也不要点击或填写 Astra 自己的控件：两者都是以用户身份操作。
+
+只要窗口中存在 `dom_access` 脚本，在任何决定 Astra 可以做什么的操作之前——批准、设置、安装、运行命令，或调用另一个插件——Astra 都会在单独的系统窗口中询问用户，并写明你的插件名称。对你自己后端的 `callBackend` 从不询问。这一状态持续到窗口重新加载，即使其间插件被关闭也一样。
+
 ## 参数
 
 有两个 id 接受参数，两者都是用来收窄你能获得的范围。
