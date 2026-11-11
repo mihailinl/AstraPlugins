@@ -17,7 +17,7 @@ UI，或者作为一个独立的聊天客户端运行。
 | [什么是插件](1-orientation/what-is-a-plugin.md) | 十三种能力(capability),以及你需要哪一种 |
 | [架构](1-orientation/architecture.md) | 进程模型、两个服务、认证握手 |
 | [安全模型](1-orientation/security.md) | 签名能证明什么、不能证明什么，以及插件运行所拥有的权限 |
-| [平台](1-orientation/platforms.md) | linux-x64 和 windows-x64，各操作系统的路径，构建前置条件 |
+| [平台](1-orientation/platforms.md) | linux-x64、windows-x64 和 macos-arm64，各操作系统的路径，构建前置条件 |
 | **[快速上手](2-tutorial/getting-started.md)** | **从零到一个可运行的插件。从这里开始。** |
 | [Rust SDK](4-sdk/rust.md) · [Python SDK](4-sdk/python.md) · [TypeScript SDK](4-sdk/typescript.md) | 每个各一页，包括该 SDK 目前还做不到的事 |
 | [示例](7-examples/README.md) | 本仓库中的十一个插件，各自标明所支持的平台 |

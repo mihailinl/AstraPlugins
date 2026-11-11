@@ -89,7 +89,7 @@ SDK で利用可能です。
 
 | 言語 | リリースが何をビルドするか |
 |---|---|
-| Rust(9 個) | `linux-x64` **と** `windows-x64`、それぞれ 1 バンドルずつ |
+| Rust(9 個) | `linux-x64`, `windows-x64` **と** `macos-arm64`、それぞれ 1 バンドルずつ |
 | TypeScript(`json-tools`) | `noarch` バンドル 1 つ |
 | Python(`text-utils`) | `noarch` バンドル 1 つ |
 

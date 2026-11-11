@@ -121,7 +121,7 @@ Usage: astra-plugin build [OPTIONS] [PATH]
 | Опція | Опис |
 |---|---|
 | `-o, --output <OUTPUT>` | Output file path. Defaults to <id>-<version>-<target>.astraplugin, which is the name a published bundle must have — the target segment is the registry's platform key |
-| `--target <TARGET>` | Platform this bundle is for: linux-x64, windows-x64, or noarch. Defaults to the host for native plugins and noarch for TypeScript/Python |
+| `--target <TARGET>` | Platform this bundle is for: linux-x64, windows-x64, macos-arm64, or noarch. Defaults to the host for native plugins and noarch for TypeScript/Python |
 | `--reproducible` | Assert deterministic packing: sorted entries, mtime 1980-01-01, fixed compression level. Two builds from the same inputs produce the same sha256 |
 | `--all-targets` | Build every bundle this plugin needs to be installable everywhere Astra runs. One file for TypeScript and Python (noarch); one per platform for Rust, each from its own `cargo build --target` |
 

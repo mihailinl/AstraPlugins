@@ -356,6 +356,7 @@ Felder oben — und `schema` wird exakt verglichen, was das begrenzt.
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -369,7 +370,7 @@ denselben Digest unter jeden unterstützten Plattform-Schlüssel, sodass
 kein Client das Wort lernen muss. Vektor: `ok-noarch-runtime`.
 
 Kein anderes `{os, arch}`-Paar benennt heute ein Ziel. `linux-arm64`,
-`windows-arm64`, `macos-x64` und `macos-arm64` sind reservierte
+`windows-arm64`, `macos-x64` sind reservierte
 Plattform-Schlüssel im Registry-Schema; Astra liefert für sie keinen
 Daemon aus.
 

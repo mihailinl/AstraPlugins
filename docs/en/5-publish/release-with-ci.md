@@ -157,8 +157,8 @@ credentials persisted in `.git/config`. `build` runs your `build.rs` and your
 lifecycle scripts and has no token to steal. `publish` downloads the artifacts,
 hashes them itself, and attests what it hashed.
 
-The matrix is decided from your plugin's language: `linux-x64` +
-`windows-x64` for Rust, a single `noarch` leg for TypeScript and Python.
+The matrix is decided from your plugin's language: `linux-x64`,
+`windows-x64` and `macos-arm64` for Rust, a single `noarch` leg for TypeScript and Python.
 
 ### The registry wake: `notify`
 
@@ -196,6 +196,7 @@ looks.
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | one per platform key |
 | `<id>-<version>-windows-x64.astraplugin` | |
+| `<id>-<version>-macos-arm64.astraplugin` | built on `macos-15`; the build checks arm64 Mach-O and a valid code signature |
 | `<id>-<version>.sigstore.jsonl` | the attestation bundle, so a user with no network to GitHub can still check |
 | `SHA256SUMS.txt` | the same digests the registry records |
 

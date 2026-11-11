@@ -183,6 +183,7 @@
     "--edge-control-hover",
     "--edge-elevated",
     "--edge-focus",
+    "--edge-key",
     "--edge-knob",
     "--edge-modal",
     "--edge-selected",
@@ -489,5 +490,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "348fed8aee6532b4900897e04a8483289a985ebb97dc2d7cc87d34d3be803f49"
+  "sourceHash": "fee9c6fd997c2f7af77dfeb3c97cae93734798573ccd9aefa6a2829ec2072c3d"
 }

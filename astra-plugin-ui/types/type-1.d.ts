@@ -10,11 +10,12 @@ interface NumberInputProps {
     placeholder?: string;
     className?: string;
     inputClassName?: string;
+    compact?: boolean;
     id?: string;
     disabled?: boolean;
     incrementLabel?: string;
     decrementLabel?: string;
     emptyValue?: number;
 }
-export declare function NumberInput({ value, onChange, min, max, step, placeholder, className, inputClassName, id, disabled, incrementLabel, decrementLabel, emptyValue, }: NumberInputProps): import("react/jsx-runtime").JSX.Element;
+export declare function NumberInput({ value, onChange, min, max, step, placeholder, className, inputClassName, compact, id, disabled, incrementLabel, decrementLabel, emptyValue, }: NumberInputProps): import("react/jsx-runtime").JSX.Element;
 export {};

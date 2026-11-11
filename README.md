@@ -413,7 +413,7 @@ marker it did not record itself.
 | [`docs/en/`](docs/en/README.md) | The documentation |
 | [`PRODUCTION_PLAN.md`](PRODUCTION_PLAN.md) | Architecture, security model, and what is not built yet |
 
-Platforms: **linux-x64** and **windows-x64** for native plugins; **noarch** for
+Platforms: **linux-x64**, **windows-x64** and **macos-arm64** for native plugins; **noarch** for
 Python and TypeScript. `astra-plugin build --all-targets` produces every bundle
 a plugin needs to be installable everywhere Astra runs.
 

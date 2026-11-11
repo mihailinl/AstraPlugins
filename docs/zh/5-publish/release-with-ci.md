@@ -159,7 +159,7 @@ Release it:
 哈希，并为自己哈希过的内容出具证明。
 
 矩阵是根据你插件所用的语言决定的：Rust 是 `linux-x64` +
-`windows-x64`，TypeScript 和 Python 是单一的 `noarch` 分支。
+`windows-x64` + `macos-arm64`，TypeScript 和 Python 是单一的 `noarch` 分支。
 
 ### 唤醒注册表：`notify`
 
@@ -191,6 +191,7 @@ Release it:
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | 每个平台键各一个 |
 | `<id>-<version>-windows-x64.astraplugin` | |
+| `<id>-<version>-macos-arm64.astraplugin` | 在 `macos-15` 上构建；构建会检查 arm64 Mach-O 和有效的代码签名 |
 | `<id>-<version>.sigstore.jsonl` | 证明包，好让一个连不上 GitHub 网络的用户依然能做检查 |
 | `SHA256SUMS.txt` | 和注册表所记录的相同的摘要值 |
 

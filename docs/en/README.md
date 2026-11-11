@@ -16,7 +16,7 @@ There are two journeys here, and everything on this page belongs to one of them.
 | [What a plugin is](1-orientation/what-is-a-plugin.md) | The thirteen capabilities, and which one you want |
 | [Architecture](1-orientation/architecture.md) | Process model, the two services, the auth handshake |
 | [Security model](1-orientation/security.md) | What signatures prove, what they do not, and the privilege a plugin runs with |
-| [Platforms](1-orientation/platforms.md) | linux-x64 and windows-x64, per-OS paths, build prerequisites |
+| [Platforms](1-orientation/platforms.md) | linux-x64, windows-x64 and macos-arm64, per-OS paths, build prerequisites |
 | **[Getting started](2-tutorial/getting-started.md)** | **Zero to a running plugin. Start here.** |
 | **[Build with an AI assistant](../ai-authoring.md)** | Turn a plain-language idea into the right SDK, docs, checks and UI review |
 | [Rust SDK](4-sdk/rust.md) · [Python SDK](4-sdk/python.md) · [TypeScript SDK](4-sdk/typescript.md) | One page each, including what that SDK cannot do yet |

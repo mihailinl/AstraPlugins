@@ -8,6 +8,7 @@ export interface SelectOption<T extends string> {
     tone?: "warning";
     icon?: React.ReactNode;
     badge?: React.ReactNode;
+    actions?: React.ReactNode;
     disabled?: boolean;
 }
 export interface SelectProps<T extends string> {

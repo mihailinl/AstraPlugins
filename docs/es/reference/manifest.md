@@ -331,8 +331,7 @@ estaría rechazando un manifiesto correcto.
 
 Los valores de `arch` que puede nombrar `[platform] arch = [...]`.
 
-**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`,
-`linux-arm64`, `windows-arm64`, `macos-x64`, `macos-arm64`, `noarch`
+**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`, `macos-arm64`, `linux-arm64`, `windows-arm64`, `macos-x64`, `noarch`
 
 Cada clave de artefacto que reserva el schema del registro, en el orden
 en que un generador debería emitirlas.
@@ -344,17 +343,13 @@ distribuye esos hosts, y para que un validador del registro pueda
 rechazar una errata (`mac-arm64`, `linux-amd64`) en lugar de escribir
 una clave que ningún daemon buscará jamás.
 
-**Reservado no es soportado.** El workflow de release de Astra no
-compila ni un daemon de macOS ni uno de arm64, así que un paquete
-publicado bajo `macos-x64`, `macos-arm64`, `linux-arm64` o
-`windows-arm64` no tiene host donde ejecutarse. Un generador que emita
-uno está publicando un archivo que nadie puede instalar.
+**Reservado no es soportado.** Astra distribuye un daemon para Linux y Windows en x86_64 y, desde 0.2.8, para macOS en Apple Silicon (`macos-arm64`). No compila ningún daemon para Mac Intel ni para Linux/Windows arm64, así que un paquete publicado bajo `macos-x64`, `linux-arm64` o `windows-arm64` no tiene host donde ejecutarse. Un generador que emita uno está publicando un archivo que nadie puede instalar.
 
 `noarch` es el caso de lenguaje interpretado (TypeScript, Python). Está
 reservado aquí para validadores, pero el daemon **no** lo busca: según
 la spec del bundle, el índice escribe la misma URL y el mismo digest
 bajo cada clave de plataforma *soportada*, así que un paquete `noarch`
-se encuentra bajo `linux-x64` / `windows-x64` como cualquier otro.
+se encuentra bajo `linux-x64` / `windows-x64` / `macos-arm64` como cualquier otro.
 
 Nada en la ruta de ejecución del daemon lee esta lista — sus
 consumidores son el generador de índice en el repositorio del

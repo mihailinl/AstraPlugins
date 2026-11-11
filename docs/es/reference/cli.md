@@ -122,7 +122,7 @@ Usage: astra-plugin build [OPTIONS] [PATH]
 | Opción | Descripción |
 |---|---|
 | `-o, --output <OUTPUT>` | Ruta del archivo de salida. Por defecto <id>-<version>-<target>.astraplugin, el nombre que debe tener un paquete publicado — el segmento target es la clave de plataforma del registro |
-| `--target <TARGET>` | Plataforma para la que es este paquete: linux-x64, windows-x64, o noarch. Por defecto, el host para plugins nativos y noarch para TypeScript/Python |
+| `--target <TARGET>` | Plataforma para la que es este paquete: linux-x64, windows-x64, macos-arm64, o noarch. Por defecto, el host para plugins nativos y noarch para TypeScript/Python |
 | `--reproducible` | Garantiza un empaquetado determinista: entradas ordenadas, mtime 1980-01-01, nivel de compresión fijo. Dos compilaciones de las mismas entradas producen el mismo sha256 |
 | `--all-targets` | Compila cada paquete que este plugin necesita para poder instalarse en cualquier lugar donde Astra se ejecute. Un archivo para TypeScript y Python (noarch); uno por plataforma para Rust, cada uno desde su propio `cargo build --target` |
 
