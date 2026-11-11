@@ -282,5 +282,89 @@ class TheComparisons(unittest.TestCase):
         self.assertIn("has one paragraph", fails[0])
 
 
+class TheRewrite(unittest.TestCase):
+    """`--rewrite` is what resync-astra.sh runs so nobody edits the counts by hand."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.fx = Fixture(Path(self._tmp.name))
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def rewrite(self, sha=None):
+        with redirect_stdout(io.StringIO()):
+            return c39.Checker(self.fx.root).rewrite(sha)
+
+    def test_the_stale_numbers_are_rewritten_and_the_check_goes_green(self):
+        stale = GOOD.replace("5 fields on 3", "37 fields on\n9").replace("1 new message and", "13 new messages and")
+        fails, _ = self.fx.write(rust_log=entry("1.0.1", "unreleased", stale),
+                                 docs=DOCS.format(n=37, head="1.0.1")).run()
+        self.assertTrue(fails)
+        written = self.rewrite()
+        self.assertEqual(sorted(written), ["astra-plugin-sdk/CHANGELOG.md", "docs/en/versioning.md"])
+        fails, out = self.fx.run()
+        self.assertEqual(fails, [], out)
+        self.assertIn("5 fields on", (self.fx.root / "astra-plugin-sdk/CHANGELOG.md").read_text())
+
+    def test_a_true_tree_is_left_alone(self):
+        self.fx.write()
+        self.assertEqual(self.rewrite("abc123def"), [])
+
+    def test_the_astra_commit_line_follows_the_sync(self):
+        log = entry("1.0.1", "unreleased", "Proto re-synced to Astra main `deadbeef0`. " + GOOD)
+        self.fx.write(rust_log=log)
+        self.assertEqual(self.rewrite("b15eb1f55"), ["astra-plugin-sdk/CHANGELOG.md"])
+        self.assertIn("Astra main `b15eb1f55`.", (self.fx.root / "astra-plugin-sdk/CHANGELOG.md").read_text())
+
+    def test_a_dated_entry_is_history_and_not_rewritten(self):
+        log = entry("1.0.1", "2026-03-01", GOOD.replace("5 fields", "37 fields"))
+        self.fx.write(rust_log=log, docs=DOCS.format(n=5, head="1.0.1"))
+        self.assertEqual(self.rewrite(), [])
+
+    def test_singular_nouns_follow_the_number(self):
+        plural = GOOD.replace("1 new message and 1 new rpc", "1 new messages and 1 new rpcs")
+        self.fx.write(rust_log=entry("1.0.1", "unreleased", plural))
+        self.rewrite()
+        self.assertIn("1 new message and 1 new rpc;", (self.fx.root / "astra-plugin-sdk/CHANGELOG.md").read_text())
+
+
+class TheTrailers(unittest.TestCase):
+    """resync-astra.sh's commit helper: the caller's trailers, or none."""
+
+    def commit(self, trailers_env="", flags=()):
+        script = (ROOT / "tools/resync-astra.sh").read_text()
+        fn = script[script.index("commit_with_trailers() {"):]
+        fn = fn[:fn.index("\n}\n") + 3]
+        with tempfile.TemporaryDirectory() as d:
+            git(Path(d), "init", "-q")
+            git(Path(d), "config", "user.email", "t@t")
+            git(Path(d), "config", "user.name", "t")
+            git(Path(d), "config", "commit.gpgsign", "false")
+            (Path(d) / "f").write_text("x")
+            git(Path(d), "add", "f")
+            body = ('trailers=(); while IFS= read -r t; do [ -n "$t" ] && trailers+=("$t"); done <<<"$ENV_T"\n'
+                    + "".join(f'trailers+=("{f}")\n' for f in flags)
+                    + fn + '\ncommit_with_trailers "subject\n\nbody"')
+            subprocess.run(["bash", "-c", body], cwd=d, check=True, env={"ENV_T": trailers_env, "PATH": __import__("os").environ["PATH"]})
+            return subprocess.run(["git", "log", "-1", "--format=%B"], cwd=d, check=True,
+                                  capture_output=True, text=True).stdout
+
+    def test_no_trailer_unless_the_caller_gives_one(self):
+        out = self.commit()
+        self.assertNotIn("Co-Authored-By", out)
+        self.assertNotIn("Claude-Session", out)
+        self.assertTrue(out.startswith("subject\n\nbody"))
+
+    def test_env_lines_and_flags_both_land_in_one_block(self):
+        out = self.commit("Co-Authored-By: A <a@x>\nClaude-Session: https://s/1", ["Reviewed-by: B <b@x>"])
+        self.assertIn("body\n\nCo-Authored-By: A <a@x>\nClaude-Session: https://s/1\nReviewed-by: B <b@x>", out)
+
+    def test_the_script_carries_no_hardcoded_attribution(self):
+        script = (ROOT / "tools/resync-astra.sh").read_text()
+        self.assertNotIn("Co-Authored-By: Claude", script)
+        self.assertNotIn("claude.ai/code/session", script)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

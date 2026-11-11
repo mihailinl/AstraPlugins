@@ -7,6 +7,15 @@
 #   tools/resync-astra.sh --astra-dir ../Astra
 #   tools/resync-astra.sh --astra-dir ../Astra --no-commit
 #   tools/resync-astra.sh --astra-dir ../Astra --skip-ui-kit --skip-docgen-check
+#   tools/resync-astra.sh --astra-dir ../Astra \
+#       --trailer 'Co-Authored-By: Name <mail>' --trailer 'Claude-Session: https://...'
+#   RESYNC_COMMIT_TRAILERS=$'Co-Authored-By: Name <mail>\nClaude-Session: ...' tools/resync-astra.sh ...
+#
+# Commit trailers come from the caller, never from this file: a repeatable
+# --trailer 'Key: value', and/or RESYNC_COMMIT_TRAILERS (newline-separated).
+# With neither, the commits carry no trailer. (This script used to hardcode one
+# agent's attribution and a long-dead session id, so every agent had to rewrite
+# the trailers and a human got an agent's name on their commit.)
 #
 # Astra main moves the plugin proto slice and the UI Kit out from under this
 # repository with no warning: nothing here subscribes to Astra's commits. The
@@ -49,6 +58,9 @@ astra_dir=""
 no_commit=0
 skip_ui_kit=0
 skip_docgen_check=0
+# Caller-supplied trailers: the env var's lines first, then each --trailer.
+trailers=()
+while IFS= read -r _t; do [ -n "$_t" ] && trailers+=("$_t"); done <<<"${RESYNC_COMMIT_TRAILERS:-}"
 
 usage() {
     cat <<'USAGE'
@@ -73,6 +85,9 @@ usage: tools/resync-astra.sh --astra-dir <path> [OPTIONS]
                          checks, and with it the `cargo build --release`
                          of astra-plugin-cli that check needs. Everything
                          else in the final checks still runs.
+  --trailer 'K: v'       a trailer for every commit this script makes; repeat it
+                         for several. Added to any in $RESYNC_COMMIT_TRAILERS
+                         (newline-separated). Neither given: no trailer.
   -h, --help             this text
 USAGE
 }
@@ -83,6 +98,8 @@ while [ $# -gt 0 ]; do
         --no-commit) no_commit=1; shift ;;
         --skip-ui-kit) skip_ui_kit=1; shift ;;
         --skip-docgen-check) skip_docgen_check=1; shift ;;
+        --trailer) [ -n "${2:-}" ] || { printf 'resync-astra: --trailer needs a value.\n' >&2; exit 2; }
+                   trailers+=("$2"); shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'resync-astra: unknown argument %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -90,6 +107,18 @@ done
 
 log()  { printf 'resync-astra: %s\n' "$1"; }
 die()  { printf 'resync-astra: FAIL %s\n' "$1" >&2; exit 1; }
+
+# commit_with_trailers <message>: commit the index with the caller's trailers
+# (git interpret-trailers keeps them in one block under the body, de-duplicated).
+commit_with_trailers() {
+    local args=() t
+    for t in "${trailers[@]}"; do args+=(--trailer "$t"); done
+    if [ "${#args[@]}" -gt 0 ]; then
+        printf '%s\n' "$1" | git interpret-trailers "${args[@]}" | git commit --quiet -F -
+    else
+        printf '%s\n' "$1" | git commit --quiet -F -
+    fi
+}
 
 [ -n "$astra_dir" ] || { printf 'resync-astra: --astra-dir is required.\n\n' >&2; usage >&2; exit 2; }
 [ -d "$astra_dir" ] || die "$astra_dir is not a directory."
@@ -260,16 +289,29 @@ proto_paths=(
     astra-plugin-sdk-python/astra_plugin_sdk/proto/plugin_pb2_grpc.py
     astra-plugin-sdk-ts/src/generated
     docs
+    astra-plugin-sdk/CHANGELOG.md astra-plugin-sdk-python/CHANGELOG.md astra-plugin-sdk-ts/CHANGELOG.md
 )
 git add -- "${proto_paths[@]}"
 proto_commit=""
 if [ -n "$(git status --porcelain -- "${proto_paths[@]}")" ]; then
+    # The protocol moved, so every sentence C39 compares with it is now stale
+    # (each unreleased CHANGELOG's "gained F fields on M messages ..." and the
+    # count in docs/*/versioning.md). Rewrite them from C39's own counter, and
+    # refuse to commit if C39 still disagrees (a sentence it could not read).
+    python3 tools/check-protocol-counts.py --rewrite --astra-sha "${astra_sha:0:9}"
+    changelog_paths=(astra-plugin-sdk/CHANGELOG.md astra-plugin-sdk-python/CHANGELOG.md astra-plugin-sdk-ts/CHANGELOG.md)
+    git add -- "${changelog_paths[@]}" docs
+    if ! python3 tools/check-protocol-counts.py >"$TMPDIR/c39.out" 2>&1; then
+        grep -E '^(FAIL|       )' "$TMPDIR/c39.out" >&2 || true
+        die "C39 still disagrees after the rewrite, so this would commit a red tree. The FAIL lines above carry the numbers it expects (also: python3 tools/check-protocol-counts.py --count sdk-vX.Y.Z); fix the CHANGELOG sentence by hand, then re-run."
+    fi
+    log "C39: CHANGELOG and versioning.md counts rewritten from the proto and agree with it"
     if [ "$no_commit" = 1 ]; then
         log "--no-commit: proto/docs changes staged for review. Stopping before the commit."
         git status --short -- "${proto_paths[@]}"
         exit 0
     fi
-    git commit --quiet -m "$(cat <<EOF
+    commit_with_trailers "$(cat <<EOF
 proto: resync against Astra@${astra_sha:0:12}
 
 tools/resync-astra.sh ran the full upstream recipe (slice, vendored
@@ -280,9 +322,6 @@ docs digests drift from a moved protocol one step at a time, and each
 drifted file is a separate, unrelated-looking CI failure — which is
 how a single upstream resync turned both \`proto (vendored copies)\`
 and \`mirror\` red on 2026-11-05 with no comment connecting the two.
-
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01H9xxVvoEHGt2DBkwvVFrRA
 EOF
 )"
     proto_commit="$(git rev-parse HEAD)"
@@ -322,7 +361,7 @@ if [ -n "$(git status --porcelain -- "$SCHEMA_DEST" "$SCHEMA_LOCK")" ]; then
         git status --short -- "$SCHEMA_DEST" "$SCHEMA_LOCK"
         exit 0
     fi
-    git commit --quiet -m "$(cat <<EOF
+    commit_with_trailers "$(cat <<EOF
 spec(content): resync the portable-command schema against Astra@${astra_sha:0:12}
 
 astra-core/schemas/portable-command.schema.json moved upstream; nothing
@@ -330,9 +369,6 @@ here regenerates it, only tools/resync-astra.sh copies it in, so without
 this commit tools/check-content-goldens.py's COMMAND_SCHEMA_TABLE would
 go on checking every command golden against a schema that is no longer
 the client's own types.
-
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01H9xxVvoEHGt2DBkwvVFrRA
 EOF
 )"
     schema_commit="$(git rev-parse HEAD)"
@@ -358,16 +394,13 @@ else
             git status --short -- "${ui_paths[@]}"
             exit 0
         fi
-        git commit --quiet -m "$(cat <<EOF
+        commit_with_trailers "$(cat <<EOF
 ui-kit: resync the vendored snapshot against Astra@${astra_sha:0:12}
 
 tools/sync-ui-kit.mjs --check is what the "UI Kit" CI job runs, and it
 only ever reports drift — nothing regenerates the vendored snapshot or
 the CLI's resource table automatically, so without this commit the next
 CI run on this branch would go red over a file nobody here edited.
-
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01H9xxVvoEHGt2DBkwvVFrRA
 EOF
 )"
         ui_kit_commit="$(git rev-parse HEAD)"
