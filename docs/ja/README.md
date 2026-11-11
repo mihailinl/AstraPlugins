@@ -18,7 +18,7 @@
 | [プラグインとは何か](1-orientation/what-is-a-plugin.md) | 13 個のケーパビリティと、あなたが欲しいのはどれか |
 | [アーキテクチャ](1-orientation/architecture.md) | プロセスモデル、2 つのサービス、認証ハンドシェイク |
 | [セキュリティモデル](1-orientation/security.md) | 署名が証明すること・証明しないこと、プラグインが実行される権限 |
-| [プラットフォーム](1-orientation/platforms.md) | linux-x64 と windows-x64、OS ごとのパス、ビルド前提条件 |
+| [プラットフォーム](1-orientation/platforms.md) | linux-x64、windows-x64 と macos-arm64、OS ごとのパス、ビルド前提条件 |
 | **[はじめに](2-tutorial/getting-started.md)** | **ゼロから動くプラグインまで。まずはここから。** |
 | [Rust SDK](4-sdk/rust.md) · [Python SDK](4-sdk/python.md) · [TypeScript SDK](4-sdk/typescript.md) | それぞれ 1 ページ、その SDK がまだできないことも含めて |
 | [サンプル](7-examples/README.md) | このリポジトリにある 11 個のプラグイン、それぞれの対応プラットフォーム付き |

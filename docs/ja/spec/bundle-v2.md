@@ -352,6 +352,7 @@ UTF-8 の JSON、1 つのオブジェクトです。CLI は末尾に改行を付
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -365,7 +366,7 @@ Python のプラグインが出荷される方法です — ソースまたは�
 この言葉を学ぶ必要がありません。ベクタ: `ok-noarch-runtime`。
 
 今日、他のどんな `{os, arch}` の組も対象を名指ししません。
-`linux-arm64`、`windows-arm64`、`macos-x64`、`macos-arm64` はレジストリ
+`linux-arm64`、`windows-arm64`、`macos-x64` はレジストリ
 のスキーマ内で予約されたプラットフォームキーです; Astra はそれらの
 ためのデーモンを出荷していません。
 

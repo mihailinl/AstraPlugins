@@ -84,7 +84,7 @@ ajustar. Consulta [plataformas](../1-orientation/platforms.md).
 
 | Lenguaje | Qué compila un release |
 |---|---|
-| Rust (nueve de ellos) | `linux-x64` **y** `windows-x64`, un paquete cada uno |
+| Rust (nueve de ellos) | `linux-x64`, `windows-x64` **y** `macos-arm64`, un paquete cada uno |
 | TypeScript (`json-tools`) | un paquete `noarch` |
 | Python (`text-utils`) | un paquete `noarch` |
 

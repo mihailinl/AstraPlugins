@@ -163,7 +163,7 @@ Release it:
 `publish` завантажує артефакти, хешує їх сама і засвідчує те, що
 захешувала.
 
-Матриця вирішується за мовою вашого плагіна: `linux-x64` + `windows-x64`
+Матриця вирішується за мовою вашого плагіна: `linux-x64` + `windows-x64` + `macos-arm64`
 для Rust, єдина гілка `noarch` для TypeScript і Python.
 
 ### Сигнал реєстру: `notify`
@@ -203,6 +203,7 @@ Minice: OIDC-токен GitHub, випущений для аудиторії
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | по одному на ключ платформи |
 | `<id>-<version>-windows-x64.astraplugin` | |
+| `<id>-<version>-macos-arm64.astraplugin` | збирається на `macos-15`; збірка перевіряє arm64 Mach-O і чинний підпис коду |
 | `<id>-<version>.sigstore.jsonl` | пакет атестації, тож користувач без мережі до GitHub все одно може перевірити |
 | `SHA256SUMS.txt` | ті самі дайджести, що записує реєстр |
 

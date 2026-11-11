@@ -167,7 +167,7 @@ Release it:
 自分でハッシュを取り、自分がハッシュしたものを証明します。
 
 マトリクスはあなたのプラグインの言語から決まります: Rust には
-`linux-x64` + `windows-x64`、TypeScript と Python には単一の `noarch`
+`linux-x64` + `windows-x64` + `macos-arm64`、TypeScript と Python には単一の `noarch`
 の脚です。
 
 ### レジストリへの通知: `notify`
@@ -208,6 +208,7 @@ OIDC トークンと、固定のボディ
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | プラットフォームキーごとに 1 つ |
 | `<id>-<version>-windows-x64.astraplugin` | |
+| `<id>-<version>-macos-arm64.astraplugin` | `macos-15` でビルド。ビルドは arm64 Mach-O と有効なコード署名を検査します |
 | `<id>-<version>.sigstore.jsonl` | 証明バンドル。GitHub へのネットワークがないユーザーでも確認できるように |
 | `SHA256SUMS.txt` | レジストリが記録するのと同じダイジェスト |
 

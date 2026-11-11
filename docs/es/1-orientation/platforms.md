@@ -2,15 +2,16 @@
 
 # Plataformas
 
-Astra distribuye un daemon para **dos** hosts. Todo lo demás se deriva de
+Astra distribuye un daemon para **tres** hosts. Todo lo demás se deriva de
 eso.
 
 | Clave de plataforma | Host | Astra distribuye un daemon |
 |---|---|---|
 | `linux-x64` | Linux, x86_64 | sí |
 | `windows-x64` | Windows, x86_64 | sí |
-| `noarch` | cualquiera — un plugin interpretado sin código nativo | n/a, funciona en ambos |
-| `linux-arm64` · `windows-arm64` · `macos-x64` · `macos-arm64` | — | **no** |
+| `macos-arm64` | macOS, Apple Silicon (arm64) | sí |
+| `noarch` | cualquiera — un plugin interpretado sin código nativo | n/a, funciona en los tres |
+| `linux-arm64` · `windows-arm64` · `macos-x64` | — | **no** |
 
 La última fila está *reservada, no soportada*. Los nombres existen en el
 esquema del registro para que el formato del índice nunca tenga que cambiar
@@ -27,17 +28,18 @@ empaquetar en silencio algo que resuelve a `linux-x64`.
 ```bash
 astra-plugin build --target linux-x64
 astra-plugin build --target windows-x64
+astra-plugin build --target macos-arm64
 astra-plugin build --all-targets
 ```
 
 - **Rust** compila a código nativo, así que necesita un paquete por
   plataforma. El workflow de release los construye en una matriz —
-  `ubuntu-24.04` y `windows-2022` — porque un cross-build trae consigo un
+  `ubuntu-24.04`, `windows-2022` y `macos-15` (Apple Silicon) — porque un cross-build trae consigo un
   conjunto de errores distinto.
 - **TypeScript y Python** producen un único paquete `noarch`. El índice
   escribe la misma URL y el mismo digest bajo cada clave de plataforma
-  soportada, así que un paquete `noarch` se encuentra bajo `linux-x64` y
-  `windows-x64` como cualquier otro.
+  soportada, así que un paquete `noarch` se encuentra bajo `linux-x64`,
+  `windows-x64` y `macos-arm64` como cualquier otro.
 
 `--all-targets` construye todo lo que el plugin necesita para poder
 instalarse en cualquier lugar donde Astra se ejecute: un archivo para
@@ -170,11 +172,14 @@ está ocupado, así que `127.0.0.1:32000` es una suposición de respaldo y
 
 ## macOS
 
-No soportado, y no por omisión. El propio workflow de release de Astra solo
-compila `linux-x64` y `windows-x64`, así que un paquete de plugin
-`macos-arm64` no tendría host donde ejecutarse; macOS además exigiría
-notarización de Apple para cada autor externo. Los nombres de clave están
-reservados en el esquema del índice, nada los emite, y un host no manejado
-es un error duro en lugar de un respaldo silencioso. Revisar de nuevo en el
-release en que Astra distribuya un daemon para ese objetivo.
-</content>
+Solo Apple Silicon: `macos-arm64`. Los Mac Intel (`macos-x64`) no tienen
+daemon ni clave. Un paquete de macOS se compila **en un runner de macOS**,
+nunca con cross-build desde Linux: un binario arm64 es terminado al arrancar
+si no está firmado, el enlazador nativo lo firma ad hoc, y el workflow de
+release comprueba la firma (`codesign --verify`) y que el archivo sea Mach-O
+arm64 antes de que el paquete reciba su atestación. Por eso
+`astra-plugin build --target macos-arm64` se niega en cualquier host que no
+sea un Mac con Apple Silicon, y `--all-targets` necesita el binario de macOS
+compilado de antemano, como cualquier otro destino ajeno. No hay
+notarización: el daemon descarga y desempaqueta el paquete él mismo, así que
+el archivo nunca lleva la marca de cuarentena de un navegador.

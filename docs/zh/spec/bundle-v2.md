@@ -310,6 +310,7 @@ UTF-8 的 JSON，一个对象。CLI 会以带尾随换行的美化打印方式�
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -322,7 +323,7 @@ URL 和摘要，所以任何客户端都不需要专门学习这个词。向量�
 `ok-noarch-runtime`。
 
 今天没有其他 `{os, arch}` 组合能指名一个目标。`linux-arm64`、
-`windows-arm64`、`macos-x64` 和 `macos-arm64` 是注册表 schema 中保留
+`windows-arm64`、`macos-x64` 是注册表 schema 中保留
 的平台键；Astra 没有为它们提供守护进程。
 
 ## 6. 条目名称

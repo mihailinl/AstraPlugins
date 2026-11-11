@@ -1,13 +1,14 @@
 # Platforms
 
-Astra ships a daemon for **two** hosts. Everything below follows from that.
+Astra ships a daemon for **three** hosts. Everything below follows from that.
 
 | Platform key | Host | Astra ships a daemon |
 |---|---|---|
 | `linux-x64` | Linux, x86_64 | yes |
 | `windows-x64` | Windows, x86_64 | yes |
-| `noarch` | any — an interpreted plugin with no native code | n/a, it runs on both |
-| `linux-arm64` · `windows-arm64` · `macos-x64` · `macos-arm64` | — | **no** |
+| `macos-arm64` | macOS, Apple Silicon (arm64) | yes |
+| `noarch` | any — an interpreted plugin with no native code | n/a, it runs on all three |
+| `linux-arm64` · `windows-arm64` · `macos-x64` | — | **no** |
 
 The last row is *reserved, not supported*. The names exist in the registry
 schema so the index format never has to change if Astra later ships those hosts,
@@ -23,15 +24,16 @@ that resolves to `linux-x64`.
 ```bash
 astra-plugin build --target linux-x64
 astra-plugin build --target windows-x64
+astra-plugin build --target macos-arm64
 astra-plugin build --all-targets
 ```
 
 - **Rust** compiles to native code, so it needs one bundle per platform. The
-  release workflow builds them on a matrix — `ubuntu-24.04` and
-  `windows-2022` — because a cross-build is a different set of bugs.
+  release workflow builds them on a matrix — `ubuntu-24.04`,
+  `windows-2022` and `macos-15` (Apple Silicon) — because a cross-build is a different set of bugs.
 - **TypeScript and Python** produce a single `noarch` bundle. The index writes
   the same URL and digest under every supported platform key, so a `noarch`
-  bundle is found under `linux-x64` and `windows-x64` like any other.
+  bundle is found under `linux-x64`, `windows-x64` and `macos-arm64` like any other.
 
 `--all-targets` builds everything the plugin needs to be installable everywhere
 Astra runs: one file for TypeScript and Python, one per platform for Rust, each
@@ -158,9 +160,13 @@ a fallback guess and `daemon.port` is the fact.
 
 ## macOS
 
-Not supported, and not by omission. Astra's own release workflow builds
-`linux-x64` and `windows-x64` only, so a `macos-arm64` plugin bundle would have
-no host; macOS would additionally raise Apple notarization for every third-party
-author. The key names are reserved in the index schema, nothing emits them, and
-an unhandled host is a hard error rather than a silent fallback. Revisit in the
-release where Astra ships a daemon for that target.
+Apple Silicon only: `macos-arm64`. Intel Macs (`macos-x64`) have no daemon and
+no key. A macOS bundle is built **on a macOS runner**, never cross-built from
+Linux: an arm64 binary is killed at launch unless it is code-signed, the native
+linker ad-hoc signs it, and the release workflow checks the signature
+(`codesign --verify`) and that the file is arm64 Mach-O before the bundle is
+attested. `astra-plugin build --target macos-arm64` therefore refuses on any
+host that is not an Apple Silicon Mac, and `--all-targets` needs the macOS
+binary built beforehand like every other foreign target. There is no
+notarization step: the daemon downloads and unpacks the bundle itself, so the
+file never carries a browser quarantine flag.

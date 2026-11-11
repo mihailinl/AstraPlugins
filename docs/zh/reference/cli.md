@@ -117,7 +117,7 @@ Usage: astra-plugin build [OPTIONS] [PATH]
 | 选项 | 说明 |
 |---|---|
 | `-o, --output <OUTPUT>` | 输出文件路径。默认为 <id>-<version>-<target>.astraplugin，这正是一个已发布的包必须使用的名字 —— target 那一段是注册表的平台键 |
-| `--target <TARGET>` | 这个包面向的平台：linux-x64、windows-x64，或 noarch。对原生插件默认为宿主平台，对 TypeScript/Python 默认为 noarch |
+| `--target <TARGET>` | 这个包面向的平台：linux-x64、windows-x64、macos-arm64，或 noarch。对原生插件默认为宿主平台，对 TypeScript/Python 默认为 noarch |
 | `--reproducible` | 断言打包过程是确定性的：条目排序、mtime 固定为 1980-01-01、压缩级别固定。用相同输入构建两次会产出相同的 sha256 |
 | `--all-targets` | 构建出让这个插件在 Astra 运行的每个地方都能安装所需要的每一个包。TypeScript 和 Python 各一个文件（noarch）；Rust 每个平台一个文件，各自来自它自己的 `cargo build --target` |
 

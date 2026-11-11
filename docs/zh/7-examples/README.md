@@ -80,7 +80,7 @@
 
 | 语言 | 一次发布会构建出什么 |
 |---|---|
-| Rust（九个） | `linux-x64` **和** `windows-x64`，各一个包 |
+| Rust（九个） | `linux-x64`, `windows-x64` **和** `macos-arm64`，各一个包 |
 | TypeScript（`json-tools`） | 一个 `noarch` 包 |
 | Python（`text-utils`） | 一个 `noarch` 包 |
 

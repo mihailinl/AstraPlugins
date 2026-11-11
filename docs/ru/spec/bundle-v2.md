@@ -335,6 +335,7 @@ UTF-8 JSON, один объект. CLI пишет его в форматиров
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -347,7 +348,7 @@ UTF-8 JSON, один объект. CLI пишет его в форматиров
 нужно учить это слово. Вектор: `ok-noarch-runtime`.
 
 Никакая другая пара `{os, arch}` сегодня не называет цель. `linux-arm64`,
-`windows-arm64`, `macos-x64` и `macos-arm64` — зарезервированные ключи
+`windows-arm64`, `macos-x64` — зарезервированные ключи
 платформы в схеме реестра; Astra не поставляет для них демон.
 
 ## 6. Имена записей

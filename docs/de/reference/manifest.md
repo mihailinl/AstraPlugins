@@ -336,8 +336,7 @@ würde ein korrektes Manifest ablehnen.
 
 Die `arch`-Werte, die `[platform] arch = [...]` benennen darf.
 
-**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`,
-`linux-arm64`, `windows-arm64`, `macos-x64`, `macos-arm64`, `noarch`
+**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`, `macos-arm64`, `linux-arm64`, `windows-arm64`, `macos-x64`, `noarch`
 
 Jeder Artefakt-Schlüssel, den das Registry-Schema reserviert, in der
 Reihenfolge, in der ein Generator sie ausgeben sollte.
@@ -349,19 +348,14 @@ später ausliefert, und damit ein Registry-Validator einen Tippfehler
 (`mac-arm64`, `linux-amd64`) ablehnen kann, statt einen Schlüssel zu
 schreiben, den kein Daemon je nachschlägt.
 
-**Reserviert bedeutet nicht unterstützt.** Astras Release-Workflow baut
-weder einen macOS- noch einen arm64-Daemon, sodass ein unter
-`macos-x64`, `macos-arm64`, `linux-arm64` oder `windows-arm64`
-veröffentlichtes Bundle keinen Host hat, auf dem es läuft. Ein
-Generator, der eines davon ausgibt, veröffentlicht eine Datei, die
-niemand installieren kann.
+**Reserviert bedeutet nicht unterstützt.** Astra liefert einen Daemon für Linux und Windows auf x86_64 und, seit 0.2.8, für macOS auf Apple Silicon (`macos-arm64`) aus. Für Intel-Macs und arm64-Linux/Windows baut es keinen Daemon, sodass ein unter `macos-x64`, `linux-arm64` oder `windows-arm64` veröffentlichtes Bundle keinen Host hat, auf dem es läuft. Ein Generator, der eines davon ausgibt, veröffentlicht eine Datei, die niemand installieren kann.
 
 `noarch` ist der Fall interpretierter Sprachen (TypeScript, Python). Es
 ist hier für Validatoren reserviert, aber der Daemon schlägt es
 **nicht** nach: gemäß der Bundle-Spec schreibt der Index dieselbe URL
 und denselben Digest unter jeden *unterstützten* Plattform-Schlüssel,
 sodass ein `noarch`-Bundle wie jedes andere unter `linux-x64` /
-`windows-x64` gefunden wird.
+`windows-x64` / `macos-arm64` gefunden wird.
 
 Nichts im Laufzeitpfad des Daemons liest diese Liste — ihre Konsumenten
 sind der Index-Generator im Registry-Repository, das `check` der CLI,

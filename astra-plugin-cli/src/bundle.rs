@@ -148,6 +148,9 @@ const MAX_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
 pub enum Target {
     LinuxX64,
     WindowsX64,
+    /// Apple Silicon. Built only on a macOS arm64 runner: the binary is Mach-O and
+    /// must be (ad-hoc) code-signed to run, which a cross-link does not do.
+    MacosArm64,
     /// Platform-independent: TypeScript and Python plugins, which ship source
     /// or bytecode and are run by a runtime the host already has. The index
     /// writes the same URL and digest under every supported platform key, so
@@ -156,7 +159,17 @@ pub enum Target {
 }
 
 impl Target {
-    pub const ALL: &'static [Target] = &[Target::LinuxX64, Target::WindowsX64, Target::Noarch];
+    pub const ALL: &'static [Target] = &[
+        Target::LinuxX64,
+        Target::WindowsX64,
+        Target::MacosArm64,
+        Target::Noarch,
+    ];
+
+    /// The targets that carry a native binary — what `build --all-targets`
+    /// iterates for a compiled plugin. A test pins `ALL` to the manifest crate's
+    /// supported platform keys, so this cannot fall behind the daemon again.
+    pub const NATIVE: &'static [Target] = &[Target::LinuxX64, Target::WindowsX64, Target::MacosArm64];
 
     /// The registry platform key. This string appears in the bundle filename,
     /// in `index.json`, and in the daemon's platform lookup.
@@ -164,6 +177,7 @@ impl Target {
         match self {
             Target::LinuxX64 => "linux-x64",
             Target::WindowsX64 => "windows-x64",
+            Target::MacosArm64 => "macos-arm64",
             Target::Noarch => "noarch",
         }
     }
@@ -194,10 +208,12 @@ impl Target {
         match (std::env::consts::OS, std::env::consts::ARCH) {
             ("linux", "x86_64") => Ok(Target::LinuxX64),
             ("windows", "x86_64") => Ok(Target::WindowsX64),
+            ("macos", "aarch64") => Ok(Target::MacosArm64),
             (os, arch) => bail!(
-                "No plugin bundle target exists for {os}-{arch}. Astra ships neither a macOS \
-                 nor an arm64 daemon, so a bundle for this host would have nothing to run on. \
-                 Pass --target explicitly (linux-x64, windows-x64, noarch) to cross-pack."
+                "No plugin bundle target exists for {os}-{arch}. Astra ships a daemon \
+                 for linux-x64, windows-x64 and macos-arm64 only, so a bundle for this host \
+                 would have nothing to run on. Pass --target explicitly (linux-x64, \
+                 windows-x64, macos-arm64, noarch) to cross-pack."
             ),
         }
     }
@@ -207,6 +223,7 @@ impl Target {
         match self {
             Target::LinuxX64 => Platform::new("linux", "x86_64"),
             Target::WindowsX64 => Platform::new("windows", "x86_64"),
+            Target::MacosArm64 => Platform::new("macos", "aarch64"),
             Target::Noarch => Platform::new("any", "any"),
         }
     }
@@ -240,11 +257,21 @@ impl Target {
     }
 
     /// Whether a native binary built on this host can be packed for `self`.
+    ///
+    /// Despite the name this checks OS **and** architecture for macOS: an Intel
+    /// Mac's binary is x86_64 Mach-O and packing it as `macos-arm64` would ship
+    /// a bundle that cannot start. (Linux and Windows are x86_64-only targets
+    /// and keep the OS-only test they always had.)
     pub fn matches_host_os(self) -> bool {
+        self.matches_host(std::env::consts::OS, std::env::consts::ARCH)
+    }
+
+    fn matches_host(self, os: &str, arch: &str) -> bool {
         match self {
             Target::Noarch => true,
-            Target::LinuxX64 => std::env::consts::OS == "linux",
-            Target::WindowsX64 => std::env::consts::OS == "windows",
+            Target::LinuxX64 => os == "linux",
+            Target::WindowsX64 => os == "windows",
+            Target::MacosArm64 => os == "macos" && arch == "aarch64",
         }
     }
 }
@@ -1624,6 +1651,45 @@ impl Bundle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The CLI's target list is a second copy of the daemon's supported platform
+    /// keys. Before this test it had drifted: Astra gained macos-arm64 and every
+    /// plugin built by this CLI still had no macOS bundle. The expected set is
+    /// computed from the manifest crate, not typed here.
+    #[test]
+    fn target_all_is_exactly_the_crates_supported_keys_plus_noarch() {
+        use astra_plugin_manifest::{
+            platform_key_for, KNOWN_ARCH_VALUES, KNOWN_OS_VALUES, NOARCH_PLATFORM_KEY,
+        };
+        let mut want: Vec<&str> = KNOWN_OS_VALUES
+            .iter()
+            .flat_map(|os| KNOWN_ARCH_VALUES.iter().map(move |a| (*os, *a)))
+            .filter_map(|(os, a)| platform_key_for(os, a).ok())
+            .collect();
+        want.push(NOARCH_PLATFORM_KEY);
+        want.sort_unstable();
+        let mut have: Vec<&str> = Target::ALL.iter().map(|t| t.key()).collect();
+        have.sort_unstable();
+        assert_eq!(have, want, "Target::ALL drifted from the manifest crate");
+        let mut native: Vec<&str> = Target::NATIVE.iter().map(|t| t.key()).collect();
+        native.push(NOARCH_PLATFORM_KEY);
+        native.sort_unstable();
+        assert_eq!(native, want, "Target::NATIVE + noarch drifted");
+        // And each target's {os, arch} pair resolves back to its own key.
+        for t in Target::ALL.iter().filter(|t| **t != Target::Noarch) {
+            let p = t.platform();
+            assert_eq!(platform_key_for(&p.os, &p.arch).unwrap(), t.key());
+        }
+    }
+
+    #[test]
+    fn macos_arm64_needs_an_arm64_mac_not_just_a_mac() {
+        assert!(Target::MacosArm64.matches_host("macos", "aarch64"));
+        assert!(!Target::MacosArm64.matches_host("macos", "x86_64"));
+        assert!(!Target::MacosArm64.matches_host("linux", "aarch64"));
+        assert!(!Target::LinuxX64.matches_host("macos", "aarch64"));
+        assert_eq!(Target::parse("macos-arm64").unwrap(), Target::MacosArm64);
+    }
 
     #[test]
     fn manifest_digest_is_domain_separated() {

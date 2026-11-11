@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
 
+export declare function InputFrame({ size, className, children, }: {
+    size?: "sm" | "md";
+    className?: string;
+    children: React.ReactNode;
+}): import("react/jsx-runtime").JSX.Element;
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "size"> {
     value: string;
     onChange: (value: string) => void;

@@ -82,7 +82,7 @@
 
 | Мова | Що збирає реліз |
 |---|---|
-| Rust (дев'ять з них) | `linux-x64` **і** `windows-x64`, по одному бандлу на кожну |
+| Rust (дев'ять з них) | `linux-x64`, `windows-x64` **і** `macos-arm64`, по одному бандлу на кожну |
 | TypeScript (`json-tools`) | один бандл `noarch` |
 | Python (`text-utils`) | один бандл `noarch` |
 
