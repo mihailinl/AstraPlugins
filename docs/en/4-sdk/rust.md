@@ -138,13 +138,14 @@ From a place a parameter cannot reach — a `Drop` impl, a callback from a C
 library, a `std::thread` spawned at startup — `astra_plugin_sdk::ctx()` returns
 the running plugin's context, and `try_ctx()` the fallible version.
 
-### `Host` — the ten calls out
+### `Host` — the eleven calls out
 
 | Method | Permission |
 |---|---|
 | `log_debug` / `log_info` / `log_warn` / `log_error` / `log` | none |
 | `get_config` | none |
 | `get_daemon_info` | none |
+| `get_ai_settings` — the chat's provider, model and endpoint, never a key | `read_ai_settings` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope)` | `set_variable` |
 | `push_to_ui(event, payload_json)` | `push_to_ui` |

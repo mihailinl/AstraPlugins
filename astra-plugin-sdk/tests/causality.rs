@@ -187,6 +187,11 @@ async fn a_host_written_before_leases_existed_still_compiles_and_fires() {
         ) -> anyhow::Result<astra_plugin_sdk::proto::PluginDaemonInfoResponse> {
             Ok(Default::default())
         }
+        async fn get_ai_settings(
+            &self,
+        ) -> anyhow::Result<astra_plugin_sdk::proto::PluginAiSettings> {
+            Ok(Default::default())
+        }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> anyhow::Result<()> {
             Ok(())
         }

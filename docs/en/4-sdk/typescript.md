@@ -152,7 +152,9 @@ of a function that returns one — which is the shape
 The wrappers take a **payload object** and stringify it for you;
 `ctx.host` is the raw client underneath, typed `Host | null`, whose
 `fireTrigger` / `pushToUi` take a JSON **string**. `ctx.host` is also where
-`getConfig()`, `getDaemonInfo()`, `subscribeEvents()` and `getPluginId()` live.
+`getConfig()`, `getDaemonInfo()`, `getAiSettings()` (needs `read_ai_settings`:
+the chat's provider, model and endpoint, never a key), `subscribeEvents()` and
+`getPluginId()` live.
 
 `setVariable`, `pushToUi` and the UI call path all exist and are bound; older
 documentation said otherwise because they landed late.

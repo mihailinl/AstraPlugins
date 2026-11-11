@@ -2758,6 +2758,9 @@ mod tests {
         async fn get_daemon_info(&self) -> anyhow::Result<proto::PluginDaemonInfoResponse> {
             Ok(Default::default())
         }
+        async fn get_ai_settings(&self) -> anyhow::Result<proto::PluginAiSettings> {
+            Ok(Default::default())
+        }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> anyhow::Result<()> {
             Ok(())
         }

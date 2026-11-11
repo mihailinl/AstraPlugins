@@ -14,6 +14,26 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [Unreleased]
+
+### Added
+
+- `Host::get_ai_settings()` / `HostClient::get_ai_settings()` — the user's chat
+  provider, model and endpoint (`proto::PluginAiSettings`: `provider`, `model`,
+  `api_base_url`, `is_loopback`), never a key. Needs the new `read_ai_settings`
+  permission (not high-risk, not refused to a local import). For a plugin that
+  calls the user's model itself, so it never reads Astra's files for it. An
+  Astra older than the call answers `UNIMPLEMENTED`. `testing::RecordingHost`
+  answers `set_ai_settings(..)`'s value; `MockDaemon` answers a loopback Ollama.
+
+### BREAKING
+
+- `Host` gained a required method, `get_ai_settings`. A `Host` implemented
+  outside this crate adds it (a wrapper forwards it; a fake returns
+  `Ok(Default::default())`). It is required rather than defaulted on purpose: a
+  default would let a forwarding wrapper answer an error instead of its inner
+  host's settings, silently.
+
 ## [0.7.4] — 2026-10-24
 
 Generated code only: the protocol slice is re-synced with Astra's

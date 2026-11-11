@@ -118,6 +118,15 @@ pub trait Host: Send + Sync + 'static {
     /// Daemon version, state and gRPC port. Permission: none.
     async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse>;
 
+    /// The user's chat provider, model and endpoint — never a key.
+    /// Permission: `read_ai_settings`.
+    ///
+    /// For a plugin that calls the user's model itself: ask Astra, never read
+    /// Astra's files for it. `provider` is `openai_compatible` for an endpoint
+    /// the user saved, `astra` (with an empty `api_base_url`) for Astra's own
+    /// service. An Astra older than this RPC answers `UNIMPLEMENTED`.
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings>;
+
     /// Publish a variable commands and other plugins can read.
     /// Permission: `set_variable`. `scope` is `session` or `persistent`.
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()>;
@@ -748,6 +757,10 @@ impl Host for CausalHost {
         self.inner.get_daemon_info().await
     }
 
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        self.inner.get_ai_settings().await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         self.inner.set_variable(name, value, scope).await
     }
@@ -815,6 +828,9 @@ impl Host for CauseSpy {
         Ok("{}".into())
     }
     async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+        Ok(Default::default())
+    }
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
         Ok(Default::default())
     }
     async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
@@ -888,6 +904,9 @@ mod tests {
             Ok("{}".into())
         }
         async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+            Ok(Default::default())
+        }
+        async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
             Ok(Default::default())
         }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {

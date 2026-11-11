@@ -15,6 +15,17 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [Unreleased]
+
+### Added
+
+- `HostClient.get_ai_settings()` — the user's chat provider, model and endpoint
+  (`PluginAiSettings`: `provider`, `model`, `api_base_url`, `is_loopback`), never
+  a key. Needs the new `read_ai_settings` permission. For a plugin that calls the
+  user's model itself, so it never reads Astra's files for it. An Astra older
+  than the call answers `UNIMPLEMENTED`. `testing.RecordingHost.ai_settings`
+  sets what the recording host answers; the wire mock answers a loopback Ollama.
+
 ## [0.6.4] — 2026-10-24
 
 Generated code only: the protocol slice is re-synced with Astra's

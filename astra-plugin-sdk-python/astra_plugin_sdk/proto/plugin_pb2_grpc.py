@@ -583,6 +583,11 @@ class ChatServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ActOnResultFile = channel.unary_unary(
+                '/astra.ChatService/ActOnResultFile',
+                request_serializer=plugin__pb2.ActOnResultFileRequest.SerializeToString,
+                response_deserializer=plugin__pb2.ActOnResultFileResponse.FromString,
+                _registered_method=True)
         self.SubmitUserMessage = channel.unary_unary(
                 '/astra.ChatService/SubmitUserMessage',
                 request_serializer=plugin__pb2.SubmitUserMessageRequest.SerializeToString,
@@ -675,6 +680,12 @@ class ChatServiceServicer(object):
 
     The event-log-based chat service. No legacy streaming APIs.
     """
+
+    def ActOnResultFile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def SubmitUserMessage(self, request, context):
         """Submit a user message. Daemon auto-creates a conversation if conversation_id
@@ -813,6 +824,11 @@ class ChatServiceServicer(object):
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'ActOnResultFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.ActOnResultFile,
+                    request_deserializer=plugin__pb2.ActOnResultFileRequest.FromString,
+                    response_serializer=plugin__pb2.ActOnResultFileResponse.SerializeToString,
+            ),
             'SubmitUserMessage': grpc.unary_unary_rpc_method_handler(
                     servicer.SubmitUserMessage,
                     request_deserializer=plugin__pb2.SubmitUserMessageRequest.FromString,
@@ -911,6 +927,33 @@ class ChatService(object):
 
     The event-log-based chat service. No legacy streaming APIs.
     """
+
+    @staticmethod
+    def ActOnResultFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/ActOnResultFile',
+            plugin__pb2.ActOnResultFileRequest.SerializeToString,
+            plugin__pb2.ActOnResultFileResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def SubmitUserMessage(request,
@@ -7208,6 +7251,11 @@ class PluginHostServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginDaemonInfoResponse.FromString,
                 _registered_method=True)
+        self.GetAiSettings = channel.unary_unary(
+                '/astra.PluginHostService/GetAiSettings',
+                request_serializer=plugin__pb2.GetAiSettingsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginAiSettings.FromString,
+                _registered_method=True)
         self.SetVariable = channel.unary_unary(
                 '/astra.PluginHostService/SetVariable',
                 request_serializer=plugin__pb2.PluginSetVariableRequest.SerializeToString,
@@ -7279,6 +7327,15 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetAiSettings(self, request, context):
+        """The user's ACTIVE chat provider, model and endpoint — what a plugin that
+        calls the user's model itself needs, so it never reads Astra's files for
+        them. Gated by the `read_ai_settings` permission. Never carries a key.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetVariable(self, request, context):
         """Set a variable in the daemon's variable context
         """
@@ -7337,6 +7394,11 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
                     servicer.GetDaemonInfo,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginDaemonInfoResponse.SerializeToString,
+            ),
+            'GetAiSettings': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAiSettings,
+                    request_deserializer=plugin__pb2.GetAiSettingsRequest.FromString,
+                    response_serializer=plugin__pb2.PluginAiSettings.SerializeToString,
             ),
             'SetVariable': grpc.unary_unary_rpc_method_handler(
                     servicer.SetVariable,
@@ -7545,6 +7607,33 @@ class PluginHostService(object):
             '/astra.PluginHostService/GetDaemonInfo',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginDaemonInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAiSettings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/GetAiSettings',
+            plugin__pb2.GetAiSettingsRequest.SerializeToString,
+            plugin__pb2.PluginAiSettings.FromString,
             options,
             channel_credentials,
             insecure,

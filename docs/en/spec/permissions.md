@@ -36,6 +36,7 @@ so an id added in one place and not the others renders as a blank row.
 | `set_theme_contribution` | `SetThemeContribution` | restyle the whole app | ● |
 | `dom_access` | *no RPC* — a **surface** | run the plugin's own script inside the Astra window, with access to the user's conversations and to every other plugin's interface | ● |
 | `client` | *no RPC* — a **surface** | act as a client front-end: its own chat surface, its own session | ● |
+| `read_ai_settings` | `GetAiSettings` | read the chat's provider, model and endpoint — never a key, never another role, never the user's saved endpoints | |
 
 **The five marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
 own consent checkbox. The plan's §4.3 spells four checkboxes and omits
@@ -121,6 +122,7 @@ against, so an ungated new RPC is a test failure rather than a silent omission:
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` is the one addition to the plan's list of three, and it is a
 decision rather than an omission: it returns `version`, `state`, `grpc_port` and
@@ -230,9 +232,9 @@ A permission is honoured only when **both** hold:
    record holds;
 2. the **ceiling** — a per-provenance rule no record can buy past.
 
-`require_permission` asks the first for the six host RPCs that gate a
+`require_permission` asks the first for the seven host RPCs that gate a
 permission — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`, `SetVariable`,
-`SetThemeContribution`, `PushToUi`. The remaining four (`Register`,
+`SetThemeContribution`, `PushToUi`, `GetAiSettings`. The remaining four (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) carry `None` in
 `HOST_RPC_PERMISSIONS` and are always allowed; §2 has the table and the
 reasoning.

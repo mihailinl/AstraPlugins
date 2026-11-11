@@ -55,6 +55,7 @@ The daemon implements these; you call them.
 | `GetPluginSelfConfig` | `core` | `none` | optional | unary | stable | Read this plugin's own persisted settings. |
 | `PluginLog` | `core` | `none` | optional | unary | stable | Write a line into the daemon log buffer the plugin's log pane reads. |
 | `GetDaemonInfo` | `core` | `none` | optional | unary | stable | Daemon version, state and gRPC port. |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 | `SetVariable` | `core` | `set_variable` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |

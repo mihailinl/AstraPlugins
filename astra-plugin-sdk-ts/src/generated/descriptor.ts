@@ -331,7 +331,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "CORE_STATE_LISTENING": 2,
             "CORE_STATE_PROCESSING": 3,
             "CORE_STATE_SPEAKING": 4,
-            "CORE_STATE_ERROR": 5
+            "CORE_STATE_ERROR": 5,
+            "CORE_STATE_CAPTURING": 6
           }
         },
         "AstraEvent": {
@@ -381,7 +382,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "catalogueProgress",
                 "catalogueChanged",
                 "runActionConfirmation",
-                "runActionConfirmationEnded"
+                "runActionConfirmationEnded",
+                "conversationHoldChanged"
               ]
             }
           },
@@ -566,6 +568,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "RunActionConfirmationEndedEvent",
               "id": 49
             },
+            "conversationHoldChanged": {
+              "type": "ConversationHoldChangedEvent",
+              "id": 50
+            },
             "capabilityEpoch": {
               "type": "string",
               "id": 28
@@ -629,6 +635,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "conversationId": {
               "type": "string",
               "id": 1
+            }
+          }
+        },
+        "ConversationHoldChangedEvent": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "held": {
+              "type": "bool",
+              "id": 2
+            },
+            "heldBy": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -1034,6 +1056,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
         },
         "ChatService": {
           "methods": {
+            "ActOnResultFile": {
+              "requestType": "ActOnResultFileRequest",
+              "responseType": "ActOnResultFileResponse"
+            },
             "SubmitUserMessage": {
               "requestType": "SubmitUserMessageRequest",
               "responseType": "SubmitUserMessageResponse"
@@ -1406,6 +1432,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "sourceName": {
               "type": "string",
               "id": 16
+            },
+            "held": {
+              "type": "bool",
+              "id": 17
+            },
+            "heldBy": {
+              "type": "string",
+              "id": 18
             }
           }
         },
@@ -1705,7 +1739,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "toolPermissionEvaluated",
                 "automationToolTrace",
                 "assistantImage",
-                "assistantNotice"
+                "assistantNotice",
+                "assistantFiles"
               ]
             }
           },
@@ -1825,6 +1860,95 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "assistantNotice": {
               "type": "AssistantNoticeEvt",
               "id": 34
+            },
+            "assistantFiles": {
+              "type": "AssistantFilesEvt",
+              "id": 35
+            }
+          }
+        },
+        "ResultFileRef": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "path": {
+              "type": "string",
+              "id": 2
+            },
+            "filename": {
+              "type": "string",
+              "id": 3
+            },
+            "mimeType": {
+              "type": "string",
+              "id": 4
+            },
+            "sizeBytes": {
+              "type": "uint64",
+              "id": 5
+            },
+            "modifiedMs": {
+              "type": "int64",
+              "id": 6
+            },
+            "displayPath": {
+              "type": "string",
+              "id": 7
+            },
+            "revealOnly": {
+              "type": "bool",
+              "id": 8
+            }
+          }
+        },
+        "AssistantFilesEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "callId": {
+              "type": "string",
+              "id": 2
+            },
+            "files": {
+              "rule": "repeated",
+              "type": "ResultFileRef",
+              "id": 3
+            }
+          }
+        },
+        "ActOnResultFileRequest": {
+          "fields": {
+            "conversationId": {
+              "type": "string",
+              "id": 1
+            },
+            "messageId": {
+              "type": "string",
+              "id": 2
+            },
+            "fileId": {
+              "type": "string",
+              "id": 3
+            },
+            "action": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "ActOnResultFileResponse": {
+          "fields": {
+            "ok": {
+              "type": "bool",
+              "id": 1
+            },
+            "error": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -5129,6 +5253,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
           ]
         },
         "CompanionSettings": {
+          "oneofs": {
+            "_showQuickToggle": {
+              "oneof": [
+                "showQuickToggle"
+              ]
+            }
+          },
           "fields": {
             "settings": {
               "keyType": "string",
@@ -5138,6 +5269,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "enabled": {
               "type": "bool",
               "id": 2
+            },
+            "showQuickToggle": {
+              "type": "bool",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
             }
           }
         },
@@ -5197,6 +5335,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "_hideAdvancedSettings": {
               "oneof": [
                 "hideAdvancedSettings"
+              ]
+            },
+            "_activateExternalWindows": {
+              "oneof": [
+                "activateExternalWindows"
               ]
             }
           },
@@ -5310,6 +5453,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "hideAdvancedSettings": {
               "type": "bool",
               "id": 22,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "activateExternalWindows": {
+              "type": "bool",
+              "id": 23,
               "options": {
                 "proto3_optional": true
               }
@@ -5543,6 +5693,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "fastReasoningEffort"
               ]
+            },
+            "_codingReasoningEffort": {
+              "oneof": [
+                "codingReasoningEffort"
+              ]
             }
           },
           "fields": {
@@ -5720,6 +5875,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "fastReasoningEffort": {
               "type": "string",
               "id": 36,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "codingReasoningEffort": {
+              "type": "string",
+              "id": 37,
               "options": {
                 "proto3_optional": true
               }
@@ -8089,6 +8251,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "Empty",
               "responseType": "PluginDaemonInfoResponse"
             },
+            "GetAiSettings": {
+              "requestType": "GetAiSettingsRequest",
+              "responseType": "PluginAiSettings"
+            },
             "SetVariable": {
               "requestType": "PluginSetVariableRequest",
               "responseType": "Empty"
@@ -9469,6 +9635,29 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "language": {
               "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "GetAiSettingsRequest": {
+          "fields": {}
+        },
+        "PluginAiSettings": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "model": {
+              "type": "string",
+              "id": 2
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 3
+            },
+            "isLoopback": {
+              "type": "bool",
               "id": 4
             }
           }

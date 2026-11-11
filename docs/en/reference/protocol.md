@@ -11,14 +11,14 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 192 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 7a4f3ba3323e2ad8…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:ea9924cef0817f45…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 194 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: ffb7fa7090a1d5dd…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:c2d4de928da06e17…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
 | Service | Direction | RPCs | Who serves it |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 31 | your plugin |
-| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 10 | the daemon |
+| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 11 | the daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | the daemon |
 
 The protocol generation is the contract. A plugin sends it in `PluginRegisterRequest.protocol_version` and the daemon answers with its own floor in `PluginRegisterResponse.min_supported_protocol`; `sdk_name` and `sdk_version` ride along for triage and gate nothing.
@@ -74,6 +74,7 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `GetPluginSelfConfig` | `none` | `PluginSelfIdRequest` | `PluginSelfConfigResponse` | unary | live | Read this plugin's own persisted settings. |
 | `PluginLog` | `none` | `PluginLogRequest` | `Empty` | unary | live | Write a line into the daemon log buffer the plugin's log pane reads. |
 | `GetDaemonInfo` | `none` | `Empty` | `PluginDaemonInfoResponse` | unary | live | Daemon version, state and gRPC port. |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Publish a variable that commands and other plugins can read. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Contribute colours, wallpaper and shader to the active Astra theme. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Push an event into this plugin's own iframes — the return path for CallFromUi. |
@@ -119,7 +120,7 @@ The plugin proto carries Astra's own client-facing services too, because a `clie
 | Service | RPCs |
 |---|---|
 | `CoreService` | 11 |
-| `ChatService` | 17 |
+| `ChatService` | 18 |
 | `VoiceService` | 48 |
 | `CommandService` | 14 |
 | `ConfigService` | 30 |

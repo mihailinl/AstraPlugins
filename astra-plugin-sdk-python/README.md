@@ -92,8 +92,8 @@ class DiceRoller(Plugin):
 `self.log_info` / `log_warn` / `log_error`, `self.fire_trigger`,
 `self.push_to_ui` are the convenience wrappers; the full outbound surface is
 `self.host` (`HostClient`): `fire_trigger`, `log`, `get_config`,
-`get_daemon_info`, `subscribe_events`, `push_to_ui`, `send_chat_message`,
-`set_theme_contribution`, `set_variable`.
+`get_daemon_info`, `get_ai_settings`, `subscribe_events`, `push_to_ui`,
+`send_chat_message`, `set_theme_contribution`, `set_variable`.
 
 **Every one of those is default-deny.** A manifest with no `[permissions]`
 section may call `Register`, `PluginLog`, `GetPluginSelfConfig` and

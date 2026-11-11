@@ -260,6 +260,22 @@ impl HostClient {
         Ok(resp.into_inner())
     }
 
+    /// The user's chat provider, model and endpoint — never a key.
+    /// Permission: `read_ai_settings`.
+    ///
+    /// What a plugin that calls the user's model needs, so it never reads
+    /// Astra's own files for it. An Astra older than this RPC answers
+    /// `UNIMPLEMENTED`.
+    pub async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        let resp = self
+            .client
+            .clone()
+            .get_ai_settings(proto::GetAiSettingsRequest {})
+            .await
+            .map_err(|s| rpc_failed("GetAiSettings", s))?;
+        Ok(resp.into_inner())
+    }
+
     /// Subscribe to daemon events. Permission: `subscribe_events`.
     ///
     /// `exclude_source_id` — if non-empty, ChatMessageSync events from this
@@ -436,6 +452,10 @@ impl Host for HostClient {
         HostClient::get_daemon_info(self).await
     }
 
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        HostClient::get_ai_settings(self).await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         HostClient::set_variable(self, name, value, scope).await
     }
@@ -607,6 +627,14 @@ mod tests {
         ) -> Result<tonic::Response<proto::PluginDaemonInfoResponse>, tonic::Status> {
             require_token(&req, &self.seen)?;
             Ok(tonic::Response::new(proto::PluginDaemonInfoResponse::default()))
+        }
+
+        async fn get_ai_settings(
+            &self,
+            req: tonic::Request<proto::GetAiSettingsRequest>,
+        ) -> Result<tonic::Response<proto::PluginAiSettings>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            Ok(tonic::Response::new(proto::PluginAiSettings::default()))
         }
 
         async fn set_variable(

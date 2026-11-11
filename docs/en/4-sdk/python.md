@@ -116,6 +116,7 @@ Convenience methods on `Plugin` — `self.log_info`, `self.log_warn`,
 | `self.host.…` | Permission |
 |---|---|
 | `log(level, message)` · `get_config()` · `get_daemon_info()` | none |
+| `get_ai_settings()` — the chat's provider, model and endpoint, never a key | `read_ai_settings` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope="session")` | `set_variable` |
 | `subscribe_events(types, exclude_source_id="")` | `subscribe_events` |

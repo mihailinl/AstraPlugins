@@ -147,6 +147,7 @@ An id this Astra does not know is kept and inert: forward compatibility, and `pe
 | `set_theme_contribution` | `SetThemeContribution` | **yes** | **yes** | Restyle the whole app. |
 | `dom_access` | — | **yes** | **yes** | Run the plugin's own code inside the Astra window, with access to the user's conversations and every other plugin's interface. |
 | `client` | — | **yes** | **yes** | Act as a client front-end (its own chat surface, its own session). |
+| `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint (never a key). |
 
 *Gates* is the host RPC the daemon refuses without the permission, from [`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` reads. An empty cell is a **surface** permission that gates no RPC: `dom_access` decides how a UI contribution is rendered, and `client` is a capability ceiling.
 
@@ -185,6 +186,8 @@ Carries an argument: [`PermissionRequest::types`] is the **allowlist** of event 
 **`dom_access`.** Run the plugin's own code inside the Astra window, with access to the user's conversations and every other plugin's interface. **High risk, and the one §4.3 gives a second screen.**
 
 **`client`.** Act as a client front-end (its own chat surface, its own session). **High risk.**
+
+**`read_ai_settings`.** `PluginHostService.GetAiSettings` — read the user's chat provider, model and endpoint (never a key). Not high-risk and not refused at Tier 2: it is what lets a plugin that calls the user's model learn where it is WITHOUT reading Astra's files, so pricing it high would push an honest plugin back to `settings.json`.
 
 ## `[config]`
 

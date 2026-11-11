@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 7a4f3ba3323e2ad81322c99a5085f3ce0681472935d9f6bc136b8f255cf0b060
+// surface-sha256: ffb7fa7090a1d5dd537a1ee5faaedb8c3d6fbf55469a0aaa11180c961ab53ec5
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -342,6 +342,9 @@ enum CoreState {
     CORE_STATE_PROCESSING = 3;
     CORE_STATE_SPEAKING = 4;
     CORE_STATE_ERROR = 5;
+
+    // Confirmed wake word awaiting a request, or request audio still arriving.
+    CORE_STATE_CAPTURING = 6;
 }
 
 // General daemon-level notifications. Chat-log events travel through
@@ -427,6 +430,10 @@ message AstraEvent {
         // A run-action card ended (allowed, denied, expired, stopped, cancelled, refused). Never
         // delivered to plugins (plugins::event_view).
         RunActionConfirmationEndedEvent run_action_confirmation_ended = 49;
+        // An EXISTING conversation's hold changed (Conversation.held): a held
+        // turn handed work to it, or the person released it. A conversation
+        // BORN held says so in the list read and raises no event.
+        ConversationHoldChangedEvent conversation_hold_changed = 50;
     }
 
     // Which set of capabilities the daemon could serve when this event was
@@ -549,6 +556,16 @@ message CompanionGameChangedEvent {
 // is content, and a window that was locked reloads its list when it unlocks.
 message ConversationDeletedEvent {
     string conversation_id = 1;
+}
+
+// An existing conversation's hold changed — see Conversation.held / held_by,
+// which these two fields repeat so a client patches its row without a list read.
+// Never delivered while the app is locked (an id and a command's name are
+// content; a window that was locked reloads its list), and never to a plugin.
+message ConversationHoldChangedEvent {
+    string conversation_id = 1;
+    bool held = 2;
+    string held_by = 3;
 }
 
 message McpServerChangedEvent {
@@ -798,6 +815,8 @@ message ClientControlRequestEvent {
 
 // The event-log-based chat service. No legacy streaming APIs.
 service ChatService {
+    rpc ActOnResultFile(ActOnResultFileRequest) returns (ActOnResultFileResponse);
+
     // Submit a user message. Daemon auto-creates a conversation if conversation_id
     // is empty, appends a UserMessage event, and drives the AI turn asynchronously.
     // All subsequent state — tool calls, text deltas, completion — arrives via
@@ -1054,6 +1073,19 @@ message Conversation {
     // Display snapshots, separate from client_label's stable machine key.
     string source_kind = 15;  // plugin | command | scheduler | editor | ""
     string source_name = 16;
+
+    // The conversation is HELD: work from a command the person has not approved
+    // landed in it (a «Рабочий» thread such a command's routine opened, a «Код»
+    // thread a held turn handed work to), so every turn here asks before each
+    // significant step whatever the permission mode, and no "allow like this"
+    // is offered. Lowered only by the person, in Astra's own window.
+    bool held = 17;
+
+    // The display name of the command whose work landed here, cleaned for
+    // display and at most 80 characters; "" when the daemon could not name it
+    // (a hold stamped from a held report's wake, or before names were kept).
+    // Meaningful only while `held`.
+    string held_by = 18;
 }
 
 message CreateConversationRequest {
@@ -1273,7 +1305,38 @@ message ConversationEventMsg {
         AutomationToolTraceEvt automation_tool_trace = 32;
         AssistantImageEvt assistant_image = 33;
         AssistantNoticeEvt assistant_notice = 34;
+        AssistantFilesEvt assistant_files = 35;
     }
+}
+
+// Metadata only: original files remain owned by the user.
+message ResultFileRef {
+    string id = 1;
+    string path = 2;
+    string filename = 3;
+    string mime_type = 4;
+    uint64 size_bytes = 5;
+    int64 modified_ms = 6;
+    string display_path = 7;
+    bool reveal_only = 8;
+}
+
+message AssistantFilesEvt {
+    string message_id = 1;
+    string call_id = 2;
+    repeated ResultFileRef files = 3;
+}
+
+message ActOnResultFileRequest {
+    string conversation_id = 1;
+    string message_id = 2;
+    string file_id = 3;
+    string action = 4;  // open | reveal | copy_path
+}
+
+message ActOnResultFileResponse {
+    bool ok = 1;
+    string error = 2;  // localized error key
 }
 
 // A display-only explanation attached to a reply, retained even if AI fails.
@@ -3109,6 +3172,7 @@ message SemanticSettings {
 message CompanionSettings {
     map<string, string> settings = 1;
     bool enabled = 2;
+    optional bool show_quick_toggle = 3;  // Absent in UpdateSettings preserves the current value.
 }
 
 message NetworkSettings {
@@ -3184,6 +3248,10 @@ message GeneralSettings {
     // completion builds exactly one) would send a proto3 `false` and quietly
     // un-hide everything the user just asked to hide.
     optional bool hide_advanced_settings = 22;
+
+    // Experimental Windows foreground activation. Absent on a partial update
+    // preserves the saved choice; new and existing profiles default to false.
+    optional bool activate_external_windows = 23;
 }
 
 message VoiceSettings {
@@ -3447,6 +3515,9 @@ message AiSettings {
     // Saved reasoning default for Fast chats. Absent on older clients: preserve
     // the stored preference on bulk updates. Empty explicitly chooses auto.
     optional string fast_reasoning_effort = 36;
+
+    // Saved default for coding agents using Astra's model. Empty lets the agent choose.
+    optional string coding_reasoning_effort = 37;
 }
 
 // One provider's saved endpoint, as a CLIENT sees it.
@@ -4682,6 +4753,11 @@ service PluginHostService {
 
     // Get daemon info (version, state, port)
     rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
+
+    // The user's ACTIVE chat provider, model and endpoint — what a plugin that
+    // calls the user's model itself needs, so it never reads Astra's files for
+    // them. Gated by the `read_ai_settings` permission. Never carries a key.
+    rpc GetAiSettings(GetAiSettingsRequest) returns (PluginAiSettings);
 
     // Set a variable in the daemon's variable context
     rpc SetVariable(PluginSetVariableRequest) returns (Empty);
@@ -6149,6 +6225,28 @@ message PluginDaemonInfoResponse {
     string state = 2;
     uint32 grpc_port = 3;
     string language = 4;  // Current daemon UI language
+}
+
+// `PluginHostService.GetAiSettings`. Empty today; a message rather than
+// `Empty` so a later question ("which role?") is a field, not a new RPC.
+message GetAiSettingsRequest {}
+
+// The chat's AI settings as a plugin may see them — `plugins::host_service`'s
+// `ai_settings_for_plugin` is the one place this is built. Never a key, never
+// the user's saved endpoints, never the system prompt, never another role.
+message PluginAiSettings {
+    // The provider id. A user's own saved endpoint (`custom__<slug>`) is
+    // reported as `openai_compatible`; Astra's own service as `astra`.
+    string provider = 1;
+    string model = 2;
+
+    // The effective endpoint, without userinfo, query or fragment. Empty for
+    // `astra` (its endpoint is Astra's, not the plugin's) and for anything that
+    // does not parse as a URL.
+    string api_base_url = 3;
+
+    // The endpoint is on THIS machine (127.0.0.0/8, ::1, localhost).
+    bool is_loopback = 4;
 }
 
 message PluginSetVariableRequest {
