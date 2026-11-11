@@ -117,9 +117,9 @@ on:
         type: string
         default: ""
       node-version:
-        description: "Node version for TypeScript plugins."
+        description: "Node version for TypeScript plugins (exact, so the signed workflow freezes it)."
         type: string
-        default: "20"
+        default: "20.20.2"
       wake-registry:
         description: >-
           Once a public release is published, tell the Astra registry at
@@ -178,7 +178,7 @@ jobs:
       matrix: ${{ steps.parse.outputs.matrix }}
       artifacts: ${{ steps.parse.outputs.artifacts }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Nothing here runs git against the remote, so the token has no
           # business sitting in .git/config where a later step could read it.
@@ -318,6 +318,11 @@ jobs:
               legs = [
                   {"target": "linux-x64", "runner": "ubuntu-24.04"},
                   {"target": "windows-x64", "runner": "windows-2022"},
+                  # Apple Silicon, built NATIVELY on GitHub's arm64 macOS image:
+                  # the attestation covers a binary GitHub built, and an arm64
+                  # Mach-O is not valid until it is code-signed, which the
+                  # native linker does and a cross-link from Linux does not.
+                  {"target": "macos-arm64", "runner": "macos-15"},
               ]
           else:
               legs = [{"target": "noarch", "runner": "ubuntu-24.04"}]
@@ -428,6 +433,16 @@ jobs:
       # plugin exited immediately", which is nobody's idea of a clue.
       GLIBC_FLOOR_MAX: "2.39"
 
+      # The macOS twin of the glibc floor: the highest minimum-OS a shipped
+      # Mach-O may declare. Astra's macOS build documents macOS 13 or later
+      # (packaging/macos/INSTALL-beta.md in the Astra repository), and a binary
+      # whose LC_BUILD_VERSION says 14 or 15 is refused by dyld on a macOS 13
+      # Mac with a bare "Library not loaded"/"incompatible" the daemon reports as
+      # "the plugin exited immediately". Raising this is a decision about which
+      # Macs Astra supports, not about this workflow. Note the floor is 13.0 as
+      # documented for the beta; the app's Info.plist currently says 12.0.
+      MACOS_MIN_OS_MAX: "13.0"
+
       # Where the astra-plugin CLI that packs the bundle comes from. A literal,
       # because no context tells a reusable workflow its own repository and
       # commit — `github.workflow_ref` and `github.workflow_sha` describe the
@@ -435,7 +450,12 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      ASTRA_TOOLING_REF: "37b1c101b56a58794a3a41980621634334610ada"
+      # This pin names the merge commit of the PR that added `macos-arm64` to
+      # the CLI. It must always name a commit whose CLI knows every target in
+      # the matrix below and in TARGETS: CI's `release-tooling-pin` job builds
+      # the CLI at this pin and fails if it does not, because an unknown target
+      # kills a leg and leaves the WHOLE release (every platform) a draft.
+      ASTRA_TOOLING_REF: "76126647f611a4e004b5954e87e7374a290a1d90"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
@@ -446,7 +466,7 @@ jobs:
       # An author cannot retarget the linker of the CLI that packs their bundle
       # by committing a cargo config.
       - name: Checkout the plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: plugin-src
           # The author's build must not find a credential in .git/config. It
@@ -513,13 +533,18 @@ jobs:
       # a `rust-toolchain.toml`, which rustup honours for the plugin's own
       # build — and not for the CLI's, which is built from a sibling directory
       # the file does not reach.
-      - uses: dtolnay/rust-toolchain@stable
+      # An exact toolchain, not `stable`: this file is signed once and must
+      # freeze what runs. 1.99.1 was the current stable on 2026-11-10; raising
+      # it is an edit to this file (and so a new signature), on purpose.
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: "1.99.1"
 
       # The SDKs compile the proto with tonic-build/grpc-tools, so a plugin that
       # depends on one needs protoc even when the plugin itself has no .proto.
-      - uses: arduino/setup-protoc@v3
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
         with:
-          version: "27.x"
+          version: "27.5"
           # The one place this job hands `github.token` to a third-party action.
           # It buys a raised GitHub API rate limit for the protoc download,
           # which on a shared runner IP is otherwise a routine flake. The token
@@ -527,19 +552,19 @@ jobs:
           # nothing else — the same read a fork of a public repo already has.
           repo-token: ${{ github.token }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: matrix.language == 'typescript'
         with:
           node-version: ${{ inputs.node-version }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: "1.3.4"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: matrix.language == 'python'
         with:
-          python-version: "3.12"
+          python-version: "3.12.16"
 
       - name: Install linux packages
         if: runner.os == 'Linux' && inputs.linux-packages != ''
@@ -564,6 +589,10 @@ jobs:
           # shellcheck disable=SC2086
           sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
 
+      # `runner.os` is a sufficient key: the only macOS leg is macos-15, arm64, so
+      # one OS name is one architecture. Add an Intel Mac leg and this key must
+      # gain `runner.arch`, or the two would restore each other's binary.
+      #
       # Keyed on the workflow commit, so a new pin rebuilds the CLI and an
       # unchanged pin never does. The cache lives in the CALLER's cache scope
       # and this job is the author's, so the author can poison their own cache —
@@ -572,7 +601,7 @@ jobs:
       # token, and that is the property being defended.
       - name: Restore astra-plugin
         id: cli-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cargo/bin/astra-plugin
@@ -595,7 +624,7 @@ jobs:
       # tooling to not use it is the slow half of the job.
       - name: Checkout astra-plugin's source
         if: steps.cli-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ${{ env.ASTRA_TOOLING_REPO }}
           ref: ${{ env.ASTRA_TOOLING_REF }}
@@ -731,7 +760,7 @@ jobs:
       # shipped: `build` chooses which artifacts to pack, and a gate that reads
       # a different file is a gate that can be walked around by accident.
       - name: Unpack the finished archive
-        if: runner.os == 'Linux'
+        if: runner.os != 'Windows'
         working-directory: ${{ env.PLUGIN_DIR }}
         run: |
           set -euo pipefail
@@ -759,8 +788,10 @@ jobs:
           set -euo pipefail
           worst="0.0"; rc=0; seen=0
           while IFS= read -r f; do
+            # `|| true`: under pipefail a static binary (no GLIBC_ symbols) makes
+            # grep exit 1 and would abort the whole step; empty is handled below.
             max=$(objdump -T "$f" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
-                  | sed 's/GLIBC_//' | sort -uV | tail -n1)
+                  | sed 's/GLIBC_//' | sort -uV | tail -n1) || true
             [ -n "${max:-}" ] || continue
             seen=$((seen + 1))
             printf '  %-40s GLIBC_%s\n' "${f#"$RUNNER_TEMP"/unpacked/}" "$max"
@@ -777,6 +808,129 @@ jobs:
             echo "worst observed: GLIBC_$worst (floor GLIBC_$GLIBC_FLOOR_MAX)"
           fi
           exit $rc
+
+      # ── macOS gate: Mach-O, arm64, signed ─────────────────────────────────
+      #
+      # The glibc gate above is an ELF check and says nothing here. What a Mac
+      # needs instead: the shipped executable is Mach-O (not an ELF someone
+      # cross-linked), it is arm64 only (a universal or x86_64 slice means the
+      # wrong leg built it, or Rosetta would hide the mistake), and it carries
+      # a code signature — arm64 macOS kills an unsigned binary at exec with no
+      # message but "Killed: 9", which the daemon reports as "the plugin exited
+      # immediately". The Rust linker ad-hoc signs by default; `codesign -v`
+      # is the proof, run on the file as it sits in the archive. Developer-ID
+      # signing/notarisation is not attempted: installs are fetched by the
+      # daemon, not by a browser, so there is no quarantine flag to satisfy.
+      - name: Assert the macOS binaries are signed arm64 Mach-O
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          rc=0; seen=0
+          while IFS= read -r f; do
+            rel="${f#"$RUNNER_TEMP"/unpacked/}"
+            kind=$(file -b "$f")
+            case "$kind" in
+              *Mach-O*) ;;
+              *) continue ;;
+            esac
+            seen=$((seen + 1))
+            archs=$(lipo -archs "$f" 2>/dev/null || echo "?")
+            printf '  %-40s %s\n' "$rel" "$archs"
+            if [ "$archs" != "arm64" ]; then
+              echo "::error::$rel is Mach-O for '$archs', expected exactly arm64"
+              rc=1
+            fi
+            if ! codesign --verify --strict "$f" 2>"$RUNNER_TEMP/codesign.err"; then
+              echo "::error::$rel is not validly code-signed ($(cat "$RUNNER_TEMP/codesign.err")); arm64 macOS will not run it"
+              rc=1
+            fi
+          done < <(find "$RUNNER_TEMP/unpacked" -type f)
+          if [ "$seen" -eq 0 ]; then
+            echo "::error::no Mach-O binary in the archive: a macos-arm64 bundle must contain one"
+            rc=1
+          fi
+          if [ -n "$(find "$RUNNER_TEMP/unpacked" -type f -exec sh -c 'file -b "$1" | grep -qE "^ELF|PE32"' _ {} \; -print)" ]; then
+            echo "::error::the macos-arm64 bundle contains an ELF or PE binary"
+            rc=1
+          fi
+
+          # ── the macOS twin of the glibc floor ──
+          #
+          # (1) the minimum OS each Mach-O declares, from LC_BUILD_VERSION
+          # (minos) or the older LC_VERSION_MIN_MACOSX (version), must not exceed
+          # MACOS_MIN_OS_MAX. (2) every dylib it loads must be a system one
+          # (/usr/lib, /System) or one that ships INSIDE this bundle: an
+          # absolute path outside the system (/opt/homebrew/…, /usr/local/…) is
+          # a library that exists on the builder and on no user's Mac, and an
+          # @rpath/@executable_path/@loader_path name must resolve to a file in
+          # the archive.
+          root="$RUNNER_TEMP/unpacked"
+          while IFS= read -r f; do
+            case "$(file -b "$f")" in *Mach-O*) ;; *) continue ;; esac
+            rel="${f#"$root"/}"
+            minos=$(otool -l "$f" | awk '
+              $1 == "cmd" { cmd = $2 }
+              # No exit statement here: awk has to read all of the output of
+              # otool, or otool gets SIGPIPE and, under pipefail, the step dies
+              # with no ::error. (No apostrophes in this comment: it sits inside
+              # a single-quoted awk program.)
+              !m && cmd == "LC_BUILD_VERSION" && $1 == "minos" { print $2; m = 1 }
+              !m && cmd == "LC_VERSION_MIN_MACOSX" && $1 == "version" { print $2; m = 1 }')
+            if [ -z "$minos" ]; then
+              echo "::error::$rel declares no minimum macOS version"
+              rc=1
+            else
+              printf '  %-40s minos %s (floor %s)\n' "$rel" "$minos" "$MACOS_MIN_OS_MAX"
+              if [ "$(printf '%s\n%s\n' "$minos" "$MACOS_MIN_OS_MAX" | sort -V | tail -n1)" != "$MACOS_MIN_OS_MAX" ]; then
+                echo "::error::$rel needs macOS $minos, above the floor $MACOS_MIN_OS_MAX"
+                rc=1
+              fi
+            fi
+            while IFS= read -r dep; do
+              case "$dep" in
+                /usr/lib/*|/System/*) ;;
+                @rpath/*|@executable_path/*|@loader_path/*)
+                  tail_="${dep#*/}"
+                  case "$tail_" in *..*) echo "::error::$rel loads '$dep' (path escapes the bundle)"; rc=1; continue ;; esac
+                  if [ "${dep%%/*}" = "@rpath" ]; then
+                    found=$(find "$root" -type f -path "*/$tail_" -print)
+                  elif [ "${dep%%/*}" = "@loader_path" ]; then
+                    if [ -f "$(dirname "$f")/$tail_" ]; then found=yes; else found=""; fi
+                  else
+                    found=$(find "$root" -type f -path "*/$tail_" -print)
+                  fi
+                  if [ -z "$found" ]; then
+                    echo "::error::$rel loads '$dep', which is not in the bundle"
+                    rc=1
+                  fi ;;
+                *)
+                  echo "::error::$rel loads '$dep': not a system library and not inside the bundle"
+                  rc=1 ;;
+              esac
+            done < <(otool -L "$f" | tail -n +2 | awk '{print $1}')
+          done < <(find "$root" -type f)
+          exit $rc
+
+      # ── noarch means no native code ───────────────────────────────────────
+      #
+      # `noarch` is indexed under EVERY supported platform key, which now
+      # includes a Mac. An ELF, Mach-O or PE file inside a noarch bundle (a
+      # prebuilt `.node` addon, a wheel with a compiled extension) is code for
+      # one platform shipped to all of them; the glibc gate above only measured
+      # the ELF ones. It is a failure, not a warning.
+      - name: Assert a noarch bundle holds no native binary
+        if: matrix.target == 'noarch'
+        run: |
+          set -euo pipefail
+          hit=$(find "$RUNNER_TEMP/unpacked" -type f \
+                  -exec sh -c 'file -b "$1" | grep -qE "^ELF|Mach-O|PE32"' _ {} \; -print)
+          if [ -n "$hit" ]; then
+            echo "::error::a noarch bundle must hold no native binary, but contains:"
+            printf '%s\n' "$hit" | sed "s|$RUNNER_TEMP/unpacked/|  |"
+            echo "Ship it as a native plugin (one bundle per platform), or drop the compiled dependency."
+            exit 1
+          fi
+          echo "noarch: no ELF, Mach-O or PE file in the archive"
 
       # ── TypeScript self-containment gate ──────────────────────────────────
       #
@@ -871,10 +1025,15 @@ jobs:
           mv "$ARTIFACT" "$ARTIFACT.json" "$GITHUB_WORKSPACE/out/"
 
       - name: Upload the bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: astraplugin-${{ matrix.target }}
-          path: out/
+          # Exactly this leg's own file and its report, by name. `out/` would
+          # upload whatever the (author-controlled) build left there, and a leg
+          # could ship another leg's artifact name under its own target.
+          path: |
+            out/${{ matrix.artifact }}
+            out/${{ matrix.artifact }}.json
           if-no-files-found: error
           retention-days: 7
 
@@ -898,11 +1057,14 @@ jobs:
       # it wakes the registry only for a release the registry could list.
       visibility: ${{ steps.vis.outputs.visibility }}
     steps:
-      - uses: actions/download-artifact@v4
+      # No `merge-multiple`: merged, two legs' files land in one directory and
+      # the later download silently replaces the earlier. Each leg's artifact
+      # stays in its own directory so the check below can assert that it holds
+      # exactly the file that leg was planned to build and nothing else.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: astraplugin-*
-          merge-multiple: true
-          path: dist
+          path: dist-legs
 
       # `publish` re-derives the names and digests instead of believing the
       # .json files `build` wrote, because `build` is the untrusted job. This
@@ -918,8 +1080,35 @@ jobs:
           python3 - <<'PY'
           import hashlib, json, os, pathlib, sys
 
+          import shutil
+
           dist = pathlib.Path("dist")
+          legs = pathlib.Path("dist-legs")
+          dist.mkdir(exist_ok=True)
           expected = json.loads(os.environ["EXPECTED"])
+
+          # Each leg's artifact is `astraplugin-<target>` and must hold EXACTLY
+          # its own planned file (+ the report `build` wrote beside it). A leg
+          # that uploaded a second leg's file, a stray file, or nothing is a
+          # refusal; so is an artifact for a leg that was never planned.
+          want_dirs = {}
+          for name in expected:
+              t = next((t for t in ("linux-x64", "windows-x64", "macos-arm64", "noarch")
+                        if name.endswith(f"-{t}.astraplugin")), None)
+              if t is None:
+                  print(f"::error::{name} does not end in a known target")
+                  sys.exit(1)
+              want_dirs[f"astraplugin-{t}"] = name
+          have_dirs = sorted(d.name for d in legs.iterdir() if d.is_dir())
+          if have_dirs != sorted(want_dirs):
+              print(f"::error::expected leg artifacts {sorted(want_dirs)}, got {have_dirs}")
+              sys.exit(1)
+          for d, name in want_dirs.items():
+              files = sorted(str(p.relative_to(legs / d)) for p in (legs / d).rglob("*") if p.is_file())
+              if files != sorted([name, name + ".json"]):
+                  print(f"::error::{d} must hold exactly {[name, name + '.json']}, holds {files}")
+                  sys.exit(1)
+              shutil.copy2(legs / d / name, dist / name)
           got = sorted(p.name for p in dist.glob("*.astraplugin"))
           if got != sorted(expected):
               print(f"::error::expected {sorted(expected)}, got {got}")
@@ -930,7 +1119,7 @@ jobs:
           # "x64" and the registry would be handed a platform key that does not
           # exist. Matching against the closed set also makes an unknown target
           # an error here instead of a silent bad index entry.
-          TARGETS = ("linux-x64", "windows-x64", "noarch")
+          TARGETS = ("linux-x64", "windows-x64", "macos-arm64", "noarch")
 
           out = []
           for name in sorted(expected):
@@ -963,6 +1152,7 @@ jobs:
           # debugging a failed release. They do not go on the Release: everything
           # in them that matters was just re-derived above from the file itself.
           rm -f dist/*.astraplugin.json
+          rm -rf dist-legs
 
       # ── provenance ────────────────────────────────────────────────────────
       #
@@ -1007,7 +1197,7 @@ jobs:
       - name: Attest the bundles
         id: attest
         if: steps.vis.outputs.visibility == 'public'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: dist/*.astraplugin
 
