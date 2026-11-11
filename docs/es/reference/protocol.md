@@ -5,10 +5,10 @@
 Generación de protocolo **1**. 10 servicios, 192 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: f1b6e25f86c1252e…`, el digest del cuerpo orientado a
+(`surface-sha256: 82318cc55dd2354d…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:3e8ab289e399cb13…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:a1731b0dd878c397…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
@@ -87,6 +87,7 @@ capabilities que declaraste.
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Publica una variable que comandos y otros plugins pueden leer. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Aporta colores, fondo de pantalla y shader al tema activo de Astra. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Envía un evento a los propios iframes de este plugin — la ruta de retorno para CallFromUi. |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` significa que cualquier plugin puede llamarla siempre — el
 conjunto de arranque, sobre el que el daemon no ejecuta ninguna

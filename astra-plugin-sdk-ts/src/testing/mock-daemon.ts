@@ -552,6 +552,12 @@ export class MockDaemon {
         state: "running",
         grpcPort: 0,
       })),
+      GetAiSettings: this.unary("GetAiSettings", () => ({
+        provider: "ollama",
+        model: "mock-model",
+        apiBaseUrl: "http://127.0.0.1:11434",
+        isLoopback: true,
+      })),
       SetVariable: this.unary("SetVariable", () => ({ success: true, error: "" })),
       PushToUi: this.unary("PushToUi", () => ({ success: true, error: "" })),
       SetThemeContribution: this.unary("SetThemeContribution", () => ({ success: true, error: "" })),

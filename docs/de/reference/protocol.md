@@ -5,10 +5,10 @@
 Protokoll-Generation **1**. 10 Dienste, 192 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: f1b6e25f86c1252e…`, der Digest des Plugin-zugewandten
+(`surface-sha256: 82318cc55dd2354d…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:3e8ab289e399cb13…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:a1731b0dd878c397…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
@@ -89,6 +89,7 @@ als die von dir deklarierten Capabilities.
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Eine Variable veröffentlichen, die Befehle und andere Plugins lesen können. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Pusht ein Event in die eigenen iframes dieses Plugins — der Rückweg für CallFromUi. |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` bedeutet, jedes Plugin darf es immer aufrufen — die
 Bootstrap-Menge, für die der Daemon überhaupt keine

@@ -102,6 +102,16 @@ test("every host RPC after Register carries the session token", async () => {
   assert.ok(d.logs().some((l) => l.level === "info" && l.message.includes("shouting 3 chars")));
 });
 
+test("the concrete HostClient implements getAiSettings and ctx reaches it over the wire", async () => {
+  const d = await daemon();
+  const wire = await d.launch(demo());
+  const got = await wire.plugin.ctx().getAiSettings();
+  assert.equal(got.provider, "ollama");
+  assert.equal(got.model, "mock-model");
+  assert.equal(got.isLoopback, true);
+  assert.ok(d.calls().some((c) => c.method === "GetAiSettings" && c.sessionToken === d.sessionToken));
+});
+
 test("a daemon that demands the token refuses a plugin that does not send one", async () => {
   // The mirror of the check above: prove the daemon side is not vacuous.
   const d = await daemon();

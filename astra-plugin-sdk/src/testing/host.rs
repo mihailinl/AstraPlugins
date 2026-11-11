@@ -87,6 +87,7 @@ pub const HOST_RPCS: &[&str] = &[
     "log",
     "get_config",
     "get_daemon_info",
+    "get_ai_settings",
     "set_variable",
     "push_to_ui",
     "send_chat_message",
@@ -301,6 +302,7 @@ pub struct RecordingHost {
     chat_reply: Mutex<Vec<String>>,
     config_json: Mutex<String>,
     daemon_info: Mutex<proto::PluginDaemonInfoResponse>,
+    ai_settings: Mutex<proto::PluginAiSettings>,
 }
 
 impl RecordingHost {
@@ -313,6 +315,7 @@ impl RecordingHost {
             chat_reply: Mutex::new(Vec::new()),
             config_json: Mutex::new("{}".to_string()),
             daemon_info: Mutex::new(proto::PluginDaemonInfoResponse::default()),
+            ai_settings: Mutex::new(proto::PluginAiSettings::default()),
         })
     }
 
@@ -356,6 +359,11 @@ impl RecordingHost {
     /// What `get_daemon_info()` answers.
     pub fn set_daemon_info(&self, info: proto::PluginDaemonInfoResponse) {
         *self.daemon_info.lock().unwrap_or_else(|e| e.into_inner()) = info;
+    }
+
+    /// What `get_ai_settings()` answers.
+    pub fn set_ai_settings(&self, settings: proto::PluginAiSettings) {
+        *self.ai_settings.lock().unwrap_or_else(|e| e.into_inner()) = settings;
     }
 
     /// What `send_chat_message()` streams back, one chunk per string.
@@ -501,6 +509,18 @@ impl Host for RecordingHost {
         }
         Ok(self
             .daemon_info
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone())
+    }
+
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        self.recorded.note("get_ai_settings");
+        if let Some(e) = self.staged("get_ai_settings", "GetAiSettings") {
+            return Err(e);
+        }
+        Ok(self
+            .ai_settings
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone())

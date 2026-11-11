@@ -175,6 +175,16 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
             return plugin_pb2.PluginDaemonInfoResponse()
         return plugin_pb2.PluginDaemonInfoResponse(version=self.daemon_version)
 
+    async def GetAiSettings(self, request, context):
+        if not self._authenticate(context, "GetAiSettings"):
+            return plugin_pb2.PluginAiSettings()
+        return plugin_pb2.PluginAiSettings(
+            provider="ollama",
+            model="mock-model",
+            api_base_url="http://127.0.0.1:11434",
+            is_loopback=True,
+        )
+
     async def FireTrigger(self, request, context):
         if not self._authenticate(context, "FireTrigger"):
             return plugin_pb2.Empty()

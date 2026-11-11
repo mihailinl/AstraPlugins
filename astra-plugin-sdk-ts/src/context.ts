@@ -23,7 +23,7 @@
  * during `onStart` still sees the config as it is now, not as it was then.
  */
 
-import type { Host } from "./host.js";
+import type { AiSettings, Host } from "./host.js";
 import type { I18n } from "./i18n.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 import { currentInvocation, type Invocation } from "./invocation.js";
@@ -124,6 +124,13 @@ export interface PluginContext {
     text: string,
     opts?: { conversationId?: string; voiceEnabled?: boolean }
   ): AsyncIterable<ChatChunk>;
+  /**
+   * The user's chat provider, model and endpoint — never a key. Needs the
+   * `read_ai_settings` permission. Rejects with a clear error when there is no
+   * host, or when the host predates the call (`Host.getAiSettings` is
+   * optional), so a plugin never writes `host?.getAiSettings?.()` itself.
+   */
+  getAiSettings(): Promise<AiSettings>;
 }
 
 /** The live state a context reads through to. Implemented by `Plugin`. */
@@ -222,6 +229,17 @@ export class PluginContextImpl implements PluginContext {
 
   async pushToUi(event: string, payload?: Record<string, unknown>): Promise<void> {
     await this.need("pushToUi").pushToUi(event, payload ? JSON.stringify(payload) : "{}");
+  }
+
+  async getAiSettings(): Promise<AiSettings> {
+    const host = this.need("getAiSettings");
+    if (typeof host.getAiSettings !== "function") {
+      throw new Error(
+        "this Host does not implement getAiSettings (GetAiSettings): " +
+          "it predates the call. Update the host, or catch this and fall back."
+      );
+    }
+    return host.getAiSettings();
   }
 
   async setThemeContribution(theme: ThemeContribution): Promise<void> {

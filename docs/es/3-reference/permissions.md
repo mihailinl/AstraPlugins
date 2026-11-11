@@ -43,7 +43,7 @@ Tres propiedades, todas las cuales sorprenden a alguien tarde o temprano:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -64,7 +64,7 @@ Que `GetDaemonInfo` sea gratis es una decisión, no un descuido: una casilla
 que no protege nada es la forma en que los usuarios aprenden a marcar
 casillas sin pensar.
 
-## Los ocho ids
+## Los nueve ids
 
 | Id | Bloquea | Casilla propia | Rechazado en importación local | Qué te permite hacer |
 |---|---|---|---|---|
@@ -76,6 +76,7 @@ casillas sin pensar.
 | `set_theme_contribution` | `SetThemeContribution` | **sí** | **sí** | Cambiar el estilo de toda la app |
 | `dom_access` | — (una superficie) | **sí** | **sí** | Ejecutar tu código dentro de la ventana de Astra, con acceso a conversaciones y a la interfaz de cualquier otro plugin |
 | `client` | — (una superficie) | **sí** | **sí** | Ser un frontend de chat con su propia sesión |
+| `read_ai_settings` | `GetAiSettings` | no | no | Leer el proveedor, el modelo y el endpoint del chat del usuario — nunca una clave |
 
 `dom_access` y `client` no bloquean ningún RPC, y ese es el punto: son
 **superficies**. `dom_access` decide si una contribución de UI se renderiza
@@ -118,6 +119,19 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
   recibía todos los eventos, incluido `speech_recognized`, que lleva las
   transcripciones del usuario. Una lista vacía no permite nada.
 - **`set_variable.scopes`** es `"plugin"`, `"session"` o `"persistent"`.
+
+## Leer los ajustes de IA del usuario
+
+Un plugin que llama él mismo al modelo del usuario — un asistente propio, un resumidor — necesita saber qué proveedor, modelo y endpoint eligió el usuario. **Pídeselos a Astra; nunca leas los archivos de Astra.** Declara `read_ai_settings` y llama a `GetAiSettings` (`get_ai_settings()` en Rust y Python, `getAiSettings()` en TypeScript):
+
+| Campo | Qué es |
+|---|---|
+| `provider` | El id del proveedor del chat. Un endpoint guardado por el usuario es `openai_compatible`; el servicio propio de Astra es `astra` |
+| `model` | El id del modelo del chat |
+| `api_base_url` | El endpoint. Se eliminan userinfo, query y fragment; la ruta se envía tal como la configuró la persona (un relay que pone un token en la ruta te lo entrega). Vacío para `astra`, cuyo endpoint no te corresponde llamar |
+| `is_loopback` | El endpoint está en esta máquina (`127.0.0.0/8`, `::1`, `localhost`) — un modelo local |
+
+Nunca lleva una clave de API, ni los demás endpoints guardados del usuario, ni el prompt del sistema, ni ningún rol salvo el del chat. Un plugin que necesita una clave se la pide al usuario en su propio `[config]` (márcala como secreta). No es de alto riesgo ni se rechaza en una importación local: es el camino honesto a esta información, y ponerle un precio superior al de leer `settings.json` empujaría a los plugins en la dirección equivocada. Leer los archivos propios de Astra es algo que busca la revisión humana en la publicación. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
 
 ## Escribir un reason
 

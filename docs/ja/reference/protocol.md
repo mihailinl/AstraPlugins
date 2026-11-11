@@ -4,10 +4,10 @@
 
 プロトコル世代 **1**。10 個のサービス、192 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: f1b6e25f86c1252e…`
+`astra.proto` から生成された一部(`surface-sha256: 82318cc55dd2354d…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:3e8ab289e399cb13…` に固定されています。3 つの SDK
+によって `sha256:a1731b0dd878c397…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -89,6 +89,7 @@
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | コマンドや他のプラグインが読める変数を公開します。 |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | このプラグイン自身の iframe にイベントを push します — CallFromUi の戻り経路です。 |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` は、どのプラグインでも常にそれを呼び出せることを意味します —
 ブートストラップ集合であり、デーモンはそれに対してパーミッション

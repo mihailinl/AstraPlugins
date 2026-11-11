@@ -21,7 +21,7 @@ gRPC on loopback. Two services run in opposite directions:
 - `PluginHostService` — **plugin → daemon**. Astra serves it; your plugin calls
   out to log, fire a trigger, set a variable, push to the UI.
 
-41 hooks across the two, protocol version 1, one source of truth in
+42 hooks across the two, protocol version 1, one source of truth in
 [`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 41 — see
 the generated hook-parity page under [`docs/en/`](docs/en/README.md), which
 `tools/parity` renders from that file and CI drift-checks.
@@ -53,17 +53,17 @@ error rather than a silently-dropped line
 
 Capabilities are the inbound direction only. The outbound direction —
 which host RPCs your plugin is allowed to call — is `[permissions]`, and it is
-**default-deny**. Of the ten host RPCs, four are always allowed (`Register`,
-`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and six are gated on a
+**default-deny**. Of the eleven host RPCs, four are always allowed (`Register`,
+`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and seven are gated on a
 consented permission; two more permissions (`dom_access`, `client`) gate a
 surface rather than a call. The table lives in the daemon at
 `astra-daemon/src/plugins/host_service.rs` (`HOST_RPC_PERMISSIONS`) and a test
 there fails if a new host RPC ships ungated.
 
-Eight permission ids, each with a `reason` you write and the user reads on the
+Nine permission ids, each with a `reason` you write and the user reads on the
 install consent sheet: `fire_trigger`, `subscribe_events`, `set_variable`,
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`.
+`client`, `read_ai_settings`.
 
 ### What a plugin is **not**
 
@@ -309,9 +309,9 @@ directory to a listed plugin, with every command and its output.
 
 | Package | In this tree | Published | Install |
 |---|---|---|---|
-| `astra-plugin-sdk` (crates.io) | 0.7.4 | 0.7.4 | `astra-plugin-sdk = "0.7"` |
-| `astra-plugin-sdk` (PyPI) | 0.6.4 | 0.6.4 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
-| `astra-plugin-sdk` (npm) | 0.7.3 | 0.7.3 | `npm install astra-plugin-sdk` |
+| `astra-plugin-sdk` (crates.io) | 0.7.5 | 0.7.4 | `astra-plugin-sdk = "0.7"` |
+| `astra-plugin-sdk` (PyPI) | 0.6.5 | 0.6.4 | `pip install "astra-plugin-sdk>=0.6,<0.7"` |
+| `astra-plugin-sdk` (npm) | 0.7.4 | 0.7.3 | `npm install astra-plugin-sdk` |
 | `astra-plugin-macros` (crates.io) | 0.7.4 | 0.7.4 | arrives with the SDK |
 | `astra-plugin-cli` (crates.io) | 0.5.1 | 0.5.1; binaries released as [`cli-v0.5.1`](https://github.com/mihailinl/AstraPlugins/releases/tag/cli-v0.5.1) (linux-x64 musl + gnu, windows-x64) | `cargo install astra-plugin-cli --locked`, or download an archive |
 

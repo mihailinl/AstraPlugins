@@ -69,6 +69,7 @@
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | このプラグインのトリガー種別の 1 つを発火し、listenしているコマンドを実行します。 |
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | このプラグインとしてチャットメッセージを送信し、アシスタントの返信をストリームで受け取ります。 |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | このプラグイン自身の iframe にイベントを push します — CallFromUi の戻り経路です。 |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | ユーザーのチャットのプロバイダー、モデル、エンドポイント(キーは含まない)。プラグインが Astra のファイルを読まずに済む。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 
 ## ギャップ

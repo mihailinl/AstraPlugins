@@ -65,6 +65,7 @@
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | 触发这个插件的某一种触发器类型，运行监听它的所有命令。 |
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | 以这个插件的身份发送一条聊天消息，并把助手的回复流式传回来。 |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | 把一个事件推送进这个插件自己的 iframe 里 —— 这是 CallFromUi 的回程路径。 |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | 用户聊天所用的提供方、模型和端点（绝不包含密钥），让插件无需读取 Astra 的文件。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | 为当前激活的 Astra 主题贡献颜色、壁纸和着色器。 |
 
 ## 缺口

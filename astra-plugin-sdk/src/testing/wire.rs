@@ -406,6 +406,19 @@ impl PluginHostService for HostService {
         }))
     }
 
+    async fn get_ai_settings(
+        &self,
+        req: tonic::Request<proto::GetAiSettingsRequest>,
+    ) -> Result<tonic::Response<proto::PluginAiSettings>, tonic::Status> {
+        self.gate(&req, "get_ai_settings")?;
+        Ok(tonic::Response::new(proto::PluginAiSettings {
+            provider: "ollama".into(),
+            model: "mock-model".into(),
+            api_base_url: "http://127.0.0.1:11434".into(),
+            is_loopback: true,
+        }))
+    }
+
     async fn set_variable(
         &self,
         req: tonic::Request<proto::PluginSetVariableRequest>,

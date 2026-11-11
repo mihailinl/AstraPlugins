@@ -33,7 +33,7 @@ import {
   SDK_VERSION,
 } from "./protocol.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
-import type { DaemonInfo, Host } from "./host.js";
+import type { AiSettings, DaemonInfo, Host } from "./host.js";
 import { SESSION_TOKEN_HEADER, X_ASTRA_CAUSE } from "./generated/wire.js";
 import { currentCause } from "./causality.js";
 
@@ -98,6 +98,7 @@ const REQUIRED_METHODS = [
   "GetPluginSelfConfig",
   "PluginLog",
   "GetDaemonInfo",
+  "GetAiSettings",
   "SetVariable",
   "PushToUi",
   "SendChatMessage",
@@ -283,6 +284,11 @@ export class HostClient implements Host {
   /** Get daemon info. */
   getDaemonInfo(): Promise<DaemonInfo> {
     return this.unary<DaemonInfo>("GetDaemonInfo", {});
+  }
+
+  /** The chat's provider, model and endpoint — never a key. Needs `read_ai_settings`. */
+  getAiSettings(): Promise<AiSettings> {
+    return this.unary<AiSettings>("GetAiSettings", {});
   }
 
   /** Set a variable readable by commands and other plugins. */

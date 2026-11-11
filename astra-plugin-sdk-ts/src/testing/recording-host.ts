@@ -20,7 +20,7 @@
 
 import { Readable } from "node:stream";
 import type * as grpc from "@grpc/grpc-js";
-import type { Host, DaemonInfo } from "../host.js";
+import type { AiSettings, Host, DaemonInfo } from "../host.js";
 import type { ChatChunk, ThemeContribution } from "../types.js";
 
 /** One line the plugin logged. */
@@ -63,6 +63,7 @@ export type HostRpc =
   | "log"
   | "getConfig"
   | "getDaemonInfo"
+  | "getAiSettings"
   | "setVariable"
   | "pushToUi"
   | "setThemeContribution"
@@ -99,6 +100,13 @@ export class RecordingHost implements Host {
       state: "running",
       grpcPort: 0,
       language: "en",
+    },
+    /** What `getAiSettings()` answers with. */
+    public aiSettings: AiSettings = {
+      provider: "",
+      model: "",
+      apiBaseUrl: "",
+      isLoopback: false,
     }
   ) {}
 
@@ -217,6 +225,11 @@ export class RecordingHost implements Host {
   async getDaemonInfo(): Promise<DaemonInfo> {
     this.check("getDaemonInfo");
     return this.daemonInfo;
+  }
+
+  async getAiSettings(): Promise<AiSettings> {
+    this.check("getAiSettings");
+    return this.aiSettings;
   }
 
   async setVariable(name: string, value: string, scope = "session"): Promise<void> {

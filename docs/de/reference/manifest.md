@@ -223,6 +223,7 @@ was signiert wurde.
 | `set_theme_contribution` | `SetThemeContribution` | **ja** | **ja** | Gestaltet die gesamte App um. |
 | `dom_access` | — | **ja** | **ja** | Führt den eigenen Code des Plugins im Astra-Fenster aus, mit Zugriff auf die Unterhaltungen des Nutzers und die Oberfläche jedes anderen Plugins. |
 | `client` | — | **ja** | **ja** | Agiert als Client-Frontend (eigene Chat-Oberfläche, eigene Session). |
+| `read_ai_settings` | `GetAiSettings` | nein | nein | Liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). |
 
 *Sperrt* ist das Host-RPC, das der Daemon ohne die Permission ablehnt,
 aus [`spec/hooks.yaml`](../../../spec/hooks.yaml); Paritätsregel R6
@@ -296,6 +297,8 @@ zweiten Bildschirm gibt.**
 
 **`client`.** Agiert als Client-Frontend (eigene Chat-Oberfläche,
 eigene Session). **Hohes Risiko.**
+
+**`read_ai_settings`.** `PluginHostService.GetAiSettings` — liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es lässt ein Plugin, das das Modell des Nutzers aufruft, erfahren, wo es liegt, OHNE Astras Dateien zu lesen; ein hoher Preis würde ein ehrliches Plugin zurück zu `settings.json` treiben.
 
 ## `[config]`
 

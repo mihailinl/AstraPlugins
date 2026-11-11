@@ -15,6 +15,21 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.4] — unreleased
+
+### Added
+
+- `Host.getAiSettings()` / `HostClient.getAiSettings()` and the `AiSettings`
+  type — the user's chat provider, model and endpoint (`provider`, `model`,
+  `apiBaseUrl`, `isLoopback`), never a key. Needs the new `read_ai_settings`
+  permission. For a plugin that calls the user's model itself, so it never reads
+  Astra's files for it. An Astra older than the call answers `UNIMPLEMENTED`.
+  `RecordingHost` takes the answer as its fourth constructor argument; the mock
+  daemon answers a loopback Ollama. Plugin code calls `ctx.getAiSettings()`,
+  which rejects with a clear error when there is no host or the host lacks the
+  method. Additive (a 0.7.x release): `Host.getAiSettings` is OPTIONAL on the
+  interface, so a `Host` implemented outside this package keeps compiling.
+
 ## [0.7.3] — 2026-10-24
 
 Generated code only: the protocol slice is re-synced with Astra's

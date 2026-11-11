@@ -67,6 +67,7 @@ deklariert, bekommt auf der Maschine des Nutzers `permission_denied`.
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Löst einen der Trigger-Typen dieses Plugins aus und führt aus, was für Befehle darauf hören. |
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | Sendet eine Chat-Nachricht als dieses Plugin und streamt die Antwort des Assistenten zurück. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Pusht ein Event in die eigenen iframes dieses Plugins — der Rückweg für CallFromUi. |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | Chat-Provider, Modell und Endpunkt des Nutzers (nie ein Schlüssel), damit ein Plugin dafür nie Astras Dateien lesen muss. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. |
 
 ## Lücken

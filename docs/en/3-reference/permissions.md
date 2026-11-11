@@ -36,7 +36,7 @@ Three properties, all of which surprise someone eventually:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@ Three properties, all of which surprise someone eventually:
 `GetDaemonInfo` being free is a decision, not an oversight: a checkbox that
 protects nothing is how users learn to tick boxes.
 
-## The eight ids
+## The nine ids
 
 | Id | Gates | Own checkbox | Refused to a local import | What it lets you do |
 |---|---|---|---|---|
@@ -68,6 +68,7 @@ protects nothing is how users learn to tick boxes.
 | `set_theme_contribution` | `SetThemeContribution` | **yes** | **yes** | Restyle the whole app |
 | `dom_access` | — (a surface) | **yes** | **yes** | Run your code inside the Astra window, with access to conversations and every other plugin's interface |
 | `client` | — (a surface) | **yes** | **yes** | Be a chat front-end with its own session |
+| `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint — never a key |
 
 `dom_access` and `client` gate no RPC and that is the point: they are
 **surfaces**. `dom_access` decides whether a UI contribution is rendered as a
@@ -78,6 +79,29 @@ gate.
 `dom_access` additionally gets a second consent screen. If you are reaching for
 it, read [the security model](../1-orientation/security.md) first and be sure
 `push_to_ui` into your own panel will not do.
+
+## Reading the user's AI settings
+
+A plugin that calls the user's model itself — an assistant of its own, a
+summariser — needs to know which provider, model and endpoint the user chose.
+**Ask Astra for them; never read Astra's files.** Declare `read_ai_settings` and
+call `GetAiSettings` (`get_ai_settings()` in Rust and Python, `getAiSettings()`
+in TypeScript):
+
+| Field | What it is |
+|---|---|
+| `provider` | The chat's provider id. An endpoint the user saved is `openai_compatible`; Astra's own service is `astra` |
+| `model` | The chat's model id |
+| `api_base_url` | The endpoint. Userinfo, query and fragment are removed; the path is sent as the person configured it (a relay that puts a token in the path gives it to you). Empty for `astra`, whose endpoint is not yours to call |
+| `is_loopback` | The endpoint is on this machine (`127.0.0.0/8`, `::1`, `localhost`) — a local model |
+
+It never carries an API key, the user's other saved endpoints, the system prompt
+or any role but the chat's. A plugin that needs a key asks the user for one in
+its own `[config]` (mark it secret). It is neither high-risk nor refused to a
+local import: it is the honest way to this information, and pricing it above
+reading `settings.json` would push plugins the wrong way. Reading Astra's own
+files is something human review at publication looks for. An Astra older than this call
+answers `UNIMPLEMENTED`.
 
 ## Sending a chat message
 

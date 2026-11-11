@@ -173,6 +173,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | **是** | **是** | 重新设置整个应用的样式。 |
 | `dom_access` | — | **是** | **是** | 在 Astra 窗口内运行插件自己的代码，能访问用户的对话以及每一个其他插件的界面。 |
 | `client` | — | **是** | **是** | 作为一个客户端前端存在（有自己的聊天界面、自己的会话）。 |
+| `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。 |
 
 *Gates（限制的调用）*是指没有这项权限时守护进程会拒绝的那个 host
 RPC，来自 [`spec/hooks.yaml`](../../../spec/hooks.yaml)；一致性规则
@@ -240,6 +241,8 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 
 **`client`。** 作为一个客户端前端存在（有自己的聊天界面、自己的
 会话）。**高风险。**
+
+**`read_ai_settings`。** `PluginHostService.GetAiSettings`——读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。不属于高风险，在 Tier 2 也不会被拒绝：它让调用用户模型的插件无需读取 Astra 的文件就能知道模型在哪里，把它定为高风险只会把诚实的插件推回 `settings.json`。
 
 ## `[config]`
 

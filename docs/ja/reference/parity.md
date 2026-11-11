@@ -87,6 +87,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 
 ## ケーパビリティの実装可否
@@ -220,6 +221,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
   この rpc だけが動作する経路です。5.4 の時点で 3 つの SDK すべてに
   結びつけられています。
 - **`PushToUi`** — このプラグイン自身の iframe にイベントを push します
+- **`GetAiSettings`** — ユーザーのチャットのプロバイダー、モデル、エンドポイント(キーは含まない)。プラグインが Astra のファイルを読まずに済む。 2026-11-10 より古い Astra は UNIMPLEMENTED を返す。保存されたエンドポイントは openai_compatible、Astra 自身のサービスは URL なしの astra として読める。
   — CallFromUi の戻り経路です。今では 3 つすべてに結びつけられています。
   Python は 3 リリースの間 CallFromUi はあるが PushToUi はない状態
   だったため、Python 製の UI プラグインは呼び出されても非同期に応答

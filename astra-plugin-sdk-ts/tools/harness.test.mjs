@@ -123,6 +123,28 @@ test("the recording host records, and can be told to fail", async () => {
   await assert.rejects(() => h.plugin.ctx().fireTrigger("on_echo"), /daemon said no/);
 });
 
+test("ctx.getAiSettings() reaches a host that implements it", async () => {
+  const host = new RecordingHost("demo");
+  host.aiSettings = { provider: "ollama", model: "m", apiBaseUrl: "http://127.0.0.1:1", isLoopback: true };
+  const h = await Harness.create(demo().app).withHost(host).start();
+  assert.deepEqual(await h.plugin.ctx().getAiSettings(), host.aiSettings);
+});
+
+test("ctx.getAiSettings() says plainly when the host predates the call", async () => {
+  // `Host.getAiSettings` is optional (the change is additive); the author
+  // never writes `?.()`: the context throws instead.
+  const host = new RecordingHost("demo");
+  host.getAiSettings = undefined;
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(() => h.plugin.ctx().getAiSettings(), /does not implement getAiSettings/);
+});
+
+test("ctx.getAiSettings() without a host is the usual no-host error", async () => {
+  const quiet = plugin({ triggers: { on_echo: { label: "Echoed" } } });
+  const h = await Harness.create(quiet).withoutHost().start();
+  await assert.rejects(() => h.plugin.ctx().getAiSettings(), /not registered with one/);
+});
+
 test("without a host, a handler that reaches for the daemon says so", async () => {
   // Not a silent no-op: the convenience wrappers on `Plugin` swallow a missing
   // host, and a trigger that did not fire and said nothing is the failure that

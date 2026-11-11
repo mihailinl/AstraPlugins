@@ -183,6 +183,20 @@ class HostClient:
             plugin_pb2.Empty(), metadata=self._metadata
         )
 
+    async def get_ai_settings(self) -> plugin_pb2.PluginAiSettings:
+        """The user's chat provider, model and endpoint — never a key.
+
+        Needs the ``read_ai_settings`` permission. For a plugin that calls the
+        user's model itself: ask Astra, never read Astra's files for it.
+        ``provider`` is ``openai_compatible`` for an endpoint the user saved,
+        ``astra`` (with an empty ``api_base_url``) for Astra's own service;
+        ``is_loopback`` says the endpoint is on this machine. An Astra older
+        than this RPC answers ``UNIMPLEMENTED``.
+        """
+        return await self._stub.GetAiSettings(
+            plugin_pb2.GetAiSettingsRequest(), metadata=self._metadata
+        )
+
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         """Subscribe to daemon events. Returns an async iterator.
 

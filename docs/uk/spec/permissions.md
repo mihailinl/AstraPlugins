@@ -40,6 +40,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | переоформляти весь застосунок | ● |
 | `dom_access` | *немає RPC* — **поверхня** | виконувати власний скрипт плагіна всередині вікна Astra, з доступом до бесід користувача та інтерфейсу будь-якого іншого плагіна | ● |
 | `client` | *немає RPC* — **поверхня** | виступати фронтендом клієнта: власна поверхня чату, власна сесія | ● |
+| `read_ai_settings` | `GetAiSettings` | читати провайдера, модель і адресу чату — але не ключ, не іншу роль і не збережені адреси користувача | |
 
 **П'ять позначених ● високоризикові** (`HIGH_RISK_PERMISSIONS`), і кожне
 отримує свій чекбокс згоди. §4.3 плану перелічує чотири чекбокси і
@@ -130,6 +131,7 @@ set_variable     = { scopes = ["plugin"] }
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` — єдине додавання до списку з трьох у плані, і це
 рішення, а не упущення: він повертає `version`, `state`, `grpc_port` і
@@ -245,9 +247,9 @@ let (plugin_id, grants) =
 2. **стеля** — правило на рівні походження, яке жоден запис не може
    викупити.
 
-`require_permission` питає перше для шести RPC хоста, закритих дозволом,
+`require_permission` питає перше для семи RPC хоста, закритих дозволом,
 — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`, `SetVariable`,
-`SetThemeContribution`, `PushToUi`. Решта чотирьох (`Register`,
+`SetThemeContribution`, `PushToUi`, `GetAiSettings`. Решта чотирьох (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) несуть `None` у
 `HOST_RPC_PERMISSIONS` і дозволені завжди; таблиця й обґрунтування — у
 §2.

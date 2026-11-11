@@ -222,6 +222,15 @@ def test_the_recording_host_covers_the_whole_real_host_surface():
         ), f"RecordingHost.{name} is async and HostClient.{name} is not, or vice versa"
 
 
+def test_recording_host_answers_get_daemon_info_with_its_port():
+    """`PluginDaemonInfoResponse` names the port `grpc_port`; `port=` raised."""
+    import asyncio
+
+    host = RecordingHost(daemon_version="9.9", daemon_port=4242)
+    info = asyncio.run(host.get_daemon_info())
+    assert (info.version, info.grpc_port) == ("9.9", 4242)
+
+
 # ── STT ─────────────────────────────────────────────────────────────────────
 
 

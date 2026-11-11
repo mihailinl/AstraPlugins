@@ -218,6 +218,7 @@ reconocida discreparía con las otras dos sobre qué se firmó.
 | `set_theme_contribution` | `SetThemeContribution` | **sí** | **sí** | Cambia el estilo de toda la app. |
 | `dom_access` | — | **sí** | **sí** | Ejecuta el propio código del plugin dentro de la ventana de Astra, con acceso a las conversaciones del usuario y a la interfaz de cualquier otro plugin. |
 | `client` | — | **sí** | **sí** | Actúa como frontend cliente (su propia superficie de chat, su propia sesión). |
+| `read_ai_settings` | `GetAiSettings` | no | no | Lee el proveedor, el modelo y el endpoint del chat del usuario (nunca una clave). |
 
 *Bloquea* es el RPC del host que el daemon rechaza sin el permiso, de
 [`spec/hooks.yaml`](../../../spec/hooks.yaml); la regla de paridad R6
@@ -292,6 +293,8 @@ interfaz de cualquier otro plugin. **Alto riesgo, y el único al que el
 
 **`client`.** Actúa como frontend cliente (su propia superficie de
 chat, su propia sesión). **Alto riesgo.**
+
+**`read_ai_settings`.** `PluginHostService.GetAiSettings` — lee el proveedor, el modelo y el endpoint del chat del usuario (nunca una clave). No es de alto riesgo y no se rechaza en el Tier 2: permite que un plugin que llama al modelo del usuario sepa dónde está SIN leer los archivos de Astra; ponerle un precio alto empujaría a un plugin honesto de vuelta a `settings.json`.
 
 ## `[config]`
 

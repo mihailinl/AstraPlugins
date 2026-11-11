@@ -90,6 +90,12 @@ pub enum Permission {
     /// Act as a client front-end (its own chat surface, its own session).
     /// **High risk.**
     Client,
+    /// `PluginHostService.GetAiSettings` — read the user's chat provider, model
+    /// and endpoint (never a key). Not high-risk and not refused at Tier 2: it
+    /// is what lets a plugin that calls the user's model learn where it is
+    /// WITHOUT reading Astra's files, so pricing it high would push an honest
+    /// plugin back to `settings.json`.
+    ReadAiSettings,
 }
 
 /// Every permission id, in [`Permission`]'s declaration order.
@@ -107,6 +113,7 @@ pub const PERMISSION_NAMES: &[&str] = &[
     "set_theme_contribution",
     "dom_access",
     "client",
+    "read_ai_settings",
 ];
 
 /// The five §5.6 marks *"high-risk, each its own consent checkbox"*.
@@ -154,6 +161,7 @@ impl Permission {
             Permission::SetThemeContribution => "set_theme_contribution",
             Permission::DomAccess => "dom_access",
             Permission::Client => "client",
+            Permission::ReadAiSettings => "read_ai_settings",
         }
     }
 
@@ -185,6 +193,7 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     Permission::SetThemeContribution,
     Permission::DomAccess,
     Permission::Client,
+    Permission::ReadAiSettings,
 ];
 
 /// What an author wrote for one permission id.
@@ -400,6 +409,11 @@ mod tests {
         }
         assert_eq!(HIGH_RISK_PERMISSIONS.len(), 5);
         assert_eq!(TIER2_REFUSED_PERMISSIONS.len(), 4);
+        // Reading the chat's endpoint is the honest alternative to reading
+        // `settings.json`; a checkbox or a Tier-2 refusal would price the
+        // honest path above the dishonest one.
+        assert!(!Permission::ReadAiSettings.is_high_risk());
+        assert!(!Permission::ReadAiSettings.refused_at_tier2());
     }
 
     /// The section as §5.6 writes it, parsed.

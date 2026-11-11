@@ -39,6 +39,20 @@ export interface DaemonInfo {
   language: string;
 }
 
+/**
+ * The user's chat provider, model and endpoint, as Astra lets a plugin see
+ * them — `PluginAiSettings`, the answer of `GetAiSettings`. Never a key.
+ */
+export interface AiSettings {
+  /** The provider id; `openai_compatible` for an endpoint the user saved, `astra` for Astra's own service. */
+  provider: string;
+  model: string;
+  /** The endpoint without userinfo, query or fragment. Empty for `astra`. */
+  apiBaseUrl: string;
+  /** The endpoint is on this machine (127.0.0.0/8, ::1, localhost). */
+  isLoopback: boolean;
+}
+
 export interface Host {
   /** Fire one of this plugin's declared trigger types. Needs `fire_trigger`. */
   fireTrigger(triggerType: string, payloadJson?: string): Promise<void>;
@@ -51,6 +65,20 @@ export interface Host {
 
   /** Version, run state and gRPC port of the daemon on the other end. */
   getDaemonInfo(): Promise<DaemonInfo>;
+
+  /**
+   * The user's chat provider, model and endpoint — never a key. Needs
+   * `read_ai_settings`. For a plugin that calls the user's model itself: ask
+   * Astra, never read Astra's files for it. An Astra older than this RPC
+   * answers `UNIMPLEMENTED`.
+   *
+   * Optional so a `Host` implemented before this method existed keeps
+   * compiling (the change is additive). Plugin code does not test for it: it
+   * calls `ctx.getAiSettings()`, which throws a clear error when the host
+   * lacks it. The concrete `HostClient`, `RecordingHost` and the mock daemon
+   * all implement it.
+   */
+  getAiSettings?(): Promise<AiSettings>;
 
   /** Publish a variable commands and other plugins can read. Needs `set_variable`. */
   setVariable(name: string, value: string, scope?: string): Promise<void>;

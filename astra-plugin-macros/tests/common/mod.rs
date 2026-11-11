@@ -31,6 +31,9 @@ impl Host for RecordingHost {
     async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
         Ok(Default::default())
     }
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        Ok(Default::default())
+    }
     async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
         Ok(())
     }

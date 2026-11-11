@@ -4,10 +4,10 @@
 
 Поколение протокола **1**. 10 сервисов, 192 RPC. Источник:
 [`proto/plugin.proto`](../../../proto/plugin.proto), сгенерированный срез
-`astra.proto` Astra (`surface-sha256: f1b6e25f86c1252e…` — дайджест
+`astra.proto` Astra (`surface-sha256: 82318cc55dd2354d…` — дайджест
 обращённого к плагинам тела, о котором и идёт речь), закреплённый
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:3e8ab289e399cb13…`. У каждой завендоренной копии в трёх SDK тот же
+`sha256:a1731b0dd878c397…`. У каждой завендоренной копии в трёх SDK тот же
 самый хеш; `tools/check-proto.sh` — то, что это подтверждает.
 
 ## Три сервиса плагина
@@ -87,6 +87,7 @@ RPC здесь — хук, который вы реализуете, и `UNIMPLE
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Publish a variable that commands and other plugins can read. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Contribute colours, wallpaper and shader to the active Astra theme. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Push an event into this plugin's own iframes — the return path for CallFromUi. |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` означает, что любой плагин может вызывать это всегда — стартовый
 набор, на который демон вообще не запускает проверку разрешений. Это

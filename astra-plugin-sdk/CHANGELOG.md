@@ -14,6 +14,26 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
+## [0.7.5] — unreleased
+
+Proto re-synced to Astra main `4b8c4ae8e`. Between `sdk-v0.7.4` and this release the protocol gained 55 fields on
+23 messages that already existed, 24 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+nothing was removed, retyped or changed in place.
+
+### Added
+
+- `Host::get_ai_settings()` / `HostClient::get_ai_settings()` — the user's chat
+  provider, model and endpoint (`proto::PluginAiSettings`: `provider`, `model`,
+  `api_base_url`, `is_loopback`), never a key. Needs the new `read_ai_settings`
+  permission (not high-risk, not refused to a local import). For a plugin that
+  calls the user's model itself, so it never reads Astra's files for it. An
+  Astra older than the call answers `UNIMPLEMENTED`. `testing::RecordingHost`
+  answers `set_ai_settings(..)`'s value; `MockDaemon` answers a loopback Ollama.
+  Additive (a 0.7.x release): `Host::get_ai_settings` is a DEFAULT method, like
+  `fire_trigger_caused_by`, so a `Host` written before it compiles unchanged and
+  answers "this Host does not implement GetAiSettings". Every `Host` in this
+  crate overrides it, and a test fails for a forwarding wrapper that forgets to.
+
 ## [0.7.4] — 2026-10-24
 
 Generated code only: the protocol slice is re-synced with Astra's

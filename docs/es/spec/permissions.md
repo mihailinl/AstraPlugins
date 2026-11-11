@@ -41,6 +41,7 @@ un sitio y no en los otros se renderiza como una fila en blanco.
 | `set_theme_contribution` | `SetThemeContribution` | cambiar el estilo de toda la app | ● |
 | `dom_access` | *sin RPC* — una **superficie** | ejecutar el propio script del plugin dentro de la ventana de Astra, con acceso a las conversaciones del usuario y a la interfaz de cualquier otro plugin | ● |
 | `client` | *sin RPC* — una **superficie** | actuar como frontend cliente: su propia superficie de chat, su propia sesión | ● |
+| `read_ai_settings` | `GetAiSettings` | leer el proveedor, el modelo y el endpoint del chat — nunca una clave, nunca otro rol, nunca los endpoints guardados del usuario | |
 
 **Los cinco marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
 y cada uno recibe su propia casilla de consentimiento. El §4.3 del plan
@@ -133,6 +134,7 @@ condicionar es un fallo de prueba en lugar de una omisión silenciosa:
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` es la única adición a la lista de tres del plan, y es
 una decisión y no una omisión: devuelve `version`, `state`,
@@ -255,9 +257,9 @@ Un permiso se honra solo cuando se cumplen **ambas**:
 2. el **techo** — una regla por procedencia que ningún registro puede
    comprar de más.
 
-`require_permission` pregunta la primera para las seis RPC del host
+`require_permission` pregunta la primera para las siete RPC del host
 que bloquea un permiso — `SubscribeEvents`, `SendChatMessage`,
-`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`. Las
+`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`. Las
 cuatro restantes (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) llevan `None` en `HOST_RPC_PERMISSIONS` y siempre
 están permitidas; el §2 tiene la tabla y el razonamiento.

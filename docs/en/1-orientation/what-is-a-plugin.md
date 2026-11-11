@@ -10,7 +10,7 @@ That single fact decides most of the rest:
 
 - **You can write it in anything** that speaks gRPC. Three SDKs ship here —
   Rust, Python, TypeScript — and they are at
-  [full parity](../reference/parity.md): all 41 hooks in all three.
+  [full parity](../reference/parity.md): all 42 hooks in all three.
 - **It has your privileges, not fewer.** See [the security model](security.md).
 - **It survives its own bugs badly and Astra's not at all.** A panic in a
   handler is caught and returned as an error rather than killing the process

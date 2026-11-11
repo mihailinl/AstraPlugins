@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: f1b6e25f86c1252ed461efa51063787a84ca8b86d7189c6efd90c8ae70675159
+// surface-sha256: 82318cc55dd2354df469be981772347676fd142263bdd0402ba3d3e01e53076a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4754,6 +4754,11 @@ service PluginHostService {
     // Get daemon info (version, state, port)
     rpc GetDaemonInfo(Empty) returns (PluginDaemonInfoResponse);
 
+    // The user's ACTIVE chat provider, model and endpoint — what a plugin that
+    // calls the user's model itself needs, so it never reads Astra's files for
+    // them. Gated by the `read_ai_settings` permission. Never carries a key.
+    rpc GetAiSettings(GetAiSettingsRequest) returns (PluginAiSettings);
+
     // Set a variable in the daemon's variable context
     rpc SetVariable(PluginSetVariableRequest) returns (Empty);
 
@@ -6220,6 +6225,30 @@ message PluginDaemonInfoResponse {
     string state = 2;
     uint32 grpc_port = 3;
     string language = 4;  // Current daemon UI language
+}
+
+// `PluginHostService.GetAiSettings`. Empty today; a message rather than
+// `Empty` so a later question ("which role?") is a field, not a new RPC.
+message GetAiSettingsRequest {}
+
+// The chat's AI settings as a plugin may see them — `plugins::host_service`'s
+// `ai_settings_for_plugin` is the one place this is built. Never a key, never
+// the user's saved endpoints, never the system prompt, never another role.
+message PluginAiSettings {
+    // The provider id. A user's own saved endpoint (`custom__<slug>`) is
+    // reported as `openai_compatible`; Astra's own service as `astra`.
+    string provider = 1;
+    string model = 2;
+
+    // The effective endpoint. Userinfo, query and fragment are removed; the
+    // PATH is sent as the person configured it (a relay that puts a token in
+    // the path gives it to the plugin). Empty for
+    // `astra` (its endpoint is Astra's, not the plugin's) and for anything that
+    // does not parse as a URL.
+    string api_base_url = 3;
+
+    // The endpoint is on THIS machine (127.0.0.0/8, ::1, localhost).
+    bool is_loopback = 4;
 }
 
 message PluginSetVariableRequest {

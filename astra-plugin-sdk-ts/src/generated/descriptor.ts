@@ -8251,6 +8251,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "Empty",
               "responseType": "PluginDaemonInfoResponse"
             },
+            "GetAiSettings": {
+              "requestType": "GetAiSettingsRequest",
+              "responseType": "PluginAiSettings"
+            },
             "SetVariable": {
               "requestType": "PluginSetVariableRequest",
               "responseType": "Empty"
@@ -9631,6 +9635,29 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "language": {
               "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "GetAiSettingsRequest": {
+          "fields": {}
+        },
+        "PluginAiSettings": {
+          "fields": {
+            "provider": {
+              "type": "string",
+              "id": 1
+            },
+            "model": {
+              "type": "string",
+              "id": 2
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "id": 3
+            },
+            "isLoopback": {
+              "type": "bool",
               "id": 4
             }
           }

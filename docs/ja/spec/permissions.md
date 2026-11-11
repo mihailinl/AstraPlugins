@@ -40,6 +40,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | アプリ全体のスタイルを変更する | ● |
 | `dom_access` | *RPC なし* — **サーフェス** | ユーザーの会話とすべての他プラグインのインターフェースへのアクセスを伴い、Astra ウィンドウ内でプラグイン自身のスクリプトを実行する | ● |
 | `client` | *RPC なし* — **サーフェス** | クライアントフロントエンドとして振る舞う: 独自のチャットサーフェス、独自のセッション | ● |
+| `read_ai_settings` | `GetAiSettings` | チャットのプロバイダー、モデル、エンドポイントを読む — キー、他のロール、ユーザーが保存した他のエンドポイントは決して含まない | |
 
 **●が付いた 5 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
 が独自の同意チェックボックスを得ます。計画の §4.3 は 4 つのチェック
@@ -136,6 +137,7 @@ Astra が知らない何かを要求していることが伝えられます。
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` は、計画の 3 つのリストへの 1 つの追加であり、見落とし
 ではなく意思決定です: これは `version`、`state`、`grpc_port`、
@@ -261,9 +263,9 @@ true` — プラグイン自身のディレクトリ内のファイルの 1 行 
    インストールごとの答え;
 2. **上限(ceiling)** — どんなレコードも買い越せない出所ごとのルール。
 
-`require_permission` は、パーミッションをゲートする 6 つのホスト RPC
+`require_permission` は、パーミッションをゲートする 7 つのホスト RPC
 — `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、
-`SetVariable`、`SetThemeContribution`、`PushToUi` — に対して 1 つ目
+`SetVariable`、`SetThemeContribution`、`PushToUi`、`GetAiSettings` — に対して 1 つ目
 を尋ねます。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
 `PluginLog`、`GetDaemonInfo`)は `HOST_RPC_PERMISSIONS` の中で `None`
 を運び、常に許可されます; §2 に表と理由があります。

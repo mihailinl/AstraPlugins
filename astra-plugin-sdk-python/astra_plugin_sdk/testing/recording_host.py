@@ -100,6 +100,9 @@ class RecordingHost:
     config_json: str = "{}"
     daemon_version: str = "test-daemon"
     daemon_port: int = 0
+    #: What `get_ai_settings()` answers, as keyword arguments of
+    #: `PluginAiSettings` (`provider`, `model`, `api_base_url`, `is_loopback`).
+    ai_settings: dict[str, Any] = field(default_factory=dict)
 
     _logs: list[LogLine] = field(default_factory=list)
     _triggers: list[FiredTrigger] = field(default_factory=list)
@@ -173,8 +176,12 @@ class RecordingHost:
     async def get_daemon_info(self):
         self._maybe_fail("get_daemon_info")
         return plugin_pb2.PluginDaemonInfoResponse(
-            version=self.daemon_version, port=self.daemon_port
+            version=self.daemon_version, grpc_port=self.daemon_port
         )
+
+    async def get_ai_settings(self):
+        self._maybe_fail("get_ai_settings")
+        return plugin_pb2.PluginAiSettings(**self.ai_settings)
 
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         self._maybe_fail("subscribe_events")
@@ -250,6 +257,7 @@ _HOST_METHODS = frozenset(
         "log",
         "get_config",
         "get_daemon_info",
+        "get_ai_settings",
         "subscribe_events",
         "push_to_ui",
         "send_chat_message",

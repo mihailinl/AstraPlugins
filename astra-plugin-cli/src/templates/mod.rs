@@ -151,6 +151,10 @@ fn generate_permissions(capabilities: &[&str]) -> String {
     const OPTIONAL: &[(&str, &str)] = &[
         ("set_variable", "write a variable your commands can read"),
         (
+            "read_ai_settings",
+            "read the user's chat provider, model and endpoint (never a key)",
+        ),
+        (
             "push_to_ui",
             "push updates to a UI panel this plugin contributes",
         ),

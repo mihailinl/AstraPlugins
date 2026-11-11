@@ -115,8 +115,8 @@ capabilities: "tools tts stt wakeword ai_provider web_search music_provider clie
 # contributions (`manager/ui_surface.rs:77`), not a hook. It is in the vocabulary above so
 # the checker can tell an unknown capability from a hookless one.
 
-# The `[permissions]` vocabulary — §5.6's eight ids, plus `none` for a host rpc
-# that is gated on nothing. Mirrors `astra_plugin_manifest::PERMISSION_NAMES`,
+# The `[permissions]` vocabulary — §5.6's eight ids, `read_ai_settings` (2026-11-10,
+# GetAiSettings), and `none` for a host rpc that is gated on nothing. Mirrors `astra_plugin_manifest::PERMISSION_NAMES`,
 # the crate this repo vendors under `tools/check-manifest-crate.sh`.
 #
 # `dom_access` and `client` are here and gate no row, and that is the point:
@@ -125,7 +125,7 @@ capabilities: "tools tts stt wakeword ai_provider web_search music_provider clie
 # capability ceiling, not an rpc gate — `SendChatMessage` is gated on
 # `send_chat_message`. Listing them keeps "no rpc needs this" distinguishable
 # from "somebody forgot a row".
-permissions: "fire_trigger subscribe_events set_variable send_chat_message push_to_ui set_theme_contribution dom_access client none"
+permissions: "fire_trigger subscribe_events set_variable send_chat_message push_to_ui set_theme_contribution dom_access client read_ai_settings none"
 
 hooks:
   # ── PluginCapabilityService — tools ──
@@ -647,6 +647,22 @@ hooks:
     streaming: unary
     daemon_calls: "src/plugins/host_service.rs:2807"
     summary: "Daemon version, state and gRPC port."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: GetAiSettings
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    permission: read_ai_settings
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:2922"
+    summary: "The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them."
+    note: "An Astra older than 2026-11-10 answers UNIMPLEMENTED; a saved endpoint reads as openai_compatible, Astra's own service as astra with no URL."
     rust: stable
     python: stable
     typescript: stable
