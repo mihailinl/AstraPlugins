@@ -450,12 +450,12 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      # NOTE for the commit that merges macos-arm64: this pin must name a commit
-      # whose CLI knows `--target macos-arm64` (that is, a master containing the
-      # change that added it), or the macOS leg dies at `astra-plugin build`
-      # with "Unknown target". It is bumped AFTER the merge, in a follow-up
-      # that also changes this file's blob (and so needs a new trust.json SHA).
-      ASTRA_TOOLING_REF: "37b1c101b56a58794a3a41980621634334610ada"
+      # This pin names the merge commit of the PR that added `macos-arm64` to
+      # the CLI. It must always name a commit whose CLI knows every target in
+      # the matrix below and in TARGETS: CI's `release-tooling-pin` job builds
+      # the CLI at this pin and fails if it does not, because an unknown target
+      # kills a leg and leaves the WHOLE release (every platform) a draft.
+      ASTRA_TOOLING_REF: "76126647f611a4e004b5954e87e7374a290a1d90"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
