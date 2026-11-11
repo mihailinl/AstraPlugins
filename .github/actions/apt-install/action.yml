@@ -7,12 +7,12 @@
 # stopped resolving (run 43037132256), every `apt-get update` in this repo's CI
 # failed and the whole workflow went red for an hour over a package we could
 # have fetched from archive.ubuntu.com. This is the ONE place that knows how to
-# recover: try as configured; on any failure rewrite the sources to
-# archive.ubuntu.com and retry once. Every Linux apt step in ci.yml uses it.
+# recover: skip packages already installed; try as configured; on any failure
+# rewrite the sources to the first fallback mirror that resolves, retry once. Every Linux apt step in ci.yml uses it.
 # (plugin-release.yml is a reusable workflow, where a local action is the
 # CALLER's checkout, so it carries the same few lines inline.)
 name: apt-install
-description: apt-get install with a one-shot fallback to archive.ubuntu.com
+description: apt-get install with a one-shot fallback to another Ubuntu mirror
 inputs:
   packages:
     description: Space-separated package list.
@@ -27,18 +27,28 @@ runs:
         set -uo pipefail
         export DEBIAN_FRONTEND=noninteractive
         # Word-split deliberately: this input is a package list.
+        missing=""
+        for p in $PACKAGES; do dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"; done
+        if [ -z "$missing" ]; then echo "apt-install: every package is already installed"; exit 0; fi
         install() {
-          sudo apt-get -o DPkg::Lock::Timeout=300 update -qq &&
-            sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
+          sudo apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=1 -o Acquire::http::Timeout=20 update -qq &&
+            sudo apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=1 -o Acquire::http::Timeout=20 install -y --no-install-recommends $missing
         }
         if install; then exit 0; fi
-        echo "::warning::apt failed with the runner's mirror; retrying against archive.ubuntu.com"
-        # deb822 (ubuntu.sources, 24.04+) and the classic sources.list alike, and the
-        # list behind `mirror+file:/etc/apt/apt-mirrors.txt`, which is what the
-        # hosted images actually use (the azure URL lives in that file).
+        echo "::warning::apt failed with the runner's mirror; retrying against another mirror"
+        # The first mirror that RESOLVES from this runner. archive.ubuntu.com was
+        # unresolvable together with azure.archive.ubuntu.com during the 2026-11-11
+        # outage, so a swap to it alone is not a fallback.
+        mirror=""
+        for m in archive.ubuntu.com/ubuntu mirrors.edge.kernel.org/ubuntu mirrors.mit.edu/ubuntu ftp.fau.de/ubuntu; do
+          if getent hosts "${m%%/*}" >/dev/null 2>&1; then mirror="$m"; break; fi
+        done
+        if [ -z "$mirror" ]; then echo "::error::no fallback Ubuntu mirror resolves from this runner"; exit 1; fi
+        echo "apt-install: using http://$mirror/"
+        # Hosted noble images read `mirror+file:/etc/apt/apt-mirrors.txt` (the azure
+        # URL lives in that file); also rewrite deb822 and classic sources, security too.
         sudo sed -i -E \
-          -e 's#https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
-          -e 's#https?://security\.ubuntu\.com/ubuntu/?#http://security.ubuntu.com/ubuntu/#g' \
-          /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null
+          -e "s#https?://(azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?#http://$mirror/#g" \
+          /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
         sudo rm -rf /var/lib/apt/lists/*
         install

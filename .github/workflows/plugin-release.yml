@@ -585,24 +585,35 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           # Word-split deliberately: this input is a package list.
           #
-          # Falls back to archive.ubuntu.com once if the runner's mirror is down
-          # (azure.archive.ubuntu.com stopped resolving on 2026-11-11). The same
-          # logic is .github/actions/apt-install; a reusable workflow cannot use
-          # a local action, so it is repeated here.
+          # Falls back to another Ubuntu mirror once if the runner's mirror is
+          # down (azure.archive.ubuntu.com stopped resolving on 2026-11-11). The
+          # same logic is .github/actions/apt-install; a reusable workflow cannot
+          # use a local action, so it is repeated here.
+          missing=""
+          for p in $PACKAGES; do dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"; done
+          if [ -z "$missing" ]; then echo "apt-install: every package is already installed"; exit 0; fi
           install() {
-            # shellcheck disable=SC2086
-            sudo apt-get -o DPkg::Lock::Timeout=300 update -qq &&
-              sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
+            sudo apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=1 -o Acquire::http::Timeout=20 update -qq &&
+              sudo apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=1 -o Acquire::http::Timeout=20 install -y --no-install-recommends $missing
           }
-          if ! install; then
-            echo "::warning::apt failed with the runner's mirror; retrying against archive.ubuntu.com"
-            sudo sed -i -E \
-              -e 's#https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
-              -e 's#https?://security\.ubuntu\.com/ubuntu/?#http://security.ubuntu.com/ubuntu/#g' \
-              /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-            sudo rm -rf /var/lib/apt/lists/*
-            install
-          fi
+          if install; then exit 0; fi
+          echo "::warning::apt failed with the runner's mirror; retrying against another mirror"
+          # The first mirror that RESOLVES from this runner. archive.ubuntu.com was
+          # unresolvable together with azure.archive.ubuntu.com during the 2026-11-11
+          # outage, so a swap to it alone is not a fallback.
+          mirror=""
+          for m in archive.ubuntu.com/ubuntu mirrors.edge.kernel.org/ubuntu mirrors.mit.edu/ubuntu ftp.fau.de/ubuntu; do
+            if getent hosts "${m%%/*}" >/dev/null 2>&1; then mirror="$m"; break; fi
+          done
+          if [ -z "$mirror" ]; then echo "::error::no fallback Ubuntu mirror resolves from this runner"; exit 1; fi
+          echo "apt-install: using http://$mirror/"
+          # Hosted noble images read `mirror+file:/etc/apt/apt-mirrors.txt` (the azure
+          # URL lives in that file); also rewrite deb822 and classic sources, security too.
+          sudo sed -i -E \
+            -e "s#https?://(azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?#http://$mirror/#g" \
+            /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          sudo rm -rf /var/lib/apt/lists/*
+          install
 
       # `runner.os` is a sufficient key: the only macOS leg is macos-15, arm64, so
       # one OS name is one architecture. Add an Intel Mac leg and this key must
