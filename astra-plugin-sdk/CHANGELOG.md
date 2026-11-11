@@ -25,15 +25,10 @@ are removable in.
   calls the user's model itself, so it never reads Astra's files for it. An
   Astra older than the call answers `UNIMPLEMENTED`. `testing::RecordingHost`
   answers `set_ai_settings(..)`'s value; `MockDaemon` answers a loopback Ollama.
-
-### BREAKING
-
-- `Host` gained a required method, `get_ai_settings`. **This is a breaking change,
-  so the next release is 0.8.0, not a patch.** A `Host` implemented
-  outside this crate adds it (a wrapper forwards it; a fake returns
-  `Ok(Default::default())`). It is required rather than defaulted on purpose: a
-  default would let a forwarding wrapper answer an error instead of its inner
-  host's settings, silently.
+  Additive (a 0.7.x release): `Host::get_ai_settings` is a DEFAULT method, like
+  `fire_trigger_caused_by`, so a `Host` written before it compiles unchanged and
+  answers "this Host does not implement GetAiSettings". Every `Host` in this
+  crate overrides it, and a test fails for a forwarding wrapper that forgets to.
 
 ## [0.7.4] — 2026-10-24
 

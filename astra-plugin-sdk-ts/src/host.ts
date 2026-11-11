@@ -71,8 +71,14 @@ export interface Host {
    * `read_ai_settings`. For a plugin that calls the user's model itself: ask
    * Astra, never read Astra's files for it. An Astra older than this RPC
    * answers `UNIMPLEMENTED`.
+   *
+   * Optional so a `Host` implemented before this method existed keeps
+   * compiling (the change is additive). Plugin code does not test for it: it
+   * calls `ctx.getAiSettings()`, which throws a clear error when the host
+   * lacks it. The concrete `HostClient`, `RecordingHost` and the mock daemon
+   * all implement it.
    */
-  getAiSettings(): Promise<AiSettings>;
+  getAiSettings?(): Promise<AiSettings>;
 
   /** Publish a variable commands and other plugins can read. Needs `set_variable`. */
   setVariable(name: string, value: string, scope?: string): Promise<void>;

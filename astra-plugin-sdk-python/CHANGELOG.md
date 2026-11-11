@@ -25,6 +25,8 @@ are removable in.
   user's model itself, so it never reads Astra's files for it. An Astra older
   than the call answers `UNIMPLEMENTED`. `testing.RecordingHost.ai_settings`
   sets what the recording host answers; the wire mock answers a loopback Ollama.
+  Additive: Python has no `Host` base class to implement, only the concrete
+  `HostClient`, so a new method on it breaks no existing code.
 
 ## [0.6.4] — 2026-10-24
 

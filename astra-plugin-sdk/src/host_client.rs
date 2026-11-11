@@ -717,6 +717,13 @@ mod tests {
         host.set_variable("k", "v", "session").await.expect("SetVariable");
         host.push_to_ui("ev", "{}").await.expect("PushToUi");
         host.get_config().await.expect("GetPluginSelfConfig");
+        // Through the trait: HostClient's `impl Host` must override the
+        // defaulted `get_ai_settings`, or this is the default's error.
+        let as_host: &dyn crate::Host = &host;
+        as_host
+            .get_ai_settings()
+            .await
+            .expect("Host::get_ai_settings must reach GetAiSettings, not the default");
 
         handle.abort();
     }

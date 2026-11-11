@@ -25,13 +25,10 @@ are removable in.
   permission. For a plugin that calls the user's model itself, so it never reads
   Astra's files for it. An Astra older than the call answers `UNIMPLEMENTED`.
   `RecordingHost` takes the answer as its fourth constructor argument; the mock
-  daemon answers a loopback Ollama.
-
-### BREAKING
-
-- `Host` gained a required method, `getAiSettings`; a `Host` implemented outside
-  this package adds it. **This is a breaking change, so the next release is
-  0.8.0, not a patch.**
+  daemon answers a loopback Ollama. Plugin code calls `ctx.getAiSettings()`,
+  which rejects with a clear error when there is no host or the host lacks the
+  method. Additive (a 0.7.x release): `Host.getAiSettings` is OPTIONAL on the
+  interface, so a `Host` implemented outside this package keeps compiling.
 
 ## [0.7.3] — 2026-10-24
 

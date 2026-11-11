@@ -125,7 +125,19 @@ pub trait Host: Send + Sync + 'static {
     /// Astra's files for it. `provider` is `openai_compatible` for an endpoint
     /// the user saved, `astra` (with an empty `api_base_url`) for Astra's own
     /// service. An Astra older than this RPC answers `UNIMPLEMENTED`.
-    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings>;
+    ///
+    /// Defaulted on purpose, like [`Host::fire_trigger_caused_by`]: a `Host`
+    /// written before this method existed (a test double, a fake in someone
+    /// else's crate) keeps compiling, and answers with an error that says so
+    /// instead of inventing settings. Every `Host` in this crate — the client,
+    /// the forwarding wrappers, the testing hosts — overrides it, and
+    /// `tests::every_in_repo_host_answers_get_ai_settings_without_the_default`
+    /// turns red for one that forgets.
+    async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
+        Err(anyhow::anyhow!(
+            "this Host does not implement GetAiSettings (get_ai_settings)"
+        ))
+    }
 
     /// Publish a variable commands and other plugins can read.
     /// Permission: `set_variable`. `scope` is `session` or `persistent`.
@@ -831,7 +843,10 @@ impl Host for CauseSpy {
         Ok(Default::default())
     }
     async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
-        Ok(Default::default())
+        Ok(proto::PluginAiSettings {
+            provider: "from-inner".into(),
+            ..Default::default()
+        })
     }
     async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
         Ok(())
@@ -920,6 +935,79 @@ mod tests {
         }
         async fn set_theme_contribution(&self, _: proto::PluginThemeContribution) -> Result<()> {
             Ok(())
+        }
+    }
+
+    /// A `Host` that never heard of `get_ai_settings`: the defaulted method.
+    struct BareHost;
+
+    #[async_trait::async_trait]
+    impl Host for BareHost {
+        fn plugin_id(&self) -> &str {
+            "bare"
+        }
+        async fn fire_trigger(&self, _: &str, _: &str) -> Result<()> {
+            Ok(())
+        }
+        async fn log(&self, _: &str, _: &str) -> Result<()> {
+            Ok(())
+        }
+        async fn get_config(&self) -> Result<String> {
+            Ok("{}".into())
+        }
+        async fn get_daemon_info(&self) -> Result<proto::PluginDaemonInfoResponse> {
+            Ok(Default::default())
+        }
+        async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
+            Ok(())
+        }
+        async fn push_to_ui(&self, _: &str, _: &str) -> Result<()> {
+            Ok(())
+        }
+        async fn send_chat_message(&self, _: &str, _: &str, _: bool) -> Result<ChatStream> {
+            Ok(Box::pin(tokio_stream::empty()))
+        }
+        async fn set_theme_contribution(&self, _: proto::PluginThemeContribution) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    /// Additive: a `Host` written before `get_ai_settings` compiles unchanged
+    /// and gets a plain error, not invented settings.
+    #[tokio::test]
+    async fn a_host_without_get_ai_settings_answers_with_a_plain_error() {
+        let err = BareHost.get_ai_settings().await.unwrap_err().to_string();
+        assert!(err.contains("does not implement GetAiSettings"), "{err}");
+    }
+
+    /// The forwarding wrapper (`for_invocation` scopes through `CausalHost`)
+    /// must reach the inner host's answer, not fall to the default error.
+    #[tokio::test]
+    async fn the_scoping_wrapper_forwards_get_ai_settings() {
+        let (ctx, _spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+        let got = scoped.host().get_ai_settings().await.expect("forwarded, not defaulted");
+        assert_eq!(got.provider, "from-inner");
+    }
+
+    /// Every `Host` impl in this crate answers without the default. A wrapper
+    /// or fake added later that forgets to override goes red here: add it to
+    /// the list.
+    #[tokio::test]
+    async fn every_in_repo_host_answers_get_ai_settings_without_the_default() {
+        let recording = crate::testing::RecordingHost::new("rec");
+        recording.set_ai_settings(proto::PluginAiSettings {
+            provider: "staged".into(),
+            ..Default::default()
+        });
+        let hosts: Vec<(&str, Arc<dyn Host>)> = vec![
+            ("testing::RecordingHost", recording),
+            ("NullHost", Arc::new(NullHost)),
+        ];
+        for (name, h) in hosts {
+            h.get_ai_settings()
+                .await
+                .unwrap_or_else(|e| panic!("{name} fell to the default: {e}"));
         }
     }
 
