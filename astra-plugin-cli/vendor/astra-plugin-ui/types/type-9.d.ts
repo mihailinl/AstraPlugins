@@ -5,6 +5,7 @@ export interface ComboboxOption {
     value: string;
     label?: React.ReactNode;
     badge?: React.ReactNode;
+    actions?: React.ReactNode;
 }
 export interface ComboboxProps {
     value: string;

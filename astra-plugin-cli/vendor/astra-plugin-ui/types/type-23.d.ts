@@ -15,6 +15,8 @@ interface SegmentedControlBaseProps<T extends string> {
     onChange: (value: T) => void;
     ariaLabel: string;
     variant?: "default" | "plain";
+    equalWidth?: boolean;
+    wrapLabels?: boolean;
     className?: string;
 }
 export type SegmentedControlProps<T extends string> = SegmentedControlBaseProps<T> & ({
@@ -26,5 +28,5 @@ export type SegmentedControlProps<T extends string> = SegmentedControlBaseProps<
     id?: string;
     panelId?: never;
 });
-export declare function SegmentedControl<T extends string>({ value, options, onChange, ariaLabel, mode, variant, id, panelId, className, }: SegmentedControlProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function SegmentedControl<T extends string>({ value, options, onChange, ariaLabel, mode, variant, equalWidth, wrapLabels, id, panelId, className, }: SegmentedControlProps<T>): import("react/jsx-runtime").JSX.Element;
 export {};

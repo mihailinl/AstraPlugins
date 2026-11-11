@@ -1,33 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Minice
-import type { HTMLAttributes, ReactNode } from "react";
-import { type ButtonProps } from "./type-5";
-import { type IconName } from "./type-12";
+import { createElement, type ReactNode } from "react";
+import { type UiEnvironment } from "./type-32";
+import { type FloatingControls } from "./type-11";
+export * from "./type-41";
+export declare const h: typeof createElement;
 
-export declare function WidgetHead({ icon, title, meta, trailing, className }: {
-    icon: IconName;
-    title: ReactNode;
-    meta?: ReactNode;
-    trailing?: ReactNode;
-    className?: string;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function WidgetMetric({ children, size, className }: {
-    children: ReactNode;
-    size?: "xl" | "lg" | "md" | "sm";
-    className?: string;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function AstraLine({ children, className }: {
-    children: ReactNode;
-    className?: string;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function WidgetPlate({ children, className, pill, ...rest }: HTMLAttributes<HTMLDivElement> & {
-    children: ReactNode;
-    pill?: boolean;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function WidgetMeter({ value, max, label, className }: {
-    value: number;
-    max?: number;
-    label?: string;
-    className?: string;
-}): import("react/jsx-runtime").JSX.Element;
-export declare function WidgetPlateButton({ className, ...props }: Omit<ButtonProps, "variant">): import("react/jsx-runtime").JSX.Element;
+export interface UiRoot {
+    render(tree: ReactNode): void;
+    unmount(): void;
+}
+export declare function mount(container: Element, tree: ReactNode): UiRoot;
