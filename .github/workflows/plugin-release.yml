@@ -584,10 +584,25 @@ jobs:
           # as a named error instead of a mystery.
           export DEBIAN_FRONTEND=noninteractive
           # Word-split deliberately: this input is a package list.
-          # shellcheck disable=SC2086
-          sudo apt-get -o DPkg::Lock::Timeout=300 update -qq
-          # shellcheck disable=SC2086
-          sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
+          #
+          # Falls back to archive.ubuntu.com once if the runner's mirror is down
+          # (azure.archive.ubuntu.com stopped resolving on 2026-11-11). The same
+          # logic is .github/actions/apt-install; a reusable workflow cannot use
+          # a local action, so it is repeated here.
+          install() {
+            # shellcheck disable=SC2086
+            sudo apt-get -o DPkg::Lock::Timeout=300 update -qq &&
+              sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
+          }
+          if ! install; then
+            echo "::warning::apt failed with the runner's mirror; retrying against archive.ubuntu.com"
+            sudo sed -i -E \
+              -e 's#https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
+              -e 's#https?://security\.ubuntu\.com/ubuntu/?#http://security.ubuntu.com/ubuntu/#g' \
+              /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            sudo rm -rf /var/lib/apt/lists/*
+            install
+          fi
 
       # `runner.os` is a sufficient key: the only macOS leg is macos-15, arm64, so
       # one OS name is one architecture. Add an Intel Mac leg and this key must

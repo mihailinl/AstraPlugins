@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Minice — https://minice.ai
+#
+# apt-install — `apt-get install` that survives GitHub's Ubuntu mirror being down.
+#
+# Hosted ubuntu runners point apt at azure.archive.ubuntu.com. When that name
+# stopped resolving (run 43037132256), every `apt-get update` in this repo's CI
+# failed and the whole workflow went red for an hour over a package we could
+# have fetched from archive.ubuntu.com. This is the ONE place that knows how to
+# recover: try as configured; on any failure rewrite the sources to
+# archive.ubuntu.com and retry once. Every Linux apt step in ci.yml uses it.
+# (plugin-release.yml is a reusable workflow, where a local action is the
+# CALLER's checkout, so it carries the same few lines inline.)
+name: apt-install
+description: apt-get install with a one-shot fallback to archive.ubuntu.com
+inputs:
+  packages:
+    description: Space-separated package list.
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        set -uo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        # Word-split deliberately: this input is a package list.
+        install() {
+          sudo apt-get -o DPkg::Lock::Timeout=300 update -qq &&
+            sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
+        }
+        if install; then exit 0; fi
+        echo "::warning::apt failed with the runner's mirror; retrying against archive.ubuntu.com"
+        # deb822 (ubuntu.sources, 24.04+) and the classic sources.list alike.
+        sudo sed -i -E \
+          -e 's#https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
+          -e 's#https?://security\.ubuntu\.com/ubuntu/?#http://security.ubuntu.com/ubuntu/#g' \
+          /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null
+        sudo rm -rf /var/lib/apt/lists/*
+        install
