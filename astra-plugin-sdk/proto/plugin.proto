@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 82318cc55dd2354df469be981772347676fd142263bdd0402ba3d3e01e53076a
+// surface-sha256: 4e249e1543d3811d8fa7ecfb9fa52e8412c14de18561090c350faecfae3b1219
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -566,6 +566,9 @@ message ConversationHoldChangedEvent {
     string conversation_id = 1;
     bool held = 2;
     string held_by = 3;
+
+    // Conversation.held_source, repeated for the same patch.
+    string held_source = 4;
 }
 
 message McpServerChangedEvent {
@@ -1086,6 +1089,13 @@ message Conversation {
     // (a hold stamped from a held report's wake, or before names were kept).
     // Meaningful only while `held`.
     string held_by = 18;
+
+    // WHAT held it, so the window says why: "command" — work from a Workshop
+    // command the person has not approved (`held_by` is its name); "plugin_code"
+    // — a message the shell marked with `tainting_plugins` (`held_by` is those
+    // plugins' names, "" when the shell could not name them). "" when not held.
+    // An open vocabulary: a client shows a value it does not know as "command".
+    string held_source = 19;
 }
 
 message CreateConversationRequest {
@@ -1210,6 +1220,15 @@ message SubmitUserMessageRequest {
     // a daemon that predates it ignores the field and behaves as it always
     // did: skew is free in both directions with no version probe.
     string arrival = 10;
+
+    // The display names of the plugins whose code ran in the window this message
+    // was sent from (W32 step 2). SET BY THE SHELL, never by the page: the
+    // Electron main process and the Tauri core write the window's latch here and
+    // overwrite whatever the page sent. Non-empty = the conversation is HELD
+    // before its turn runs (Conversation.held, held_source "plugin_code") and the
+    // turn runs held. An entry may be "" (a plugin the shell could not name).
+    // Empty = an ordinary message.
+    repeated string tainting_plugins = 11;
 }
 
 message SubmitUserMessageResponse {
@@ -1242,6 +1261,9 @@ message RegenerateAssistantMessageRequest {
     string assistant_message_id = 2;
     bool voice_enabled = 3;
     string source_id = 4;
+
+    // SubmitUserMessageRequest.tainting_plugins: the re-run turn is held the same way.
+    repeated string tainting_plugins = 5;
 }
 
 message RegenerateAssistantMessageResponse {
@@ -1259,6 +1281,9 @@ message EditUserMessageRequest {
     bool voice_enabled = 5;
     string source_id = 6;
     repeated DocumentAttachment documents = 7;
+
+    // SubmitUserMessageRequest.tainting_plugins: the edited message's turn is held the same way.
+    repeated string tainting_plugins = 8;
 }
 
 message EditUserMessageResponse {
@@ -2221,6 +2246,11 @@ message SetVoiceConversationRequest {
 
 message SetVoicePendingImagesRequest {
     repeated ImageAttachment images = 1;
+
+    // SubmitUserMessageRequest.tainting_plugins, set by the shell: the next
+    // spoken turn these pictures ride — wake word, hotkey or push-to-talk — is
+    // held the same way. Kept beside the images and dropped with them.
+    repeated string tainting_plugins = 2;
 }
 
 message SetPushToTalkRequest {
@@ -2234,6 +2264,11 @@ message SetPushToTalkRequest {
 
     // Client-generated UUID, echoed on capture events. Empty for older clients.
     string capture_id = 3;
+
+    // SubmitUserMessageRequest.tainting_plugins, set by the shell on the press and
+    // on the release: the turn this capture's transcript starts is held the same
+    // way. A press that carries it needs a capture_id.
+    repeated string tainting_plugins = 4;
 }
 
 // ============ Command Service ============
@@ -2456,6 +2491,19 @@ message CommandDefinition {
     // definition's own `catalogue_source`, set only by the commands kind's install and by the
     // copy rule (§4.8). Unset for a command made here. Read only; a request never sets it.
     CatalogueSourceMarker catalogue_source = 17;
+
+    // Set only on a LIST/GET answer, for a Workshop command a withdrawal disarmed and the
+    // Workshop later released, which is still switched off (W37). Read only; unset otherwise.
+    CommandReleaseNote release_note = 18;
+}
+
+// The Workshop released a withdrawal from an installed command that stays OFF (the safer side):
+// the person may turn it on again. `released_at` is epoch seconds; `by` is the record's word:
+// "lift" (a signed lift) | "list-omits" (the list no longer carries the act) | "update" (the
+// installed version is not the one the act named) | "" (a record this build cannot word).
+message CommandReleaseNote {
+    int64 released_at = 1;
+    string by = 2;
 }
 
 // Per-command override of the global CommandExecutionSettings. Mirrors
