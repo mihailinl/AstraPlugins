@@ -207,7 +207,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      # protoc from the GitHub release, not apt: this job's `apt-get install
+      # protobuf-compiler` went red on every leg when azure.archive.ubuntu.com
+      # stopped resolving (run 43037132256). Same pinned action and version as
+      # plugin-release.yml's protoc step.
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with:
+          version: "27.5"
+          repo-token: ${{ github.token }}
       - run: cargo install --path astra-plugin-cli --locked
       - name: Scaffold and build every backend/frontend pair
         shell: bash
@@ -2362,9 +2369,9 @@ jobs:
       # uses WASAPI, so windows-2022 needs nothing installed here.
       - name: "apt: pkg-config libasound2-dev libssl-dev"
         if: matrix.os == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libssl-dev
+        uses: ./.github/actions/apt-install
+        with:
+          packages: pkg-config libasound2-dev libssl-dev
 
       # E3 — a committed lockfile that nothing resolves against is not a record
       # of anything.
