@@ -33,10 +33,12 @@ runs:
         }
         if install; then exit 0; fi
         echo "::warning::apt failed with the runner's mirror; retrying against archive.ubuntu.com"
-        # deb822 (ubuntu.sources, 24.04+) and the classic sources.list alike.
+        # deb822 (ubuntu.sources, 24.04+) and the classic sources.list alike, and the
+        # list behind `mirror+file:/etc/apt/apt-mirrors.txt`, which is what the
+        # hosted images actually use (the azure URL lives in that file).
         sudo sed -i -E \
           -e 's#https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
           -e 's#https?://security\.ubuntu\.com/ubuntu/?#http://security.ubuntu.com/ubuntu/#g' \
-          /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null
+          /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null
         sudo rm -rf /var/lib/apt/lists/*
         install
