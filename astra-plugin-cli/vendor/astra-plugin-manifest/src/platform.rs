@@ -173,10 +173,7 @@ mod tests {
             platform_key_for("windows", "x86_64").unwrap(),
             "windows-x64"
         );
-        assert_eq!(
-            platform_key_for("macos", "aarch64").unwrap(),
-            "macos-arm64"
-        );
+        assert_eq!(platform_key_for("macos", "aarch64").unwrap(), "macos-arm64");
     }
 
     /// A macOS host must produce a NAMED error, not another platform's key.
@@ -213,7 +210,11 @@ mod tests {
     /// free to reject the one key that matters.
     #[test]
     fn every_supported_key_is_a_reserved_key() {
-        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64"), ("macos", "aarch64")] {
+        for (os, arch) in [
+            ("linux", "x86_64"),
+            ("windows", "x86_64"),
+            ("macos", "aarch64"),
+        ] {
             let key = platform_key_for(os, arch).unwrap();
             assert!(
                 RESERVED_PLATFORM_KEYS.contains(&key),
@@ -224,7 +225,11 @@ mod tests {
             assert!(RESERVED_PLATFORM_KEYS.contains(&reserved));
             // …and none of them is returned by `platform_key_for`: a reserved key
             // a daemon resolves to is a supported one, and must say so above.
-            for (os, arch) in [("macos", "x86_64"), ("linux", "aarch64"), ("windows", "aarch64")] {
+            for (os, arch) in [
+                ("macos", "x86_64"),
+                ("linux", "aarch64"),
+                ("windows", "aarch64"),
+            ] {
                 assert_ne!(platform_key_for(os, arch).ok(), Some(reserved));
             }
         }
@@ -243,7 +248,11 @@ mod tests {
     /// would flag a manifest that names this very machine.
     #[test]
     fn the_known_vocabularies_cover_every_host_astra_ships() {
-        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64"), ("macos", "aarch64")] {
+        for (os, arch) in [
+            ("linux", "x86_64"),
+            ("windows", "x86_64"),
+            ("macos", "aarch64"),
+        ] {
             assert!(KNOWN_OS_VALUES.contains(&os));
             assert!(KNOWN_ARCH_VALUES.contains(&arch));
             assert!(platform_key_for(os, arch).is_ok());
