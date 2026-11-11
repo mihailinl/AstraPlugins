@@ -14,7 +14,11 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [Unreleased]
+## [0.7.5] — unreleased
+
+Proto re-synced to Astra main `4b8c4ae8e`. Between `sdk-v0.7.4` and this release the protocol gained 55 fields on
+23 messages that already existed, 24 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+nothing was removed, retyped or changed in place.
 
 ### Added
 
