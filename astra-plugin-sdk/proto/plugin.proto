@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 4e249e1543d3811d8fa7ecfb9fa52e8412c14de18561090c350faecfae3b1219
+// surface-sha256: a54736a3c71df10d0472793dec829bcfd7d034f618e4a2c2b88c1e494cad9b00
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -432,7 +432,8 @@ message AstraEvent {
         RunActionConfirmationEndedEvent run_action_confirmation_ended = 49;
         // An EXISTING conversation's hold changed (Conversation.held): a held
         // turn handed work to it, or the person released it. A conversation
-        // BORN held says so in the list read and raises no event.
+        // BORN held says so in the list read and raises no event. Delivered to
+        // the main window only.
         ConversationHoldChangedEvent conversation_hold_changed = 50;
     }
 
@@ -559,9 +560,9 @@ message ConversationDeletedEvent {
 }
 
 // An existing conversation's hold changed — see Conversation.held / held_by,
-// which these two fields repeat so a client patches its row without a list read.
-// Never delivered while the app is locked (an id and a command's name are
-// content; a window that was locked reloads its list), and never to a plugin.
+// which these fields repeat so a client patches its row without a list read.
+// Delivered to the main window only: never to the island, the screen widgets,
+// the companion or a plugin, and never while the app is locked.
 message ConversationHoldChangedEvent {
     string conversation_id = 1;
     bool held = 2;

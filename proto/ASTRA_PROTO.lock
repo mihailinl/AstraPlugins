@@ -34,6 +34,6 @@
 #                        still compare against live main regardless of this.
 #
 protocol=1
-plugin_proto_sha256=c808996819bcb74fb8bc211fbfebc6ed50bbdd0977fe6bf6bc8d992654f2677a
-surface_sha256=4e249e1543d3811d8fa7ecfb9fa52e8412c14de18561090c350faecfae3b1219
-astra_commit=044c183abd2dac5bc5021931a98a4893a300cb05
+plugin_proto_sha256=3edc7ef062da9dcfaa3bb4b1332012b61c9e18785a4ce728b361ac2b9a7189b2
+surface_sha256=a54736a3c71df10d0472793dec829bcfd7d034f618e4a2c2b88c1e494cad9b00
+astra_commit=b15eb1f55cdb2d7936a489931a729db14e38640b
