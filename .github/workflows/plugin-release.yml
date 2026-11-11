@@ -870,8 +870,10 @@ jobs:
             rel="${f#"$root"/}"
             minos=$(otool -l "$f" | awk '
               $1 == "cmd" { cmd = $2 }
-              # No `exit`: awk must read all of otool's output, or otool gets
-              # SIGPIPE and, under pipefail, the step dies with no ::error.
+              # No exit statement here: awk has to read all of the output of
+              # otool, or otool gets SIGPIPE and, under pipefail, the step dies
+              # with no ::error. (No apostrophes in this comment: it sits inside
+              # a single-quoted awk program.)
               !m && cmd == "LC_BUILD_VERSION" && $1 == "minos" { print $2; m = 1 }
               !m && cmd == "LC_VERSION_MIN_MACOSX" && $1 == "version" { print $2; m = 1 }')
             if [ -z "$minos" ]; then

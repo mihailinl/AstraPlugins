@@ -1926,18 +1926,13 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-        with:
-          workspaces: pinned/astra-plugin-cli
-          key: release-tooling-pin
       - name: build the CLI at ASTRA_TOOLING_REF
         run: |
           set -euo pipefail
           ref=$(sed -n 's/^ *ASTRA_TOOLING_REF: *"\([0-9a-f]\{40\}\)".*/\1/p' .github/workflows/plugin-release.yml)
           test -n "$ref"
           git worktree add --detach "$RUNNER_TEMP/pinned" "$ref"
-          ln -s "$RUNNER_TEMP/pinned" pinned
-          cargo build --release --locked --manifest-path pinned/astra-plugin-cli/Cargo.toml --target-dir "$RUNNER_TEMP/pin-target"
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/pinned/astra-plugin-cli/Cargo.toml" --target-dir "$RUNNER_TEMP/pin-target"
       - name: it knows every target the workflow builds and indexes
         run: |
           set -euo pipefail
@@ -1982,10 +1977,6 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-        with:
-          workspaces: pinned/astra-plugin-cli
-          key: macos-release-leg
 
       - name: this runner is Apple Silicon
         run: |
@@ -1998,8 +1989,7 @@ jobs:
           ref=$(sed -n 's/^ *ASTRA_TOOLING_REF: *"\([0-9a-f]\{40\}\)".*/\1/p' .github/workflows/plugin-release.yml)
           test -n "$ref"
           git worktree add --detach "$RUNNER_TEMP/pinned" "$ref"
-          ln -s "$RUNNER_TEMP/pinned" pinned
-          cargo install --path pinned/astra-plugin-cli --locked --force
+          cargo install --path "$RUNNER_TEMP/pinned/astra-plugin-cli" --locked --force
 
       - name: pack examples/dice-roller for macos-arm64
         working-directory: examples/dice-roller
