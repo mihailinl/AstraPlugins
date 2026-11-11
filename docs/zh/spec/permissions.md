@@ -38,6 +38,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | 重新设置整个应用的样式 | ● |
 | `dom_access` | *没有 RPC*——一个**界面层(surface)** | 在 Astra 窗口内运行插件自己的脚本，能访问用户的对话以及每一个其他插件的界面 | ● |
 | `client` | *没有 RPC*——一个**界面层(surface)** | 作为一个客户端前端：有自己的聊天界面，有自己的会话 | ● |
+| `read_ai_settings` | `GetAiSettings` | 读取聊天的提供方、模型和端点——绝不包含密钥、其他角色或用户保存的其他端点 | |
 
 **带 ● 标记的五项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
 得到自己的同意勾选框。计划文档 §4.3 详细列出了四个勾选框，遗漏了
@@ -126,6 +127,7 @@ set_variable     = { scopes = ["plugin"] }
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` 是在计划文档三项清单之外新增的一项，这是一个决定，
 而不是遗漏：它返回的 `version`、`state`、`grpc_port` 和 `language`，
@@ -235,9 +237,9 @@ id。在这个拆分出现之前编写的每一个插件，都在旧的位置说
 2. **上限(ceiling)**——一条任何记录都无法买通突破的、按来源而定的
    规则。
 
-`require_permission` 会针对限制某项权限的六个 host RPC——
+`require_permission` 会针对限制某项权限的七个 host RPC——
 `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、`SetVariable`、
-`SetThemeContribution`、`PushToUi`——去询问第一道关卡。剩下的四个
+`SetThemeContribution`、`PushToUi`、`GetAiSettings`——去询问第一道关卡。剩下的四个
 （`Register`、`GetPluginSelfConfig`、`PluginLog`、`GetDaemonInfo`）
 在 `HOST_RPC_PERMISSIONS` 中携带的是 `None`，永远被允许；§2 中有对
 应的表格和推理过程。`ceiling_admits` 会在任何一个*界面层*被分发出去

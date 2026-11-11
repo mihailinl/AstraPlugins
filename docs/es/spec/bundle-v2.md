@@ -356,6 +356,7 @@ acota esto.
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -369,7 +370,7 @@ clave de plataforma soportada para uno, así que ningún cliente
 necesita aprender la palabra. Vector: `ok-noarch-runtime`.
 
 Ningún otro par `{os, arch}` nombra un target hoy. `linux-arm64`,
-`windows-arm64`, `macos-x64` y `macos-arm64` son claves de plataforma
+`windows-arm64`, `macos-x64` son claves de plataforma
 reservadas en el schema del registro; Astra no distribuye ningún
 daemon para ellas.
 

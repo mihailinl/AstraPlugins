@@ -116,6 +116,20 @@
           "type": "object"
         },
         {
+          "$ref": "#/$defs/RandomAction",
+          "description": "Select one random number or weighted text value.",
+          "properties": {
+            "type": {
+              "const": "random",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
           "$ref": "#/$defs/WaitAction",
           "description": "Wait/delay",
           "properties": {
@@ -1692,6 +1706,47 @@
       ],
       "type": "object"
     },
+    "RandomAction": {
+      "properties": {
+        "choices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WeightedChoice"
+          },
+          "type": "array"
+        },
+        "max": {
+          "default": 6,
+          "format": "int64",
+          "type": "integer"
+        },
+        "min": {
+          "default": 1,
+          "format": "int64",
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/$defs/RandomMode",
+          "default": "number"
+        },
+        "scope": {
+          "$ref": "#/$defs/VariableScope",
+          "default": "local"
+        },
+        "store_in": {
+          "default": "random_result",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "RandomMode": {
+      "enum": [
+        "number",
+        "text"
+      ],
+      "type": "string"
+    },
     "RunCommandAction": {
       "description": "Run another saved command inline.\n\nReferences the target by its `command` NAME (matched case-insensitively,\nlike the AI `execute_command` tool) so the picker and the graph node show\nthe human-readable name directly. `input` optionally seeds the sub-command's\n`original_input` / `{capture}` so a sub-command that reads `{input}` /\n`{capture}` receives a value; it supports `{variable}` substitution against\nthe parent context. Recursion / cycles are bounded centrally in\n`graph_executor::execute_graph` via the execution `command_stack`.",
       "properties": {
@@ -2135,6 +2190,21 @@
       "required": [
         "milliseconds"
       ],
+      "type": "object"
+    },
+    "WeightedChoice": {
+      "properties": {
+        "value": {
+          "default": "",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1,
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
       "type": "object"
     },
     "WorkTaskAction": {

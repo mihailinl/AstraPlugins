@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: ffb7fa7090a1d5dd537a1ee5faaedb8c3d6fbf55469a0aaa11180c961ab53ec5
+// surface-sha256: 82318cc55dd2354df469be981772347676fd142263bdd0402ba3d3e01e53076a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -6240,7 +6240,9 @@ message PluginAiSettings {
     string provider = 1;
     string model = 2;
 
-    // The effective endpoint, without userinfo, query or fragment. Empty for
+    // The effective endpoint. Userinfo, query and fragment are removed; the
+    // PATH is sent as the person configured it (a relay that puts a token in
+    // the path gives it to the plugin). Empty for
     // `astra` (its endpoint is Astra's, not the plugin's) and for anything that
     // does not parse as a URL.
     string api_base_url = 3;

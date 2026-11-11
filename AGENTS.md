@@ -151,7 +151,7 @@ both stub regenerations, `ASTRA_PROTO.lock`, the docs digests in every locale,
 and the UI Kit snapshot — in one command, and commits only what moved.
 
 **[`spec/hooks.yaml`](spec/hooks.yaml) and [`spec/limits.yaml`](spec/limits.yaml)
-are the source of truth** — for the 41 hooks, and for the numbers that must be
+are the source of truth** — for the 42 hooks, and for the numbers that must be
 identical in the daemon and the SDKs. Both are shared with `Astra`, so changing
 either is an *issue first* change (§6).
 

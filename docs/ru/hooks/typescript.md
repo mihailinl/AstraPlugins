@@ -66,6 +66,7 @@
 | `FireTrigger` | `triggers` | `fire_trigger` | обязателен | unary | stable | Запустить один из типов триггеров этого плагина и выполнить все слушающие команды. |
 | `SendChatMessage` | `client` | `send_chat_message` | обязателен | server | stable | Отправить сообщение чата от имени этого плагина и стримить ответ ассистента обратно. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | опционален | unary | stable | Отправить событие в собственные iframe этого плагина — обратный путь для CallFromUi. |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | Провайдер, модель и адрес чата пользователя (но не ключ), чтобы плагину не приходилось читать файлы Astra. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | опционален | unary | stable | Внести цвета, обои и шейдер в активную тему Astra. |
 
 ## Пробелы

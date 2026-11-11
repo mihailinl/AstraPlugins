@@ -42,6 +42,7 @@ leere Zeile.
 | `set_theme_contribution` | `SetThemeContribution` | die gesamte App umgestalten | ● |
 | `dom_access` | *kein RPC* — eine **Surface** | das eigene Skript des Plugins im Astra-Fenster ausführen, mit Zugriff auf die Unterhaltungen des Nutzers und die Oberfläche jedes anderen Plugins | ● |
 | `client` | *kein RPC* — eine **Surface** | als Client-Frontend agieren: eigene Chat-Oberfläche, eigene Session | ● |
+| `read_ai_settings` | `GetAiSettings` | Provider, Modell und Endpunkt des Chats lesen — nie einen Schlüssel, nie eine andere Rolle, nie die gespeicherten Endpunkte des Nutzers | |
 
 **Die fünf mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
 und bekommen jeweils eine eigene Zustimmungs-Checkbox. §4.3 des Plans
@@ -137,6 +138,7 @@ neues RPC ein Testfehlschlag ist statt eine stille Auslassung:
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` ist die eine Ergänzung zur Dreier-Liste des Plans, und
 das ist eine Entscheidung statt eine Auslassung: es gibt `version`,
@@ -263,9 +265,9 @@ Eine Permission wird nur honoriert, wenn **beide** gelten:
 2. die **Obergrenze** — eine pro Provenienz geltende Regel, die kein
    Record überkaufen kann.
 
-`require_permission` fragt das erste für die sechs Host-RPCs, die eine
+`require_permission` fragt das erste für die sieben Host-RPCs, die eine
 Permission sperren — `SubscribeEvents`, `SendChatMessage`,
-`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`. Die
+`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`. Die
 verbleibenden vier (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) tragen `None` in `HOST_RPC_PERMISSIONS` und sind
 immer erlaubt; §2 hat die Tabelle und die Begründung.

@@ -2,15 +2,16 @@
 
 # プラットフォーム
 
-Astra は**2 つ**のホスト向けにデーモンを出荷しています。以下のすべては
+Astra は**3 つ**のホスト向けにデーモンを出荷しています。以下のすべては
 そこから導かれます。
 
 | プラットフォームキー | ホスト | Astra はデーモンを出荷しているか |
 |---|---|---|
 | `linux-x64` | Linux, x86_64 | はい |
 | `windows-x64` | Windows, x86_64 | はい |
-| `noarch` | 任意 — ネイティブコードを持たないインタプリタ型プラグイン | 該当なし、両方で動作します |
-| `linux-arm64` · `windows-arm64` · `macos-x64` · `macos-arm64` | — | **いいえ** |
+| `macos-arm64` | macOS, Apple Silicon (arm64) | はい |
+| `noarch` | 任意 — ネイティブコードを持たないインタプリタ型プラグイン | 該当なし、3 つすべてで動作します |
+| `linux-arm64` · `windows-arm64` · `macos-x64` | — | **いいえ** |
 
 最後の行は*予約されているだけで、サポートはされていません*。これらの
 名前がレジストリのスキーマに存在するのは、Astra が後にそれらのホストを
@@ -28,17 +29,18 @@ Astra は**2 つ**のホスト向けにデーモンを出荷しています。�
 ```bash
 astra-plugin build --target linux-x64
 astra-plugin build --target windows-x64
+astra-plugin build --target macos-arm64
 astra-plugin build --all-targets
 ```
 
 - **Rust** はネイティブコードにコンパイルされるため、プラットフォームごと
   に 1 つのバンドルが必要です。リリースワークフローはこれらをマトリクス
-  でビルドします — `ubuntu-24.04` と `windows-2022` です — なぜなら
+  でビルドします — `ubuntu-24.04`、`windows-2022`、`macos-15`(Apple Silicon) です — なぜなら
   クロスビルドは別種のバグ集合だからです。
 - **TypeScript と Python** は単一の `noarch` バンドルを生成します。
   インデックスは、サポートされているすべてのプラットフォームキーの下に
   同じ URL とダイジェストを書き込むため、`noarch` バンドルは他のものと
-  同様に `linux-x64` と `windows-x64` の両方の下で見つかります。
+  同様に `linux-x64`、`windows-x64`、`macos-arm64` のすべての下で見つかります。
 
 `--all-targets` は、Astra が動くあらゆる場所でインストール可能になる
 ために必要なものをすべてビルドします: TypeScript と Python は 1 ファイル、
@@ -172,11 +174,14 @@ Astra は `directories` クレートを使い、`("com", "astra", "astra")`
 
 ## macOS
 
-サポートされていません。それは省略によるものではありません。Astra 自身の
-リリースワークフローは `linux-x64` と `windows-x64` のみをビルドしており、
-`macos-arm64` プラグインバンドルには実行するホストがありません。macOS は
-さらに、すべてのサードパーティ作者に Apple の公証(notarization)問題を
-持ち込みます。キー名はインデックスのスキーマ内に予約されているだけで、
-何もそれらを発行せず、扱われないホストはサイレントなフォールバックではなく
-ハードエラーになります。Astra がそのターゲット向けにデーモンを出荷する
-リリースの際に、改めて見直してください。
+Apple Silicon のみ: `macos-arm64`。Intel Mac(`macos-x64`)にはデーモンもキーも
+ありません。macOS のバンドルは **macOS ランナー上で**ビルドされ、Linux
+からのクロスビルドは行いません。arm64 バイナリはコード署名がないと起動時に
+強制終了され、ネイティブのリンカーが ad-hoc 署名を付け、リリース
+ワークフローはバンドルが証明(attestation)される前に署名(`codesign --verify`)
+とファイルが arm64 Mach-O であることを検査します。そのため
+`astra-plugin build --target macos-arm64` は Apple Silicon の Mac 以外の
+ホストでは拒否され、`--all-targets` は他の外部ターゲットと同様に、事前に
+ビルドした macOS バイナリを必要とします。公証(notarization)はありません。
+デーモンがバンドルを自分でダウンロードして展開するため、ファイルにブラウザの
+隔離フラグは付きません。

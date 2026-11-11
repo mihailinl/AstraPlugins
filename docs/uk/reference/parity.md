@@ -84,6 +84,7 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 
 ## Готовність можливостей
@@ -167,4 +168,5 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 - **`Register`** — Рукостискання: пред'явити токен запуску, отримати токен сесії для цього плагіна. Єдиний шлях, звільнений від перехоплювача авторизації. Кожен наступний rpc хоста зобов'язаний нести повернутий токен як x-session-token.
 - **`SendChatMessage`** — Надіслати повідомлення чату від імені цього плагіна і стрімити відповідь асистента назад. Токен сесії обмежений PluginHostService, тож шлях DaemonClient/ChatService, на який раніше вказували авторів SDK, — permission_denied — цей rpc єдиний робочий шлях. Прив'язаний у всіх трьох SDK починаючи з 5.4.
 - **`PushToUi`** — Надіслати подію у власні iframe цього плагіна — зворотний шлях для CallFromUi. Тепер прив'язаний у всіх трьох. У Python три релізи був CallFromUi і не було PushToUi, тож Python UI-плагін можна було викликати, але він не міг відповісти асинхронно.
+- **`GetAiSettings`** — Провайдер, модель і адреса чату користувача (але не ключ), щоб плагіну не доводилося читати файли Astra. Astra старша за 2026-11-10 відповідає UNIMPLEMENTED; збережена адреса читається як openai_compatible, власний сервіс Astra — як astra без URL.
 - **`SetThemeContribution`** — Внести кольори, шпалери і шейдер до активної теми Astra. Фаза 4 класифікує його як високоризиковий і відхиляє нижче рівня 1, тож прив'язка без виданого дозволу — це permission_denied, а не перефарбована тема. Прив'язаний у всіх трьох SDK починаючи з 5.4.

@@ -44,7 +44,7 @@ R6.
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ R6.
 который ничего не защищает, — это то, как пользователи привыкают их тикать
 не глядя.
 
-## Восемь id
+## Девять id
 
 | Id | Закрывает | Свой чекбокс | Отклоняется для локального импорта | Что позволяет |
 |---|---|---|---|---|
@@ -77,6 +77,7 @@ R6.
 | `set_theme_contribution` | `SetThemeContribution` | **да** | **да** | Переоформить всё приложение |
 | `dom_access` | — (поверхность) | **да** | **да** | Выполнять свой код внутри окна Astra, с доступом к беседам и интерфейсу любого другого плагина |
 | `client` | — (поверхность) | **да** | **да** | Быть фронтендом чата с собственной сессией |
+| `read_ai_settings` | `GetAiSettings` | нет | нет | Читать провайдера, модель и адрес чата пользователя — но не ключ |
 
 `dom_access` и `client` не закрывают ни один RPC, и в этом суть: это
 **поверхности**. `dom_access` определяет, отрисовывается ли UI-вклад как
@@ -119,6 +120,19 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
   получал каждое событие, включая `speech_recognized`, которое несёт
   транскрипты пользователя. Пустой список не разрешает ничего.
 - **`set_variable.scopes`** — это `"plugin"`, `"session"` или `"persistent"`.
+
+## Чтение настроек ИИ пользователя
+
+Плагин, который сам обращается к модели пользователя — собственный ассистент, суммаризатор, — должен знать, какого провайдера, какую модель и какой адрес выбрал пользователь. **Спрашивай об этом Astra; никогда не читай файлы Astra.** Объяви `read_ai_settings` и вызови `GetAiSettings` (`get_ai_settings()` в Rust и Python, `getAiSettings()` в TypeScript):
+
+| Поле | Что это |
+|---|---|
+| `provider` | Идентификатор провайдера чата. Сохранённый пользователем адрес — это `openai_compatible`; собственный сервис Astra — `astra` |
+| `model` | Идентификатор модели чата |
+| `api_base_url` | Адрес. Userinfo, query и fragment убраны; путь отдаётся так, как его настроил человек (если ретранслятор кладёт токен в путь, ты его получишь). Для `astra` пусто: его адрес вызывать не тебе |
+| `is_loopback` | Адрес находится на этой машине (`127.0.0.0/8`, `::1`, `localhost`) — локальная модель |
+
+Ключа API здесь никогда нет, как нет и других сохранённых адресов пользователя, системного промпта и любой роли, кроме чата. Плагин, которому нужен ключ, просит его у пользователя в собственном `[config]` (пометь его секретным). Разрешение не высокорисковое и не отклоняется для локального импорта: это честный путь к этим сведениям, а цена выше, чем у чтения `settings.json`, толкала бы плагины не туда. Чтение собственных файлов Astra — то, что ищет ручная проверка при публикации. Astra старше этого вызова отвечает `UNIMPLEMENTED`.
 
 ## Как написать reason
 

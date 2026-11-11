@@ -173,6 +173,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | **是** | **是** | 重新设置整个应用的样式。 |
 | `dom_access` | — | **是** | **是** | 在 Astra 窗口内运行插件自己的代码，能访问用户的对话以及每一个其他插件的界面。 |
 | `client` | — | **是** | **是** | 作为一个客户端前端存在（有自己的聊天界面、自己的会话）。 |
+| `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。 |
 
 *Gates（限制的调用）*是指没有这项权限时守护进程会拒绝的那个 host
 RPC，来自 [`spec/hooks.yaml`](../../../spec/hooks.yaml)；一致性规则
@@ -241,6 +242,8 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 **`client`。** 作为一个客户端前端存在（有自己的聊天界面、自己的
 会话）。**高风险。**
 
+**`read_ai_settings`。** `PluginHostService.GetAiSettings`——读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。不属于高风险，在 Tier 2 也不会被拒绝：它让调用用户模型的插件无需读取 Astra 的文件就能知道模型在哪里，把它定为高风险只会把诚实的插件推回 `settings.json`。
+
 ## `[config]`
 
 插件配置的 JSON Schema（自动生成设置界面）。
@@ -276,9 +279,7 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 
 `[platform] arch = [...]` 可以指名的 `arch` 取值。
 
-**`RESERVED_PLATFORM_KEYS`** —— `linux-x64`、`windows-x64`、
-`linux-arm64`、`windows-arm64`、`macos-x64`、`macos-arm64`、
-`noarch`
+**`RESERVED_PLATFORM_KEYS`** —— `linux-x64`、`windows-x64`、`macos-arm64`、`linux-arm64`、`windows-arm64`、`macos-x64`、`noarch`
 
 注册表 schema 保留的每一个构件键，按生成器应当输出它们的顺序排列。
 
@@ -288,16 +289,12 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 校验器能够拒绝一个拼写错误（`mac-arm64`、`linux-amd64`），而不是写入
 一个永远不会有任何守护进程去查找的键。
 
-**被保留不代表被支持。** Astra 的发布工作流既不会构建 macOS 的守护
-进程，也不会构建 arm64 的守护进程，所以在 `macos-x64`、
-`macos-arm64`、`linux-arm64` 或 `windows-arm64` 下发布的包，没有任何
-宿主可以运行它。一个产出这类键的生成器，实际上是在发布一个没有人能
-安装的文件。
+**被保留不代表被支持。** Astra 为 x86_64 的 Linux 和 Windows 提供守护进程，并且自 0.2.8 起为 Apple Silicon 的 macOS（`macos-arm64`）提供。它不会为 Intel Mac 或 arm64 的 Linux/Windows 构建守护进程，所以在 `macos-x64`、`linux-arm64` 或 `windows-arm64` 下发布的包，没有任何宿主可以运行它。一个产出这类键的生成器，实际上是在发布一个没有人能安装的文件。
 
 `noarch` 是解释型语言（TypeScript、Python）的情形。它在这里为校验器
 而保留，但守护进程**不会**去查找它：按照包规格，索引会把同一个 URL
 和摘要写在每一个*受支持*的平台键下面，所以一个 `noarch` 包和其他任何
-包一样，能在 `linux-x64` / `windows-x64` 下被找到。
+包一样，能在 `linux-x64` / `windows-x64` / `macos-arm64` 下被找到。
 
 守护进程运行时路径中没有任何地方会读取这份列表 —— 使用它的是注册表
 仓库中的索引生成器、CLI 的 `check`，以及下面那个用来保证两边内容

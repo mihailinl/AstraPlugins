@@ -4,10 +4,10 @@
 
 协议世代 **1**。10 个服务，192 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: 7a4f3ba3323e2ad8…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 82318cc55dd2354d…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:ea9924cef0817f45…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:a1731b0dd878c397…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
@@ -84,6 +84,7 @@
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | 发布一个命令和其他插件都可以读取的变量。 |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | 为当前激活的 Astra 主题贡献颜色、壁纸和着色器。 |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | 把一个事件推送进这个插件自己的 iframe 里 —— 这是 CallFromUi 的回程路径。 |
+| `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` 意味着任何插件随时都可以调用它——这是引导集合，守护进程对它
 完全不做任何权限检查。这不是敷衍了事，而是对守护进程本身的一个断言：

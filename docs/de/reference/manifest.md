@@ -223,6 +223,7 @@ was signiert wurde.
 | `set_theme_contribution` | `SetThemeContribution` | **ja** | **ja** | Gestaltet die gesamte App um. |
 | `dom_access` | — | **ja** | **ja** | Führt den eigenen Code des Plugins im Astra-Fenster aus, mit Zugriff auf die Unterhaltungen des Nutzers und die Oberfläche jedes anderen Plugins. |
 | `client` | — | **ja** | **ja** | Agiert als Client-Frontend (eigene Chat-Oberfläche, eigene Session). |
+| `read_ai_settings` | `GetAiSettings` | nein | nein | Liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). |
 
 *Sperrt* ist das Host-RPC, das der Daemon ohne die Permission ablehnt,
 aus [`spec/hooks.yaml`](../../../spec/hooks.yaml); Paritätsregel R6
@@ -297,6 +298,8 @@ zweiten Bildschirm gibt.**
 **`client`.** Agiert als Client-Frontend (eigene Chat-Oberfläche,
 eigene Session). **Hohes Risiko.**
 
+**`read_ai_settings`.** `PluginHostService.GetAiSettings` — liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es lässt ein Plugin, das das Modell des Nutzers aufruft, erfahren, wo es liegt, OHNE Astras Dateien zu lesen; ein hoher Preis würde ein ehrliches Plugin zurück zu `settings.json` treiben.
+
 ## `[config]`
 
 JSON Schema für die Plugin-Konfiguration (generiert die Settings-UI
@@ -336,8 +339,7 @@ würde ein korrektes Manifest ablehnen.
 
 Die `arch`-Werte, die `[platform] arch = [...]` benennen darf.
 
-**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`,
-`linux-arm64`, `windows-arm64`, `macos-x64`, `macos-arm64`, `noarch`
+**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`, `macos-arm64`, `linux-arm64`, `windows-arm64`, `macos-x64`, `noarch`
 
 Jeder Artefakt-Schlüssel, den das Registry-Schema reserviert, in der
 Reihenfolge, in der ein Generator sie ausgeben sollte.
@@ -349,19 +351,14 @@ später ausliefert, und damit ein Registry-Validator einen Tippfehler
 (`mac-arm64`, `linux-amd64`) ablehnen kann, statt einen Schlüssel zu
 schreiben, den kein Daemon je nachschlägt.
 
-**Reserviert bedeutet nicht unterstützt.** Astras Release-Workflow baut
-weder einen macOS- noch einen arm64-Daemon, sodass ein unter
-`macos-x64`, `macos-arm64`, `linux-arm64` oder `windows-arm64`
-veröffentlichtes Bundle keinen Host hat, auf dem es läuft. Ein
-Generator, der eines davon ausgibt, veröffentlicht eine Datei, die
-niemand installieren kann.
+**Reserviert bedeutet nicht unterstützt.** Astra liefert einen Daemon für Linux und Windows auf x86_64 und, seit 0.2.8, für macOS auf Apple Silicon (`macos-arm64`) aus. Für Intel-Macs und arm64-Linux/Windows baut es keinen Daemon, sodass ein unter `macos-x64`, `linux-arm64` oder `windows-arm64` veröffentlichtes Bundle keinen Host hat, auf dem es läuft. Ein Generator, der eines davon ausgibt, veröffentlicht eine Datei, die niemand installieren kann.
 
 `noarch` ist der Fall interpretierter Sprachen (TypeScript, Python). Es
 ist hier für Validatoren reserviert, aber der Daemon schlägt es
 **nicht** nach: gemäß der Bundle-Spec schreibt der Index dieselbe URL
 und denselben Digest unter jeden *unterstützten* Plattform-Schlüssel,
 sodass ein `noarch`-Bundle wie jedes andere unter `linux-x64` /
-`windows-x64` gefunden wird.
+`windows-x64` / `macos-arm64` gefunden wird.
 
 Nichts im Laufzeitpfad des Daemons liest diese Liste — ihre Konsumenten
 sind der Index-Generator im Registry-Repository, das `check` der CLI,

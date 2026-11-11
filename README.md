@@ -21,7 +21,7 @@ gRPC on loopback. Two services run in opposite directions:
 - `PluginHostService` — **plugin → daemon**. Astra serves it; your plugin calls
   out to log, fire a trigger, set a variable, push to the UI.
 
-41 hooks across the two, protocol version 1, one source of truth in
+42 hooks across the two, protocol version 1, one source of truth in
 [`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 41 — see
 the generated hook-parity page under [`docs/en/`](docs/en/README.md), which
 `tools/parity` renders from that file and CI drift-checks.
@@ -53,17 +53,17 @@ error rather than a silently-dropped line
 
 Capabilities are the inbound direction only. The outbound direction —
 which host RPCs your plugin is allowed to call — is `[permissions]`, and it is
-**default-deny**. Of the ten host RPCs, four are always allowed (`Register`,
-`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and six are gated on a
+**default-deny**. Of the eleven host RPCs, four are always allowed (`Register`,
+`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and seven are gated on a
 consented permission; two more permissions (`dom_access`, `client`) gate a
 surface rather than a call. The table lives in the daemon at
 `astra-daemon/src/plugins/host_service.rs` (`HOST_RPC_PERMISSIONS`) and a test
 there fails if a new host RPC ships ungated.
 
-Eight permission ids, each with a `reason` you write and the user reads on the
+Nine permission ids, each with a `reason` you write and the user reads on the
 install consent sheet: `fire_trigger`, `subscribe_events`, `set_variable`,
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`.
+`client`, `read_ai_settings`.
 
 ### What a plugin is **not**
 
@@ -413,7 +413,7 @@ marker it did not record itself.
 | [`docs/en/`](docs/en/README.md) | The documentation |
 | [`PRODUCTION_PLAN.md`](PRODUCTION_PLAN.md) | Architecture, security model, and what is not built yet |
 
-Platforms: **linux-x64** and **windows-x64** for native plugins; **noarch** for
+Platforms: **linux-x64**, **windows-x64** and **macos-arm64** for native plugins; **noarch** for
 Python and TypeScript. `astra-plugin build --all-targets` produces every bundle
 a plugin needs to be installable everywhere Astra runs.
 

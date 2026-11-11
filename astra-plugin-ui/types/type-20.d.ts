@@ -12,6 +12,7 @@ export interface RadioGroupProps<T extends string> {
     onChange: (value: T) => void;
     options: RadioOption<T>[];
     name: string;
+    ariaLabel?: string;
     className?: string;
 }
-export declare function RadioGroup<T extends string>({ value, onChange, options, name, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;
+export declare function RadioGroup<T extends string>({ value, onChange, options, name, ariaLabel, className, }: RadioGroupProps<T>): import("react/jsx-runtime").JSX.Element;

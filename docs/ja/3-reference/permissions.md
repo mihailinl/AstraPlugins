@@ -44,7 +44,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 何も守らないチェックボックスは、ユーザーがチェックボックスにチェックを
 入れることを学習してしまう原因です。
 
-## 8 つの id
+## 9 つの id
 
 | Id | ゲートする対象 | 専用チェックボックス | ローカルインポートで拒否される | 何ができるようになるか |
 |---|---|---|---|---|
@@ -77,6 +77,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 | `set_theme_contribution` | `SetThemeContribution` | **あり** | **あり** | アプリ全体のスタイルを変更する |
 | `dom_access` | — (サーフェス) | **あり** | **あり** | 会話やすべての他プラグインのインターフェースへのアクセスを伴い、Astra ウィンドウ内であなたのコードを実行する |
 | `client` | — (サーフェス) | **あり** | **あり** | 独自のセッションを持つチャットフロントエンドになる |
+| `read_ai_settings` | `GetAiSettings` | なし | なし | ユーザーのチャットのプロバイダー、モデル、エンドポイントを読む(キーは含まない) |
 
 `dom_access` と `client` はどの RPC もゲートしません。それがまさに
 ポイントです: これらは**サーフェス**です。`dom_access` は、UI コントリビュー
@@ -122,6 +123,19 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
   を運びます。空のリストは何も許可しません。
 - **`set_variable.scopes`** は `"plugin"`、`"session"`、`"persistent"`
   のいずれかです。
+
+## ユーザーの AI 設定を読む
+
+ユーザーのモデルを自分で呼ぶプラグイン — 独自のアシスタントや要約ツール — は、ユーザーがどのプロバイダー、モデル、エンドポイントを選んだかを知る必要があります。**Astra に尋ねてください。Astra のファイルは決して読まないでください。** `read_ai_settings` を宣言し、`GetAiSettings`(Rust と Python では `get_ai_settings()`、TypeScript では `getAiSettings()`)を呼びます:
+
+| フィールド | 内容 |
+|---|---|
+| `provider` | チャットのプロバイダー id。ユーザーが保存したエンドポイントは `openai_compatible`、Astra 自身のサービスは `astra` |
+| `model` | チャットのモデル id |
+| `api_base_url` | エンドポイント。userinfo、query、fragment は取り除かれ、パスは本人が設定したまま送られます(トークンをパスに入れるリレーなら、それがそのまま渡ります)。`astra` では空です。そのエンドポイントはあなたが呼ぶものではありません |
+| `is_loopback` | エンドポイントがこのマシン上にある(`127.0.0.0/8`、`::1`、`localhost`) — ローカルモデル |
+
+API キー、ユーザーが保存した他のエンドポイント、システムプロンプト、チャット以外のロールは決して含まれません。キーが必要なプラグインは、自分の `[config]` でユーザーに尋ねてください(シークレットとして印を付けます)。これは高リスクでもなく、ローカルインポートに対して拒否されることもありません: この情報への誠実な道であり、`settings.json` を読むより高く値付けすればプラグインを誤った方向へ押しやります。Astra 自身のファイルを読むことは、公開時の人間によるレビューが探すものです。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
 
 ## reason を書く
 

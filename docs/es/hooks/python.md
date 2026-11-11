@@ -68,6 +68,7 @@ cualquier plugin puede llamarla siempre.
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Dispara uno de los tipos de trigger de este plugin y ejecuta los comandos que escuchen. |
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | Envía un mensaje de chat como este plugin y transmite en streaming la respuesta del asistente de vuelta. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Envía un evento a los propios iframes de este plugin — la ruta de retorno para CallFromUi. |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | El proveedor, el modelo y el endpoint del chat del usuario (nunca una clave), para que un plugin no tenga que leer los archivos de Astra. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Aporta colores, fondo de pantalla y shader al tema activo de Astra. |
 
 ## Vacíos

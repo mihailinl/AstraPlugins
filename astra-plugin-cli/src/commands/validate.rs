@@ -719,7 +719,7 @@ fn check_platform(m: &PluginManifest, report: &mut Report) {
     if installable.is_empty() && !os_list.is_empty() && !arch_list.is_empty() {
         report.warnings.push(format!(
             "[platform] os = {:?} / arch = {:?} names no host Astra ships a daemon for, so no \
-             user could install this. Astra releases: linux-x64, windows-x64",
+             user could install this. Astra releases: linux-x64, windows-x64, macos-arm64",
             m.platform.os, m.platform.arch
         ));
     } else if !installable.is_empty() {
@@ -1580,13 +1580,12 @@ label = "Sink"
     #[test]
     fn a_platform_no_daemon_ships_for_is_a_warning() {
         let manifest = KITCHEN_SINK
-            .replace(r#"os = ["linux", "windows"]"#, r#"os = ["macos"]"#)
-            .replace(r#"arch = ["x86_64"]"#, r#"arch = ["aarch64"]"#);
+            .replace(r#"os = ["linux", "windows"]"#, r#"os = ["macos"]"#);
         let (parsed, report) = report_for(&manifest);
         assert!(parsed.is_ok());
         assert!(
             report.errors.is_empty(),
-            "macos/aarch64 are legal values: {}",
+            "macos/x86_64 (Intel Mac: no daemon) are legal values: {}",
             joined(&report.errors)
         );
         let warnings = joined(&report.warnings);

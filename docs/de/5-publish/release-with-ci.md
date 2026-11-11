@@ -170,7 +170,7 @@ zu stehlen. `publish` lädt die Artefakte herunter, hasht sie selbst und
 bezeugt, was es gehasht hat.
 
 Die Matrix wird aus der Sprache deines Plugins bestimmt: `linux-x64` +
-`windows-x64` für Rust, ein einzelner `noarch`-Zweig für TypeScript und
+`windows-x64` + `macos-arm64` für Rust, ein einzelner `noarch`-Zweig für TypeScript und
 Python.
 
 ### Das Wecksignal an die Registry: `notify`
@@ -211,6 +211,7 @@ nächsten Nachsehen.
 |---|---|
 | `<id>-<version>-linux-x64.astraplugin` | eines pro Plattform-Schlüssel |
 | `<id>-<version>-windows-x64.astraplugin` | |
+| `<id>-<version>-macos-arm64.astraplugin` | gebaut auf `macos-15`; der Build prüft arm64-Mach-O und eine gültige Code-Signatur |
 | `<id>-<version>.sigstore.jsonl` | das Attestation-Bundle, sodass ein Nutzer ohne Netzwerkzugriff auf GitHub trotzdem prüfen kann |
 | `SHA256SUMS.txt` | dieselben Digests, die die Registry aufzeichnet |
 

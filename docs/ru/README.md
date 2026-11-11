@@ -18,7 +18,7 @@
 | [Что такое плагин](1-orientation/what-is-a-plugin.md) | Тринадцать возможностей и как выбрать нужную |
 | [Архитектура](1-orientation/architecture.md) | Модель процессов, два сервиса, рукопожатие аутентификации |
 | [Модель безопасности](1-orientation/security.md) | Что доказывают подписи, чего они не доказывают, и с какими правами работает плагин |
-| [Платформы](1-orientation/platforms.md) | linux-x64 и windows-x64, пути по каждой ОС, требования к сборке |
+| [Платформы](1-orientation/platforms.md) | linux-x64, windows-x64 и macos-arm64, пути по каждой ОС, требования к сборке |
 | **[Быстрый старт](2-tutorial/getting-started.md)** | **От пустого каталога до работающего плагина. Начните отсюда.** |
 | [Rust SDK](4-sdk/rust.md) · [Python SDK](4-sdk/python.md) · [TypeScript SDK](4-sdk/typescript.md) | По странице на каждый SDK, включая то, чего этот SDK пока не умеет |
 | [Примеры](7-examples/README.md) | Одиннадцать плагинов в этом репозитории, у каждого своя платформа |
@@ -76,7 +76,7 @@ GitHub, плюс одна заявка на включение в каталог
 | [CLI](reference/cli.md) | определения `clap`, через запуск `astra-plugin --help` |
 | [Протокол](reference/protocol.md) | `proto/plugin.proto` |
 | [Ошибки](reference/errors.md) | таксономия ошибок во всех трёх SDK |
-| [Паритет хуков](reference/parity.md) | `spec/hooks.yaml` — все 41 хуков во всех трёх SDK |
+| [Паритет хуков](reference/parity.md) | `spec/hooks.yaml` — все 42 хуков во всех трёх SDK |
 | [Разрешения](3-reference/permissions.md) | написано вручную: каждое разрешение, что оно даёт, как сформулировать причину |
 | [Поля настроек](3-reference/config-fields.md) | написано вручную: интерфейс настроек, `[config]` и хуки полей TTS/STT |
 | [Плагины слова-активатора](wakeword-plugins.md) | написано вручную: интеграция с разделом «Голос», настройки плагина и контракт аудиовызовов |

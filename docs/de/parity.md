@@ -85,6 +85,7 @@ ein Weg, auf dem der Code eines Plugin-Autors heute scheitert.
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 
 ## Capability-Bereitschaft
@@ -168,5 +169,6 @@ Plugin zu unterscheiden wäre. Maschinenlesbare Kopie:
 - **`Register`** — Der Handshake: das Spawn-Token beweisen, das Plugin-eigene Session-Token erhalten. Der einzige vom Auth-Interceptor ausgenommene Pfad. Jeder spätere Host-RPC muss das zurückgegebene Token als x-session-token tragen.
 - **`SendChatMessage`** — Sendet eine Chat-Nachricht als dieses Plugin und streamt die Antwort des Assistenten zurück. Das Session-Token ist auf PluginHostService begrenzt, der DaemonClient-/ChatService-Weg, auf den die SDKs Autoren früher verwiesen, ist also permission_denied — dieses RPC ist der einzige funktionierende Pfad. Seit 5.4 in allen drei SDKs gebunden.
 - **`PushToUi`** — Pusht ein Event in die eigenen iframes dieses Plugins — der Rückweg für CallFromUi. Jetzt in allen drei gebunden. Python hatte drei Releases lang CallFromUi und kein PushToUi, ein Python-UI-Plugin konnte also aufgerufen werden und nicht asynchron antworten.
+- **`GetAiSettings`** — Chat-Provider, Modell und Endpunkt des Nutzers (nie ein Schlüssel), damit ein Plugin dafür nie Astras Dateien lesen muss. Ein Astra älter als 2026-11-10 antwortet UNIMPLEMENTED; ein gespeicherter Endpunkt liest sich als openai_compatible, Astras eigener Dienst als astra ohne URL.
 - **`SetThemeContribution`** — Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. Phase 4 klassifiziert es als hochriskant und verweigert es unterhalb von Stufe 1, sodass eine Bindung ohne die gewährte Permission ein permission_denied ist, kein neu gestrichenes Theme. Seit 5.4 in allen drei SDKs gebunden.
 </content>

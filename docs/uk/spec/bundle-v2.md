@@ -339,6 +339,7 @@ verify`. Не виробляйте такий.
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -351,7 +352,7 @@ verify`. Не виробляйте такий.
 це слово. Вектор: `ok-noarch-runtime`.
 
 Жодна інша пара `{os, arch}` сьогодні не називає ціль. `linux-arm64`,
-`windows-arm64`, `macos-x64` і `macos-arm64` — зарезервовані ключі
+`windows-arm64`, `macos-x64` — зарезервовані ключі
 платформи в схемі реєстру; Astra не постачає для них демон.
 
 ## 6. Імена записів

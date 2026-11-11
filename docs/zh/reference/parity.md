@@ -83,6 +83,7 @@
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
 
 ## 各语言的能力就绪情况
@@ -199,6 +200,7 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
   返回 permission_denied —— 这个 rpc 才是唯一可行的路径。截至 5.4，
   三个 SDK 都已绑定。
 - **`PushToUi`** —— 把一个事件推送进这个插件自己的 iframe 里 ——
+- **`GetAiSettings`** — 用户聊天所用的提供方、模型和端点（绝不包含密钥），让插件无需读取 Astra 的文件。 早于 2026-11-10 的 Astra 会返回 UNIMPLEMENTED；已保存的端点读作 openai_compatible，Astra 自己的服务读作 astra 且没有 URL。
   这是 CallFromUi 的回程路径。现在三个 SDK 都已绑定。Python 曾经有
   三个发布版本只有 CallFromUi 而没有 PushToUi，导致一个 Python 编写的
   UI 插件能被调用，却无法异步作答。

@@ -128,7 +128,7 @@ behind a lock.
 
 | | |
 |---|---|
-| `ctx.host()` | `&Arc<dyn Host>` — the ten host RPCs. Always present |
+| `ctx.host()` | `&Arc<dyn Host>` — the eleven host RPCs. Always present |
 | `ctx.daemon()` | `Option<&Arc<dyn Daemon>>` — **`Some` only for `client` plugins** |
 | `ctx.language()` | The Astra UI language, updated by `OnLanguageChanged` |
 | `ctx.active_triggers()` | Which of your trigger types a command is currently listening for |

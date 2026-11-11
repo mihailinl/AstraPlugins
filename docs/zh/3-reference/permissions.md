@@ -37,7 +37,7 @@
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@
 `GetDaemonInfo` 是免费的，这是一个决定，不是疏漏：一个什么都保护不了的
 勾选框，只会教会用户去随手勾选各种框。
 
-## 八个 id
+## 九个 id
 
 | Id | 限制哪个调用 | 有独立的勾选框 | 在本地导入时被拒绝 | 它能让你做什么 |
 |---|---|---|---|---|
@@ -68,6 +68,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | **是** | **是** | 重新设置整个应用的样式 |
 | `dom_access` | —（一个界面层） | **是** | **是** | 在 Astra 窗口内运行你的代码，能访问对话内容以及每一个其他插件的界面 |
 | `client` | —（一个界面层） | **是** | **是** | 成为一个拥有自己会话的聊天前端 |
+| `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点——绝不包含密钥 |
 
 `dom_access` 和 `client` 不限制任何 RPC，这正是关键所在：它们是
 **界面层(surface)**。`dom_access` 决定一个 UI 贡献是被渲染为 Astra
@@ -111,6 +112,19 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
   允许。
 - **`set_variable.scopes`** 的取值是 `"plugin"`、`"session"` 或
   `"persistent"`。
+
+## 读取用户的 AI 设置
+
+自己调用用户模型的插件——自带的助手、摘要工具——需要知道用户选了哪个提供方、哪个模型和哪个端点。**向 Astra 询问；绝不要读取 Astra 的文件。** 声明 `read_ai_settings`，然后调用 `GetAiSettings`（Rust 和 Python 中是 `get_ai_settings()`，TypeScript 中是 `getAiSettings()`）：
+
+| 字段 | 含义 |
+|---|---|
+| `provider` | 聊天的提供方 id。用户保存的端点是 `openai_compatible`；Astra 自己的服务是 `astra` |
+| `model` | 聊天的模型 id |
+| `api_base_url` | 端点。userinfo、query 和 fragment 已被移除；路径按本人配置的原样发送（把令牌放进路径的中继会把它交给你）。`astra` 时为空，它的端点不该由你来调用 |
+| `is_loopback` | 端点就在本机（`127.0.0.0/8`、`::1`、`localhost`）——本地模型 |
+
+它从不携带 API 密钥、用户保存的其他端点、系统提示词，也不携带聊天以外的任何角色。需要密钥的插件应在自己的 `[config]` 里向用户索取（标记为 secret）。它既不是高风险，也不会在本地导入时被拒绝：这是获取这些信息的诚实途径，把它定得比读取 `settings.json` 更高，只会把插件推向错误的方向。读取 Astra 自己的文件是发布时人工审核会查的内容。早于该调用的 Astra 会返回 `UNIMPLEMENTED`。
 
 ## 编写 reason
 

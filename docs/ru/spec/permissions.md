@@ -41,6 +41,7 @@
 | `set_theme_contribution` | `SetThemeContribution` | переоформлять всё приложение | ● |
 | `dom_access` | *нет RPC* — **поверхность** | выполнять собственный скрипт плагина внутри окна Astra, с доступом к беседам пользователя и интерфейсу любого другого плагина | ● |
 | `client` | *нет RPC* — **поверхность** | выступать фронтендом клиента: собственная поверхность чата, собственная сессия | ● |
+| `read_ai_settings` | `GetAiSettings` | читать провайдера, модель и адрес чата — но не ключ, не другую роль и не сохранённые адреса пользователя | |
 
 **Пять помеченных ● высокорисковые** (`HIGH_RISK_PERMISSIONS`), и каждое
 получает свой чекбокс согласия. §4.3 плана перечисляет четыре чекбокса и
@@ -132,6 +133,7 @@ set_variable     = { scopes = ["plugin"] }
 | `SetVariable` | `set_variable` |
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
+| `GetAiSettings` | `read_ai_settings` |
 
 `GetDaemonInfo` — единственное добавление к списку из трёх в плане, и это
 решение, а не упущение: он возвращает `version`, `state`, `grpc_port` и
@@ -248,9 +250,9 @@ let (plugin_id, grants) =
 2. **потолок** — правило на уровне происхождения, которое никакая запись
    не может выкупить.
 
-`require_permission` спрашивает первое для шести RPC хоста, закрытых
+`require_permission` спрашивает первое для семи RPC хоста, закрытых
 разрешением, — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`,
-`SetVariable`, `SetThemeContribution`, `PushToUi`. Остальные четыре
+`SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`. Остальные четыре
 (`Register`, `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) несут
 `None` в `HOST_RPC_PERMISSIONS` и разрешены всегда; таблица и обоснование
 — в §2.

@@ -218,15 +218,15 @@ Wider than the set Astra ships a daemon for: declaring `os = ["macos"]` is a sta
 
 The `arch` values `[platform] arch = [...]` may name.
 
-**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`, `linux-arm64`, `windows-arm64`, `macos-x64`, `macos-arm64`, `noarch`
+**`RESERVED_PLATFORM_KEYS`** — `linux-x64`, `windows-x64`, `macos-arm64`, `linux-arm64`, `windows-arm64`, `macos-x64`, `noarch`
 
 Every artifact key the registry schema reserves, in the order a generator should emit them.
 
 Only [`platform_key_for`] decides which of these a *running daemon* accepts, and it accepts two. The rest are reserved so the index format never has to change if Astra later ships those hosts, and so a registry validator can reject a typo (`mac-arm64`, `linux-amd64`) instead of writing a key no daemon will ever look up.
 
-**Reserved is not supported.** Astra's release workflow builds neither a macOS nor an arm64 daemon, so a bundle published under `macos-x64`, `macos-arm64`, `linux-arm64` or `windows-arm64` has no host to run on. A generator that emits one is publishing a file nobody can install.
+**Reserved is not supported.** Astra ships a daemon for Linux and Windows on x86_64 and, since 0.2.8, for macOS on Apple Silicon (`macos-arm64`). It builds no Intel-Mac or arm64 Linux/Windows daemon, so a bundle published under `macos-x64`, `linux-arm64` or `windows-arm64` has no host to run on. A generator that emits one is publishing a file nobody can install.
 
-`noarch` is the interpreted-language case (TypeScript, Python). It is reserved here for validators, but the daemon does **not** look it up: per the bundle spec the index writes the same URL and digest under every *supported* platform key, so a `noarch` bundle is found under `linux-x64` / `windows-x64` like any other.
+`noarch` is the interpreted-language case (TypeScript, Python). It is reserved here for validators, but the daemon does **not** look it up: per the bundle spec the index writes the same URL and digest under every *supported* platform key, so a `noarch` bundle is found under `linux-x64` / `windows-x64` / `macos-arm64` like any other (an index generator that still expands only the first two leaves every noarch plugin uninstallable on a Mac).
 
 Nothing in the daemon's runtime path reads this list — its consumers are the index generator in the registry repo, the CLI's `check`, and the test below that keeps the halves honest. It lives next to the function that decides which of these keys is real, because that is the only place the two facts can be read together.
 
