@@ -1,0 +1,25 @@
+name: macprobe
+on:
+  push:
+    branches: [scratch/mac-probe]
+jobs:
+  p-macos-14:
+    runs-on: macos-14
+    steps:
+      - run: uname -sm
+  p-macos-15:
+    runs-on: macos-15
+    steps:
+      - run: uname -sm
+  p-macos-latest:
+    runs-on: macos-latest
+    steps:
+      - run: uname -sm
+  p-macos-13:
+    runs-on: macos-13
+    steps:
+      - run: uname -sm
+  p-macos-14-xlarge:
+    runs-on: macos-14-xlarge
+    steps:
+      - run: uname -sm
