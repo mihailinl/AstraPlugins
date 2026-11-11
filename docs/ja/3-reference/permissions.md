@@ -89,6 +89,23 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 いるなら、まず[セキュリティモデル](../1-orientation/security.md) を読み、
 自分のパネルへの `push_to_ui` では足りないことを確認してください。
 
+## `dom_access` スクリプトにできること
+
+Astra 0.2.8 以降、`dom_access` ケイパビリティを持ち、**かつ**ユーザーの許可を得たプラグインは、コントリビューションの `url` にスクリプトを指定できます。Astra はそのスクリプトを自身のドキュメント内で実行し、iframe の制限は一切かかりません。手動でインポートした `.astraplugin` には、このサーフェスは与えられません。
+
+Astra はまずブリッジを読み込み、そのあとにあなたのスクリプトを読み込みます。script タグには `data-plugin-id`(プラグインの id)が付きます。スクリプトが使える API はブリッジ `window.__astraPluginBridge[id]` のみです。
+
+- `callBackend(method, params)` は自分のバックエンドを呼び出します。
+- `navigateTo(tab)` は Astra のタブを切り替えます。
+- `getData(key)` と `setData(key, value)` は、プラグインの保存データを読み書きします。
+- `getTheme()`、`onThemeChange(cb)`、`getWindowSize()`、`getCssVariables()` は、ウィンドウの見た目を取得します。
+
+後片付けは、`window.__astraPluginCleanup[id]` に関数を登録します。
+
+このブリッジの中だけで動作してください。シェルの IPC を直接呼ばないでください(`window.__TAURI_INTERNALS__`、`window.electronBridge`)。また Astra 自身のコントロールをクリックしたり入力したりしないでください。どちらもユーザーとして動作します。
+
+`dom_access` スクリプトがウィンドウ内にある間、Astra は、Astra に何を許すかを決める操作(承認、設定、インストール、コマンドの実行、別のプラグインの呼び出し)の前に、別のシステムウィンドウでプラグイン名を示してユーザーに確認します。自分のバックエンドへの `callBackend` は確認されません。この状態はウィンドウが再読み込みされるまで続き、その間にプラグインをオフにしても変わりません。
+
 ## 引数
 
 2 つの id は引数を取り、どちらも得られるものを絞り込みます。

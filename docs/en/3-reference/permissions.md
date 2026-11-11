@@ -79,6 +79,23 @@ gate.
 it, read [the security model](../1-orientation/security.md) first and be sure
 `push_to_ui` into your own panel will not do.
 
+## What a `dom_access` script may do
+
+From Astra 0.2.8, a plugin that has the `dom_access` capability **and** the user's permission for it can name a script in a contribution's `url`. Astra runs that script in its own document, with none of the limits of an iframe. A hand-imported `.astraplugin` is refused this surface.
+
+Astra loads its bridge first and then your script; the script tag carries `data-plugin-id`, your plugin's id. The bridge is the script's whole API, at `window.__astraPluginBridge[id]`:
+
+- `callBackend(method, params)` calls your own backend.
+- `navigateTo(tab)` switches Astra to a tab.
+- `getData(key)` and `setData(key, value)` read and write your plugin's stored data.
+- `getTheme()`, `onThemeChange(cb)`, `getWindowSize()` and `getCssVariables()` read the look of the window.
+
+To tear down, register a function at `window.__astraPluginCleanup[id]`.
+
+Stay inside that bridge. Do not call the shell's IPC directly (`window.__TAURI_INTERNALS__`, `window.electronBridge`), and do not click or fill Astra's own controls: both act as the user.
+
+While a `dom_access` script is in the window, Astra asks the user in a separate system window, naming your plugin, before anything that decides what Astra may do: an approval, a setting, an install, running a command, or a call to another plugin. `callBackend` to your own backend is never asked about. This lasts until the window reloads, even if the plugin is turned off in the meantime.
+
 ## Sending a chat message
 
 `send_chat_message` is the only path a plugin has into a conversation, and two
