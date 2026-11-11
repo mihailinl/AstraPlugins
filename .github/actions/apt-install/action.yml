@@ -9,8 +9,8 @@
 # have fetched from archive.ubuntu.com. This is the ONE place that knows how to
 # recover: skip packages already installed; try as configured; on any failure
 # rewrite the sources to the first fallback mirror that resolves, retry once. Every Linux apt step in ci.yml uses it.
-# (plugin-release.yml is a reusable workflow, where a local action is the
-# CALLER's checkout, so it carries the same few lines inline.)
+# (plugin-release.yml is a reusable workflow and the signing path: it does not
+# use this and is deliberately untouched; its own apt step has no fallback.)
 name: apt-install
 description: apt-get install with a one-shot fallback to another Ubuntu mirror
 inputs:
