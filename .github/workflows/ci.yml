@@ -1200,7 +1200,7 @@ jobs:
         if: env.MODE == 'full'
         with:
           node-version: "20"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         if: env.MODE == 'full'
         with:
           workspaces: ${{ env.ASTRA_ROOT }}/tools/proto-slice
@@ -1903,6 +1903,170 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
+  # ══ the release workflow's tooling pin, and its macOS leg ═════════════════
+
+  # `plugin-release.yml` packs every bundle with the CLI built at
+  # ASTRA_TOOLING_REF, not with the CLI in this checkout. A pin older than the
+  # CLI change that added a target means a release leg dies "Unknown target"
+  # in a foreign repository, `publish` is skipped, and the WHOLE release (every
+  # platform) stays a draft. Every job that builds the CLI from the branch
+  # passes while that is true. This builds the CLI at the PIN and requires it
+  # to know every target the workflow's matrix and TARGETS name.
+  release-tooling-pin:
+    name: release workflow's pinned CLI knows every target
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: pinned/astra-plugin-cli
+          key: release-tooling-pin
+      - name: build the CLI at ASTRA_TOOLING_REF
+        run: |
+          set -euo pipefail
+          ref=$(sed -n 's/^ *ASTRA_TOOLING_REF: *"\([0-9a-f]\{40\}\)".*/\1/p' .github/workflows/plugin-release.yml)
+          test -n "$ref"
+          git worktree add --detach "$RUNNER_TEMP/pinned" "$ref"
+          ln -s "$RUNNER_TEMP/pinned" pinned
+          cargo build --release --locked --manifest-path pinned/astra-plugin-cli/Cargo.toml --target-dir "$RUNNER_TEMP/pin-target"
+      - name: it knows every target the workflow builds and indexes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          wf = open(".github/workflows/plugin-release.yml").read()
+          want = set(re.findall(r'\{"target": "([a-z0-9-]+)"', wf))
+          m = re.search(r"TARGETS = \(([^)]*)\)", wf)
+          want |= set(re.findall(r'"([a-z0-9-]+)"', m.group(1)))
+          assert {"linux-x64", "windows-x64", "macos-arm64", "noarch"} <= want, want
+          r = subprocess.run([os.environ["RUNNER_TEMP"] + "/pin-target/release/astra-plugin", "build", "/nonexistent", "--target", "bogus"],
+                             capture_output=True, text=True)
+          out = r.stdout + r.stderr
+          m = re.search(r"Valid targets: ([a-z0-9, -]+)", out)
+          if not m:
+              sys.exit(f"could not read the pinned CLI's target list from:\n{out}")
+          have = {t.strip() for t in m.group(1).split(",")}
+          missing = sorted(want - have)
+          if missing:
+              sys.exit(f"::error::the CLI at ASTRA_TOOLING_REF does not know {missing} (it knows {sorted(have)}). "
+                       "A release would fail 'Unknown target' and leave EVERY platform's bundle a draft. Bump the pin.")
+          print("ok: the pinned CLI knows", sorted(want))
+          PY
+
+  # plugin-release.yml's macos-arm64 leg had never run on a macOS runner when it
+  # was written. This runs the leg's own commands on `macos-15` with the PINNED
+  # CLI (the one a release would use): pack one native example, then execute
+  # the very `run:` text of the release workflow's macOS gate, lifted out of
+  # the file, not a copy. If the gate is edited, this runs the edit; if the
+  # step is renamed or removed, the extraction fails loudly.
+  macos-release-leg:
+    name: macos-arm64 release leg (macos-15)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ github.token }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: pinned/astra-plugin-cli
+          key: macos-release-leg
+
+      - name: this runner is Apple Silicon
+        run: |
+          set -euo pipefail
+          test "$(uname -sm)" = "Darwin arm64"
+
+      - name: build the CLI at ASTRA_TOOLING_REF (what a release uses)
+        run: |
+          set -euo pipefail
+          ref=$(sed -n 's/^ *ASTRA_TOOLING_REF: *"\([0-9a-f]\{40\}\)".*/\1/p' .github/workflows/plugin-release.yml)
+          test -n "$ref"
+          git worktree add --detach "$RUNNER_TEMP/pinned" "$ref"
+          ln -s "$RUNNER_TEMP/pinned" pinned
+          cargo install --path pinned/astra-plugin-cli --locked --force
+
+      - name: pack examples/dice-roller for macos-arm64
+        working-directory: examples/dice-roller
+        run: |
+          set -euo pipefail
+          astra-plugin build . --target macos-arm64 --reproducible --no-sign
+          astra-plugin verify ./*-macos-arm64.astraplugin
+
+      - name: lift the release workflow's macOS gate and the noarch gate
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import re, sys, os
+          tmp = sys.argv[1]
+          wf = open(os.environ["GITHUB_WORKSPACE"] + "/.github/workflows/plugin-release.yml").read()
+          def lift(name, out):
+              m = re.search(r"- name: " + re.escape(name) + r"\n(?:        .*\n)*?        run: \|\n((?:          .*\n|\n)+)", wf)
+              if not m:
+                  sys.exit(f"could not lift the step '{name}' out of plugin-release.yml")
+              open(f"{tmp}/{out}", "w").write("\n".join(l[10:] for l in m.group(1).split("\n")))
+          lift("Assert the macOS binaries are signed arm64 Mach-O", "gate.sh")
+          lift("Assert a noarch bundle holds no native binary", "noarch.sh")
+          floor = re.search(r'^\s*MACOS_MIN_OS_MAX: "([0-9.]+)"', wf, re.M).group(1)
+          open(f"{tmp}/gate.env", "w").write(f"export MACOS_MIN_OS_MAX={floor}\n")
+          PY
+          grep -q 'codesign --verify --strict' "$RUNNER_TEMP/gate.sh"
+
+      - name: unpack it and run the gate
+        working-directory: examples/dice-roller
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/unpacked"; mkdir -p "$RUNNER_TEMP/unpacked"
+          python3 -c 'import sys,glob,zipfile; zipfile.ZipFile(glob.glob("*-macos-arm64.astraplugin")[0]).extractall(sys.argv[1])' "$RUNNER_TEMP/unpacked"
+          . "$RUNNER_TEMP/gate.env"
+          bash -e "$RUNNER_TEMP/gate.sh"
+
+      - name: the gate refuses what it should (it is not a rubber stamp)
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/gate.env"
+          t="$RUNNER_TEMP/t.c"; u="$RUNNER_TEMP/unpacked"
+          printf 'int main(void){return 0;}\n' > "$t"
+          printf 'int f(void){return 1;}\n' > "$RUNNER_TEMP/l.c"
+          refuse() { # name, then a command that fills $u with ONE bad file
+            rm -rf "$u"; mkdir -p "$u"; "$@"
+            if bash -e "$RUNNER_TEMP/gate.sh" >/dev/null 2>&1; then
+              echo "::error::the gate accepted: $REFUSE_WHAT"; exit 1
+            fi
+            echo "refused as it should: $REFUSE_WHAT"
+          }
+          x86() { cc -arch x86_64 -o "$u/b" "$t"; }
+          unsigned() { cc -arch arm64 -o "$u/b" "$t"; codesign --remove-signature "$u/b"; }
+          newos() { cc -arch arm64 -mmacosx-version-min=15.0 -o "$u/b" "$t"; }
+          absdylib() { cc -arch arm64 -dynamiclib -o "$RUNNER_TEMP/libabs.dylib" "$RUNNER_TEMP/l.c"; cc -arch arm64 -o "$u/b" "$t" "$RUNNER_TEMP/libabs.dylib"; }
+          missingrpath() { cc -arch arm64 -dynamiclib -install_name @rpath/libgone.dylib -o "$RUNNER_TEMP/libgone.dylib" "$RUNNER_TEMP/l.c"; cc -arch arm64 -o "$u/b" "$t" "$RUNNER_TEMP/libgone.dylib"; }
+          REFUSE_WHAT="an x86_64 binary";            refuse x86
+          REFUSE_WHAT="an unsigned arm64 binary";    refuse unsigned
+          REFUSE_WHAT="a binary needing macOS 15 (floor $MACOS_MIN_OS_MAX)"; refuse newos
+          REFUSE_WHAT="a binary loading a dylib by absolute path"; refuse absdylib
+          REFUSE_WHAT="a binary loading an @rpath dylib that is not in the bundle"; refuse missingrpath
+
+      - name: the noarch gate refuses a Mach-O
+        run: |
+          set -euo pipefail
+          u="$RUNNER_TEMP/unpacked"; rm -rf "$u"; mkdir -p "$u"
+          printf 'int main(void){return 0;}\n' > "$RUNNER_TEMP/t.c"
+          cc -arch arm64 -o "$u/addon.node" "$RUNNER_TEMP/t.c"
+          if bash -e "$RUNNER_TEMP/noarch.sh" >/dev/null 2>&1; then
+            echo "::error::the noarch gate accepted a Mach-O"; exit 1
+          fi
+
   # ══ SDKs ═══════════════════════════════════════════════════════════════════
 
   sdk-rust:
@@ -1922,7 +2086,7 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-sdk
           key: sdk-rust-${{ matrix.os }}
@@ -2186,7 +2350,7 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-sdk
           key: examples-${{ matrix.os }}
@@ -2516,7 +2680,7 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-cli
           key: scaffold-${{ matrix.os }}
@@ -3024,7 +3188,7 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-cli
           key: scaffold-registries
@@ -3133,7 +3297,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: |
             astra-plugin-cli
@@ -3215,7 +3379,7 @@ jobs:
         with:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-cli
           key: docgen
@@ -3310,7 +3474,7 @@ jobs:
           version: ${{ env.PROTOC_VERSION }}
           repo-token: ${{ github.token }}
       - uses: oven-sh/setup-bun@v2
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: astra-plugin-cli
           key: docs
@@ -3407,7 +3571,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: |
             astra-plugin-cli
