@@ -316,8 +316,12 @@ client older than the act that expresses it.
 
 ## 5. Scope, stated honestly
 
-A revoke reaches **online Astra only** and cannot undo a session already
-running when it landed. Expiry (`games-index-v1.md` §1) stops new installs
+A revoke reaches **online Astra only**. A session already running when it
+lands is ended only by an engine that holds one bridge token per game profile
+(it advertises `supports_bridge_token_sets`): Astra removes the revoked
+integration's token from the engine's set and the engine closes that session.
+An engine without that support keeps a running session until the game exits;
+Link and Play are refused from the next start either way. Expiry (`games-index-v1.md` §1) stops new installs
 and updates, never Play or repair of what is already installed. Link is
 refused whenever the index is more than 7 days stale, independent of any
 `withdrawn` row.
