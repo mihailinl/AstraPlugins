@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra main `4b8c4ae8e`. Between `sdk-v0.7.4` and this release the protocol gained 55 fields on
-23 messages that already existed, 24 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra main `8fe616082`. Between `sdk-v0.7.4` and this release the protocol gained 62 fields on
+27 messages that already existed, 25 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
