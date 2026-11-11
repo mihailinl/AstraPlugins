@@ -152,7 +152,7 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
 
-        /// Platform this bundle is for: linux-x64, windows-x64, or noarch.
+        /// Platform this bundle is for: linux-x64, windows-x64, macos-arm64, or noarch.
         /// Defaults to the host for native plugins and noarch for
         /// TypeScript/Python.
         #[arg(long)]

@@ -314,6 +314,7 @@ fields above — and `schema` is compared exactly, which is what bounds this.
 ```json
 {"os": "linux",   "arch": "x86_64"}     → registry platform key  linux-x64
 {"os": "windows", "arch": "x86_64"}     → registry platform key  windows-x64
+{"os": "macos",   "arch": "aarch64"}    → registry platform key  macos-arm64
 {"os": "any",     "arch": "any"}        → registry platform key  noarch
 ```
 
@@ -324,9 +325,9 @@ run by a runtime the host already has — and the registry writes the same URL a
 digest under every supported platform key for one, so no client needs to learn
 the word. Vector: `ok-noarch-runtime`.
 
-No other `{os, arch}` pair names a target today. `linux-arm64`, `windows-arm64`,
-`macos-x64` and `macos-arm64` are reserved platform keys in the registry schema;
-Astra ships no daemon for them.
+No other `{os, arch}` pair names a target today. `linux-arm64`, `windows-arm64`
+and `macos-x64` are reserved platform keys in the registry schema; Astra ships
+no daemon for them.
 
 ## 6. Entry names
 

@@ -125,7 +125,7 @@ pub fn run_all_targets(opts: BuildOptions<'_>) -> Result<()> {
 
     let mut built = Vec::new();
     let mut skipped = Vec::new();
-    for target in [Target::LinuxX64, Target::WindowsX64] {
+    for target in Target::NATIVE.iter().copied() {
         hprintln!();
         match run(BuildOptions {
             path: opts.path,
@@ -1061,6 +1061,7 @@ fn resolve_rust_binary_for(dir: &Path, entry_command: &str, target: Target) -> R
     let triples: &[&str] = match target {
         Target::LinuxX64 => &["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"],
         Target::WindowsX64 => &["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"],
+        Target::MacosArm64 => &["aarch64-apple-darwin"],
         Target::Noarch => &[],
     };
     let suffix = if target == Target::WindowsX64 {

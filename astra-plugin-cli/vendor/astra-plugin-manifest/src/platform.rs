@@ -27,16 +27,18 @@ pub struct PlatformRequirements {
 /// reject a typo (`mac-arm64`, `linux-amd64`) instead of writing a key no
 /// daemon will ever look up.
 ///
-/// **Reserved is not supported.** Astra's release workflow builds neither a
-/// macOS nor an arm64 daemon, so a bundle published under `macos-x64`,
-/// `macos-arm64`, `linux-arm64` or `windows-arm64` has no host to run on. A
+/// **Reserved is not supported.** Astra ships a daemon for Linux and Windows on
+/// x86_64 and, since 0.2.8, for macOS on Apple Silicon (`macos-arm64`). It builds
+/// no Intel-Mac or arm64 Linux/Windows daemon, so a bundle published under
+/// `macos-x64`, `linux-arm64` or `windows-arm64` has no host to run on. A
 /// generator that emits one is publishing a file nobody can install.
 ///
 /// `noarch` is the interpreted-language case (TypeScript, Python). It is
 /// reserved here for validators, but the daemon does **not** look it up: per
 /// the bundle spec the index writes the same URL and digest under every
 /// *supported* platform key, so a `noarch` bundle is found under `linux-x64` /
-/// `windows-x64` like any other.
+/// `windows-x64` / `macos-arm64` like any other (an index generator that still
+/// expands only the first two leaves every noarch plugin uninstallable on a Mac).
 ///
 /// Nothing in the daemon's runtime path reads this list — its consumers are the
 /// index generator in the registry repo, the CLI's `check`, and the test below
@@ -47,11 +49,11 @@ pub const RESERVED_PLATFORM_KEYS: &[&str] = &[
     // Supported — a daemon exists for these and `platform_key_for` returns them.
     "linux-x64",
     "windows-x64",
+    "macos-arm64",
     // Reserved, never emitted: no daemon ships for these hosts.
     "linux-arm64",
     "windows-arm64",
     "macos-x64",
-    "macos-arm64",
     // Reserved for validators; expanded to the supported keys by the index
     // generator rather than looked up at install time.
     NOARCH_PLATFORM_KEY,
@@ -106,11 +108,12 @@ pub struct UnsupportedHost {
 /// same host by construction.
 ///
 /// An unknown host is an `Err`, never a default. See [`RESERVED_PLATFORM_KEYS`]
-/// for why macOS and arm64 are not in the `Ok` arm.
+/// for why Intel macOS and arm64 Linux/Windows are not in the `Ok` arm.
 pub fn platform_key_for(os: &str, arch: &str) -> Result<&'static str, UnsupportedHost> {
     match (os, arch) {
         ("linux", "x86_64") => Ok("linux-x64"),
         ("windows", "x86_64") => Ok("windows-x64"),
+        ("macos", "aarch64") => Ok("macos-arm64"),
         _ => Err(UnsupportedHost {
             os: os.to_string(),
             arch: arch.to_string(),
@@ -120,8 +123,9 @@ pub fn platform_key_for(os: &str, arch: &str) -> Result<&'static str, Unsupporte
 
 /// The registry artifact key for the host this build runs on.
 ///
-/// `Err` on a host Astra ships no daemon for — a build that reaches this on
-/// macOS or arm64 must refuse the download, not pick a neighbour's bundle.
+/// `Err` on a host Astra ships no daemon for — a build that reaches this on an
+/// Intel Mac or arm64 Linux/Windows must refuse the download, not pick a
+/// neighbour's bundle.
 pub fn host_platform_key() -> Result<&'static str, UnsupportedHost> {
     let (os, arch) = current_platform();
     platform_key_for(os, arch)
@@ -169,6 +173,10 @@ mod tests {
             platform_key_for("windows", "x86_64").unwrap(),
             "windows-x64"
         );
+        assert_eq!(
+            platform_key_for("macos", "aarch64").unwrap(),
+            "macos-arm64"
+        );
     }
 
     /// A macOS host must produce a NAMED error, not another platform's key.
@@ -191,8 +199,8 @@ mod tests {
             "must not name a fallback: {msg:?}"
         );
 
-        // Apple silicon, and the arm64 hosts on the other two OSes.
-        assert!(platform_key_for("macos", "aarch64").is_err());
+        // The arm64 hosts on the other two OSes (Apple Silicon IS a host now:
+        // `platform_key_covers_exactly_the_hosts_astra_ships`).
         assert!(platform_key_for("linux", "aarch64").is_err());
         assert!(platform_key_for("windows", "aarch64").is_err());
         // `current_platform()` yields "unknown" rather than panicking on an
@@ -205,15 +213,20 @@ mod tests {
     /// free to reject the one key that matters.
     #[test]
     fn every_supported_key_is_a_reserved_key() {
-        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64")] {
+        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64"), ("macos", "aarch64")] {
             let key = platform_key_for(os, arch).unwrap();
             assert!(
                 RESERVED_PLATFORM_KEYS.contains(&key),
                 "{key} is returned by platform_key_for but absent from the schema list"
             );
         }
-        for reserved in ["macos-x64", "macos-arm64", "linux-arm64", "windows-arm64"] {
+        for reserved in ["macos-x64", "linux-arm64", "windows-arm64"] {
             assert!(RESERVED_PLATFORM_KEYS.contains(&reserved));
+            // …and none of them is returned by `platform_key_for`: a reserved key
+            // a daemon resolves to is a supported one, and must say so above.
+            for (os, arch) in [("macos", "x86_64"), ("linux", "aarch64"), ("windows", "aarch64")] {
+                assert_ne!(platform_key_for(os, arch).ok(), Some(reserved));
+            }
         }
     }
 
@@ -230,7 +243,7 @@ mod tests {
     /// would flag a manifest that names this very machine.
     #[test]
     fn the_known_vocabularies_cover_every_host_astra_ships() {
-        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64")] {
+        for (os, arch) in [("linux", "x86_64"), ("windows", "x86_64"), ("macos", "aarch64")] {
             assert!(KNOWN_OS_VALUES.contains(&os));
             assert!(KNOWN_ARCH_VALUES.contains(&arch));
             assert!(platform_key_for(os, arch).is_ok());

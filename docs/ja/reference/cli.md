@@ -124,7 +124,7 @@ Usage: astra-plugin build [OPTIONS] [PATH]
 | オプション | 説明 |
 |---|---|
 | `-o, --output <OUTPUT>` | 出力ファイルパス。デフォルトは <id>-<version>-<target>.astraplugin であり、これは公開されるバンドルが持たなければならない名前です — target の部分はレジストリのプラットフォームキーです |
-| `--target <TARGET>` | このバンドルの対象プラットフォーム: linux-x64、windows-x64、または noarch。デフォルトはネイティブプラグインではホスト、TypeScript/Python では noarch |
+| `--target <TARGET>` | このバンドルの対象プラットフォーム: linux-x64、windows-x64、macos-arm64、または noarch。デフォルトはネイティブプラグインではホスト、TypeScript/Python では noarch |
 | `--reproducible` | 決定論的なパッキングをアサートします: ソートされたエントリ、mtime 1980-01-01、固定された圧縮レベル。同じ入力からの 2 回のビルドは同じ sha256 を生成します |
 | `--all-targets` | Astra が動くあらゆる場所でこのプラグインがインストール可能になるために必要なすべてのバンドルをビルドします。TypeScript と Python は 1 ファイル(noarch); Rust はプラットフォームごとに 1 ファイルで、それぞれ自身の `cargo build --target` から生成されます |
 

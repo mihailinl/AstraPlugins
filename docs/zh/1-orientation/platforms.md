@@ -2,14 +2,15 @@
 
 # 平台
 
-Astra 为**两个**宿主平台提供守护进程。下面的一切都由此推出。
+Astra 为**三个**宿主平台提供守护进程。下面的一切都由此推出。
 
 | 平台键 | 宿主 | Astra 是否提供守护进程 |
 |---|---|---|
 | `linux-x64` | Linux, x86_64 | 是 |
 | `windows-x64` | Windows, x86_64 | 是 |
-| `noarch` | 任意 —— 没有原生代码的解释型插件 | 不适用，两边都能跑 |
-| `linux-arm64` · `windows-arm64` · `macos-x64` · `macos-arm64` | — | **否** |
+| `macos-arm64` | macOS, Apple Silicon (arm64) | 是 |
+| `noarch` | 任意 —— 没有原生代码的解释型插件 | 不适用，三个都能跑 |
+| `linux-arm64` · `windows-arm64` · `macos-x64` | — | **否** |
 
 最后一行是*保留但不支持*的。这些名字之所以存在于注册表的 schema 里，
 是为了让 Astra 日后如果为这些宿主提供了支持时，索引格式不必再改动；也是
@@ -24,15 +25,16 @@ Astra 为**两个**宿主平台提供守护进程。下面的一切都由此推�
 ```bash
 astra-plugin build --target linux-x64
 astra-plugin build --target windows-x64
+astra-plugin build --target macos-arm64
 astra-plugin build --all-targets
 ```
 
 - **Rust** 编译成原生代码，所以每个平台都需要一个独立的包。发布工作流
-  在一个矩阵上构建它们 —— `ubuntu-24.04` 和 `windows-2022` —— 因为
+  在一个矩阵上构建它们 —— `ubuntu-24.04`、`windows-2022` 和 `macos-14`（Apple Silicon） —— 因为
   跨平台构建会遇到另一套完全不同的 bug。
 - **TypeScript 和 Python** 生成单一的 `noarch` 包。索引会把同一个 URL
   和摘要写在每一个受支持的平台键下面，所以一个 `noarch` 包和其他任何
-  包一样，在 `linux-x64` 和 `windows-x64` 下都能被找到。
+  包一样，在 `linux-x64`、`windows-x64` 和 `macos-arm64` 下都能被找到。
 
 `--all-targets` 会构建出让插件在 Astra 运行的每个地方都可安装所需要的
 一切：TypeScript 和 Python 各一个文件，Rust 每个平台一个文件，各自来自
@@ -157,9 +159,12 @@ Astra 用 `directories` crate，基于 `("com", "astra", "astra")` 来解析
 
 ## macOS
 
-不受支持，而且不是因为疏漏。Astra 自己的发布工作流只构建 `linux-x64`
-和 `windows-x64`，所以一个 `macos-arm64` 的插件包将没有任何宿主可以
-运行它；macOS 还会给每一位第三方作者额外带来 Apple 公证(notarization)
-的问题。这些键名保留在索引 schema 里，但没有任何东西会产出它们，一个
-未被处理的宿主会得到一个硬性错误，而不是悄悄的回退。等到 Astra 为该
-目标提供守护进程的那个版本，再重新考虑这个问题。
+仅限 Apple Silicon：`macos-arm64`。Intel Mac（`macos-x64`）既没有守护进程，
+也没有键。macOS 包是**在 macOS runner 上**构建的，绝不从 Linux 交叉构建：
+arm64 二进制文件如果没有代码签名，启动时就会被系统终止；原生链接器会做
+ad-hoc 签名，而发布工作流会在包被认证（attestation）之前检查签名
+（`codesign --verify`）以及文件是 arm64 的 Mach-O。因此
+`astra-plugin build --target macos-arm64` 在任何不是 Apple Silicon Mac 的
+宿主上都会拒绝，`--all-targets` 和其他外来目标一样，需要预先构建好的
+macOS 二进制文件。没有公证（notarization）：守护进程自己下载并解包，
+所以文件不会带浏览器的隔离标记。

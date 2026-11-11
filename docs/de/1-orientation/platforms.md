@@ -2,15 +2,16 @@
 
 # Plattformen
 
-Astra liefert einen Daemon für **zwei** Hosts aus. Alles Folgende ergibt sich
+Astra liefert einen Daemon für **drei** Hosts aus. Alles Folgende ergibt sich
 daraus.
 
 | Plattform-Schlüssel | Host | Astra liefert einen Daemon |
 |---|---|---|
 | `linux-x64` | Linux, x86_64 | ja |
 | `windows-x64` | Windows, x86_64 | ja |
-| `noarch` | beliebig — ein interpretiertes Plugin ohne nativen Code | entfällt, läuft auf beiden |
-| `linux-arm64` · `windows-arm64` · `macos-x64` · `macos-arm64` | — | **nein** |
+| `macos-arm64` | macOS, Apple Silicon (arm64) | ja |
+| `noarch` | beliebig — ein interpretiertes Plugin ohne nativen Code | entfällt, läuft auf allen dreien |
+| `linux-arm64` · `windows-arm64` · `macos-x64` | — | **nein** |
 
 Die letzte Zeile ist *reserviert, nicht unterstützt*. Die Namen existieren im
 Registry-Schema, damit sich das Index-Format nie ändern muss, falls Astra
@@ -27,17 +28,18 @@ anzugeben, statt stillschweigend etwas zu packen, das zu `linux-x64` auflöst.
 ```bash
 astra-plugin build --target linux-x64
 astra-plugin build --target windows-x64
+astra-plugin build --target macos-arm64
 astra-plugin build --all-targets
 ```
 
 - **Rust** kompiliert zu nativem Code, braucht also ein Bundle pro Plattform.
-  Der Release-Workflow baut sie auf einer Matrix — `ubuntu-24.04` und
-  `windows-2022` — weil ein Cross-Build eine andere Klasse von Bugs mit sich
+  Der Release-Workflow baut sie auf einer Matrix — `ubuntu-24.04`,
+  `windows-2022` und `macos-14` (Apple Silicon) — weil ein Cross-Build eine andere Klasse von Bugs mit sich
   bringt.
 - **TypeScript und Python** erzeugen ein einziges `noarch`-Bundle. Der Index
   schreibt dieselbe URL und denselben Digest unter jedem unterstützten
   Plattform-Schlüssel, sodass ein `noarch`-Bundle wie jedes andere unter
-  `linux-x64` und `windows-x64` gefunden wird.
+  `linux-x64`, `windows-x64` und `macos-arm64` gefunden wird.
 
 `--all-targets` baut alles, was das Plugin braucht, um überall installierbar
 zu sein, wo Astra läuft: eine Datei für TypeScript und Python, eine pro
@@ -171,11 +173,14 @@ belegt ist, also ist `127.0.0.1:32000` eine Ausweich-Vermutung und
 
 ## macOS
 
-Nicht unterstützt, und nicht aus Versehen. Astras eigener Release-Workflow
-baut nur `linux-x64` und `windows-x64`, sodass ein `macos-arm64`-Plugin-Bundle
-keinen Host hätte; macOS würde zusätzlich Apple-Notarisierung für jeden
-Drittanbieter-Autor aufwerfen. Die Schlüsselnamen sind im Index-Schema
-reserviert, nichts gibt sie aus, und ein unbehandelter Host ist ein harter
-Fehler statt eines stillen Fallbacks. Bei Gelegenheit wieder aufgreifen, wenn
-Astra einen Daemon für dieses Ziel ausliefert.
-</content>
+Nur Apple Silicon: `macos-arm64`. Intel-Macs (`macos-x64`) haben weder
+Daemon noch Schlüssel. Ein macOS-Bundle wird **auf einem macOS-Runner**
+gebaut, nie von Linux aus cross-gebaut: Ein arm64-Binary wird beim Start
+beendet, wenn es nicht code-signiert ist, der native Linker signiert es ad
+hoc, und der Release-Workflow prüft die Signatur (`codesign --verify`) und
+dass die Datei arm64-Mach-O ist, bevor das Bundle attestiert wird.
+`astra-plugin build --target macos-arm64` verweigert deshalb auf jedem Host,
+der kein Apple-Silicon-Mac ist, und `--all-targets` braucht das macOS-Binary
+vorab gebaut, wie jedes andere fremde Ziel. Eine Notarisierung gibt es nicht:
+Der Daemon lädt das Bundle selbst herunter und entpackt es, die Datei trägt
+also nie ein Browser-Quarantäne-Flag.

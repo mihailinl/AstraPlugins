@@ -80,7 +80,7 @@ and something a *published* native plugin should tighten. See
 
 | Language | What a release builds |
 |---|---|
-| Rust (nine of them) | `linux-x64` **and** `windows-x64`, one bundle each |
+| Rust (nine of them) | `linux-x64`, `windows-x64` **and** `macos-arm64`, one bundle each |
 | TypeScript (`json-tools`) | one `noarch` bundle |
 | Python (`text-utils`) | one `noarch` bundle |
 

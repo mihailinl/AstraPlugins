@@ -162,7 +162,7 @@ than a missing feature.
 | `test [PATH]` | The conformance suite, against a real plugin process. `--no-build`, `--report` |
 | `doctor [PATH]` | Why it will not start: toolchains, daemon, manifest, entry point, permissions, platform block, release workflow. `--daemon-addr` |
 | `logs [PLUGIN_ID]` | The plugin's output, from the daemon that spawned it. `-f`, `-n`, `--path`, `--daemon-addr` |
-| `build [PATH]` | Pack a `.astraplugin`. `--target linux-x64\|windows-x64\|noarch`, `--all-targets`, `--reproducible`, `-o` |
+| `build [PATH]` | Pack a `.astraplugin`. `--target linux-x64\|windows-x64\|macos-arm64\|noarch`, `--all-targets`, `--reproducible`, `-o` |
 | `verify <FILE>` | Verify a built bundle and print its digests |
 | `version <VERSION> [PATH]` | Set the version in `plugin.toml` and every other manifest at once. `--allow-downgrade` |
 | `init-ci` | Write `.github/workflows/release.yml`, pinned to a commit of the reusable workflow. Idempotent — re-run it to upgrade the pin, it keeps your inputs |

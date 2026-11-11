@@ -19,7 +19,7 @@ Aquí hay dos recorridos, y todo en esta página pertenece a uno de los dos.
 | [Qué es un plugin](1-orientation/what-is-a-plugin.md) | Las trece capacidades (capabilities), y cuál quieres |
 | [Arquitectura](1-orientation/architecture.md) | Modelo de procesos, los dos servicios, el handshake de autenticación |
 | [Modelo de seguridad](1-orientation/security.md) | Qué demuestran las firmas, qué no, y con qué privilegio se ejecuta un plugin |
-| [Plataformas](1-orientation/platforms.md) | linux-x64 y windows-x64, rutas por sistema operativo, requisitos de compilación |
+| [Plataformas](1-orientation/platforms.md) | linux-x64, windows-x64 y macos-arm64, rutas por sistema operativo, requisitos de compilación |
 | **[Primeros pasos](2-tutorial/getting-started.md)** | **De cero a un plugin en marcha. Empieza aquí.** |
 | [SDK de Rust](4-sdk/rust.md) · [SDK de Python](4-sdk/python.md) · [SDK de TypeScript](4-sdk/typescript.md) | Una página cada uno, incluyendo lo que ese SDK todavía no puede hacer |
 | [Ejemplos](7-examples/README.md) | Once plugins en este repositorio, cada uno con su plataforma |

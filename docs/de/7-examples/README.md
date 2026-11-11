@@ -85,7 +85,7 @@ verschärfen sollte. Siehe [Plattformen](../1-orientation/platforms.md).
 
 | Sprache | Was ein Release baut |
 |---|---|
-| Rust (neun davon) | `linux-x64` **und** `windows-x64`, je ein Bundle |
+| Rust (neun davon) | `linux-x64`, `windows-x64` **und** `macos-arm64`, je ein Bundle |
 | TypeScript (`json-tools`) | ein `noarch`-Bundle |
 | Python (`text-utils`) | ein `noarch`-Bundle |
 

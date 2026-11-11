@@ -18,7 +18,7 @@ Es gibt hier zwei Wege, und alles auf dieser Seite gehört zu einem von beiden.
 | [Was ein Plugin ist](1-orientation/what-is-a-plugin.md) | Die dreizehn Fähigkeiten (capabilities), und welche du willst |
 | [Architektur](1-orientation/architecture.md) | Prozessmodell, die zwei Dienste, der Auth-Handshake |
 | [Sicherheitsmodell](1-orientation/security.md) | Was Signaturen beweisen, was nicht, und mit welchen Rechten ein Plugin läuft |
-| [Plattformen](1-orientation/platforms.md) | linux-x64 und windows-x64, Pfade je Betriebssystem, Build-Voraussetzungen |
+| [Plattformen](1-orientation/platforms.md) | linux-x64, windows-x64 und macos-arm64, Pfade je Betriebssystem, Build-Voraussetzungen |
 | **[Erste Schritte](2-tutorial/getting-started.md)** | **Von null zu einem laufenden Plugin. Hier anfangen.** |
 | [Rust-SDK](4-sdk/rust.md) · [Python-SDK](4-sdk/python.md) · [TypeScript-SDK](4-sdk/typescript.md) | Je eine Seite, inklusive dessen, was das jeweilige SDK noch nicht kann |
 | [Beispiele](7-examples/README.md) | Elf Plugins in diesem Repository, jedes mit seiner Plattform |
