@@ -318,11 +318,6 @@ jobs:
               legs = [
                   {"target": "linux-x64", "runner": "ubuntu-24.04"},
                   {"target": "windows-x64", "runner": "windows-2022"},
-                  # Apple Silicon, built NATIVELY on GitHub's arm64 macOS image:
-                  # the attestation covers a binary GitHub built, and an arm64
-                  # Mach-O is not valid until it is code-signed, which the
-                  # native linker does and a cross-link from Linux does not.
-                  {"target": "macos-arm64", "runner": "macos-15"},
               ]
           else:
               legs = [{"target": "noarch", "runner": "ubuntu-24.04"}]
@@ -440,11 +435,6 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      # NOTE for the commit that merges macos-arm64: this pin must name a commit
-      # whose CLI knows `--target macos-arm64` (that is, a master containing the
-      # change that added it), or the macOS leg dies at `astra-plugin build`
-      # with "Unknown target". It is bumped AFTER the merge, in a follow-up
-      # that also changes this file's blob (and so needs a new trust.json SHA).
       ASTRA_TOOLING_REF: "37b1c101b56a58794a3a41980621634334610ada"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
@@ -574,10 +564,6 @@ jobs:
           # shellcheck disable=SC2086
           sudo apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends $PACKAGES
 
-      # `runner.os` is a sufficient key: the only macOS leg is macos-15, arm64, so
-      # one OS name is one architecture. Add an Intel Mac leg and this key must
-      # gain `runner.arch`, or the two would restore each other's binary.
-      #
       # Keyed on the workflow commit, so a new pin rebuilds the CLI and an
       # unchanged pin never does. The cache lives in the CALLER's cache scope
       # and this job is the author's, so the author can poison their own cache —
@@ -745,7 +731,7 @@ jobs:
       # shipped: `build` chooses which artifacts to pack, and a gate that reads
       # a different file is a gate that can be walked around by accident.
       - name: Unpack the finished archive
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         working-directory: ${{ env.PLUGIN_DIR }}
         run: |
           set -euo pipefail
@@ -789,52 +775,6 @@ jobs:
             echo "  no ELF objects in the archive"
           else
             echo "worst observed: GLIBC_$worst (floor GLIBC_$GLIBC_FLOOR_MAX)"
-          fi
-          exit $rc
-
-      # ── macOS gate: Mach-O, arm64, signed ─────────────────────────────────
-      #
-      # The glibc gate above is an ELF check and says nothing here. What a Mac
-      # needs instead: the shipped executable is Mach-O (not an ELF someone
-      # cross-linked), it is arm64 only (a universal or x86_64 slice means the
-      # wrong leg built it, or Rosetta would hide the mistake), and it carries
-      # a code signature — arm64 macOS kills an unsigned binary at exec with no
-      # message but "Killed: 9", which the daemon reports as "the plugin exited
-      # immediately". The Rust linker ad-hoc signs by default; `codesign -v`
-      # is the proof, run on the file as it sits in the archive. Developer-ID
-      # signing/notarisation is not attempted: installs are fetched by the
-      # daemon, not by a browser, so there is no quarantine flag to satisfy.
-      - name: Assert the macOS binaries are signed arm64 Mach-O
-        if: runner.os == 'macOS'
-        run: |
-          set -euo pipefail
-          rc=0; seen=0
-          while IFS= read -r f; do
-            rel="${f#"$RUNNER_TEMP"/unpacked/}"
-            kind=$(file -b "$f")
-            case "$kind" in
-              *Mach-O*) ;;
-              *) continue ;;
-            esac
-            seen=$((seen + 1))
-            archs=$(lipo -archs "$f" 2>/dev/null || echo "?")
-            printf '  %-40s %s\n' "$rel" "$archs"
-            if [ "$archs" != "arm64" ]; then
-              echo "::error::$rel is Mach-O for '$archs', expected exactly arm64"
-              rc=1
-            fi
-            if ! codesign --verify --strict "$f" 2>"$RUNNER_TEMP/codesign.err"; then
-              echo "::error::$rel is not validly code-signed ($(cat "$RUNNER_TEMP/codesign.err")); arm64 macOS will not run it"
-              rc=1
-            fi
-          done < <(find "$RUNNER_TEMP/unpacked" -type f)
-          if [ "$seen" -eq 0 ]; then
-            echo "::error::no Mach-O binary in the archive: a macos-arm64 bundle must contain one"
-            rc=1
-          fi
-          if find "$RUNNER_TEMP/unpacked" -type f -exec sh -c 'file -b "$1" | grep -qE "^ELF|PE32"' _ {} \; -print | grep -q .; then
-            echo "::error::the macos-arm64 bundle contains an ELF or PE binary"
-            rc=1
           fi
           exit $rc
 
@@ -990,7 +930,7 @@ jobs:
           # "x64" and the registry would be handed a platform key that does not
           # exist. Matching against the closed set also makes an unknown target
           # an error here instead of a silent bad index entry.
-          TARGETS = ("linux-x64", "windows-x64", "macos-arm64", "noarch")
+          TARGETS = ("linux-x64", "windows-x64", "noarch")
 
           out = []
           for name in sorted(expected):
