@@ -651,6 +651,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "heldBy": {
               "type": "string",
               "id": 3
+            },
+            "heldSource": {
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -1440,6 +1444,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "heldBy": {
               "type": "string",
               "id": 18
+            },
+            "heldSource": {
+              "type": "string",
+              "id": 19
             }
           }
         },
@@ -1606,6 +1614,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "arrival": {
               "type": "string",
               "id": 10
+            },
+            "taintingPlugins": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 11
             }
           }
         },
@@ -1650,6 +1663,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "sourceId": {
               "type": "string",
               "id": 4
+            },
+            "taintingPlugins": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -1692,6 +1710,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "DocumentAttachment",
               "id": 7
+            },
+            "taintingPlugins": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 8
             }
           }
         },
@@ -3259,6 +3282,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "ImageAttachment",
               "id": 1
+            },
+            "taintingPlugins": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -3275,6 +3303,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "captureId": {
               "type": "string",
               "id": 3
+            },
+            "taintingPlugins": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
             }
           }
         },
@@ -3896,6 +3929,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "catalogueSource": {
               "type": "CatalogueSourceMarker",
               "id": 17
+            },
+            "releaseNote": {
+              "type": "CommandReleaseNote",
+              "id": 18
+            }
+          }
+        },
+        "CommandReleaseNote": {
+          "fields": {
+            "releasedAt": {
+              "type": "int64",
+              "id": 1
+            },
+            "by": {
+              "type": "string",
+              "id": 2
             }
           }
         },
