@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: a54736a3c71df10d0472793dec829bcfd7d034f618e4a2c2b88c1e494cad9b00
+// surface-sha256: ce1f8d511c1f11b8d39467657ac09c683f9538b0a13ce5d0c0474dcb7ccff689
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -325,8 +325,10 @@ message CoreStateResponse {
     // `edition::Edition::legal_page`, so a name here is always one the daemon can open.
     repeated string legal_pages = 29;
 
-    // Overlay implementation, independent of the user's overlay enable setting.
-    // "island" in every build; retained for client compatibility.
+    // Overlay implementation, independent of the user's overlay enable setting
+    // (`overlay_build::backend`): "island" while the GPUI island can show in this login session,
+    // "unsupported" once it has exited 3 (X11, a Wayland compositor with neither layer-shell nor
+    // Astra's GNOME extension, the Windows stub) — Settings greys the overlay switch with the reason.
     string overlay_backend = 30;
 
     // Whether this build offers the assistant's Fast / Work modes (build feature `work-mode`,
@@ -1596,6 +1598,11 @@ message ToolCallStartEvt {
 message ToolConfirmationRequestedEvt {
     string arguments = 7;  // admitted arguments after scope/path/shell binding
     string call_id = 1;
+
+    // The tool the card admits, as the confirmation broker holds it: the REAL tool of a call made
+    // through a meta-tool (`tool_call`, `tool_search_code`), an external agent's `coding.<kind>`.
+    // The same value ListPendingChatConfirmations lists. Empty in a log written before it.
+    string tool_name = 8;
     string request_id = 2;
     string danger_level = 3;
     string description = 4;

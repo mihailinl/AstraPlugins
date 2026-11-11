@@ -2268,6 +2268,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "string",
               "id": 1
             },
+            "toolName": {
+              "type": "string",
+              "id": 8
+            },
             "requestId": {
               "type": "string",
               "id": 2
