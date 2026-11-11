@@ -1920,6 +1920,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: "1.99.1" # the same exact version plugin-release.yml uses
       - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
         with:
           version: ${{ env.PROTOC_VERSION }}
@@ -1974,6 +1976,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: "1.99.1" # the same exact version plugin-release.yml uses
       - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
         with:
           version: ${{ env.PROTOC_VERSION }}
@@ -5034,6 +5038,8 @@ jobs:
       - games-spec
       - content-spec
       - couplings
+      - release-tooling-pin
+      - macos-release-leg
     runs-on: ubuntu-24.04
     steps:
       - name: every job succeeded
