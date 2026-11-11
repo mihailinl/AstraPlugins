@@ -92,7 +92,7 @@ in TypeScript):
 |---|---|
 | `provider` | The chat's provider id. An endpoint the user saved is `openai_compatible`; Astra's own service is `astra` |
 | `model` | The chat's model id |
-| `api_base_url` | The endpoint, without userinfo, query or fragment. Empty for `astra`, whose endpoint is not yours to call |
+| `api_base_url` | The endpoint. Userinfo, query and fragment are removed; the path is sent as the person configured it (a relay that puts a token in the path gives it to you). Empty for `astra`, whose endpoint is not yours to call |
 | `is_loopback` | The endpoint is on this machine (`127.0.0.0/8`, `::1`, `localhost`) — a local model |
 
 It never carries an API key, the user's other saved endpoints, the system prompt
@@ -100,7 +100,7 @@ or any role but the chat's. A plugin that needs a key asks the user for one in
 its own `[config]` (mark it secret). It is neither high-risk nor refused to a
 local import: it is the honest way to this information, and pricing it above
 reading `settings.json` would push plugins the wrong way. Reading Astra's own
-files is what publication review looks for. An Astra older than this call
+files is something human review at publication looks for. An Astra older than this call
 answers `UNIMPLEMENTED`.
 
 ## Sending a chat message

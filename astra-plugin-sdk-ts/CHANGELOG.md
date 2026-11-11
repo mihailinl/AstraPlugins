@@ -30,7 +30,8 @@ are removable in.
 ### BREAKING
 
 - `Host` gained a required method, `getAiSettings`; a `Host` implemented outside
-  this package adds it.
+  this package adds it. **This is a breaking change, so the next release is
+  0.8.0, not a patch.**
 
 ## [0.7.3] — 2026-10-24
 

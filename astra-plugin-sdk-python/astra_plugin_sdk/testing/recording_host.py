@@ -176,7 +176,7 @@ class RecordingHost:
     async def get_daemon_info(self):
         self._maybe_fail("get_daemon_info")
         return plugin_pb2.PluginDaemonInfoResponse(
-            version=self.daemon_version, port=self.daemon_port
+            version=self.daemon_version, grpc_port=self.daemon_port
         )
 
     async def get_ai_settings(self):

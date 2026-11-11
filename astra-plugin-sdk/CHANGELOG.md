@@ -28,7 +28,8 @@ are removable in.
 
 ### BREAKING
 
-- `Host` gained a required method, `get_ai_settings`. A `Host` implemented
+- `Host` gained a required method, `get_ai_settings`. **This is a breaking change,
+  so the next release is 0.8.0, not a patch.** A `Host` implemented
   outside this crate adds it (a wrapper forwards it; a fake returns
   `Ok(Default::default())`). It is required rather than defaulted on purpose: a
   default would let a forwarding wrapper answer an error instead of its inner
