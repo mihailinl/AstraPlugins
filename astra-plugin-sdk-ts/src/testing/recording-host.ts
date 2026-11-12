@@ -20,9 +20,26 @@
 
 import { Readable } from "node:stream";
 import type * as grpc from "@grpc/grpc-js";
-import type { AiSettings, Host, DaemonInfo, SpeakResult, UserIdentity } from "../host.js";
+import type {
+  AiSettings,
+  Host,
+  DaemonInfo,
+  SettingChange,
+  SettingsChangeResult,
+  SpeakResult,
+  UserIdentity,
+} from "../host.js";
+import { settingValueJson } from "../host-client.js";
 import type { ChatChunk, ThemeContribution } from "../types.js";
 
+/**
+ * One `requestSettingsChange` — each value as the daemon would read it (the
+ * JSON the real client sends, parsed back), and the reason as written.
+ */
+export interface RecordedSettingsChange {
+  changes: SettingChange[];
+  reason: string;
+}
 /** One line the plugin logged. */
 export interface RecordedLog {
   level: string;
@@ -67,6 +84,7 @@ export type HostRpc =
   | "speak"
   | "stopSpeaking"
   | "getUserIdentity"
+  | "requestSettingsChange"
   | "setVariable"
   | "pushToUi"
   | "setThemeContribution"
@@ -90,6 +108,7 @@ export class RecordingHost implements Host {
   private readonly chats: RecordedChat[] = [];
   private readonly spokenTexts: string[] = [];
   private stops = 0;
+  private readonly settingsRequests: RecordedSettingsChange[] = [];
   private readonly streams: Readable[] = [];
   /** RPC -> the error to throw, and how many more times to throw it. */
   private readonly failures = new Map<HostRpc, { error: Error; times: number }>();
@@ -195,6 +214,14 @@ export class RecordingHost implements Host {
   stopCount(): number {
     return this.stops;
   }
+  /**
+   * Every `requestSettingsChange()`, in order — including one
+   * `settingsChangeResult` then refused, because what the plugin ASKED for is
+   * the assertion.
+   */
+  settingsChangeRequests(): readonly RecordedSettingsChange[] {
+    return this.settingsRequests;
+  }
   /** Forget everything recorded. Failure injections are kept. */
   clear(): void {
     this.triggers.length = 0;
@@ -205,6 +232,7 @@ export class RecordingHost implements Host {
     this.chats.length = 0;
     this.spokenTexts.length = 0;
     this.stops = 0;
+    this.settingsRequests.length = 0;
   }
 
   /** Chunks the next `sendChatMessage` will stream back. */
@@ -229,6 +257,24 @@ export class RecordingHost implements Host {
 
   /** What `getUserIdentity()` answers: nobody signed in, until told otherwise. */
   userIdentity: UserIdentity = { installId: "", signedIn: false, authorized: false, accountId: "" };
+
+  /**
+   * What `requestSettingsChange()` answers: applied — the person allowed it —
+   * until told otherwise. Stage another outcome to test the branch a declined,
+   * timed-out or refused plugin takes:
+   *
+   * ```ts
+   * host.settingsChangeResult = {
+   *   outcome: "REFUSED", code: "rate_limited", refusedPath: "",
+   *   error: { code: "PLUGIN_ERROR_RATE_LIMITED", message: "", hint: "",
+   *            configField: "", retryAfterMs: 90_000, docUrl: "" },
+   * };
+   * ```
+   *
+   * A refusal by the daemon's gates (no `request_settings_change` grant) is
+   * `fail("requestSettingsChange", …)` — a rejection, not an outcome.
+   */
+  settingsChangeResult: SettingsChangeResult = { outcome: "APPLIED", code: "", refusedPath: "" };
 
   /** Push one event to every open `subscribeEvents` stream. */
   emitEvent(eventType: string, payload: Record<string, unknown> = {}): void {
@@ -284,6 +330,22 @@ export class RecordingHost implements Host {
   async getUserIdentity(): Promise<UserIdentity> {
     this.check("getUserIdentity");
     return this.userIdentity;
+  }
+
+  async requestSettingsChange(
+    changes: SettingChange[],
+    reason: string
+  ): Promise<SettingsChangeResult> {
+    this.check("requestSettingsChange");
+    // Serialised the way the real client serialises it, so a value JSON
+    // cannot hold throws here too, and what is recorded is what the daemon
+    // would read (a deep copy: the plugin mutating its object later changes
+    // nothing on the record).
+    this.settingsRequests.push({
+      changes: changes.map((c) => ({ path: c.path, value: JSON.parse(settingValueJson(c)) })),
+      reason,
+    });
+    return this.settingsChangeResult;
   }
 
   async setVariable(name: string, value: string, scope = "session"): Promise<void> {

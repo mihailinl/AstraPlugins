@@ -70,7 +70,7 @@ UI，或者作为一个独立的聊天客户端运行。
 | [CLI](reference/cli.md) | `clap` 的定义，通过运行 `astra-plugin --help` 生成 |
 | [协议](reference/protocol.md) | `proto/plugin.proto` |
 | [错误](reference/errors.md) | 三个 SDK 中共有的错误分类 |
-| [钩子对照表](reference/parity.md) | `spec/hooks.yaml` —— 三个 SDK 中全部 47 个钩子 |
+| [钩子对照表](reference/parity.md) | `spec/hooks.yaml` —— 三个 SDK 中全部 48 个钩子 |
 | [权限](3-reference/permissions.md) | 手写: 每个权限授予什么、如何写理由说明 |
 | [配置字段](3-reference/config-fields.md) | 手写: 设置界面、`[config]`，以及 TTS/STT 字段钩子 |
 | [唤醒词插件](wakeword-plugins.md) | 手写: 语音页面集成、插件设置以及音频调用约定 |

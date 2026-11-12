@@ -75,6 +75,7 @@
 | `Speak` | `core` | `speak` | optional | unary | stable | プラグイン自身の言葉を Astra の声で読み上げます。言い終えた、止められた、または拒否された時点で応答します。 |
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | このプラグインが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、Astra が話している他のものは何も止めません。 |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID。アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してありません。 |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | Astra の設定の一部を変えるよう、本人が応答するカードで頼みます — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わりません。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 
 ## ギャップ

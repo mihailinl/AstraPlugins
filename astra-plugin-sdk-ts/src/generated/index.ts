@@ -39,7 +39,7 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "6e1c8055e39596508fd939a8f71b3bbb6b607cf63deb77d74a11573da86692ec";
+export const PROTO_SHA256 = "97a23c6a59ad86f8610d68809716409c7e1634ce6bfc4d9c6045d32c829c8726";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";
@@ -58,7 +58,7 @@ export const SERVICE_METHODS = {
   MediaService: ["GetMediaState", "ControlMedia", "SubscribeMediaState", "GetMediaSessions", "CaptureScreen"],
   MonitorService: ["GetSystemStats", "SubscribeSystemStats", "SubscribeToolSearchEvents"],
   PluginService: ["ListPlugins", "InstallPlugin", "InstallPluginStream", "CancelPluginInstall", "UninstallPlugin", "ReportPlugin", "SetPluginEnabled", "StartPlugin", "StopPlugin", "GetPluginConfig", "UpdatePluginConfig", "BrowsePluginRegistry", "CheckPluginUpdates", "UpdatePlugin", "SideloadPlugin", "ImportPluginFile", "InspectPluginFile", "ResolvePendingUpdate", "GetPluginLogs", "GetPluginProvenance", "GetAllUiContributions", "GetActiveThemes", "CallPluginFromUi"],
-  PluginHostService: ["Register", "SubscribeEvents", "SendChatMessage", "FireTrigger", "GetPluginSelfConfig", "PluginLog", "GetDaemonInfo", "GetAiSettings", "SetVariable", "SetThemeContribution", "PushToUi", "Speak", "StopSpeaking", "GetUserIdentity"],
+  PluginHostService: ["Register", "SubscribeEvents", "SendChatMessage", "FireTrigger", "GetPluginSelfConfig", "PluginLog", "GetDaemonInfo", "GetAiSettings", "SetVariable", "SetThemeContribution", "PushToUi", "Speak", "StopSpeaking", "GetUserIdentity", "RequestSettingsChange"],
   PluginCapabilityService: ["ListTools", "CallTool", "TtsSynthesize", "TtsSynthesizeStream", "TtsListVoices", "TtsGetConfigFields", "TtsActivate", "SttProcess", "SttGetLanguages", "SttGetConfigFields", "SttLoad", "SttUnload", "SttGetLoadState", "AiComplete", "AiGetModels", "WebSearch", "ImageGenerate", "ImageGetModels", "MusicSubscribe", "MusicControl", "MusicGetQueue", "MusicSearch", "MusicPlay", "ExecuteAction", "GetPluginActionTypes", "GetPluginTriggerTypes", "GetUiContributions", "CallFromUi", "OnConfigChanged", "OnActiveTriggers", "OnLanguageChanged", "Shutdown", "HealthCheck"],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -116,4 +116,5 @@ export type PluginHostMethod =
   | "PushToUi"
   | "Speak"
   | "StopSpeaking"
-  | "GetUserIdentity";
+  | "GetUserIdentity"
+  | "RequestSettingsChange";

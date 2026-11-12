@@ -16,7 +16,7 @@
 //! One rule beats a per-key type table that can drift on its own.
 
 /// SHA-256 of the `spec/limits.yaml` these constants were generated from.
-pub const SPEC_SHA256: &str = "8816efc4e1f664b13ce160b4921930d9b41fc43a7c435560d47e300d2056d2b3";
+pub const SPEC_SHA256: &str = "947a19862bfbe6c189e66ad6699c212e5c2c020ca23d5512ab8a18da4d934501";
 
 /// Capacity of the audio channel that carries streaming-STT chunks from the
 /// daemon's voice pipeline into the plugin process, in chunks.
@@ -151,3 +151,13 @@ pub const SPEAK_TEXT_MAX_CHARS: u64 = 300;
 /// `plugin_image_request_max_bytes`, and a picture left out is counted, never
 /// dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
 pub const IMAGE_INPUT_MAX_IMAGES: u64 = 4;
+
+/// The most settings one `host.requestSettingsChange()` may ask for, each path
+/// once. All of them change or none (`ai::tools::settings_tools::MAX_CHANGES`,
+/// the assistant's own bound).
+pub const SETTINGS_CHANGE_MAX_CHANGES: u64 = 8;
+
+/// The longest reason one `host.requestSettingsChange()` may give the person, in
+/// characters: it is shown on the card whole, so a longer one is REFUSED, never
+/// cut (`plugins::settings_request::REASON_MAX_CHARS`).
+pub const SETTINGS_CHANGE_REASON_MAX_CHARS: u64 = 140;

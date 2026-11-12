@@ -122,7 +122,7 @@ ZIP 内のペアは廃止予定のフォーマット機能です。このコマ�
 ## パーミッションゲートが行うこと
 
 デーモンは `[permissions]` を 1 か所で強制します: `require_permission`、
-`PluginHostService` の 10 個の RPC のうち 6 個に対してです。残りの 4 つ
+`PluginHostService` の 15 個の RPC のうち 11 個に対してです。残りの 4 つ
 — `Register`、`GetPluginSelfConfig`、`PluginLog`、`GetDaemonInfo` — は
 **常に許可されており**、パーミッションチェックは一切実行されません。
 これらはデーモンの `HOST_RPC_PERMISSIONS` テーブルでは `(…, None)` で

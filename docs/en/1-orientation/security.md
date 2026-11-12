@@ -112,8 +112,8 @@ a repository and a tag, so there is no credential to store and none to leak.
 
 ## What the permission gate does
 
-The daemon enforces `[permissions]` at one place: `require_permission`, on six
-of the ten `PluginHostService` RPCs. The other four — `Register`,
+The daemon enforces `[permissions]` at one place: `require_permission`, on eleven
+of the fifteen `PluginHostService` RPCs. The other four — `Register`,
 `GetPluginSelfConfig`, `PluginLog` and `GetDaemonInfo` — are **always allowed**
 and run no permission check at all; they are `(…, None)` in the daemon's
 `HOST_RPC_PERMISSIONS` table and there is no `require_permission` call in their

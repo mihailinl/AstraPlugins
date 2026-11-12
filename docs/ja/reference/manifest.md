@@ -190,6 +190,7 @@ Astra、semver バージョンとして(`"0.9.0"`)。空 = 要件なし。
 | `speak` | `Speak`, `StopSpeaking` | **あり** | なし | プラグイン自身の言葉を Astra の声で読み上げる。 |
 | `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID(アカウント自身の id、名前、ハードウェアのシリアル番号であることは決してない)。 |
 | `receive_attachments` | — | **あり** | なし | ターンが応答するメッセージに人が添付した画像を、`wants_attachments` を宣言したこのプラグインのツールに渡す (`PluginCallToolRequest.attachments`)。 |
+| `request_settings_change` | `RequestSettingsChange` | なし | なし | Astra の設定の一部を変えるよう本人に「頼む」(頼めるのはアシスタント自身が変更できる設定だけ)。 |
 
 *Gates* は、[`spec/hooks.yaml`](../../../spec/hooks.yaml) から、その
 パーミッションなしではデーモンが拒否するホスト RPC です; パリティ
@@ -270,6 +271,8 @@ RPC もゲートしないパーミッションです: `dom_access` は UI コン
 **`read_user_identity`。** `PluginHostService.GetUserIdentity` — このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID(アカウント自身の id、名前、ハードウェアのシリアル番号であることは決してない)。高リスクではなく、Tier 2 でも拒否されない: マシンのシリアル番号に代わる誠実な手段であり、高く値付けすれば、人ごとに利用を制限するプラグインをシリアル番号へ押し戻してしまう。
 
 **`receive_attachments`。** ターンが応答するメッセージに人が添付した画像を、`wants_attachments` を宣言したこのプラグインのツールに渡します (`PluginCallToolRequest.attachments`)。ホスト RPC ではありません: デーモンが送るもので、会話が引き起こした呼び出しでだけ送られます。**高リスク:** 人の写真がサードパーティのコードに届きます。ティア 2 では拒否されません: `speak` と同じく、チェックボックスが判断です。
+
+**`request_settings_change`。** `PluginHostService.RequestSettingsChange` — Astra の設定の一部を変えるよう本人に「頼む」(頼めるのはアシスタント自身が変更できる設定だけ)。リクエストのたびに本人が応答するカードが出て、各設定の今の値と変更後の値、プラグインの理由を見せます。本人が許可しない限り何も変わりません。高リスクではなく、ティア 2 でも拒否されません: 毎回のカードそのものが同意であり、代わりに `settings.json` を書き換えていたプラグインは誰にも尋ねていなかったからです。
 
 ## `[config]`
 

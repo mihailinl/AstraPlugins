@@ -72,7 +72,7 @@ and it is always the one that is wrong.
 | [CLI](reference/cli.md) | the `clap` definitions, by running `astra-plugin --help` |
 | [Protocol](reference/protocol.md) | `proto/plugin.proto` |
 | [Errors](reference/errors.md) | the error taxonomy in all three SDKs |
-| [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 47 hooks in all three SDKs |
+| [Hook parity](reference/parity.md) | `spec/hooks.yaml` — all 48 hooks in all three SDKs |
 | [Permissions](3-reference/permissions.md) | written: each permission, what it grants, how to write a reason |
 | [Config fields](3-reference/config-fields.md) | written: settings UI, `[config]`, and the TTS/STT field hooks |
 | [Wake word plugins](wakeword-plugins.md) | written: Voice integration, plugin settings and audio call contract |

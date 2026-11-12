@@ -20,12 +20,54 @@ so there is no reachable object on which an unauthenticated ``log()`` /
 ``fire_trigger()`` / ``set_variable()`` exists.
 """
 
+import json
+from collections.abc import Iterable, Mapping
+from typing import Any
+
 import grpc
 
 from astra_plugin_sdk import protocol
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.causality import current_cause
 from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER, X_ASTRA_CAUSE
+
+
+#: What :meth:`HostClient.request_settings_change` takes: ``{path: value}``, or
+#: ``(path, value)`` pairs in the order they should appear on the card.
+SettingChanges = Mapping[str, Any] | Iterable[tuple[str, Any]]
+
+
+def settings_change_request(
+    changes: SettingChanges, reason: str
+) -> plugin_pb2.PluginSettingsChangeRequest:
+    """The ``PluginSettingsChangeRequest`` :meth:`HostClient.request_settings_change` sends.
+
+    Each value is serialised to JSON for ``value_json`` — any JSON value:
+    ``"gpt-4.1"``, ``True``, ``1.2``, ``None``, a list, a dict — compactly and
+    with its characters kept. A value JSON cannot represent (``NaN``, infinity,
+    an object ``json`` cannot encode) raises ``ValueError`` / ``TypeError``
+    here instead of reaching the daemon as something else. Nothing else is
+    checked: the count, a path given twice and the reason's length are the
+    daemon's to judge (``REFUSED``), so the SDK can never disagree with the
+    Astra it talks to.
+    """
+    if isinstance(changes, (str, bytes)):
+        raise TypeError(
+            "changes is a mapping {path: value} or (path, value) pairs, not a string"
+        )
+    pairs = changes.items() if isinstance(changes, Mapping) else changes
+    return plugin_pb2.PluginSettingsChangeRequest(
+        changes=[
+            plugin_pb2.PluginSettingChange(
+                path=path,
+                value_json=json.dumps(
+                    value, allow_nan=False, ensure_ascii=False, separators=(",", ":")
+                ),
+            )
+            for path, value in pairs
+        ],
+        reason=reason,
+    )
 
 
 class HostClientBootstrap:
@@ -273,6 +315,74 @@ class HostClient:
         """
         return await self._stub.GetUserIdentity(
             plugin_pb2.Empty(), metadata=self._metadata
+        )
+
+    async def request_settings_change(
+        self, changes: SettingChanges, reason: str
+    ) -> plugin_pb2.PluginSettingsChangeResponse:
+        """**Ask the person** to change some of Astra's settings, on a card they answer.
+
+        Needs the ``request_settings_change`` permission (not high-risk:
+        nothing changes without the person's Allow) and an account that opens
+        Astra. ``changes`` is ``{path: value}`` or ``(path, value)`` pairs —
+        dotted settings paths the assistant itself may change (``ai.model``,
+        ``voice.tts_speed``; never the permission mode, a key or Tool Search),
+        each value any JSON value; ``reason`` is shown on the card in the
+        plugin's own words. All of them change, or none, and what changes is
+        exactly what the card showed.
+
+        The call **lasts until the person answers or the card expires** —
+        Astra's confirmation timeout, at least 30 s, 120 s unless the person
+        changed it — so never await it on a path that must answer quickly. The
+        SDK puts no deadline of its own on it. It answers ``response.outcome``:
+
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED`` — the person
+          allowed it; the settings now hold what was asked for.
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_UNCHANGED`` — they
+          already held it. Nobody was asked.
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED`` — the person
+          said no, now or to this plugin changing one of these settings before
+          (Astra asks again about a setting only after it has changed some
+          other way, or after a restart). **Do not ask again unasked.**
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT`` — nobody
+          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED`` — not asked, or
+          not applied: ``response.code`` says why, ``response.refused_path``
+          names the setting when it is about one, and ``response.error`` is a
+          ``PluginError`` — a sentence, and ``retry_after_ms`` for
+          ``rate_limited``. The words: ``not_compiled`` (this Astra was built
+          without the ``plugin-requests`` feature), ``locked``, ``invalid`` (no
+          changes, a path twice, a value that is not JSON, or more than a card
+          can show whole), ``too_many`` (more than
+          :data:`astra_plugin_sdk.limits.SETTINGS_CHANGE_MAX_CHANGES`),
+          ``reason_too_long`` (more than
+          :data:`astra_plugin_sdk.limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
+          characters — refused, never cut), ``busy`` (one of this plugin's
+          requests is already waiting), ``rate_limited`` (two at once, then
+          one every two minutes), ``not_assistant_editable``,
+          ``invalid_value``, ``unknown_choice``, ``needs_api_key``,
+          ``needs_stt_provider``, ``provider_unreachable``, ``stale`` (the
+          settings changed while the card was up), ``stopped`` (this plugin's
+          authority ended first), ``write_refused``.
+
+        ::
+
+            asked = await self.host.request_settings_change(
+                {"ai.model": "gpt-4.1"}, "PrimeAI's tools are tuned for this model"
+            )
+            if asked.outcome == plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED:
+                if asked.code == "rate_limited":
+                    retry_in = asked.error.retry_after_ms / 1000
+
+        The current values are never returned. The daemon is the authority on
+        every limit; this client checks none (see :func:`settings_change_request`
+        for the one thing it does: a value JSON cannot hold raises). A refusal
+        by the gates — no grant, an account that does not open Astra, an Astra
+        older than this RPC (``UNIMPLEMENTED``) — raises
+        ``grpc.aio.AioRpcError`` like every host call.
+        """
+        return await self._stub.RequestSettingsChange(
+            settings_change_request(changes, reason), metadata=self._metadata
         )
 
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):

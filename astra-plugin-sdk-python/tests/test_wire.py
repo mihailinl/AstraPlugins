@@ -248,6 +248,85 @@ def test_denying_speak_refuses_stop_speaking_too():
         assert w.daemon.stop_count() == 0
 
 
+# ── a settings request, over the wire ───────────────────────────────────────
+
+
+class _Tuner(Plugin):
+    @tool("Ask for a model and a speed, then report what Astra answered")
+    async def tune(self, model: str):
+        asked = await self.host.request_settings_change(
+            [("ai.model", model), ("voice.tts_speed", 1.2)], "tuned for this model"
+        )
+        return {
+            "outcome": plugin_pb2.PluginSettingsChangeOutcome.Name(asked.outcome),
+            "code": asked.code,
+            "refused_path": asked.refused_path,
+            "error_code": (
+                plugin_pb2.PluginErrorCode.Name(asked.error.code)
+                if asked.HasField("error")
+                else ""
+            ),
+            "retry_after_ms": asked.error.retry_after_ms,
+        }
+
+
+def test_a_settings_request_from_a_leased_call_reaches_the_daemon_with_the_token():
+    """The request crosses the wire as written — the changes in order, each
+    value as JSON, the reason whole — with the session token, and asking is
+    not a fire, so nothing about it spends the lease."""
+    with WireHarness(_Tuner()) as w:
+        with w.lease("lease-tune"):
+            out = json.loads(w.call_tool("tune", model="gpt-4.1").result)
+        assert out == {
+            "outcome": "PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED",
+            "code": "",
+            "refused_path": "",
+            "error_code": "",
+            "retry_after_ms": 0,
+        }
+        [asked] = w.daemon.settings_change_requests()
+        assert [(c.path, c.value_json) for c in asked.changes] == [
+            ("ai.model", '"gpt-4.1"'),
+            ("voice.tts_speed", "1.2"),
+        ]
+        assert asked.reason == "tuned for this model"
+        assert w.daemon.unauthenticated_calls == []
+        assert w.daemon.fired_triggers() == []
+
+
+def test_a_refused_settings_request_crosses_the_wire_whole():
+    """The daemon's code word, the setting and its `PluginError` arrive
+    intact — a rate-limited plugin needs the number, not a sentence."""
+    daemon = MockDaemon()
+    daemon.settings_change_response = {
+        "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED,
+        "refused_path": "ai.model",
+        "code": "rate_limited",
+        "error": plugin_pb2.PluginError(
+            code=plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+            message="this plugin asked too often",
+            retry_after_ms=90000,
+        ),
+    }
+    with WireHarness(_Tuner(), daemon=daemon) as w:
+        out = json.loads(w.call_tool("tune", model="gpt-4.1").result)
+        assert out == {
+            "outcome": "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED",
+            "code": "rate_limited",
+            "refused_path": "ai.model",
+            "error_code": "PLUGIN_ERROR_RATE_LIMITED",
+            "retry_after_ms": 90000,
+        }
+        assert len(w.daemon.settings_change_requests()) == 1
+
+
+def test_denying_request_settings_change_refuses_the_request_at_the_gate():
+    daemon = MockDaemon(denied_permissions=["RequestSettingsChange"])
+    with WireHarness(_Tuner(), daemon=daemon) as w:
+        assert not w.call_tool("tune", model="m").success
+        assert w.daemon.settings_change_requests() == []
+
+
 def test_a_refused_registration_does_not_leave_a_half_started_plugin():
     daemon = MockDaemon(accept_registration=False, registration_error="not installed")
     with pytest.raises(WireError, match="exited with code 1"):

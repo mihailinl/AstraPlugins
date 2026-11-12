@@ -44,7 +44,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 何も守らないチェックボックスは、ユーザーがチェックボックスにチェックを
 入れることを学習してしまう原因です。
 
-## 12 個の id
+## 13 個の id
 
 | Id | ゲートする対象 | 専用チェックボックス | ローカルインポートで拒否される | 何ができるようになるか |
 |---|---|---|---|---|
@@ -81,6 +81,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 | `speak` | `Speak`, `StopSpeaking` | **あり** | なし | 自分の言葉を Astra の声で読み上げ、それを止める |
 | `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、自分のプラグイン専用に作られた仮名 ID を読む |
 | `receive_attachments` | — (配送) | **あり** | なし | 求めるツールの中で、人が添付した画像を受け取る |
+| `request_settings_change` | `RequestSettingsChange` | なし | なし | 本人が応答するカードで、アシスタントが変更できる設定の変更を頼む |
 
 `dom_access` と `client` はどの RPC もゲートしません。それがまさに
 ポイントです: これらは**サーフェス**です。`dom_access` は、UI コントリビュー
@@ -206,6 +207,40 @@ Astra が呼び出しに画像を渡すのは、次のすべてが成り立つ�
 1 回の呼び出しは最大 20 MiB の画像を運ぶことがあり、これは gRPC の既定の受信上限 4 MiB を超えます。3 つの SDK の capability サーバーは最大 64 MiB (`plugin_max_message_bytes`) まで受信します; SDK を使わずにプロトコルを実装するプラグインは、自分のサーバーの受信上限を 4 MiB より大きくする必要があります。
 
 `receive_attachments` は**高リスク**です: 人の写真が Astra のものではないコードに届くため、独自の同意チェックボックスを持ちます。ローカルインポートでは拒否されません — `speak` と同じく、チェックボックスが判断です。
+
+## 設定の変更を本人に頼む
+
+Astra の設定のどれかを変えてほしい本当の理由がある — ツールの調整先のモデル、そのプラグインに合う声 — プラグインは、それを**頼み**、本人がカードで決めます。Astra の `settings.json` を自分で書き換えてはいけませんし、そのために Astra 自身のセッションを借りてもいけません: 本人の知らないところで本人の Astra を変えることになり、公開時の人によるレビューはまさにそれを探します。`request_settings_change` を宣言し、`RequestSettingsChange` を呼び出します(Rust と Python では `request_settings_change(changes, reason)`、TypeScript では `ctx.requestSettingsChange(changes, reason)`)。**まだどの Astra リリースもこれに応えません:** デーモンがリクエストを受け付けるのは `plugin-requests` ビルド機能付きでビルドされたときだけで、それ以外の Astra はコード `not_compiled` の `REFUSED` を返します。
+
+各変更は、ドット区切りの設定パスと、望む値を JSON にしたものです — 値は SDK が JSON にしてくれます。頼めるのはアシスタント自身が変更できる設定だけ — 声、AI モデル、言語。パーミッションモード、キー、Tool Search は決して頼めません — で、各値はアシスタント自身の変更とまったく同じように検査されます。カードはあなたのプラグインの名前、各設定の今の値と変更後の値、そしてあなたの言葉での `reason` を見せます。すべて変わるか、何も変わらないかのどちらかで、変わるのはカードが見せたものそのものです。
+
+**呼び出しは、本人が応答するかカードが期限切れになるまで続きます** — Astra の確認タイムアウトで、最短 30 秒、本人が変えていなければ 120 秒。SDK は独自の期限を付けません。モデルが待っているツール呼び出しのような、すぐに応答しなければならない経路では決して await しないでください。
+
+| 結果 | 意味 | どうするか |
+|---|---|---|
+| `APPLIED` | 本人が許可した。設定は今、頼んだ値になっている | 何もしない |
+| `UNCHANGED` | すでにその値だった。誰にも尋ねていない | 何もしない |
+| `DECLINED` | 本人が断った — 今、または以前に、あなたのプラグインがこれらの設定のどれかを変えることを。Astra がそうした設定について再び尋ねるのは、それが別の方法で変わった後か、再起動の後だけ | 本人の今の設定のまま続ける。**頼まれもしないのに再び尋ねない** |
+| `TIMED_OUT` | カードが期限切れになる前に誰も応答しなかった(ウィンドウが 1 つも開いていなかった場合も含む) | 本人がいるときに、後で尋ねる |
+| `REFUSED` | 尋ねなかった、または適用しなかった: `code` が理由を、`refused_path` が関係する設定(あれば)を示し、`error` は `PluginError` | 下のコードを読む |
+
+| `code` | いつ |
+|---|---|
+| `not_compiled` | この Astra はリクエストを受け付けない: `plugin-requests` 機能なしでビルドされた |
+| `locked` | Astra がパスコードでロックされている |
+| `invalid` | 変更がない、同じパスが 2 回、JSON でない値、またはカードに全体を表示できないほど多い |
+| `too_many` | **8** 件を超える変更(`spec/limits.yaml` の `settings_change_max_changes`) |
+| `reason_too_long` | **140 文字**を超える理由(`settings_change_reason_max_chars`)。全体が表示されるので、切り詰められずに拒否される |
+| `busy` | あなたのリクエストの 1 つがすでに本人を待っている: カードはプラグインごとに同時に 1 枚 |
+| `rate_limited` | **一度に 2 件、その後は 2 分に 1 件**。`error.retry_after_ms` が次に空く時を示す |
+| `not_assistant_editable` | アシスタントが変更できないパス |
+| `invalid_value`, `unknown_choice` | その設定が持てない値、または設定が提供していない選択肢 |
+| `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | 変更すると Astra に必要なものがなくなる: その AI プロバイダーのキー、音声認識、応答するプロバイダー |
+| `stale` | カードが出ている間に設定が変わったので、本人が許可したものと書き込まれるものが一致しない。何も書き込まれていない |
+| `stopped` | あなたのプラグインの権限が先に終わった — 停止された、無効にされた、取り下げられた、またはアカウントが Astra を利用できなくなった |
+| `write_refused` | 設定を書き込めなかった |
+
+現在の値は決して返されません: プラグインが知るのは結果だけです。上限はデーモンのものです: SDK は `SETTINGS_CHANGE_MAX_CHANGES` と `SETTINGS_CHANGE_REASON_MAX_CHARS` をエクスポートしますが、自分ではどちらも検査しません。許可に加えて、呼び出しには **Astra を利用できるアカウント** が必要です。許可がない、またはアカウントが Astra を利用できない場合は、他のホスト呼び出しと同じく失敗した呼び出しになり、結果ではありません。高リスクではなく、ローカルインポートでも拒否されません: リクエストのたびに本人が応答するカードが出るので、同意は毎回求められます。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
 
 ## reason を書く
 

@@ -474,3 +474,117 @@ async fn without_the_speak_grant_neither_speak_nor_stop_speaking_is_allowed() {
     }
     assert!(harness.daemon().spoken().is_empty());
 }
+
+// ── a settings request, from inside a leased call ───────────────────────────
+//
+// `RequestSettingsChange` is a DEFAULTED `Host` method like `Speak`, so the
+// same whole chain runs for it: leased `CallTool`, scoped context, wrapper,
+// client, session token, mock daemon.
+
+use astra_plugin_sdk::proto::{PluginSettingChange, PluginSettingsChangeOutcome};
+
+/// `tune` asks for `ai.model` = its argument string and reports what Astra
+/// answered: `outcome|code|refused_path|retry_after_ms`.
+struct Tuner;
+
+#[async_trait::async_trait]
+impl PluginCapability for Tuner {
+    type Config = NoConfig;
+
+    async fn list_tools(&self) -> Vec<ToolDef> {
+        vec![ToolDef::new("tune", "Ask for a model")]
+    }
+
+    async fn call_tool(
+        &self,
+        ctx: &PluginContext,
+        _name: &str,
+        args: &str,
+    ) -> Result<String, ToolError> {
+        let asked = ctx
+            .host()
+            .request_settings_change(
+                &[PluginSettingChange::new("ai.model", args)],
+                "tuned for this model",
+            )
+            .await?;
+        let outcome = match asked.outcome() {
+            PluginSettingsChangeOutcome::Applied => "applied",
+            PluginSettingsChangeOutcome::Unchanged => "unchanged",
+            PluginSettingsChangeOutcome::Declined => "declined",
+            PluginSettingsChangeOutcome::TimedOut => "timed_out",
+            PluginSettingsChangeOutcome::Refused => "refused",
+            _ => "unspecified",
+        };
+        let wait = asked.error.map(|e| e.retry_after_ms).unwrap_or_default();
+        Ok(format!(
+            "{outcome}|{}|{}|{wait}",
+            asked.code, asked.refused_path
+        ))
+    }
+}
+
+/// The request reaches the daemon through the scoped host, with the session
+/// token, exactly as written — the value as JSON, the reason whole. Asking is
+/// not a fire, so nothing about it spends or carries the lease.
+#[tokio::test]
+async fn a_settings_request_from_a_leased_call_reaches_the_daemon() {
+    let harness = WireHarness::start(Tuner).await.unwrap();
+
+    let resp = announce(&harness, "tune", "gpt-4.1").await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(resp.result, "applied|||0");
+    let asked = harness.daemon().settings_change_requests();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(
+        asked[0].changes,
+        vec![PluginSettingChange::new("ai.model", "gpt-4.1")]
+    );
+    assert_eq!(asked[0].changes[0].value_json, r#""gpt-4.1""#);
+    assert_eq!(asked[0].reason, "tuned for this model");
+    assert!(harness.daemon().unauthenticated_calls().is_empty());
+    assert!(harness.fired_triggers().is_empty());
+}
+
+/// `Refused` is an ANSWER, not an error: the handler gets the code word, the
+/// setting it is about and the wait, and decides.
+#[tokio::test]
+async fn a_refused_settings_request_reaches_the_handler_with_its_code_path_and_wait() {
+    let harness = WireHarness::start(Tuner).await.unwrap();
+    harness.daemon().set_settings_change_response(
+        astra_plugin_sdk::proto::PluginSettingsChangeResponse {
+            outcome: PluginSettingsChangeOutcome::Refused as i32,
+            refused_path: "ai.model".into(),
+            code: "rate_limited".into(),
+            error: Some(astra_plugin_sdk::proto::PluginError {
+                code: PluginErrorCode::PluginErrorRateLimited as i32,
+                message: "this plugin asked too often".into(),
+                retry_after_ms: 90_000,
+                ..Default::default()
+            }),
+        },
+    );
+
+    let resp = announce(&harness, "tune", "gpt-4.1").await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(resp.result, "refused|rate_limited|ai.model|90000");
+    // What the plugin asked for is still on the record.
+    assert_eq!(harness.daemon().settings_change_requests().len(), 1);
+}
+
+/// Without the grant the request is refused at the gate, as `Unauthorized`,
+/// which a handler's `?` passes on with its kind intact — and nothing reaches
+/// the card.
+#[tokio::test]
+async fn without_the_grant_a_settings_request_is_refused_at_the_gate() {
+    let harness = WireHarness::start(Tuner).await.unwrap();
+    harness.daemon().revoke("request_settings_change");
+
+    let resp = announce(&harness, "tune", "gpt-4.1").await;
+    assert!(!resp.success);
+    assert_eq!(
+        resp.error_detail.expect("a coded refusal").code(),
+        PluginErrorCode::PluginErrorUnauthorized
+    );
+    assert!(harness.daemon().settings_change_requests().is_empty());
+}

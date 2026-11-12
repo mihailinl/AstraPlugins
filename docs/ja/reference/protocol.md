@@ -2,12 +2,12 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、199 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、200 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: c9af21fc3c3fbfbd…`
+`astra.proto` から生成された一部(`surface-sha256: 828036790246a89f…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:6e1c8055e3959650…` に固定されています。3 つの SDK
+によって `sha256:97a23c6a59ad86f8…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -16,7 +16,7 @@
 | サービス | 方向 | RPC 数 | 誰が提供するか |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 33 | あなたのプラグイン |
-| [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 14 | デーモン |
+| [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 15 | デーモン |
 | [`PluginService`](#pluginservice) | UI → デーモン | 23 | デーモン |
 
 プロトコル世代が契約です。プラグインはそれを
@@ -94,6 +94,7 @@
 | `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
+| `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` は、どのプラグインでも常にそれを呼び出せることを意味します —

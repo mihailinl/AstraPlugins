@@ -327,6 +327,43 @@ impl HostClient {
         Ok(resp.into_inner())
     }
 
+    /// Ask the person to change some of Astra's settings, on a card they
+    /// answer, and wait for what became of it. Permission:
+    /// `request_settings_change`.
+    ///
+    /// See [`Host::request_settings_change`] for the five outcomes and the
+    /// words a `Refused` answer's `code` carries. The daemon is the authority
+    /// on the limits — at most
+    /// [`limits::SETTINGS_CHANGE_MAX_CHANGES`](crate::limits::SETTINGS_CHANGE_MAX_CHANGES)
+    /// changes, each path once, and a reason of at most
+    /// [`limits::SETTINGS_CHANGE_REASON_MAX_CHARS`](crate::limits::SETTINGS_CHANGE_REASON_MAX_CHARS)
+    /// characters, refused (never cut) — so this client checks none of them.
+    ///
+    /// No deadline: the call lasts until the person answers or the card
+    /// expires (Astra's confirmation timeout, at least 30 s, and the person
+    /// may set it far longer), and a deadline here would cut a request the
+    /// person was still reading.
+    ///
+    /// An `Err` is the gates, not the answer: no `request_settings_change`
+    /// grant, an account that does not open Astra, or an Astra older than
+    /// this RPC (`UNIMPLEMENTED`).
+    pub async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        let resp = self
+            .client
+            .clone()
+            .request_settings_change(proto::PluginSettingsChangeRequest {
+                changes: changes.to_vec(),
+                reason: reason.to_string(),
+            })
+            .await
+            .map_err(|s| rpc_failed("RequestSettingsChange", s))?;
+        Ok(resp.into_inner())
+    }
+
     /// Subscribe to daemon events. Permission: `subscribe_events`.
     ///
     /// `exclude_source_id` — if non-empty, ChatMessageSync events from this
@@ -519,6 +556,14 @@ impl Host for HostClient {
         HostClient::get_user_identity(self).await
     }
 
+    async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        HostClient::request_settings_change(self, changes, reason).await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         HostClient::set_variable(self, name, value, scope).await
     }
@@ -571,6 +616,10 @@ mod tests {
         spoken: Arc<Mutex<Vec<String>>>,
         /// What `Speak` answers; `None` = it was heard.
         speak_answer: Option<proto::PluginSpeakResponse>,
+        /// Every `RequestSettingsChange` as it arrived.
+        asked: Arc<Mutex<Vec<proto::PluginSettingsChangeRequest>>>,
+        /// What `RequestSettingsChange` answers; `None` = applied.
+        settings_answer: Option<proto::PluginSettingsChangeResponse>,
     }
 
     impl FakeDaemon {
@@ -739,6 +788,22 @@ mod tests {
             }))
         }
 
+        async fn request_settings_change(
+            &self,
+            req: tonic::Request<proto::PluginSettingsChangeRequest>,
+        ) -> Result<tonic::Response<proto::PluginSettingsChangeResponse>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            self.asked.lock().unwrap().push(req.into_inner());
+            Ok(tonic::Response::new(
+                self.settings_answer
+                    .clone()
+                    .unwrap_or(proto::PluginSettingsChangeResponse {
+                        outcome: proto::PluginSettingsChangeOutcome::Applied as i32,
+                        ..Default::default()
+                    }),
+            ))
+        }
+
         async fn set_variable(
             &self,
             req: tonic::Request<proto::PluginSetVariableRequest>,
@@ -851,6 +916,84 @@ mod tests {
         assert_eq!(who.install_id, "install-pseudonym");
         assert!(who.signed_in && who.authorized);
         assert_eq!(who.account_id, "account-pseudonym");
+
+        // And the defaulted settings request.
+        *seen.lock().unwrap() = None;
+        let asked = as_host
+            .request_settings_change(&[proto::PluginSettingChange::new("ai.model", "m")], "why")
+            .await
+            .expect(
+                "Host::request_settings_change must reach RequestSettingsChange, not the default",
+            );
+        assert_eq!(asked.outcome(), proto::PluginSettingsChangeOutcome::Applied);
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
+
+        handle.abort();
+    }
+
+    /// A `Refused` answer is an `Ok` that carries everything the daemon said —
+    /// the code word, the setting it is about, and the `PluginError` with its
+    /// `retry_after_ms` — and the request reaches the daemon exactly as
+    /// written: the changes in order, each value as JSON, the reason whole.
+    /// Nothing is checked or trimmed on the way: nine changes and a 200-
+    /// character reason go out as they are, and the daemon's refusal of them
+    /// is what the plugin reads.
+    #[tokio::test]
+    async fn a_refused_settings_request_carries_its_code_path_and_wait() {
+        let asked = Arc::new(Mutex::new(Vec::new()));
+        let server = FakeDaemon {
+            asked: asked.clone(),
+            settings_answer: Some(proto::PluginSettingsChangeResponse {
+                outcome: proto::PluginSettingsChangeOutcome::Refused as i32,
+                refused_path: "ai.model".into(),
+                code: "rate_limited".into(),
+                error: Some(proto::PluginError {
+                    code: proto::PluginErrorCode::PluginErrorRateLimited as i32,
+                    message: "this plugin asked too often".into(),
+                    retry_after_ms: 90_000,
+                    ..Default::default()
+                }),
+            }),
+            ..Default::default()
+        };
+        let (addr, handle, _) = server.serve().await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
+            .await
+            .expect("bootstrap connect");
+        let (host, _) = bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+            .expect("register");
+
+        let changes: Vec<_> = (0..9)
+            .map(|i| proto::PluginSettingChange::new(format!("path.{i}"), i))
+            .chain([proto::PluginSettingChange::new("ai.model", "gpt-4.1")])
+            .collect();
+        let reason = "é".repeat(200);
+        let answer = host
+            .request_settings_change(&changes, &reason)
+            .await
+            .expect("an answer, not an Err");
+        assert_eq!(
+            answer.outcome(),
+            proto::PluginSettingsChangeOutcome::Refused
+        );
+        assert_eq!(answer.code, "rate_limited");
+        assert_eq!(answer.refused_path, "ai.model");
+        let why = answer.error.expect("Refused carries the PluginError");
+        assert_eq!(why.code(), proto::PluginErrorCode::PluginErrorRateLimited);
+        assert_eq!(why.retry_after_ms, 90_000);
+        assert_eq!(why.message, "this plugin asked too often");
+
+        let arrived = asked.lock().unwrap().clone();
+        assert_eq!(arrived.len(), 1);
+        assert_eq!(
+            arrived[0].changes, changes,
+            "every change, in order, unchecked"
+        );
+        assert_eq!(arrived[0].changes[9].value_json, r#""gpt-4.1""#);
+        assert_eq!(arrived[0].reason, reason, "the reason whole, never cut");
 
         handle.abort();
     }

@@ -23,7 +23,7 @@
 
 ## 1. 词汇表
 
-十二个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
+十三个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
 `PERMISSION_NAMES`，由测试固定到枚举上）。注册表会根据这份列表校验
 上架条目的 id，Astra 本地化的标签表也以此为键，所以一个只在某处添加、
 没有在其他地方同步添加的 id，渲染出来会是空白的一行。
@@ -42,6 +42,7 @@
 | `speak` | `Speak`, `StopSpeaking` | 用 Astra 的声音把插件自己的话说出来，并能让它停下；`Speak` 还需要一个有权使用 Astra 的账号 | ● |
 | `read_user_identity` | `GetUserIdentity` | 读取这次安装和已登录账号的假名 id，专为发起调用的插件生成——绝不是账号本身的 id、姓名、电子邮件或硬件序列号 | |
 | `receive_attachments` | *不限制 RPC*——一种**投递** | 在声明了 `wants_attachments` 的工具中，收到本人附在某次调用所回答的消息上的图片（`PluginCallToolRequest.attachments`） | ● |
+| `request_settings_change` | `RequestSettingsChange` | 在一张由本人作答的卡片上，请本人更改 Astra 的部分设置——只限助手自己可以更改的那些；未经本人允许，什么都不会改变。另外还需要一个有权使用 Astra 的账号 | |
 
 **带 ● 标记的七项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
 得到自己的同意勾选框。计划文档 §4.3 详细列出了四个勾选框，遗漏了
@@ -58,6 +59,8 @@
 层级被拒绝——它们各自都是获取某类信息的诚实途径，否则插件就会从 Astra 的文
 件或机器本身去拿这些信息；把诚实的途径定价得比不诚实的更高，只会把插件推向
 错误的方向。
+
+`request_settings_change` 也两者都不是，但原因不同：每个请求都是一张由本人作答的卡片，写明插件、每项设置现在的值和将要变成的值，以及插件给出的理由——每一次都会征求同意，安装时再加一个勾选框并不会让它多出什么。促成它的那个插件曾自己改写 `settings.json`，从未询问过任何人。只有以 `plugin-requests` 构建功能构建的守护进程才会响应它（目前还没有任何发布版本），否则会以 `not_compiled` 拒绝。
 
 **`dom_access` 和 `client` 不限制任何 RPC**，这恰恰是为什么它们需要
 第二个强制执行点：它们是在*界面层*被分发出去的地方（§4.2）被强制执
@@ -153,6 +156,7 @@ set_variable     = { scopes = ["plugin"] }
 | `Speak` | `speak` |
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
+| `RequestSettingsChange` | `request_settings_change` |
 
 `GetDaemonInfo` 是在计划文档三项清单之外新增的一项，这是一个决定，
 而不是遗漏：它返回的 `version`、`state`、`grpc_port` 和 `language`，
@@ -262,11 +266,12 @@ id。在这个拆分出现之前编写的每一个插件，都在旧的位置说
 2. **上限(ceiling)**——一条任何记录都无法买通突破的、按来源而定的
    规则。
 
-`require_permission` 会针对限制某项权限的十个 host RPC——
+`require_permission` 会针对限制某项权限的十一个 host RPC——
 `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、`SetVariable`、
 `SetThemeContribution`、`PushToUi`、`GetAiSettings`、`Speak`、`StopSpeaking`、
-`GetUserIdentity`——去询问第一道关卡（`Speak` 还需要一个有权使用 Astra 的
-账号，`require_authorized_plugin`）。剩下的四个
+`GetUserIdentity`、`RequestSettingsChange`——去询问第一道关卡（`Speak` 和
+`RequestSettingsChange` 还需要一个有权使用 Astra 的账号，
+`require_authorized_plugin`）。剩下的四个
 （`Register`、`GetPluginSelfConfig`、`PluginLog`、`GetDaemonInfo`）
 在 `HOST_RPC_PERMISSIONS` 中携带的是 `None`，永远被允许；§2 中有对
 应的表格和推理过程。`ceiling_admits` 会在任何一个*界面层*被分发出去

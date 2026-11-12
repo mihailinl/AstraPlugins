@@ -75,7 +75,7 @@ gRPC. Вона може дати моделі інструменти, надат
 | [CLI](reference/cli.md) | визначення `clap`, через запуск `astra-plugin --help` |
 | [Протокол](reference/protocol.md) | `proto/plugin.proto` |
 | [Помилки](reference/errors.md) | таксономія помилок у всіх трьох SDK |
-| [Паритет хуків](reference/parity.md) | `spec/hooks.yaml` — усі 47 хуків у всіх трьох SDK |
+| [Паритет хуків](reference/parity.md) | `spec/hooks.yaml` — усі 48 хуків у всіх трьох SDK |
 | [Дозволи](3-reference/permissions.md) | написано вручну: кожен дозвіл, що він дає, як сформулювати причину |
 | [Поля налаштувань](3-reference/config-fields.md) | написано вручну: інтерфейс налаштувань, `[config]` і хуки полів TTS/STT |
 | [Плагіни слова-активатора](wakeword-plugins.md) | написано вручну: інтеграція з розділом «Голос», налаштування плагіна і контракт аудіовикликів |

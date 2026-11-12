@@ -228,6 +228,7 @@ was signiert wurde.
 | `speak` | `Speak`, `StopSpeaking` | **ja** | nein | Spricht die eigenen Worte des Plugins mit Astras Stimme laut aus. |
 | `read_user_identity` | `GetUserIdentity` | nein | nein | Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). |
 | `receive_attachments` | — | **ja** | nein | Die Bilder, die die Person an die Nachricht angehängt hat, die ein Turn beantwortet, übergeben an die Tools dieses Plugins, die `wants_attachments` deklarieren (`PluginCallToolRequest.attachments`). |
+| `request_settings_change` | `RequestSettingsChange` | nein | nein | Die Person BITTEN, einige Einstellungen von Astra zu ändern (nur die, die der Assistent selbst ändern darf). |
 
 *Sperrt* ist das Host-RPC, das der Daemon ohne die Permission ablehnt,
 aus [`spec/hooks.yaml`](../../../spec/hooks.yaml); Paritätsregel R6
@@ -310,6 +311,8 @@ eigene Session). **Hohes Risiko.**
 **`read_user_identity`.** `PluginHostService.GetUserIdentity` — Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es ist die ehrliche Alternative zu einer Seriennummer des Rechners, und ein hoher Preis würde ein Plugin, das die Nutzung pro Person begrenzt, zu einer solchen zurücktreiben.
 
 **`receive_attachments`.** Die Bilder, die die Person an die Nachricht angehängt hat, die ein Turn beantwortet, übergeben an die Tools dieses Plugins, die `wants_attachments` deklarieren (`PluginCallToolRequest.attachments`). Kein Host-RPC: Der Daemon schickt sie, und nur bei einem Aufruf, den eine Unterhaltung ausgelöst hat. **Hohes Risiko:** Die Fotos einer Person erreichen Code von Dritten. Auf Tier 2 nicht abgelehnt: Die Checkbox ist die Entscheidung, wie bei `speak`.
+
+**`request_settings_change`.** `PluginHostService.RequestSettingsChange` — die Person BITTEN, einige Einstellungen von Astra zu ändern (nur die, die der Assistent selbst ändern darf). Jede Anfrage ist eine Karte, die sie beantwortet: jede Einstellung, was sie ist und was sie würde, und die Begründung des Plugins; ohne ihr Erlauben ändert sich nichts. Kein hohes Risiko und auf Tier 2 nicht abgelehnt: Die Karte ist die Zustimmung, jedes Mal, und ein Plugin, das stattdessen `settings.json` umschrieb, hat niemanden gefragt.
 
 ## `[config]`
 

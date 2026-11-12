@@ -126,7 +126,7 @@ Zugangsdaten zu speichern und keine, die durchsickern könnten.
 ## Was das Permission-Gate tut
 
 Der Daemon setzt `[permissions]` an genau einer Stelle durch:
-`require_permission`, bei sechs der zehn `PluginHostService`-RPCs. Die
+`require_permission`, bei elf der fünfzehn `PluginHostService`-RPCs. Die
 anderen vier — `Register`, `GetPluginSelfConfig`, `PluginLog` und
 `GetDaemonInfo` — sind **immer erlaubt** und laufen ohne jede
 Berechtigungsprüfung; sie sind `(…, None)` in der Tabelle

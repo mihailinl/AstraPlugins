@@ -124,6 +124,41 @@ are removable in.
   `wire.unary("ImageGenerate", …)`. Additive. Guide:
   `docs/en/image-provider-plugins.md`.
 
+- **A plugin can ask the person to change a setting** (Astra `8c36a7033`,
+  branch `feat/plugin-api-gaps`; **in no Astra release yet** — the daemon takes
+  requests only when built with the `plugin-requests` build feature, and any
+  other answers `"REFUSED"` with the code `not_compiled`):
+  `ctx.requestSettingsChange(changes, reason)` (and the optional
+  `Host.requestSettingsChange`, implemented by `HostClient`) resolves a
+  `SettingsChangeResult`. `changes` is `SettingChange[]` — `{ path, value }`,
+  each `value` any JSON value, serialised into `value_json`; a value JSON cannot
+  hold (`undefined`, a function, `NaN`, `Infinity`, which `JSON.stringify` would
+  quietly turn into `null`) throws a `TypeError` before anything is sent. Only
+  the settings the assistant itself may change can be asked for; the person sees
+  a card naming the plugin, each setting as it is and as it would be, and
+  `reason`, and all of them change or none. `outcome` is `"APPLIED"`,
+  `"UNCHANGED"` (nobody was asked), `"DECLINED"` (now, or before — do not ask
+  again unasked), `"TIMED_OUT"`, `"REFUSED"`, or `"UNSPECIFIED"` for an outcome
+  this SDK does not know; `code` (`not_compiled`, `locked`, `invalid`,
+  `too_many`, `reason_too_long`, `busy`, `rate_limited`,
+  `not_assistant_editable`, `invalid_value`, `unknown_choice`, `needs_api_key`,
+  `needs_stt_provider`, `provider_unreachable`, `stale`, `stopped`,
+  `write_refused`) and `refusedPath` are `""` unless refused, and `error` — with
+  `retryAfterMs` for `rate_limited` (two requests at once, then one every two
+  minutes) — is present only when the daemon sent one. The current values are
+  never returned. **The call lasts until the person answers or the card
+  expires** (Astra's confirmation timeout, at least 30 s, 120 s by default); the
+  SDK puts no deadline on it. At most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8)
+  changes and a reason of `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
+  characters, both new rows of `spec/limits.yaml` — the SDK checks neither; the
+  daemon is the authority, refuses past them and never cuts. Needs the new
+  **`request_settings_change`** permission (not high-risk, not refused to a local
+  import: each request is a card the person answers) and an account that opens
+  Astra. New types: `SettingChange`, `SettingsChangeOutcome`,
+  `SettingsChangeResult`. Testing: `RecordingHost.settingsChangeResult` (applied
+  by default) and `settingsChangeRequests()` (each value as the daemon would
+  read it); `MockDaemon.settingsChangeResponse` (wire shape) and
+  `settingsChangeRequests()`. Additive: the `Host` member is optional.
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 
 - **`auth_changed` is narrowed.** A plugin granted the event used to receive the

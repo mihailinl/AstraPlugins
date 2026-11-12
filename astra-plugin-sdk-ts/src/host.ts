@@ -106,6 +106,70 @@ export interface UserIdentity {
   accountId: string;
 }
 
+/**
+ * One setting a plugin asks to change: a dotted settings path the assistant
+ * itself may change (`ai.model`, `voice.tts_speed`) and the value wanted —
+ * any JSON value (`"gpt-4.1"`, `true`, `1.2`, an object), which the SDK
+ * serialises into `PluginSettingChange.value_json`.
+ */
+export interface SettingChange {
+  path: string;
+  value: unknown;
+}
+
+/**
+ * What became of one `requestSettingsChange` —
+ * `PluginSettingsChangeOutcome`, without its prefix.
+ *
+ * - `"APPLIED"` — the person allowed it; the settings now hold what was asked
+ *   for.
+ * - `"UNCHANGED"` — they already held it. Nobody was asked.
+ * - `"DECLINED"` — the person said no, now or to this plugin changing one of
+ *   these settings before (Astra asks again about a setting only after it has
+ *   changed some other way, or after a restart). **Do not ask again unasked.**
+ * - `"TIMED_OUT"` — nobody answered before the card expired (no window open
+ *   counts).
+ * - `"REFUSED"` — not asked, or not applied; `SettingsChangeResult.code` says
+ *   why.
+ * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
+ *   none at all. Never invented as one of the above.
+ */
+export type SettingsChangeOutcome =
+  | "APPLIED"
+  | "UNCHANGED"
+  | "DECLINED"
+  | "TIMED_OUT"
+  | "REFUSED"
+  | "UNSPECIFIED";
+
+/** The answer of `RequestSettingsChange`: `PluginSettingsChangeResponse`. The current values are never in it. */
+export interface SettingsChangeResult {
+  outcome: SettingsChangeOutcome;
+  /**
+   * With `"REFUSED"`: why, as one word — `not_compiled` (this Astra was built
+   * without the `plugin-requests` feature), `locked`, `invalid` (no changes, a
+   * path twice, a value that is not JSON, or more than a card can show whole),
+   * `too_many` (more than `limits.SETTINGS_CHANGE_MAX_CHANGES`),
+   * `reason_too_long` (more than `limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
+   * characters — refused, never cut), `busy` (one of this plugin's requests is
+   * already waiting), `rate_limited` (two at once, then one every two minutes;
+   * `error.retryAfterMs` says when), `not_assistant_editable`,
+   * `invalid_value`, `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
+   * `provider_unreachable`, `stale` (the settings changed while the card was
+   * up), `stopped` (this plugin's authority ended first), `write_refused`.
+   * `""` otherwise.
+   */
+  code: string;
+  /** With `"REFUSED"`: the setting the refusal is about, when it is about one; `""` otherwise. */
+  refusedPath: string;
+  /**
+   * With `"REFUSED"`, when the daemon sent one: the same `PluginErrorDetail` a
+   * chat chunk's `errorDetail` carries — a sentence, and `retryAfterMs` for
+   * `rate_limited`. Absent otherwise.
+   */
+  error?: PluginErrorDetail;
+}
+
 export interface Host {
   /** Fire one of this plugin's declared trigger types. Needs `fire_trigger`. */
   fireTrigger(triggerType: string, payloadJson?: string): Promise<void>;
@@ -160,6 +224,18 @@ export interface Host {
    * call `ctx.getUserIdentity()`.
    */
   getUserIdentity?(): Promise<UserIdentity>;
+
+  /**
+   * ASK the person to change some of Astra's settings — only the ones the
+   * assistant itself may change — on a card they answer, and resolve with what
+   * became of it (`SettingsChangeResult`). Needs `request_settings_change` and
+   * an account that opens Astra; a missing grant, an account that does not
+   * open Astra, or an Astra older than this RPC (`UNIMPLEMENTED`) rejects like
+   * every host call. Lasts until the person answers or the card expires.
+   *
+   * Optional, like `speak`; plugin code calls `ctx.requestSettingsChange()`.
+   */
+  requestSettingsChange?(changes: SettingChange[], reason: string): Promise<SettingsChangeResult>;
 
   /** Publish a variable commands and other plugins can read. Needs `set_variable`. */
   setVariable(name: string, value: string, scope?: string): Promise<void>;

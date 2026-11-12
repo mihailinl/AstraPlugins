@@ -23,7 +23,14 @@
  * during `onStart` still sees the config as it is now, not as it was then.
  */
 
-import type { AiSettings, Host, SpeakResult, UserIdentity } from "./host.js";
+import type {
+  AiSettings,
+  Host,
+  SettingChange,
+  SettingsChangeResult,
+  SpeakResult,
+  UserIdentity,
+} from "./host.js";
 import type { I18n } from "./i18n.js";
 import type { AiImage, ChatChunk, ThemeContribution } from "./types.js";
 import { currentInvocation, type Invocation } from "./invocation.js";
@@ -186,6 +193,36 @@ export interface PluginContext {
    * `read_user_identity` permission.
    */
   getUserIdentity(): Promise<UserIdentity>;
+  /**
+   * ASK the person to change some of Astra's settings, on a card they answer,
+   * and resolve with what became of it: `"APPLIED"`, `"UNCHANGED"` (nobody was
+   * asked), `"DECLINED"` (do not ask again unasked), `"TIMED_OUT"`, or
+   * `"REFUSED"` with `code` (and `error.retryAfterMs` for `rate_limited`).
+   * Only the settings the assistant itself may change can be asked for; all of
+   * `changes` change, or none. Needs the `request_settings_change` permission
+   * and an Astra built with the `plugin-requests` feature (else `"REFUSED"`,
+   * `code` `not_compiled`). At most `limits.SETTINGS_CHANGE_MAX_CHANGES`
+   * changes and a `reason` of at most `limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
+   * characters — the daemon refuses more, it never cuts.
+   *
+   * **It lasts until the person answers or the card expires** (Astra's
+   * confirmation timeout, at least 30 s): never await it on a path that must
+   * answer quickly.
+   *
+   * ```ts
+   * const asked = await ctx.requestSettingsChange(
+   *   [{ path: "ai.model", value: "gpt-4.1" }],
+   *   "PrimeAI's tools are tuned for this model",
+   * );
+   * if (asked.outcome === "REFUSED" && asked.code === "rate_limited") {
+   *   setTimeout(askLater, asked.error?.retryAfterMs ?? 120_000);
+   * }
+   * ```
+   *
+   * Rejects with a clear error when there is no host or the host predates the
+   * call, like `speak`.
+   */
+  requestSettingsChange(changes: SettingChange[], reason: string): Promise<SettingsChangeResult>;
 }
 
 /** The live state a context reads through to. Implemented by `Plugin`. */
@@ -330,6 +367,17 @@ export class PluginContextImpl implements PluginContext {
       throw predates("getUserIdentity", "GetUserIdentity");
     }
     return host.getUserIdentity();
+  }
+
+  async requestSettingsChange(
+    changes: SettingChange[],
+    reason: string
+  ): Promise<SettingsChangeResult> {
+    const host = this.need("requestSettingsChange");
+    if (typeof host.requestSettingsChange !== "function") {
+      throw predates("requestSettingsChange", "RequestSettingsChange");
+    }
+    return host.requestSettingsChange(changes, reason);
   }
 
   async setThemeContribution(theme: ThemeContribution): Promise<void> {

@@ -223,6 +223,7 @@ reconocida discreparía con las otras dos sobre qué se firmó.
 | `speak` | `Speak`, `StopSpeaking` | **sí** | no | Dice en voz alta las propias palabras del plugin con la voz de Astra. |
 | `read_user_identity` | `GetUserIdentity` | no | no | Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). |
 | `receive_attachments` | — | **sí** | no | Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). |
+| `request_settings_change` | `RequestSettingsChange` | no | no | PEDIR a la persona que cambie algunos ajustes de Astra (solo los que el propio asistente puede cambiar). |
 
 *Bloquea* es el RPC del host que el daemon rechaza sin el permiso, de
 [`spec/hooks.yaml`](../../../spec/hooks.yaml); la regla de paridad R6
@@ -306,6 +307,8 @@ chat, su propia sesión). **Alto riesgo.**
 **`read_user_identity`.** `PluginHostService.GetUserIdentity` — seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). No es de alto riesgo y no se rechaza en el Tier 2: es la alternativa honesta a un número de serie de la máquina, y ponerle un precio alto empujaría de vuelta a uno a un plugin que limita el uso por persona.
 
 **`receive_attachments`.** Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). No es un RPC del host: el daemon las envía, y solo en una llamada que causó una conversación. **Alto riesgo:** las fotos de una persona llegan a código de terceros. No se rechaza en el nivel 2: la casilla es la decisión, como con `speak`.
+
+**`request_settings_change`.** `PluginHostService.RequestSettingsChange` — PEDIR a la persona que cambie algunos ajustes de Astra (solo los que el propio asistente puede cambiar). Cada solicitud es una tarjeta que ella responde, con cada ajuste, lo que vale y lo que valdría, y el motivo del plugin; nada cambia sin su Permitir. No es de alto riesgo y no se rechaza en el nivel 2: la tarjeta es el consentimiento, cada vez, y un plugin que reescribía `settings.json` en su lugar no le preguntaba a nadie.
 
 ## `[config]`
 

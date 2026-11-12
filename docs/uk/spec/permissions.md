@@ -24,7 +24,7 @@
 
 ## 1. Словник
 
-Дванадцять id, закритий набір (`astra-plugin-manifest/src/permissions.rs`,
+Тринадцять id, закритий набір (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, закріплений за enum тестом). Реєстр валідує id заявки
 проти цього списку, а таблиця локалізованих міток Astra проіндексована за
 ним, тож id, доданий в одному місці і не доданий у решті, відрендериться
@@ -44,6 +44,7 @@
 | `speak` | `Speak`, `StopSpeaking` | вимовляти власні слова плагіна вголос голосом Astra і зупиняти їх; `Speak` додатково потребує акаунта з доступом до Astra | ● |
 | `read_user_identity` | `GetUserIdentity` | читати псевдоніми цього встановлення й акаунта, у який виконано вхід, створені лише для плагіна, що викликає, — ніколи не власний id акаунта, ім'я, email чи серійний номер обладнання | |
 | `receive_attachments` | *не RPC* — **доставка** | отримувати в інструменті, що оголосив `wants_attachments`, зображення, які людина додала до повідомлення, на яке відповідає виклик (`PluginCallToolRequest.attachments`) | ● |
+| `request_settings_change` | `RequestSettingsChange` | на картці, на яку людина відповідає, попросити її змінити деякі налаштування Astra — лише ті, що може змінювати сам асистент; без її «Дозволити» нічого не змінюється. Також потрібен акаунт із доступом до Astra | |
 
 **Сім позначених ● високоризикові** (`HIGH_RISK_PERMISSIONS`), і кожне
 отримує свій чекбокс згоди. §4.3 плану перелічує чотири чекбокси і
@@ -63,6 +64,8 @@
 чесний шлях до відомостей, які плагін інакше взяв би з файлів Astra або з
 самої машини, а зробити чесний шлях дорожчим за нечесний — означає штовхати
 плагіни не туди.
+
+`request_settings_change` теж ні те ні інше, але з іншої причини: кожен запит — картка, на яку відповідає людина, з назвою плагіна, кожним налаштуванням, яким воно є і яким стане, і причиною плагіна, — згоду питають щоразу, і чекбокс під час встановлення нічого б до неї не додав. Плагін, через який це з'явилося, сам переписував `settings.json` і нікого не питав. Демон відповідає на нього, лише якщо зібраний із функцією збірки `plugin-requests` (поки що в жодному релізі), а інакше відхиляє як `not_compiled`.
 
 **`dom_access` і `client` не закривають жоден RPC**, і саме тому їм
 потрібна друга точка застосування: вони застосовуються там, де видається
@@ -162,6 +165,7 @@ set_variable     = { scopes = ["plugin"] }
 | `Speak` | `speak` |
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
+| `RequestSettingsChange` | `request_settings_change` |
 
 `GetDaemonInfo` — єдине додавання до списку з трьох у плані, і це
 рішення, а не упущення: він повертає `version`, `state`, `grpc_port` і
@@ -277,10 +281,11 @@ let (plugin_id, grants) =
 2. **стеля** — правило на рівні походження, яке жоден запис не може
    викупити.
 
-`require_permission` питає перше для десяти RPC хоста, закритих дозволом,
+`require_permission` питає перше для одинадцяти RPC хоста, закритих дозволом,
 — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`, `SetVariable`,
 `SetThemeContribution`, `PushToUi`, `GetAiSettings`, `Speak`, `StopSpeaking`,
-`GetUserIdentity` (`Speak` додатково потребує акаунта з доступом до Astra,
+`GetUserIdentity`, `RequestSettingsChange` (`Speak` і `RequestSettingsChange`
+додатково потребують акаунта з доступом до Astra,
 `require_authorized_plugin`). Решта чотирьох (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) несуть `None` у
 `HOST_RPC_PERMISSIONS` і дозволені завжди; таблиця й обґрунтування — у

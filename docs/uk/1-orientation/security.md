@@ -117,7 +117,7 @@ construction, exactly as an unsigned one is.
 ## Що робить шлюз дозволів
 
 Демон застосовує `[permissions]` в одному місці: `require_permission`, на
-шести з десяти RPC `PluginHostService`. Решта чотирьох — `Register`,
+одинадцяти з п'ятнадцяти RPC `PluginHostService`. Решта чотирьох — `Register`,
 `GetPluginSelfConfig`, `PluginLog` і `GetDaemonInfo` — **дозволені завжди** і
 взагалі не проходять перевірку дозволів; у таблиці демона
 `HOST_RPC_PERMISSIONS` вони — `(…, None)`, і в їхніх тілах немає виклику

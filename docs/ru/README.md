@@ -76,7 +76,7 @@ GitHub, плюс одна заявка на включение в каталог
 | [CLI](reference/cli.md) | определения `clap`, через запуск `astra-plugin --help` |
 | [Протокол](reference/protocol.md) | `proto/plugin.proto` |
 | [Ошибки](reference/errors.md) | таксономия ошибок во всех трёх SDK |
-| [Паритет хуков](reference/parity.md) | `spec/hooks.yaml` — все 47 хуков во всех трёх SDK |
+| [Паритет хуков](reference/parity.md) | `spec/hooks.yaml` — все 48 хуков во всех трёх SDK |
 | [Разрешения](3-reference/permissions.md) | написано вручную: каждое разрешение, что оно даёт, как сформулировать причину |
 | [Поля настроек](3-reference/config-fields.md) | написано вручную: интерфейс настроек, `[config]` и хуки полей TTS/STT |
 | [Плагины слова-активатора](wakeword-plugins.md) | написано вручную: интеграция с разделом «Голос», настройки плагина и контракт аудиовызовов |

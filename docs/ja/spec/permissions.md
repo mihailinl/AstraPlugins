@@ -24,7 +24,7 @@
 
 ## 1. 語彙
 
-12 個の id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
+13 個の id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
 `PERMISSION_NAMES`、テストによって enum に固定されています)。レジス
 トリは、リスト掲載の id をこのリストに対して検証し、Astra のローカライズ
 されたラベルテーブルもこれをキーとしているため、ある場所には追加され
@@ -44,6 +44,7 @@
 | `speak` | `Speak`, `StopSpeaking` | プラグイン自身の言葉を Astra の声で読み上げ、それを止める。`Speak` はさらに Astra を利用できるアカウントを必要とする | ● |
 | `read_user_identity` | `GetUserIdentity` | このインストールとサインイン中のアカウントの、呼び出したプラグイン専用に作られた仮名 ID を読む — アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してない | |
 | `receive_attachments` | *RPC なし* — **配送** | `wants_attachments` を宣言したツールの中で、呼び出しが応答するメッセージに人が添付した画像を受け取る (`PluginCallToolRequest.attachments`) | ● |
+| `request_settings_change` | `RequestSettingsChange` | 本人が応答するカードで、Astra の設定の一部を変えるよう頼む — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わらない。さらに Astra を利用できるアカウントが必要 | |
 
 **●が付いた 7 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
 が独自の同意チェックボックスを得ます。計画の §4.3 は 4 つのチェック
@@ -64,6 +65,8 @@
 なければプラグインが Astra のファイルやマシンそのものから取ってしまう情報への
 誠実な道であり、誠実な道を不誠実な道より高く値付けすれば、プラグインを誤った
 方向へ押しやります。
+
+`request_settings_change` もどちらでもありませんが、理由は別です: リクエストのたびに本人が応答するカードが出て、プラグイン名、各設定の今の値と変更後の値、プラグインの理由を見せます — 同意は毎回求められるので、インストール時のチェックボックスを足しても何も加わりません。これが作られるきっかけになったプラグインは、`settings.json` を自分で書き換え、誰にも尋ねていませんでした。デーモンは `plugin-requests` ビルド機能付きでビルドされたときだけこれに応え(まだどのリリースにもありません)、そうでなければ `not_compiled` として拒否します。
 
 **`dom_access` と `client` はどの RPC もゲートしません**。これがまさに
 これらに 2 つ目の強制ポイントが必要な理由です: これらは、呼び出しが
@@ -166,6 +169,7 @@ Astra が知らない何かを要求していることが伝えられます。
 | `Speak` | `speak` |
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
+| `RequestSettingsChange` | `request_settings_change` |
 
 `GetDaemonInfo` は、計画の 3 つのリストへの 1 つの追加であり、見落とし
 ではなく意思決定です: これは `version`、`state`、`grpc_port`、
@@ -291,12 +295,12 @@ true` — プラグイン自身のディレクトリ内のファイルの 1 行 
    インストールごとの答え;
 2. **上限(ceiling)** — どんなレコードも買い越せない出所ごとのルール。
 
-`require_permission` は、パーミッションをゲートする 10 個のホスト RPC
+`require_permission` は、パーミッションをゲートする 11 個のホスト RPC
 — `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、
 `SetVariable`、`SetThemeContribution`、`PushToUi`、`GetAiSettings`、`Speak`、
-`StopSpeaking`、`GetUserIdentity` — に対して 1 つ目を尋ねます(`Speak` は
-さらに Astra を利用できるアカウントを必要とします。
-`require_authorized_plugin`)。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
+`StopSpeaking`、`GetUserIdentity`、`RequestSettingsChange` — に対して 1 つ目を
+尋ねます(`Speak` と `RequestSettingsChange` はさらに Astra を利用できる
+アカウントを必要とします。`require_authorized_plugin`)。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
 `PluginLog`、`GetDaemonInfo`)は `HOST_RPC_PERMISSIONS` の中で `None`
 を運び、常に許可されます; §2 に表と理由があります。
 `ceiling_admits` は、*サーフェス*が渡されるあらゆる場所 —

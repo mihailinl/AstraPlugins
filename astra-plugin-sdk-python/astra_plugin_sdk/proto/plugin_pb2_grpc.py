@@ -7286,6 +7286,11 @@ class PluginHostServiceStub(object):
                 request_serializer=plugin__pb2.Empty.SerializeToString,
                 response_deserializer=plugin__pb2.PluginUserIdentity.FromString,
                 _registered_method=True)
+        self.RequestSettingsChange = channel.unary_unary(
+                '/astra.PluginHostService/RequestSettingsChange',
+                request_serializer=plugin__pb2.PluginSettingsChangeRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginSettingsChangeResponse.FromString,
+                _registered_method=True)
 
 
 class PluginHostServiceServicer(object):
@@ -7402,6 +7407,21 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RequestSettingsChange(self, request, context):
+        """ASK the person to change some of Astra's settings — only the ones the
+        assistant itself may change, checked exactly as the assistant's own
+        change is. Gated by `request_settings_change` and an account that opens
+        Astra, in an Astra built with the `plugin-requests` feature. The person
+        sees a card naming this plugin, each setting, what it holds and what it
+        would hold, and the plugin's reason; nothing changes without their
+        Allow, and what changes is exactly what the card showed. The call lasts
+        until they answer or the card expires (Astra's confirmation timeout,
+        at least 30 s). The current values are never returned.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginHostServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -7474,6 +7494,11 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
                     servicer.GetUserIdentity,
                     request_deserializer=plugin__pb2.Empty.FromString,
                     response_serializer=plugin__pb2.PluginUserIdentity.SerializeToString,
+            ),
+            'RequestSettingsChange': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestSettingsChange,
+                    request_deserializer=plugin__pb2.PluginSettingsChangeRequest.FromString,
+                    response_serializer=plugin__pb2.PluginSettingsChangeResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -7856,6 +7881,33 @@ class PluginHostService(object):
             '/astra.PluginHostService/GetUserIdentity',
             plugin__pb2.Empty.SerializeToString,
             plugin__pb2.PluginUserIdentity.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RequestSettingsChange(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/RequestSettingsChange',
+            plugin__pb2.PluginSettingsChangeRequest.SerializeToString,
+            plugin__pb2.PluginSettingsChangeResponse.FromString,
             options,
             channel_credentials,
             insecure,

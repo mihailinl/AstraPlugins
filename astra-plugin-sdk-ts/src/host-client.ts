@@ -37,6 +37,9 @@ import type {
   AiSettings,
   DaemonInfo,
   Host,
+  SettingChange,
+  SettingsChangeOutcome,
+  SettingsChangeResult,
   SpeakResult,
   SpeechOutcome,
   UserIdentity,
@@ -70,6 +73,18 @@ interface WireSpeakResponse {
   error?: Partial<PluginErrorDetail> | null;
 }
 
+/** A `PluginError` off the wire, every field present. */
+function errorDetailFromWire(e: Partial<PluginErrorDetail>): PluginErrorDetail {
+  return {
+    code: String(e.code ?? ""),
+    message: e.message ?? "",
+    hint: e.hint ?? "",
+    configField: e.configField ?? "",
+    retryAfterMs: Number(e.retryAfterMs ?? 0),
+    docUrl: e.docUrl ?? "",
+  };
+}
+
 /**
  * The wire answer of `Speak` as a `SpeakResult`. Exported for the SDK's own
  * tests; `error` is present only when the daemon sent one, field for field.
@@ -78,16 +93,87 @@ export function speakResultFromWire(res: WireSpeakResponse): SpeakResult {
   const outcome = SPEECH_OUTCOMES[String(res.outcome ?? "")] ?? "UNSPECIFIED";
   const e = res.error;
   if (!e) return { outcome };
+  return { outcome, error: errorDetailFromWire(e) };
+}
+
+/**
+ * `PluginSettingsChangeOutcome` as the loader delivers it, to the short name
+ * `SettingsChangeResult` carries. Anything else is `"UNSPECIFIED"`, as for
+ * speech.
+ */
+const SETTINGS_CHANGE_OUTCOMES: Readonly<Record<string, SettingsChangeOutcome>> = {
+  PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED: "APPLIED",
+  PLUGIN_SETTINGS_CHANGE_OUTCOME_UNCHANGED: "UNCHANGED",
+  PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED: "DECLINED",
+  PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT: "TIMED_OUT",
+  PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED: "REFUSED",
+  "1": "APPLIED",
+  "2": "UNCHANGED",
+  "3": "DECLINED",
+  "4": "TIMED_OUT",
+  "5": "REFUSED",
+};
+
+/** `PluginSettingsChangeResponse` off the wire, as the loader hands it over. */
+interface WireSettingsChangeResponse {
+  outcome?: string | number;
+  refusedPath?: string;
+  code?: string;
+  /** `null` when unset (`defaults: true`). */
+  error?: Partial<PluginErrorDetail> | null;
+}
+
+/**
+ * The wire answer of `RequestSettingsChange` as a `SettingsChangeResult`.
+ * Exported for the SDK's own tests; `error` is present only when the daemon
+ * sent one, field for field.
+ */
+export function settingsChangeResultFromWire(
+  res: WireSettingsChangeResponse
+): SettingsChangeResult {
+  const result: SettingsChangeResult = {
+    outcome: SETTINGS_CHANGE_OUTCOMES[String(res.outcome ?? "")] ?? "UNSPECIFIED",
+    code: res.code ?? "",
+    refusedPath: res.refusedPath ?? "",
+  };
+  if (res.error) result.error = errorDetailFromWire(res.error);
+  return result;
+}
+
+/**
+ * One `SettingChange`'s value as `PluginSettingChange.value_json` — what
+ * `JSON.stringify` writes. A value JSON has no text for (`undefined`, a
+ * function, a symbol) or a number it cannot hold (`NaN`, `Infinity`, which
+ * `JSON.stringify` would quietly turn into `null`) throws a `TypeError` naming
+ * the setting, before anything is sent; a `BigInt` throws `JSON.stringify`'s
+ * own. Exported for the SDK's own tests and `RecordingHost`.
+ */
+export function settingValueJson(change: SettingChange): string {
+  const json = JSON.stringify(change.value, (_key, v: unknown) => {
+    if (typeof v === "number" && !Number.isFinite(v)) {
+      throw new TypeError(`setting "${change.path}": ${v} is not a JSON number`);
+    }
+    return v;
+  });
+  if (json === undefined) {
+    throw new TypeError(`setting "${change.path}": a ${typeof change.value} is not a JSON value`);
+  }
+  return json;
+}
+
+/**
+ * The `PluginSettingsChangeRequest` `requestSettingsChange` sends, in the
+ * loader's field names. Nothing but the values is checked: the count, a path
+ * given twice and the reason's length are the daemon's to judge (`REFUSED`),
+ * so this client can never disagree with the Astra it talks to.
+ */
+export function settingsChangeRequestToWire(
+  changes: readonly SettingChange[],
+  reason: string
+): { changes: { path: string; valueJson: string }[]; reason: string } {
   return {
-    outcome,
-    error: {
-      code: String(e.code ?? ""),
-      message: e.message ?? "",
-      hint: e.hint ?? "",
-      configField: e.configField ?? "",
-      retryAfterMs: Number(e.retryAfterMs ?? 0),
-      docUrl: e.docUrl ?? "",
-    },
+    changes: changes.map((c) => ({ path: c.path, valueJson: settingValueJson(c) })),
+    reason,
   };
 }
 
@@ -153,6 +239,7 @@ const REQUIRED_METHODS = [
   "Speak",
   "StopSpeaking",
   "GetUserIdentity",
+  "RequestSettingsChange",
   "SetVariable",
   "PushToUi",
   "SendChatMessage",
@@ -364,6 +451,31 @@ export class HostClient implements Host {
   /** Pseudonyms for this installation and the signed-in account. Needs `read_user_identity`. */
   getUserIdentity(): Promise<UserIdentity> {
     return this.unary<UserIdentity>("GetUserIdentity", {});
+  }
+
+  /**
+   * Ask the person to change some of Astra's settings on a card, and resolve
+   * with what became of it (`SettingsChangeResult`). Needs
+   * `request_settings_change`. Each value goes out as JSON
+   * (`settingValueJson`); the daemon is the authority on the limits — at most
+   * `limits.SETTINGS_CHANGE_MAX_CHANGES` changes, each path once, and a reason
+   * of at most `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` characters, refused
+   * rather than cut — so this client checks none of them.
+   *
+   * No deadline: the call lasts until the person answers or the card expires
+   * (Astra's confirmation timeout, at least 30 s, and the person may set it
+   * far longer); a deadline here would cut a request the person was reading.
+   */
+  async requestSettingsChange(
+    changes: SettingChange[],
+    reason: string
+  ): Promise<SettingsChangeResult> {
+    return settingsChangeResultFromWire(
+      await this.unary<WireSettingsChangeResponse>(
+        "RequestSettingsChange",
+        settingsChangeRequestToWire(changes, reason)
+      )
+    );
   }
 
   /** Set a variable readable by commands and other plugins. */

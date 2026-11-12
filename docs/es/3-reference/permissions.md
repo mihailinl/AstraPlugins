@@ -43,7 +43,7 @@ Tres propiedades, todas las cuales sorprenden a alguien tarde o temprano:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -64,7 +64,7 @@ Que `GetDaemonInfo` sea gratis es una decisión, no un descuido: una casilla
 que no protege nada es la forma en que los usuarios aprenden a marcar
 casillas sin pensar.
 
-## Los doce ids
+## Los trece ids
 
 | Id | Bloquea | Casilla propia | Rechazado en importación local | Qué te permite hacer |
 |---|---|---|---|---|
@@ -80,6 +80,7 @@ casillas sin pensar.
 | `speak` | `Speak`, `StopSpeaking` | **sí** | no | Decir tus propias palabras en voz alta con la voz de Astra, y detenerlas |
 | `read_user_identity` | `GetUserIdentity` | no | no | Leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para tu plugin |
 | `receive_attachments` | — (una entrega) | **sí** | no | Recibir las imágenes que adjuntó la persona, en una herramienta que las pide |
+| `request_settings_change` | `RequestSettingsChange` | no | no | Pedir a la persona que cambie un ajuste que el asistente puede cambiar, en una tarjeta que ella responde |
 
 `dom_access` y `client` no bloquean ningún RPC, y ese es el punto: son
 **superficies**. `dom_access` decide si una contribución de UI se renderiza
@@ -203,6 +204,40 @@ Hoy el compositor del chat de Astra escala cada imagen adjunta a 768 píxeles co
 Una llamada puede traer hasta 20 MiB de imágenes, más que el límite de recepción por defecto de gRPC, 4 MiB. Los servidores de capacidades de los tres SDK reciben hasta 64 MiB (`plugin_max_message_bytes`); un plugin que sirve el protocolo sin un SDK debe subir el límite de recepción de su propio servidor por encima de 4 MiB.
 
 `receive_attachments` es de **alto riesgo**: las fotos de una persona llegan a código que no es de Astra, así que recibe su propia casilla de consentimiento. No se rechaza en una importación local — la casilla es la decisión, como con `speak`.
+
+## Pedir a la persona que cambie un ajuste
+
+Un plugin con una razón real para querer cambiar uno de los ajustes de Astra — un modelo para el que están afinadas sus herramientas, una voz que le va — lo **pide**, y la persona decide en una tarjeta. Nunca escribas tú el `settings.json` de Astra, y nunca tomes prestada la propia sesión de Astra para hacerlo: eso cambia el Astra de la persona a sus espaldas, y la revisión humana al publicar lo busca. Declara `request_settings_change` y llama a `RequestSettingsChange` (`request_settings_change(changes, reason)` en Rust y Python, `ctx.requestSettingsChange(changes, reason)` en TypeScript). **Ninguna versión publicada de Astra lo atiende todavía:** el daemon acepta solicitudes solo cuando está compilado con la característica de compilación `plugin-requests`; cualquier otro Astra responde `REFUSED` con el código `not_compiled`.
+
+Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — los SDK serializan el valor por ti. Solo se pueden pedir los ajustes que el propio asistente puede cambiar — la voz, el modelo de IA, el idioma; nunca el modo de permisos, una clave ni Tool Search —, y cada valor se comprueba exactamente igual que el cambio propio del asistente. La tarjeta nombra tu plugin, muestra cada ajuste tal como está y como quedaría, y tu `reason`, con tus palabras. Cambian todos o ninguno, y lo que cambia es exactamente lo que mostró la tarjeta.
+
+**La llamada dura hasta que la persona responde o la tarjeta caduca** — el tiempo de confirmación de Astra, al menos 30 segundos, 120 si la persona no lo cambió. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, como una llamada a herramienta que el modelo está esperando.
+
+| Resultado | Qué significa | Qué hacer |
+|---|---|---|
+| `APPLIED` | La persona lo permitió; los ajustes contienen ahora lo que pediste | Nada |
+| `UNCHANGED` | Ya lo contenían. No se preguntó a nadie | Nada |
+| `DECLINED` | La persona dijo que no — ahora, o antes a que tu plugin cambiara uno de estos ajustes. Astra vuelve a preguntar por un ajuste así solo cuando ha cambiado de otra forma, o tras un reinicio | Sigue con lo que la persona tiene. **No vuelvas a preguntar sin que te lo pidan** |
+| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Pregunta más tarde, cuando la persona esté |
+| `REFUSED` | No se preguntó, o no se aplicó: `code` dice por qué, `refused_path` nombra el ajuste cuando se trata de uno, y `error` es un `PluginError` | Lee el código abajo |
+
+| `code` | Cuándo |
+|---|---|
+| `not_compiled` | Este Astra no acepta solicitudes: se compiló sin la característica `plugin-requests` |
+| `locked` | Astra está bloqueado con su código de acceso |
+| `invalid` | Ningún cambio, una ruta dos veces, un valor que no es JSON, o más de lo que una tarjeta puede mostrar entero |
+| `too_many` | Más de **8** cambios (`settings_change_max_changes` en `spec/limits.yaml`) |
+| `reason_too_long` | Un motivo de más de **140 caracteres** (`settings_change_reason_max_chars`). Se muestra entero, así que se rechaza, nunca se recorta |
+| `busy` | Una de tus solicitudes ya está esperando a la persona: una tarjeta por plugin a la vez |
+| `rate_limited` | **Dos solicitudes de una vez, luego una cada dos minutos**; `error.retry_after_ms` dice cuándo vuelve a haber hueco |
+| `not_assistant_editable` | Una ruta que el asistente no puede cambiar |
+| `invalid_value`, `unknown_choice` | Un valor que el ajuste no puede contener, o una opción que no ofrece |
+| `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | El cambio dejaría a Astra sin lo que necesita: una clave para ese proveedor de IA, un reconocedor de voz, un proveedor que responda |
+| `stale` | Los ajustes cambiaron mientras la tarjeta estaba abierta, así que lo que la persona permitió no es lo que se escribiría. No se escribió nada |
+| `stopped` | La autoridad de tu plugin terminó antes — se detuvo, se desactivó o se retiró, o la cuenta dejó de dar acceso a Astra |
+| `write_refused` | No se pudieron escribir los ajustes |
+
+Los valores actuales nunca se devuelven: lo que tu plugin sabe es el resultado. Los límites son del daemon: los SDK exportan `SETTINGS_CHANGE_MAX_CHANGES` y `SETTINGS_CHANGE_REASON_MAX_CHARS` y no comprueban ninguno por sí mismos. Además del permiso, la llamada necesita **una cuenta que dé acceso a Astra**; un permiso que falta, o una cuenta que no da acceso a Astra, es una llamada fallida como cualquier llamada al host, no un resultado. No es de alto riesgo ni se rechaza en una importación local: cada solicitud es una tarjeta que la persona responde, así que el consentimiento se pide cada vez. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
 
 ## Escribir un reason
 

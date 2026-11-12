@@ -32,6 +32,21 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **A new `[permissions]` id, `request_settings_change`**, from the vendored
+  `astra-plugin-manifest` re-synced with Astra `8c36a7033` (branch
+  `feat/plugin-api-gaps`): `PluginHostService.RequestSettingsChange` — the
+  plugin ASKS the person to change some of Astra's settings (only those the
+  assistant itself may change) on a card they answer. Not high-risk and not
+  refused to a local import: each request is its own consent. **In no Astra
+  release yet:** the daemon side is behind the `plugin-requests` build feature.
+  `astra-plugin check` accepts the id instead of warning that this Astra grants
+  nothing for it, and the scaffold offers it as a commented optional line. The
+  plugin protocol follows Astra `8c36a7033`: `RequestSettingsChange`,
+  `PluginSettingChange`, `PluginSettingsChangeRequest`,
+  `PluginSettingsChangeOutcome` and `PluginSettingsChangeResponse`. The
+  embedded conformance list is unchanged: it lists the hooks a plugin serves,
+  and this is one a plugin calls.
+
 - **A new `[capabilities]` key, `image_provider`**, from the vendored
   `astra-plugin-manifest` re-synced with Astra `21790d761` (branch
   `feat/plugin-api-gaps`): the plugin draws pictures for the assistant's

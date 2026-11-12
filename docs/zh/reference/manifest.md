@@ -178,6 +178,7 @@
 | `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音把插件自己的话说出来。 |
 | `read_user_identity` | `GetUserIdentity` | 否 | 否 | 这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。 |
 | `receive_attachments` | — | **是** | 否 | 本人附在某一轮所回答的消息上的图片，交给本插件中声明了 `wants_attachments` 的工具（`PluginCallToolRequest.attachments`）。 |
+| `request_settings_change` | `RequestSettingsChange` | 否 | 否 | “请”本人更改 Astra 的部分设置（只限助手自己可以更改的那些）。 |
 
 *Gates（限制的调用）*是指没有这项权限时守护进程会拒绝的那个 host
 RPC，来自 [`spec/hooks.yaml`](../../../spec/hooks.yaml)；一致性规则
@@ -254,6 +255,8 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 **`read_user_identity`。** `PluginHostService.GetUserIdentity`——这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。不属于高风险，在 Tier 2 也不会被拒绝：它是机器序列号的诚实替代方案，把它定为高风险只会把按人限制使用的插件推回序列号。
 
 **`receive_attachments`。** 本人附在某一轮所回答的消息上的图片，交给本插件中声明了 `wants_attachments` 的工具（`PluginCallToolRequest.attachments`）。它不是 host RPC：图片由守护进程发送，而且只在由对话引起的调用中发送。**高风险：** 本人的照片会到达第三方代码。在第 2 层级不会被拒绝：和 `speak` 一样，勾选框就是决定。
+
+**`request_settings_change`。** `PluginHostService.RequestSettingsChange`——“请”本人更改 Astra 的部分设置（只限助手自己可以更改的那些）。每个请求都是一张由本人作答的卡片，列出每项设置现在的值、将要变成的值，以及插件给出的理由；未经本人允许，什么都不会改变。不属于高风险，在第 2 层级也不会被拒绝：每一次的卡片本身就是同意，而改为直接改写 `settings.json` 的插件从未询问过任何人。
 
 ## `[config]`
 

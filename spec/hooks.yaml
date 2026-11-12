@@ -119,8 +119,9 @@ capabilities: "tools tts stt wakeword ai_provider web_search image_provider musi
 
 # The `[permissions]` vocabulary — §5.6's eight ids, `read_ai_settings` (2026-11-10,
 # GetAiSettings), `speak` and `read_user_identity` (2026-11-12, Speak / StopSpeaking
-# and GetUserIdentity), `receive_attachments` (2026-11-12, no rpc: see below), and
-# `none` for a host rpc that is gated on nothing. Mirrors
+# and GetUserIdentity), `receive_attachments` (2026-11-12, no rpc: see below),
+# `request_settings_change` (2026-11-13, RequestSettingsChange), and `none` for a
+# host rpc that is gated on nothing. Mirrors
 # `astra_plugin_manifest::PERMISSION_NAMES`, the crate this repo vendors under
 # `tools/check-manifest-crate.sh`.
 #
@@ -139,7 +140,7 @@ capabilities: "tools tts stt wakeword ai_provider web_search image_provider musi
 # person attached, on `PluginCallToolRequest.attachments`, to a tool that
 # declared `PluginToolDef.wants_attachments` (`CallTool`, daemon->plugin;
 # behind Astra's `plugin-provider-slots` build feature).
-permissions: "fire_trigger subscribe_events set_variable send_chat_message push_to_ui set_theme_contribution dom_access client read_ai_settings speak read_user_identity receive_attachments none"
+permissions: "fire_trigger subscribe_events set_variable send_chat_message push_to_ui set_theme_contribution dom_access client read_ai_settings speak read_user_identity receive_attachments request_settings_change none"
 
 hooks:
   # ── PluginCapabilityService — tools ──
@@ -642,7 +643,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2121"
+    daemon_calls: "src/plugins/host_service.rs:2137"
     summary: "The handshake: prove the spawn token, receive the per-plugin session token."
     note: "The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token."
     rust: stable
@@ -658,7 +659,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2863"
+    daemon_calls: "src/plugins/host_service.rs:2879"
     summary: "Read this plugin's own persisted settings."
     rust: stable
     python: stable
@@ -673,7 +674,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2886"
+    daemon_calls: "src/plugins/host_service.rs:2902"
     summary: "Write a line into the daemon log buffer the plugin's log pane reads."
     rust: stable
     python: stable
@@ -688,7 +689,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2924"
+    daemon_calls: "src/plugins/host_service.rs:2940"
     summary: "Daemon version, state and gRPC port."
     rust: stable
     python: stable
@@ -703,7 +704,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2955"
+    daemon_calls: "src/plugins/host_service.rs:2971"
     summary: "The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them."
     note: "An Astra older than 2026-11-10 answers UNIMPLEMENTED; a saved endpoint reads as openai_compatible, Astra's own service as astra with no URL."
     rust: stable
@@ -719,7 +720,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2978"
+    daemon_calls: "src/plugins/host_service.rs:2994"
     summary: "Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused."
     note: "speak is high-risk (its own consent checkbox). Needs an account that opens Astra; reply voice off, a locked Astra or a full speech queue answer NOT_SPOKEN with UNAVAILABLE. At most 300 characters, refused and never cut (spec/limits.yaml:speak_text_max_chars); 450 characters of airtime at once, then 3 a second, each call costing at least 20, past which NOT_SPOKEN carries RATE_LIMITED and retry_after_ms. STOPPED is not an error. An Astra older than 2026-11-12 answers UNIMPLEMENTED."
     rust: stable
@@ -735,7 +736,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:3005"
+    daemon_calls: "src/plugins/host_service.rs:3021"
     summary: "Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying."
     note: "Gated by speak, the one permission two host rpcs share; allowed whether or not anybody is signed in. Each Speak it cuts answers STOPPED."
     rust: stable
@@ -751,9 +752,25 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:3018"
+    daemon_calls: "src/plugins/host_service.rs:3034"
     summary: "Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial."
     note: "account_id is empty unless authorized and is the same on every device the person signs in on; the same value arrives as account_id on this plugin's auth_changed events. An Astra older than 2026-11-12 answers UNIMPLEMENTED."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: RequestSettingsChange
+    service: PluginHostService
+    direction: "plugin->daemon"
+    capability: core
+    permission: request_settings_change
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/host_service.rs:3063"
+    summary: "Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow."
+    note: "Needs an account that opens Astra, and an Astra built with the plugin-requests feature (else REFUSED with code not_compiled). 1 to 8 changes, each path once, all or none, and a reason of at most 140 characters, refused and never cut (spec/limits.yaml:settings_change_max_changes, settings_change_reason_max_chars). One card per plugin at a time (busy), 2 requests at once then 1 per 120 s (rate_limited with retry_after_ms). Answers APPLIED, UNCHANGED (nobody was asked), DECLINED (also for a setting the person declined before, until it changes some other way or Astra restarts), TIMED_OUT, or REFUSED with a code; never a current value. The call lasts until the person answers or the card expires. An Astra older than 2026-11-13 answers UNIMPLEMENTED."
     rust: stable
     python: stable
     typescript: stable
@@ -767,7 +784,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:3042"
+    daemon_calls: "src/plugins/host_service.rs:3092"
     summary: "Publish a variable that commands and other plugins can read."
     rust: stable
     python: stable
@@ -783,7 +800,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:2312"
+    daemon_calls: "src/plugins/host_service.rs:2328"
     summary: "The filtered daemon event stream; the whole of the event_handlers capability."
     rust: stable
     python: stable
@@ -799,7 +816,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:2691"
+    daemon_calls: "src/plugins/host_service.rs:2707"
     summary: "Fire one of this plugin's trigger types and run whatever commands listen."
     rust: stable
     python: stable
@@ -815,7 +832,7 @@ hooks:
     routing: live
     since: 1
     streaming: server
-    daemon_calls: "src/plugins/host_service.rs:2366"
+    daemon_calls: "src/plugins/host_service.rs:2382"
     summary: "Send a chat message as this plugin and stream the assistant's reply back."
     note: "The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4."
     rust: stable
@@ -832,7 +849,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:3084"
+    daemon_calls: "src/plugins/host_service.rs:3134"
     summary: "Push an event into this plugin's own iframes — the return path for CallFromUi."
     note: "Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously."
     rust: stable
@@ -848,7 +865,7 @@ hooks:
     routing: live
     since: 1
     streaming: unary
-    daemon_calls: "src/plugins/host_service.rs:3115"
+    daemon_calls: "src/plugins/host_service.rs:3165"
     summary: "Contribute colours, wallpaper and shader to the active Astra theme."
     note: "Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4."
     rust: stable

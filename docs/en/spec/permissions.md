@@ -21,7 +21,7 @@ how `dom_access` came to be a capability a plugin granted itself by declaring it
 
 ## 1. The vocabulary
 
-Twelve ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
+Thirteen ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, pinned to the enum by test). The registry validates a
 listing's ids against this list and Astra's localised label table is keyed by it,
 so an id added in one place and not the others renders as a blank row.
@@ -40,6 +40,7 @@ so an id added in one place and not the others renders as a blank row.
 | `speak` | `Speak`, `StopSpeaking` | say the plugin's own words aloud in Astra's voice, and stop them; `Speak` also needs an account that opens Astra | ● |
 | `read_user_identity` | `GetUserIdentity` | read pseudonyms for this installation and the signed-in account, made for the calling plugin alone — never the account's own id, a name, an email or a hardware serial | |
 | `receive_attachments` | *no RPC* — a **delivery** | be handed, in a tool that declared `wants_attachments`, the pictures the person attached to the message a call answers (`PluginCallToolRequest.attachments`) | ● |
+| `request_settings_change` | `RequestSettingsChange` | ask the person to change some of Astra's settings — only those the assistant itself may change — on a card they answer; nothing changes without their Allow. Also needs an account that opens Astra | |
 
 **The seven marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
 own consent checkbox. The plan's §4.3 spells four checkboxes and omits
@@ -56,6 +57,14 @@ speaking. `read_ai_settings` and `read_user_identity` are deliberately neither
 high risk nor refused at Tier 2 — each is the honest way to information a plugin
 would otherwise take from Astra's files or the machine itself, and pricing the
 honest path above the dishonest one pushes plugins the wrong way.
+
+`request_settings_change` is neither, for a different reason: every request is
+a card the person answers, naming the plugin, each setting as it is and as it
+would be, and the plugin's reason — the consent is asked each time, and a
+checkbox at install would add nothing to it. The plugin that prompted it wrote
+`settings.json` itself and asked nobody. The daemon answers it only when built
+with the `plugin-requests` build feature (no release yet), and otherwise
+refuses it as `not_compiled`.
 
 **`dom_access` and `client` gate no RPC**, which is exactly why they need a
 second enforcement point: they are enforced where the *surface* is handed out
@@ -149,6 +158,7 @@ against, so an ungated new RPC is a test failure rather than a silent omission:
 | `Speak` | `speak` |
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
+| `RequestSettingsChange` | `request_settings_change` |
 
 `GetDaemonInfo` is the one addition to the plan's list of three, and it is a
 decision rather than an omission: it returns `version`, `state`, `grpc_port` and
@@ -258,11 +268,11 @@ A permission is honoured only when **both** hold:
    record holds;
 2. the **ceiling** — a per-provenance rule no record can buy past.
 
-`require_permission` asks the first for the ten host RPCs that gate a
+`require_permission` asks the first for the eleven host RPCs that gate a
 permission — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`, `SetVariable`,
 `SetThemeContribution`, `PushToUi`, `GetAiSettings`, `Speak`, `StopSpeaking`,
-`GetUserIdentity` (`Speak` additionally needs an account that opens Astra,
-`require_authorized_plugin`). The remaining four (`Register`,
+`GetUserIdentity`, `RequestSettingsChange` (`Speak` and `RequestSettingsChange`
+additionally need an account that opens Astra, `require_authorized_plugin`). The remaining four (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) carry `None` in
 `HOST_RPC_PERMISSIONS` and are always allowed; §2 has the table and the
 reasoning.

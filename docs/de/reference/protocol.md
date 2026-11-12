@@ -2,13 +2,13 @@
 
 # Protokoll-Referenz
 
-Protokoll-Generation **1**. 10 Dienste, 199 RPCs. Quelle:
+Protokoll-Generation **1**. 10 Dienste, 200 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: c9af21fc3c3fbfbd…`, der Digest des Plugin-zugewandten
+(`surface-sha256: 828036790246a89f…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:6e1c8055e3959650…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:97a23c6a59ad86f8…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
@@ -16,7 +16,7 @@ denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 | Dienst | Richtung | RPCs | Wer ihn bedient |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | Daemon → Plugin | 33 | dein Plugin |
-| [`PluginHostService`](#pluginhostservice) | Plugin → Daemon | 14 | der Daemon |
+| [`PluginHostService`](#pluginhostservice) | Plugin → Daemon | 15 | der Daemon |
 | [`PluginService`](#pluginservice) | UI → Daemon | 23 | der Daemon |
 
 Die Protokoll-Generation ist der Vertrag. Ein Plugin sendet sie in
@@ -94,6 +94,7 @@ als die von dir deklarierten Capabilities.
 | `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
+| `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` bedeutet, jedes Plugin darf es immer aufrufen — die

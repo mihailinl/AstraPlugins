@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: c9af21fc3c3fbfbd1b9b4106d1fcfe57fd46f0dd8cf125ceae638cc85d25902e
+// surface-sha256: 828036790246a89f8e263a625d33317aba58cada5b92eb7ff6d0dfc2760af8bd
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4844,6 +4844,17 @@ service PluginHostService {
     // Gated by `read_user_identity`. Never the account's own id, the person's
     // name or email, or a hardware serial.
     rpc GetUserIdentity(Empty) returns (PluginUserIdentity);
+
+    // ASK the person to change some of Astra's settings — only the ones the
+    // assistant itself may change, checked exactly as the assistant's own
+    // change is. Gated by `request_settings_change` and an account that opens
+    // Astra, in an Astra built with the `plugin-requests` feature. The person
+    // sees a card naming this plugin, each setting, what it holds and what it
+    // would hold, and the plugin's reason; nothing changes without their
+    // Allow, and what changes is exactly what the card showed. The call lasts
+    // until they answer or the card expires (Astra's confirmation timeout,
+    // at least 30 s). The current values are never returned.
+    rpc RequestSettingsChange(PluginSettingsChangeRequest) returns (PluginSettingsChangeResponse);
 }
 
 // ============ Plugin Capability Service (plugin exposes, daemon calls) ============
@@ -6398,6 +6409,72 @@ message PluginUserIdentity {
     string account_id = 4;
 }
 
+// One setting a plugin asks to change.
+message PluginSettingChange {
+    // A dotted settings path the assistant may change (`ai.model`,
+    // `voice.tts_speed`, `tool_search.mode` is NOT one). Anything else is
+    // refused `not_assistant_editable`.
+    string path = 1;
+
+    // The value wanted, as JSON: `"gpt-4.1"`, `true`, `1.2`.
+    string value_json = 2;
+}
+
+message PluginSettingsChangeRequest {
+    // At most 8 (`settings_change_max_changes` in AstraPlugins'
+    // spec/limits.yaml), each path once. All of them change, or none.
+    repeated PluginSettingChange changes = 1;
+
+    // Why, in the plugin's own words, shown to the person on the card: at
+    // most 140 characters (`settings_change_reason_max_chars`), refused past
+    // that, never cut.
+    string reason = 2;
+}
+
+// What became of one `RequestSettingsChange`.
+enum PluginSettingsChangeOutcome {
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_UNSPECIFIED = 0;
+
+    // The person allowed it: the settings now hold what was asked for.
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED = 1;
+
+    // They already held it. Nobody was asked.
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_UNCHANGED = 2;
+
+    // The person said no — now, or to this plugin changing one of these
+    // settings before. Astra asks again about that setting only after it has
+    // changed some other way, or after a restart. Do not ask again unasked.
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED = 3;
+
+    // Nobody answered before the card expired (no window open counts).
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT = 4;
+
+    // Not asked, or not applied: `code` says why — `not_compiled` (this Astra
+    // takes no requests), `locked`, `invalid` (no changes, a path twice, a
+    // value that is not JSON, or more than a card can show whole), `too_many`, `reason_too_long`, `busy` (one of
+    // this plugin's requests is already waiting), `rate_limited` (with
+    // `error.retry_after_ms`), `not_assistant_editable`, `invalid_value`,
+    // `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
+    // `provider_unreachable`, `stale` (the settings changed while the card was
+    // up, so what was allowed is not what would be written), `stopped` (this
+    // plugin's authority ended first), `write_refused`.
+    PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED = 5;
+}
+
+message PluginSettingsChangeResponse {
+    PluginSettingsChangeOutcome outcome = 1;
+
+    // With `REFUSED`: the setting the refusal is about, when it is about one.
+    string refused_path = 2;
+
+    // With `REFUSED`: why, as one of the words listed on the enum.
+    string code = 3;
+
+    // With `REFUSED`: the same as a `PluginError` — a sentence, and
+    // `retry_after_ms` for `rate_limited`.
+    PluginError error = 4;
+}
+
 message PluginSetVariableRequest {
     string plugin_id = 1;
     string name = 2;
@@ -7219,9 +7296,11 @@ message CatalogueChangedEvent {
 }
 
 // A command run waits for a person to allow one of its actions (`AstraEvent::RunActionConfirmation`,
-// CATALOGUE_CORE_PLAN.md §4.8 point 4; raised by `run::action_card::raise`). Answer it through
+// CATALOGUE_CORE_PLAN.md §4.8 point 4; raised by `run::action_card::raise`), or a plugin asks to
+// change their settings (`subject`; `run::action_card::raise_for_plugin`). Answer it through
 // ChatService.RespondToConfirmation with `request_id`; an "allow like this" mints no rule for it.
-// `danger_level` is `high` or `critical`; `expires_at` is Unix seconds, past which the card is
+// `danger_level` is `high` or `critical` for a run's action; a plugin's settings request can also
+// be `low` (the badge is then not drawn); `expires_at` is Unix seconds, past which the card is
 // refused whatever is pressed. Never delivered to plugins (plugins::event_view).
 message RunActionConfirmationEvent {
     string run_id = 1;
@@ -7241,6 +7320,12 @@ message RunActionConfirmationEvent {
     // The conversation the run writes into (its sink, off the run's scope), so a chat whose
     // open conversation it is can draw the card inline. Empty when the run has none.
     string conversation_id = 10;
+
+    // What the card asks about. Empty: a command run's action (the fields above). `plugin_settings`:
+    // a plugin asks to change the person's settings (`PluginHostService.RequestSettingsChange`) —
+    // there is no run, `initiator` names the plugin, `action_label` says what it wants and
+    // `description` lists each setting as it is and as it would be, then the plugin's reason.
+    string subject = 11;
 }
 
 // A run-action card ended (`AstraEvent::RunActionConfirmationEnded`): `outcome` is `allowed`,

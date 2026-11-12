@@ -132,6 +132,7 @@ Convenience methods on `Plugin` — `self.log_info`, `self.log_warn`,
 | `speak(text)` — say it aloud in Astra's voice; answers once it was said, stopped or refused | `speak` (high-risk) |
 | `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
 | `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
+| `request_settings_change(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope="session")` | `set_variable` |
 | `subscribe_events(types, exclude_source_id="")` | `subscribe_events` |
@@ -149,6 +150,26 @@ opens Astra and the person's reply voice on, and the daemon refuses a text over
 [Permissions](../3-reference/permissions.md#speaking-in-astras-voice) has the
 whole table. In a test, `RecordingHost.speak_response` and `.user_identity`
 stage the answers and `spoken()` lists what your plugin asked to say.
+
+`request_settings_change({"ai.model": "gpt-4.1"}, "why")` — a dict, or
+`(path, value)` pairs, each value any JSON value — asks the person to change
+settings the assistant itself may change, on a card that shows each setting as it
+is and as it would be, and your reason; all of them change, or none. It returns
+the daemon's `PluginSettingsChangeResponse`: `outcome` is
+`PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED`, `…_UNCHANGED` (nobody was asked),
+`…_DECLINED` (**do not ask again unasked**), `…_TIMED_OUT`, or `…_REFUSED` with
+`code` (`rate_limited`, `busy`, `not_assistant_editable`, …), `refused_path` and
+`error.retry_after_ms`. **The call lasts until the person answers or the card
+expires** — at least 30 s, 120 s by default — and the SDK puts no deadline on it,
+so never await it on a path that must answer quickly. A value JSON cannot hold
+(`NaN`) raises before anything is sent; nothing else is checked client-side — at
+most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8) changes and a reason of
+`limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140) characters, and the daemon refuses
+more. It needs Astra built with the `plugin-requests` feature (else `…_REFUSED`,
+`not_compiled`) — no release has it yet.
+[Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
+has the whole contract. In a test, `RecordingHost.settings_change_response`
+stages the answer and `settings_change_requests()` lists what was asked for.
 
 > **`DaemonClient` is deprecated** (0.6.5; constructing one warns) **because it
 > does not work today, for any plugin.** The daemon registers

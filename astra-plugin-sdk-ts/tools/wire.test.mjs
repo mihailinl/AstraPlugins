@@ -188,6 +188,130 @@ test("an outcome this SDK does not know reads as UNSPECIFIED, never as one it do
   assert.deepEqual(speakResultFromWire({}), { outcome: "UNSPECIFIED" });
 });
 
+/** Asks for a model and a speed from inside a tool call, then reports what Astra answered. */
+function tuner() {
+  return plugin({
+    tools: {
+      tune: tool({
+        description: "Ask for a model.",
+        input: s.object({ model: s.string() }),
+        run: async ({ model }, ctx) => {
+          const asked = await ctx.requestSettingsChange(
+            [
+              { path: "ai.model", value: model },
+              { path: "voice.tts_speed", value: 1.2 },
+            ],
+            "tuned for this model"
+          );
+          return JSON.stringify(asked);
+        },
+      }),
+    },
+  });
+}
+
+test("requestSettingsChange from a leased call reaches the daemon with the token, values as JSON", async () => {
+  const d = await daemon();
+  const wire = await d.launch(tuner());
+  const res = await wire.callTool("tune", { model: "gpt-4.1" }, { causedBy: "lease-tune" });
+  assert.equal(res.success, true, res.error);
+  assert.deepEqual(JSON.parse(res.result), { outcome: "APPLIED", code: "", refusedPath: "" });
+  const calls = d.callsTo("RequestSettingsChange");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].sessionToken, d.sessionToken, "RequestSettingsChange went out without x-session-token");
+  assert.deepEqual(d.settingsChangeRequests(), [
+    {
+      changes: [
+        { path: "ai.model", valueJson: '"gpt-4.1"' },
+        { path: "voice.tts_speed", valueJson: "1.2" },
+      ],
+      reason: "tuned for this model",
+    },
+  ]);
+  // Asking is not a fire: nothing here spends the lease.
+  assert.deepEqual(d.firedTriggers(), []);
+});
+
+test("a REFUSED settings answer crosses the wire with its code, path and PluginError whole", async () => {
+  const d = await daemon();
+  d.settingsChangeResponse = {
+    outcome: "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED",
+    refusedPath: "ai.model",
+    code: "rate_limited",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin asked too often",
+      retryAfterMs: 90000,
+    },
+  };
+  const wire = await d.launch(tuner());
+  const asked = await wire.plugin.ctx().requestSettingsChange([{ path: "ai.model", value: "m" }], "why");
+  assert.deepEqual(asked, {
+    outcome: "REFUSED",
+    code: "rate_limited",
+    refusedPath: "ai.model",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin asked too often",
+      hint: "",
+      configField: "",
+      retryAfterMs: 90000,
+      docUrl: "",
+    },
+  });
+});
+
+test("no settings limit is checked client-side: the daemon's refusal is what the plugin reads", async () => {
+  const { SETTINGS_CHANGE_MAX_CHANGES, SETTINGS_CHANGE_REASON_MAX_CHARS } = require("../dist/generated/limits.js");
+  const d = await daemon();
+  d.settingsChangeResponse = { outcome: "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED", code: "too_many" };
+  const wire = await d.launch(tuner());
+  const changes = Array.from({ length: SETTINGS_CHANGE_MAX_CHANGES + 1 }, (_, i) => ({ path: `p.${i}`, value: i }));
+  // The same path twice, and a reason past the limit: sent as written.
+  changes.push({ path: "p.0", value: "again" });
+  const reason = "é".repeat(SETTINGS_CHANGE_REASON_MAX_CHARS + 60);
+  const asked = await wire.plugin.ctx().requestSettingsChange(changes, reason);
+  assert.deepEqual(asked, { outcome: "REFUSED", code: "too_many", refusedPath: "" });
+  const [sent] = d.settingsChangeRequests();
+  assert.equal(sent.changes.length, SETTINGS_CHANGE_MAX_CHANGES + 2);
+  assert.equal(sent.reason, reason);
+});
+
+test("every settings outcome maps to its short name; one this SDK does not know is UNSPECIFIED", () => {
+  const { settingsChangeResultFromWire } = require("../dist/host-client.js");
+  const names = ["APPLIED", "UNCHANGED", "DECLINED", "TIMED_OUT", "REFUSED"];
+  names.forEach((name, i) => {
+    const want = { outcome: name, code: "", refusedPath: "" };
+    assert.deepEqual(settingsChangeResultFromWire({ outcome: `PLUGIN_SETTINGS_CHANGE_OUTCOME_${name}` }), want);
+    assert.deepEqual(settingsChangeResultFromWire({ outcome: i + 1, error: null }), want);
+  });
+  assert.deepEqual(settingsChangeResultFromWire({ outcome: 9 }), { outcome: "UNSPECIFIED", code: "", refusedPath: "" });
+  assert.deepEqual(settingsChangeResultFromWire({}), { outcome: "UNSPECIFIED", code: "", refusedPath: "" });
+});
+
+test("setting values go out as JSON of any kind; a value JSON cannot hold throws", () => {
+  const { settingValueJson, settingsChangeRequestToWire } = require("../dist/host-client.js");
+  const json = (value) => settingValueJson({ path: "p", value });
+  assert.equal(json("gpt-4.1"), '"gpt-4.1"');
+  assert.equal(json(true), "true");
+  assert.equal(json(1.2), "1.2");
+  assert.equal(json(null), "null");
+  assert.equal(json({ a: [1, "two"] }), '{"a":[1,"two"]}');
+  assert.equal(json('say "hi"\n'), '"say \\"hi\\"\\n"');
+  assert.equal(json("Алиса"), '"Алиса"');
+  for (const bad of [Number.NaN, Number.NEGATIVE_INFINITY, undefined, Symbol("s"), [Number.NaN]]) {
+    assert.throws(() => json(bad), TypeError);
+  }
+  assert.throws(() => json(10n), TypeError);
+  assert.deepEqual(settingsChangeRequestToWire([{ path: "b", value: 1 }, { path: "a", value: 2 }], "r"), {
+    changes: [
+      { path: "b", valueJson: "1" },
+      { path: "a", valueJson: "2" },
+    ],
+    reason: "r",
+  });
+});
+
 test("a daemon that demands the token refuses a plugin that does not send one", async () => {
   // The mirror of the check above: prove the daemon side is not vacuous.
   const d = await daemon();

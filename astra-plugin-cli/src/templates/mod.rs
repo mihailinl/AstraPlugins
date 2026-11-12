@@ -159,6 +159,10 @@ fn generate_permissions(capabilities: &[&str]) -> String {
             "per-plugin pseudonyms for this install and the signed-in account",
         ),
         (
+            "request_settings_change",
+            "ask the person to change a setting the assistant may change, on a card they answer",
+        ),
+        (
             "speak",
             "say your own words aloud in Astra's voice (high risk: its own consent checkbox)",
         ),

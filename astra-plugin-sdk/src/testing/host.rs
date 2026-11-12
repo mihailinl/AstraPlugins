@@ -91,6 +91,7 @@ pub const HOST_RPCS: &[&str] = &[
     "speak",
     "stop_speaking",
     "get_user_identity",
+    "request_settings_change",
     "set_variable",
     "push_to_ui",
     "send_chat_message",
@@ -152,6 +153,7 @@ struct Inner {
     chats: Vec<ChatMessage>,
     themes: Vec<proto::PluginThemeContribution>,
     spoken: Vec<String>,
+    settings_requests: Vec<proto::PluginSettingsChangeRequest>,
 }
 
 impl Recorded {
@@ -232,6 +234,14 @@ impl Recorded {
         self.with(|i| i.spoken.clone())
     }
 
+    /// Every `RequestSettingsChange` that reached the host, in order, as the
+    /// plugin sent it — the changes (each `value_json` as serialised) and the
+    /// reason — including one the host then refused, because what the plugin
+    /// ASKED for is the assertion.
+    pub fn settings_change_requests(&self) -> Vec<proto::PluginSettingsChangeRequest> {
+        self.with(|i| i.settings_requests.clone())
+    }
+
     /// The last value the plugin published for `name`, if any.
     pub fn variable(&self, name: &str) -> Option<String> {
         self.with(|i| {
@@ -277,6 +287,9 @@ impl Recorded {
     pub(crate) fn speech(&self, text: String) {
         self.with(|i| i.spoken.push(text));
     }
+    pub(crate) fn settings_request(&self, r: proto::PluginSettingsChangeRequest) {
+        self.with(|i| i.settings_requests.push(r));
+    }
 }
 
 impl std::fmt::Debug for Recorded {
@@ -320,6 +333,16 @@ pub struct RecordingHost {
     ai_settings: Mutex<proto::PluginAiSettings>,
     speak_response: Mutex<proto::PluginSpeakResponse>,
     user_identity: Mutex<proto::PluginUserIdentity>,
+    settings_change_response: Mutex<proto::PluginSettingsChangeResponse>,
+}
+
+/// What a `RequestSettingsChange` the person allowed answers: the default of
+/// [`RecordingHost::set_settings_change_response`] and of the mock daemon.
+pub(crate) fn allowed() -> proto::PluginSettingsChangeResponse {
+    proto::PluginSettingsChangeResponse {
+        outcome: proto::PluginSettingsChangeOutcome::Applied as i32,
+        ..Default::default()
+    }
 }
 
 /// What a `Speak` that was heard answers: the default of
@@ -344,6 +367,7 @@ impl RecordingHost {
             ai_settings: Mutex::new(proto::PluginAiSettings::default()),
             speak_response: Mutex::new(heard()),
             user_identity: Mutex::new(proto::PluginUserIdentity::default()),
+            settings_change_response: Mutex::new(allowed()),
         })
     }
 
@@ -427,6 +451,42 @@ impl RecordingHost {
     /// The text of every `speak()`, in order.
     pub fn spoken(&self) -> Vec<String> {
         self.recorded.spoken()
+    }
+
+    /// What `request_settings_change()` answers. Applied (the person allowed
+    /// it) until told otherwise; stage another outcome to test the branch a
+    /// declined, timed-out or refused plugin takes:
+    ///
+    /// ```no_run
+    /// # use astra_plugin_sdk::{proto, testing::RecordingHost};
+    /// let host = RecordingHost::new("prime");
+    /// host.set_settings_change_response(proto::PluginSettingsChangeResponse {
+    ///     outcome: proto::PluginSettingsChangeOutcome::Refused as i32,
+    ///     code: "rate_limited".into(),
+    ///     error: Some(proto::PluginError {
+    ///         code: proto::PluginErrorCode::PluginErrorRateLimited as i32,
+    ///         retry_after_ms: 90_000,
+    ///         ..Default::default()
+    ///     }),
+    ///     ..Default::default()
+    /// });
+    /// ```
+    ///
+    /// The request is recorded either way
+    /// ([`Recorded::settings_change_requests`]). A refusal by the daemon's
+    /// gates (no `request_settings_change` grant) is
+    /// [`deny`](Self::deny)`("request_settings_change")`, an `Err`, not an
+    /// outcome.
+    pub fn set_settings_change_response(&self, response: proto::PluginSettingsChangeResponse) {
+        *self
+            .settings_change_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = response;
+    }
+
+    /// Every `request_settings_change()`, in order.
+    pub fn settings_change_requests(&self) -> Vec<proto::PluginSettingsChangeRequest> {
+        self.recorded.settings_change_requests()
     }
 
     /// What `send_chat_message()` streams back, one chunk per string.
@@ -617,6 +677,27 @@ impl Host for RecordingHost {
         }
         Ok(self
             .user_identity
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone())
+    }
+
+    async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        self.recorded.note("request_settings_change");
+        if let Some(e) = self.staged("request_settings_change", "RequestSettingsChange") {
+            return Err(e);
+        }
+        self.recorded
+            .settings_request(proto::PluginSettingsChangeRequest {
+                changes: changes.to_vec(),
+                reason: reason.to_string(),
+            });
+        Ok(self
+            .settings_change_response
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone())

@@ -2,12 +2,12 @@
 
 # Справочник протокола
 
-Поколение протокола **1**. 10 сервисов, 199 RPC. Источник:
+Поколение протокола **1**. 10 сервисов, 200 RPC. Источник:
 [`proto/plugin.proto`](../../../proto/plugin.proto), сгенерированный срез
-`astra.proto` Astra (`surface-sha256: c9af21fc3c3fbfbd…` — дайджест
+`astra.proto` Astra (`surface-sha256: 828036790246a89f…` — дайджест
 обращённого к плагинам тела, о котором и идёт речь), закреплённый
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:6e1c8055e3959650…`. У каждой завендоренной копии в трёх SDK тот же
+`sha256:97a23c6a59ad86f8…`. У каждой завендоренной копии в трёх SDK тот же
 самый хеш; `tools/check-proto.sh` — то, что это подтверждает.
 
 ## Три сервиса плагина
@@ -15,7 +15,7 @@
 | Сервис | Направление | RPC | Кто обслуживает |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагин | 33 | ваш плагин |
-| [`PluginHostService`](#pluginhostservice) | плагин → демон | 14 | демон |
+| [`PluginHostService`](#pluginhostservice) | плагин → демон | 15 | демон |
 | [`PluginService`](#pluginservice) | UI → демон | 23 | демон |
 
 Поколение протокола — это контракт. Плагин отправляет его в
@@ -92,6 +92,7 @@ RPC здесь — хук, который вы реализуете, и `UNIMPLE
 | `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
+| `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` означает, что любой плагин может вызывать это всегда — стартовый

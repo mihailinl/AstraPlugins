@@ -187,6 +187,7 @@ of a function that returns one — which is the shape
 | `speak(text)` — say it aloud in Astra's voice; resolves once it was said, stopped or refused | `speak` (high-risk) |
 | `stopSpeaking()` — stop everything this plugin asked to be said | `speak` |
 | `getUserIdentity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
+| `requestSettingsChange(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
 
 The wrappers take a **payload object** and stringify it for you;
 `ctx.host` is the raw client underneath, typed `Host | null`, whose
@@ -196,7 +197,8 @@ For the chat's provider, model and endpoint (never a key; needs
 `read_ai_settings`) call `ctx.getAiSettings()`: `Host.getAiSettings` is optional
 on the interface, and the wrapper throws a clear error when the host lacks it,
 so you never write `ctx.host?.getAiSettings?.()` yourself. `ctx.speak()`,
-`ctx.stopSpeaking()` and `ctx.getUserIdentity()` work the same way.
+`ctx.stopSpeaking()`, `ctx.getUserIdentity()` and `ctx.requestSettingsChange()`
+work the same way.
 
 `ctx.speak(text)` resolves with a `SpeakResult`: `outcome` is `"SPOKEN"`,
 `"STOPPED"` (silence was asked for — **not an error**; do not say it again
@@ -209,6 +211,26 @@ and the person's reply voice on, and the daemon refuses a text over
 [Permissions](../3-reference/permissions.md#speaking-in-astras-voice) has the
 whole table. In a test, `RecordingHost.speakResult` and `.userIdentity` stage
 the answers and `spoken()` lists what your plugin asked to say.
+
+`ctx.requestSettingsChange([{ path: "ai.model", value: "gpt-4.1" }], "why")` —
+each `value` any JSON value — asks the person to change settings the assistant
+itself may change, on a card that shows each setting as it is and as it would be,
+and your reason; all of them change, or none. It resolves with a
+`SettingsChangeResult`: `outcome` is `"APPLIED"`, `"UNCHANGED"` (nobody was
+asked), `"DECLINED"` (**do not ask again unasked**), `"TIMED_OUT"`, or
+`"REFUSED"` with `code` (`rate_limited`, `busy`, `not_assistant_editable`, …),
+`refusedPath` and `error.retryAfterMs`; an outcome this SDK does not know reads as
+`"UNSPECIFIED"`. **The call lasts until the person answers or the card expires**
+— at least 30 s, 120 s by default — and the SDK puts no deadline on it, so never
+await it on a path that must answer quickly. A value JSON cannot hold (`NaN`,
+`undefined`, a function) throws a `TypeError` before anything is sent; nothing
+else is checked client-side — at most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8)
+changes and a reason of `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
+characters, and the daemon refuses more. It needs Astra built with the
+`plugin-requests` feature (else `"REFUSED"`, `not_compiled`) — no release has it
+yet. [Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
+has the whole contract. In a test, `RecordingHost.settingsChangeResult` stages
+the answer and `settingsChangeRequests()` lists what was asked for.
 
 `DaemonClient` is `@deprecated` (0.7.4): Astra refuses a plugin's session token
 on every service but `PluginHostService`, so it has done nothing since SDK

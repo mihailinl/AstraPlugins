@@ -118,6 +118,13 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
             "authorized": True,
             "account_id": "mock-account-pseudonym",
         }
+        #: What `RequestSettingsChange` answers once it has passed the gates,
+        #: as keyword arguments of `PluginSettingsChangeResponse`. Applied —
+        #: the person allowed it — until told otherwise. The mock answers at
+        #: once; the real daemon answers when the person does.
+        self.settings_change_response: dict[str, Any] = {
+            "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED
+        }
 
         self.registrations: list[plugin_pb2.PluginRegisterRequest] = []
         self._logs: list[LogLine] = []
@@ -128,6 +135,7 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         self._themes: list[Any] = []
         self._spoken: list[str] = []
         self._stops: int = 0
+        self._settings_requests: list[Any] = []
         self.unauthenticated_calls: list[str] = []
 
         self._server: grpc.aio.Server | None = None
@@ -226,6 +234,12 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
             return plugin_pb2.PluginUserIdentity()
         return plugin_pb2.PluginUserIdentity(**self.user_identity)
 
+    async def RequestSettingsChange(self, request, context):
+        if not self._authenticate(context, "RequestSettingsChange"):
+            return plugin_pb2.PluginSettingsChangeResponse()
+        self._settings_requests.append(request)
+        return plugin_pb2.PluginSettingsChangeResponse(**self.settings_change_response)
+
     async def FireTrigger(self, request, context):
         if not self._authenticate(context, "FireTrigger"):
             return plugin_pb2.Empty()
@@ -299,6 +313,11 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
     def stop_count(self) -> int:
         """How many `StopSpeaking` calls passed the gates."""
         return self._stops
+
+    def settings_change_requests(self) -> list[Any]:
+        """Every `RequestSettingsChange` that passed the gates, in order, as
+        the plugin sent it."""
+        return list(self._settings_requests)
 
     # ── lifecycle ──
 

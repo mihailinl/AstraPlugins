@@ -176,7 +176,7 @@ From a place a parameter cannot reach — a `Drop` impl, a callback from a C
 library, a `std::thread` spawned at startup — `astra_plugin_sdk::ctx()` returns
 the running plugin's context, and `try_ctx()` the fallible version.
 
-### `Host` — the twelve calls out
+### `Host` — the thirteen calls out
 
 | Method | Permission |
 |---|---|
@@ -187,6 +187,7 @@ the running plugin's context, and `try_ctx()` the fallible version.
 | `speak(text)` — say it aloud in Astra's voice; answers once it was said, stopped or refused | `speak` (high-risk) |
 | `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
 | `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
+| `request_settings_change(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope)` | `set_variable` |
 | `push_to_ui(event, payload_json)` | `push_to_ui` |
@@ -208,6 +209,24 @@ has the whole table. `speak`, `stop_speaking` and `get_user_identity` are
 defaulted `Host` methods, so a `Host` of your own written before them still
 compiles. `testing::RecordingHost::set_speak_response` / `set_user_identity`
 stage the answers, and `spoken()` lists what your plugin asked to say.
+
+`request_settings_change(&[proto::PluginSettingChange::new("ai.model", "gpt-4.1")],
+"why")` asks the person to change settings the assistant itself may change, on a
+card that shows each setting as it is and as it would be, and your reason; all of
+them change, or none. It returns `proto::PluginSettingsChangeResponse`: read
+`outcome()` — `Applied`, `Unchanged` (nobody was asked), `Declined` (**do not ask
+again unasked**), `TimedOut`, or `Refused` with `code` (`rate_limited`, `busy`,
+`not_assistant_editable`, …), `refused_path` and `error.retry_after_ms`. **The
+call lasts until the person answers or the card expires** — at least 30 s, 120 s
+by default — and the SDK puts no deadline on it, so never await it on a path that
+must answer quickly. `PluginSettingChange::new` serialises any
+`serde_json::Value` into `value_json`. At most `limits::SETTINGS_CHANGE_MAX_CHANGES`
+(8) changes and a reason of `limits::SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
+characters; the daemon refuses more, the SDK checks nothing. It needs Astra built
+with the `plugin-requests` feature (else `Refused`, `not_compiled`) — no release
+has it yet. [Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
+has the whole contract; `RecordingHost::set_settings_change_response` stages the
+answer and `settings_change_requests()` lists what your plugin asked for.
 
 `Host` is a trait, so a test can substitute `RecordingHost` and assert on what
 your plugin told Astra.

@@ -93,7 +93,7 @@ class DiceRoller(Plugin):
 `self.push_to_ui` are the convenience wrappers; the full outbound surface is
 `self.host` (`HostClient`): `fire_trigger`, `log`, `get_config`,
 `get_daemon_info`, `get_ai_settings`, `speak`, `stop_speaking`,
-`get_user_identity`, `subscribe_events`, `push_to_ui`,
+`get_user_identity`, `request_settings_change`, `subscribe_events`, `push_to_ui`,
 `send_chat_message`, `set_theme_contribution`, `set_variable`.
 
 **Every one of those is default-deny.** A manifest with no `[permissions]`

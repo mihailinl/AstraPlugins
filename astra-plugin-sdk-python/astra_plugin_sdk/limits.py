@@ -16,7 +16,7 @@ generated and CI re-runs the generator with `--check`.
 """
 
 #: SHA-256 of the ``spec/limits.yaml`` these constants were generated from.
-SPEC_SHA256 = "8816efc4e1f664b13ce160b4921930d9b41fc43a7c435560d47e300d2056d2b3"
+SPEC_SHA256 = "947a19862bfbe6c189e66ad6699c212e5c2c020ca23d5512ab8a18da4d934501"
 
 #: Capacity of the audio channel that carries streaming-STT chunks from the
 #: daemon's voice pipeline into the plugin process, in chunks.
@@ -152,6 +152,16 @@ SPEAK_TEXT_MAX_CHARS = 300
 #: dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
 IMAGE_INPUT_MAX_IMAGES = 4
 
+#: The most settings one `host.requestSettingsChange()` may ask for, each path
+#: once. All of them change or none (`ai::tools::settings_tools::MAX_CHANGES`,
+#: the assistant's own bound).
+SETTINGS_CHANGE_MAX_CHANGES = 8
+
+#: The longest reason one `host.requestSettingsChange()` may give the person, in
+#: characters: it is shown on the card whole, so a longer one is REFUSED, never
+#: cut (`plugins::settings_request::REASON_MAX_CHARS`).
+SETTINGS_CHANGE_REASON_MAX_CHARS = 140
+
 __all__ = [
     "SPEC_SHA256",
     "STT_AUDIO_CHANNEL_CAPACITY",
@@ -170,4 +180,6 @@ __all__ = [
     "PLUGIN_IMAGE_REQUEST_MAX_BYTES",
     "SPEAK_TEXT_MAX_CHARS",
     "IMAGE_INPUT_MAX_IMAGES",
+    "SETTINGS_CHANGE_MAX_CHANGES",
+    "SETTINGS_CHANGE_REASON_MAX_CHARS",
 ]

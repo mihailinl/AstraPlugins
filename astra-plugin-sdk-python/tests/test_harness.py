@@ -322,6 +322,167 @@ def test_constructing_a_daemon_client_warns_that_it_is_deprecated():
         DaemonClient("127.0.0.1:9", "token")
 
 
+# ── a settings request ──────────────────────────────────────────────────────
+
+
+class _Tuner(Plugin):
+    @tool("Ask for a model, then report what Astra answered")
+    async def tune(self, model: str):
+        asked = await self.host.request_settings_change(
+            {"ai.model": model}, "tuned for this model"
+        )
+        return {
+            "outcome": plugin_pb2.PluginSettingsChangeOutcome.Name(asked.outcome),
+            "code": asked.code,
+            "refused_path": asked.refused_path,
+            "retry_after_ms": asked.error.retry_after_ms,
+        }
+
+
+def test_a_settings_request_is_recorded_and_applied_by_default():
+    with Harness(_Tuner()) as h:
+        out = h.call_tool("tune", model="gpt-4.1").json
+        assert out == {
+            "outcome": "PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED",
+            "code": "",
+            "refused_path": "",
+            "retry_after_ms": 0,
+        }
+        [asked] = h.host.settings_change_requests()
+        assert [(c.path, c.value_json) for c in asked.changes] == [
+            ("ai.model", '"gpt-4.1"')
+        ]
+        assert asked.reason == "tuned for this model"
+
+
+def test_a_refused_settings_request_surfaces_its_code_path_and_wait():
+    """`REFUSED` is an answer, not an exception: the plugin reads the code
+    word, the setting and the wait, and the request is still on the record."""
+    with Harness(_Tuner()) as h:
+        h.host.settings_change_response = {
+            "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED,
+            "refused_path": "ai.model",
+            "code": "rate_limited",
+            "error": {
+                "code": plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+                "message": "this plugin asked too often",
+                "retry_after_ms": 90000,
+            },
+        }
+        out = h.call_tool("tune", model="gpt-4.1").json
+        assert out == {
+            "outcome": "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED",
+            "code": "rate_limited",
+            "refused_path": "ai.model",
+            "retry_after_ms": 90000,
+        }
+        assert len(h.host.settings_change_requests()) == 1
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_UNCHANGED,
+        plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED,
+        plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT,
+    ],
+)
+def test_every_other_settings_outcome_reaches_the_plugin_as_itself(outcome):
+    with Harness(_Tuner()) as h:
+        h.host.settings_change_response = {"outcome": outcome}
+        out = h.call_tool("tune", model="m").json
+        assert out["outcome"] == plugin_pb2.PluginSettingsChangeOutcome.Name(outcome)
+        assert out["code"] == ""
+
+
+def test_a_denied_settings_request_grant_reaches_the_plugin_as_a_failure():
+    with Harness(_Tuner()) as h:
+        h.host.fail_always(
+            "request_settings_change",
+            Unavailable("permission denied: request_settings_change"),
+        )
+        assert not h.call_tool("tune", model="m").success
+        assert h.host.settings_change_requests() == []
+
+
+def test_setting_values_are_sent_as_compact_json_of_any_kind():
+    from astra_plugin_sdk.host_client import settings_change_request
+
+    req = settings_change_request(
+        {
+            "ai.model": "gpt-4.1",
+            "voice.enabled": True,
+            "voice.tts_speed": 1.2,
+            "ai.max_tool_rounds": 24,
+            "x.none": None,
+            "x.obj": {"a": [1, "two"]},
+            "x.text": 'say "hi"\n',
+            "x.cyrillic": "Алиса",
+        },
+        "why",
+    )
+    assert [(c.path, c.value_json) for c in req.changes] == [
+        ("ai.model", '"gpt-4.1"'),
+        ("voice.enabled", "true"),
+        ("voice.tts_speed", "1.2"),
+        ("ai.max_tool_rounds", "24"),
+        ("x.none", "null"),
+        ("x.obj", '{"a":[1,"two"]}'),
+        ("x.text", '"say \\"hi\\"\\n"'),
+        ("x.cyrillic", '"Алиса"'),
+    ]
+    assert req.reason == "why"
+    # Every value round-trips through JSON to what was meant.
+    assert [json.loads(c.value_json) for c in req.changes][5:7] == [
+        {"a": [1, "two"]},
+        'say "hi"\n',
+    ]
+
+
+def test_setting_changes_may_be_pairs_and_keep_their_order_and_repeats():
+    """Pairs keep the card's order, and a path given twice is sent twice: the
+    daemon refuses it (`invalid`), the SDK does not second-guess it."""
+    from astra_plugin_sdk.host_client import settings_change_request
+
+    req = settings_change_request([("b", 1), ("a", 2), ("b", 3)], "")
+    assert [(c.path, c.value_json) for c in req.changes] == [
+        ("b", "1"),
+        ("a", "2"),
+        ("b", "3"),
+    ]
+
+
+def test_no_limit_is_checked_client_side():
+    """The daemon is the authority: nine changes and a 200-character reason go
+    out as they are, and its `REFUSED` (`too_many` / `reason_too_long`) is what
+    the plugin reads — the SDK can never disagree with the Astra it talks to."""
+    from astra_plugin_sdk.host_client import settings_change_request
+
+    many = {f"p.{i}": i for i in range(limits.SETTINGS_CHANGE_MAX_CHANGES + 1)}
+    long_reason = "é" * (limits.SETTINGS_CHANGE_REASON_MAX_CHARS + 60)
+    req = settings_change_request(many, long_reason)
+    assert len(req.changes) == limits.SETTINGS_CHANGE_MAX_CHANGES + 1
+    assert req.reason == long_reason
+
+
+@pytest.mark.parametrize(
+    "value, error",
+    [(float("nan"), ValueError), (float("inf"), ValueError), (object(), TypeError)],
+)
+def test_a_value_json_cannot_hold_raises_before_anything_is_sent(value, error):
+    from astra_plugin_sdk.host_client import settings_change_request
+
+    with pytest.raises(error):
+        settings_change_request({"voice.tts_speed": value}, "why")
+
+
+def test_a_string_is_not_a_set_of_changes():
+    from astra_plugin_sdk.host_client import settings_change_request
+
+    with pytest.raises(TypeError, match="not a string"):
+        settings_change_request("ai.model", "why")
+
+
 # ── STT ─────────────────────────────────────────────────────────────────────
 
 

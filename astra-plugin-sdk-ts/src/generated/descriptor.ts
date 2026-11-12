@@ -8331,6 +8331,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "GetUserIdentity": {
               "requestType": "Empty",
               "responseType": "PluginUserIdentity"
+            },
+            "RequestSettingsChange": {
+              "requestType": "PluginSettingsChangeRequest",
+              "responseType": "PluginSettingsChangeResponse"
             }
           }
         },
@@ -9771,6 +9775,61 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "accountId": {
               "type": "string",
+              "id": 4
+            }
+          }
+        },
+        "PluginSettingChange": {
+          "fields": {
+            "path": {
+              "type": "string",
+              "id": 1
+            },
+            "valueJson": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginSettingsChangeRequest": {
+          "fields": {
+            "changes": {
+              "rule": "repeated",
+              "type": "PluginSettingChange",
+              "id": 1
+            },
+            "reason": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "PluginSettingsChangeOutcome": {
+          "values": {
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_UNSPECIFIED": 0,
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED": 1,
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_UNCHANGED": 2,
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED": 3,
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT": 4,
+            "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED": 5
+          }
+        },
+        "PluginSettingsChangeResponse": {
+          "fields": {
+            "outcome": {
+              "type": "PluginSettingsChangeOutcome",
+              "id": 1
+            },
+            "refusedPath": {
+              "type": "string",
+              "id": 2
+            },
+            "code": {
+              "type": "string",
+              "id": 3
+            },
+            "error": {
+              "type": "PluginError",
               "id": 4
             }
           }
@@ -11366,6 +11425,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "conversationId": {
               "type": "string",
               "id": 10
+            },
+            "subject": {
+              "type": "string",
+              "id": 11
             }
           }
         },

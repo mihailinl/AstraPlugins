@@ -203,6 +203,92 @@ test("a denied speak grant is a rejection, not an outcome", async () => {
   assert.deepEqual(host.spoken(), []);
 });
 
+test("ctx.requestSettingsChange() reaches the recording host, which records it and answers APPLIED", async () => {
+  const host = new RecordingHost("demo");
+  const h = await Harness.create(demo().app).withHost(host).start();
+  const asked = await h.plugin.ctx().requestSettingsChange(
+    [
+      { path: "ai.model", value: "gpt-4.1" },
+      { path: "voice.tts_speed", value: 1.2 },
+    ],
+    "tuned for this model"
+  );
+  assert.deepEqual(asked, { outcome: "APPLIED", code: "", refusedPath: "" });
+  assert.deepEqual(host.settingsChangeRequests(), [
+    {
+      changes: [
+        { path: "ai.model", value: "gpt-4.1" },
+        { path: "voice.tts_speed", value: 1.2 },
+      ],
+      reason: "tuned for this model",
+    },
+  ]);
+});
+
+test("a REFUSED settings answer surfaces its code, path and wait, and the request is still recorded", async () => {
+  const host = new RecordingHost("demo");
+  host.settingsChangeResult = {
+    outcome: "REFUSED",
+    code: "rate_limited",
+    refusedPath: "ai.model",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin asked too often",
+      hint: "",
+      configField: "",
+      retryAfterMs: 90000,
+      docUrl: "",
+    },
+  };
+  const h = await Harness.create(demo().app).withHost(host).start();
+  const asked = await h.plugin.ctx().requestSettingsChange([{ path: "ai.model", value: "m" }], "why");
+  assert.equal(asked.outcome, "REFUSED");
+  assert.equal(asked.code, "rate_limited");
+  assert.equal(asked.refusedPath, "ai.model");
+  assert.equal(asked.error.retryAfterMs, 90000);
+  assert.equal(host.settingsChangeRequests().length, 1);
+});
+
+test("the recording host keeps a deep copy of what was asked, as the daemon would read it", async () => {
+  const host = new RecordingHost("demo");
+  const value = { a: [1, "two"] };
+  await host.requestSettingsChange([{ path: "x.obj", value }], "why");
+  value.a.push(3);
+  assert.deepEqual(host.settingsChangeRequests()[0].changes, [{ path: "x.obj", value: { a: [1, "two"] } }]);
+});
+
+test("ctx.requestSettingsChange says plainly when the host predates it", async () => {
+  const host = new RecordingHost("demo");
+  host.requestSettingsChange = undefined;
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(
+    () => h.plugin.ctx().requestSettingsChange([{ path: "ai.model", value: "m" }], "why"),
+    /does not implement requestSettingsChange \(RequestSettingsChange\)/
+  );
+});
+
+test("a denied request_settings_change grant is a rejection, not an outcome", async () => {
+  const host = new RecordingHost("demo");
+  host.failAlways("requestSettingsChange", new Error("permission denied: request_settings_change"));
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(
+    () => h.plugin.ctx().requestSettingsChange([{ path: "ai.model", value: "m" }], "why"),
+    /permission denied: request_settings_change/
+  );
+  assert.deepEqual(host.settingsChangeRequests(), []);
+});
+
+test("a value JSON cannot hold is refused before anything is recorded or sent", async () => {
+  const host = new RecordingHost("demo");
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, undefined, () => 1, { nested: Number.NaN }]) {
+    await assert.rejects(
+      () => host.requestSettingsChange([{ path: "voice.tts_speed", value }], "why"),
+      (e) => e instanceof TypeError && /voice\.tts_speed/.test(e.message)
+    );
+  }
+  assert.deepEqual(host.settingsChangeRequests(), []);
+});
+
 test("without a host, a handler that reaches for the daemon says so", async () => {
   // Not a silent no-op: the convenience wrappers on `Plugin` swallow a missing
   // host, and a trigger that did not fire and said nothing is the failure that

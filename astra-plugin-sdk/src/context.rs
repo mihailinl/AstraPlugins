@@ -225,6 +225,94 @@ pub trait Host: Send + Sync + 'static {
         ))
     }
 
+    /// **Ask the person** to change some of Astra's settings, on a card they
+    /// answer. Permission: `request_settings_change` (not high-risk: nothing
+    /// changes without the person's Allow).
+    ///
+    /// Only the settings the assistant itself may change can be asked for (the
+    /// voice, the AI model, the language — never the permission mode, a key or
+    /// Tool Search), each value checked exactly as the assistant's own change
+    /// is. The card names this plugin, each setting as it is and as it would
+    /// be, and `reason` (the plugin's own words). What changes on Allow is
+    /// exactly what the card showed; all of `changes` change, or none.
+    ///
+    /// The call **lasts until the person answers or the card expires** —
+    /// Astra's confirmation timeout, at least 30 s, 120 s unless the person
+    /// changed it. Never await it on a path that must answer quickly; the SDK
+    /// puts no deadline of its own on it. Read
+    /// [`outcome()`](proto::PluginSettingsChangeResponse::outcome):
+    ///
+    /// * `PluginSettingsChangeOutcome::Applied` — the person allowed it; the
+    ///   settings now hold what was asked for.
+    /// * `PluginSettingsChangeOutcome::Unchanged` — they already held it.
+    ///   Nobody was asked.
+    /// * `PluginSettingsChangeOutcome::Declined` — the person said no, now or
+    ///   to this plugin changing one of these settings before (Astra asks
+    ///   again about a setting only after it has changed some other way, or
+    ///   after a restart). **Do not ask again unasked.**
+    /// * `PluginSettingsChangeOutcome::TimedOut` — nobody answered before the
+    ///   card expired (no window open counts).
+    /// * `PluginSettingsChangeOutcome::Refused` — not asked, or not applied:
+    ///   `code` says why, `refused_path` names the setting when it is about
+    ///   one, and `error` is the same as a [`proto::PluginError`] — a sentence,
+    ///   and `retry_after_ms` for `rate_limited`. The words: `not_compiled`
+    ///   (this Astra takes no requests: it was built without the
+    ///   `plugin-requests` feature), `locked`, `invalid` (no changes, a path
+    ///   twice, a value that is not JSON, or more than a card can show whole),
+    ///   `too_many` (more than
+    ///   [`limits::SETTINGS_CHANGE_MAX_CHANGES`](crate::limits::SETTINGS_CHANGE_MAX_CHANGES)),
+    ///   `reason_too_long` (more than
+    ///   [`limits::SETTINGS_CHANGE_REASON_MAX_CHARS`](crate::limits::SETTINGS_CHANGE_REASON_MAX_CHARS)
+    ///   characters — refused, never cut), `busy` (one of this plugin's
+    ///   requests is already waiting), `rate_limited` (two at once, then one
+    ///   every two minutes), `not_assistant_editable`, `invalid_value`,
+    ///   `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
+    ///   `provider_unreachable`, `stale` (the settings changed while the card
+    ///   was up), `stopped` (this plugin's authority ended first),
+    ///   `write_refused`.
+    ///
+    /// The current values are never returned: what the plugin learns is the
+    /// outcome.
+    ///
+    /// ```ignore
+    /// use astra_plugin_sdk::proto::{PluginSettingChange, PluginSettingsChangeOutcome};
+    ///
+    /// let asked = ctx
+    ///     .host()
+    ///     .request_settings_change(
+    ///         &[PluginSettingChange::new("ai.model", "gpt-4.1")],
+    ///         "PrimeAI's tools are tuned for this model",
+    ///     )
+    ///     .await?;
+    /// match asked.outcome() {
+    ///     PluginSettingsChangeOutcome::Applied | PluginSettingsChangeOutcome::Unchanged => {}
+    ///     PluginSettingsChangeOutcome::Refused if asked.code == "rate_limited" => {
+    ///         // ask later: asked.error.unwrap_or_default().retry_after_ms
+    ///     }
+    ///     _ => {} // declined, timed out, refused: carry on with what the person has
+    /// }
+    /// ```
+    ///
+    /// The daemon is the authority on every limit; the SDK checks none, so it
+    /// can never disagree with the Astra it talks to. A refusal by the
+    /// daemon's gates (no grant, no account that opens Astra) is an `Err`,
+    /// like every host call. An Astra older than this RPC answers
+    /// `UNIMPLEMENTED`.
+    ///
+    /// Defaulted, like [`Host::speak`]: a `Host` written before this method
+    /// existed keeps compiling and answers with an error that says so, never
+    /// an invented outcome. Every `Host` in this crate overrides it.
+    async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        let _ = (changes, reason);
+        Err(anyhow::anyhow!(
+            "this Host does not implement RequestSettingsChange (request_settings_change)"
+        ))
+    }
+
     /// Publish a variable commands and other plugins can read.
     /// Permission: `set_variable`. `scope` is `session` or `persistent`.
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()>;
@@ -323,6 +411,31 @@ pub trait Host: Send + Sync + 'static {
     /// `log("error", …)`.
     async fn log_error(&self, message: &str) -> Result<()> {
         self.log("error", message).await
+    }
+}
+
+impl proto::PluginSettingChange {
+    /// One setting for [`Host::request_settings_change`]: a dotted settings
+    /// path the assistant may change (`ai.model`, `voice.tts_speed`) and the
+    /// value wanted, serialised to JSON for `value_json`.
+    ///
+    /// Anything `serde_json::Value` is made from works — `"gpt-4.1"`, `true`,
+    /// `1.2`, or `serde_json::json!(…)`. A float JSON cannot hold (`NaN`,
+    /// infinity) becomes `null`, as `serde_json` always makes it.
+    ///
+    /// ```
+    /// use astra_plugin_sdk::proto::PluginSettingChange;
+    ///
+    /// let change = PluginSettingChange::new("voice.tts_speed", 1.2);
+    /// assert_eq!(change.path, "voice.tts_speed");
+    /// assert_eq!(change.value_json, "1.2");
+    /// assert_eq!(PluginSettingChange::new("ai.model", "gpt-4.1").value_json, r#""gpt-4.1""#);
+    /// ```
+    pub fn new(path: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+        Self {
+            path: path.into(),
+            value_json: value.into().to_string(),
+        }
     }
 }
 
@@ -907,10 +1020,11 @@ impl Host for CausalHost {
         self.inner.get_ai_settings().await
     }
 
-    // The three below are defaulted on `Host`, so forgetting one here would
+    // The four below are defaulted on `Host`, so forgetting one here would
     // compile and answer "this Host does not implement …" from inside a
     // handler while the real client underneath implements it perfectly well.
-    // `tests::the_scoping_wrapper_forwards_speech_and_identity` is the guard.
+    // `tests::the_scoping_wrapper_forwards_speech_and_identity` and
+    // `tests::the_scoping_wrapper_forwards_settings_requests` are the guards.
 
     async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
         self.inner.speak(text).await
@@ -922,6 +1036,14 @@ impl Host for CausalHost {
 
     async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
         self.inner.get_user_identity().await
+    }
+
+    async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        self.inner.request_settings_change(changes, reason).await
     }
 
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
@@ -962,6 +1084,9 @@ pub(crate) struct CauseSpy {
     /// so a test can tell "forwarded to the inner host" from "answered by the
     /// trait's default".
     spoken: std::sync::Mutex<Vec<String>>,
+    /// Every `request_settings_change`, as it arrived — the same proof for
+    /// the settings request.
+    asked: std::sync::Mutex<Vec<proto::PluginSettingsChangeRequest>>,
 }
 
 #[cfg(test)]
@@ -972,6 +1097,10 @@ impl CauseSpy {
 
     pub(crate) fn spoken(&self) -> Vec<String> {
         self.spoken.lock().unwrap().clone()
+    }
+
+    pub(crate) fn asked(&self) -> Vec<proto::PluginSettingsChangeRequest> {
+        self.asked.lock().unwrap().clone()
     }
 }
 
@@ -1021,6 +1150,23 @@ impl Host for CauseSpy {
     async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
         Ok(proto::PluginUserIdentity {
             install_id: "from-inner".into(),
+            ..Default::default()
+        })
+    }
+    async fn request_settings_change(
+        &self,
+        changes: &[proto::PluginSettingChange],
+        reason: &str,
+    ) -> Result<proto::PluginSettingsChangeResponse> {
+        self.asked
+            .lock()
+            .unwrap()
+            .push(proto::PluginSettingsChangeRequest {
+                changes: changes.to_vec(),
+                reason: reason.to_owned(),
+            });
+        Ok(proto::PluginSettingsChangeResponse {
+            outcome: proto::PluginSettingsChangeOutcome::Applied as i32,
             ..Default::default()
         })
     }
@@ -1112,6 +1258,16 @@ mod tests {
         async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
             Ok(Default::default())
         }
+        async fn request_settings_change(
+            &self,
+            _: &[proto::PluginSettingChange],
+            _: &str,
+        ) -> Result<proto::PluginSettingsChangeResponse> {
+            Ok(proto::PluginSettingsChangeResponse {
+                outcome: proto::PluginSettingsChangeOutcome::Unchanged as i32,
+                ..Default::default()
+            })
+        }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
             Ok(())
         }
@@ -1127,7 +1283,8 @@ mod tests {
     }
 
     /// A `Host` that never heard of `get_ai_settings`, `speak`,
-    /// `stop_speaking` or `get_user_identity`: the defaulted methods.
+    /// `stop_speaking`, `get_user_identity` or `request_settings_change`: the
+    /// defaulted methods.
     struct BareHost;
 
     #[async_trait::async_trait]
@@ -1255,6 +1412,134 @@ mod tests {
                 .await
                 .unwrap_or_else(|e| panic!("{name}.get_user_identity fell to the default: {e}"));
         }
+    }
+
+    /// Additive: a `Host` written before `RequestSettingsChange` compiles
+    /// unchanged and gets a plain error — never an invented outcome, least of
+    /// all an `Applied` nobody allowed.
+    #[tokio::test]
+    async fn a_host_without_settings_requests_answers_with_a_plain_error() {
+        let err = BareHost
+            .request_settings_change(&[proto::PluginSettingChange::new("ai.model", "m")], "why")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("does not implement RequestSettingsChange"),
+            "{err}"
+        );
+    }
+
+    /// The scoped host a handler is given must reach the inner host's
+    /// `request_settings_change` with the changes and the reason as written,
+    /// not fall to the trait's default.
+    #[tokio::test]
+    async fn the_scoping_wrapper_forwards_settings_requests() {
+        let (ctx, spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+
+        let changes = [
+            proto::PluginSettingChange::new("ai.model", "gpt-4.1"),
+            proto::PluginSettingChange::new("voice.tts_speed", 1.2),
+        ];
+        let asked = scoped
+            .host()
+            .request_settings_change(&changes, "tuned for this model")
+            .await
+            .expect("forwarded");
+        assert_eq!(asked.outcome(), proto::PluginSettingsChangeOutcome::Applied);
+        assert_eq!(
+            spy.asked(),
+            vec![proto::PluginSettingsChangeRequest {
+                changes: changes.to_vec(),
+                reason: "tuned for this model".into(),
+            }]
+        );
+        // Asking is not a fire: nothing about it spends or carries the lease.
+        assert!(spy.causes().is_empty());
+    }
+
+    /// Every `Host` impl in this crate answers `request_settings_change`
+    /// without the default. Add a new wrapper or fake to the list.
+    #[tokio::test]
+    async fn every_in_repo_host_answers_settings_requests_without_the_default() {
+        let recording = crate::testing::RecordingHost::new("rec");
+        let hosts: Vec<(&str, Arc<dyn Host>)> = vec![
+            ("testing::RecordingHost", recording),
+            ("NullHost", Arc::new(NullHost)),
+        ];
+        let change = [proto::PluginSettingChange::new("ai.model", "m")];
+        for (name, h) in hosts {
+            h.request_settings_change(&change, "why")
+                .await
+                .unwrap_or_else(|e| {
+                    panic!("{name}.request_settings_change fell to the default: {e}")
+                });
+        }
+    }
+
+    /// The level-1 host records what was asked for and answers what was
+    /// staged — `Applied` by default, any outcome when told — and a denied
+    /// grant is an `Err` with nothing on the record.
+    #[tokio::test]
+    async fn the_recording_host_records_settings_requests_and_answers_what_was_staged() {
+        let host = crate::testing::RecordingHost::new("rec");
+        let change = [proto::PluginSettingChange::new("ai.model", "gpt-4.1")];
+
+        let asked = host.request_settings_change(&change, "why").await.unwrap();
+        assert_eq!(asked.outcome(), proto::PluginSettingsChangeOutcome::Applied);
+
+        host.set_settings_change_response(proto::PluginSettingsChangeResponse {
+            outcome: proto::PluginSettingsChangeOutcome::Refused as i32,
+            refused_path: "ai.model".into(),
+            code: "needs_api_key".into(),
+            error: Some(proto::PluginError {
+                message: "the provider needs a key first".into(),
+                ..Default::default()
+            }),
+        });
+        let asked = host
+            .request_settings_change(&change, "again")
+            .await
+            .unwrap();
+        assert_eq!(asked.outcome(), proto::PluginSettingsChangeOutcome::Refused);
+        assert_eq!(
+            (asked.code.as_str(), asked.refused_path.as_str()),
+            ("needs_api_key", "ai.model")
+        );
+
+        let recorded = host.settings_change_requests();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(recorded[0].changes, change.to_vec());
+        assert_eq!(recorded[1].reason, "again");
+
+        host.deny("request_settings_change");
+        assert!(host.request_settings_change(&change, "no").await.is_err());
+        assert_eq!(
+            host.settings_change_requests().len(),
+            2,
+            "a denied call asked nobody"
+        );
+        assert_eq!(host.recorded().call_count("request_settings_change"), 3);
+    }
+
+    /// `value_json` is the value as JSON — any JSON value, compact, strings
+    /// quoted and escaped — so the daemon reads back exactly what was meant.
+    #[test]
+    fn a_setting_change_serialises_its_value_as_json() {
+        use proto::PluginSettingChange as C;
+        assert_eq!(C::new("ai.model", "gpt-4.1").value_json, r#""gpt-4.1""#);
+        assert_eq!(C::new("voice.enabled", true).value_json, "true");
+        assert_eq!(C::new("voice.tts_speed", 1.2).value_json, "1.2");
+        assert_eq!(C::new("ai.max_tool_rounds", 24).value_json, "24");
+        assert_eq!(C::new("x", serde_json::Value::Null).value_json, "null");
+        assert_eq!(
+            C::new("x", serde_json::json!({"a": [1, "two"]})).value_json,
+            r#"{"a":[1,"two"]}"#
+        );
+        assert_eq!(C::new("x", "say \"hi\"\n").value_json, r#""say \"hi\"\n""#);
+        // `path` is carried as written: checking it is the daemon's job.
+        assert_eq!(C::new(String::from("ai.model"), "m").path, "ai.model");
     }
 
     fn ctx_for_test() -> PluginContext {

@@ -2,7 +2,7 @@
 
 # Paridad de hooks
 
-Protocolo **1** · **47** hooks · fuente de verdad [`spec/hooks.yaml`](../../../spec/hooks.yaml).
+Protocolo **1** · **48** hooks · fuente de verdad [`spec/hooks.yaml`](../../../spec/hooks.yaml).
 
 Un *hook* es un RPC en uno de los dos servicios orientados a plugins.
 `PluginCapabilityService` corre **daemon → plugin**: tu plugin lo sirve
@@ -87,6 +87,7 @@ forma en que el código de un autor de plugin falla hoy.
 | `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## Preparación por capability
@@ -178,5 +179,6 @@ de un plugin roto. Copia legible por máquina:
 - **`Speak`** — Dice en voz alta las propias palabras del plugin con la voz de Astra; responde cuando se dijeron, se detuvieron o se rechazaron. speak es de alto riesgo (su propia casilla de consentimiento). Necesita una cuenta que dé acceso a Astra y la voz de las respuestas de la persona activada. Como máximo 300 caracteres, rechazado y nunca recortado (spec/limits.yaml:speak_text_max_chars); 450 caracteres de tiempo de habla de una vez, luego 3 por segundo, y más allá NOT_SPOKEN lleva RATE_LIMITED y retry_after_ms. STOPPED no es un error. Un Astra anterior a 2026-11-12 responde UNIMPLEMENTED.
 - **`StopSpeaking`** — Detiene todo lo que este plugin pidió decir, lo que suena y lo que está en cola, y nada más de lo que Astra esté diciendo. Bloqueado por speak, el único permiso que comparten dos rpc del host; permitido haya o no alguien con la sesión iniciada. Cada Speak que corta responde STOPPED.
 - **`GetUserIdentity`** — Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin; nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware. account_id está vacío salvo con authorized y es el mismo en cada dispositivo donde la persona inicia sesión; el mismo valor llega como account_id en los eventos auth_changed de este plugin. Un Astra anterior a 2026-11-12 responde UNIMPLEMENTED.
+- **`RequestSettingsChange`** — Pedir a la persona que cambie algunos ajustes de Astra — solo los que el propio asistente puede cambiar — en una tarjeta que ella responde; nada cambia sin su Permitir. Necesita una cuenta que dé acceso a Astra y un Astra compilado con la característica de compilación plugin-requests (si no, REFUSED con el código not_compiled). De 1 a 8 cambios, cada ruta una vez, todos o ninguno, y un motivo de como máximo 140 caracteres, rechazado y nunca recortado (spec/limits.yaml:settings_change_max_changes, settings_change_reason_max_chars). Una tarjeta por plugin a la vez (busy), 2 solicitudes de una vez y luego 1 cada 120 s (rate_limited con retry_after_ms). Responde APPLIED, UNCHANGED (no se preguntó a nadie), DECLINED (también para un ajuste que la persona ya rechazó, hasta que cambie de otra forma o Astra se reinicie), TIMED_OUT o REFUSED con un código; nunca un valor actual. La llamada dura hasta que la persona responde o la tarjeta caduca. Un Astra anterior a 2026-11-13 responde UNIMPLEMENTED.
 - **`SetThemeContribution`** — Aporta colores, fondo de pantalla y shader al tema activo de Astra. La Fase 4 lo clasifica como de alto riesgo y lo rechaza por debajo del nivel 1, así que una vinculación sin el permiso concedido es un permission_denied, no un tema repintado. Vinculado en los tres SDK desde 5.4.
 </content>

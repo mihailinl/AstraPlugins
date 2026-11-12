@@ -122,7 +122,7 @@ ninguna que pueda filtrarse.
 ## Qué hace la puerta de permisos
 
 El daemon aplica `[permissions]` en un solo lugar: `require_permission`, en
-seis de las diez RPC de `PluginHostService`. Las otras cuatro — `Register`,
+once de las quince RPC de `PluginHostService`. Las otras cuatro — `Register`,
 `GetPluginSelfConfig`, `PluginLog` y `GetDaemonInfo` — están **siempre
 permitidas** y no ejecutan ninguna comprobación de permisos; son `(…, None)`
 en la tabla `HOST_RPC_PERMISSIONS` del daemon, y no hay ninguna llamada a

@@ -135,6 +135,9 @@ async fn roll(&self, ctx: &PluginContext, args: Roll) -> Result<String, ToolErro
 > `DaemonClient` is `#[deprecated]` since 0.7.5 for this reason; `Host::speak`
 > (permission `speak`) is how a plugin talks in Astra's voice, and
 > `Host::get_user_identity` (permission `read_user_identity`) is who is using it.
+> `Host::request_settings_change` (permission `request_settings_change`) asks the
+> person to change one of Astra's settings on a card they answer — never write
+> Astra's `settings.json` yourself.
 
 **Every one of those calls is default-deny.** A manifest with no `[permissions]`
 section may call `Register`, `PluginLog`, `GetPluginSelfConfig` and

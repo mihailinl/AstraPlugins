@@ -2,7 +2,7 @@
 
 # 钩子对照表(Hook parity)
 
-协议 **1** · **47** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../../spec/hooks.yaml)。
+协议 **1** · **48** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../../spec/hooks.yaml)。
 
 *钩子(hook)* 指的是插件面向的两个服务之一上的一个 RPC。`PluginCapabilityService`
 是**守护进程 → 插件**方向的：你的插件提供服务，守护进程发起调用。
@@ -86,6 +86,7 @@
 | `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## 各语言的能力就绪情况
@@ -205,6 +206,7 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
 - **`Speak`** — 用 Astra 的声音把插件自己的话说出来；在话说完、被停止或被拒绝时返回。 speak 属于高风险（有自己独立的同意勾选框）。需要一个有权使用 Astra 的账号，并且本人开启了回复语音。最多 300 个字符，超出即被拒绝，绝不截断（spec/limits.yaml:speak_text_max_chars）；一次最多 450 个字符的播报时长，之后每秒 3 个，超出后 NOT_SPOKEN 携带 RATE_LIMITED 和 retry_after_ms。STOPPED 不是错误。早于 2026-11-12 的 Astra 会返回 UNIMPLEMENTED。
 - **`StopSpeaking`** — 停止这个插件要求说出的一切，包括正在播放的和排队中的，而不停止 Astra 正在说的其他任何内容。 由 speak 限制，这是唯一一个由两个 host rpc 共用的权限；无论是否有人登录都允许调用。被它打断的每一个 Speak 都会返回 STOPPED。
 - **`GetUserIdentity`** — 这次安装和已登录账号的假名 id，专为本插件生成；绝不是账号本身的 id、姓名、电子邮件或硬件序列号。 除非 authorized，否则 account_id 为空，并且在本人登录的每台设备上都相同；同一个值会作为 account_id 出现在本插件的 auth_changed 事件中。早于 2026-11-12 的 Astra 会返回 UNIMPLEMENTED。
+- **`RequestSettingsChange`** — 在一张由本人作答的卡片上，请本人更改 Astra 的部分设置——只限助手自己可以更改的那些；未经本人允许，什么都不会改变。 需要一个有权使用 Astra 的账号，以及用 plugin-requests 构建功能构建的 Astra（否则为带代码 not_compiled 的 REFUSED）。1 到 8 项更改，每个路径一次，要么全部生效要么全不生效；理由最多 140 个字符，超出即被拒绝，绝不截断（spec/limits.yaml:settings_change_max_changes、settings_change_reason_max_chars）。每个插件同一时间只有一张卡片（busy），一次最多 2 个请求，之后每 120 秒 1 个（rate_limited，附 retry_after_ms）。返回 APPLIED、UNCHANGED（没有询问任何人）、DECLINED（也用于本人以前拒绝过的设置，直到它以别的方式改变或 Astra 重启）、TIMED_OUT，或带代码的 REFUSED；绝不返回当前值。调用会持续到本人作答或卡片过期。早于 2026-11-13 的 Astra 会返回 UNIMPLEMENTED。
   这是 CallFromUi 的回程路径。现在三个 SDK 都已绑定。Python 曾经有
   三个发布版本只有 CallFromUi 而没有 PushToUi，导致一个 Python 编写的
   UI 插件能被调用，却无法异步作答。

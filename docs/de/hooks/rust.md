@@ -73,6 +73,7 @@ deklariert, bekommt auf der Maschine des Nutzers `permission_denied`.
 | `Speak` | `core` | `speak` | optional | unary | stable | Die eigenen Worte des Plugins mit Astras Stimme laut aussprechen; antwortet, sobald sie gesagt, angehalten oder abgelehnt wurden. |
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | Alles anhalten, was dieses Plugin sagen lassen wollte — was gerade erklingt und was noch wartet —, und nichts anderes, was Astra sagt. |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt; nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer. |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | Die Person bitten, einige Einstellungen von Astra zu ändern — nur die, die der Assistent selbst ändern darf — auf einer Karte, die sie beantwortet; ohne ihr Erlauben ändert sich nichts. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. |
 
 ## Lücken

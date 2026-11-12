@@ -74,6 +74,7 @@ cualquier plugin puede llamarla siempre.
 | `Speak` | `core` | `speak` | optional | unary | stable | Dice en voz alta las propias palabras del plugin con la voz de Astra; responde cuando se dijeron, se detuvieron o se rechazaron. |
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | Detiene todo lo que este plugin pidió decir, lo que suena y lo que está en cola, y nada más de lo que Astra esté diciendo. |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin; nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware. |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | Pedir a la persona que cambie algunos ajustes de Astra — solo los que el propio asistente puede cambiar — en una tarjeta que ella responde; nada cambia sin su Permitir. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Aporta colores, fondo de pantalla y shader al tema activo de Astra. |
 
 ## Vacíos

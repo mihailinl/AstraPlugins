@@ -25,7 +25,7 @@ durch bloße Deklaration selbst gewährte.
 
 ## 1. Das Vokabular
 
-Zwölf IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
+Dreizehn IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, per Test an das Enum gepinnt). Die Registry
 validiert die IDs eines Listings gegen diese Liste, und Astras
 lokalisierte Label-Tabelle ist danach indexiert, eine an einer Stelle
@@ -46,6 +46,7 @@ leere Zeile.
 | `speak` | `Speak`, `StopSpeaking` | die eigenen Worte des Plugins mit Astras Stimme laut aussprechen und sie anhalten; `Speak` braucht zusätzlich ein Konto, das Astra freischaltet | ● |
 | `read_user_identity` | `GetUserIdentity` | Pseudonyme für diese Installation und das angemeldete Konto lesen, nur für das aufrufende Plugin erzeugt — nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer | |
 | `receive_attachments` | *kein RPC* — eine **Zustellung** | in einem Tool, das `wants_attachments` deklariert hat, die Bilder übergeben bekommen, die die Person an die Nachricht angehängt hat, die ein Aufruf beantwortet (`PluginCallToolRequest.attachments`) | ● |
+| `request_settings_change` | `RequestSettingsChange` | die Person auf einer Karte, die sie beantwortet, bitten, einige Einstellungen von Astra zu ändern — nur die, die der Assistent selbst ändern darf; ohne ihr Erlauben ändert sich nichts. Braucht außerdem ein Konto, das Astra freischaltet | |
 
 **Die sieben mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
 und bekommen jeweils eine eigene Zustimmungs-Checkbox. §4.3 des Plans
@@ -66,6 +67,8 @@ sind absichtlich weder hochriskant noch auf Stufe 2 abgelehnt — jede ist der
 ehrliche Weg zu Informationen, die sich ein Plugin sonst aus Astras Dateien
 oder vom Rechner selbst holen würde, und den ehrlichen Weg teurer zu machen
 als den unehrlichen schiebt Plugins in die falsche Richtung.
+
+`request_settings_change` ist beides nicht, aus einem anderen Grund: Jede Anfrage ist eine Karte, die die Person beantwortet — mit dem Plugin, jeder Einstellung, wie sie ist und wie sie würde, und der Begründung des Plugins —, die Zustimmung wird also jedes Mal eingeholt, und eine Checkbox bei der Installation fügte ihr nichts hinzu. Das Plugin, das den Anlass gab, schrieb `settings.json` selbst und fragte niemanden. Der Daemon beantwortet es nur, wenn er mit dem Build-Feature `plugin-requests` gebaut ist (noch in keinem Release), und lehnt es sonst als `not_compiled` ab.
 
 **`dom_access` und `client` sperren kein RPC**, genau deshalb brauchen
 sie einen zweiten Durchsetzungspunkt: sie werden dort durchgesetzt, wo
@@ -169,6 +172,7 @@ neues RPC ein Testfehlschlag ist statt eine stille Auslassung:
 | `Speak` | `speak` |
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
+| `RequestSettingsChange` | `request_settings_change` |
 
 `GetDaemonInfo` ist die eine Ergänzung zur Dreier-Liste des Plans, und
 das ist eine Entscheidung statt eine Auslassung: es gibt `version`,
@@ -295,11 +299,12 @@ Eine Permission wird nur honoriert, wenn **beide** gelten:
 2. die **Obergrenze** — eine pro Provenienz geltende Regel, die kein
    Record überkaufen kann.
 
-`require_permission` fragt das erste für die zehn Host-RPCs, die eine
+`require_permission` fragt das erste für die elf Host-RPCs, die eine
 Permission sperren — `SubscribeEvents`, `SendChatMessage`,
 `FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`,
-`Speak`, `StopSpeaking`, `GetUserIdentity` (`Speak` braucht zusätzlich ein
-Konto, das Astra freischaltet, `require_authorized_plugin`). Die
+`Speak`, `StopSpeaking`, `GetUserIdentity`, `RequestSettingsChange` (`Speak` und
+`RequestSettingsChange` brauchen zusätzlich ein Konto, das Astra freischaltet,
+`require_authorized_plugin`). Die
 verbleibenden vier (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) tragen `None` in `HOST_RPC_PERMISSIONS` und sind
 immer erlaubt; §2 hat die Tabelle und die Begründung.

@@ -177,3 +177,13 @@ speak_text_max_chars: 300
 # `plugin_image_request_max_bytes`, and a picture left out is counted, never
 # dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
 image_input_max_images: 4
+
+# The most settings one `host.requestSettingsChange()` may ask for, each path
+# once. All of them change or none (`ai::tools::settings_tools::MAX_CHANGES`,
+# the assistant's own bound).
+settings_change_max_changes: 8
+
+# The longest reason one `host.requestSettingsChange()` may give the person, in
+# characters: it is shown on the card whole, so a longer one is REFUSED, never
+# cut (`plugins::settings_request::REASON_MAX_CHARS`).
+settings_change_reason_max_chars: 140

@@ -71,6 +71,7 @@
 | `Speak` | `core` | `speak` | optional | unary | stable | 用 Astra 的声音把插件自己的话说出来；在话说完、被停止或被拒绝时返回。 |
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | 停止这个插件要求说出的一切，包括正在播放的和排队中的，而不停止 Astra 正在说的其他任何内容。 |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | 这次安装和已登录账号的假名 id，专为本插件生成；绝不是账号本身的 id、姓名、电子邮件或硬件序列号。 |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | 在一张由本人作答的卡片上，请本人更改 Astra 的部分设置——只限助手自己可以更改的那些；未经本人允许，什么都不会改变。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | 为当前激活的 Astra 主题贡献颜色、壁纸和着色器。 |
 
 ## 缺口

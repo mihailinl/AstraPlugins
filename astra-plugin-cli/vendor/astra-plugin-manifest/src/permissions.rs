@@ -115,6 +115,14 @@ pub enum Permission {
     /// person's photos reach third-party code. Not refused at Tier 2: the
     /// checkbox is the decision, as for `speak`.
     ReceiveAttachments,
+    /// `PluginHostService.RequestSettingsChange` — ASK the person to change
+    /// some of Astra's settings (only the ones the assistant itself may change).
+    /// Every request is a card they answer, showing each setting, what it is and
+    /// what it would become, and the plugin's reason; nothing changes without
+    /// their Allow. Not high-risk and not refused at Tier 2: the card is the
+    /// consent, each time, and a plugin that rewrote `settings.json` instead
+    /// asked nobody.
+    RequestSettingsChange,
 }
 
 /// Every permission id, in [`Permission`]'s declaration order.
@@ -136,6 +144,7 @@ pub const PERMISSION_NAMES: &[&str] = &[
     "speak",
     "read_user_identity",
     "receive_attachments",
+    "request_settings_change",
 ];
 
 /// The five §5.6 marks *"high-risk, each its own consent checkbox"*, `speak`
@@ -191,6 +200,7 @@ impl Permission {
             Permission::Speak => "speak",
             Permission::ReadUserIdentity => "read_user_identity",
             Permission::ReceiveAttachments => "receive_attachments",
+            Permission::RequestSettingsChange => "request_settings_change",
         }
     }
 
@@ -226,6 +236,7 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     Permission::Speak,
     Permission::ReadUserIdentity,
     Permission::ReceiveAttachments,
+    Permission::RequestSettingsChange,
 ];
 
 /// What an author wrote for one permission id.
@@ -456,6 +467,9 @@ mod tests {
         // A person's photos in a plugin's tools: a checkbox of their own.
         assert!(Permission::ReceiveAttachments.is_high_risk());
         assert!(!Permission::ReceiveAttachments.refused_at_tier2());
+        // Each request is its own card: the consent is asked every time.
+        assert!(!Permission::RequestSettingsChange.is_high_risk());
+        assert!(!Permission::RequestSettingsChange.refused_at_tier2());
     }
 
     /// The section as §5.6 writes it, parsed.

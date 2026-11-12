@@ -95,6 +95,9 @@ export type {
   SpeechOutcome,
   SpeakResult,
   UserIdentity,
+  SettingChange,
+  SettingsChangeOutcome,
+  SettingsChangeResult,
 } from "./host.js";
 export { HostClient, RegistrationError } from "./host-client.js";
 export type { RegisterResponse, RegisterErrorDetail } from "./host-client.js";

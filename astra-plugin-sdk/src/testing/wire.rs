@@ -29,8 +29,8 @@ use anyhow::{Context, Result};
 use tokio::task::JoinHandle;
 
 use super::host::{
-    ChatMessage, FiredTrigger, LogLine, Recorded, SDK_HOST_RPCS, UiPush, Variable, check_any_rpc,
-    heard,
+    ChatMessage, FiredTrigger, LogLine, Recorded, SDK_HOST_RPCS, UiPush, Variable, allowed,
+    check_any_rpc, heard,
 };
 use crate::capability::PluginCapability;
 use crate::proto;
@@ -63,6 +63,8 @@ struct DaemonState {
     speak_response: Mutex<proto::PluginSpeakResponse>,
     /// What `GetUserIdentity` answers.
     user_identity: Mutex<proto::PluginUserIdentity>,
+    /// What `RequestSettingsChange` answers once it has passed the gates.
+    settings_change_response: Mutex<proto::PluginSettingsChangeResponse>,
 }
 
 /// A stand-in for the Astra daemon, serving `PluginHostService` on loopback.
@@ -124,6 +126,9 @@ impl MockDaemon {
                 authorized: true,
                 account_id: "mock-account-pseudonym".into(),
             }),
+            // The person allowed it: the answer a plugin that asks is written
+            // for. Stage the others with `set_settings_change_response`.
+            settings_change_response: Mutex::new(allowed()),
         });
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -223,6 +228,25 @@ impl MockDaemon {
             .user_identity
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = identity;
+    }
+
+    /// Every `RequestSettingsChange` that passed the gates, in order, as the
+    /// plugin sent it.
+    pub fn settings_change_requests(&self) -> Vec<proto::PluginSettingsChangeRequest> {
+        self.state.recorded.settings_change_requests()
+    }
+
+    /// What `RequestSettingsChange` answers once it has passed the gates.
+    /// Applied (the person allowed it) until told otherwise — stage
+    /// `Declined`, `TimedOut` or a `Refused` with its `code` and `PluginError`
+    /// to drive those branches over the wire. The mock answers at once; the
+    /// real daemon answers when the person does.
+    pub fn set_settings_change_response(&self, response: proto::PluginSettingsChangeResponse) {
+        *self
+            .state
+            .settings_change_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = response;
     }
 
     /// The `Register` the plugin sent, once it has sent one.
@@ -503,6 +527,21 @@ impl PluginHostService for HostService {
         Ok(tonic::Response::new(
             self.state
                 .user_identity
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
+        ))
+    }
+
+    async fn request_settings_change(
+        &self,
+        req: tonic::Request<proto::PluginSettingsChangeRequest>,
+    ) -> Result<tonic::Response<proto::PluginSettingsChangeResponse>, tonic::Status> {
+        self.gate(&req, "request_settings_change")?;
+        self.state.recorded.settings_request(req.into_inner());
+        Ok(tonic::Response::new(
+            self.state
+                .settings_change_response
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .clone(),

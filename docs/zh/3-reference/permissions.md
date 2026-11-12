@@ -37,7 +37,7 @@
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@
 `GetDaemonInfo` 是免费的，这是一个决定，不是疏漏：一个什么都保护不了的
 勾选框，只会教会用户去随手勾选各种框。
 
-## 十二个 id
+## 十三个 id
 
 | Id | 限制哪个调用 | 有独立的勾选框 | 在本地导入时被拒绝 | 它能让你做什么 |
 |---|---|---|---|---|
@@ -72,6 +72,7 @@
 | `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音说出你自己的话，并能让它停下 |
 | `read_user_identity` | `GetUserIdentity` | 否 | 否 | 读取这次安装和已登录账号的假名 id，专为你的插件生成 |
 | `receive_attachments` | —（一种投递） | **是** | 否 | 在请求它的工具里收到本人附上的图片 |
+| `request_settings_change` | `RequestSettingsChange` | 否 | 否 | 在一张由本人作答的卡片上，请本人更改助手可以更改的某项设置 |
 
 `dom_access` 和 `client` 不限制任何 RPC，这正是关键所在：它们是
 **界面层(surface)**。`dom_access` 决定一个 UI 贡献是被渲染为 Astra
@@ -194,6 +195,40 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 一次调用最多可携带 20 MiB 的图片，超过了 gRPC 默认的 4 MiB 接收上限。三个 SDK 的 capability 服务器最多可接收 64 MiB（`plugin_max_message_bytes`）；不借助 SDK 自行实现该协议的插件，必须把自己服务器的接收上限调到 4 MiB 以上。
 
 `receive_attachments` 属于**高风险**权限：本人的照片会到达并非 Astra 的代码，因此它有自己独立的同意勾选框。本地导入时它不会被拒绝——和 `speak` 一样，勾选框就是决定。
+
+## 请本人更改某项设置
+
+插件如果确有理由希望 Astra 的某项设置被更改——它的工具所适配的模型、适合它的声音——就去**请求**，由本人在一张卡片上决定。绝不要自己去写 Astra 的 `settings.json`，也绝不要为此借用 Astra 自己的会话：那是在本人背后改动本人的 Astra，而发布时的人工审核正是要找这种行为。声明 `request_settings_change` 并调用 `RequestSettingsChange`（Rust 和 Python 中为 `request_settings_change(changes, reason)`，TypeScript 中为 `ctx.requestSettingsChange(changes, reason)`）。**目前还没有任何 Astra 发布版本会响应它：**只有以 `plugin-requests` 构建功能构建的守护进程才接受请求；其他任何 Astra 都会返回带代码 `not_compiled` 的 `REFUSED`。
+
+每项更改是一个以点分隔的设置路径和想要的值（JSON 形式）——SDK 会替你把值序列化。只能请求更改助手自己可以更改的那些设置——声音、AI 模型、语言；绝不包括权限模式、密钥或 Tool Search——而且每个值都会像助手自己的更改一样接受完全相同的检查。卡片会写明你的插件，显示每项设置现在的值和将要变成的值，以及你用自己的话写的 `reason`。要么全部更改，要么全不更改，而被更改的正是卡片上显示的内容。
+
+**调用会一直持续到本人作答或卡片过期**——即 Astra 的确认超时，至少 30 秒，本人未改动时为 120 秒。SDK 不会为它设置自己的截止时间。绝不要在必须快速作答的路径上等待它，例如模型正在等待的工具调用。
+
+| 结果 | 含义 | 该怎么做 |
+|---|---|---|
+| `APPLIED` | 本人允许了；设置现在就是你请求的值 | 什么都不用做 |
+| `UNCHANGED` | 设置本来就是这个值。没有询问任何人 | 什么都不用做 |
+| `DECLINED` | 本人拒绝了——现在拒绝，或以前就拒绝过你的插件更改其中某项设置。只有当这样的设置以别的方式改变之后，或重启之后，Astra 才会再次询问 | 按本人现有的设置继续。**不要在没人要求时再次询问** |
+| `TIMED_OUT` | 卡片过期前没有人作答（没有打开任何窗口也算在内） | 等本人在场时再问 |
+| `REFUSED` | 没有询问，或没有应用：`code` 说明原因，涉及某项设置时 `refused_path` 会写明它，`error` 是一个 `PluginError` | 查看下面的代码 |
+
+| `code` | 何时 |
+|---|---|
+| `not_compiled` | 这个 Astra 不接受请求：它在构建时没有启用 `plugin-requests` 功能 |
+| `locked` | Astra 被其密码锁定 |
+| `invalid` | 没有任何更改、同一路径出现两次、某个值不是 JSON，或内容多到一张卡片无法完整显示 |
+| `too_many` | 超过 **8** 项更改（`spec/limits.yaml` 中的 `settings_change_max_changes`） |
+| `reason_too_long` | 理由超过 **140 个字符**（`settings_change_reason_max_chars`）。理由会完整显示，所以超长会被拒绝，绝不截断 |
+| `busy` | 你的某个请求已在等待本人作答：每个插件同一时间只有一张卡片 |
+| `rate_limited` | **一次最多两个请求，之后每两分钟一个**；`error.retry_after_ms` 说明何时会再有空位 |
+| `not_assistant_editable` | 助手不能更改的路径 |
+| `invalid_value`, `unknown_choice` | 该设置无法容纳的值，或它不提供的选项 |
+| `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | 这项更改会让 Astra 缺少它所需要的东西：该 AI 提供商的密钥、语音识别器、能够响应的提供商 |
+| `stale` | 卡片显示期间设置发生了变化，因此本人允许的内容与将要写入的内容不同。什么都没有写入 |
+| `stopped` | 你的插件的权限先结束了——它被停止、被禁用或被撤下，或者账号不再有权使用 Astra |
+| `write_refused` | 无法写入设置 |
+
+当前值永远不会被返回：你的插件得知的只是结果。限制由守护进程掌握：SDK 导出 `SETTINGS_CHANGE_MAX_CHANGES` 和 `SETTINGS_CHANGE_REASON_MAX_CHARS`，自己不检查其中任何一个。除了授予之外，调用还需要**一个有权使用 Astra 的账号**；缺少授予，或账号无权使用 Astra，都和任何 host 调用一样是一次失败的调用，而不是一个结果。它既不属于高风险，在本地导入时也不会被拒绝：每个请求都是一张由本人作答的卡片，所以每次都会征求同意。早于这个调用的 Astra 会返回 `UNIMPLEMENTED`。
 
 ## 编写 reason
 

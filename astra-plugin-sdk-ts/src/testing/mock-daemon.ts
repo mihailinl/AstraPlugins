@@ -307,6 +307,26 @@ export class MockDaemon {
   speakResponse: { outcome: string; error?: Record<string, unknown> } = {
     outcome: "PLUGIN_SPEECH_OUTCOME_SPOKEN",
   };
+  /**
+   * What `RequestSettingsChange` answers, in the WIRE shape
+   * (`PluginSettingsChangeResponse`): applied — the person allowed it — until
+   * told otherwise. The mock answers at once; the real daemon answers when the
+   * person does. Stage a refusal to drive the plugin's `REFUSED` branch:
+   *
+   * ```ts
+   * daemon.settingsChangeResponse = {
+   *   outcome: "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED",
+   *   code: "rate_limited",
+   *   error: { code: "PLUGIN_ERROR_RATE_LIMITED", message: "…", retryAfterMs: 90000 },
+   * };
+   * ```
+   */
+  settingsChangeResponse: {
+    outcome: string;
+    refusedPath?: string;
+    code?: string;
+    error?: Record<string, unknown>;
+  } = { outcome: "PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED" };
   /** What `GetUserIdentity` answers: signed in, authorized, with pseudonyms. */
   userIdentity: { installId: string; signedIn: boolean; authorized: boolean; accountId: string } = {
     installId: "mock-install-pseudonym",
@@ -381,6 +401,21 @@ export class MockDaemon {
     return this.callsTo("Speak")
       .filter((c) => c.sessionToken === this.sessionToken)
       .map((c) => String(c.request.text ?? ""));
+  }
+
+  /**
+   * Every `RequestSettingsChange` that carried the session token, in order, as
+   * it crossed the wire — each value as its `valueJson`.
+   */
+  settingsChangeRequests(): { changes: { path: string; valueJson: string }[]; reason: string }[] {
+    return this.callsTo("RequestSettingsChange")
+      .filter((c) => c.sessionToken === this.sessionToken)
+      .map((c) => ({
+        changes: ((c.request.changes as { path?: string; valueJson?: string }[]) ?? []).map(
+          (ch) => ({ path: String(ch.path ?? ""), valueJson: String(ch.valueJson ?? "") })
+        ),
+        reason: String(c.request.reason ?? ""),
+      }));
   }
 
   /** Push an event to every subscribed plugin. */
@@ -599,6 +634,7 @@ export class MockDaemon {
       Speak: this.unary("Speak", () => this.speakResponse),
       StopSpeaking: this.unary("StopSpeaking", () => ({})),
       GetUserIdentity: this.unary("GetUserIdentity", () => this.userIdentity),
+      RequestSettingsChange: this.unary("RequestSettingsChange", () => this.settingsChangeResponse),
       SetVariable: this.unary("SetVariable", () => ({ success: true, error: "" })),
       PushToUi: this.unary("PushToUi", () => ({ success: true, error: "" })),
       SetThemeContribution: this.unary("SetThemeContribution", () => ({ success: true, error: "" })),

@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from astra_plugin_sdk.causality import current_cause
+from astra_plugin_sdk.host_client import settings_change_request
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.types import ThemeContribution
 
@@ -120,6 +121,22 @@ class RecordingHost:
     #: `PluginUserIdentity` (`install_id`, `signed_in`, `authorized`,
     #: `account_id`). Empty — nobody signed in — until told otherwise.
     user_identity: dict[str, Any] = field(default_factory=dict)
+    #: What `request_settings_change()` answers, as keyword arguments of
+    #: `PluginSettingsChangeResponse` (`outcome`, `refused_path`, `code`,
+    #: `error`). Applied — the person allowed it — until told otherwise; stage
+    #: another outcome to test the branch a declined or refused plugin takes::
+    #:
+    #:     host.settings_change_response = {
+    #:         "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED,
+    #:         "code": "rate_limited",
+    #:         "error": {"code": plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+    #:                   "retry_after_ms": 90000},
+    #:     }
+    settings_change_response: dict[str, Any] = field(
+        default_factory=lambda: {
+            "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED
+        }
+    )
 
     _logs: list[LogLine] = field(default_factory=list)
     _triggers: list[FiredTrigger] = field(default_factory=list)
@@ -130,6 +147,7 @@ class RecordingHost:
     _subscriptions: list[list[str]] = field(default_factory=list)
     _spoken: list[str] = field(default_factory=list)
     _stops: int = 0
+    _settings_requests: list[Any] = field(default_factory=list)
 
     _fail_next: dict[str, BaseException] = field(default_factory=dict)
     _fail_always: dict[str, BaseException] = field(default_factory=dict)
@@ -217,6 +235,13 @@ class RecordingHost:
         self._maybe_fail("get_user_identity")
         return plugin_pb2.PluginUserIdentity(**self.user_identity)
 
+    async def request_settings_change(self, changes, reason: str):
+        self._maybe_fail("request_settings_change")
+        # Built the way the real client builds it, so a value JSON cannot hold
+        # raises here too, and what is recorded is what would go on the wire.
+        self._settings_requests.append(settings_change_request(changes, reason))
+        return plugin_pb2.PluginSettingsChangeResponse(**self.settings_change_response)
+
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         self._maybe_fail("subscribe_events")
         self._subscriptions.append(list(event_types or []))
@@ -281,6 +306,12 @@ class RecordingHost:
         """How many times the plugin called `stop_speaking()`."""
         return self._stops
 
+    def settings_change_requests(self) -> list[Any]:
+        """Every `request_settings_change()`, in order, as the
+        `PluginSettingsChangeRequest` the real client would send — each value
+        as its `value_json` — including one the staged answer then refused."""
+        return list(self._settings_requests)
+
 
 class _EmptyStream:
     """A stream that ends immediately. `async for` over it does nothing."""
@@ -303,6 +334,7 @@ _HOST_METHODS = frozenset(
         "speak",
         "stop_speaking",
         "get_user_identity",
+        "request_settings_change",
         "subscribe_events",
         "push_to_ui",
         "send_chat_message",

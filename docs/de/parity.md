@@ -2,7 +2,7 @@
 
 # Hook-Parität
 
-Protokoll **1** · **47** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protokoll **1** · **48** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 Ein *Hook* ist ein RPC auf einem der beiden Plugin-seitigen Dienste.
 `PluginCapabilityService` läuft **Daemon → Plugin**: dein Plugin bedient
@@ -87,6 +87,7 @@ ein Weg, auf dem der Code eines Plugin-Autors heute scheitert.
 | `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `RequestSettingsChange` | `core` | `request_settings_change` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## Capability-Bereitschaft
@@ -178,5 +179,6 @@ Plugin zu unterscheiden wäre. Maschinenlesbare Kopie:
 - **`Speak`** — Die eigenen Worte des Plugins mit Astras Stimme laut aussprechen; antwortet, sobald sie gesagt, angehalten oder abgelehnt wurden. speak ist hochriskant (eigene Zustimmungs-Checkbox). Braucht ein Konto, das Astra freischaltet, und die eingeschaltete Antwortstimme der Person. Höchstens 300 Zeichen, abgelehnt und nie gekürzt (spec/limits.yaml:speak_text_max_chars); 450 Zeichen Sprechzeit auf einmal, danach 3 pro Sekunde, darüber hinaus trägt NOT_SPOKEN RATE_LIMITED und retry_after_ms. STOPPED ist kein Fehler. Ein Astra älter als 2026-11-12 antwortet UNIMPLEMENTED.
 - **`StopSpeaking`** — Alles anhalten, was dieses Plugin sagen lassen wollte — was gerade erklingt und was noch wartet —, und nichts anderes, was Astra sagt. Gesperrt durch speak, die eine Permission, die sich zwei Host-RPCs teilen; erlaubt, ob jemand angemeldet ist oder nicht. Jedes Speak, das es abbricht, antwortet STOPPED.
 - **`GetUserIdentity`** — Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt; nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer. account_id ist leer, außer bei authorized, und auf jedem Gerät gleich, auf dem sich die Person anmeldet; derselbe Wert kommt als account_id in den auth_changed-Events dieses Plugins an. Ein Astra älter als 2026-11-12 antwortet UNIMPLEMENTED.
+- **`RequestSettingsChange`** — Die Person bitten, einige Einstellungen von Astra zu ändern — nur die, die der Assistent selbst ändern darf — auf einer Karte, die sie beantwortet; ohne ihr Erlauben ändert sich nichts. Braucht ein Konto, das Astra freischaltet, und ein Astra, das mit dem Build-Feature plugin-requests gebaut ist (sonst REFUSED mit dem Code not_compiled). 1 bis 8 Änderungen, jeder Pfad einmal, alle oder keine, und eine Begründung von höchstens 140 Zeichen, abgelehnt und nie gekürzt (spec/limits.yaml:settings_change_max_changes, settings_change_reason_max_chars). Eine Karte pro Plugin zur selben Zeit (busy), 2 Anfragen auf einmal, danach 1 pro 120 s (rate_limited mit retry_after_ms). Antwortet APPLIED, UNCHANGED (niemand wurde gefragt), DECLINED (auch für eine Einstellung, die die Person schon einmal abgelehnt hat, bis sie sich auf anderem Weg ändert oder Astra neu startet), TIMED_OUT oder REFUSED mit einem Code; nie mit einem aktuellen Wert. Der Aufruf dauert, bis die Person antwortet oder die Karte abläuft. Ein Astra älter als 2026-11-13 antwortet UNIMPLEMENTED.
 - **`SetThemeContribution`** — Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. Phase 4 klassifiziert es als hochriskant und verweigert es unterhalb von Stufe 1, sodass eine Bindung ohne die gewährte Permission ein permission_denied ist, kein neu gestrichenes Theme. Seit 5.4 in allen drei SDKs gebunden.
 </content>

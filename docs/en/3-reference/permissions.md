@@ -36,7 +36,7 @@ Three properties, all of which surprise someone eventually:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@ Three properties, all of which surprise someone eventually:
 `GetDaemonInfo` being free is a decision, not an oversight: a checkbox that
 protects nothing is how users learn to tick boxes.
 
-## The twelve ids
+## The thirteen ids
 
 | Id | Gates | Own checkbox | Refused to a local import | What it lets you do |
 |---|---|---|---|---|
@@ -72,6 +72,7 @@ protects nothing is how users learn to tick boxes.
 | `speak` | `Speak`, `StopSpeaking` | **yes** | no | Say your own words aloud in Astra's voice, and stop them |
 | `read_user_identity` | `GetUserIdentity` | no | no | Read pseudonyms for this installation and the signed-in account, made for your plugin alone |
 | `receive_attachments` | — (a delivery) | **yes** | no | Be handed the pictures the person attached, in a tool that asks for them |
+| `request_settings_change` | `RequestSettingsChange` | no | no | Ask the person to change a setting the assistant may change, on a card they answer |
 
 `dom_access` and `client` gate no RPC and that is the point: they are
 **surfaces**. `dom_access` decides whether a UI contribution is rendered as a
@@ -225,6 +226,66 @@ must raise its own server's receive limit above 4 MiB.
 `receive_attachments` is **high-risk**: a person's photos reach code that is not
 Astra's, so it gets its own consent checkbox. It is not refused to a local
 import — the checkbox is the decision, as for `speak`.
+
+## Asking the person to change a setting
+
+A plugin with a real reason to want one of Astra's settings changed — a model its
+tools are tuned for, a voice that suits it — **asks**, and the person decides on a
+card. Never write Astra's `settings.json` yourself, and never borrow Astra's own
+session to do it: that changes the person's Astra behind their back, and human
+review at publication looks for it. Declare `request_settings_change` and call
+`RequestSettingsChange` (`request_settings_change(changes, reason)` in Rust and
+Python, `ctx.requestSettingsChange(changes, reason)` in TypeScript). **No Astra
+release answers it yet:** the daemon takes requests only when it is built with
+the `plugin-requests` build feature; any other Astra answers `REFUSED` with the
+code `not_compiled`.
+
+Each change is a dotted settings path and the value wanted, as JSON — the SDKs
+serialise the value for you. Only the settings the assistant itself may change
+can be asked for — the voice, the AI model, the language; never the permission
+mode, a key or Tool Search — and each value is checked exactly as the
+assistant's own change is. The card names your plugin, shows every setting as it
+is and as it would be, and your `reason`, in your words. All of them change, or
+none, and what changes is exactly what the card showed.
+
+**The call lasts until the person answers or the card expires** — Astra's
+confirmation timeout, at least 30 seconds, 120 unless the person changed it. The
+SDKs put no deadline of their own on it. Never await it on a path that must
+answer quickly, such as a tool call the model is waiting on.
+
+| Outcome | What it means | What to do |
+|---|---|---|
+| `APPLIED` | The person allowed it; the settings now hold what you asked for | Nothing |
+| `UNCHANGED` | They already held it. Nobody was asked | Nothing |
+| `DECLINED` | The person said no — now, or to your plugin changing one of these settings before. Astra asks again about such a setting only after it has changed some other way, or after a restart | Carry on with what the person has. **Do not ask again unasked** |
+| `TIMED_OUT` | Nobody answered before the card expired (no window open counts) | Ask later, when the person is there |
+| `REFUSED` | Not asked, or not applied: `code` says why, `refused_path` names the setting when it is about one, and `error` is a `PluginError` | Read the code below |
+
+| `code` | When |
+|---|---|
+| `not_compiled` | This Astra takes no requests: it was built without the `plugin-requests` feature |
+| `locked` | Astra is locked by its passcode |
+| `invalid` | No changes, a path given twice, a value that is not JSON, or more than a card can show whole |
+| `too_many` | More than **8** changes (`settings_change_max_changes` in `spec/limits.yaml`) |
+| `reason_too_long` | A reason longer than **140 characters** (`settings_change_reason_max_chars`). It is shown whole, so it is refused, never cut |
+| `busy` | One of your requests is already waiting for the person: one card per plugin at a time |
+| `rate_limited` | **Two requests at once, then one every two minutes**; `error.retry_after_ms` says when there is room again |
+| `not_assistant_editable` | A path the assistant may not change |
+| `invalid_value`, `unknown_choice` | A value the setting cannot hold, or a choice it does not offer |
+| `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | The change would leave Astra without what it needs: a key for that AI provider, a speech recogniser, a provider that answers |
+| `stale` | The settings changed while the card was up, so what the person allowed is not what would be written. Nothing was |
+| `stopped` | Your plugin's authority ended first — it was stopped, disabled or withdrawn, or the account stopped opening Astra |
+| `write_refused` | The settings could not be written |
+
+The current values are never returned: what your plugin learns is the outcome.
+The limits are the daemon's: the SDKs export `SETTINGS_CHANGE_MAX_CHANGES` and
+`SETTINGS_CHANGE_REASON_MAX_CHARS` and check neither themselves. Besides the
+grant the call needs **an account that opens Astra**; a missing grant, or an
+account that does not open Astra, is a failed call like every host call, not an
+outcome. It is neither
+high-risk nor refused to a local import: each request is a card the person
+answers, so the consent is asked every time. An Astra older than this call
+answers `UNIMPLEMENTED`.
 
 ## Sending a chat message
 

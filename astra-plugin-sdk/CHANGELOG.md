@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra `21790d761` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
-33 messages that already existed, 34 new messages and 11 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra `8c36a7033` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
+33 messages that already existed, 37 new messages and 12 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -134,6 +134,42 @@ nothing was removed, retyped or changed in place.
   `image_generate(..)` and `image_models()` on a started `Harness`. Guide:
   `docs/en/image-provider-plugins.md`.
 
+- **A plugin can ask the person to change a setting** (Astra `8c36a7033`,
+  branch `feat/plugin-api-gaps`; **in no Astra release yet** — the daemon takes
+  requests only when built with the `plugin-requests` build feature, and any
+  other answers `Refused` with the code `not_compiled`):
+  `Host::request_settings_change(changes, reason)` /
+  `HostClient::request_settings_change(..)` → `proto::PluginSettingsChangeResponse`.
+  `changes` is `&[proto::PluginSettingChange]`, built with the new
+  `PluginSettingChange::new(path, value)` — any `impl Into<serde_json::Value>`,
+  serialised into `value_json`. Only the settings the assistant itself may change
+  can be asked for; the person sees a card naming the plugin, each setting as it
+  is and as it would be, and `reason`, and all of them change or none. Read
+  `outcome()`: `PluginSettingsChangeOutcome::Applied`, `Unchanged` (nobody was
+  asked), `Declined` (now, or before — do not ask again unasked), `TimedOut`, or
+  `Refused` with `code` (`not_compiled`, `locked`, `invalid`, `too_many`,
+  `reason_too_long`, `busy`, `rate_limited`, `not_assistant_editable`,
+  `invalid_value`, `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
+  `provider_unreachable`, `stale`, `stopped`, `write_refused`), `refused_path`
+  and `error: Some(PluginError)` — `retry_after_ms` with `rate_limited` (two
+  requests at once, then one every two minutes). The current values are never
+  returned. **The call lasts until the person answers or the card expires**
+  (Astra's confirmation timeout, at least 30 s, 120 s by default); the SDK puts
+  no deadline on it. At most `limits::SETTINGS_CHANGE_MAX_CHANGES` (8) changes
+  and a reason of `limits::SETTINGS_CHANGE_REASON_MAX_CHARS` (140) characters,
+  both new rows of `spec/limits.yaml` — the SDK checks neither; the daemon is the
+  authority, refuses past them and never cuts. Needs the new
+  **`request_settings_change`** permission (not high-risk, not refused to a local
+  import: each request is a card the person answers) and an account that opens
+  Astra. A DEFAULT `Host` method, like `speak`: the scoping wrapper, `HostClient`
+  and both testing hosts override it, and
+  `tests::the_scoping_wrapper_forwards_settings_requests` /
+  `…every_in_repo_host_answers_settings_requests_without_the_default` fail for
+  one that forgets. Testing: `RecordingHost::set_settings_change_response(..)`
+  (applied by default) and `settings_change_requests()`;
+  `Recorded::settings_change_requests()`;
+  `MockDaemon::set_settings_change_response(..)` and `settings_change_requests()`.
+  `HOST_RPCS` gained `request_settings_change`.
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 
 - **`auth_changed` is narrowed.** A plugin granted the event used to receive the
