@@ -1,0 +1,15 @@
+{
+  "signed": {
+    "schema": "astra.models.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": []
+  },
+  "signatures": [
+    {
+      "key_id": "astra-models-2026a",
+      "sig": "6ux+n/HC2DkquPitCPmgz1q1jH+AiGNrt9Xst6Ybz67LW1Vc0bpigPHQ317u0IcFOj3T1ru/PA8xH6ztN1fbAA=="
+    }
+  ]
+}

@@ -115,3 +115,6 @@ client:
   command-unknown-trigger: live
   # publisher-side invariant the checker names (common-v1.md §6.4)
   cascade-missing: live
+  # publisher-side invariant: a listed pack or character pins a version its kind's index does not
+  # list (common-v1.md §3.5)
+  pin-unlisted: live

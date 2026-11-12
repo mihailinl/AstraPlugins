@@ -451,7 +451,7 @@ def vrm_both(meta0: dict, meta1: dict) -> bytes:
 # ── character / animset bundles (astra-companion docs/character-files.md) ─
 
 def manifest(fmt: str, kind: str, files: dict[str, bytes], body: str | None,
-             packs: list[dict] | None = None) -> bytes:
+             packs: list[dict] | None = None, credits: dict | None = None) -> bytes:
     m = {
         "format": fmt, "format_version": 1, "needs": [], "schema": 5,
         "generator": "testdata/content/gen.py", "kind": kind,
@@ -463,18 +463,21 @@ def manifest(fmt: str, kind: str, files: dict[str, bytes], body: str | None,
         "files": {p: {"sha256": "sha256:" + sha(b), "size": len(b)} for p, b in sorted(files.items())},
         "excluded": [],
     }
+    if credits is not None:  # optional `{author, license, url, notes}` (character-files.md §2); absent by default
+        m["credits"] = credits
     return C._escape_hidden_controls(
         json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True)).encode("utf-8") + b"\n"
 
 
 def bundle_entries(fmt: str, files: dict[str, bytes], body: str | None = None, kind: str = "vrm",
                    methods: dict[str, int] | None = None, listed: dict[str, bytes] | None = None,
-                   tweak=None, manifest_last: bool = True, packs: list[dict] | None = None) -> list[dict]:
+                   tweak=None, manifest_last: bool = True, packs: list[dict] | None = None,
+                   credits: dict | None = None) -> list[dict]:
     methods = methods or {}
     entries = [{"name": p, "data": b, "method": methods.get(p, 0 if p.endswith((".vrm", ".glb", ".png")) else 8)}
                for p, b in sorted(files.items())]
     man = {"name": "astrachar.json",
-           "data": manifest(fmt, kind, listed if listed is not None else files, body, packs=packs),
+           "data": manifest(fmt, kind, listed if listed is not None else files, body, packs=packs, credits=credits),
            "method": 8}
     if manifest_last:
         entries.append(man)
@@ -572,6 +575,13 @@ VRM1_LICENCE = {
     "usage": {"violent": "prohibited", "sexual": "prohibited", "political": "prohibited", "antisocial": "prohibited"},
 }
 CREDITS = [{"name": "test-author", "role": "model", "url": "https://example.invalid/test-author"}]
+# a character whose file carries her picture and the author's own credits (common-v1.md §3.2, §3.3).
+# Only `author` and the https `url` reach the index; `license` and `notes` never do.
+THUMB_CHAR_FILES = {**CHAR_FILES, "thumb.png": THUMB}
+MANIFEST_CREDITS = {"author": "Test Author", "license": "CC-BY-4.0", "url": "https://example.invalid/test-author",
+                    "notes": "not copied into an index"}
+AUTHOR_CREDIT = [{"name": "Test Author", "role": "author", "url": "https://example.invalid/test-author"}]
+THUMB_PART = C.part_digest({"thumb.png": THUMB}, root=None)  # a standalone image: a single-file `art` part
 
 
 def gen_bundles() -> dict[str, bytes]:
@@ -582,6 +592,8 @@ def gen_bundles() -> dict[str, bytes]:
     put("archives/valid/model-aiko.astrachar", b["model"])
     put("archives/valid/animset-wave.astrapack", b["animset"])
     put("archives/valid/character-aiko.astrachar", b["character"])
+    b["character-thumb"] = bundle("astra.character", THUMB_CHAR_FILES, body=None, credits=MANIFEST_CREDITS)
+    put("archives/valid/character-thumb-credits.astrachar", b["character-thumb"])
     # the SAME pack inside a .astrachar, under an id that varies per machine: one digest (§4)
     put("archives/valid/character-with-pack.astrachar",
         bundle("astra.character", {**CHAR_FILES, **in_pack("moves (2)", ASCII_PART)}, body=None))
@@ -774,7 +786,9 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     anim.update({"format": "astra.animpack", "dimension": "3d",
                  "parts": [{"part_kind": "animations", "digest": ANIMSET_PART,
                             "size": sum(len(x) for x in ASCII_PART.values())}],
-                 "clips": 2, "states": ["idle", "wave"], "content_confirmed": {"animations-rights-v1": 1},
+                 # animpack.toml declares no state rows, so `states` is the clip files' stems
+                 # (animsets-index-v1.md §2.1): clips/a.fbx, clips/b.fbx
+                 "clips": 2, "states": ["a", "b"], "content_confirmed": {"animations-rights-v1": 1},
                  "licence": DECLARED_CC_BY, "credits": CREDITS})
     valid["animsets"] = index_signed("animsets", [anim])
 
@@ -794,6 +808,32 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
 
     for k in KINDS:
         put_doc(f"index/{k}/valid.json", k, "index", valid[k])
+
+    # ── what a v1 publisher emits (common-v1.md §3.2-§3.4): every member below is derived from the
+    # artefact's bytes, and the checker re-derives it (`derive` in vectors.json). `valid.json` above
+    # keeps a thumbnail and free-form credits on every kind, so a client is still held to accepting them.
+    def as_published(e: dict, **over) -> dict:
+        e = copy.deepcopy(e)
+        e.pop("thumbnail", None)
+        e["credits"] = []
+        e.update(over)
+        return e
+
+    put_doc("index/commands/no-thumbnail.json", "commands", "index", index_signed("commands", [
+        as_published(e, licence=DECLARED_CC_BY) for e in c_entries]))
+    put_doc("index/models/no-thumbnail.json", "models", "index", index_signed("models", [as_published(model)]))
+    put_doc("index/animsets/no-thumbnail.json", "animsets", "index", index_signed("animsets", [as_published(anim)]))
+    put_doc("index/characters/no-thumbnail.json", "characters", "index", index_signed("characters", [as_published(char)]))
+    # her root thumb.png and her file's own credits: ONE `author` row. Her `licence` is the one declared
+    # for the ITEM (CC0-1.0 here), not her picture's part licence (CC-BY-4.0 in vectors.json)
+    thumb_char = base_entry("aiko", bundles["character-thumb"], "application/vnd.astra.character+zip")
+    thumb_char.update({"format": "astra.character", "requires": copy.deepcopy(char["requires"]),
+                       "parts": [{"part_kind": "art", "digest": THUMB_PART, "size": len(THUMB)}],
+                       "content_confirmed": {"art-rights-v1": 1}, "needs": [],
+                       "licence": DECLARED_LICENCES["CC0-1.0"], "credits": AUTHOR_CREDIT})
+    put_doc("index/characters/thumb-and-credit.json", "characters", "index", index_signed("characters", [thumb_char]))
+    # nothing listed: what a served index is while a kind has no item (scenario `pins-character-unlisted`)
+    put_doc("index/models/none-listed.json", "models", "index", index_signed("models", []))
 
     # signatures and scoping (trust-kind-keys-v1.md §5)
     v = valid["commands"]
@@ -862,6 +902,10 @@ def gen_index(cmds: dict[str, bytes], bundles: dict[str, bytes]) -> dict[str, di
     bad("models", "avatar-author-only", lambda s: e0(s)["licence"].update(avatar_permission="author_only"))
     bad("models", "vrm0-political-known", lambda s: e0(s)["licence"].update(
         spec="vrm0", commercial_detail="Allow", usage=dict(VRM1_LICENCE["usage"])))
+    bad("models", "licence-vrm-spdx", lambda s: e0(s)["licence"].update(spdx="CC-BY-4.0"))
+    # absent, never null (common-v1.md §3.3); and a pack's upload IS its thumbnail, so there it stays required
+    bad("commands", "thumbnail-null", lambda s: e0(s).update(thumbnail=None))
+    bad("packs", "no-thumbnail", lambda s: e0(s).pop("thumbnail"))
     bad("animsets", "dimension-2d-animations-part", lambda s: e0(s).update(dimension="2d"))
     bad("animsets", "clips-zero", lambda s: e0(s).update(clips=0))
     bad("packs", "member-pack", lambda s: e0(s)["members"].append({"kind": "pack", "id": "x", "version": "1.0.0", "digest": MODEL_PART}))
@@ -1392,6 +1436,18 @@ def gen_archives() -> None:
         "clips/a.fbx": b"FBX-PIXEL-A",
         "clips/b.fbx": b"FBX-PIXEL-B",
     }
+    # ── an animset's clips and states (animsets-index-v1.md §2.1) ──
+    # declared state rows win over the clip stems; `Climb-2` is not a name the index can carry and is left out
+    states_toml = (b'name = "wave"\n\n[states]\ndefault = "idle"\n\n[states.idle]\n\n[states.wave]\n\n'
+                   b'[states.Climb-2]\n')
+    put("archives/valid/animset-states-declared.astrapack", bundle(
+        "astra.animpack", {**ASCII_PART, "animpack.toml": states_toml}, body=None))
+    # a 2D pack: its sheet is its clip
+    put("archives/valid/animset-pixel-sheet.astrapack", bundle(
+        "astra.animpack", {"animpack.toml": pixel_part["animpack.toml"], "clips/walk.png": THUMB}, body=None, kind="pixel"))
+    # the same picture in a 3D pack is a texture, not a clip: nothing to play, so nothing to list
+    put("archives/hostile/animset-no-clips.astrapack", bundle(
+        "astra.animpack", {"animpack.toml": ASCII_PART["animpack.toml"], "clips/sheet.png": THUMB}, body=None))
     # the manifest's own top-level `kind` is passed to agree with the derived one (`art`),
     # the same way ASCII_PART's goldens pass `kind="vrm"` to agree with `animations`
     put("archives/valid/animset-pixel.astrapack", bundle("astra.animpack", pixel_part, body=None, kind="pixel"))

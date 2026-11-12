@@ -14,7 +14,7 @@ nothing here re-decides it. The server (L1/L2), the signer (L4) and the client
 
 | file | what |
 |---|---|
-| [`common-v1.md`](common-v1.md) | what every kind shares: the envelope, freshness, base entry fields, `licence`, `credits`, the withdrawn document, acts, cascades, the client's refusal tokens |
+| [`common-v1.md`](common-v1.md) | what every kind shares: the envelope, freshness, base entry fields, `licence`, `credits`, where `thumbnail`, `min_astra` and the item's licence come from, the no-unlisted-pin rule, the withdrawn document, acts, cascades, the client's refusal tokens |
 | [`commands-index-v1.md`](commands-index-v1.md) · [`commands-withdrawn-v1.md`](commands-withdrawn-v1.md) | `astra.commands.{index,withdrawn}/1` |
 | [`characters-index-v1.md`](characters-index-v1.md) · [`characters-withdrawn-v1.md`](characters-withdrawn-v1.md) | `astra.characters.{index,withdrawn}/1` |
 | [`models-index-v1.md`](models-index-v1.md) · [`models-withdrawn-v1.md`](models-withdrawn-v1.md) | `astra.models.{index,withdrawn}/1` |

@@ -44,6 +44,15 @@ reference, test use only).
   cloaking). They run whenever the file is present with that sha256. To run
   them, point `CONTENT_EXTERNAL_ROOT` at a checkout or `git archive` of those
   commits.
+- **`derive`** on an index golden names the entry members a publisher reads
+  from the artefact's bytes (`min_astra`, `credits`, `thumbnail`, `licence`,
+  an animset's `clips`, `states`, `dimension`). The checker finds the artefact
+  among the valid goldens by the entry's `artefact.sha256`, re-derives each
+  member (`entry_facts`) and compares, so a golden entry cannot say something
+  no publisher could have read. The `no-thumbnail` goldens are the entries a
+  v1 publisher emits; `valid.json` keeps a thumbnail and a free-form credit on
+  every kind so a client is still held to accepting them. Each kind spec's
+  `min_astra` table is read from the page and compared with `MIN_ASTRA`.
 - **`reason-codes.yaml`** is held in both directions: every `E_`/`F_` code a spec
   cites is listed there, and every listed code is specified in a spec.
 

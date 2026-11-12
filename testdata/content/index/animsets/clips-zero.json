@@ -42,8 +42,8 @@
         ],
         "clips": 0,
         "states": [
-          "idle",
-          "wave"
+          "a",
+          "b"
         ],
         "content_confirmed": {
           "animations-rights-v1": 1
@@ -79,7 +79,7 @@
   "signatures": [
     {
       "key_id": "astra-animsets-2026a",
-      "sig": "RbdGLLZihGcPjx5O+mm54D8UlE1K9BgyagTymCEyqZyp8k2Lbwi7scctHBFm/pao2oiictNGeMol6/biwkrfCw=="
+      "sig": "u2GeMnOkZ5UydPH8WpSF+vtNNn/vKE/TZOgxx6WOZqIZFpUlmfEB6gbid6ddvDh/kdg+GSAgecoaUjj85CrhBQ=="
     }
   ]
 }
