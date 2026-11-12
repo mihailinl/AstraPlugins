@@ -163,9 +163,9 @@ Bearbeiten seiner eigenen `plugin.toml` zwischen Neustarts erweitern, bis hin
 zum gesamten Vokabular. Das ist ein weiterer Grund, warum der Entwicklermodus
 ein Entwicklerwerkzeug ist und kein Installationsweg.
 
-Sechs Permissions sind hochriskant und bekommen jeweils eine eigene
+Sieben Permissions sind hochriskant und bekommen jeweils eine eigene
 Zustimmungs-Checkbox: `send_chat_message`, `push_to_ui`,
-`set_theme_contribution`, `dom_access`, `client`, `speak`. `dom_access` bekommt einen
+`set_theme_contribution`, `dom_access`, `client`, `speak`, `receive_attachments`. `dom_access` bekommt einen
 zweiten Bildschirm. Details, einschließlich wie man einen `reason` schreibt,
 der sich zu lesen lohnt: [Permissions](../3-reference/permissions.md).
 

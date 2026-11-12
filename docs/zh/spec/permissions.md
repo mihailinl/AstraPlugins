@@ -23,7 +23,7 @@
 
 ## 1. 词汇表
 
-十一个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
+十二个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
 `PERMISSION_NAMES`，由测试固定到枚举上）。注册表会根据这份列表校验
 上架条目的 id，Astra 本地化的标签表也以此为键，所以一个只在某处添加、
 没有在其他地方同步添加的 id，渲染出来会是空白的一行。
@@ -41,15 +41,17 @@
 | `read_ai_settings` | `GetAiSettings` | 读取聊天的提供方、模型和端点——绝不包含密钥、其他角色或用户保存的其他端点 | |
 | `speak` | `Speak`, `StopSpeaking` | 用 Astra 的声音把插件自己的话说出来，并能让它停下；`Speak` 还需要一个有权使用 Astra 的账号 | ● |
 | `read_user_identity` | `GetUserIdentity` | 读取这次安装和已登录账号的假名 id，专为发起调用的插件生成——绝不是账号本身的 id、姓名、电子邮件或硬件序列号 | |
+| `receive_attachments` | *不限制 RPC*——一种**投递** | 在声明了 `wants_attachments` 的工具中，收到本人附在某次调用所回答的消息上的图片（`PluginCallToolRequest.attachments`） | ● |
 
-**带 ● 标记的六项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
+**带 ● 标记的七项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
 得到自己的同意勾选框。计划文档 §4.3 详细列出了四个勾选框，遗漏了
 `push_to_ui`；§5.6 列出了五个。实现采用的是**并集**，因为这个分歧出
 现在 UI 段落和安全章节之间，多一个勾选框的代价只是多一次点击，少一
 个的代价却是丢掉那个属性本身。
 `speak` 于 2026-11-12 加入其中：插件的话会被当作 Astra 的话听到。它不会
 在第 2 层级导入时被拒绝（§5）——播报是插件很常见的需求，勾选框就是那个
-决定。
+决定。`receive_attachments` 在同一天、以同样的条件加入：本人的照片会到达
+第三方代码。
 
 `speak` 是唯一一个限制两个 RPC 的 id：停下自己的语音本就是说话的一部分。
 `read_ai_settings` 和 `read_user_identity` 刻意既不是高风险，也不会在第 2
@@ -60,6 +62,15 @@
 **`dom_access` 和 `client` 不限制任何 RPC**，这恰恰是为什么它们需要
 第二个强制执行点：它们是在*界面层*被分发出去的地方（§4.2）被强制执
 行的，而不是在某次调用得到响应的地方。
+
+**`receive_attachments` 同样不限制任何 RPC**，只是方向相反：它不是插件调用
+的东西，而是守护进程*发送*的东西。它在构建 `CallTool` 的地方被强制执行，而且
+只有以 `plugin-provider-slots` 构建特性构建的守护进程才会发送任何东西——目前
+还没有任何发行版。图片只会发给 `PluginToolDef.wants_attachments` 已置位的
+工具，只在回答本人于某个对话中发送的消息时发起的调用中发送，并且只发送该
+消息上的图片：最多 4 张（`image_input_max_images`，`spec/limits.yaml`），
+20 MiB，保留最新的。若有图片没有发送，会在工具结果之后告知模型；插件不会
+得到任何告知。
 
 ### 1.1 权限参数
 
@@ -286,7 +297,7 @@ id。在这个拆分出现之前编写的每一个插件，都在旧的位置说
 他们邮件发给别人的那个文件的上限。
 
 第 2 层级的拒绝清单是 `TIER2_REFUSED_PERMISSIONS`——它刻意**不是**
-和 `HIGH_RISK_PERMISSIONS` 相同的清单：`push_to_ui` 和 `speak` 值得
+和 `HIGH_RISK_PERMISSIONS` 相同的清单：`push_to_ui`、`speak` 和 `receive_attachments` 值得
 拥有一个勾选框，但不值得因为它们就拒绝一个用户选择导入的文件。这四项是从 §5.5
 直接引用的，不是推断出来的。
 

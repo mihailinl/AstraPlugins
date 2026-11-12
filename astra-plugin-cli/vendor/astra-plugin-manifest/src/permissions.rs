@@ -108,6 +108,13 @@ pub enum Permission {
     /// pricing it high would push a plugin that limits use per person back to
     /// one.
     ReadUserIdentity,
+    /// The pictures the person attached to the message a turn answers, handed
+    /// to this plugin's tools that declare `wants_attachments`
+    /// (`PluginCallToolRequest.attachments`). Not a host RPC: the daemon sends
+    /// them, and only on a call a conversation caused. **High risk:** a
+    /// person's photos reach third-party code. Not refused at Tier 2: the
+    /// checkbox is the decision, as for `speak`.
+    ReceiveAttachments,
 }
 
 /// Every permission id, in [`Permission`]'s declaration order.
@@ -128,10 +135,12 @@ pub const PERMISSION_NAMES: &[&str] = &[
     "read_ai_settings",
     "speak",
     "read_user_identity",
+    "receive_attachments",
 ];
 
-/// The five §5.6 marks *"high-risk, each its own consent checkbox"*, and
-/// `speak` (2026-11-12): a plugin's words heard in Astra's voice.
+/// The five §5.6 marks *"high-risk, each its own consent checkbox"*, `speak`
+/// (2026-11-12): a plugin's words heard in Astra's voice, and
+/// `receive_attachments` (2026-11-12): a person's photos in a plugin's hands.
 ///
 /// §4.3 spells four checkboxes and omits `push_to_ui`; §5.6 lists five. This is
 /// the union, because the disagreement is between a UI paragraph and the
@@ -145,6 +154,7 @@ pub const HIGH_RISK_PERMISSIONS: &[Permission] = &[
     Permission::DomAccess,
     Permission::Client,
     Permission::Speak,
+    Permission::ReceiveAttachments,
 ];
 
 /// The four §5.5 refuses **outright** to a Tier-2 import — *"refused outright,
@@ -180,6 +190,7 @@ impl Permission {
             Permission::ReadAiSettings => "read_ai_settings",
             Permission::Speak => "speak",
             Permission::ReadUserIdentity => "read_user_identity",
+            Permission::ReceiveAttachments => "receive_attachments",
         }
     }
 
@@ -214,6 +225,7 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     Permission::ReadAiSettings,
     Permission::Speak,
     Permission::ReadUserIdentity,
+    Permission::ReceiveAttachments,
 ];
 
 /// What an author wrote for one permission id.
@@ -427,7 +439,7 @@ mod tests {
                 p.id()
             );
         }
-        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 6);
+        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 7);
         assert_eq!(TIER2_REFUSED_PERMISSIONS.len(), 4);
         // Reading the chat's endpoint is the honest alternative to reading
         // `settings.json`; a checkbox or a Tier-2 refusal would price the
@@ -441,6 +453,9 @@ mod tests {
         // The pseudonyms are the honest alternative to a machine serial.
         assert!(!Permission::ReadUserIdentity.is_high_risk());
         assert!(!Permission::ReadUserIdentity.refused_at_tier2());
+        // A person's photos in a plugin's tools: a checkbox of their own.
+        assert!(Permission::ReceiveAttachments.is_high_risk());
+        assert!(!Permission::ReceiveAttachments.refused_at_tier2());
     }
 
     /// The section as §5.6 writes it, parsed.

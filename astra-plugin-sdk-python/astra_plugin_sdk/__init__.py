@@ -61,6 +61,7 @@ from astra_plugin_sdk.protocol import (
     PROTOCOL_VERSION,
 )
 from astra_plugin_sdk.invocation import Invocation, current_invocation
+from astra_plugin_sdk.attachments import current_attachments
 from astra_plugin_sdk.music import (
     MUSIC_CONTROLS,
     MusicControlRequest,
@@ -98,6 +99,8 @@ __all__ = [
     # ── which conversation called this handler ──
     "Invocation",
     "current_invocation",
+    # ── the pictures the person attached, for a tool that asked ──
+    "current_attachments",
     "HostClient",
     "HostClientBootstrap",
     "DaemonClient",

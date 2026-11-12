@@ -25,7 +25,7 @@ durch bloße Deklaration selbst gewährte.
 
 ## 1. Das Vokabular
 
-Elf IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
+Zwölf IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, per Test an das Enum gepinnt). Die Registry
 validiert die IDs eines Listings gegen diese Liste, und Astras
 lokalisierte Label-Tabelle ist danach indexiert, eine an einer Stelle
@@ -45,8 +45,9 @@ leere Zeile.
 | `read_ai_settings` | `GetAiSettings` | Provider, Modell und Endpunkt des Chats lesen — nie einen Schlüssel, nie eine andere Rolle, nie die gespeicherten Endpunkte des Nutzers | |
 | `speak` | `Speak`, `StopSpeaking` | die eigenen Worte des Plugins mit Astras Stimme laut aussprechen und sie anhalten; `Speak` braucht zusätzlich ein Konto, das Astra freischaltet | ● |
 | `read_user_identity` | `GetUserIdentity` | Pseudonyme für diese Installation und das angemeldete Konto lesen, nur für das aufrufende Plugin erzeugt — nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer | |
+| `receive_attachments` | *kein RPC* — eine **Zustellung** | in einem Tool, das `wants_attachments` deklariert hat, die Bilder übergeben bekommen, die die Person an die Nachricht angehängt hat, die ein Aufruf beantwortet (`PluginCallToolRequest.attachments`) | ● |
 
-**Die sechs mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
+**Die sieben mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
 und bekommen jeweils eine eigene Zustimmungs-Checkbox. §4.3 des Plans
 buchstabiert vier Checkboxen aus und lässt `push_to_ui` weg; §5.6
 listet fünf. Die Implementierung nimmt die **Vereinigung**, weil die
@@ -56,7 +57,8 @@ wenig die Eigenschaft kostet.
 `speak` kam am 2026-11-12 dazu: Die Worte des Plugins werden als Astras
 gehört. Es wird einem Stufe-2-Import nicht verweigert (§5) — eine Ansage
 ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist
-die Entscheidung.
+die Entscheidung. `receive_attachments` kam am selben Tag zu denselben
+Bedingungen dazu: Die Fotos einer Person erreichen Code von Dritten.
 
 `speak` ist die eine ID, die zwei RPCs sperrt: Die eigene Sprachausgabe
 anzuhalten gehört zum Sprechen. `read_ai_settings` und `read_user_identity`
@@ -69,6 +71,18 @@ als den unehrlichen schiebt Plugins in die falsche Richtung.
 sie einen zweiten Durchsetzungspunkt: sie werden dort durchgesetzt, wo
 die *Surface* ausgegeben wird (§4.2), nicht dort, wo ein Aufruf
 beantwortet wird.
+
+**`receive_attachments` sperrt ebenfalls kein RPC**, in der anderen Richtung:
+Es ist nichts, was ein Plugin aufruft, sondern etwas, das der Daemon
+*schickt*. Durchgesetzt wird es dort, wo `CallTool` gebaut wird, und nur ein
+Daemon mit dem Build-Feature `plugin-provider-slots` schickt überhaupt etwas
+— noch kein Release. Die Bilder gehen nur an ein Tool, dessen
+`PluginToolDef.wants_attachments` gesetzt ist, nur bei einem Aufruf beim
+Beantworten einer Nachricht, die die Person in einer Unterhaltung geschickt
+hat, und nur die Bilder dieser Nachricht: höchstens 4
+(`image_input_max_images`, `spec/limits.yaml`) und 20 MiB, die neuesten
+behalten. Wurden einige nicht geschickt, erfährt es das Modell nach dem
+Ergebnis des Tools; das Plugin erfährt nichts.
 
 ### 1.1 Permission-Argumente
 
@@ -322,8 +336,8 @@ einem Autor nicht, dass Veröffentlichen die Obergrenze einer Datei, die
 er jemandem geschickt hat, rückwirkend aufheben wird.
 
 Die Stufe-2-Ablehnungsliste ist `TIER2_REFUSED_PERMISSIONS` — absichtlich
-**nicht** dieselbe Liste wie `HIGH_RISK_PERMISSIONS`: `push_to_ui` und
-`speak` sind eine Checkbox wert und nicht wert, eine Datei abzulehnen,
+**nicht** dieselbe Liste wie `HIGH_RISK_PERMISSIONS`: `push_to_ui`,
+`speak` und `receive_attachments` sind eine Checkbox wert und nicht wert, eine Datei abzulehnen,
 die der Nutzer zum Import ausgewählt hat. Die vier sind aus §5.5 zitiert, nicht
 abgeleitet.
 

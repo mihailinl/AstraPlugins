@@ -150,8 +150,9 @@ An id this Astra does not know is kept and inert: forward compatibility, and `pe
 | `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint (never a key). |
 | `speak` | `Speak`, `StopSpeaking` | **yes** | no | Say the plugin's own words aloud in Astra's voice. |
 | `read_user_identity` | `GetUserIdentity` | no | no | Pseudonyms for this installation and the signed-in account, made for this plugin alone (never the account's own id, a name or a hardware serial). |
+| `receive_attachments` | — | **yes** | no | The pictures the person attached to the message a turn answers, handed to this plugin's tools that declare `wants_attachments` (`PluginCallToolRequest.attachments`). |
 
-*Gates* is the host RPC the daemon refuses without the permission, from [`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` reads. An empty cell is a **surface** permission that gates no RPC: `dom_access` decides how a UI contribution is rendered, and `client` is a capability ceiling.
+*Gates* is the host RPC the daemon refuses without the permission, from [`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` reads. An empty cell is a permission that gates no RPC: `dom_access` decides how a UI contribution is rendered, `client` is a capability ceiling, and `receive_attachments` decides what the daemon sends a tool (`PluginCallToolRequest.attachments`).
 
 *Refused to a local import* is the ceiling on a `.astraplugin` file the user imported by hand rather than installed from the store: those ids are dropped outright, not warned about. A source directory loaded with Developer Mode on is deliberately not capped — it is the authoring loop for UI plugins.
 
@@ -194,6 +195,8 @@ Carries an argument: [`PermissionRequest::types`] is the **allowlist** of event 
 **`speak`.** `PluginHostService.Speak` / `StopSpeaking` — say the plugin's own words aloud in Astra's voice. **High risk:** they are heard as Astra's. Not refused at Tier 2: an announcement is an ordinary thing for a plugin to want, and the checkbox is the decision.
 
 **`read_user_identity`.** `PluginHostService.GetUserIdentity` — pseudonyms for this installation and the signed-in account, made for this plugin alone (never the account's own id, a name or a hardware serial). Not high-risk and not refused at Tier 2: it is the honest alternative to a machine serial, and pricing it high would push a plugin that limits use per person back to one.
+
+**`receive_attachments`.** The pictures the person attached to the message a turn answers, handed to this plugin's tools that declare `wants_attachments` (`PluginCallToolRequest.attachments`). Not a host RPC: the daemon sends them, and only on a call a conversation caused. **High risk:** a person's photos reach third-party code. Not refused at Tier 2: the checkbox is the decision, as for `speak`.
 
 ## `[config]`
 

@@ -214,6 +214,12 @@ The block above is the generated scaffold's own test, verbatim, and it passes.
   `plugin-provider-slots`; a model that says `accepts_images` is sent up to
   20 MiB of pictures, which this SDK's capability server accepts (it receives
   up to 64 MiB).
+- A tool marked `#[tool(wants_attachments)]` (or
+  `ToolDef::with_attachments(true)`) reads the pictures the person attached
+  with `ctx.attachments()` — but no Astra release sends them yet: only a daemon
+  built with `plugin-provider-slots` does, and only to a plugin granted the
+  high-risk `receive_attachments` permission. Everywhere else the slice is
+  empty.
 
 ## Upgrading from 0.5
 

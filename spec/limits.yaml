@@ -170,3 +170,10 @@ plugin_image_request_max_bytes: 20_971_520
 # A plugin's speaking time is budgeted in characters on top of this, so a
 # backlog never holds the person's own reply past the speech queue's wait limit.
 speak_text_max_chars: 300
+
+# The most pictures one tool call is handed: `generate_image` editing what the
+# person attached, and a plugin tool that declared `wants_attachments`
+# (`PluginCallToolRequest.attachments`). The newest are kept, within
+# `plugin_image_request_max_bytes`, and a picture left out is counted, never
+# dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
+image_input_max_images: 4

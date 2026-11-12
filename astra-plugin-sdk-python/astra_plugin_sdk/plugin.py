@@ -24,6 +24,7 @@ from astra_plugin_sdk import limits, protocol, reserved
 from astra_plugin_sdk.auth import CapabilityAuthInterceptor, capability_auth_mode
 from astra_plugin_sdk.causality import CauseInterceptor
 from astra_plugin_sdk.invocation import invocation_from_request, set_invocation
+from astra_plugin_sdk.attachments import attachments_from_request, set_attachments
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
     AiModelList,
@@ -1426,6 +1427,11 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         # be read here. Two independent facts, two stores, neither standing in
         # for the other.
         set_invocation(invocation_from_request(request))
+        # The pictures the person attached ride in the BODY too, and only on
+        # this hook: a tool that declared `wants_attachments` reads them with
+        # `current_attachments()`. Set even when empty, for the same reason the
+        # invocation is: nothing from another call may show through.
+        set_attachments(attachments_from_request(request))
         # In-band, never a gRPC error: a failed tool call is data the AI loop
         # has to read. "You have no API key configured" is the model's cue to
         # tell the user what to do, and a transport error hides it from the

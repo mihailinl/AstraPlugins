@@ -84,7 +84,7 @@ dependencies = [
 
 [[package]]
 name = "astra-plugin-macros"
-version = "0.7.4"
+version = "0.7.5"
 dependencies = [
  "astra-plugin-sdk",
  "proc-macro2",

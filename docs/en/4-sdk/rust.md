@@ -134,6 +134,18 @@ promise is about. `#[astra::args]` is those two derives with `crate = "…"`
 pointing at the SDK's copies. Adding `serde` yourself still works; then
 `use serde::Deserialize;` shadows the prelude's name.
 
+**A tool that reads the person's pictures** is `#[tool(wants_attachments)]` (or
+`ToolDef::new(…).with_attachments(true)` by hand), and its handler reads
+`ctx.attachments()` — the pictures attached to the message being answered, as
+`AiImage`s. It needs the high-risk `receive_attachments` permission, and no
+Astra release sends pictures yet:
+[Permissions](../3-reference/permissions.md#receiving-the-pictures-the-person-attached)
+has the conditions. A test sends them with `call_tool_with_attachments` on a
+started `Harness`, or the `WireHarness` method of the same name. `ToolDef`
+gained a public field for this, so a `ToolDef { .. }` struct
+literal must now name `wants_attachments`; `ToolDef::new` and `#[tool]` are
+unaffected.
+
 You can also implement `PluginCapability` by hand. The trait is public, every
 method has a default, and the macros produce exactly what you would write.
 

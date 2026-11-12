@@ -188,14 +188,16 @@ Astra、semver バージョンとして(`"0.9.0"`)。空 = 要件なし。
 | `read_ai_settings` | `GetAiSettings` | なし | なし | ユーザーのチャットのプロバイダー、モデル、エンドポイントを読む(キーは含まない)。 |
 | `speak` | `Speak`, `StopSpeaking` | **あり** | なし | プラグイン自身の言葉を Astra の声で読み上げる。 |
 | `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID(アカウント自身の id、名前、ハードウェアのシリアル番号であることは決してない)。 |
+| `receive_attachments` | — | **あり** | なし | ターンが応答するメッセージに人が添付した画像を、`wants_attachments` を宣言したこのプラグインのツールに渡す (`PluginCallToolRequest.attachments`)。 |
 
 *Gates* は、[`spec/hooks.yaml`](../../../spec/hooks.yaml) から、その
 パーミッションなしではデーモンが拒否するホスト RPC です; パリティ
 ルール R6 は、この列を、`require_permission` が参照するテーブルである
 デーモン自身の `HOST_RPC_PERMISSIONS` と照合します。空のセルは、どの
-RPC もゲートしない**サーフェス**パーミッションです: `dom_access` は
-UI コントリビューションがどう描画されるかを決め、`client` はケーパビ
-リティの上限です。
+RPC もゲートしないパーミッションです: `dom_access` は UI コントリビュー
+ションがどう描画されるかを決め、`client` はケーパビリティの上限であり、
+`receive_attachments` はデーモンがツールに何を送るか
+(`PluginCallToolRequest.attachments`) を決めます。
 
 *Refused to a local import* は、ユーザーがストアからインストールする
 のではなく手動でインポートした `.astraplugin` ファイルに対する上限
@@ -265,6 +267,8 @@ UI コントリビューションがどう描画されるかを決め、`client`
 **`speak`。** `PluginHostService.Speak` / `StopSpeaking` — プラグイン自身の言葉を Astra の声で読み上げる。**高リスク:** それは Astra の言葉として聞こえる。Tier 2 でも拒否されない: アナウンスはプラグインが望むごく普通のことであり、チェックボックスがその判断である。
 
 **`read_user_identity`。** `PluginHostService.GetUserIdentity` — このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID(アカウント自身の id、名前、ハードウェアのシリアル番号であることは決してない)。高リスクではなく、Tier 2 でも拒否されない: マシンのシリアル番号に代わる誠実な手段であり、高く値付けすれば、人ごとに利用を制限するプラグインをシリアル番号へ押し戻してしまう。
+
+**`receive_attachments`。** ターンが応答するメッセージに人が添付した画像を、`wants_attachments` を宣言したこのプラグインのツールに渡します (`PluginCallToolRequest.attachments`)。ホスト RPC ではありません: デーモンが送るもので、会話が引き起こした呼び出しでだけ送られます。**高リスク:** 人の写真がサードパーティのコードに届きます。ティア 2 では拒否されません: `speak` と同じく、チェックボックスが判断です。
 
 ## `[config]`
 

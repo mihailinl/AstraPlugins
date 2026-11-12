@@ -574,8 +574,10 @@ def _render_permissions(
         "*Gates* is the host RPC the daemon refuses without the permission, from "
         "[`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column "
         "against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` "
-        "reads. An empty cell is a **surface** permission that gates no RPC: `dom_access` "
-        "decides how a UI contribution is rendered, and `client` is a capability ceiling.",
+        "reads. An empty cell is a permission that gates no RPC: `dom_access` "
+        "decides how a UI contribution is rendered, `client` is a capability ceiling, "
+        "and `receive_attachments` decides what the daemon sends a tool "
+        "(`PluginCallToolRequest.attachments`).",
         "",
         "*Refused to a local import* is the ceiling on a `.astraplugin` file the user "
         "imported by hand rather than installed from the store: those ids are dropped "

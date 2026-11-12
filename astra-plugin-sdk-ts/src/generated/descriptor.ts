@@ -9800,6 +9800,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "parametersJson": {
               "type": "string",
               "id": 3
+            },
+            "wantsAttachments": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -9833,6 +9837,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "invocation": {
               "type": "PluginInvocation",
               "id": 3
+            },
+            "attachments": {
+              "rule": "repeated",
+              "type": "PluginImage",
+              "id": 4
             }
           }
         },

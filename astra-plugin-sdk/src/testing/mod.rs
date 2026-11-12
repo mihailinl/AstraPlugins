@@ -370,6 +370,41 @@ impl<P: PluginCapability> Running<P> {
         self.plugin.call_tool(&ctx, name, &args).await
     }
 
+    /// Call one tool as a conversation's turn would, handing it pictures the
+    /// person attached: the handler's `ctx.attachments()` answers with them,
+    /// and `ctx.invocation()` with `conversation`.
+    ///
+    /// The harness hands them over whatever the tool declared — deciding who
+    /// receives pictures is the daemon's part (the tool's `wants_attachments`,
+    /// the `receive_attachments` grant, a call answering the person). Assert
+    /// the declaration itself on [`tools`](Self::tools).
+    ///
+    /// ```ignore
+    /// let photo = AiImage {
+    ///     mime_type: "image/png".into(),
+    ///     data: png_bytes,
+    ///     filename: "cat.png".into(),
+    /// };
+    /// let answer = h
+    ///     .call_tool_with_attachments("describe_photo", json!({}), Some("conv-1"), vec![photo])
+    ///     .await?;
+    /// ```
+    pub async fn call_tool_with_attachments(
+        &self,
+        name: &str,
+        args: impl serde::Serialize,
+        conversation: Option<&str>,
+        attachments: Vec<crate::AiImage>,
+    ) -> Result<String, ToolError> {
+        let args = serde_json::to_string(&args).map_err(ToolError::from)?;
+        let ctx = self
+            .ctx
+            .clone()
+            .with_invocation(Some(crate::Invocation::new(conversation)))
+            .with_attachments(attachments);
+        self.plugin.call_tool(&ctx, name, &args).await
+    }
+
     /// `execute_action` as a conversation's turn would call it. See
     /// [`call_tool_from`](Self::call_tool_from).
     pub async fn execute_action_from(

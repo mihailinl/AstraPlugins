@@ -36,7 +36,7 @@ Three properties, all of which surprise someone eventually:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@ Three properties, all of which surprise someone eventually:
 `GetDaemonInfo` being free is a decision, not an oversight: a checkbox that
 protects nothing is how users learn to tick boxes.
 
-## The eleven ids
+## The twelve ids
 
 | Id | Gates | Own checkbox | Refused to a local import | What it lets you do |
 |---|---|---|---|---|
@@ -71,12 +71,15 @@ protects nothing is how users learn to tick boxes.
 | `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint — never a key |
 | `speak` | `Speak`, `StopSpeaking` | **yes** | no | Say your own words aloud in Astra's voice, and stop them |
 | `read_user_identity` | `GetUserIdentity` | no | no | Read pseudonyms for this installation and the signed-in account, made for your plugin alone |
+| `receive_attachments` | — (a delivery) | **yes** | no | Be handed the pictures the person attached, in a tool that asks for them |
 
 `dom_access` and `client` gate no RPC and that is the point: they are
 **surfaces**. `dom_access` decides whether a UI contribution is rendered as a
 script in the Astra window or a sandboxed iframe; `client` is a ceiling on what
 a plugin may be. They are refused where the surface is handed out, not at a call
-gate.
+gate. `receive_attachments` gates no RPC either, from the other side: there is
+nothing for you to call. It decides what Astra *sends* one of your tools —
+[below](#receiving-the-pictures-the-person-attached).
 
 `dom_access` additionally gets a second consent screen. If you are reaching for
 it, read [the security model](../1-orientation/security.md) first and be sure
@@ -171,6 +174,57 @@ display name and their plan. It now receives `authenticated`, `authorized`,
 `user_id` and `user_name` still arrive, as `null`, and `subscription_tier` as
 `""`, so a parser written for the old shape keeps parsing; none of them carries a
 value any more.
+
+## Receiving the pictures the person attached
+
+A tool that works on a picture — reading a receipt, naming a plant, describing a
+photo — can ask for the pictures the person attached to the message Astra is
+answering. **No Astra release does this yet:** the daemon sends them only when
+it is built with the `plugin-provider-slots` build feature. Any other Astra
+ignores the request and your tool receives no pictures.
+
+Two things are needed. Declare `receive_attachments` in `[permissions]`, and mark
+each tool that wants pictures; then read them in its handler:
+
+| SDK | Mark the tool | Read the pictures |
+|---|---|---|
+| Rust | `#[tool(wants_attachments)]`, or `ToolDef::new(…).with_attachments(true)` | `ctx.attachments()` |
+| Python | `@tool("…", wants_attachments=True)`, or `ToolDef(…, wants_attachments=True)` | `current_attachments()` |
+| TypeScript | `wantsAttachments: true` in `tool({…})` or on a `ToolDef` | `ctx.attachments`, or `currentAttachments()` |
+
+Each picture carries `mime_type` (`mimeType` in TypeScript), `data` — the bytes —
+and `filename`, the bare name it was attached under, never a folder. A tool that
+did not ask reads an empty list, and so does any call that carries no pictures.
+
+Astra hands pictures to a call only when all of these hold:
+
+- the tool declared `wants_attachments` in its `ListTools` answer;
+- your plugin holds `receive_attachments`;
+- the call was made while answering a message the person sent in a conversation
+  — the call's invocation names that conversation. Never in a report wake, a
+  command's AI step or a sub-agent's turn, and never while Astra holds the turn
+  for a Workshop command the person has not approved.
+
+What arrives is only what was attached to **that one message**: never a picture
+from earlier in the conversation, never one a tool produced and never one the
+model named. At most **4** (`image_input_max_images` in `spec/limits.yaml`) and
+20 MiB in all, the newest kept, in the order they were attached; a picture that
+cannot be read is never sent. When some were not sent — more than fit, or your
+plugin lacks the grant — the **model** is told so after your result; your tool
+simply receives fewer, or none.
+
+Today Astra's chat composer scales every attached picture to at most 768 pixels
+and re-encodes it as JPEG, keeping the original file name, so that is what your
+tool receives. Go by `mime_type`, not by the extension in `filename`.
+
+A call can carry up to 20 MiB of pictures, more than gRPC's default 4 MiB
+receive limit. The three SDKs' capability servers receive up to 64 MiB
+(`plugin_max_message_bytes`); a plugin that serves the protocol without an SDK
+must raise its own server's receive limit above 4 MiB.
+
+`receive_attachments` is **high-risk**: a person's photos reach code that is not
+Astra's, so it gets its own consent checkbox. It is not refused to a local
+import — the checkbox is the decision, as for `speak`.
 
 ## Sending a chat message
 
@@ -447,7 +501,7 @@ Full table and the reasoning: [`spec/permissions.md` §4](../spec/permissions.md
 
 ## Consent, from the user's side
 
-Permissions are grouped by risk. The six high-risk ones each get their own
+Permissions are grouped by risk. The seven high-risk ones each get their own
 checkbox and Install stays disabled until every one is ticked; `dom_access` gets
 a second screen. There is deliberately **no type-to-confirm**: that is the
 pattern for irreversible destruction, and habituating users to type through it

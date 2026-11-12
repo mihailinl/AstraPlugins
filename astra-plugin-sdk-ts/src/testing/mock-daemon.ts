@@ -41,7 +41,7 @@ import { addServiceChecked, type HandlerMap } from "../service-contract.js";
 import { PROTOCOL_VERSION } from "../protocol.js";
 import { PLUGIN_TOKEN_HEADER } from "../capability-auth.js";
 import { removeFatalHandlers, restoreConsole } from "../logging.js";
-import type { AudioChunk, SttEvent, ToolDef, ToolResult } from "../types.js";
+import type { AiImage, AudioChunk, SttEvent, ToolDef, ToolResult } from "../types.js";
 import type { Testable } from "./harness.js";
 import { SESSION_TOKEN_HEADER, X_ASTRA_CAUSE } from "../generated/wire.js";
 
@@ -166,11 +166,20 @@ export class WirePlugin {
   /**
    * `CallTool`, optionally as the daemon would issue it: with an invocation
    * lease, so a trigger the tool fires can be attributed back to this call.
+   *
+   * `opts.attachments` puts pictures on `PluginCallToolRequest.attachments`,
+   * encoded by protobuf as a daemon would send them. Like the harness, this
+   * sends them whatever the tool declared; Astra itself sends them only to a
+   * tool that declared `wantsAttachments`, with a `conversationId`.
    */
   callTool(
     toolName: string,
     args: Record<string, unknown> | string = {},
-    opts: { causedBy?: string; conversationId?: string | null } = {}
+    opts: {
+      causedBy?: string;
+      conversationId?: string | null;
+      attachments?: readonly AiImage[];
+    } = {}
   ): Promise<ToolResult> {
     return this.unary<ToolResult>(
       "CallTool",
@@ -184,6 +193,7 @@ export class WirePlugin {
         ...(opts.conversationId === undefined
           ? {}
           : { invocation: { conversationId: opts.conversationId ?? "" } }),
+        ...(opts.attachments === undefined ? {} : { attachments: [...opts.attachments] }),
       },
       opts.causedBy === undefined ? undefined : { [X_ASTRA_CAUSE]: opts.causedBy }
     );

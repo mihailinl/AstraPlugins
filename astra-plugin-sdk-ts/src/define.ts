@@ -87,6 +87,14 @@ export interface ToolSpec<S extends AnyObjectSchema> {
   description: string;
   /** The parameters, as an `s.object`. Omit for a tool that takes none. */
   input?: S;
+  /**
+   * This tool wants the pictures the person attached to the message a call
+   * answers; `run` reads them as `ctx.attachments`. Needs the
+   * `receive_attachments` permission, and an Astra built with the
+   * `plugin-provider-slots` build feature (in no release yet). Absent =
+   * `false`.
+   */
+  wantsAttachments?: boolean;
   run(args: Infer<S>, ctx: PluginContext): ToolOutcome | Promise<ToolOutcome>;
 }
 
@@ -94,6 +102,7 @@ export interface ToolSpec<S extends AnyObjectSchema> {
 export interface ToolEntry {
   description: string;
   input?: AnyObjectSchema;
+  wantsAttachments?: boolean;
   run(args: never, ctx: PluginContext): ToolOutcome | Promise<ToolOutcome>;
 }
 
@@ -394,6 +403,7 @@ class DefinedPlugin extends Plugin {
       // A tool with no declared input still needs an object root: the daemon
       // and every model provider reject a bare `{}` schema-less parameter list.
       parametersJson: (spec.input?.toJsonString() ?? '{"type":"object","properties":{}}'),
+      wantsAttachments: spec.wantsAttachments === true,
     }));
   }
 

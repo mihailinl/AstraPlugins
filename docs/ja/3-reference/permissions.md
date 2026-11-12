@@ -44,7 +44,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 何も守らないチェックボックスは、ユーザーがチェックボックスにチェックを
 入れることを学習してしまう原因です。
 
-## 11 個の id
+## 12 個の id
 
 | Id | ゲートする対象 | 専用チェックボックス | ローカルインポートで拒否される | 何ができるようになるか |
 |---|---|---|---|---|
@@ -80,13 +80,16 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 | `read_ai_settings` | `GetAiSettings` | なし | なし | ユーザーのチャットのプロバイダー、モデル、エンドポイントを読む(キーは含まない) |
 | `speak` | `Speak`, `StopSpeaking` | **あり** | なし | 自分の言葉を Astra の声で読み上げ、それを止める |
 | `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、自分のプラグイン専用に作られた仮名 ID を読む |
+| `receive_attachments` | — (配送) | **あり** | なし | 求めるツールの中で、人が添付した画像を受け取る |
 
 `dom_access` と `client` はどの RPC もゲートしません。それがまさに
 ポイントです: これらは**サーフェス**です。`dom_access` は、UI コントリビュー
 ションが Astra ウィンドウ内のスクリプトとして描画されるか、サンドボックス
 化された iframe として描画されるかを決めます; `client` は、プラグインが
 何になれるかの上限です。これらは呼び出しのゲートではなく、そのサーフェス
-が渡される場所で拒否されます。
+が渡される場所で拒否されます。`receive_attachments` も RPC をゲートし
+ませんが、向きが逆です: あなたが呼ぶものは何もありません。Astra があなたの
+ツールに何を*送るか*を決めます — [後述](#人が添付した画像を受け取る)。
 
 `dom_access` にはさらに 2 つ目の同意画面があります。これを使おうとして
 いるなら、まず[セキュリティモデル](../1-orientation/security.md) を読み、
@@ -175,6 +178,34 @@ API キー、ユーザーが保存した他のエンドポイント、システ�
 どちらの id も**あなたのプラグイン専用に作られた仮名**です: 別のプラグインは同じ人、同じマシンに対して異なる id を読むので、2 つのプラグインがそれを使って記録を突き合わせることはできません。これはこの API を誠実に使うプラグインに対して成り立つことです: プラグインのネイティブコードは Astra のファイルを読めます。どちらも秘密ではなく、アカウント自身の id、本人の名前やメールアドレス、ハードウェアのシリアル番号であることも決してありません。高リスクではなく、ローカルインポートに対して拒否されることもありません: マシンのシリアル番号に代わる誠実な手段であり、高く値付けすればプラグインをそこへ押し戻してしまいます。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
 
 **`auth_changed` もそれに合わせて絞られました**(Astra、2026-11-12)。`auth_changed` イベントを許可されたプラグインは、以前はアカウント自身の id、本人の表示名、そのプランを受け取っていました。今は `authenticated`、`authorized`、`timestamp`、`account_id` を受け取ります — `GetUserIdentity` が返すのと同じ仮名で、あなたが `read_user_identity` を持ち、かつアカウントで Astra を利用できる場合を除いて `""` です。`user_id` と `user_name` は引き続き `null` として、`subscription_tier` は `""` として届くので、古い形式向けに書かれたパーサーはそのまま解析できます。どれももう値を運びません。
+
+## 人が添付した画像を受け取る
+
+画像を扱うツール — レシートを読む、植物の名前を調べる、写真を説明する — は、Astra が応答しているメッセージに人が添付した画像を求めることができます。**これを行う Astra のリリースはまだありません:** デーモンは `plugin-provider-slots` ビルドフィーチャー付きでビルドされたときにだけ画像を送ります。それ以外の Astra はこの要求を無視し、ツールは画像を受け取りません。
+
+必要なことは 2 つです。`[permissions]` で `receive_attachments` を宣言し、画像を必要とする各ツールに印を付けます。そのうえで、ハンドラーの中で画像を読みます:
+
+| SDK | ツールに印を付ける | 画像を読む |
+|---|---|---|
+| Rust | `#[tool(wants_attachments)]`、または `ToolDef::new(…).with_attachments(true)` | `ctx.attachments()` |
+| Python | `@tool("…", wants_attachments=True)`、または `ToolDef(…, wants_attachments=True)` | `current_attachments()` |
+| TypeScript | `tool({…})` または `ToolDef` に `wantsAttachments: true` | `ctx.attachments`、または `currentAttachments()` |
+
+各画像は `mime_type` (TypeScript では `mimeType`)、`data` (バイト列)、`filename` (添付されたときの名前だけで、フォルダーは決して含みません) を持ちます。求めていないツールは空のリストを読み、画像を運ばない呼び出しも同じです。
+
+Astra が呼び出しに画像を渡すのは、次のすべてが成り立つときだけです:
+
+- ツールが `ListTools` の応答で `wants_attachments` を宣言している;
+- あなたのプラグインが `receive_attachments` を持っている;
+- 呼び出しが、人が会話の中で送ったメッセージに応答する途中で行われた — 呼び出しの invocation がその会話を示します。レポートのウェイク、コマンドの AI ステップ、サブエージェントのターンでは決して渡されず、人が承認していない Workshop のコマンドのために Astra がターンを保留している間も渡されません。
+
+届くのは**その 1 つのメッセージ**に添付されたものだけです: 会話の前のほうの画像も、ツールが生成した画像も、モデルが名指しした画像も決して届きません。最大 **4** 枚 (`spec/limits.yaml` の `image_input_max_images`)、合計 20 MiB まで、新しいものが残り、添付された順に並びます; 読めない画像は決して送られません。送られなかったものがあるとき — 収まりきらなかった、またはプラグインに許可がない — は、あなたの結果のあとで**モデル**にそのことが伝えられます; ツールは単に少なく受け取るか、まったく受け取らないだけです。
+
+現在、Astra のチャット入力欄は添付された画像をすべて最大 768 ピクセルに縮小し、元のファイル名を保ったまま JPEG として再エンコードするので、ツールが受け取るのはそれです。`filename` の拡張子ではなく `mime_type` に従ってください。
+
+1 回の呼び出しは最大 20 MiB の画像を運ぶことがあり、これは gRPC の既定の受信上限 4 MiB を超えます。3 つの SDK の capability サーバーは最大 64 MiB (`plugin_max_message_bytes`) まで受信します; SDK を使わずにプロトコルを実装するプラグインは、自分のサーバーの受信上限を 4 MiB より大きくする必要があります。
+
+`receive_attachments` は**高リスク**です: 人の写真が Astra のものではないコードに届くため、独自の同意チェックボックスを持ちます。ローカルインポートでは拒否されません — `speak` と同じく、チェックボックスが判断です。
 
 ## reason を書く
 
@@ -282,7 +313,7 @@ mod tests {
 
 ## 同意、ユーザー側の視点から
 
-パーミッションはリスクによってグループ化されています。6 つの高リスクな
+パーミッションはリスクによってグループ化されています。7 つの高リスクな
 ものはそれぞれ独自のチェックボックスを持ち、そのすべてにチェックが入る
 までインストールは無効のままです; `dom_access` には 2 つ目の画面が
 あります。意図的に**タイプして確認**というパターンは**ありません**: それは

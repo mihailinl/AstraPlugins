@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 05b5a063feba39c75da5ea09faba41291467965b214720cbafc279b9ad6870c7
+// surface-sha256: 0644d8cc4f45d7760960b6a5841639ec8a6b7d8bc9d6c31ad01fa2802b1f8596
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -6359,8 +6359,9 @@ message PluginSpeakResponse {
 
 // Who is using Astra, as ONE plugin may know it. Both ids are pseudonyms made
 // for the asking plugin alone: another plugin reads different ids for the same
-// person and the same machine, so two plugins cannot join their records on
-// them. Neither is a secret.
+// person and the same machine, so two plugins using this API cannot join their
+// records on them. That holds against honest plugins: native plugin code can
+// read Astra's files, and neither id is a secret.
 message PluginUserIdentity {
     // This installation of Astra: the same across restarts and updates of
     // Astra and of the plugin, different on another installation. Empty while
@@ -6394,6 +6395,15 @@ message PluginToolDef {
     string name = 1;
     string description = 2;
     string parameters_json = 3;  // JSON Schema for parameters
+
+    // This tool wants the pictures the person attached to the message a call
+    // answers (`PluginCallToolRequest.attachments`). Honoured only for a plugin
+    // granted the `receive_attachments` permission, and only by an Astra built
+    // with them (the `plugin-provider-slots` build feature); ignored otherwise.
+    // Up to 20 MiB of pictures can arrive in one call, so the plugin's server
+    // must receive more than gRPC's 4 MiB default (`plugin_max_message_bytes`
+    // in spec/limits.yaml; the SDKs already do).
+    bool wants_attachments = 4;
 }
 
 message PluginToolListResponse {
@@ -6458,6 +6468,16 @@ message PluginCallToolRequest {
     // thing: this call was not invoked from a conversation you can answer in.
     // Never guess one. See PluginInvocation.
     PluginInvocation invocation = 3;
+
+    // The pictures the person attached to the message this call answers, in
+    // the order attached — sent only to a tool that declared
+    // `wants_attachments`, of a plugin granted `receive_attachments`, on a call
+    // made while answering a message the person sent in a conversation
+    // (`invocation.conversation_id` non-empty). At most 4 pictures and 20 MiB,
+    // the newest kept; never pictures from earlier messages, and never ones
+    // the model named. Empty otherwise, and from a daemon that predates this
+    // field. When some were not sent, the model is told so after your result.
+    repeated PluginImage attachments = 4;
 }
 
 message PluginCallToolResponse {

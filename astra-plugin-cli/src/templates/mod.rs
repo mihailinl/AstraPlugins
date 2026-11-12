@@ -163,6 +163,10 @@ fn generate_permissions(capabilities: &[&str]) -> String {
             "say your own words aloud in Astra's voice (high risk: its own consent checkbox)",
         ),
         (
+            "receive_attachments",
+            "the pictures the person attached, for a tool that declares wants_attachments (high risk: its own consent checkbox)",
+        ),
+        (
             "push_to_ui",
             "push updates to a UI panel this plugin contributes",
         ),

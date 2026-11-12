@@ -129,6 +129,9 @@ struct MarkerArgs {
     label: Option<String>,
     icon: Option<Expr>,
     schema: Option<Expr>,
+    /// `#[tool(wants_attachments)]` (or `= true` / `= false`): the tool asks
+    /// for the pictures the person attached (`PluginToolDef.wants_attachments`).
+    wants_attachments: bool,
 }
 
 fn parse_marker_args(attr: &Attribute, kind: Kind) -> syn::Result<MarkerArgs> {
@@ -137,7 +140,7 @@ fn parse_marker_args(attr: &Attribute, kind: Kind) -> syn::Result<MarkerArgs> {
         return Ok(args);
     }
     let allowed: &[&str] = match kind {
-        Kind::Tool => &["name", "description", "schema"],
+        Kind::Tool => &["name", "description", "schema", "wants_attachments"],
         Kind::Action => &["name", "label", "description", "icon"],
         Kind::UiCall => &["name"],
         Kind::Hook => &[],
@@ -169,6 +172,16 @@ fn parse_marker_args(attr: &Attribute, kind: Kind) -> syn::Result<MarkerArgs> {
             "label" => args.label = Some(meta.value()?.parse::<syn::LitStr>()?.value()),
             "icon" => args.icon = Some(meta.value()?.parse()?),
             "schema" => args.schema = Some(meta.value()?.parse()?),
+            // A flag: bare `wants_attachments` means true, and `= true` /
+            // `= false` are accepted so a generated or conditional spelling
+            // does not need a different shape.
+            "wants_attachments" => {
+                args.wants_attachments = if meta.input.peek(syn::Token![=]) {
+                    meta.value()?.parse::<syn::LitBool>()?.value
+                } else {
+                    true
+                }
+            }
             _ => unreachable!(),
         }
         Ok(())
@@ -214,6 +227,9 @@ struct Handler {
     /// signature that declared it rather than on `#[astra::plugin]`.
     output_span: Span,
     schema: Option<Expr>,
+    /// `#[tool(wants_attachments)]`. Always `false` for every other marker:
+    /// `parse_marker_args` refuses the key anywhere but on a tool.
+    wants_attachments: bool,
 }
 
 /// Does this return type *look* like a `Result`?
@@ -411,6 +427,7 @@ fn parse_handler(f: &ImplItemFn, kind: Kind, args: MarkerArgs) -> syn::Result<Ha
         args_ty,
         output_span: f.sig.output.span(),
         schema: args.schema,
+        wants_attachments: args.wants_attachments,
     })
 }
 
@@ -804,8 +821,14 @@ fn tool_def(h: &Handler) -> TokenStream {
     let name = &h.wire_name;
     let desc = &h.description;
     let schema = schema_expr(h);
+    // Only when asked: the expansion of every tool written before the flag is
+    // byte-for-byte what it was, so the handwritten-impl equivalence holds for
+    // them unchanged.
+    let attachments = h
+        .wants_attachments
+        .then(|| quote!(.with_attachments(true)));
     quote! {
-        ::astra_plugin_sdk::ToolDef::new(#name, #desc).with_schema(#schema)
+        ::astra_plugin_sdk::ToolDef::new(#name, #desc).with_schema(#schema) #attachments
     }
 }
 
@@ -1151,5 +1174,47 @@ mod tests {
                 "expansion names `{bare}` without the SDK prefix:\n{out}"
             );
         }
+    }
+
+    /// `#[tool(wants_attachments)]` reaches the tool's `ToolDef`, and only
+    /// that tool's: a tool without it expands exactly as before the flag
+    /// existed, `= false` is the same as leaving it out, and no other marker
+    /// takes it.
+    #[test]
+    fn wants_attachments_reaches_only_the_tool_that_asked() {
+        let item = quote! { impl P {
+            /// d
+            #[tool(wants_attachments)] async fn photo(&self) -> Result<String, ToolError> { todo!() }
+            /// d
+            #[tool(wants_attachments = true)] async fn photo2(&self) -> Result<String, ToolError> { todo!() }
+            /// d
+            #[tool(wants_attachments = false)] async fn plain(&self) -> Result<String, ToolError> { todo!() }
+            /// d
+            #[tool] async fn older(&self) -> Result<String, ToolError> { todo!() }
+        } };
+        let out = expand(TokenStream::new(), item).unwrap().to_string();
+        assert_eq!(
+            out.matches("with_attachments (true)").count(),
+            2,
+            "exactly the two tools that asked:\n{out}"
+        );
+        assert!(!out.contains("with_attachments (false)"), "{out}");
+
+        let sig: syn::ImplItemFn = syn::parse_quote! {
+            /// d
+            async fn t(&self) -> Result<String, ToolError> { todo!() }
+        };
+        let h = parse_handler(&sig, Kind::Tool, MarkerArgs::default()).expect("parses");
+        assert!(
+            !tool_def(&h).to_string().contains("with_attachments"),
+            "a tool that did not ask must expand as it did before the flag"
+        );
+
+        let refused = err(quote! { impl P { /// d
+        #[action(wants_attachments)] async fn t(&self) -> Result<String, ActionError> { todo!() } } });
+        assert!(
+            refused.contains("`#[action]` does not take `wants_attachments`"),
+            "{refused}"
+        );
     }
 }

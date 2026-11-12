@@ -926,11 +926,14 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         request: tonic::Request<proto::PluginCallToolRequest>,
     ) -> Result<tonic::Response<proto::PluginCallToolResponse>, tonic::Status> {
         let ctx = self.scoped(&request);
-        let req = request.into_inner();
+        let mut req = request.into_inner();
         // The lease is in the metadata and `scoped` already read it; the
         // invocation is in the BODY, so it can only be attached once the
         // message has been taken out of the request.
         let ctx = ctx.with_invocation(invocation_of(req.invocation.as_ref()));
+        // The pictures the person attached ride in the BODY too, and on this
+        // arm only. Moved, not cloned: they can weigh 20 MiB.
+        let ctx = ctx.with_attachments(std::mem::take(&mut req.attachments));
         // In-band, not `Status`: a tool that failed still ANSWERED, and the AI
         // loop has to read the answer. `wire_string()` prefixes the stable code
         // so "NOT_CONFIGURED" survives the trip through a `string error` field.
@@ -2121,6 +2124,7 @@ mod tests {
                 tool_name: "ask".into(),
                 arguments_json: "{}".into(),
                 invocation: None,
+                attachments: Vec::new(),
             })
             .await
             .expect("a failed tool call is still a successful RPC")
@@ -2165,6 +2169,7 @@ mod tests {
                 tool_name: "roll_dice".into(),
                 arguments_json: "{}".into(),
                 invocation: None,
+                attachments: Vec::new(),
             });
             if let Some(cause) = cause {
                 req.metadata_mut()

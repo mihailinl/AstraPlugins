@@ -201,6 +201,11 @@ usable with no `conftest.py` at all.
   turns on that model, and only in a daemon built with `plugin-provider-slots`;
   a model that says `accepts_images` is sent up to 20 MiB of pictures, which
   this SDK's capability server accepts (it receives up to 64 MiB).
+- A tool marked `@tool("…", wants_attachments=True)` reads the pictures the
+  person attached with `current_attachments()` — but no Astra release sends
+  them yet: only a daemon built with `plugin-provider-slots` does, and only to
+  a plugin granted the high-risk `receive_attachments` permission. Everywhere
+  else the list is empty.
 - There is no `chat_message_sync` / `on_chat_sync` hook. That event was retired;
   a client plugin uses `is_client()` plus `on_conversation_event`.
 

@@ -75,6 +75,7 @@ async fn roll(harness: &WireHarness, cause: Option<&str>) {
         tool_name: "roll_dice".into(),
         arguments_json: "{}".into(),
         invocation: None,
+        attachments: Vec::new(),
     });
     if let Some(cause) = cause {
         request
@@ -278,6 +279,7 @@ async fn a_lease_and_an_invocation_on_one_call_are_read_back_independently() {
         invocation: Some(astra_plugin_sdk::proto::PluginInvocation {
             conversation_id: "conv-7".into(),
         }),
+        attachments: Vec::new(),
     });
     request
         .metadata_mut()
@@ -388,6 +390,7 @@ async fn announce(harness: &WireHarness, tool: &str, text: &str) -> astra_plugin
         tool_name: tool.into(),
         arguments_json: text.into(),
         invocation: None,
+        attachments: Vec::new(),
     });
     request
         .metadata_mut()

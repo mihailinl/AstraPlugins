@@ -43,7 +43,7 @@ Tres propiedades, todas las cuales sorprenden a alguien tarde o temprano:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -64,7 +64,7 @@ Que `GetDaemonInfo` sea gratis es una decisión, no un descuido: una casilla
 que no protege nada es la forma en que los usuarios aprenden a marcar
 casillas sin pensar.
 
-## Los once ids
+## Los doce ids
 
 | Id | Bloquea | Casilla propia | Rechazado en importación local | Qué te permite hacer |
 |---|---|---|---|---|
@@ -79,12 +79,16 @@ casillas sin pensar.
 | `read_ai_settings` | `GetAiSettings` | no | no | Leer el proveedor, el modelo y el endpoint del chat del usuario — nunca una clave |
 | `speak` | `Speak`, `StopSpeaking` | **sí** | no | Decir tus propias palabras en voz alta con la voz de Astra, y detenerlas |
 | `read_user_identity` | `GetUserIdentity` | no | no | Leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para tu plugin |
+| `receive_attachments` | — (una entrega) | **sí** | no | Recibir las imágenes que adjuntó la persona, en una herramienta que las pide |
 
 `dom_access` y `client` no bloquean ningún RPC, y ese es el punto: son
 **superficies**. `dom_access` decide si una contribución de UI se renderiza
 como un script en la ventana de Astra o como un iframe en sandbox; `client`
 es un techo sobre lo que puede ser un plugin. Se rechazan donde se entrega
-la superficie, no en una puerta de llamada.
+la superficie, no en una puerta de llamada. `receive_attachments` tampoco
+bloquea ningún RPC, desde el otro lado: no hay nada que tengas que llamar.
+Decide lo que Astra *envía* a una de tus herramientas —
+[más abajo](#recibir-las-imágenes-que-adjuntó-la-persona).
 
 `dom_access` además recibe una segunda pantalla de consentimiento. Si vas a
 usarlo, lee primero [el modelo de seguridad](../1-orientation/security.md)
@@ -171,6 +175,34 @@ Un plugin que limita el uso por persona o por máquina — una prueba, una cuota
 Ambos ids son **seudónimos creados solo para tu plugin**: otro plugin lee ids distintos para la misma persona y la misma máquina, así que dos plugins no pueden cruzar sus registros a través de ellos. Esto vale frente a plugins que usan esta API honestamente: el código nativo de un plugin puede leer los archivos de Astra. Ninguno es secreto, y ninguno es nunca el id propio de la cuenta, el nombre o el correo electrónico de la persona, ni un número de serie del hardware. No es de alto riesgo ni se rechaza en una importación local: es la alternativa honesta a un número de serie de la máquina, y ponerle un precio alto empujaría a un plugin de vuelta a uno. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
 
 **`auth_changed` se restringe en consecuencia** (Astra, 2026-11-12). Un plugin al que se le concede el evento `auth_changed` recibía antes el id propio de la cuenta, el nombre visible de la persona y su plan. Ahora recibe `authenticated`, `authorized`, `timestamp` y `account_id` — el mismo seudónimo que responde `GetUserIdentity`, y `""` salvo que tengas `read_user_identity` y la cuenta dé acceso a Astra. `user_id` y `user_name` siguen llegando, como `null`, y `subscription_tier` como `""`, para que un parser escrito para la forma antigua siga funcionando; ninguno lleva ya un valor.
+
+## Recibir las imágenes que adjuntó la persona
+
+Una herramienta que trabaja con una imagen — leer un recibo, identificar una planta, describir una foto — puede pedir las imágenes que la persona adjuntó al mensaje que Astra está respondiendo. **Ninguna versión publicada de Astra lo hace todavía:** el daemon solo las envía cuando está compilado con la build feature `plugin-provider-slots`. Cualquier otro Astra ignora la petición y tu herramienta no recibe imágenes.
+
+Hacen falta dos cosas. Declara `receive_attachments` en `[permissions]` y marca cada herramienta que quiera imágenes; luego léelas en su handler:
+
+| SDK | Marcar la herramienta | Leer las imágenes |
+|---|---|---|
+| Rust | `#[tool(wants_attachments)]`, o `ToolDef::new(…).with_attachments(true)` | `ctx.attachments()` |
+| Python | `@tool("…", wants_attachments=True)`, o `ToolDef(…, wants_attachments=True)` | `current_attachments()` |
+| TypeScript | `wantsAttachments: true` en `tool({…})` o en un `ToolDef` | `ctx.attachments`, o `currentAttachments()` |
+
+Cada imagen lleva `mime_type` (`mimeType` en TypeScript), `data` — los bytes — y `filename`, solo el nombre con el que se adjuntó, nunca una carpeta. Una herramienta que no las pidió lee una lista vacía, igual que cualquier llamada que no trae imágenes.
+
+Astra entrega imágenes a una llamada solo cuando se cumple todo esto:
+
+- la herramienta declaró `wants_attachments` en su respuesta a `ListTools`;
+- tu plugin tiene `receive_attachments`;
+- la llamada se hizo al responder un mensaje que la persona envió en una conversación — la invocación de la llamada nombra esa conversación. Nunca en un report wake, en el paso de IA de un comando ni en el turno de un subagente, y nunca mientras Astra retiene el turno por un comando del Workshop que la persona no ha aprobado.
+
+Lo que llega es solo lo adjuntado a **ese único mensaje**: nunca una imagen de antes en la conversación, nunca una que produjo una herramienta y nunca una que nombró el modelo. Como máximo **4** (`image_input_max_images` en `spec/limits.yaml`) y 20 MiB en total, se conservan las más recientes, en el orden en que se adjuntaron; una imagen que no se puede leer nunca se envía. Cuando algunas no se enviaron — más de las que caben, o a tu plugin le falta la concesión —, se le dice al **modelo** después de tu resultado; tu herramienta simplemente recibe menos, o ninguna.
+
+Hoy el compositor del chat de Astra escala cada imagen adjunta a 768 píxeles como máximo y la vuelve a codificar como JPEG, conservando el nombre de archivo original; eso es lo que recibe tu herramienta. Guíate por `mime_type`, no por la extensión de `filename`.
+
+Una llamada puede traer hasta 20 MiB de imágenes, más que el límite de recepción por defecto de gRPC, 4 MiB. Los servidores de capacidades de los tres SDK reciben hasta 64 MiB (`plugin_max_message_bytes`); un plugin que sirve el protocolo sin un SDK debe subir el límite de recepción de su propio servidor por encima de 4 MiB.
+
+`receive_attachments` es de **alto riesgo**: las fotos de una persona llegan a código que no es de Astra, así que recibe su propia casilla de consentimiento. No se rechaza en una importación local — la casilla es la decisión, como con `speak`.
 
 ## Escribir un reason
 
@@ -277,7 +309,7 @@ Tabla completa y el razonamiento:
 
 ## Consentimiento, desde el lado del usuario
 
-Los permisos se agrupan por riesgo. Los seis de alto riesgo reciben cada
+Los permisos se agrupan por riesgo. Los siete de alto riesgo reciben cada
 uno su propia casilla, e Instalar permanece deshabilitado hasta que todas
 estén marcadas; `dom_access` recibe una segunda pantalla. Deliberadamente
 **no hay "escribe para confirmar"**: ese es el patrón para destrucción

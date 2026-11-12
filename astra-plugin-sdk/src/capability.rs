@@ -23,12 +23,24 @@ use crate::proto;
 // ── Convenience types ──
 
 /// A tool definition exposed to the AI.
+///
+/// Build one with [`ToolDef::new`] and the `with_*` methods: a struct literal
+/// has to name every field, so it stops compiling whenever the protocol gives
+/// a tool one more.
 #[derive(Debug, Clone)]
 pub struct ToolDef {
     pub name: String,
     pub description: String,
     /// JSON Schema for parameters. Must have an object root.
     pub parameters_json: String,
+    /// This tool wants the pictures the person attached to the message a call
+    /// answers; the handler reads them with [`PluginContext::attachments`].
+    /// `false` by default. Honoured only for a plugin granted the
+    /// `receive_attachments` permission, and only by an Astra built with the
+    /// `plugin-provider-slots` build feature (in no release yet); ignored
+    /// otherwise. Set it with [`with_attachments`](Self::with_attachments), or
+    /// `#[tool(wants_attachments)]`.
+    pub wants_attachments: bool,
 }
 
 impl ToolDef {
@@ -38,12 +50,28 @@ impl ToolDef {
             name: name.into(),
             description: description.into(),
             parameters_json: r#"{"type":"object","properties":{}}"#.into(),
+            wants_attachments: false,
         }
     }
 
     /// Attach the JSON Schema for this tool's arguments.
     pub fn with_schema(mut self, schema_json: impl Into<String>) -> Self {
         self.parameters_json = schema_json.into();
+        self
+    }
+
+    /// Whether this tool wants the pictures the person attached to the
+    /// message a call answers (`PluginToolDef.wants_attachments`).
+    ///
+    /// ```
+    /// # use astra_plugin_sdk::ToolDef;
+    /// let tool = ToolDef::new("describe_photo", "Describe the attached picture.")
+    ///     .with_attachments(true);
+    /// assert!(tool.wants_attachments);
+    /// assert!(!ToolDef::new("roll", "Roll dice.").wants_attachments);
+    /// ```
+    pub fn with_attachments(mut self, wants_attachments: bool) -> Self {
+        self.wants_attachments = wants_attachments;
         self
     }
 }
@@ -54,6 +82,7 @@ impl From<ToolDef> for proto::PluginToolDef {
             name: t.name,
             description: t.description,
             parameters_json: t.parameters_json,
+            wants_attachments: t.wants_attachments,
         }
     }
 }
@@ -64,6 +93,7 @@ impl From<proto::PluginToolDef> for ToolDef {
             name: t.name,
             description: t.description,
             parameters_json: t.parameters_json,
+            wants_attachments: t.wants_attachments,
         }
     }
 }
@@ -2474,6 +2504,7 @@ pub mod compat {
                     name: "roll_dice".into(),
                     description: "Roll dice.".into(),
                     parameters_json: r#"{"type":"object","properties":{}}"#.into(),
+                    wants_attachments: false,
                 }]
             }
 

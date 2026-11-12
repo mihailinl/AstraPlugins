@@ -1452,6 +1452,7 @@ async fn probe_one(
                     // `astra-plugin test` probes a plugin from outside any
                     // conversation, which is exactly what None means.
                     invocation: None,
+                    attachments: Vec::new(),
                 })
             )
             .map(|r| {

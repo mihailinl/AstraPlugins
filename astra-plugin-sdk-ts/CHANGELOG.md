@@ -75,6 +75,28 @@ are removable in.
   `spoken()` and `stopCount()`; the mock daemon answers `Speak` from
   `speakResponse` (wire shape) and `GetUserIdentity` from `userIdentity`, and
   `spoken()` lists what arrived with the session token.
+- **A tool can receive the pictures the person attached** (Astra `4b5d3081f`;
+  **in no Astra release yet** — the daemon sends them only when built with the
+  `plugin-provider-slots` build feature). A tool declares it with
+  `wantsAttachments: true` in `tool({...})` or on a class-based plugin's
+  `ToolDef` (new optional member, absent = `false`) — always sent as
+  `PluginToolDef.wants_attachments` in `ListTools` — and its handler reads
+  `ctx.attachments` → `readonly AiImage[]` (`mimeType`, `data: Buffer`,
+  `filename`): the pictures on the new `PluginCallToolRequest.attachments`, read
+  through a per-call store like `ctx.invocation` (`currentAttachments()` where
+  no context is to hand); an empty array everywhere else. Astra sends them only
+  to a tool that declared the flag, of a plugin granted the new permission
+  **`receive_attachments`** — **high-risk**, its own consent checkbox, not
+  refused to a local import — on a call made while answering a message the
+  person sent in a conversation; only that message's pictures, at most
+  `limits.IMAGE_INPUT_MAX_IMAGES` (4, new in `spec/limits.yaml`) and 20 MiB, the
+  newest kept, each under its bare file name. When some were not sent, the model
+  is told, after the result; the plugin just gets fewer. Today Astra's chat
+  composer scales every attached picture to at most 768 px JPEG, keeping the
+  original file name. Testing: `Harness.callTool` and `MockDaemon`'s `callTool`
+  take `{ attachments }` beside `{ conversationId }`. Additive: every existing
+  tool and `ToolDef` is unchanged; `PluginContext` gained a member, as it did
+  for `speak`.
 
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 

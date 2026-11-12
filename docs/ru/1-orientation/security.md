@@ -156,9 +156,9 @@ construction, exactly as an unsigned one is.
 причина, по которой режим разработчика — инструмент разработчика, а не путь
 установки.
 
-Шесть разрешений высокорисковые, и у каждого свой чекбокс согласия:
+Семь разрешений высокорисковые, и у каждого свой чекбокс согласия:
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`, `speak`. `dom_access` получает второй экран. Подробности, включая то, как
+`client`, `speak`, `receive_attachments`. `dom_access` получает второй экран. Подробности, включая то, как
 написать `reason`, который стоит прочитать:
 [разрешения](../3-reference/permissions.md).
 

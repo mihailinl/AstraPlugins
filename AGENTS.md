@@ -74,7 +74,7 @@ are installed with `bun install --frozen-lockfile`. Start with
 **Do not hand-write `plugin.toml`, and do not copy one out of `examples/`.** The
 scaffold writes a correct manifest with commented, ready-to-uncomment permission
 lines. `[capabilities]` is what Astra may call **into** your plugin (thirteen keys);
-`[permissions]` is what your plugin may call **out** to Astra (eleven ids,
+`[permissions]` is what your plugin may call **out** to Astra (twelve ids,
 default-deny, each needing a `reason` the user reads before consenting). They are
 independent — declaring `tools` does not grant `fire_trigger` — and both are
 **closed sets**, where an unknown key is a hard parse error, not a warning:

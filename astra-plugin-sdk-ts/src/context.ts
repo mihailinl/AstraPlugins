@@ -25,8 +25,9 @@
 
 import type { AiSettings, Host, SpeakResult, UserIdentity } from "./host.js";
 import type { I18n } from "./i18n.js";
-import type { ChatChunk, ThemeContribution } from "./types.js";
+import type { AiImage, ChatChunk, ThemeContribution } from "./types.js";
 import { currentInvocation, type Invocation } from "./invocation.js";
+import { currentAttachments } from "./attachments.js";
 
 /** What a handler is given. Cheap to hold: it reads through to the plugin. */
 export interface PluginContext {
@@ -53,13 +54,39 @@ export interface PluginContext {
    *
    * ```ts
    * async callTool(name: string, argsJson: string) {
-   *   const id = this.ctx.invocation?.conversationId;
+   *   const id = this.ctx().invocation?.conversationId;
    *   if (id) this.remember(id);          // safe to store, across restarts
    *   return { result: "done" };
    * }
    * ```
    */
   readonly invocation?: Invocation;
+  /**
+   * The pictures the person attached to the message THIS tool call answers —
+   * `{ mimeType, data: Buffer, filename }` each, in the order attached. Empty
+   * everywhere else: outside a tool call, for a tool that did not declare
+   * `wantsAttachments`, and whenever Astra sent none.
+   *
+   * Astra sends them only to a tool that declared `wantsAttachments`, of a
+   * plugin granted `receive_attachments`, on a call made while answering a
+   * message the person sent in a conversation, and only when built with the
+   * `plugin-provider-slots` build feature (no release has it yet). At most
+   * `limits.IMAGE_INPUT_MAX_IMAGES` (4) pictures and 20 MiB, the newest kept,
+   * each under its bare file name. See `./attachments.js`.
+   *
+   * ```ts
+   * describe_photo: tool({
+   *   description: "Describe the picture the person attached.",
+   *   wantsAttachments: true,
+   *   run: (_args, ctx) => {
+   *     const [photo] = ctx.attachments;
+   *     if (!photo) return "No picture was attached.";
+   *     return `${photo.filename}: ${photo.mimeType}, ${photo.data.length} bytes`;
+   *   },
+   * }),
+   * ```
+   */
+  readonly attachments: readonly AiImage[];
   /**
    * This plugin's translations, for the **runtime** plane.
    *
@@ -226,6 +253,10 @@ export class PluginContextImpl implements PluginContext {
    */
   get invocation(): Invocation | undefined {
     return currentInvocation();
+  }
+  /** Read through to the per-call store, for the reason `invocation` is. */
+  get attachments(): readonly AiImage[] {
+    return currentAttachments();
   }
 
   configValue<T>(key: string, fallback: T): T {

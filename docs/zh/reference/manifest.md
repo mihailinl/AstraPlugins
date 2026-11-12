@@ -176,13 +176,15 @@
 | `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。 |
 | `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音把插件自己的话说出来。 |
 | `read_user_identity` | `GetUserIdentity` | 否 | 否 | 这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。 |
+| `receive_attachments` | — | **是** | 否 | 本人附在某一轮所回答的消息上的图片，交给本插件中声明了 `wants_attachments` 的工具（`PluginCallToolRequest.attachments`）。 |
 
 *Gates（限制的调用）*是指没有这项权限时守护进程会拒绝的那个 host
 RPC，来自 [`spec/hooks.yaml`](../../../spec/hooks.yaml)；一致性规则
 R6 会把这一列和守护进程自己的 `HOST_RPC_PERMISSIONS`（也就是
 `require_permission` 所读取的表）进行核对。空单元格代表一个不限制任何
-RPC 的**界面层(surface)**权限：`dom_access` 决定一个 UI 贡献如何被
-渲染，`client` 是一道能力上限。
+RPC 的权限：`dom_access` 决定一个 UI 贡献如何被渲染，`client` 是一道能力
+上限，`receive_attachments` 决定守护进程会向工具发送什么
+（`PluginCallToolRequest.attachments`）。
 
 *Refused to a local import（在本地导入时被拒绝）*是对用户手动导入
 （而不是从商店安装）的 `.astraplugin` 文件所施加的上限：这些 id 会被
@@ -249,6 +251,8 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 **`speak`。** `PluginHostService.Speak` / `StopSpeaking`——用 Astra 的声音把插件自己的话说出来。**高风险：**这些话会被当作 Astra 的话听到。在 Tier 2 也不会被拒绝：播报是插件很常见的需求，勾选框就是那个决定。
 
 **`read_user_identity`。** `PluginHostService.GetUserIdentity`——这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。不属于高风险，在 Tier 2 也不会被拒绝：它是机器序列号的诚实替代方案，把它定为高风险只会把按人限制使用的插件推回序列号。
+
+**`receive_attachments`。** 本人附在某一轮所回答的消息上的图片，交给本插件中声明了 `wants_attachments` 的工具（`PluginCallToolRequest.attachments`）。它不是 host RPC：图片由守护进程发送，而且只在由对话引起的调用中发送。**高风险：** 本人的照片会到达第三方代码。在第 2 层级不会被拒绝：和 `speak` 一样，勾选框就是决定。
 
 ## `[config]`
 

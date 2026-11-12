@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra main `d6fc58808`. Between `sdk-v0.7.4` and this release the protocol gained 66 fields on
-31 messages that already existed, 30 new messages and 9 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra `4b5d3081f` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
+33 messages that already existed, 30 new messages and 9 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -84,6 +84,28 @@ nothing was removed, retyped or changed in place.
   pseudonyms, by default) and `spoken()`, and revoking `speak` on it refuses
   `StopSpeaking` too, as the daemon does. `HOST_RPCS` gained `speak`,
   `stop_speaking` and `get_user_identity`.
+- **A tool can receive the pictures the person attached** (Astra `4b5d3081f`;
+  **in no Astra release yet** — the daemon sends them only when built with the
+  `plugin-provider-slots` build feature). A tool declares it with
+  `#[tool(wants_attachments)]` (also `= true` / `= false`) or
+  `ToolDef::new(..).with_attachments(true)` — the new public field
+  `ToolDef::wants_attachments`, sent as `PluginToolDef.wants_attachments` in
+  `ListTools` — and its handler reads `PluginContext::attachments()` →
+  `&[AiImage]` (`mime_type`, `data`, `filename`): the pictures on the new
+  `PluginCallToolRequest.attachments`, empty on every other hook and call.
+  Astra sends them only to a tool that declared the flag, of a plugin granted
+  the new permission **`receive_attachments`** — **high-risk**, its own consent
+  checkbox, not refused to a local import — on a call made while answering a
+  message the person sent in a conversation; only that message's pictures, at
+  most `limits::IMAGE_INPUT_MAX_IMAGES` (4, new in `spec/limits.yaml`) and
+  20 MiB, the newest kept, each under its bare file name. When some were not
+  sent, the model is told, after the result; the plugin just gets fewer. Today
+  Astra's chat composer scales every attached picture to at most 768 px JPEG,
+  keeping the original file name. Testing: `call_tool_with_attachments(name,
+  args, conversation, attachments)` on a started `Harness` (`testing::Running`)
+  and `WireHarness::call_tool_with_attachments(name, args_json, conversation,
+  attachments)`. `astra-plugin-macros` changed with this (the
+  `wants_attachments` key on `#[tool]`), so it ships at this version.
 
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 
@@ -114,6 +136,11 @@ nothing was removed, retyped or changed in place.
   that builds one with a struct literal (`AiModelInfo { id, name }`) no longer
   compiles: add `hints: None`, or use `AiModelInfo::new(id, name)`, which is
   unaffected. Nothing was removed or renamed, and no trait method changed.
+- `ToolDef` gained a public field, `wants_attachments: bool`, for the same
+  reason: a `ToolDef { name, description, parameters_json }` literal no longer
+  compiles. Add `wants_attachments: false`, or use `ToolDef::new(name,
+  description).with_schema(..)`, which `#[tool]` expands to and which is
+  unaffected.
 
 ### Un-deprecated
 

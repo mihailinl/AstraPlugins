@@ -557,6 +557,12 @@ pub struct PluginContext {
     /// `Arc` so that cloning a context — which every forwarded hook does — stays
     /// a refcount bump rather than a string copy.
     invocation: Option<Arc<Invocation>>,
+    /// The pictures the person attached, for the one tool call being handled
+    /// ([`attachments`](Self::attachments)). Beside `inner` for the reason
+    /// `invocation` is, and `Arc` for the same reason again: up to 20 MiB must
+    /// not be copied by every clone. `None` is "none", so a context with no
+    /// pictures costs nothing.
+    attachments: Option<Arc<[crate::AiImage]>>,
 }
 
 struct Inner {
@@ -606,6 +612,7 @@ impl PluginContext {
             // A context built at startup belongs to no call. The runner scopes
             // a per-invocation clone for the two hooks that have one.
             invocation: None,
+            attachments: None,
             inner: Arc::new(Inner {
                 // Relaxed: the only requirement is that no two contexts get the
                 // same number, which `fetch_add` gives on its own. Nothing is
@@ -694,6 +701,7 @@ impl PluginContext {
                     cause,
                 }),
                 invocation: self.invocation.clone(),
+                attachments: self.attachments.clone(),
             },
             None => self.clone(),
         }
@@ -734,6 +742,46 @@ impl PluginContext {
     /// ```
     pub fn invocation(&self) -> Option<&Invocation> {
         self.invocation.as_deref()
+    }
+
+    /// This context, carrying the pictures handed to one tool call.
+    ///
+    /// Applied by the runner to the `CallTool` arm only, once it has the
+    /// message — the pictures are a field in the BODY, like the invocation. An
+    /// empty list clears them, so no arm can inherit another call's pictures
+    /// from the context it was cloned from.
+    pub(crate) fn with_attachments(mut self, attachments: Vec<crate::AiImage>) -> Self {
+        self.attachments = (!attachments.is_empty()).then(|| Arc::from(attachments));
+        self
+    }
+
+    /// The pictures the person attached to the message THIS tool call answers,
+    /// in the order attached — [`AiImage`](crate::AiImage)s: `mime_type`,
+    /// `data` (the bytes, never re-encoded) and `filename` (the bare name).
+    ///
+    /// Empty everywhere else: outside a tool call, for a tool that did not
+    /// declare `wants_attachments` on its [`ToolDef`](crate::ToolDef) (or
+    /// `#[tool(wants_attachments)]`), and whenever Astra sent none. Astra
+    /// sends them only to a tool that declared it, of a plugin granted the
+    /// `receive_attachments` permission, on a call made while answering a
+    /// message the person sent in a conversation, and only when built with the
+    /// `plugin-provider-slots` build feature — which no release has yet. At most
+    /// [`IMAGE_INPUT_MAX_IMAGES`](crate::limits::IMAGE_INPUT_MAX_IMAGES) (4)
+    /// pictures and 20 MiB, the newest kept; when some were not sent, the model
+    /// is told so after your result.
+    ///
+    /// ```ignore
+    /// /// Describe the picture the person attached.
+    /// #[tool(wants_attachments)]
+    /// async fn describe_photo(&self, ctx: &PluginContext) -> Result<String, ToolError> {
+    ///     let Some(photo) = ctx.attachments().first() else {
+    ///         return Ok("No picture was attached.".into());
+    ///     };
+    ///     Ok(format!("{}: {} bytes of {}", photo.filename, photo.data.len(), photo.mime_type))
+    /// }
+    /// ```
+    pub fn attachments(&self) -> &[crate::AiImage] {
+        self.attachments.as_deref().unwrap_or(&[])
     }
 
     /// This context's process-unique number. See [`Inner::id`].

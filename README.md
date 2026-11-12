@@ -56,14 +56,16 @@ which host RPCs your plugin is allowed to call — is `[permissions]`, and it is
 **default-deny**. Of the fourteen host RPCs, four are always allowed (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and ten are gated on a
 consented permission; two more permissions (`dom_access`, `client`) gate a
-surface rather than a call. The table lives in the daemon at
+surface rather than a call, and one (`receive_attachments`) gates what the
+daemon sends a tool. The table lives in the daemon at
 `astra-daemon/src/plugins/host_service.rs` (`HOST_RPC_PERMISSIONS`) and a test
 there fails if a new host RPC ships ungated.
 
-Eleven permission ids, each with a `reason` you write and the user reads on the
+Twelve permission ids, each with a `reason` you write and the user reads on the
 install consent sheet: `fire_trigger`, `subscribe_events`, `set_variable`,
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`, `read_ai_settings`, `speak`, `read_user_identity`.
+`client`, `read_ai_settings`, `speak`, `read_user_identity`,
+`receive_attachments`.
 
 ### What a plugin is **not**
 

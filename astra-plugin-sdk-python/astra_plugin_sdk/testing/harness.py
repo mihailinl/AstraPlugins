@@ -41,7 +41,7 @@ from astra_plugin_sdk import limits
 from astra_plugin_sdk.plugin import Plugin, _CapabilityServicer
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.testing.recording_host import RecordingHost
-from astra_plugin_sdk.types import AudioChunk, SttOptions, WebSearchResponse
+from astra_plugin_sdk.types import AiImage, AudioChunk, SttOptions, WebSearchResponse
 
 __all__ = ["Harness", "Result", "SttEvent", "HarnessError", "FakeContext"]
 
@@ -67,6 +67,11 @@ def _invocation_kwargs(conversation_id: str | None | _Unset) -> dict[str, Any]:
     if isinstance(conversation_id, _Unset):
         return {}
     return {"invocation": plugin_pb2.PluginInvocation(conversation_id=conversation_id or "")}
+
+
+def _image_proto(image: AiImage | Any) -> Any:
+    """One picture for a request: an :class:`AiImage`, or a `PluginImage` as is."""
+    return image.to_proto() if isinstance(image, AiImage) else image
 
 
 class _Unset:
@@ -403,7 +408,12 @@ class Harness:
     # ── calls ──
 
     def call_tool(
-        self, name: str, /, _conversation_id: str | None | _Unset = _UNSET, **arguments: Any
+        self,
+        name: str,
+        /,
+        _conversation_id: str | None | _Unset = _UNSET,
+        _attachments: Iterable[AiImage] | None = None,
+        **arguments: Any,
     ) -> Result:
         """Call a tool the way the daemon does: by name, with JSON arguments.
 
@@ -413,6 +423,13 @@ class Harness:
         `TypeError: got multiple values for argument 'name'` and there is no
         spelling of the call that works. Same for `action_type` and `method`
         below.
+
+        `_attachments` sends pictures on `PluginCallToolRequest.attachments`,
+        so `current_attachments()` answers inside the handler. The harness sends
+        them whatever the tool declared — deciding who receives them is the
+        daemon's part — and a real call carries them with a conversation, so
+        pass `_conversation_id` too. Underscored, like `_conversation_id`, so a
+        tool parameter called `attachments` stays callable.
         """
         ctx = FakeContext()
         response = self.run(
@@ -420,6 +437,7 @@ class Harness:
                 plugin_pb2.PluginCallToolRequest(
                     tool_name=name,
                     arguments_json=json.dumps(arguments),
+                    attachments=[_image_proto(i) for i in _attachments or ()],
                     **_invocation_kwargs(_conversation_id),
                 ),
                 ctx,

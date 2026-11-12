@@ -218,6 +218,11 @@ checkout before it was written down.
   `plugin-provider-slots`; a model that says `acceptsImages` is sent up to
   20 MiB of pictures, which this SDK's capability server accepts (it receives
   up to 64 MiB).
+- A tool with `wantsAttachments: true` reads the pictures the person attached
+  as `ctx.attachments` — but no Astra release sends them yet: only a daemon
+  built with `plugin-provider-slots` does, and only to a plugin granted the
+  high-risk `receive_attachments` permission. Everywhere else the array is
+  empty.
 
 Full history, including everything breaking in 0.5.0:
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -21,7 +21,7 @@ how `dom_access` came to be a capability a plugin granted itself by declaring it
 
 ## 1. The vocabulary
 
-Eleven ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
+Twelve ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, pinned to the enum by test). The registry validates a
 listing's ids against this list and Astra's localised label table is keyed by it,
 so an id added in one place and not the others renders as a blank row.
@@ -39,15 +39,17 @@ so an id added in one place and not the others renders as a blank row.
 | `read_ai_settings` | `GetAiSettings` | read the chat's provider, model and endpoint — never a key, never another role, never the user's saved endpoints | |
 | `speak` | `Speak`, `StopSpeaking` | say the plugin's own words aloud in Astra's voice, and stop them; `Speak` also needs an account that opens Astra | ● |
 | `read_user_identity` | `GetUserIdentity` | read pseudonyms for this installation and the signed-in account, made for the calling plugin alone — never the account's own id, a name, an email or a hardware serial | |
+| `receive_attachments` | *no RPC* — a **delivery** | be handed, in a tool that declared `wants_attachments`, the pictures the person attached to the message a call answers (`PluginCallToolRequest.attachments`) | ● |
 
-**The six marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
+**The seven marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
 own consent checkbox. The plan's §4.3 spells four checkboxes and omits
 `push_to_ui`; §5.6 lists five. The implementation takes the **union**, because
 the disagreement is between a UI paragraph and the security section, and a
 checkbox too many costs a click while one too few costs the property. `speak`
 joined them on 2026-11-12: the plugin's words are heard as Astra's. It is not
 refused to a Tier-2 import (§5) — an announcement is an ordinary thing for a
-plugin to want, and the checkbox is the decision.
+plugin to want, and the checkbox is the decision. `receive_attachments` joined
+them the same day, on the same terms: a person's photos reach third-party code.
 
 `speak` is the one id that gates two RPCs: stopping your own speech is part of
 speaking. `read_ai_settings` and `read_user_identity` are deliberately neither
@@ -58,6 +60,16 @@ honest path above the dishonest one pushes plugins the wrong way.
 **`dom_access` and `client` gate no RPC**, which is exactly why they need a
 second enforcement point: they are enforced where the *surface* is handed out
 (§4.2), not where a call is answered.
+
+**`receive_attachments` gates no RPC either**, in the other direction: it is
+not something a plugin calls but something the daemon *sends*. It is enforced
+where `CallTool` is built (§4.2), and only a daemon built with the
+`plugin-provider-slots` build feature sends anything — no release yet. The
+pictures go only to a tool whose `PluginToolDef.wants_attachments` is set, only
+on a call made while answering a message the person sent in a conversation, and
+only those of that message: at most 4 (`image_input_max_images`, `spec/limits.yaml`)
+and 20 MiB, the newest kept. When some were not sent, the model is told so
+after the tool's result; the plugin is told nothing.
 
 ### 1.1 Permission arguments
 
@@ -257,7 +269,9 @@ reasoning.
 `ceiling_admits`
 asks the second wherever a *surface* is handed out — `PluginStatusMsg`, the
 UI-contributions response, the active-themes response — so the renderer never
-receives a value it could honour. A plugin missing from the grants map is
+receives a value it could honour. `CallTool` asks both before it carries a
+single picture: the ceiling for `receive_attachments` first, and the grant once
+there are pictures to hand. A plugin missing from the grants map is
 refused: "resolved nothing about it" is not a reason to serve it the
 highest-risk surface in the system.
 
@@ -283,9 +297,9 @@ the index says about its digest. Do not tell an author that publishing will
 retroactively lift the ceiling on a file they mailed someone.
 
 The Tier-2 refusal list is `TIER2_REFUSED_PERMISSIONS` — deliberately **not** the
-same list as `HIGH_RISK_PERMISSIONS`: `push_to_ui` and `speak` are worth a
-checkbox and are not worth refusing a file the user chose to import. The four
-are quoted from §5.5, not inferred.
+same list as `HIGH_RISK_PERMISSIONS`: `push_to_ui`, `speak` and
+`receive_attachments` are worth a checkbox and are not worth refusing a file the
+user chose to import. The four are quoted from §5.5, not inferred.
 
 **Tier 3 is not Tier 2 with a nicer badge.** The split is by *intent*, not by
 verification status. A user who pointed a file dialog at a directory on their own

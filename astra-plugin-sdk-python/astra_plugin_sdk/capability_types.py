@@ -147,12 +147,20 @@ class ToolDef(_CapabilityType):
     #: conformance check (§5.7) asserts it, and a model given a non-object root
     #: produces arguments no plugin can parse.
     parameters_json: str = "{}"
+    #: This tool wants the pictures the person attached to the message a call
+    #: answers; the handler reads them with
+    #: :func:`astra_plugin_sdk.current_attachments`. Honoured only for a plugin
+    #: granted the ``receive_attachments`` permission, and only by an Astra
+    #: built with the ``plugin-provider-slots`` build feature (in no release
+    #: yet); ignored otherwise.
+    wants_attachments: bool = False
 
     def to_proto(self) -> Any:
         return plugin_pb2.PluginToolDef(
             name=self.name,
             description=self.description,
             parameters_json=self.parameters_json,
+            wants_attachments=bool(self.wants_attachments),
         )
 
     @classmethod
@@ -161,6 +169,8 @@ class ToolDef(_CapabilityType):
             name=msg.name,
             description=msg.description,
             parameters_json=msg.parameters_json,
+            # getattr: a stub older than the field degrades to "does not ask".
+            wants_attachments=bool(getattr(msg, "wants_attachments", False)),
         )
 
 

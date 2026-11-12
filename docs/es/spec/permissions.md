@@ -25,7 +25,7 @@ plugin se concedía a sí mismo con solo declararla.
 
 ## 1. El vocabulario
 
-Once ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
+Doce ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, anclado al enum mediante una prueba). El registro
 valida los ids de un listado contra esta lista, y la tabla de etiquetas
 localizadas de Astra está indexada por ella, así que un id añadido en
@@ -44,8 +44,9 @@ un sitio y no en los otros se renderiza como una fila en blanco.
 | `read_ai_settings` | `GetAiSettings` | leer el proveedor, el modelo y el endpoint del chat — nunca una clave, nunca otro rol, nunca los endpoints guardados del usuario | |
 | `speak` | `Speak`, `StopSpeaking` | decir en voz alta las propias palabras del plugin con la voz de Astra, y detenerlas; `Speak` además necesita una cuenta que dé acceso a Astra | ● |
 | `read_user_identity` | `GetUserIdentity` | leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para el plugin que llama — nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware | |
+| `receive_attachments` | *ningún RPC* — una **entrega** | recibir, en una herramienta que declaró `wants_attachments`, las imágenes que la persona adjuntó al mensaje que responde una llamada (`PluginCallToolRequest.attachments`) | ● |
 
-**Los seis marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
+**Los siete marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
 y cada uno recibe su propia casilla de consentimiento. El §4.3 del plan
 detalla cuatro casillas y omite `push_to_ui`; el §5.6 lista cinco. La
 implementación toma la **unión**, porque el desacuerdo es entre un
@@ -54,7 +55,8 @@ clic mientras que una de menos cuesta la propiedad.
 `speak` se unió a ellos el 2026-11-12: las palabras del plugin se oyen como
 si fueran de Astra. No se rechaza a una importación de nivel 2 (§5) — un
 aviso es algo corriente que un plugin puede querer, y la casilla es la
-decisión.
+decisión. `receive_attachments` se unió el mismo día, en los mismos términos:
+las fotos de una persona llegan a código de terceros.
 
 `speak` es el único id que bloquea dos RPC: detener tu propia voz forma
 parte de hablar. `read_ai_settings` y `read_user_identity` no son, a
@@ -66,6 +68,17 @@ que el deshonesto empuja a los plugins en la dirección equivocada.
 **`dom_access` y `client` no bloquean ningún RPC**, precisamente por
 eso necesitan un segundo punto de aplicación: se aplican donde se
 entrega la *superficie* (§4.2), no donde se responde una llamada.
+
+**`receive_attachments` tampoco bloquea ningún RPC**, en la otra dirección:
+no es algo que un plugin llame sino algo que el daemon *envía*. Se aplica
+donde se construye `CallTool`, y solo un daemon compilado con la build feature
+`plugin-provider-slots` envía algo — ninguna versión publicada todavía. Las
+imágenes van solo a una herramienta cuyo `PluginToolDef.wants_attachments`
+está activo, solo en una llamada hecha al responder un mensaje que la persona
+envió en una conversación, y solo las de ese mensaje: como máximo 4
+(`image_input_max_images`, `spec/limits.yaml`) y 20 MiB, se conservan las más
+recientes. Cuando algunas no se enviaron, se le dice al modelo después del
+resultado de la herramienta; al plugin no se le dice nada.
 
 ### 1.1 Argumentos de permiso
 
@@ -315,7 +328,7 @@ archivo que le envió a alguien por correo.
 
 La lista de rechazo del nivel 2 es `TIER2_REFUSED_PERMISSIONS` —
 deliberadamente **no** la misma lista que `HIGH_RISK_PERMISSIONS`:
-`push_to_ui` y `speak` valen una casilla y no vale la pena rechazar un
+`push_to_ui`, `speak` y `receive_attachments` valen una casilla y no vale la pena rechazar un
 archivo que el usuario eligió importar. Los cuatro están citados del §5.5, no
 inferidos.
 

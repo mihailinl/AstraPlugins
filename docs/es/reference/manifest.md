@@ -221,14 +221,16 @@ reconocida discreparía con las otras dos sobre qué se firmó.
 | `read_ai_settings` | `GetAiSettings` | no | no | Lee el proveedor, el modelo y el endpoint del chat del usuario (nunca una clave). |
 | `speak` | `Speak`, `StopSpeaking` | **sí** | no | Dice en voz alta las propias palabras del plugin con la voz de Astra. |
 | `read_user_identity` | `GetUserIdentity` | no | no | Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). |
+| `receive_attachments` | — | **sí** | no | Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). |
 
 *Bloquea* es el RPC del host que el daemon rechaza sin el permiso, de
 [`spec/hooks.yaml`](../../../spec/hooks.yaml); la regla de paridad R6
 comprueba esa columna contra el propio `HOST_RPC_PERMISSIONS` del
 daemon, la tabla que lee `require_permission`. Una celda vacía es un
-permiso de **superficie** que no bloquea ningún RPC: `dom_access`
-decide cómo se renderiza una contribución de UI, y `client` es un
-techo de capability.
+permiso que no bloquea ningún RPC: `dom_access` decide cómo se renderiza
+una contribución de UI, `client` es un techo de capability, y
+`receive_attachments` decide lo que el daemon envía a una herramienta
+(`PluginCallToolRequest.attachments`).
 
 *Rechazado en importación local* es el techo sobre un archivo
 `.astraplugin` que el usuario importó a mano en lugar de instalarlo
@@ -301,6 +303,8 @@ chat, su propia sesión). **Alto riesgo.**
 **`speak`.** `PluginHostService.Speak` / `StopSpeaking` — dice en voz alta las propias palabras del plugin con la voz de Astra. **Alto riesgo:** se oyen como si fueran de Astra. No se rechaza en el Tier 2: un aviso es algo corriente que un plugin puede querer, y la casilla es la decisión.
 
 **`read_user_identity`.** `PluginHostService.GetUserIdentity` — seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). No es de alto riesgo y no se rechaza en el Tier 2: es la alternativa honesta a un número de serie de la máquina, y ponerle un precio alto empujaría de vuelta a uno a un plugin que limita el uso por persona.
+
+**`receive_attachments`.** Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). No es un RPC del host: el daemon las envía, y solo en una llamada que causó una conversación. **Alto riesgo:** las fotos de una persona llegan a código de terceros. No se rechaza en el nivel 2: la casilla es la decisión, como con `speak`.
 
 ## `[config]`
 

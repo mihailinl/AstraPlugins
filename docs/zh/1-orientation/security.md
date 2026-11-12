@@ -137,8 +137,8 @@ ZIP 内的这对签名是一个正在被淘汰的格式特性；这个命令以�
 `plugin.toml` 来扩大自己的权限，直到拥有整个权限词汇表。这也是为什么
 开发者模式是一个开发工具，而不是一条安装途径的又一个原因。
 
-有六种权限被列为高风险，各自都有独立的同意勾选框：`send_chat_message`、
-`push_to_ui`、`set_theme_contribution`、`dom_access`、`client`、`speak`。
+有七种权限被列为高风险，各自都有独立的同意勾选框：`send_chat_message`、
+`push_to_ui`、`set_theme_contribution`、`dom_access`、`client`、`speak`、`receive_attachments`。
 `dom_access` 还会额外出现第二个界面。更多细节，包括如何写一段值得
 让人读下去的 `reason`：见
 [权限](../3-reference/permissions.md)。

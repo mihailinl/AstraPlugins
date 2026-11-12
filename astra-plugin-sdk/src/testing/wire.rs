@@ -786,7 +786,8 @@ impl WireHarness {
         tool_name: &str,
         arguments_json: &str,
     ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
-        self.call_tool_inner(tool_name, arguments_json, None).await
+        self.call_tool_inner(tool_name, arguments_json, None, Vec::new())
+            .await
     }
 
     /// `CallTool` as the daemon sends it when a conversation's turn made the
@@ -808,6 +809,32 @@ impl WireHarness {
             Some(proto::PluginInvocation {
                 conversation_id: conversation.unwrap_or_default().to_string(),
             }),
+            Vec::new(),
+        )
+        .await
+    }
+
+    /// `CallTool` as the daemon sends it to a tool that declared
+    /// `wants_attachments`: from a conversation, with the pictures the person
+    /// attached on `PluginCallToolRequest.attachments`, protobuf-encoded.
+    ///
+    /// This sends the pictures whatever the tool declared; Astra itself sends
+    /// them only to a tool that asked, of a plugin granted
+    /// `receive_attachments`, on a call answering the person.
+    pub async fn call_tool_with_attachments(
+        &self,
+        tool_name: &str,
+        arguments_json: &str,
+        conversation: Option<&str>,
+        attachments: Vec<proto::PluginImage>,
+    ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
+        self.call_tool_inner(
+            tool_name,
+            arguments_json,
+            Some(proto::PluginInvocation {
+                conversation_id: conversation.unwrap_or_default().to_string(),
+            }),
+            attachments,
         )
         .await
     }
@@ -817,6 +844,7 @@ impl WireHarness {
         tool_name: &str,
         arguments_json: &str,
         invocation: Option<proto::PluginInvocation>,
+        attachments: Vec<proto::PluginImage>,
     ) -> Result<proto::PluginCallToolResponse, tonic::Status> {
         let resp = self
             .client()
@@ -824,6 +852,7 @@ impl WireHarness {
                 tool_name: tool_name.to_string(),
                 arguments_json: arguments_json.to_string(),
                 invocation,
+                attachments,
             }))
             .await?;
         Ok(resp.into_inner())

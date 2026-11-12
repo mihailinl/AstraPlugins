@@ -507,12 +507,38 @@ class WireHarness:
             self.stub().ListTools(plugin_pb2.Empty(), metadata=self.metadata).tools
         )
 
-    def call_tool(self, name: str, /, **arguments: Any) -> plugin_pb2.PluginCallToolResponse:
-        # Positional-only, for the reason spelled out on `Harness.call_tool`: a
-        # tool with a parameter called `name` would otherwise be uncallable.
+    def call_tool(
+        self,
+        name: str,
+        /,
+        _conversation_id: str | None = None,
+        _attachments: Iterable[Any] | None = None,
+        **arguments: Any,
+    ) -> plugin_pb2.PluginCallToolResponse:
+        """`CallTool` over the wire.
+
+        Positional-only name, for the reason spelled out on
+        `Harness.call_tool`: a tool with a parameter called `name` would
+        otherwise be uncallable. `_conversation_id` sends an invocation naming
+        that conversation (omitted: no invocation message at all), and
+        `_attachments` — `AiImage`s or `PluginImage`s — sends pictures on
+        `PluginCallToolRequest.attachments`, protobuf-encoded as a daemon sends
+        them. Astra itself sends pictures only to a tool that declared
+        `wants_attachments`, with a conversation; this sends what it is given.
+        """
+        invocation = (
+            {}
+            if _conversation_id is None
+            else {"invocation": plugin_pb2.PluginInvocation(conversation_id=_conversation_id)}
+        )
         return self.stub().CallTool(
             plugin_pb2.PluginCallToolRequest(
-                tool_name=name, arguments_json=json.dumps(arguments)
+                tool_name=name,
+                arguments_json=json.dumps(arguments),
+                attachments=[
+                    i.to_proto() if hasattr(i, "to_proto") else i for i in _attachments or ()
+                ],
+                **invocation,
             ),
             metadata=self.metadata,
         )

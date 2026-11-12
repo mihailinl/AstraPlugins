@@ -157,9 +157,9 @@ ZIP 内のペアは廃止予定のフォーマット機能です。このコマ�
 を広げることができます。これが、開発者モードが開発者向けツールであり
 インストール経路ではない、もう 1 つの理由です。
 
-6 つのパーミッションは高リスクであり、それぞれが独自の同意チェックボックス
+7 つのパーミッションは高リスクであり、それぞれが独自の同意チェックボックス
 を持ちます: `send_chat_message`、`push_to_ui`、`set_theme_contribution`、
-`dom_access`、`client`、`speak`。`dom_access` にはさらにもう 1 画面あります。
+`dom_access`、`client`、`speak`、`receive_attachments`。`dom_access` にはさらにもう 1 画面あります。
 読む価値のある `reason` の書き方を含む詳細:
 [パーミッション](../3-reference/permissions.md)。
 

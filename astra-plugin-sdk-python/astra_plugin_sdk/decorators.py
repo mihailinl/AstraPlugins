@@ -154,24 +154,39 @@ def _build_json_schema(fn: Any) -> str:
 # Decorators
 # ---------------------------------------------------------------------------
 
-def tool(description: str):
+def tool(description: str, *, wants_attachments: bool = False):
     """Mark a method as a plugin tool.
 
     The decorated method's type hints are used to auto-generate JSON Schema
     for the tool parameters.  The return value is automatically wrapped in
     ``{"success": True, "result": ...}`` by the SDK.
 
+    ``wants_attachments=True`` asks Astra for the pictures the person attached
+    to the message a call answers; the method reads them with
+    :func:`astra_plugin_sdk.current_attachments`. Astra sends them only to a
+    plugin granted the ``receive_attachments`` permission, on a call made while
+    answering a message the person sent, and only when built with the
+    ``plugin-provider-slots`` build feature (in no release yet).
+
     Example::
 
         @tool("Count words in text")
         async def word_count(self, text: str):
             return {"words": len(text.split())}
+
+        @tool("Describe the picture the person attached", wants_attachments=True)
+        async def describe_photo(self):
+            photos = current_attachments()
+            if not photos:
+                return "No picture was attached."
+            return f"{photos[0].filename}: {len(photos[0].data)} bytes"
     """
     def decorator(fn):
         fn._astra_tool_meta = ToolDef(
             name=fn.__name__,
             description=description,
             parameters_json=_build_json_schema(fn),
+            wants_attachments=bool(wants_attachments),
         )
         return fn
     return decorator

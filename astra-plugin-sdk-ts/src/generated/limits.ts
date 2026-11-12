@@ -15,7 +15,7 @@
  */
 
 /** SHA-256 of the `spec/limits.yaml` these constants were generated from. */
-export const SPEC_SHA256 = "40f2f3873139c095b37d80d6b1c63b86c7fcd4d00bcfbf334adaef0573eae35f";
+export const SPEC_SHA256 = "8816efc4e1f664b13ce160b4921930d9b41fc43a7c435560d47e300d2056d2b3";
 
 /**
  * Capacity of the audio channel that carries streaming-STT chunks from the
@@ -173,3 +173,12 @@ export const PLUGIN_IMAGE_REQUEST_MAX_BYTES = 20971520;
  * backlog never holds the person's own reply past the speech queue's wait limit.
  */
 export const SPEAK_TEXT_MAX_CHARS = 300;
+
+/**
+ * The most pictures one tool call is handed: `generate_image` editing what the
+ * person attached, and a plugin tool that declared `wants_attachments`
+ * (`PluginCallToolRequest.attachments`). The newest are kept, within
+ * `plugin_image_request_max_bytes`, and a picture left out is counted, never
+ * dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
+ */
+export const IMAGE_INPUT_MAX_IMAGES = 4;

@@ -226,14 +226,16 @@ was signiert wurde.
 | `read_ai_settings` | `GetAiSettings` | nein | nein | Liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). |
 | `speak` | `Speak`, `StopSpeaking` | **ja** | nein | Spricht die eigenen Worte des Plugins mit Astras Stimme laut aus. |
 | `read_user_identity` | `GetUserIdentity` | nein | nein | Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). |
+| `receive_attachments` | — | **ja** | nein | Die Bilder, die die Person an die Nachricht angehängt hat, die ein Turn beantwortet, übergeben an die Tools dieses Plugins, die `wants_attachments` deklarieren (`PluginCallToolRequest.attachments`). |
 
 *Sperrt* ist das Host-RPC, das der Daemon ohne die Permission ablehnt,
 aus [`spec/hooks.yaml`](../../../spec/hooks.yaml); Paritätsregel R6
 prüft diese Spalte gegen die eigene `HOST_RPC_PERMISSIONS` des Daemons,
 die Tabelle, die `require_permission` liest. Eine leere Zelle ist eine
-**Surface**-Permission, die kein RPC sperrt: `dom_access` entscheidet,
-wie eine UI-Contribution gerendert wird, und `client` ist eine
-Capability-Obergrenze.
+Permission, die kein RPC sperrt: `dom_access` entscheidet, wie eine
+UI-Contribution gerendert wird, `client` ist eine Capability-Obergrenze, und
+`receive_attachments` entscheidet, was der Daemon einem Tool schickt
+(`PluginCallToolRequest.attachments`).
 
 *Bei lokalem Import verweigert* ist die Obergrenze für eine
 `.astraplugin`-Datei, die der Nutzer von Hand importiert statt aus dem
@@ -305,6 +307,8 @@ eigene Session). **Hohes Risiko.**
 **`speak`.** `PluginHostService.Speak` / `StopSpeaking` — spricht die eigenen Worte des Plugins mit Astras Stimme laut aus. **Hohes Risiko:** Sie werden als Astras Worte gehört. Auf Tier 2 nicht abgelehnt: Eine Ansage ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist die Entscheidung.
 
 **`read_user_identity`.** `PluginHostService.GetUserIdentity` — Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es ist die ehrliche Alternative zu einer Seriennummer des Rechners, und ein hoher Preis würde ein Plugin, das die Nutzung pro Person begrenzt, zu einer solchen zurücktreiben.
+
+**`receive_attachments`.** Die Bilder, die die Person an die Nachricht angehängt hat, die ein Turn beantwortet, übergeben an die Tools dieses Plugins, die `wants_attachments` deklarieren (`PluginCallToolRequest.attachments`). Kein Host-RPC: Der Daemon schickt sie, und nur bei einem Aufruf, den eine Unterhaltung ausgelöst hat. **Hohes Risiko:** Die Fotos einer Person erreichen Code von Dritten. Auf Tier 2 nicht abgelehnt: Die Checkbox ist die Entscheidung, wie bei `speak`.
 
 ## `[config]`
 

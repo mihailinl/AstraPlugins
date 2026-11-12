@@ -32,6 +32,19 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **A new `[permissions]` id, `receive_attachments`**, from the vendored
+  `astra-plugin-manifest` re-synced with Astra `4b5d3081f`: a plugin's tools
+  that declare `wants_attachments` are handed the pictures the person attached
+  to the message a call answers (`PluginCallToolRequest.attachments`). Not a
+  host RPC — the daemon sends them. **High-risk**, its own consent checkbox, not
+  refused to a local import. **In no Astra release yet:** the daemon side is
+  behind the `plugin-provider-slots` build feature. `astra-plugin check` accepts
+  the id instead of warning that this Astra grants nothing for it, and the
+  scaffold offers it as a commented optional line. The plugin protocol follows
+  Astra `4b5d3081f`: `PluginToolDef.wants_attachments = 4` and
+  `PluginCallToolRequest.attachments = 4`; `astra-plugin test` sends no
+  pictures.
+
 - **Two new `[permissions]` ids**, from the vendored `astra-plugin-manifest`
   re-synced with Astra `d6fc58808`: `speak` (`Speak` / `StopSpeaking`
   — the plugin's words in Astra's voice; high-risk, its own consent checkbox,

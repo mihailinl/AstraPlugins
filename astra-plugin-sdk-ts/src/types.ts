@@ -11,6 +11,15 @@ export interface ToolDef {
   name: string;
   description: string;
   parametersJson: string;
+  /**
+   * This tool wants the pictures the person attached to the message a call
+   * answers; they arrive on `ctx.attachments` (or `currentAttachments()`).
+   * Absent = `false`. Honoured only for a plugin granted the
+   * `receive_attachments` permission, and only by an Astra built with the
+   * `plugin-provider-slots` build feature (in no release yet); ignored
+   * otherwise.
+   */
+  wantsAttachments?: boolean;
 }
 
 /** Result of a tool call. */

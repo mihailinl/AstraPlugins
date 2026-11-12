@@ -114,6 +114,15 @@ capability server receives messages up to `limits.PLUGIN_MAX_MESSAGE_BYTES`
 (64 MiB) since 0.7.4, where gRPC's default is 4 MiB. A class-based plugin
 overrides `aiGetModels()` instead.
 
+**A tool that reads the person's pictures** says `wantsAttachments: true` in
+`tool({...})` (or on a class-based plugin's `ToolDef`), and its handler reads
+`ctx.attachments` — the pictures attached to the message being answered, as
+`AiImage`s; `currentAttachments()` reads the same where no context is to hand.
+It needs the high-risk `receive_attachments` permission, and no Astra release
+sends pictures yet: [Permissions](../3-reference/permissions.md#receiving-the-pictures-the-person-attached)
+has the conditions. A test sends them with `callTool(name, args, {
+conversationId, attachments })`, on the harness and on `MockDaemon` alike.
+
 `plugin()` returns `{ run(), instance, definition }`: `run()` is the last line
 of your entry point, `instance` is what the test harness drives, and
 `definition` is there for tooling that wants to read your schemas.

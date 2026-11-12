@@ -37,7 +37,7 @@
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@
 `GetDaemonInfo` 是免费的，这是一个决定，不是疏漏：一个什么都保护不了的
 勾选框，只会教会用户去随手勾选各种框。
 
-## 十一个 id
+## 十二个 id
 
 | Id | 限制哪个调用 | 有独立的勾选框 | 在本地导入时被拒绝 | 它能让你做什么 |
 |---|---|---|---|---|
@@ -71,12 +71,14 @@
 | `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点——绝不包含密钥 |
 | `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音说出你自己的话，并能让它停下 |
 | `read_user_identity` | `GetUserIdentity` | 否 | 否 | 读取这次安装和已登录账号的假名 id，专为你的插件生成 |
+| `receive_attachments` | —（一种投递） | **是** | 否 | 在请求它的工具里收到本人附上的图片 |
 
 `dom_access` 和 `client` 不限制任何 RPC，这正是关键所在：它们是
 **界面层(surface)**。`dom_access` 决定一个 UI 贡献是被渲染为 Astra
 窗口中的一段脚本，还是一个沙箱化的 iframe；`client` 是插件能成为什么的
 一道上限。它们是在界面层被分发的那个环节被拒绝的，而不是在某个调用关卡
-上。
+上。`receive_attachments` 同样不限制任何 RPC，只是方向相反：没有什么需要你
+去调用，它决定的是 Astra 会向你的某个工具*发送*什么——见[下文](#接收本人附上的图片)。
 
 `dom_access` 还会额外触发第二个同意界面。如果你正打算使用它，请先阅读
 [安全模型](../1-orientation/security.md)，并确认在自己面板里用
@@ -164,6 +166,34 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 两个 id 都是**专为你的插件生成的假名**：另一个插件对同一个人、同一台机器读到的是不同的 id，因此两个插件无法凭它们把各自的记录关联起来。这只对诚实使用该 API 的插件成立：插件的原生代码可以读取 Astra 的文件。它们都不是秘密，也绝不会是账号本身的 id、本人的姓名或电子邮件，或硬件序列号。它既不是高风险，也不会在本地导入时被拒绝：这是机器序列号的诚实替代方案，把它定得太高只会把插件推回序列号。早于该调用的 Astra 会返回 `UNIMPLEMENTED`。
 
 **`auth_changed` 也随之收窄**（Astra，2026-11-12）。被授予 `auth_changed` 事件的插件，过去会收到账号本身的 id、本人的显示名称和其套餐。现在它收到的是 `authenticated`、`authorized`、`timestamp` 和 `account_id`——与 `GetUserIdentity` 返回的是同一个假名；除非你持有 `read_user_identity` 且该账号有权使用 Astra，否则为 `""`。`user_id` 和 `user_name` 仍然会到达，值为 `null`，`subscription_tier` 为 `""`，这样为旧格式编写的解析器仍能继续解析；它们都不再携带任何值。
+
+## 接收本人附上的图片
+
+处理图片的工具——读一张收据、认出一种植物、描述一张照片——可以请求本人附在 Astra 正在回答的那条消息上的图片。**目前还没有任何 Astra 发行版会这样做：** 守护进程只有在以 `plugin-provider-slots` 构建特性构建时才会发送图片。其他任何 Astra 都会忽略这一请求，你的工具收不到图片。
+
+需要两件事。在 `[permissions]` 中声明 `receive_attachments`，并标记每个需要图片的工具；然后在它的处理函数里读取图片：
+
+| SDK | 标记工具 | 读取图片 |
+|---|---|---|
+| Rust | `#[tool(wants_attachments)]`，或 `ToolDef::new(…).with_attachments(true)` | `ctx.attachments()` |
+| Python | `@tool("…", wants_attachments=True)`，或 `ToolDef(…, wants_attachments=True)` | `current_attachments()` |
+| TypeScript | 在 `tool({…})` 中或在 `ToolDef` 上写 `wantsAttachments: true` | `ctx.attachments`，或 `currentAttachments()` |
+
+每张图片带有 `mime_type`（TypeScript 中为 `mimeType`）、`data`（字节本身）和 `filename`（附上时用的文件名本身，绝不包含文件夹）。没有请求图片的工具读到的是空列表，不带图片的调用也是如此。
+
+只有以下条件全部满足时，Astra 才会把图片交给一次调用：
+
+- 该工具在其 `ListTools` 应答中声明了 `wants_attachments`；
+- 你的插件持有 `receive_attachments`；
+- 这次调用发生在回答本人在某个对话中发送的消息时——调用的 invocation 指明了该对话。报告唤醒、命令的 AI 步骤或子代理的轮次中绝不会交付；当 Astra 因为一条本人尚未批准的 Workshop 命令而扣留该轮次时也不会。
+
+到达的只有附在**那一条消息**上的图片：绝不会有对话中更早的图片，绝不会有工具生成的图片，也绝不会有模型点名的图片。最多 **4** 张（`spec/limits.yaml` 中的 `image_input_max_images`），总计 20 MiB，保留最新的，按附上的顺序排列；无法读取的图片绝不会发送。若有图片没有发送——超出了上限，或你的插件没有该授权——会在你的结果之后告知**模型**；你的工具只是收到的更少，或者一张也收不到。
+
+目前，Astra 的聊天输入框会把每张附上的图片缩放到最多 768 像素，并重新编码为 JPEG，同时保留原始文件名，所以你的工具收到的就是这样的图片。请以 `mime_type` 为准，而不是 `filename` 的扩展名。
+
+一次调用最多可携带 20 MiB 的图片，超过了 gRPC 默认的 4 MiB 接收上限。三个 SDK 的 capability 服务器最多可接收 64 MiB（`plugin_max_message_bytes`）；不借助 SDK 自行实现该协议的插件，必须把自己服务器的接收上限调到 4 MiB 以上。
+
+`receive_attachments` 属于**高风险**权限：本人的照片会到达并非 Astra 的代码，因此它有自己独立的同意勾选框。本地导入时它不会被拒绝——和 `speak` 一样，勾选框就是决定。
 
 ## 编写 reason
 
@@ -266,7 +296,7 @@ mod tests {
 
 ## 从用户的角度看同意机制
 
-权限按风险分组。六种高风险权限各自有独立的勾选框，只要还有一个没被
+权限按风险分组。七种高风险权限各自有独立的勾选框，只要还有一个没被
 勾选，"安装"按钮就保持禁用；`dom_access` 还会有第二个界面。这里刻意
 **没有"输入以确认"**这种设计：那是用于不可逆的破坏性操作的模式，让用户
 习惯于打字敲过去，只会摧毁勾选框本应承载的那个信号。

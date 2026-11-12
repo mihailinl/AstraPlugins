@@ -31,6 +31,7 @@ import type {
   ActionTypeDef,
   AiChunk,
   AiCompleteRequest,
+  AiImage,
   AudioChunk,
   AudioData,
   FieldDef,
@@ -300,11 +301,18 @@ export class Harness {
    * `opts.conversationId` sends the call as a conversation's turn would, so
    * `ctx.invocation` answers inside the handler. Pass `null` for the
    * invocation-that-names-nothing the daemon also sends.
+   *
+   * `opts.attachments` sends pictures on `PluginCallToolRequest.attachments`,
+   * so `ctx.attachments` answers inside the handler. The harness sends them
+   * whatever the tool declared: deciding who receives them is the daemon's
+   * part (the `wantsAttachments` flag, the `receive_attachments` grant, a call
+   * answering the person), so a real call carries them with a
+   * `conversationId` — pass one too.
    */
   async callTool(
     name: string,
     args: Record<string, unknown> | string = {},
-    opts: { conversationId?: string | null } = {}
+    opts: { conversationId?: string | null; attachments?: readonly AiImage[] } = {}
   ): Promise<ToolResult> {
     const argumentsJson = typeof args === "string" ? args : JSON.stringify(args);
     return (await this.unary("CallTool", {
@@ -313,6 +321,7 @@ export class Harness {
       ...(opts.conversationId === undefined
         ? {}
         : { invocation: { conversationId: opts.conversationId ?? "" } }),
+      ...(opts.attachments === undefined ? {} : { attachments: [...opts.attachments] }),
     })) as ToolResult;
   }
 

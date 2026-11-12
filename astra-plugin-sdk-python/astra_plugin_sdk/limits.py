@@ -16,7 +16,7 @@ generated and CI re-runs the generator with `--check`.
 """
 
 #: SHA-256 of the ``spec/limits.yaml`` these constants were generated from.
-SPEC_SHA256 = "40f2f3873139c095b37d80d6b1c63b86c7fcd4d00bcfbf334adaef0573eae35f"
+SPEC_SHA256 = "8816efc4e1f664b13ce160b4921930d9b41fc43a7c435560d47e300d2056d2b3"
 
 #: Capacity of the audio channel that carries streaming-STT chunks from the
 #: daemon's voice pipeline into the plugin process, in chunks.
@@ -145,6 +145,13 @@ PLUGIN_IMAGE_REQUEST_MAX_BYTES = 20_971_520
 #: backlog never holds the person's own reply past the speech queue's wait limit.
 SPEAK_TEXT_MAX_CHARS = 300
 
+#: The most pictures one tool call is handed: `generate_image` editing what the
+#: person attached, and a plugin tool that declared `wants_attachments`
+#: (`PluginCallToolRequest.attachments`). The newest are kept, within
+#: `plugin_image_request_max_bytes`, and a picture left out is counted, never
+#: dropped in silence (`ai::turn_attachments::MAX_IMAGES`).
+IMAGE_INPUT_MAX_IMAGES = 4
+
 __all__ = [
     "SPEC_SHA256",
     "STT_AUDIO_CHANNEL_CAPACITY",
@@ -162,4 +169,5 @@ __all__ = [
     "PLUGIN_MAX_MESSAGE_BYTES",
     "PLUGIN_IMAGE_REQUEST_MAX_BYTES",
     "SPEAK_TEXT_MAX_CHARS",
+    "IMAGE_INPUT_MAX_IMAGES",
 ]

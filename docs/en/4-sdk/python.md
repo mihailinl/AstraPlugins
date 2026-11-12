@@ -100,6 +100,18 @@ are stripped rather than refused — so keep it a plain line drawing. Omit it an
 the step still draws, falling back to your plugin's own icon and then to a
 generic plugin mark.
 
+**A tool that reads the person's pictures** is `@tool("…",
+wants_attachments=True)` (or `ToolDef(..., wants_attachments=True)` from a
+hand-written `list_tools`), and its method reads `current_attachments()` — the
+pictures attached to the message being answered, as `AiImage`s, beside
+`current_invocation()`. It needs the high-risk `receive_attachments`
+permission, and no Astra release sends pictures yet:
+[Permissions](../3-reference/permissions.md#receiving-the-pictures-the-person-attached)
+has the conditions. A test sends them with `h.call_tool(name, "conv-id",
+[AiImage(...)])` — `_attachments=` by keyword — and `WireHarness.call_tool`
+takes the same two keywords (there `_conversation_id=None` sends no invocation
+at all, where `Harness` sends one naming `""`).
+
 Everything else is an override on `Plugin`: `tts_synthesize`, `tts_list_voices`,
 `tts_config_fields`, `stt_transcribe`, `stt_transcribe_stream`,
 `stt_get_languages`, `stt_load` / `stt_unload` / `stt_load_state`,

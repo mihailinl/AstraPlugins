@@ -15,6 +15,7 @@ import { service } from "./proto-loader.js";
 import { addServiceChecked, type HandlerMap } from "./service-contract.js";
 import { causeFromCall, withCause } from "./causality.js";
 import { invocationFromCall, withInvocation } from "./invocation.js";
+import { attachmentsFromCall, withAttachments } from "./attachments.js";
 import { assertNoReservedNames } from "./reserved.js";
 import { capabilityAuthMode, guardHandlers } from "./capability-auth.js";
 import type {
@@ -1059,17 +1060,25 @@ export abstract class Plugin {
         name: t.name,
         description: t.description,
         parametersJson: t.parametersJson,
+        // Always present on the wire: `false` is what an absent flag means, and
+        // a hand-written `listTools` that never heard of the field sends it too.
+        wantsAttachments: t.wantsAttachments === true,
       })),
     };
   }
 
   private async handleCallTool(call: any) {
     const { toolName, argumentsJson } = call.request;
+    // The pictures are a field in the BODY, like the invocation, and belong to
+    // this one call: they enter their own store here, around the handler, and
+    // `ctx.attachments` reads them back. An empty list enters too, so a call
+    // nested inside another can never see the outer call's pictures.
+    const attachments = attachmentsFromCall(call);
     // In-band, never a gRPC error: a failed tool call is data the AI loop has
     // to read. "You have no API key configured" is the model's cue to tell the
     // user what to do, and a transport error hides it from the model entirely.
     try {
-      const result = await this.callTool(toolName, argumentsJson);
+      const result = await withAttachments(attachments, () => this.callTool(toolName, argumentsJson));
       return {
         success: result.success,
         result: result.result,

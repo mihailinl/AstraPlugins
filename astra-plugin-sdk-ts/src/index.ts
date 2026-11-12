@@ -85,6 +85,7 @@ export type {
 export { PluginContextImpl, NoHostError } from "./context.js";
 export { currentInvocation } from "./invocation.js";
 export type { Invocation } from "./invocation.js";
+export { currentAttachments } from "./attachments.js";
 export type { PluginContext, ContextSource } from "./context.js";
 export type {
   Host,
