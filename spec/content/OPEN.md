@@ -13,6 +13,16 @@ rule for choosing was: the reading that refuses, holds or disarms more.** Each
 item names who should confirm it. None blocks building against v1: a later
 answer that loosens a rule is a new contract version, never an edit.
 
+**One dated exception to that last sentence (2026-11-11).** The entry-source
+rulings below (O-23 to O-31) edit v1 in place, and one of them LOOSENS a
+schema: `thumbnail` is no longer required of a command, character, model or
+animset entry (O-27). The reason it is an edit and not `/2`: on that date no
+content kind was open anywhere — no document had ever been signed or served
+under these schemas and no client had shipped a parser for them — so there
+was no v1 reader to protect, and without the rulings no v1 publisher could
+be built at all (five entry members had no source). The rule stands for
+everything after the first content document is served.
+
 ## Alarms for other lanes (a defect, not a choice)
 
 **O-2, O-2b, O-2c — CLOSED by AstraPlugins #123, commit `516ba38`**
@@ -63,3 +73,26 @@ claim of who signed).
 | O-20 | 285–288 | the client refuses installs when "its last verified FETCH of `withdrawn/1` is older than 2 h" | **also when the document's own `issued_at` is older than 26 h.** The note's rule alone is defeated by replay: any still-unexpired document (up to 8 days) re-served by a stale gcore cache (`stale: [error, updating]`, CLAUDE.md "the edge lies to the first reader") or a hostile path verifies on a fresh fetch. Cost: a signer outage of more than a day stops installs and updates of content (never use of what is installed), which the withdrawn-age alarm (§10) already pages on | coordinator, astra-4c |
 | O-21 | 193, 275 | the companion importer's archive rules; the plugin envelope | three refusals the note does not list, each closing a parser differential: **a duplicate JSON member name** anywhere (documents, command artefacts, `astrachar.json`, glTF JSON); **zip entries that do not tile the file** (a gap, an overlap, prepended data) and a directory entry that carries data; and on the client, **a withdrawn `versions` range it cannot parse covers every version** | coordinator (the ingest copy, L1, must add the first two) |
 | O-19 | 203 | "`version_req` must match a listed version" | v1's `version_req` and `versions` grammar is the comparator set `<`, `<=`, `>`, `>=`, `=`, comma-joined, judged by **SemVer §11 precedence, not Cargo `VersionReq`** (common-v1.md §6) — so a pre-release is covered by precedence alone; a caret or tilde range is a later version of this contract | lane L1, astra-4c (a Rust client must not reach for `semver::VersionReq`) |
+
+## Entry members that had no source (ruled 2026-11-11)
+
+The design note lists what an index entry carries and, for nine members, not
+where the value comes from: nothing in a manifest, an artefact or the `begin`
+request held `min_astra`, `credits`, an animset's `clips` and `states`, a
+command's or a part-less character's `licence`, or any thumbnail but a pack's.
+A publisher could therefore not build a single schema-valid entry of four of
+the five kinds. The coordinator ruled on each on 2026-11-11; the rulings are
+recorded here with the readings this contract had to choose to write them
+down. **"confirm" names a choice that was this contract's, not the ruling's.**
+
+| id | member | ruled | written as | confirm |
+|---|---|---|---|---|
+| O-23 | `min_astra` | not authored; derived from the artefact's format through a per-kind table | common-v1.md §3.4 and each `<kind>-index-v1.md`'s last section; one row per format version, all `0.2.8`, the value the goldens already carried. A command's format version is its shape authority's (`portable-command` 1); a bare `.vrm`'s is the VRM spec its `licence.spec` names | — |
+| O-24 | `credits` | `[]` is valid and is the default; a character gets at most one `author` row from `astrachar.json`'s own `credits`; nothing from a VRM meta | common-v1.md §3.2. An `author` that is empty or over 128 characters gives `[]` — published as written or not at all, never trimmed; a `url` that is not `https://` is `null` | — |
+| O-25 | animset `clips`, `states` | from bytes: the count of clip files; the declared state rows, else the clip stems | animsets-index-v1.md §2.1. The note and the ingest named no clip extension, so this contract chose: under `clips/`, `.fbx` `.glb` `.gltf` `.vrma`, plus `.png` `.webp` in a 2D pack. "Declared state rows" is read as `[states.<name>]` sub-tables. Zero clips is `E_CONTENT_FORMAT` at step 10 — an existing code, so lane L2's table does not move. **The golden changed**: `index/animsets/valid.json` said `states: ["idle", "wave"]` over `clips/a.fbx` and `clips/b.fbx` with no state rows, which no rule over those bytes produces; it now says `["a", "b"]` | astra-ce (the extension list and the `[states.<name>]` reading, against the engine's pack reader) |
+| O-26 | `licence` | the ITEM's own: a model's and an animset's one part's facts; a command's and a character's from a licence declared at upload | common-v1.md §3.1.2, ingest-v1.md §1. The `begin` request had no such member (`parts[].licence` is per part, and a character may have none), so `BeginRequest.licence` is specified, required for a command and a character. **Chosen, not ruled:** the item declaration alone does not raise `F_CONTENT_LICENCE_DECLARED`. That flag holds a version so a person confirms a licence claimed over a part's MEDIA; raising it for the item declaration would hold every command and every character for ever, which is a moderation policy nobody ruled. The holding reading is the other one, and this file's own rule prefers it — so this row is the one to overturn if that is wanted. Also chosen: a character's per-part facts stay the service's record and the index `parts` rows keep their three members | coordinator, moderation owner (the hold); lane L1 (the new `begin` member) |
+| O-27 | `thumbnail` | required for packs; a character's is its root `thumb.png` or the member is absent; optional and absent in v1 for the other three; absent, not `null`; a listed thumbnail passed the admission hook as the same bytes | common-v1.md §3.3; the four schemas drop it from `required`. Chosen: a `thumb.png` that is not a PNG, is empty or is over 1 MiB gives an entry with no thumbnail rather than a refused bundle; the path decides, not the manifest's `role` word. The picture stays an `art` part with its own declared licence — ingest-v1.md §5 already said every standalone image is one | astra-ce (that the engine's export always writes the root `thumb.png` it marks `role: "thumbnail"`) |
+| O-28 | model `body_kind: pixel` | unreachable in v1; the enum stays | models-index-v1.md §2 | — |
+| O-29 | pins | the publisher drops a pack or character that pins a version it does not list | common-v1.md §3.5, invariant `pin-unlisted` (reason-codes.yaml), scenarios `pins-*`. Chosen: the dropped dependant gets NO withdrawn row — it left the index, it was not withdrawn — and a `game-integration` member is outside the rule until its index is served | lane L2 (one more token in its table) |
+| O-30 | animset `artefact.media_type` | `application/vnd.astra.animpack+zip` is right | no change here; the ingest records the character type for an animset today and must record this one | lane L1 |
+| O-31 | the publisher's withdrawn rows | which rows a v1 publisher writes | common-v1.md §6.1, the coordinator's paragraph verbatim. **It does not agree with §6.4 as written**: §6.4 has the publisher write `retired` cascade rows (a command whose plugin is withdrawn; a dependant of a `rights` or `retired` member), and the paragraph says this publisher emits no `retired` row. Neither was bent to fit the other | coordinator |

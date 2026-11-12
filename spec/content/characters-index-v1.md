@@ -29,7 +29,10 @@ withdrawn on its own. The base fields (common-v1.md §3), with
 | `parts` | only what the character itself carries: `character` (a 3D accessory), `art`, `audio`. Never `animations` or `command`. May be empty |
 | `content_confirmed` | non-empty whenever `parts` is |
 | `needs` | the bundle's closed `needs` tokens (astra-companion `config/bundle.rs` `Need`: `sprite-sheet`, `sprite-filter` today). A client that does not know a token does not offer the entry (`need-unknown`) |
-| `licence`, `credits` | common-v1.md §3 |
+| `licence` | **the item declaration** (common-v1.md §3.1.2), `BeginRequest.licence`, required at `begin` — for a character with no parts and for one with several. Her parts keep their own facts in the service's record, and she is listed only when every part would pass `licence-allowed` on its own |
+| `credits` | at most ONE row, from `astrachar.json`'s own `credits`: `{name: <author>, role: "author", url: <its url if https, else null>}`; otherwise `[]` (common-v1.md §3.2) |
+| `thumbnail` | the bundle's root `thumb.png`, when present and a PNG of at most 1 MiB; otherwise the member is absent (common-v1.md §3.3). It is also an `art` part of the bundle, like any other standalone image |
+| `min_astra` | derived, §5 |
 
 ## 3. Client rules
 
@@ -47,6 +50,23 @@ withdrawn on its own. The base fields (common-v1.md §3), with
 
 ## 4. Goldens
 
-`testdata/content/index/characters/` — `valid`, `requires-stale-digest` (valid;
+`testdata/content/index/characters/` — `valid`, `no-thumbnail` (the entry a
+v1 publisher emits for `archives/valid/character-aiko.astrachar`: no root
+`thumb.png`, no manifest credits), `thumb-and-credit` (for
+`archives/valid/character-thumb-credits.astrachar`: her `thumb.png` as the
+thumbnail and as an `art` part, one `author` credit, and the item's declared
+`CC0-1.0` beside a part declared `CC-BY-4.0`), `requires-stale-digest` (valid;
 the client refuses it), `requires-no-model`, `requires-two-models`,
 `part-kind-animations`.
+
+## 5. `min_astra`
+
+The publisher derives the entry's `min_astra` from this table and from nothing
+else (common-v1.md §3.4):
+
+| format | format version | lowest Astra release |
+|---|---|---|
+| `astra.character` | 1 | `0.2.8` |
+
+The format and its version are `astrachar.json`'s `format` and
+`format_version` (ingest-v1.md §3 step 8).

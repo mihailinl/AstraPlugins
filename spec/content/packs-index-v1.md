@@ -19,7 +19,8 @@ Withdrawals: [`packs-withdrawn-v1.md`](packs-withdrawn-v1.md).
 
 **A pack is a list of references to items already published.** It carries no
 copies, so it cannot be used to get around the review of each kind. Its upload
-is only its thumbnail.
+is only its thumbnail — so `thumbnail` is REQUIRED here, the one kind where it
+is (common-v1.md §3.3; golden `no-thumbnail` is refused).
 
 | field | note |
 |---|---|
@@ -41,5 +42,5 @@ digest equal (`member-digest-mismatch`). A member the client cannot install
 
 `testdata/content/index/packs/` — `valid` (three members, each pinning a real
 artefact), `member-pack`, `min-astra-present`, `licence-present`, `members-65`,
-`duplicate-member`; the ingest scenarios `pack-member-*` in
+`duplicate-member`, `no-thumbnail`; the ingest scenarios `pack-member-*` in
 `testdata/content/vectors.json`.

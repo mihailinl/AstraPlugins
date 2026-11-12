@@ -1067,6 +1067,148 @@ class GenDotPyIsZlibImplementationFree(unittest.TestCase):
         self.assertTrue(self.FORBIDDEN.search(poisoned2), "the guard regex failed to catch a reintroduced zipfile DEFLATED writer")
 
 
+class EntrySourcesAreReadFromBytes(unittest.TestCase):
+    """common-v1.md §3.1.2-§3.5 and animsets-index-v1.md §2.1: the entry members
+    no author types in. Each mutation is a publisher that takes the member from
+    somewhere other than the artefact's bytes, or a looser reading of the rule."""
+
+    def assertRedOn(self, mutation, *names):
+        RuleMutationsTurnTheRunRed.assertRedOn(self, mutation, *names)
+
+    def test_a_texture_counted_as_a_clip(self):
+        loose = {k: v + (".png", ".webp") for k, v in cg.CLIP_EXTS.items()}
+        self.assertRedOn(Mutation("CLIP_EXTS", loose),
+                         "archives/animset-no-clips", "archives/animset-gltf-percent-space clips and states")
+
+    def test_an_animset_with_nothing_to_play_accepted(self):
+        orig = cg.clip_files
+        self.assertRedOn(Mutation("clip_files", lambda part, kind: orig(part, kind) or ["clips/none.fbx"]),
+                         "archives/animset-no-clips")
+
+    def test_states_taken_from_the_clip_stems_although_rows_are_declared(self):
+        orig = cg.animset_states
+        self.assertRedOn(
+            Mutation("animset_states", lambda part, kind: orig({p: b for p, b in part.items() if p != "animpack.toml"}, kind)),
+            "archives/animset-states-declared clips and states")
+
+    def test_a_state_name_the_index_cannot_carry_let_through(self):
+        self.assertRedOn(Mutation("STATE_NAME", re.compile(r"^.{1,32}$")), "archives/animset-states-declared clips and states")
+
+    def test_the_golden_states_nobody_could_derive(self):
+        # the entry this lane found: `states: ["idle", "wave"]` over clips/a.fbx and clips/b.fbx
+        env = cg.load_json("index/animsets/valid.json")
+        e = env["signed"]["entries"][0]
+        raw = (cg.DATA / "archives/valid/animset-wave.astrapack").read_bytes()
+        ctx = {"declared_licence": {"": "CC-BY-4.0"}}
+        self.assertEqual(cg.facts_differ(e, cg.entry_facts("animsets", raw, e, ctx), ["clips", "states"]), [])
+        old = dict(e, states=["idle", "wave"])
+        self.assertTrue(cg.facts_differ(old, cg.entry_facts("animsets", raw, old, ctx), ["states"]))
+
+    def test_credits_invented_for_a_file_that_declares_none(self):
+        self.assertRedOn(Mutation("character_credits", lambda man: [{"name": "someone", "role": "author", "url": None}]),
+                         "index/characters/no-thumbnail: aiko")
+
+    def test_the_manifests_notes_copied_as_a_second_credit(self):
+        orig = cg.character_credits
+        self.assertRedOn(
+            Mutation("character_credits", lambda man: orig(man) + [{"name": man["credits"]["notes"], "role": "notes", "url": None}]
+                     if man.get("credits") else orig(man)),
+            "index/characters/thumb-and-credit: aiko")
+
+    def test_a_credit_is_one_author_row_with_an_https_url_or_none(self):
+        row = lambda **c: cg.character_credits({"credits": c})  # noqa: E731
+        self.assertEqual(row(author="A", url="https://example.invalid/a"),
+                         [{"name": "A", "role": "author", "url": "https://example.invalid/a"}])
+        self.assertEqual(row(author="A", url="http://example.invalid/a"), [{"name": "A", "role": "author", "url": None}])
+        self.assertEqual(row(author="A", license="MIT", notes="n"), [{"name": "A", "role": "author", "url": None}])
+        self.assertEqual(row(author="A" * 129), [])  # published as written or not at all
+        self.assertEqual(row(author=""), [])
+        self.assertEqual(row(url="https://example.invalid/a"), [])
+        self.assertEqual(cg.character_credits({"credits": ["A"]}), [])
+        self.assertEqual(cg.character_credits({}), [])
+
+    def test_a_thumbnail_that_is_not_her_own_file(self):
+        placeholder = {"sha256": hashlib.sha256(b"placeholder").hexdigest(), "size": 11}
+        orig = cg.character_thumbnail
+        self.assertRedOn(Mutation("character_thumbnail", lambda files: orig(files) or placeholder),
+                         "index/characters/no-thumbnail: aiko")
+
+    def test_a_thumbnail_dropped_although_the_file_carries_one(self):
+        self.assertRedOn(Mutation("character_thumbnail", lambda files: None), "index/characters/thumb-and-credit: aiko")
+
+    def test_the_thumbnail_is_the_root_png_within_the_cap_or_nothing(self):
+        png = cg.PNG_MAGIC + b"x"
+        self.assertEqual(cg.character_thumbnail({"thumb.png": png}),
+                         {"sha256": hashlib.sha256(png).hexdigest(), "size": len(png)})
+        self.assertIsNone(cg.character_thumbnail({"characters/aiko/thumb.png": png}))  # the path decides
+        self.assertIsNone(cg.character_thumbnail({"thumb.png": b"RIFF....WEBP"}))  # a name and its content agree
+        self.assertIsNone(cg.character_thumbnail({"thumb.png": cg.PNG_MAGIC + b"\0" * cg.MAX_THUMB}))
+        self.assertIsNotNone(cg.character_thumbnail({"thumb.png": cg.PNG_MAGIC + b"\0" * (cg.MAX_THUMB - len(cg.PNG_MAGIC))}))
+
+    def test_a_min_astra_the_page_does_not_print(self):
+        table = {**cg.MIN_ASTRA, "animsets": {("astra.animpack", "1"): "0.3.0"}}
+        self.assertRedOn(Mutation("MIN_ASTRA", table),
+                         "animsets-index-v1.md prints the min_astra table", "index/animsets/no-thumbnail: wave-set")
+
+    def test_a_command_published_with_no_licence_of_its_own(self):
+        self.assertRedOn(Mutation("ITEM_LICENCE_KINDS", {"character"}), "declared-licence item: a command with none")
+
+    def test_a_characters_licence_is_hers_not_her_pictures(self):
+        env = cg.load_json("index/characters/thumb-and-credit.json")
+        e = env["signed"]["entries"][0]
+        raw = (cg.DATA / "archives/valid/character-thumb-credits.astrachar").read_bytes()
+        ctx = {"item_licence": "CC0-1.0", "declared_licence": {"thumb.png": "CC-BY-4.0"}}
+        self.assertEqual(cg.facts_differ(e, cg.entry_facts("characters", raw, e, ctx), ["licence"]), [])
+        part_licence = dict(e, licence=cg.declared_licence_object("CC-BY-4.0"))
+        self.assertTrue(cg.facts_differ(part_licence, cg.entry_facts("characters", raw, part_licence, ctx), ["licence"]))
+
+    def test_a_vrm_licence_url_is_https_or_null(self):
+        gen_spec = importlib.util.spec_from_file_location("gendotpy_for_sources", ROOT / "testdata/content/gen.py")
+        gen = importlib.util.module_from_spec(gen_spec)
+        gen_spec.loader.exec_module(gen)
+        self.assertEqual(cg.vrm_licence_url(gen.vrm1(gen.VRM1_ALLOWED), "vrm1"), "https://vrm.dev/licenses/1.0/")
+        self.assertIsNone(cg.vrm_licence_url(gen.vrm1(dict(gen.VRM1_ALLOWED, licenseUrl="http://vrm.dev/licenses/1.0/")), "vrm1"))
+        self.assertIsNone(cg.vrm_licence_url(gen.vrm1({k: v for k, v in gen.VRM1_ALLOWED.items() if k != "licenseUrl"}), "vrm1"))
+        # 0.x keeps its URL under another name, and 1.0's key means nothing there
+        v0 = gen.vrm_both(dict(gen.VRM0_ALLOWED, otherLicenseUrl="https://example.invalid/l", licenseUrl="https://wrong.invalid/"),
+                          gen.VRM1_ALLOWED)
+        self.assertEqual(cg.vrm_licence_url(v0, "vrm0"), "https://example.invalid/l")
+
+    def test_dropping_the_vrm_spdx_rule(self):
+        rules = {k: v for k, v in cg.INDEX_RULES.items() if k != "licence-vrm-spdx"}
+        self.assertRedOn(Mutation("INDEX_RULES", rules), "index/models/licence-vrm-spdx")
+
+    def _with_schema(self, name, change, *names):
+        sch = cg.schema(name)
+        saved = copy.deepcopy(sch)
+        try:
+            change(sch["$defs"]["entry"])
+            rc, out = run_quiet()
+        finally:
+            sch.clear()
+            sch.update(saved)
+        self.assertEqual(rc, 1)
+        got = failed(out)
+        for n in names:
+            self.assertTrue(any(n in f for f in got), f"{n} did not fail; failed: {got}")
+
+    def test_a_schema_that_still_requires_a_thumbnail(self):
+        self._with_schema("commands-index-v1.schema.json", lambda e: e["required"].append("thumbnail"),
+                          "index/commands/no-thumbnail")
+
+    def test_a_schema_that_takes_null_for_absent(self):
+        self._with_schema("commands-index-v1.schema.json", lambda e: e["properties"].update(thumbnail={}),
+                          "index/commands/thumbnail-null")
+
+    def test_a_pack_listed_without_its_thumbnail(self):
+        self._with_schema("packs-index-v1.schema.json", lambda e: e["required"].remove("thumbnail"),
+                          "index/packs/no-thumbnail")
+
+    def test_a_publisher_that_serves_a_pin_to_nothing(self):
+        self.assertRedOn(Mutation("scenario_pins_listed", lambda sc, now, member: "accept"),
+                         "scenario/pins-pack-unlisted", "scenario/pins-character-unlisted")
+
+
 class GenDeflateRoundTrips(unittest.TestCase):
     """gen.py's own `deflate()` round-trips through the real `zlib.decompress`
     (not its own inverse) and matches a fixed vector — see gen.py's

@@ -669,6 +669,30 @@
       "signed_by": "astra-commands-2026a"
     },
     {
+      "name": "no-thumbnail",
+      "kind": "commands",
+      "file": "index/commands/no-thumbnail.json",
+      "verdict": "accept",
+      "derive": {
+        "members": [
+          "min_astra",
+          "credits",
+          "thumbnail",
+          "licence"
+        ],
+        "item_licence": "CC-BY-4.0"
+      },
+      "note": "what a v1 publisher emits: no thumbnail (no byte source in v1 for this kind), credits []. Every member in `derive` is re-derived from the artefact's bytes; `licence` is the object the declared CC-BY-4.0 maps to"
+    },
+    {
+      "name": "thumbnail-null",
+      "kind": "commands",
+      "file": "index/commands/thumbnail-null.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "an entry with no thumbnail leaves the member ABSENT; null is not a spelling of absent"
+    },
+    {
       "name": "signed-by-next",
       "kind": "commands",
       "file": "index/commands/signed-by-next.json",
@@ -891,6 +915,41 @@
       "signed_by": "astra-characters-2026a"
     },
     {
+      "name": "no-thumbnail",
+      "kind": "characters",
+      "file": "index/characters/no-thumbnail.json",
+      "verdict": "accept",
+      "derive": {
+        "members": [
+          "min_astra",
+          "credits",
+          "thumbnail",
+          "licence"
+        ],
+        "item_licence": "CC-BY-4.0"
+      },
+      "note": "character-aiko.astrachar has no root thumb.png and no manifest credits: the member is absent and credits is []"
+    },
+    {
+      "name": "thumb-and-credit",
+      "kind": "characters",
+      "file": "index/characters/thumb-and-credit.json",
+      "verdict": "accept",
+      "derive": {
+        "members": [
+          "min_astra",
+          "credits",
+          "thumbnail",
+          "licence"
+        ],
+        "item_licence": "CC0-1.0",
+        "declared_licence": {
+          "thumb.png": "CC-BY-4.0"
+        }
+      },
+      "note": "character-thumb-credits.astrachar: the root thumb.png is the thumbnail (the same bytes, still an art part of the bundle); the manifest's credits give ONE author row, its license and notes not copied; the entry's licence is the ITEM's declared CC0-1.0, not the picture's CC-BY-4.0"
+    },
+    {
       "name": "requires-stale-digest",
       "kind": "characters",
       "file": "index/characters/requires-stale-digest.json",
@@ -926,6 +985,28 @@
       "file": "index/models/valid.json",
       "verdict": "accept",
       "signed_by": "astra-models-2026a"
+    },
+    {
+      "name": "no-thumbnail",
+      "kind": "models",
+      "file": "index/models/no-thumbnail.json",
+      "verdict": "accept",
+      "derive": {
+        "members": [
+          "min_astra",
+          "credits",
+          "thumbnail",
+          "licence"
+        ]
+      },
+      "note": "what a v1 publisher emits: no thumbnail (no byte source in v1 for this kind), credits []. Every member in `derive` is re-derived from the artefact's bytes; `licence`: source vrm, spdx null, license_url the body's VRM 1.0 licenseUrl"
+    },
+    {
+      "name": "none-listed",
+      "kind": "models",
+      "file": "index/models/none-listed.json",
+      "verdict": "accept",
+      "note": "an index with no entry is a valid document"
     },
     {
       "name": "two-parts",
@@ -967,11 +1048,53 @@
       "rule": "vrm0-usage"
     },
     {
+      "name": "licence-vrm-spdx",
+      "kind": "models",
+      "file": "index/models/licence-vrm-spdx.json",
+      "verdict": "refuse",
+      "check": "semantic",
+      "rule": "licence-vrm-spdx"
+    },
+    {
       "name": "valid",
       "kind": "animsets",
       "file": "index/animsets/valid.json",
       "verdict": "accept",
-      "signed_by": "astra-animsets-2026a"
+      "signed_by": "astra-animsets-2026a",
+      "derive": {
+        "members": [
+          "min_astra",
+          "clips",
+          "states",
+          "dimension",
+          "licence"
+        ],
+        "declared_licence": {
+          "": "CC-BY-4.0"
+        }
+      },
+      "note": "clips and states are read from animset-wave.astrapack: two clip files, no declared state rows, so the states are the stems a and b"
+    },
+    {
+      "name": "no-thumbnail",
+      "kind": "animsets",
+      "file": "index/animsets/no-thumbnail.json",
+      "verdict": "accept",
+      "derive": {
+        "members": [
+          "min_astra",
+          "credits",
+          "thumbnail",
+          "licence",
+          "clips",
+          "states",
+          "dimension"
+        ],
+        "declared_licence": {
+          "": "CC-BY-4.0"
+        }
+      },
+      "note": "what a v1 publisher emits: no thumbnail (no byte source in v1 for this kind), credits []. Every member in `derive` is re-derived from the artefact's bytes"
     },
     {
       "name": "dimension-2d-animations-part",
@@ -1015,6 +1138,14 @@
       "file": "index/packs/licence-present.json",
       "verdict": "refuse",
       "check": "schema"
+    },
+    {
+      "name": "no-thumbnail",
+      "kind": "packs",
+      "file": "index/packs/no-thumbnail.json",
+      "verdict": "refuse",
+      "check": "schema",
+      "note": "a pack's upload IS its thumbnail: the member stays required for packs"
     },
     {
       "name": "members-65",
@@ -1929,7 +2060,14 @@
       "note": "its one part, at the zip root, is the ASCII part-digest golden; character-with-pack holds the same pack under animpacks/<id>/ and gets the same digest",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
-      ]
+      ],
+      "animset": {
+        "clips": 2,
+        "states": [
+          "a",
+          "b"
+        ]
+      }
     },
     {
       "name": "animset-vrma",
@@ -1960,6 +2098,28 @@
       "file": "archives/valid/character-aiko.astrachar",
       "verdict": "accept",
       "note": "settings only: no part"
+    },
+    {
+      "name": "character-thumb-credits",
+      "file": "archives/valid/character-thumb-credits.astrachar",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "thumb.png": "CC-BY-4.0"
+      },
+      "parts": {
+        "art:thumb.png": "814f7454ba61fb5693cdec93f0e8675cd927941dbb44a402c728aa12ef01b47a"
+      },
+      "note": "a root thumb.png is a standalone image like any other: an art part with its own declared licence. That it is ALSO the entry's thumbnail changes nothing at ingest"
+    },
+    {
+      "name": "character-thumb-undeclared",
+      "file": "archives/valid/character-thumb-credits.astrachar",
+      "verdict": "refuse",
+      "code": "E_CONTENT_LICENCE_UNDECLARED",
+      "note": "being the thumbnail does not excuse the picture from a licence"
     },
     {
       "name": "character-with-pack",
@@ -2325,10 +2485,18 @@
       "declared_licence": {
         "": "CC-BY-4.0"
       },
-      "note": "Base%20Color.png naming a sibling file \"Base Color.png\": % is legitimate glTF escaping, not a forbidden character",
+      "note": "Base%20Color.png naming a sibling file \"Base Color.png\": % is legitimate glTF escaping, not a forbidden character; its three clip files are a.fbx, b.fbx and pctok.gltf -- \"Base Color.png\" is a texture in a 3D pack, not a clip",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
-      ]
+      ],
+      "animset": {
+        "clips": 3,
+        "states": [
+          "a",
+          "b",
+          "pctok"
+        ]
+      }
     },
     {
       "name": "gltf-percent-double-encoded",
@@ -2550,7 +2718,15 @@
       "note": "a .gltf whose uri names a file in the same part: allowed",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
-      ]
+      ],
+      "animset": {
+        "clips": 3,
+        "states": [
+          "a",
+          "b",
+          "m"
+        ]
+      }
     },
     {
       "name": "name-device-superscript",
@@ -2852,7 +3028,62 @@
       "note": "its own animpack.toml says kind = \"pixel\"; the manifest's top-level kind agrees",
       "flags": [
         "F_CONTENT_LICENCE_DECLARED"
-      ]
+      ],
+      "animset": {
+        "clips": 2,
+        "states": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "name": "animset-states-declared",
+      "file": "archives/valid/animset-states-declared.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "animset": {
+        "clips": 2,
+        "states": [
+          "idle",
+          "wave"
+        ]
+      },
+      "note": "animpack.toml declares [states.idle], [states.wave] and [states.Climb-2]: the declared rows win over the clip stems a and b; Climb-2 does not fit the index's name pattern and is left out; `default` is a key, not a row"
+    },
+    {
+      "name": "animset-pixel-sheet",
+      "file": "archives/valid/animset-pixel-sheet.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "animset": {
+        "clips": 1,
+        "states": [
+          "walk"
+        ]
+      },
+      "note": "a 2D pack: clips/walk.png, its sheet, is its clip"
+    },
+    {
+      "name": "animset-no-clips",
+      "file": "archives/hostile/animset-no-clips.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "detail_contains": "no clip file",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "the same clips/sheet.png in a 3D pack is a texture, not a clip: an animset with nothing to play is refused at step 10, because its entry's `clips` could never be 1-4096"
     },
     {
       "name": "character-with-pixel-pack",
@@ -4317,6 +4548,82 @@
         "armed"
       ],
       "note": "a retired cascade row: dropped (still blocked), re-asserted beside its lift (the row wins), lifted under \"<= 1.0.0\" (a near-miss spelling a space-normalising client would match: nothing), lifted exactly (armed)"
+    },
+    {
+      "name": "pins-pack-listed",
+      "type": "pins-listed",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "pins-pack-unlisted",
+      "type": "pins-listed",
+      "dependants": "packs",
+      "served": {
+        "packs": {
+          "index": "index/packs/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json"
+        },
+        "commands": {
+          "index": "index/commands/declared-licences.json"
+        }
+      },
+      "expect": "pin-unlisted",
+      "note": "the served commands index does not list greet 1.0.0, which the pack pins: a publisher that served this set should have dropped the pack"
+    },
+    {
+      "name": "pins-character-listed",
+      "type": "pins-listed",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/valid.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json"
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "pins-character-unlisted",
+      "type": "pins-listed",
+      "dependants": "characters",
+      "served": {
+        "characters": {
+          "index": "index/characters/valid.json"
+        },
+        "models": {
+          "index": "index/models/none-listed.json"
+        },
+        "animsets": {
+          "index": "index/animsets/valid.json"
+        }
+      },
+      "expect": "pin-unlisted",
+      "note": "the character requires a model version the served models index does not list"
     }
   ],
   "external": [
@@ -4530,7 +4837,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 479,
+  "expected_checks": 533,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [
@@ -4823,6 +5130,50 @@
       {
         "name": "query-with-at",
         "licence": "custom:https://x.com/?q=a@b"
+      }
+    ],
+    "item": [
+      {
+        "name": "a command with none",
+        "kind": "command",
+        "licence": null,
+        "expect": "E_CONTENT_LICENCE_UNDECLARED"
+      },
+      {
+        "name": "a character with none",
+        "kind": "character",
+        "licence": null,
+        "expect": "E_CONTENT_LICENCE_UNDECLARED"
+      },
+      {
+        "name": "a command under CC-BY-4.0",
+        "kind": "command",
+        "licence": "CC-BY-4.0",
+        "expect": "accept"
+      },
+      {
+        "name": "a character under a custom licence",
+        "kind": "character",
+        "licence": "custom:https://example.invalid/my-licence",
+        "expect": "accept"
+      },
+      {
+        "name": "a command with a malformed one",
+        "kind": "command",
+        "licence": "cc-by-4.0",
+        "expect": "E_CONTENT_LICENCE_DECLARATION_INVALID"
+      },
+      {
+        "name": "a model with none",
+        "kind": "model",
+        "licence": null,
+        "expect": "accept"
+      },
+      {
+        "name": "an animset with a malformed one",
+        "kind": "animset",
+        "licence": "",
+        "expect": "E_CONTENT_LICENCE_DECLARATION_INVALID"
       }
     ]
   }

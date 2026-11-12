@@ -202,7 +202,10 @@ def artefact(media_types: list[str], max_size: int) -> dict:
     }
 
 
-BASE_REQUIRED = ["id", "version", "author", "listing", "thumbnail", "artefact", "review", "min_astra", "published_at"]
+# `thumbnail` is NOT here: for the four kinds that share these fields it is OPTIONAL, and a publisher
+# with no admitted image for the item leaves the member ABSENT -- never `null` (common-v1.md §3.3).
+# A pack's upload IS its thumbnail, so `packs` still requires it (its own `required` list below).
+BASE_REQUIRED = ["id", "version", "author", "listing", "artefact", "review", "min_astra", "published_at"]
 
 
 def base_props(art: dict) -> dict:

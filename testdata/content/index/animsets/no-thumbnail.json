@@ -1,0 +1,75 @@
+{
+  "signed": {
+    "schema": "astra.animsets.index/1",
+    "serial": 1798675200,
+    "issued_at": 1798675200,
+    "expires_at": 1799280000,
+    "entries": [
+      {
+        "id": "wave-set",
+        "version": "1.0.0",
+        "author": "test-author",
+        "listing": {
+          "en": {
+            "title": "Aiko",
+            "description": "A test character."
+          },
+          "ru": {
+            "title": "Айко",
+            "description": "Тестовый персонаж."
+          }
+        },
+        "artefact": {
+          "sha256": "d62801676d72233384515d7662b7f2fc602f2d10f02ae65c441870d572d49cad",
+          "size": 935,
+          "media_type": "application/vnd.astra.animpack+zip"
+        },
+        "review": "unchecked",
+        "min_astra": "0.2.8",
+        "published_at": 1798588800,
+        "format": "astra.animpack",
+        "dimension": "3d",
+        "parts": [
+          {
+            "part_kind": "animations",
+            "digest": "5cbec44ce0e36e9f2f2b8f0a75a6eb5f5b9f9b5131d7bf50612f68a2727ef255",
+            "size": 24
+          }
+        ],
+        "clips": 2,
+        "states": [
+          "a",
+          "b"
+        ],
+        "content_confirmed": {
+          "animations-rights-v1": 1
+        },
+        "licence": {
+          "source": "declared",
+          "spec": "none",
+          "commercial_detail": null,
+          "redistribution": "allowed",
+          "avatar_permission": "unknown",
+          "modification": "allowed",
+          "commercial": "allowed",
+          "credit_required": true,
+          "spdx": "CC-BY-4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0/",
+          "usage": {
+            "violent": "unknown",
+            "sexual": "unknown",
+            "political": "unknown",
+            "antisocial": "unknown"
+          }
+        },
+        "credits": []
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "astra-animsets-2026a",
+      "sig": "c6qAjP89NY4l7kRpo+SII9wcqsin1V0MbA0E7a2tGImNBu66YENl4HSdNsr6lso/c/xHmS3Ua/mjgQjKEswGAA=="
+    }
+  ]
+}

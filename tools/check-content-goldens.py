@@ -285,6 +285,14 @@ def rule_vrm0_usage(s, ctx) -> bool:
     return True
 
 
+def rule_licence_vrm_spdx(s, ctx) -> bool:
+    """common-v1.md §3.1: a VRM meta names no SPDX id, so `source: vrm` never
+    carries one -- the server does not guess an id from a licence URL or a
+    0.x `licenseName`, and a client must not show one nobody read."""
+    return all(not (e.get("licence") and e["licence"]["source"] == "vrm" and e["licence"]["spdx"] is not None)
+               for e in _entries(s))
+
+
 def rule_capabilities_sorted(s, ctx) -> bool:
     for e in _entries(s):
         caps = e.get("capabilities")
@@ -382,6 +390,7 @@ INDEX_RULES = {
     "licence-allowed": rule_licence_allowed,
     "licence-source-spec": rule_licence_source_spec,
     "vrm0-usage": rule_vrm0_usage,
+    "licence-vrm-spdx": rule_licence_vrm_spdx,
     "parts-confirmed": rule_parts_confirmed,
 }
 KIND_INDEX_RULES = {
@@ -1433,6 +1442,22 @@ def validate_begin_licences(declared: dict[str, str], digests: dict[str, str] | 
             by_digest[d] = licence
 
 
+ITEM_LICENCE_KINDS = {"command", "character"}  # the kinds whose entry `licence` is the ITEM's own declaration
+
+
+def validate_item_licence(kind: str, licence: str | None) -> None:
+    """common-v1.md §3.1.2, at `begin`: `BeginRequest.licence` is the licence
+    the author gives the ITEM under. A command and a character must carry one
+    -- their entry's `licence` has no other source; a model's and an animset's
+    is their one part's, so theirs is validated when present and then ignored,
+    exactly as a part declaration the VRM meta overrides (ingest-v1.md §4.3)."""
+    if licence is None:
+        if kind in ITEM_LICENCE_KINDS:
+            raise Refusal("E_CONTENT_LICENCE_UNDECLARED", f"a {kind} with no licence")
+        return
+    validate_licence_declaration(licence, part=kind)
+
+
 def declared_licence_object(licence: str) -> dict:
     """The signed licence object (common-v1.md §3.1) a declared `licence`
     string maps to. Call only after `validate_licence_declaration` -- an
@@ -1598,7 +1623,11 @@ def require_manifest_is_object(man) -> None:
         raise Refusal("E_BUNDLE_MANIFEST", f"astrachar.json is a JSON {type(man).__name__}, not an object")
 
 
-def ingest_bundle(raw: bytes, ctx: dict) -> dict:
+def read_bundle(raw: bytes) -> tuple[dict[str, bytes], dict]:
+    """Steps 1-7 and the head of step 8 (ingest-v1.md §3): the walked files and
+    the manifest, an object of a supported format. `ingest_bundle` goes on from
+    here; `entry_facts` reads the same two values, so what the index says about a
+    bundle is read from the bytes ingest judged and from nothing else."""
     files = walk_zip(raw)
     order = json.loads(files.pop("\0order"))
     if not order or order[-1] != "astrachar.json":
@@ -1613,6 +1642,44 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
     require_manifest_is_object(man)
     if man.get("format") not in ("astra.character", "astra.animpack") or man.get("format_version") != 1 or man.get("schema") != 5:
         raise Refusal("E_BUNDLE_MANIFEST", "format, format_version or schema")
+    return files, man
+
+
+# ── an animset's clips and states, from its bytes (animsets-index-v1.md §2.1) ──
+
+CLIPS_DIR = "clips/"
+CLIP_EXTS_3D = (".fbx", ".glb", ".gltf", ".vrma")
+CLIP_EXTS = {"animations": CLIP_EXTS_3D, "art": CLIP_EXTS_3D + (".png", ".webp")}
+STATE_NAME = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+MAX_STATES = 64
+
+
+def clip_files(part: dict[str, bytes], part_kind: str) -> list[str]:
+    """The clip files of ONE pack, `part` keyed by path relative to the part
+    root: every file under `clips/`, at any depth, whose extension (ASCII
+    case-insensitive) is a clip's. A `.bin` or a texture beside a `.gltf` is
+    not a clip; a `.png` or `.webp` is one only in a 2D (`art`) pack, where
+    the sheet IS the animation."""
+    return sorted(p for p in part if p.startswith(CLIPS_DIR) and ascii_lower(p).endswith(CLIP_EXTS[part_kind]))
+
+
+def animset_states(part: dict[str, bytes], part_kind: str) -> list[str]:
+    """The state rows `animpack.toml` declares (`[states.<name>]` tables), or,
+    when it declares none, the lower-cased stems of the clip files. Either
+    way: only names of the index's own pattern, sorted, unique, the first 64.
+    `animpack.toml` already parsed at step 8; this never refuses."""
+    declared: list[str] = []
+    raw = part.get("animpack.toml")
+    if raw is not None:
+        states = tomllib.loads(raw.decode("utf-8")).get("states")
+        if isinstance(states, dict):
+            declared = [name for name, row in states.items() if isinstance(row, dict)]
+    names = declared or [ascii_lower(posixpath.splitext(posixpath.basename(p))[0]) for p in clip_files(part, part_kind)]
+    return sorted({n for n in names if STATE_NAME.match(n)})[:MAX_STATES]
+
+
+def ingest_bundle(raw: bytes, ctx: dict) -> dict:
+    files, man = read_bundle(raw)
     listed = man.get("files") or {}
     for p, b in files.items():
         if p == "astrachar.json":
@@ -1671,6 +1738,12 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
             raise Refusal("E_CONTENT_FORMAT", f"{body}: not a VRM")
         if len(files[body]) > 50 * 1024 * 1024:
             raise Refusal("E_CONTENT_TOO_LARGE", body)
+    # step 10, last: an animset (a `.astrapack`, ONE pack at the zip root) holds at least one clip
+    # file. Its index entry's `clips` is 1-4096 (animsets-index-v1.md §2.1), so a pack with none
+    # could be accepted, confirmed and reviewed and then never listed.
+    animset_kind = pack_kind(man, files)
+    if animset_kind is not None and not clip_files(files, animset_kind):
+        raise Refusal("E_CONTENT_FORMAT", "an animset with no clip file under clips/")
     check_settings(files, settings_dir)  # after the format loop, matching the server (bundle.rs) -- S2 moved only the size caps
     kind_of = {f: pk for (pk, _root), pf in
                parts_of(files, body, settings_dir, strict=False, pack=pack_kind(man, files), man=man).items()
@@ -1732,9 +1805,148 @@ def ingest_bundle(raw: bytes, ctx: dict) -> dict:
         flags.append("F_CONTENT_VRM_META_UNKNOWN")
     if any_declared:
         flags.append("F_CONTENT_LICENCE_DECLARED")
-    return {"verdict": "held" if flags else "accept", "flags": flags,
-            "parts": {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()},
-            "licence_of": licence_of}
+    out = {"verdict": "held" if flags else "accept", "flags": flags,
+           "parts": {f"{pk}:{root}": part_digest_of(root, pf) for (pk, root), pf in parts.items()},
+           "licence_of": licence_of}
+    if animset_kind is not None:  # what its index entry will say (animsets-index-v1.md §2.1)
+        part = parts[(animset_kind, "")]
+        out["animset"] = {"clips": len(clip_files(part, animset_kind)), "states": animset_states(part, animset_kind)}
+    return out
+
+
+# ── what the publisher derives for an entry (common-v1.md §3.2-§3.4) ──────
+#
+# The members of an index entry that no author types in: `min_astra`,
+# `credits`, `thumbnail`, an animset's `clips` and `states`, and where
+# `licence` comes from. `entry_facts` is the stdlib reading of those rules
+# over an artefact's bytes; `main` holds every golden entry that names
+# `derive` in vectors.json against it.
+
+# each kind spec's "`min_astra`" table: (format, format version) -> the lowest Astra release that reads it
+MIN_ASTRA = {
+    "commands": {("portable-command", "1"): "0.2.8"},
+    "characters": {("astra.character", "1"): "0.2.8"},
+    "models": {("astra.character", "1"): "0.2.8", ("vrm", "0.x"): "0.2.8", ("vrm", "1.0"): "0.2.8"},
+    "animsets": {("astra.animpack", "1"): "0.2.8"},
+}
+MIN_ASTRA_ROW = re.compile(r"^\| `([a-z.-]+)` \| ([0-9a-z.]+) \| `([0-9]+\.[0-9]+\.[0-9]+)` \|$")
+
+
+def min_astra_table(kind: str) -> dict[tuple[str, str], str]:
+    """The table as `<kind>-index-v1.md` prints it, under its `min_astra`
+    heading -- so the number a publisher compiles and the number the page
+    promises are compared, not assumed equal."""
+    text = (SPEC / f"{kind}-index-v1.md").read_text(encoding="utf-8")
+    rows: dict[tuple[str, str], str] = {}
+    inside = False
+    for line in text.splitlines():
+        if line.startswith("#"):
+            inside = "`min_astra`" in line
+        elif inside and (m := MIN_ASTRA_ROW.match(line)):
+            rows[(m.group(1), m.group(2))] = m.group(3)
+    return rows
+
+
+HTTPS_URL = re.compile(r"^https://[^\s]+$")  # the schemas' `https` definition
+MAX_URL = 2048
+MAX_CREDIT_NAME = 128
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+THUMB_PATH = "thumb.png"  # astra-companion docs/character-files.md: her preview picture, at the bundle root
+MAX_THUMB = 1024 * 1024
+
+
+def https_or_none(v) -> str | None:
+    return v if isinstance(v, str) and len(v) <= MAX_URL and HTTPS_URL.match(v) else None
+
+
+def character_credits(man: dict) -> list[dict]:
+    """common-v1.md §3.2: `astrachar.json` `credits` is `{author, license,
+    url, notes}`, the author's own words about the whole file. Only `author`
+    and an https `url` are published, as at most ONE row; `license` and
+    `notes` are never copied, and neither is anything from a VRM meta."""
+    c = man.get("credits")
+    author = c.get("author") if isinstance(c, dict) else None
+    if not isinstance(author, str) or not (1 <= len(author) <= MAX_CREDIT_NAME):
+        return []
+    return [{"name": author, "role": "author", "url": https_or_none(c.get("url"))}]
+
+
+def character_thumbnail(files: dict[str, bytes]) -> dict | None:
+    """common-v1.md §3.3: a character's thumbnail is the bundle's root
+    `thumb.png`, when it is a PNG of 1 byte to 1 MiB; otherwise the member is
+    absent. Nothing is rendered, resized or taken from a VRM."""
+    b = files.get(THUMB_PATH)
+    if b is None or not b.startswith(PNG_MAGIC) or not (1 <= len(b) <= MAX_THUMB):
+        return None
+    return {"sha256": hashlib.sha256(b).hexdigest(), "size": len(b)}
+
+
+def vrm_licence_url(raw: bytes, spec: str) -> str | None:
+    """common-v1.md §3.1: VRM 1.0 `licenseUrl`, 0.x `otherLicenseUrl`, read
+    from the meta the entry's `spec` names; https or null."""
+    g = glb_json(raw)
+    exts = g.get("extensions") if isinstance(g, dict) else None
+    ext, key = {"vrm1": ("VRMC_vrm", "licenseUrl"), "vrm0": ("VRM", "otherLicenseUrl")}[spec]
+    meta = (exts or {}).get(ext, {}).get("meta") if isinstance(exts, dict) else None
+    return https_or_none(meta.get(key)) if isinstance(meta, dict) else None
+
+
+def entry_facts(kind: str, raw: bytes, entry: dict, ctx: dict) -> dict:
+    """What a v1 publisher writes for the artefact `raw` of `kind`. A value of
+    `None` for `thumbnail` means the member is ABSENT. `licence` is the whole
+    object where the rule gives one, or the members the rule fixes (a VRM
+    body: the verdict fields are §4's, pinned by the archive goldens)."""
+    table = MIN_ASTRA[kind]
+    if kind == "commands":
+        return {"min_astra": table[("portable-command", "1")], "credits": [], "thumbnail": None,
+                "licence": declared_licence_object(ctx["item_licence"])}
+    if entry.get("format") == "vrm":  # a bare .vrm: the artefact IS the body
+        spec = entry["licence"]["spec"]
+        return {"min_astra": table[("vrm", {"vrm0": "0.x", "vrm1": "1.0"}[spec])], "credits": [], "thumbnail": None,
+                "licence": {"source": "vrm", "spdx": None, "license_url": vrm_licence_url(raw, spec)}}
+    got = ingest_bundle(raw, ctx)
+    files, man = read_bundle(raw)
+    facts = {"min_astra": table[(man["format"], str(man["format_version"]))], "credits": [], "thumbnail": None}
+    if kind == "characters":
+        facts.update(credits=character_credits(man), thumbnail=character_thumbnail(files),
+                     licence=declared_licence_object(ctx["item_licence"]))
+    elif kind == "models":
+        body = man["body"]["file"]
+        spec = entry["licence"]["spec"]
+        facts["licence"] = ({"source": "vrm", "spdx": None, "license_url": vrm_licence_url(files[body], spec)}
+                            if got["licence_of"][body]["licence_source"] == "vrm" else got["licence_of"][body]["licence"])
+    elif kind == "animsets":
+        facts.update(got["animset"], dimension={"animations": "3d", "art": "2d"}[pack_kind(man, files)],
+                     licence=got["licence_of"][""]["licence"])
+    return facts
+
+
+def facts_differ(entry: dict, facts: dict, members: list[str]) -> list[str]:
+    """The names in `members` where the entry is not what `facts` derives."""
+    out = []
+    for m in members:
+        want, have = facts[m], entry.get(m)
+        if m == "licence" and isinstance(want, dict) and isinstance(have, dict):
+            have = {k: have.get(k) for k in want}  # a VRM body: only the members the rule fixes
+        if have != want:
+            out.append(f"{m}: entry {have!r}, derived {want!r}")
+    return out
+
+
+def scenario_pins_listed(sc: dict, now: int, member: dict):
+    """common-v1.md §3.5: no listed pack or character pins a version its
+    kind's served index does not list. (A `game-integration` member has no
+    served index to be held against yet, and a command's `requires` is a
+    range over the plugin index, not a pin.)"""
+    entries, _ = served(sc["dependants"], sc, now, member)
+    for (did, _dver), e in entries.items():
+        for r in e.get("members") or e.get("requires") or []:
+            if r["kind"] in ("plugin", "game-integration"):
+                continue
+            listed, _ = served(SINGULAR[r["kind"]], sc, now, member)
+            if (r["id"], r["version"]) not in (listed or {}):
+                raise Refusal("pin-unlisted", f"{did} pins {r['kind']} {r['id']} {r['version']}")
+    return "accept"
 
 
 # ── scenarios ────────────────────────────────────────────────────────────
@@ -2059,11 +2271,25 @@ def main() -> int:
     except Refusal as r:
         got = r.code
     report("declared-licence: one bad entry refuses the whole begin", got == DL["code"], got)
+    for v in DL["item"]:  # §3.1.2: the item's own declaration, required of a command and a character
+        try:
+            validate_item_licence(v["kind"], v["licence"])
+            got = "accept"
+        except Refusal as r:
+            got = r.code
+        report(f"declared-licence item: {v['name']}", got == v["expect"], got)
 
     # -- index and withdrawn documents --------------------------------------
+    for kind, table in MIN_ASTRA.items():
+        report(f"{kind}-index-v1.md prints the min_astra table the checker derives from",
+               min_astra_table(kind) == table, f"the page says {min_astra_table(kind)}")
     cmd_by_sha = {}
+    artefact_by_sha = {}  # every valid golden artefact, by the sha256 an entry pins
     for p in sorted((DATA / "commands").rglob("*.command.json")):
         cmd_by_sha[hashlib.sha256(p.read_bytes()).hexdigest()] = json.loads(p.read_text(encoding="utf-8"))
+        artefact_by_sha[hashlib.sha256(p.read_bytes()).hexdigest()] = p.read_bytes()
+    for p in sorted((DATA / "archives" / "valid").iterdir()):
+        artefact_by_sha[hashlib.sha256(p.read_bytes()).hexdigest()] = p.read_bytes()
     for section, doc in (("index", "index"), ("withdrawn", "withdrawn")):
         for v in V[section]:
             kind = v["kind"]
@@ -2095,6 +2321,17 @@ def main() -> int:
                 report(label, sok and not fails and kid is None and why == v["reason"], f"rules={fails} sig={kid}/{why}")
             else:
                 raise NotImplementedError(v["check"])
+            # the members no author types in are what the publisher derives from the artefact's
+            # bytes (common-v1.md §3.2-§3.4): `derive` names the members this golden pins that way
+            if v.get("derive"):
+                for e in env["signed"]["entries"]:
+                    raw = artefact_by_sha.get(e["artefact"]["sha256"])
+                    try:
+                        diff = (facts_differ(e, entry_facts(kind, raw, e, v["derive"]), v["derive"]["members"])
+                                if raw is not None else ["its artefact is not a golden"])
+                    except Refusal as r:
+                        diff = [f"its artefact is refused: {r.code}"]
+                    report(f"{label}: {e['id']} is what the publisher derives from its artefact", not diff, "; ".join(diff))
             # the client shows what IT derives; an index claim that differs is claim-mismatch (capabilities-v1.md §6)
             if kind == "commands" and doc == "index" and v["verdict"] == "accept":
                 for e in env["signed"]["entries"]:
@@ -2158,9 +2395,9 @@ def main() -> int:
         try:
             got = ingest_bundle(raw, v)
             outcome, flags, parts = got["verdict"], got["flags"], got["parts"]
-            licence_of = got.get("licence_of", {})
+            licence_of, animset = got.get("licence_of", {}), got.get("animset")
         except Refusal as r:
-            outcome, flags, parts, licence_of, detail = r.code, [], {}, {}, r.detail
+            outcome, flags, parts, licence_of, animset, detail = r.code, [], {}, {}, None, r.detail
         want = v["verdict"] if v["verdict"] in ("accept", "held") else v["code"]
         report(f"archives/{v['name']}", outcome == want and flags == v.get("flags", []), f"got {outcome} flags={flags}")
         if "detail_contains" in v:  # B2: the code alone can't tell a real size check from a
@@ -2168,6 +2405,8 @@ def main() -> int:
             report(f"archives/{v['name']} detail", v["detail_contains"] in detail, detail)
         for pk, digest in v.get("parts", {}).items():
             report(f"archives/{v['name']} part {pk}", parts.get(pk) == digest, f"got {parts.get(pk)}")
+        if "animset" in v:  # the `clips` and `states` its index entry carries
+            report(f"archives/{v['name']} clips and states", animset == v["animset"], f"got {animset}")
         for root, want_licence in v.get("licence_of", {}).items():
             report(f"archives/{v['name']} licence_of {root}", licence_of.get(root) == want_licence,
                    f"got {licence_of.get(root)}")
@@ -2184,6 +2423,8 @@ def main() -> int:
                 got = scenario_ingest_refs(v, now, member, "character")
             elif t == "cascade":
                 got = scenario_cascade(v, now, member)
+            elif t == "pins-listed":
+                got = scenario_pins_listed(v, now, member)
             elif t == "requires-digest":
                 got = scenario_requires_digest(v, now, member)
             elif t == "sticky":
