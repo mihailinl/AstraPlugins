@@ -305,8 +305,10 @@ both at once:
   The licence its entry carries is the item's own, `BeginRequest.licence`
   (§1; common-v1.md §3.1.2), which is not a part's rights source and is not
   what this section holds a version for: **`F_CONTENT_LICENCE_DECLARED` is
-  raised by a part declaration, never by the item declaration alone**
-  (OPEN.md O-26).
+  raised by a part declaration, never by the item declaration alone**:
+  a declaration outside the closed list is refused at `begin`, every object
+  the list maps to passes `licence-allowed`, and review is a label, not a
+  gate (OPEN.md O-26).
 
 **The declared licence (G5/W1; agreed with the client, astra-d6, and the
 architect, minice-b9).** `BeginRequest.parts[].licence` /

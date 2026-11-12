@@ -464,6 +464,16 @@ writes a row for each dependant, `cause` naming the member (§4, §11a.10):
 | gets `retired` | as above | `retired`, `member-retired` | `retired`, `member-retired` |
 | is restored | the automatic `retired` is lifted | the automatic act is lifted; a moderator's own act stays | as packs |
 
+**The v1 publisher writes no `retired` and no `rights` row, cascade rows
+included** (§6.1, the publisher's row policy). Of this table it emits only
+the `security` cells — a pack or character whose member gets `security` —
+and their lifts. Where the table says `retired`, the v1 publisher instead
+takes the dependant out of its index (§3.5 for a pin; a command whose
+required plugin has no matching listed version left is delisted the same
+way), and an installed copy stays. The `retired` and `rights` cells stay
+DEFINED: a client reads such a row exactly as §6.1 and §6.3 say, and a later
+publisher version may emit them without a new contract version.
+
 A served set in which a listed dependant of a withdrawn member carries no such
 row is a publisher defect, `cascade-missing`
 (`testdata/content/vectors.json` scenarios `cascade-*`).
