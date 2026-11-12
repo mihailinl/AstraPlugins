@@ -59,6 +59,13 @@ import {
 } from "./calls.js";
 import { configFuzz, utteranceChunks } from "./fixtures.js";
 
+/** `PluginAiModelHints` as the SDK puts it on the wire: every field present. */
+export interface WireAiModelHints {
+  toolLoading: "" | "all";
+  acceptsImages: boolean;
+  contextWindow: number;
+}
+
 /** Anything `Harness.create` accepts: a `Plugin`, or what `plugin()` returned. */
 export type Testable = Plugin | { instance: Plugin };
 
@@ -469,6 +476,19 @@ export class Harness {
       pauses: call.pauses,
       status: call.status,
     };
+  }
+
+  /**
+   * `AiGetModels`, through the real handler: the model list as it crossed the
+   * wire. A model's `hints`, and the list's `providerHints`, are `null` when
+   * absent — which the daemon reads as "the provider's" and "Astra decides".
+   */
+  async aiGetModels(): Promise<{
+    models: { id: string; name: string; hints: WireAiModelHints | null }[];
+    defaultModel: string;
+    providerHints: WireAiModelHints | null;
+  }> {
+    return (await this.unary("AiGetModels", {})) as never;
   }
 
   /** Server-streaming `AiComplete`. Returns the chunks as written. */

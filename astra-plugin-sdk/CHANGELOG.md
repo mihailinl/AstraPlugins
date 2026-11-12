@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra main `7428a253b`. Between `sdk-v0.7.4` and this release the protocol gained 63 fields on
-28 messages that already existed, 25 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra main `17587566b`. Between `sdk-v0.7.4` and this release the protocol gained 66 fields on
+31 messages that already existed, 27 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -33,6 +33,39 @@ nothing was removed, retyped or changed in place.
   `fire_trigger_caused_by`, so a `Host` written before it compiles unchanged and
   answers "this Host does not implement GetAiSettings". Every `Host` in this
   crate overrides it, and a test fails for a forwarding wrapper that forgets to.
+- **An AI provider's model list is asked for again, with hints.** Astra (from
+  `17587566b`) calls `AiGetModels` when the plugin starts and on the AI page's
+  refresh, and offers the list in its model picker; the chosen model arrives on
+  `AiRequest::model` (`""` = your default). New: `AiModelHints` (builders
+  `new()`, `with_tool_loading(AiToolLoading::All)` / `all_tools()`,
+  `with_images(bool)` / `accepts_images()`, `with_context_window(n)`; the type
+  and `AiToolLoading` are `#[non_exhaustive]`), `AiModelInfo::with_hints`, the
+  default trait method `PluginCapability::ai_provider_hints()` for every model
+  without hints of its own (also a `#[hook]` name in `astra-plugin-macros`), and
+  `AiImage` (= `proto::PluginImage`) — the pictures on `AiMessage::images`.
+  **Hints change only Astra's turns on that model, and only in a daemon built
+  with the `plugin-provider-slots` feature**; any other daemon drives the model
+  like every other one.
+- **The capability server receives messages up to
+  `limits::PLUGIN_MAX_MESSAGE_BYTES` (64 MiB)**, where tonic's default was
+  4 MiB. A model whose hints say `accepts_images` is sent up to
+  `limits::PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of pictures in one
+  `AiComplete`; with the default, the plugin would refuse the very request its
+  own hint asked for, as `RESOURCE_EXHAUSTED`. Both numbers are new rows of
+  `spec/limits.yaml`.
+
+### Changed (BREAKING for a struct literal — a pre-1.0 minor break)
+
+- `AiModelInfo` gained a public field, `hints: Option<AiModelHints>`, so code
+  that builds one with a struct literal (`AiModelInfo { id, name }`) no longer
+  compiles: add `hints: None`, or use `AiModelInfo::new(id, name)`, which is
+  unaffected. Nothing was removed or renamed, and no trait method changed.
+
+### Un-deprecated
+
+- `AiGetModels` / `ai_models()` — deprecated in 0.6 with removal planned for
+  0.8, because no daemon asked. Astra asks now; the deprecation is withdrawn
+  (`spec/hooks.yaml`: `routing: live`), and nothing is removed in 0.8.
 
 ## [0.7.4] — 2026-10-24
 

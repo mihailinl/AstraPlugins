@@ -32,6 +32,25 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **`astra-plugin test` probes `AiGetModels`** for a plugin that declares
+  `ai_provider`: Astra (from `17587566b`) calls it again, when the plugin starts
+  and on the AI page's refresh, and `spec/hooks.yaml` lists it `live`. The probe
+  checks the list the way the daemon admits it — a model whose id is empty,
+  longer than 200 characters or carries a control character, a `default_model`
+  not in the list, and a `tool_loading` other than `""`/`"all"` are errors here,
+  where Astra would drop or ignore them in silence. `UNIMPLEMENTED` is "no
+  list", which is allowed (the hook is optional).
+- **The `ai-provider` scaffold lists its models, with hints**, in all three
+  languages: `demo-1`, the default, and `demo-vision`, whose hints say it reads
+  pictures (`accepts_images`, a 128k context window). Hints change only Astra's
+  turns on that model, and only in a daemon built with `plugin-provider-slots`.
+  The scaffold needs the SDKs that can state them (Rust 0.7.5, Python 0.6.5,
+  TypeScript 0.7.4).
+- **The plugin protocol follows Astra `17587566b`.** `AiGetModels` is no longer
+  deprecated; `PluginAiModelHints` (new), `PluginAiModelInfo.hints = 3`,
+  `PluginAiModelsResponse.provider_hints = 3`, `PluginImage` (new) and
+  `PluginAiMessage.images = 5`.
+
 - **The UI Kit matches Astra `ff6f952e92c4` (main).** `astra-plugin new` vendors
   the kit's declarations into `frontend/vendor/astra-plugin-ui/`, resynced
   after `ASTRA_REF` was deleted and `proto-upstream` started checking out

@@ -33,62 +33,58 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
    Rust、Python、TypeScript のいずれでも結びつけられています。配線する
    か廃止するかのどちらかにしてください。今のところ、これはデーモンが
    守っていない約束です。
-2. **`AiGetModels` は非推奨ですが、まだ結びつけられています**(Rust、
-   Python、TypeScript)。古いプラグインがトランスポートエラーではなく
-   引き続き `UNIMPLEMENTED` を受け取れるよう、既存の結びつきは維持し、
-   新しいものは追加しないでください。
 
 ## PluginCapabilityService — デーモン → プラグイン
 
 | RPC | Capability | Req | Routing | Stream | Rust | Python | TypeScript | デーモン側の呼び出し箇所 |
 |---|---|---|---|---|---|---|---|---|
-| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
-| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
-| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
+| `ListTools` | `tools` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallTool` | `tools` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `TtsSynthesize` | `tts` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
 | `TtsSynthesizeStream` | `tts` | optional | unrouted | server | stable | stable | stable | **none** |
-| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/voice.rs` |
-| `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/capability_bridge.rs` |
-| `AiGetModels` | `ai_provider` | optional | deprecated | unary | stable | stable | stable | **none** |
-| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
-| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
-| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
-| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
-| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
-| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/music.rs` |
-| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
-| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
-| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
-| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/capabilities.rs` |
-| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/lifecycle.rs` |
-| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
-| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
-| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/ui_surface.rs` |
-| `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/instance.rs` |
-| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/manager/health.rs` |
+| `TtsListVoices` | `tts` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsGetConfigFields` | `tts` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `TtsActivate` | `tts` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttProcess` | `stt` | required | live | bidi | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLanguages` | `stt` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetConfigFields` | `stt` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttLoad` | `stt` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttUnload` | `stt` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `SttGetLoadState` | `stt` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/voice.rs` |
+| `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
+| `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
+| `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
+| `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
+| `MusicSearch` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
+| `MusicPlay` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
+| `ExecuteAction` | `actions` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetPluginActionTypes` | `actions` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `GetPluginTriggerTypes` | `triggers` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `OnActiveTriggers` | `triggers` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `GetUiContributions` | `ui_contributions` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
+| `CallFromUi` | `ui_contributions` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnConfigChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `OnLanguageChanged` | `core` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/ui_surface.rs` |
+| `Shutdown` | `core` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/instance.rs` |
+| `HealthCheck` | `core` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/health.rs` |
 
 ## PluginHostService — プラグイン → デーモン
 
 | RPC | Capability | Permission | Req | Routing | Stream | Rust | Python | TypeScript | デーモン側の呼び出し箇所 |
 |---|---|---|---|---|---|---|---|---|---|
-| `Register` | `core` | `none` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `GetPluginSelfConfig` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `PluginLog` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `GetDaemonInfo` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `SetVariable` | `core` | `set_variable` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
-| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-rs/astra-daemon/src/plugins/host_service.rs` |
+| `Register` | `core` | `none` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetPluginSelfConfig` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `PluginLog` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetDaemonInfo` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `SetVariable` | `core` | `set_variable` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## ケーパビリティの実装可否
 
@@ -136,6 +132,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `SttUnload` | `stt` | optional | unary | probe |
 | `SttGetLoadState` | `stt` | optional | unary | probe |
 | `AiComplete` | `ai_provider` | required | server | probe |
+| `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
@@ -189,14 +186,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
   開くため、オーバーライドされていないフックでも UNIMPLEMENTED を返せ
   ます。3 つの SDK すべてが 5.4 の時点でこれを結びつけているため、
   `ai_provider` はどの言語でも実装可能です。
-- **`AiGetModels`** — このプロバイダが動かせるモデルを一覧します。
-  検出事項: 3 つの SDK すべてで実装されていますが、誰からも呼ばれて
-  いません。`all_ai_providers` は supports_model_discovery=false を
-  ハードコードしているため、ピッカーが尋ねることは決してありません。
-  proto では非推奨とマークされています。結びつきは維持し、これ以上は
-  増やさないでください。0.6 で非推奨、0.8 で削除され、代替はありません:
-  デーモンはプラグインにどんなモデルを持っているか尋ねませんし、
-  AiComplete はリクエストに選択済みのモデルを載せます。
+- **`AiGetModels`** — このプロバイダが動かせるモデルと、それぞれをどう動かしてほしいか(ヒント)を、Astra のモデル選択のために一覧します。 プラグインの起動時に他の定義と一緒に、そして AI ページが更新されるたびに問い合わせられます。UNIMPLEMENTED またはエラーは「リストなし」です。選ばれたモデルは AiComplete の `model` で届き、空なら `default_model` を意味します。モデルの `hints`(なければリストの `provider_hints`)が変えるのは、そのモデルでの Astra のターンだけで、しかも `plugin-provider-slots` 付きでビルドされたデーモンでだけです。`accepts_images` を宣言するプラグインは 64 MiB のメッセージを受け取れなければならず、各 SDK の capability サーバーはそうなっています。
 - **`OnActiveTriggers`** — このプラグインのトリガー種別のうち、あるコマンド
   が現在listenしているものはどれか。manager/capabilities.rs:438 が `optional_hook`
   経由でルーティングしています。

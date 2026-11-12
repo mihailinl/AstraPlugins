@@ -29,7 +29,7 @@
  */
 
 export { Harness, HookStatusError, SchemaAssertionError } from "./harness.js";
-export type { Testable, SttRun } from "./harness.js";
+export type { Testable, SttRun, WireAiModelHints } from "./harness.js";
 export { RecordingHost } from "./recording-host.js";
 export type {
   RecordedChat,

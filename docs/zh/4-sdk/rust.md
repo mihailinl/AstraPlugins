@@ -311,9 +311,6 @@ SDK 拥有这个方法；如果你正在移植使用过它的代码，请改用
   它；但守护进程侧不存在任何调用点。如果你愿意可以实现它 —— 但在
   [对照表](../reference/parity.md)显示 `live` 之前，不会有任何东西去
   调用它。
-- **`AiGetModels` 已被弃用**（0.6 弃用，0.8 移除），没有任何人调用它：
-  模型选择器把 `supports_model_discovery = false` 写死了。没有替代
-  方案；`AiComplete` 的请求里会直接携带已选定的模型。
 - **0.5 的 trait 接口以 `astra_plugin_sdk::compat` 的形式继续存在**，
   0.6 中弃用，0.8 中移除。参见
   [迁移到 0.6](../migration-0.6.md)。

@@ -458,7 +458,6 @@ async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
 | `use of deprecated type alias compat::HostClient` / `DaemonClient` | 0.8 | `ctx.host()` / `ctx.daemon()` — §2.3 |
 | `use of deprecated method source_id` | 0.8 | den Override löschen |
 | Python `DeprecationWarning: … returned a dict` | 0.7 | die Dataclass zurückgeben |
-| `AiGetModels` / `ai_models()` | 0.8 | nichts — der Daemon fragt nie |
 
 Nichts in dieser Tabelle ist bereits ein Fehler, und nichts darin wird
 innerhalb eines Minor-Releases eines werden: siehe

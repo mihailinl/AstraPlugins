@@ -16,7 +16,7 @@
 //! One rule beats a per-key type table that can drift on its own.
 
 /// SHA-256 of the `spec/limits.yaml` these constants were generated from.
-pub const SPEC_SHA256: &str = "ec2dc1e63fb9cf91aa03fdcaaffcc9e7699058d41f2c12ebc1b8313efc78853b";
+pub const SPEC_SHA256: &str = "b8e7f779f476ed942dc6dcbee15e4cccae0807326f7b967a10851f875e0dd31a";
 
 /// Capacity of the audio channel that carries streaming-STT chunks from the
 /// daemon's voice pipeline into the plugin process, in chunks.
@@ -124,3 +124,16 @@ pub const MUSIC_SNAPSHOT_MAX_SESSIONS: u64 = 16;
 /// The widget shows ten; the AI reads fewer. Twenty leaves room without letting a
 /// provider hand back a whole catalogue page per keystroke.
 pub const MUSIC_SEARCH_MAX_ITEMS: u64 = 20;
+
+/// The largest gRPC message either end of the plugin protocol accepts, in bytes
+/// (64 MiB). The daemon decodes what a plugin sends up to this
+/// (`plugins::client::MAX_PLUGIN_MESSAGE_BYTES`), and every SDK's capability
+/// server receives what the daemon sends up to this. Must stay well above
+/// `plugin_image_request_max_bytes`: the pictures are not the whole request.
+pub const PLUGIN_MAX_MESSAGE_BYTES: u64 = 67_108_864;
+
+/// The most picture bytes the daemon puts in one `AiComplete` request, in bytes
+/// (20 MiB). The newest pictures of the conversation are kept within it, and the
+/// message text notes one that was left out
+/// (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
+pub const PLUGIN_IMAGE_REQUEST_MAX_BYTES: u64 = 20_971_520;

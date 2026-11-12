@@ -459,7 +459,6 @@ async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
 | `use of deprecated type alias compat::HostClient` / `DaemonClient` | 0.8 | `ctx.host()` / `ctx.daemon()` — §2.3 |
 | `use of deprecated method source_id` | 0.8 | オーバーライドを削除 |
 | Python `DeprecationWarning: … returned a dict` | 0.7 | データクラスを返す |
-| `AiGetModels` / `ai_models()` | 0.8 | 何もしなくてよい — デーモンは決して尋ねません |
 
 この表にあるものはまだどれもエラーではなく、どれも 1 マイナーの中でエラーに
 なることはありません。保証の内容と、それがどう強制されるかは

@@ -8386,15 +8386,7 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "AiGetModels": {
               "requestType": "Empty",
-              "responseType": "PluginAiModelsResponse",
-              "options": {
-                "deprecated": true
-              },
-              "parsedOptions": [
-                {
-                  "deprecated": true
-                }
-              ]
+              "responseType": "PluginAiModelsResponse"
             },
             "WebSearch": {
               "requestType": "PluginWebSearchRequest",
@@ -10470,6 +10462,27 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "PluginAiToolCall",
               "id": 4
+            },
+            "images": {
+              "rule": "repeated",
+              "type": "PluginImage",
+              "id": 5
+            }
+          }
+        },
+        "PluginImage": {
+          "fields": {
+            "mimeType": {
+              "type": "string",
+              "id": 1
+            },
+            "data": {
+              "type": "bytes",
+              "id": 2
+            },
+            "filename": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -10538,6 +10551,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "defaultModel": {
               "type": "string",
               "id": 2
+            },
+            "providerHints": {
+              "type": "PluginAiModelHints",
+              "id": 3
             }
           }
         },
@@ -10550,6 +10567,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "name": {
               "type": "string",
               "id": 2
+            },
+            "hints": {
+              "type": "PluginAiModelHints",
+              "id": 3
+            }
+          }
+        },
+        "PluginAiModelHints": {
+          "fields": {
+            "toolLoading": {
+              "type": "string",
+              "id": 1
+            },
+            "acceptsImages": {
+              "type": "bool",
+              "id": 2
+            },
+            "contextWindow": {
+              "type": "uint32",
+              "id": 3
             }
           }
         },

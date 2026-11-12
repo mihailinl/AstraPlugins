@@ -268,8 +268,6 @@ Ebene-2-Paar: ein echter Prozess über gRPC.
   kaputt.
 - **`UiPanel` ist ein veralteter Alias** für `UiContribution` — veraltet
   seit 0.5.0, entfernbar ab 0.7.0.
-- **`aiGetModels` ist veraltet** und wird von niemandem aufgerufen; es
-  gibt keinen Ersatz.
 - **`ttsSynthesizeStream` ist gebunden und ungeroutet** — es gibt keine
   Aufrufstelle im Daemon.
 - **Das Proto wird hier nicht von Hand gepflegt.** Zwei Proto-Strings

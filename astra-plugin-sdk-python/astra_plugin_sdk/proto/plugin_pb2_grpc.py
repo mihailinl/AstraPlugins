@@ -8005,14 +8005,13 @@ class PluginCapabilityServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AiGetModels(self, request, context):
-        """DEPRECATED — the daemon has no call site and no way to surface the answer.
-        `all_ai_providers` builds every plugin `AiProviderInfo` with
-        `supports_model_discovery: false` and an empty `default_model`, so the model
-        picker never asks a plugin what it can run; a plugin that implements this
-        does work nothing reads. Kept declared (dropping it would break the two
-        sidecars' generated trait impls, and an SDK that dials it should keep
-        getting UNIMPLEMENTED rather than a transport error), but no SDK should grow
-        a hook for it. Remove once model discovery is either wired or abandoned.
+        """The models this AI provider can run, for Astra's own model picker. The
+        daemon asks when the plugin starts, with its other definitions (an
+        UNIMPLEMENTED answer, or an error, is "no list", and the picker then takes
+        a typed model id as before), and again whenever the AI page asks for a
+        fresh list.
+        The model the person picks arrives on `PluginAiCompleteRequest.model`; ""
+        there means "the plugin's own default" (`default_model`).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

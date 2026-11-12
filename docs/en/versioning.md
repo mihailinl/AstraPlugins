@@ -115,7 +115,12 @@ A deprecation is a warning, never an error. If a release makes deprecated code
 | Rust: `compat::HostClient` / `DaemonClient` aliases | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: a `dict` where a capability dataclass is expected | 0.5.0 | 0.7.0 | The dataclass — `VoiceInfo`, `ToolDef`, … — or its `to_proto()` |
 | TypeScript: the `UiPanel` type alias | 0.5.0 | 0.7.0 | `UiContribution` |
-| Hook: `AiGetModels` | 0.6.0 | 0.8.0 | No replacement — nothing in the daemon asks a plugin what models it has |
+
+One deprecation was withdrawn rather than completed: the hook `AiGetModels`,
+deprecated in 0.6.0 because no daemon asked for it, is live again since Astra
+asks every AI provider for its model list (Rust SDK 0.7.5, Python 0.6.5,
+TypeScript 0.7.4). Nothing was removed, and a plugin that kept its binding works
+as it did.
 
 Two footnotes, because both are the kind of thing this policy exists to prevent:
 
@@ -132,7 +137,7 @@ Rules that live only in a document get forgotten at exactly the moment they
 matter: the release where somebody deletes the thing. So the per-hook half of
 the policy is a column in [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

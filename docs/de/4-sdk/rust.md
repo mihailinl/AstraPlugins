@@ -335,10 +335,6 @@ das Plugin geschrieben wurde.
   ihn; es gibt keine Aufrufstelle im Daemon. Implementiere ihn gern —
   niemand ruft ihn auf, bis
   [die Paritätstabelle](../reference/parity.md) `live` sagt.
-- **`AiGetModels` ist veraltet** (0.6, entfernt in 0.8) und wird von
-  niemandem aufgerufen: der Modell-Picker hartkodiert
-  `supports_model_discovery = false`. Es gibt keinen Ersatz;
-  `AiComplete` trägt das gewählte Modell in der Anfrage.
 - **Die Trait-Oberfläche von 0.5 lebt als `astra_plugin_sdk::compat`
   fort**, veraltet in 0.6 und entfernt in 0.8. Siehe
   [Migration auf 0.6](../migration-0.6.md).

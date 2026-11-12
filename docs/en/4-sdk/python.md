@@ -192,6 +192,22 @@ with `ErrorCode` as the enum. See [`reference/errors.md`](../reference/errors.md
 `ToolDef`, `VoiceInfo`, `AiModelInfo`, `FieldDef`, `DropdownOption`,
 `FieldCondition`, `ActionTypeDef`, `TriggerTypeDef`, `UiContribution`.
 
+**An AI provider's model list** is `ai_get_models`: Astra asks when the plugin
+starts and whenever the AI page refreshes, and offers the list in its model
+picker. Return an `AiModelList(models=[AiModelInfo(id, name, hints=…)],
+default_model=…, provider_hints=…)` — or the `(models, default_model)` tuple the
+hook has always taken. The model the person picks arrives on
+`AiCompleteRequest.model`, and an empty one means `default_model`.
+`AiModelHints(accepts_images=True)` sends that model the conversation's pictures
+(on `AiMessage.images`, as `AiImage`s), `tool_loading="all"` puts every tool in
+the request instead of Tool Search while they fit a quarter of the window and
+32k tokens, and `context_window` sizes the history; `provider_hints` covers
+every model without hints of its own. **Hints change only Astra's turns on that
+model, and only in a daemon built with the `plugin-provider-slots` feature.** A
+request to a model that reads pictures carries up to 20 MiB of them, so the
+SDK's capability server receives messages up to `limits.PLUGIN_MAX_MESSAGE_BYTES`
+(64 MiB) since 0.6.5, where gRPC's default is 4 MiB.
+
 Returning a raw `dict` where a dataclass is expected still works and emits a
 `DeprecationWarning`: deprecated in 0.5.0, removable from 0.7.0. Gate it in CI
 with `python -W error::DeprecationWarning`.
@@ -229,8 +245,6 @@ the code the daemon acts on.
   The daemon's budget is 20 s to the first line of output, which is generous,
   but a plugin that imports a large ML stack at module scope can miss it. Import
   lazily in the hook that needs it.
-- **`ai_get_models` is deprecated** (0.5.0, removable 0.7.0 for the dict form;
-  the hook itself is retired in 0.8) and nothing calls it.
 - **`tts_synthesize_stream` is bound and unrouted** — no daemon call site.
 - **The Python SDK is on PyPI**, and the scaffold's pin at the top of this page
   resolves from it in a fresh project. Which version PyPI serves is README's

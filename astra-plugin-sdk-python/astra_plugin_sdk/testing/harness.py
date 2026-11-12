@@ -691,6 +691,17 @@ class Harness:
         self._raise_if_failed(ctx, "tts_synthesize_stream")
         return chunks
 
+    def ai_models(self) -> plugin_pb2.PluginAiModelsResponse:
+        """`AiGetModels`, through the real servicer: the list as the daemon reads it.
+
+        A model's ``hints`` and the list's ``provider_hints`` are unset when the
+        plugin stated none — check them with ``HasField``, as the daemon does.
+        """
+        ctx = FakeContext()
+        response = self.run(self._servicer.AiGetModels(plugin_pb2.Empty(), ctx))
+        self._raise_if_failed(ctx, "ai_get_models")
+        return response
+
     def ai_complete(self, request: plugin_pb2.PluginAiCompleteRequest | None = None, **kwargs):
         """Stream a completion. `kwargs` build the request when you pass none."""
         if request is None:

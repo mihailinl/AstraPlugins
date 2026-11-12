@@ -11,7 +11,7 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 194 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: ce1f8d511c1f11b8…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:74047cd55194722b…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 194 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 9db774712359b4ab…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:5beecd4b94806b5b…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
@@ -43,7 +43,7 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `SttUnload` | `stt` | `Empty` | `Empty` | unary | live | Drop the recognizer model so idle-unload actually frees VRAM. |
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Stream a model completion; the only way a plugin can be an AI provider. |
-| `AiGetModels` *(deprecated)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | List the models this provider can run. |
+| `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | List the models this provider can run, and how each wants to be driven (its hints), for Astra's model picker. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
@@ -131,8 +131,6 @@ Full signatures are in [`proto/plugin.proto`](../../../proto/plugin.proto); this
 
 ## Deprecations
 
-| RPC | Why |
-|---|---|
-| `PluginCapabilityService.AiGetModels` | DEPRECATED — the daemon has no call site and no way to surface the answer. |
+None: no RPC in this slice carries `option deprecated = true`.
 
 A deprecated RPC stays declared. Removing it would break the generated trait implementations every SDK emits, and a plugin that dials one should keep getting `UNIMPLEMENTED` — which means *absent* — rather than a transport error.

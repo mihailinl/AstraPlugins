@@ -17,6 +17,10 @@ import grpc
 
 from astra_plugin_sdk import (
     AiChunk,
+    AiImage,
+    AiModelHints,
+    AiModelInfo,
+    AiModelList,
     AudioChunk,
     NotConfigured,
     Plugin,
@@ -168,6 +172,109 @@ class AiCompleteTest(unittest.TestCase):
         # NOT a transport error: the daemon must not read this as the plugin
         # having no `AiComplete` hook.
         self.assertIsNone(ctx.code)
+
+    def test_the_pictures_on_a_message_reach_the_provider(self):
+        plugin = AiProvider()
+        servicer = _CapabilityServicer(plugin)
+        request = plugin_pb2.PluginAiCompleteRequest(
+            messages=[
+                plugin_pb2.PluginAiMessage(
+                    role="user",
+                    content="what is this?",
+                    images=[
+                        plugin_pb2.PluginImage(
+                            mime_type="image/png", data=b"\x89PNG", filename="a.png"
+                        )
+                    ],
+                )
+            ],
+        )
+        run(collect(servicer.AiComplete(request, FakeContext())))
+        image = plugin.seen.messages[0].images[0]
+        self.assertEqual(image, AiImage(mime_type="image/png", data=b"\x89PNG", filename="a.png"))
+
+
+class AiGetModelsTest(unittest.TestCase):
+    """The model list, with hints, as the daemon reads it off the wire."""
+
+    def answer(self, plugin):
+        ctx = FakeContext()
+        response = run(_CapabilityServicer(plugin).AiGetModels(plugin_pb2.Empty(), ctx))
+        self.assertIsNone(ctx.code)
+        # Through real protobuf bytes, so "absent" is what the daemon decodes.
+        return plugin_pb2.PluginAiModelsResponse.FromString(response.SerializeToString())
+
+    def test_each_model_s_hints_and_the_provider_s_hints_reach_the_wire(self):
+        class Hinted(Plugin):
+            async def ai_get_models(self):
+                return AiModelList(
+                    models=[
+                        AiModelInfo(
+                            "vision",
+                            "Vision",
+                            hints=AiModelHints(accepts_images=True, context_window=128_000),
+                        ),
+                        AiModelInfo("text", "Text"),
+                    ],
+                    default_model="text",
+                    provider_hints=AiModelHints(tool_loading="all"),
+                )
+
+        wire = self.answer(Hinted())
+        self.assertEqual(wire.default_model, "text")
+        self.assertEqual([m.id for m in wire.models], ["vision", "text"])
+        self.assertTrue(wire.models[0].HasField("hints"))
+        self.assertTrue(wire.models[0].hints.accepts_images)
+        self.assertEqual(wire.models[0].hints.context_window, 128_000)
+        self.assertEqual(wire.models[0].hints.tool_loading, "")
+        # Absent, not an empty message: absent is "the provider's hints".
+        self.assertFalse(wire.models[1].HasField("hints"))
+        self.assertTrue(wire.HasField("provider_hints"))
+        self.assertEqual(wire.provider_hints.tool_loading, "all")
+        self.assertFalse(wire.provider_hints.accepts_images)
+        # And back: the dataclass reads what it wrote.
+        self.assertEqual(
+            AiModelList.from_proto(wire).models[0].hints,
+            AiModelHints(accepts_images=True, context_window=128_000),
+        )
+
+    def test_the_old_tuple_still_works_and_a_three_tuple_carries_provider_hints(self):
+        class Old(Plugin):
+            async def ai_get_models(self):
+                return [AiModelInfo("m", "M")], "m"
+
+        wire = self.answer(Old())
+        self.assertEqual([m.id for m in wire.models], ["m"])
+        self.assertEqual(wire.default_model, "m")
+        self.assertFalse(wire.HasField("provider_hints"))
+        self.assertFalse(wire.models[0].HasField("hints"))
+
+        class Triple(Plugin):
+            async def ai_get_models(self):
+                return [AiModelInfo("m", "M")], "", AiModelHints(accepts_images=True)
+
+        wire = self.answer(Triple())
+        self.assertTrue(wire.provider_hints.accepts_images)
+
+    def test_a_generator_of_models_still_works(self):
+        # The old servicer iterated `models`; a generator or `map(...)` was a list to it.
+        class Lazy(Plugin):
+            async def ai_get_models(self):
+                return (AiModelInfo(i, i.upper()) for i in ("a", "b")), "b"
+
+        wire = self.answer(Lazy())
+        self.assertEqual([m.id for m in wire.models], ["a", "b"])
+        self.assertEqual(wire.default_model, "b")
+
+    def test_an_unknown_tool_loading_is_sent_as_astra_decides(self):
+        wire = AiModelHints(tool_loading="everything", context_window=-5).to_proto()
+        self.assertEqual(wire.tool_loading, "")
+        self.assertEqual(wire.context_window, 0)
+
+    def test_a_plugin_with_no_list_answers_an_empty_one(self):
+        wire = self.answer(Plugin())
+        self.assertEqual(len(wire.models), 0)
+        self.assertFalse(wire.HasField("provider_hints"))
 
 
 # ── TTS ──────────────────────────────────────────────────────────────────────

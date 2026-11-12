@@ -154,9 +154,27 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     }
 
     if capabilities.contains(&"ai_provider") {
-        imports.push("AiChunk");
+        imports.extend(["AiChunk", "AiModelHints", "AiModelInfo", "AiModelList"]);
         methods.push_str(
             r#"
+    async def ai_get_models(self):
+        # The models Astra's model picker offers. The one the person picks
+        # arrives on `request.model` ("" = `default_model`). A model's hints say
+        # how it wants to be driven: `demo-vision` reads pictures, so Astra
+        # sends the conversation's images to it on `message.images` — only a
+        # daemon built with `plugin-provider-slots` reads hints.
+        return AiModelList(
+            models=[
+                AiModelInfo("demo-1", "Demo Model"),
+                AiModelInfo(
+                    "demo-vision",
+                    "Demo Vision",
+                    hints=AiModelHints(accepts_images=True, context_window=128_000),
+                ),
+            ],
+            default_model="demo-1",
+        )
+
     async def ai_complete(self, request):
         # The whole of the `ai_provider` capability, and an async GENERATOR:
         # yield deltas as the model produces them. The SDK appends the

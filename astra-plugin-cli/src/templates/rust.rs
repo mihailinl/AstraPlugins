@@ -286,9 +286,21 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     if capabilities.contains(&"ai_provider") {
         members.push(Member::new(
             Some("ai_provider"),
-            r#"    #[hook]
+            r#"    /// The models Astra's model picker offers, and the default one. The model
+    /// the person picks arrives on `req.model` ("" = the default). A model's
+    /// hints say how it wants to be driven: `demo-vision` reads pictures, so
+    /// Astra sends the conversation's images to it on `message.images` — only
+    /// a daemon built with `plugin-provider-slots` reads hints.
+    #[hook]
     async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
-        (vec![AiModelInfo::new("demo-1", "Demo Model")], "demo-1".into())
+        (
+            vec![
+                AiModelInfo::new("demo-1", "Demo Model"),
+                AiModelInfo::new("demo-vision", "Demo Vision")
+                    .with_hints(AiModelHints::new().accepts_images().with_context_window(128_000)),
+            ],
+            "demo-1".into(),
+        )
     }
 
     /// Stream one completion. Send chunks as they arrive; returning `Ok` ends

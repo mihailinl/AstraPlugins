@@ -124,7 +124,8 @@ TypeScript SDK, — генеруються з `proto/plugin.proto`, власно
 | Rust: псевдоніми `compat::HostClient` / `DaemonClient` | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: `dict` там, де очікується dataclass можливості | 0.5.0 | 0.7.0 | Dataclass — `VoiceInfo`, `ToolDef`, … — або його `to_proto()` |
 | TypeScript: псевдонім типу `UiPanel` | 0.5.0 | 0.7.0 | `UiContribution` |
-| Хук: `AiGetModels` | 0.6.0 | 0.8.0 | Заміни немає — ніщо в демоні не питає у плагіна, які в нього моделі |
+
+Одне застарівання було скасовано, а не доведено до кінця: хук `AiGetModels`, позначений застарілим у 0.6.0, бо жоден демон його не питав, знову live — Astra питає в кожного AI-провайдера його список моделей (Rust SDK 0.7.5, Python 0.6.5, TypeScript 0.7.4). Нічого не видалено, і плагін, що зберіг прив'язку, працює як раніше.
 
 Дві виноски, тому що обидві — саме те, для запобігання чому існує ця
 політика:
@@ -143,7 +144,7 @@ TypeScript SDK, — генеруються з `proto/plugin.proto`, власно
 стосується кожного хука, — це колонка в
 [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

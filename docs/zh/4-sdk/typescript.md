@@ -256,7 +256,6 @@ test("no config the daemon can deliver crashes this plugin", async () => {
   守护进程那一侧的部分还没有被构建出来，而不是坏掉了。
 - **`UiPanel` 是一个被弃用的别名**，指向 `UiContribution` —— 0.5.0
   中弃用，0.7.0 起可移除。
-- **`aiGetModels` 已被弃用**，没有任何人调用它；没有替代方案。
 - **`ttsSynthesizeStream` 已经绑定，但是 unrouted 的** —— 不存在守护
   进程侧的调用点。
 - **这里的 proto 不是手动维护的。** 曾经有两段 proto 字符串以内联

@@ -244,8 +244,6 @@ sobre el que actúa el daemon.
   primera línea de salida, lo cual es generoso, pero un plugin que importa
   una pila de ML grande en el ámbito del módulo puede no llegar a tiempo.
   Importa de forma perezosa, en el hook que lo necesite.
-- **`ai_get_models` está obsoleto** (0.5.0, eliminable en 0.7.0 para la
-  forma dict; el hook en sí se retira en 0.8) y nada lo llama.
 - **`tts_synthesize_stream` está vinculado pero no enrutado** — sin punto
   de llamada en el daemon.
 - **El SDK de Python está en PyPI**, y el fijado del scaffold al principio de

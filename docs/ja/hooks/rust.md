@@ -27,7 +27,7 @@
 | `SttUnload` | `stt` | optional | unary | stable | 認識器モデルを解放し、アイドル時アンロードが実際に VRAM を解放するようにします。 |
 | `SttGetLoadState` | `stt` | optional | unary | stable | デーモンがアイドル時アンロードを駆動できるよう、Loaded / NotLoaded / NotNeeded を報告します。 |
 | `AiComplete` | `ai_provider` | required | server | stable | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
-| `AiGetModels` | `ai_provider` | optional | unary | stable | このプロバイダが動かせるモデルを一覧します。 |
+| `AiGetModels` | `ai_provider` | optional | unary | stable | このプロバイダが動かせるモデルと、それぞれをどう動かしてほしいか(ヒント)を、Astra のモデル選択のために一覧します。 |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |

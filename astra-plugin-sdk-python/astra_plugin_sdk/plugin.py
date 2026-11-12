@@ -26,7 +26,7 @@ from astra_plugin_sdk.causality import CauseInterceptor
 from astra_plugin_sdk.invocation import invocation_from_request, set_invocation
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
-    AiModelInfo,
+    AiModelList,
     FieldDef,
     ToolDef,
     TriggerTypeDef,
@@ -101,6 +101,15 @@ def _capabilities_from_env() -> list[str] | None:
     if raw is None:
         return None
     return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+#: The options every capability server is built with: it receives messages up
+#: to ``limits.PLUGIN_MAX_MESSAGE_BYTES`` (64 MiB), where gRPC's default is
+#: 4 MiB. An `AiComplete` request to a model whose hints say `accepts_images`
+#: carries up to 20 MiB of pictures.
+CAPABILITY_SERVER_OPTIONS = (
+    ("grpc.max_receive_message_length", limits.PLUGIN_MAX_MESSAGE_BYTES),
+)
 
 
 def _accepts(func, name: str) -> bool:
@@ -332,9 +341,16 @@ class Plugin:
         # Order matters: `guard` first, so an unauthenticated call is refused
         # before anything is bound for it. `CauseInterceptor` is a no-op on every
         # call that carries no invocation lease, which today is all of them.
+        #
+        # `options`: receive up to PLUGIN_MAX_MESSAGE_BYTES (64 MiB), not gRPC's
+        # 4 MiB default. An `AiComplete` request to a model whose hints say
+        # `accepts_images` carries up to 20 MiB of pictures, and the default
+        # would refuse the very request the hint asked for — RESOURCE_EXHAUSTED,
+        # before any hook ran.
         self._server = grpc.aio.server(
             futures.ThreadPoolExecutor(max_workers=4),
             interceptors=(guard, CauseInterceptor()),
+            options=CAPABILITY_SERVER_OPTIONS,
         )
         servicer = _CapabilityServicer(self)
         plugin_pb2_grpc.add_PluginCapabilityServiceServicer_to_server(servicer, self._server)
@@ -547,8 +563,8 @@ class Plugin:
 
         Only reached when the daemon did not pass `--capabilities`; the manifest
         is the real answer and this is the compatibility path. It is also why
-        `ai_provider` is decided by `ai_complete` being overridden rather than
-        by `ai_get_models` returning something: `AiGetModels` is deprecated and
+        `ai_provider` is decided by `ai_complete` being overridden and not only
+        by `ai_get_models` returning something: the model list is optional and
         defaults to empty, so a provider that implemented the hook that matters
         used to register without the capability that names it.
         """
@@ -562,7 +578,7 @@ class Plugin:
         langs = await self.stt_get_languages()
         if langs:
             caps.append("stt")
-        models, _ = await self.ai_get_models()
+        models = AiModelList.of(await self.ai_get_models()).models
         if models or _overrides(self, "ai_complete"):
             caps.append("ai_provider")
         if _overrides(self, "web_search"):
@@ -856,13 +872,34 @@ class Plugin:
         """Start — or queue next / at the end — ``request.item_ref`` or the first match for ``request.query``."""
         raise NotImplementedError
 
-    async def ai_get_models(self) -> tuple[list[dict], str]:
-        """Return (models_list, default_model_id).
+    async def ai_get_models(self) -> "AiModelList | tuple":
+        """The models this provider can run — what Astra's model picker offers.
 
-        DEPRECATED: the daemon has no call site — ``all_ai_providers`` builds
-        every plugin provider with ``supports_model_discovery: false``, so the
-        model picker never asks. Kept so an existing plugin keeps compiling.
+        Astra asks when the plugin starts, with its other definitions, and again
+        whenever the AI page refreshes its lists. The model the person picks
+        arrives on ``AiCompleteRequest.model``; an empty ``model`` there means
+        ``default_model`` (``""`` = the first model). An empty list is "no
+        list": the picker then takes a typed model id.
+
+        Return an `AiModelList`, or the ``(models, default_model)`` tuple this
+        hook has always taken. A model can say how it wants to be driven
+        (``AiModelInfo(hints=AiModelHints(...))``); one without hints takes the
+        list's ``provider_hints``. Hints change only Astra's turns on that model,
+        and only in a daemon built with ``plugin-provider-slots``::
+
+            async def ai_get_models(self):
+                return AiModelList(
+                    models=[
+                        AiModelInfo("vision-1", "Vision 1",
+                                    hints=AiModelHints(accepts_images=True, context_window=128_000)),
+                        AiModelInfo("fast-1", "Fast 1"),
+                    ],
+                    default_model="fast-1",
+                    provider_hints=AiModelHints(tool_loading="all"),
+                )
         """
+        # The tuple, not an `AiModelList`: a subclass that unpacks
+        # `models, default = await super().ai_get_models()` keeps working.
         return [], ""
 
     async def get_action_types(self) -> list[ActionTypeDef]:
@@ -1362,12 +1399,11 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
 
     async def AiGetModels(self, request, context):
         try:
-            models, default = await self.plugin.ai_get_models()
-            items = [coerce(m, AiModelInfo, "ai_get_models").to_proto() for m in models or []]
+            answer = AiModelList.of(await self.plugin.ai_get_models()).to_proto()
         except BaseException as e:  # noqa: BLE001
             adopt(e, "ai_get_models").abort(context)
             return plugin_pb2.PluginAiModelsResponse()
-        return plugin_pb2.PluginAiModelsResponse(models=items, default_model=default)
+        return answer
 
     # ── per-call hooks, in-band failures ──
 

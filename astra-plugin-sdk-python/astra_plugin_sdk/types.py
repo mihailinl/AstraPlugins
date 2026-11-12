@@ -34,6 +34,7 @@ from astra_plugin_sdk.proto import plugin_pb2
 
 __all__ = [
     "AiToolCall",
+    "AiImage",
     "AiMessage",
     "AiCompleteRequest",
     "AiChunk",
@@ -75,13 +76,40 @@ class AiToolCall:
 
 
 @dataclass
+class AiImage:
+    """One picture on an `AiMessage`: its bytes as they are, never re-encoded."""
+
+    #: "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+    mime_type: str = ""
+    data: bytes = b""
+    #: The name it was attached under, or "".
+    filename: str = ""
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "AiImage":
+        return cls(mime_type=msg.mime_type, data=bytes(msg.data), filename=msg.filename)
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginImage(
+            mime_type=self.mime_type, data=self.data, filename=self.filename
+        )
+
+
+@dataclass
 class AiMessage:
-    """One conversation turn handed to the provider."""
+    """One conversation turn handed to the provider.
+
+    `images` carries the pictures on this message — what the person attached,
+    or what a tool showed the model. They are sent only to a model whose hints
+    say `accepts_images` (by a daemon built with `plugin-provider-slots`); for
+    any other model the list is empty.
+    """
 
     role: str = "user"  # "user" | "assistant" | "system" | "tool"
     content: str = ""
     tool_call_id: str = ""
     tool_calls: list[AiToolCall] = field(default_factory=list)
+    images: list[AiImage] = field(default_factory=list)
 
     @classmethod
     def from_proto(cls, msg: Any) -> "AiMessage":
@@ -90,6 +118,9 @@ class AiMessage:
             content=msg.content,
             tool_call_id=msg.tool_call_id,
             tool_calls=[AiToolCall.from_proto(t) for t in msg.tool_calls],
+            # getattr for the same reason as `reasoning_effort` below: a stub
+            # older than the field degrades to "no pictures", not a crash.
+            images=[AiImage.from_proto(i) for i in getattr(msg, "images", [])],
         )
 
 
@@ -109,6 +140,8 @@ class AiCompleteRequest:
     system_prompt: str = ""
     temperature: float = 0.0
     max_tokens: int = 0
+    #: The model the person picked from `ai_get_models`' list (or typed);
+    #: "" = your default model.
     model: str = ""
     #: "" | "auto" | "off" | "low" | "medium" | "high" | "max"
     reasoning_effort: str = ""

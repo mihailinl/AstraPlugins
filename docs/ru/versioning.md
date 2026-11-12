@@ -126,7 +126,8 @@ enum с `#[non_exhaustive]`. `astra-plugin new` пишет форму с
 | Rust: псевдонимы `compat::HostClient` / `DaemonClient` | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: `dict` там, где ожидается dataclass возможности | 0.5.0 | 0.7.0 | Dataclass — `VoiceInfo`, `ToolDef`, … — или его `to_proto()` |
 | TypeScript: псевдоним типа `UiPanel` | 0.5.0 | 0.7.0 | `UiContribution` |
-| Хук: `AiGetModels` | 0.6.0 | 0.8.0 | Замены нет — ничто в демоне не спрашивает у плагина, какие у него модели |
+
+Одно устаревание было отменено, а не доведено до конца: хук `AiGetModels`, помеченный устаревшим в 0.6.0, потому что ни один демон его не спрашивал, снова live — Astra спрашивает у каждого AI-провайдера его список моделей (Rust SDK 0.7.5, Python 0.6.5, TypeScript 0.7.4). Ничего не удалено, и плагин, сохранивший привязку, работает как прежде.
 
 Две сноски, потому что обе — как раз то, для предотвращения чего существует
 эта политика:
@@ -145,7 +146,7 @@ enum с `#[non_exhaustive]`. `astra-plugin new` пишет форму с
 относящаяся к каждому хуку, — это колонка в
 [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

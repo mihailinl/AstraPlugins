@@ -11,7 +11,9 @@ from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
 from astra_plugin_sdk.daemon_client import DaemonClient
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
+    AiModelHints,
     AiModelInfo,
+    AiModelList,
     DropdownOption,
     FieldCondition,
     FieldDef,
@@ -77,6 +79,7 @@ from astra_plugin_sdk.music import (
 from astra_plugin_sdk.types import (
     AiChunk,
     AiCompleteRequest,
+    AiImage,
     AiMessage,
     AiToolCall,
     AudioChunk,
@@ -113,6 +116,8 @@ __all__ = [
     "ToolDef",
     "VoiceInfo",
     "AiModelInfo",
+    "AiModelHints",
+    "AiModelList",
     "FieldDef",
     "DropdownOption",
     "FieldCondition",
@@ -147,6 +152,7 @@ __all__ = [
     # ── hook payloads (§5.4) ──
     "AiChunk",
     "AiCompleteRequest",
+    "AiImage",
     "AiMessage",
     "AiToolCall",
     "AudioChunk",

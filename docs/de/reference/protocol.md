@@ -5,10 +5,10 @@
 Protokoll-Generation **1**. 10 Dienste, 192 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: ce1f8d511c1f11b8…`, der Digest des Plugin-zugewandten
+(`surface-sha256: 9db774712359b4ab…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:74047cd55194722b…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:5beecd4b94806b5b…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
@@ -49,7 +49,7 @@ diesen Hook nicht* — nicht für einen Fehler.
 | `SttUnload` | `stt` | `Empty` | `Empty` | unary | live | Entlädt das Recognizer-Modell, sodass Idle-Unload tatsächlich VRAM freigibt. |
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | Meldet Loaded / NotLoaded / NotNeeded, damit der Daemon Idle-Unload steuern kann. |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Streamt eine Model-Completion; der einzige Weg, wie ein Plugin ein AI-Provider sein kann. |
-| `AiGetModels` *(veraltet)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | Listet die Modelle, die dieser Provider ausführen kann. |
+| `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | Listet die Modelle, die dieser Provider ausführen kann, und wie jedes gefahren werden will (seine Hints), für Astras Modellauswahl. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
@@ -167,9 +167,7 @@ des SDK erreicht.
 
 ## Ausmusterungen
 
-| RPC | Warum |
-|---|---|
-| `PluginCapabilityService.AiGetModels` | VERALTET — der Daemon hat keine Aufrufstelle und keine Möglichkeit, die Antwort anzuzeigen. |
+Keine: Kein RPC in diesem Ausschnitt trägt `option deprecated = true`.
 
 Ein veraltetes RPC bleibt deklariert. Es zu entfernen würde die
 generierten Trait-Implementierungen brechen, die jedes SDK ausgibt, und

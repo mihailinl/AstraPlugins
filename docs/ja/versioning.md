@@ -122,7 +122,8 @@ Python の `_pb2` メッセージクラス、TypeScript SDK が読み込むデ�
 | Rust: `compat::HostClient` / `DaemonClient` のエイリアス | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: ケーパビリティのデータクラスが期待される箇所での `dict` | 0.5.0 | 0.7.0 | データクラス — `VoiceInfo`、`ToolDef` など — またはその `to_proto()` |
 | TypeScript: `UiPanel` 型エイリアス | 0.5.0 | 0.7.0 | `UiContribution` |
-| フック: `AiGetModels` | 0.6.0 | 0.8.0 | 代替なし — デーモンはプラグインにどんなモデルを持っているか尋ねません |
+
+完了ではなく撤回された非推奨が 1 つあります: フック `AiGetModels` は、どのデーモンも問い合わせなかったため 0.6.0 で非推奨になりましたが、Astra がすべての AI プロバイダにモデル一覧を問い合わせるようになったので再び live です(Rust SDK 0.7.5、Python 0.6.5、TypeScript 0.7.4)。何も削除されておらず、バインディングを残していたプラグインはそのまま動きます。
 
 2 つの補足事項です。どちらもこのポリシーが防ごうとしている類のことだから
 です。
@@ -140,7 +141,7 @@ Python の `_pb2` メッセージクラス、TypeScript SDK が読み込むデ�
 削除するリリース — に忘れられます。そのため、フックごとのポリシーの半分は
 [`spec/hooks.yaml`](../../spec/hooks.yaml) の 1 列になっています。
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

@@ -29,6 +29,30 @@ are removable in.
   which rejects with a clear error when there is no host or the host lacks the
   method. Additive (a 0.7.x release): `Host.getAiSettings` is OPTIONAL on the
   interface, so a `Host` implemented outside this package keeps compiling.
+- **An AI provider's model list is asked for again, with hints.** Astra (from
+  `17587566b`) calls `AiGetModels` when the plugin starts and on the AI page's
+  refresh, and offers the list in its model picker; the chosen model arrives on
+  `AiCompleteRequest.model` (`""` = `defaultModel`). New types `AiModelHints`
+  (`toolLoading?: "" | "all"`, `acceptsImages?`, `contextWindow?`),
+  `AiModelList` (`models`, `defaultModel?`, `providerHints?`) and `AiImage`
+  (`mimeType`, `data: Buffer`, `filename`), `AiModelInfo.hints?` and
+  `AiMessage.images?`. `ai.models` in `plugin({...})` takes the list or a
+  function of the context (sync or async). `Plugin.aiGetModels()` returns
+  `AiModelList`, whose `defaultModel` is now optional — an override returning
+  `{ models, defaultModel }` still type-checks. **Hints change only Astra's
+  turns on that model, and only in a daemon built with the
+  `plugin-provider-slots` feature.** `Harness.aiGetModels()` returns the list as
+  it crossed the wire.
+- **The capability server receives messages up to
+  `limits.PLUGIN_MAX_MESSAGE_BYTES` (64 MiB)** (`grpc.max_receive_message_length`),
+  where grpc-js's default was 4 MiB: a model whose hints say `acceptsImages` is
+  sent up to `limits.PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of pictures in one
+  `AiComplete`, which the default would refuse as `RESOURCE_EXHAUSTED`.
+
+### Un-deprecated
+
+- `Plugin.aiGetModels()` and `ai.models` — marked `@deprecated` because no
+  daemon asked. Astra asks now; the tags are gone.
 
 ## [0.7.3] — 2026-10-24
 

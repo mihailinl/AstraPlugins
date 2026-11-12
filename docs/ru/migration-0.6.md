@@ -452,7 +452,6 @@ async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
 | `use of deprecated type alias compat::HostClient` / `DaemonClient` | 0.8 | `ctx.host()` / `ctx.daemon()` — §2.3 |
 | `use of deprecated method source_id` | 0.8 | удалите переопределение |
 | Python `DeprecationWarning: … returned a dict` | 0.7 | возвращайте dataclass |
-| `AiGetModels` / `ai_models()` | 0.8 | ничего — демон никогда не спрашивает |
 
 Ничто в этой таблице ещё не является ошибкой, и ничто из этого не станет
 ею в пределах одного minor: см. [versioning.md](versioning.md) насчёт

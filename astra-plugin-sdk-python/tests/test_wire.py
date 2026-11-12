@@ -331,3 +331,59 @@ def test_the_last_log_lines_reach_the_daemon_before_the_process_stops():
         "a line logged inside on_shutdown never reached the daemon; the drain task "
         f"was cancelled before it went out. Daemon saw: {logged}"
     )
+
+
+class _Vision(Plugin):
+    """An AI provider whose model says it reads images."""
+
+    def __init__(self):
+        super().__init__()
+        self.picture_bytes = -1
+
+    async def ai_get_models(self):
+        from astra_plugin_sdk import AiModelHints, AiModelInfo, AiModelList
+
+        return AiModelList(
+            models=[
+                AiModelInfo("vision", "Vision", hints=AiModelHints(accepts_images=True)),
+                AiModelInfo("text", "Text"),
+            ],
+            default_model="text",
+            provider_hints=AiModelHints(tool_loading="all"),
+        )
+
+    async def ai_complete(self, request):
+        self.picture_bytes = sum(len(i.data) for m in request.messages for i in m.images)
+        yield f"{request.model} {self.picture_bytes}"
+
+
+def test_hints_cross_the_wire_and_a_20_mib_picture_request_reaches_the_hook():
+    """gRPC receives 4 MiB by default. An `AiComplete` to a model whose hints say
+    `accepts_images` carries up to 20 MiB of pictures, so a capability server
+    left at the default refuses the request its own hint asked for —
+    RESOURCE_EXHAUSTED, before any hook runs."""
+    from astra_plugin_sdk import limits
+
+    plugin = _Vision()
+    with WireHarness(plugin) as w:
+        listed = w.stub().AiGetModels(plugin_pb2.Empty(), metadata=w.metadata, timeout=5.0)
+        assert listed.default_model == "text"
+        assert listed.models[0].HasField("hints") and listed.models[0].hints.accepts_images
+        assert not listed.models[1].HasField("hints"), "absent = the provider's hints"
+        assert listed.provider_hints.tool_loading == "all"
+
+        size = limits.PLUGIN_IMAGE_REQUEST_MAX_BYTES
+        assert limits.PLUGIN_MAX_MESSAGE_BYTES > size + 1024 * 1024
+        request = plugin_pb2.PluginAiCompleteRequest(
+            model="vision",
+            messages=[
+                plugin_pb2.PluginAiMessage(
+                    role="user",
+                    content="what is this?",
+                    images=[plugin_pb2.PluginImage(mime_type="image/png", data=bytes(size))],
+                )
+            ],
+        )
+        chunks = list(w.stub().AiComplete(request, metadata=w.metadata, timeout=30.0))
+        assert plugin.picture_bytes == size
+        assert chunks[0].text_delta == f"vision {size}"

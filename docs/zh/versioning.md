@@ -111,7 +111,8 @@ minor，那么每次同步都会是 minor，minor 槽位也就不再意味着"�
 | Rust：`compat::HostClient` / `DaemonClient` 别名 | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python：在期望某个能力(capability)数据类的地方使用 `dict` | 0.5.0 | 0.7.0 | 对应的数据类 —— `VoiceInfo`、`ToolDef` 等 —— 或其 `to_proto()` |
 | TypeScript：`UiPanel` 类型别名 | 0.5.0 | 0.7.0 | `UiContribution` |
-| 钩子：`AiGetModels` | 0.6.0 | 0.8.0 | 没有替代方案 —— 守护进程不会向插件询问它有哪些模型 |
+
+有一项弃用被撤回而非完成：钩子 `AiGetModels` 曾因没有任何守护进程询问它而在 0.6.0 中被弃用，如今 Astra 会向每个 AI 提供者询问其模型列表，它重新成为 live（Rust SDK 0.7.5、Python 0.6.5、TypeScript 0.7.4）。没有删除任何东西，保留了绑定的插件照常工作。
 
 两条附注，因为它们正是这项策略要防止的那类情况：
 
@@ -128,7 +129,7 @@ minor，那么每次同步都会是 minor，minor 槽位也就不再意味着"�
 东西的那次发布。所以这项策略中按钩子(hook)划分的那一半，是
 [`spec/hooks.yaml`](../../spec/hooks.yaml) 中的一列：
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

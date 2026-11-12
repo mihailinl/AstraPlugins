@@ -11,8 +11,9 @@
 #   1. Edit the value here.
 #   2. Run `node tools/gen-limits.mjs` (from the AstraPlugins repo root). It
 #      rewrites the generated constants in all three SDKs, and — when it can
-#      find an Astra checkout (`$ASTRA_RS_DIR`, else `../Astra/astra-rs`) — the
-#      generated block in `astra-daemon/src/plugins/voice_capability.rs`.
+#      find an Astra checkout (`$ASTRA_RS_DIR`, else `../Astra`, else
+#      `../Astra/astra-rs` on a checkout at v0.2.7 or earlier) — the generated
+#      block in `astra-daemon/src/plugins/voice_capability.rs`.
 #   3. Build the daemon. The `const _: () = assert!(…)` next to that block
 #      fails until the daemon's own constants are moved to the new value too.
 #   Step 3 is the point: the spec cannot drift from the daemon in silence.
@@ -140,3 +141,25 @@ music_snapshot_max_sessions: 16
 # The widget shows ten; the AI reads fewer. Twenty leaves room without letting a
 # provider hand back a whole catalogue page per keystroke.
 music_search_max_items: 20
+
+# ── AI-provider plugins ──────────────────────────────────────────────────────
+#
+# An AI-provider plugin whose model says it reads images (`PluginAiModelHints.
+# accepts_images`) is sent the conversation's pictures on `AiComplete`, and a
+# picture is megabytes where everything else on that wire is kilobytes. gRPC's
+# default receive limit is 4 MiB in every runtime the SDKs use, so a plugin
+# whose capability server kept that default would refuse the very request its
+# own hint asked for, with RESOURCE_EXHAUSTED and nothing in the plugin's log.
+
+# The largest gRPC message either end of the plugin protocol accepts, in bytes
+# (64 MiB). The daemon decodes what a plugin sends up to this
+# (`plugins::client::MAX_PLUGIN_MESSAGE_BYTES`), and every SDK's capability
+# server receives what the daemon sends up to this. Must stay well above
+# `plugin_image_request_max_bytes`: the pictures are not the whole request.
+plugin_max_message_bytes: 67_108_864
+
+# The most picture bytes the daemon puts in one `AiComplete` request, in bytes
+# (20 MiB). The newest pictures of the conversation are kept within it, and the
+# message text notes one that was left out
+# (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
+plugin_image_request_max_bytes: 20_971_520

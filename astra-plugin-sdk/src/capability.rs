@@ -326,11 +326,19 @@ impl From<SttLoadState> for proto::SttLoadStateResponse {
     }
 }
 
-/// An AI model provided by the plugin.
+/// An AI model provided by the plugin, as Astra's model picker lists it.
+///
+/// The model the person picks arrives on [`AiRequest::model`]; an empty
+/// `model` there means "your default" (the second half of
+/// [`PluginCapability::ai_models`]' answer).
 #[derive(Debug, Clone)]
 pub struct AiModelInfo {
     pub id: String,
     pub name: String,
+    /// How this model wants to be driven. `None` = the provider's
+    /// ([`PluginCapability::ai_provider_hints`]). Set it with
+    /// [`with_hints`](Self::with_hints).
+    pub hints: Option<AiModelHints>,
 }
 
 impl AiModelInfo {
@@ -338,7 +346,21 @@ impl AiModelInfo {
         Self {
             id: id.into(),
             name: name.into(),
+            hints: None,
         }
+    }
+
+    /// The same model, with how it wants to be driven.
+    ///
+    /// ```
+    /// # use astra_plugin_sdk::{AiModelHints, AiModelInfo};
+    /// let vision = AiModelInfo::new("vision-1", "Vision 1")
+    ///     .with_hints(AiModelHints::new().accepts_images().with_context_window(128_000));
+    /// assert!(vision.hints.unwrap().accepts_images);
+    /// ```
+    pub fn with_hints(mut self, hints: AiModelHints) -> Self {
+        self.hints = Some(hints);
+        self
     }
 }
 
@@ -347,6 +369,108 @@ impl From<AiModelInfo> for proto::PluginAiModelInfo {
         Self {
             id: m.id,
             name: m.name,
+            hints: m.hints.map(Into::into),
+        }
+    }
+}
+
+/// How the turn's tools reach a model ([`AiModelHints::tool_loading`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum AiToolLoading {
+    /// Astra decides, as for any model: Tool Search as the person configured it.
+    #[default]
+    Auto,
+    /// This model does better with every tool in the request than with
+    /// discovering them through Tool Search. Astra then sends every tool
+    /// directly whenever they fit a larger budget (a quarter of the window, at
+    /// most 32k tokens); past it, Tool Search works as for any model. Never in
+    /// the Max mode, and never by changing the person's settings.
+    All,
+}
+
+impl AiToolLoading {
+    /// The wire spelling (`PluginAiModelHints.tool_loading`): `""` or `"all"`.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            Self::Auto => "",
+            Self::All => "all",
+        }
+    }
+}
+
+/// What an AI-provider plugin says about driving one of its models
+/// (`PluginAiModelHints`), on a model ([`AiModelInfo::with_hints`]) or for the
+/// whole provider ([`PluginCapability::ai_provider_hints`]).
+///
+/// A hint changes only a turn Astra runs on that model, never the person's
+/// settings, and only in a daemon built with the `plugin-provider-slots`
+/// feature; any other daemon drives the model like every other one. Build one
+/// with the methods below — the type is `#[non_exhaustive]`, so a hint the
+/// protocol grows later is not a breaking change for your plugin.
+///
+/// ```
+/// # use astra_plugin_sdk::{AiModelHints, AiToolLoading};
+/// let hints = AiModelHints::new().all_tools().accepts_images().with_context_window(200_000);
+/// assert_eq!(hints.tool_loading, AiToolLoading::All);
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct AiModelHints {
+    /// How the turn's tools reach this model. [`AiToolLoading::Auto`] by default.
+    pub tool_loading: AiToolLoading,
+    /// This model reads images: only then do the pictures in the conversation
+    /// reach it, on [`AiMessage::images`]. A request can then carry up to
+    /// [`PLUGIN_IMAGE_REQUEST_MAX_BYTES`](crate::limits::PLUGIN_IMAGE_REQUEST_MAX_BYTES)
+    /// of pictures; this SDK's capability server receives messages up to
+    /// [`PLUGIN_MAX_MESSAGE_BYTES`](crate::limits::PLUGIN_MAX_MESSAGE_BYTES).
+    pub accepts_images: bool,
+    /// The model's context window in tokens; 0 = unknown. Sizes how much
+    /// history Astra sends.
+    pub context_window: u32,
+}
+
+impl AiModelHints {
+    /// No hint: Astra decides everything, as for any model.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// How the turn's tools reach this model.
+    pub fn with_tool_loading(mut self, tool_loading: AiToolLoading) -> Self {
+        self.tool_loading = tool_loading;
+        self
+    }
+
+    /// Shorthand for `with_tool_loading(AiToolLoading::All)`.
+    pub fn all_tools(self) -> Self {
+        self.with_tool_loading(AiToolLoading::All)
+    }
+
+    /// Whether this model reads images.
+    pub fn with_images(mut self, accepts_images: bool) -> Self {
+        self.accepts_images = accepts_images;
+        self
+    }
+
+    /// Shorthand for `with_images(true)`.
+    pub fn accepts_images(self) -> Self {
+        self.with_images(true)
+    }
+
+    /// The model's context window in tokens; 0 = unknown.
+    pub fn with_context_window(mut self, tokens: u32) -> Self {
+        self.context_window = tokens;
+        self
+    }
+}
+
+impl From<AiModelHints> for proto::PluginAiModelHints {
+    fn from(h: AiModelHints) -> Self {
+        Self {
+            tool_loading: h.tool_loading.as_wire().to_string(),
+            accepts_images: h.accepts_images,
+            context_window: h.context_window,
         }
     }
 }
@@ -358,9 +482,23 @@ impl From<AiModelInfo> for proto::PluginAiModelInfo {
 /// wants to see the thinking. Both were on the wire and reachable by no SDK
 /// before 0.6, which is why every plugin AI provider ignored the user's
 /// reasoning setting.
+///
+/// `model` is the model the person picked from your
+/// [`ai_models`](PluginCapability::ai_models) list (or typed); `""` means your
+/// default.
 pub use proto::PluginAiCompleteRequest as AiRequest;
 /// One message in an [`AiRequest`].
+///
+/// `images` carries the pictures on this message — what the person attached,
+/// or what a tool showed the model — as [`AiImage`]s, bytes as they are. They
+/// are sent only to a model whose hints say
+/// [`accepts_images`](AiModelHints::accepts_images), and only by a daemon built
+/// with `plugin-provider-slots`; for any other model the list is empty.
 pub use proto::PluginAiMessage as AiMessage;
+/// One picture on an [`AiMessage`]: `mime_type` (`"image/png"`, `"image/jpeg"`,
+/// `"image/webp"`, `"image/gif"`), `data` (never re-encoded) and `filename`
+/// (the name it was attached under, or `""`).
+pub use proto::PluginImage as AiImage;
 /// A tool call, in a request (as history) or in a response (as an answer).
 pub use proto::PluginAiToolCall as AiToolCall;
 
@@ -1323,9 +1461,34 @@ pub trait PluginCapability: Send + Sync + 'static {
         Err(unimplemented("ai_complete"))
     }
 
-    /// The models this provider can run, and the default one.
+    /// The models this provider can run, and the default one (`""` = the first).
+    ///
+    /// Astra asks when the plugin starts, with its other definitions, and again
+    /// whenever the AI page refreshes its lists; the list is what its model
+    /// picker offers. The model the person picks arrives on
+    /// [`AiRequest::model`], and an empty `model` there means this default. An
+    /// empty list is "no list": the picker then takes a typed model id.
+    ///
+    /// A model can say how it wants to be driven with
+    /// [`AiModelInfo::with_hints`]; one without hints takes
+    /// [`ai_provider_hints`](Self::ai_provider_hints).
     async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
         (vec![], String::new())
+    }
+
+    /// How every model of this provider wants to be driven, for a model in
+    /// [`ai_models`](Self::ai_models) that carries no hints of its own — whole:
+    /// a model's own hints replace these, nothing is merged field by field. Its
+    /// `tool_loading` and `accepts_images` also apply to a model id the person
+    /// typed; its `context_window` does not (Astra sizes a typed id as it sizes
+    /// any model it has no window for). `None`, the default, is "Astra decides".
+    ///
+    /// Hints change only Astra's turns on that model, and only in a daemon built
+    /// with the `plugin-provider-slots` feature. Saying
+    /// [`accepts_images`](AiModelHints::accepts_images) means the daemon sends
+    /// pictures — up to 20 MiB in a request, which this SDK accepts.
+    async fn ai_provider_hints(&self) -> Option<AiModelHints> {
+        None
     }
 
     // ── Web search ──

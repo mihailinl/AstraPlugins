@@ -26,7 +26,7 @@
 | `SttUnload` | `stt` | optional | unary | stable | 卸载识别器模型，让空闲卸载真正释放显存(VRAM)。 |
 | `SttGetLoadState` | `stt` | optional | unary | stable | 报告 Loaded / NotLoaded / NotNeeded，以便守护进程驱动空闲卸载。 |
 | `AiComplete` | `ai_provider` | required | server | stable | 流式返回一次模型补全；这是插件能成为 AI 提供者的唯一方式。 |
-| `AiGetModels` | `ai_provider` | optional | unary | stable | 列出这个提供者能运行的模型。 |
+| `AiGetModels` | `ai_provider` | optional | unary | stable | 列出这个提供者能运行的模型，以及每个模型希望如何被驱动（它的提示），供 Astra 的模型选择器使用。 |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |

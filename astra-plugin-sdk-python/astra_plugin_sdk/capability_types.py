@@ -48,7 +48,9 @@ from astra_plugin_sdk.proto import plugin_pb2
 __all__ = [
     "ToolDef",
     "VoiceInfo",
+    "AiModelHints",
     "AiModelInfo",
+    "AiModelList",
     "DropdownOption",
     "FieldCondition",
     "FieldDef",
@@ -202,25 +204,185 @@ class VoiceInfo(_CapabilityType):
 
 
 @dataclass
-class AiModelInfo(_CapabilityType):
-    """One model an AI-provider plugin offers. Answered by `ai_get_models`.
+class AiModelHints(_CapabilityType):
+    """What an AI-provider plugin says about driving one of its models.
 
-    Deprecated along with the hook: the daemon builds every plugin provider with
-    `supports_model_discovery: false`, so nothing asks. Kept so an existing
-    plugin keeps working.
+    On one model (`AiModelInfo.hints`) or for the whole provider
+    (`AiModelList.provider_hints`). A hint changes only a turn Astra runs on
+    that model, never the person's settings, and only in a daemon built with the
+    `plugin-provider-slots` feature; any other daemon drives the model like
+    every other one.
+    """
+
+    _PROTO = plugin_pb2.PluginAiModelHints
+
+    #: How the turn's tools reach this model. ``""`` = Astra decides, as for any
+    #: model. ``"all"`` = this model does better with every tool in the request
+    #: than with discovering them through Tool Search: Astra then sends every
+    #: tool directly whenever they fit a larger budget (a quarter of the window,
+    #: at most 32k tokens). Never in the Max mode.
+    tool_loading: str = ""
+    #: This model reads images: only then do the conversation's pictures reach
+    #: it, on ``AiMessage.images``. A request can then carry up to 20 MiB of
+    #: pictures; this SDK's capability server receives messages up to
+    #: ``limits.PLUGIN_MAX_MESSAGE_BYTES`` (64 MiB).
+    accepts_images: bool = False
+    #: The model's context window in tokens; 0 = unknown.
+    context_window: int = 0
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginAiModelHints(
+            # A value the protocol does not know is sent as "" — which is what
+            # the daemon would read it as anyway.
+            tool_loading="all" if self.tool_loading == "all" else "",
+            accepts_images=bool(self.accepts_images),
+            context_window=max(0, min(int(self.context_window or 0), 0xFFFFFFFF)),
+        )
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "AiModelHints":
+        return cls(
+            tool_loading=msg.tool_loading,
+            accepts_images=msg.accepts_images,
+            context_window=msg.context_window,
+        )
+
+
+def _hints(value: Any, hook: str) -> "AiModelHints | None":
+    """`None`, an `AiModelHints`, the generated message, or a dict — as hints."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        # A nested dict is how a dict-returning `ai_get_models` spells hints;
+        # the model's own dict has already drawn the deprecation warning once.
+        return AiModelHints._from_dict(value)
+    return coerce(value, AiModelHints, hook)
+
+
+@dataclass
+class AiModelInfo(_CapabilityType):
+    """One model an AI-provider plugin offers in Astra's model picker.
+
+    Answered by `ai_get_models`, which Astra calls when the plugin starts and
+    whenever the AI page refreshes. The model the person picks arrives on
+    `AiCompleteRequest.model`.
     """
 
     _PROTO = plugin_pb2.PluginAiModelInfo
 
     id: str = ""
     name: str = ""
+    #: How this model wants to be driven. ``None`` = the provider's
+    #: (`AiModelList.provider_hints`).
+    hints: "AiModelHints | None" = None
 
     def to_proto(self) -> Any:
-        return plugin_pb2.PluginAiModelInfo(id=self.id, name=self.name)
+        msg = plugin_pb2.PluginAiModelInfo(id=self.id, name=self.name)
+        hints = _hints(self.hints, "ai_get_models")
+        if hints is not None:
+            # Set only when present: an absent message is "the provider's
+            # hints", an empty one would say "Astra decides" for this model.
+            msg.hints.CopyFrom(hints.to_proto())
+        return msg
 
     @classmethod
     def from_proto(cls, msg: Any) -> "AiModelInfo":
-        return cls(id=msg.id, name=msg.name)
+        return cls(
+            id=msg.id,
+            name=msg.name,
+            hints=AiModelHints.from_proto(msg.hints) if msg.HasField("hints") else None,
+        )
+
+
+def _is_model_iterable(value: Any) -> bool:
+    """The first item of an ``ai_get_models`` tuple: ``None`` or any iterable of
+    models — a generator or ``map(...)`` too, as the old servicer's ``for m in
+    models`` took — but never a string, a dict or one model."""
+    if value is None:
+        return True
+    if isinstance(value, (str, bytes, dict, AiModelInfo)):
+        return False
+    try:
+        iter(value)
+    except TypeError:
+        return False
+    return True
+
+
+@dataclass
+class AiModelList(_CapabilityType):
+    """What `ai_get_models` answers: the models Astra's picker offers.
+
+    The model the person picks arrives on `AiCompleteRequest.model`; an empty
+    ``model`` there means `default_model` (``""`` = the first in `models`).
+    `provider_hints` applies to every model that carries no hints of its own —
+    whole: a model's own hints replace the provider's, field by field nothing is
+    merged — and its ``tool_loading`` and ``accepts_images`` to a model id the
+    person typed (a typed id gets no ``context_window``: Astra sizes it as it
+    sizes any model it has no window for).
+
+    `ai_get_models` may still answer the ``(models, default_model)`` tuple it
+    always has; this is the shape that can also carry `provider_hints` (as can
+    a three-tuple, ``(models, default_model, provider_hints)``).
+    """
+
+    _PROTO = plugin_pb2.PluginAiModelsResponse
+
+    models: "list[AiModelInfo]" = field(default_factory=list)
+    default_model: str = ""
+    provider_hints: "AiModelHints | None" = None
+
+    def to_proto(self) -> Any:
+        msg = plugin_pb2.PluginAiModelsResponse(
+            models=[coerce(m, AiModelInfo, "ai_get_models").to_proto() for m in self.models or []],
+            default_model=self.default_model or "",
+        )
+        hints = _hints(self.provider_hints, "ai_get_models")
+        if hints is not None:
+            msg.provider_hints.CopyFrom(hints.to_proto())
+        return msg
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "AiModelList":
+        return cls(
+            models=[AiModelInfo.from_proto(m) for m in msg.models],
+            default_model=msg.default_model,
+            provider_hints=(
+                AiModelHints.from_proto(msg.provider_hints)
+                if msg.HasField("provider_hints")
+                else None
+            ),
+        )
+
+    @classmethod
+    def of(cls, value: Any) -> "AiModelList":
+        """Whatever `ai_get_models` answered, as an `AiModelList`.
+
+        An `AiModelList`, the ``(models, default_model)`` tuple, or
+        ``(models, default_model, provider_hints)``. ``None`` is no list.
+        """
+        if value is None:
+            return cls()
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, plugin_pb2.PluginAiModelsResponse):
+            return cls.from_proto(value)
+        # A list too: the old servicer unpacked `models, default = ...`, which a
+        # two-item list satisfied as well as a tuple does.
+        if (
+            isinstance(value, (tuple, list))
+            and len(value) in (2, 3)
+            and _is_model_iterable(value[0])
+        ):
+            return cls(
+                models=list(value[0] or []),
+                default_model=value[1] or "",
+                provider_hints=value[2] if len(value) == 3 else None,
+            )
+        raise TypeError(
+            f"ai_get_models() returned {type(value).__name__}; expected an AiModelList "
+            f"or a (models, default_model[, provider_hints]) tuple"
+        )
 
 
 # ── config fields, and the two things they nest ──────────────────────────────

@@ -328,10 +328,6 @@ capabilities. Ese no le importa en qué lenguaje se escribió el plugin.
   sirve; no existe punto de llamada en el daemon. Impleméntalo si quieres
   — nada lo llamará hasta que
   [la tabla de paridad](../reference/parity.md) diga `live`.
-- **`AiGetModels` está obsoleto** (0.6, eliminado en 0.8) y nadie lo llama:
-  el selector de modelo tiene codificado
-  `supports_model_discovery = false`. No hay reemplazo; `AiComplete` lleva
-  el modelo elegido en la petición.
 - **La superficie de trait de 0.5 sigue viva como
   `astra_plugin_sdk::compat`**, obsoleta en 0.6 y eliminada en 0.8.
   Consulta [migración a 0.6](../migration-0.6.md).

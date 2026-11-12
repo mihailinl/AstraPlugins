@@ -27,6 +27,29 @@ are removable in.
   sets what the recording host answers; the wire mock answers a loopback Ollama.
   Additive: Python has no `Host` base class to implement, only the concrete
   `HostClient`, so a new method on it breaks no existing code.
+- **An AI provider's model list is asked for again, with hints.** Astra (from
+  `17587566b`) calls `AiGetModels` when the plugin starts and on the AI page's
+  refresh, and offers the list in its model picker; the chosen model arrives on
+  `AiCompleteRequest.model` (`""` = `default_model`). New: `AiModelHints`
+  (`tool_loading` `""`/`"all"`, `accepts_images`, `context_window`),
+  `AiModelInfo.hints`, `AiModelList(models, default_model, provider_hints)` and
+  `AiImage` — the pictures on the new `AiMessage.images`. `ai_get_models` may
+  return an `AiModelList`, the `(models, default_model)` tuple it always took,
+  or a `(models, default_model, provider_hints)` triple; existing plugins are
+  unaffected. **Hints change only Astra's turns on that model, and only in a
+  daemon built with the `plugin-provider-slots` feature.** `testing.Harness`
+  gained `ai_models()`.
+- **The capability server receives messages up to
+  `limits.PLUGIN_MAX_MESSAGE_BYTES` (64 MiB)** (`grpc.max_receive_message_length`),
+  where gRPC's default was 4 MiB: a model whose hints say `accepts_images` is
+  sent up to `limits.PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of pictures in one
+  `AiComplete`, which the default would refuse as `RESOURCE_EXHAUSTED`.
+
+### Un-deprecated
+
+- `ai_get_models` — called "deprecated" because no daemon asked. Astra asks
+  now; the hook stays (the dict form of its models is still the deprecated
+  `dict`-for-a-dataclass path, removable from 0.7.0).
 
 ## [0.6.4] — 2026-10-24
 

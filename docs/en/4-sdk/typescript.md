@@ -98,6 +98,22 @@ are stripped rather than refused — so keep it a plain line drawing. Omit it an
 the step still draws, falling back to your plugin's own icon and then to a
 generic plugin mark.
 
+**An AI provider's model list** is `ai.models` — an `AiModelList`, or
+`(ctx) => list` (sync or async) to fetch it. Astra asks when the plugin starts
+and whenever the AI page refreshes, and offers the list in its model picker; the
+model the person picks arrives on `req.model` in `ai.complete`, and an empty one
+means `defaultModel`. A model's `hints` say how it wants to be driven:
+`acceptsImages: true` sends it the conversation's pictures (on
+`message.images`, as `AiImage`s), `toolLoading: "all"` puts every tool in the
+request instead of Tool Search while they fit a quarter of the window and 32k
+tokens, and `contextWindow` sizes the history; `providerHints` covers every
+model without hints of its own. **Hints change only Astra's turns on that model,
+and only in a daemon built with the `plugin-provider-slots` feature.** A request
+to a model that reads pictures carries up to 20 MiB of them, so the SDK's
+capability server receives messages up to `limits.PLUGIN_MAX_MESSAGE_BYTES`
+(64 MiB) since 0.7.4, where gRPC's default is 4 MiB. A class-based plugin
+overrides `aiGetModels()` instead.
+
 `plugin()` returns `{ run(), instance, definition }`: `run()` is the last line
 of your entry point, `instance` is what the test harness drives, and
 `definition` is there for tooling that wants to read your schemas.
@@ -257,7 +273,6 @@ test("no config the daemon can deliver crashes this plugin", async () => {
   way to drive an AI turn. The daemon-side half is unbuilt, not broken.
 - **`UiPanel` is a deprecated alias** for `UiContribution` — deprecated in
   0.5.0, removable from 0.7.0.
-- **`aiGetModels` is deprecated** and called by nobody; there is no replacement.
 - **`ttsSynthesizeStream` is bound and unrouted** — no daemon call site exists.
 - **The proto is not hand-maintained here.** Two proto strings once lived inline
   in this SDK, were written to a temp directory and loaded from there, and one

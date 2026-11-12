@@ -4,10 +4,10 @@
 
 Покоління протоколу **1**. 10 сервісів, 192 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: ce1f8d511c1f11b8…` — дайджест
+`astra.proto` Astra (`surface-sha256: 9db774712359b4ab…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:74047cd55194722b…`. У кожної завендореної копії в трьох SDK той
+`sha256:5beecd4b94806b5b…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
@@ -47,7 +47,7 @@ RPC тут — хук, який ви реалізуєте, і `UNIMPLEMENTED` �
 | `SttUnload` | `stt` | `Empty` | `Empty` | unary | live | Drop the recognizer model so idle-unload actually frees VRAM. |
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Stream a model completion; the only way a plugin can be an AI provider. |
-| `AiGetModels` *(застарілий)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | List the models this provider can run. |
+| `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | Перелічує моделі, які може запускати цей провайдер, і як кожну з них слід вести (її підказки), для вибору моделі в Astra. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
@@ -160,9 +160,7 @@ Proto плагіна несе також власні звернені до кл
 
 ## Застарівання
 
-| RPC | Чому |
-|---|---|
-| `PluginCapabilityService.AiGetModels` | ЗАСТАРІВ — у демона немає точки виклику і способу показати відповідь. |
+Немає: жоден RPC у цьому зрізі не має `option deprecated = true`.
 
 Застарілий RPC залишається оголошеним. Видалити його означало б зламати
 згенеровані реалізації трейта, які випускає кожен SDK, а плагін, що

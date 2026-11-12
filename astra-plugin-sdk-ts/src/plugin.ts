@@ -23,7 +23,8 @@ import type {
   VoiceInfo,
   AudioData,
   SttEvent,
-  AiModelInfo,
+  AiModelHints,
+  AiModelList,
   ActionResult,
   ActionTypeDef,
   TriggerTypeDef,
@@ -63,7 +64,7 @@ import {
   type MusicSearchRequest,
 } from "./music.js";
 import { PluginError } from "./errors.js";
-import { STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits.js";
+import { PLUGIN_MAX_MESSAGE_BYTES, STT_AUDIO_CHANNEL_CAPACITY } from "./generated/limits.js";
 import { DaemonClient } from "./daemon-client.js";
 import type { Host } from "./host.js";
 import { PluginContextImpl, type PluginContext } from "./context.js";
@@ -134,7 +135,7 @@ export class HookUnimplemented extends Error {
 // The descriptor is loaded with `keepCase: false`, so every wire field is
 // lowerCamelCase (`config_fields` -> `configFields`). A snake_case key is
 // dropped by protobufjs without a word, which is how three handlers once sent
-// the daemon empty lists. These four functions are the only place the SDK
+// the daemon empty lists. The functions below are the only place the SDK
 // spells a wire field name for the §5.4 hooks.
 
 function sttEventWire(ev: SttEvent) {
@@ -152,6 +153,44 @@ function audioChunkWire(chunk: AudioChunk) {
     isLast: chunk.isLast ?? false,
     sampleRate: chunk.sampleRate ?? 0,
   };
+}
+
+/** One model hint as the wire spells it; a `toolLoading` the SDK does not know is sent as `""`. */
+function aiModelHintsWire(hints: AiModelHints) {
+  const window = Number(hints.contextWindow ?? 0);
+  return {
+    toolLoading: hints.toolLoading === "all" ? "all" : "",
+    acceptsImages: !!hints.acceptsImages,
+    // A uint32 on the wire: anything protobufjs could not encode is "unknown".
+    contextWindow: Number.isFinite(window) ? Math.max(0, Math.min(0xffffffff, Math.trunc(window))) : 0,
+  };
+}
+
+/**
+ * `aiGetModels`' answer as the wire's `PluginAiModelsResponse`. A model without
+ * `hints` leaves the field unset — "absent = the provider's" is the proto's
+ * rule, and an empty message would instead say "Astra decides" for that model.
+ */
+function aiModelListWire(list: AiModelList) {
+  return {
+    models: (list.models ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      hints: m.hints ? aiModelHintsWire(m.hints) : null,
+    })),
+    defaultModel: list.defaultModel ?? "",
+    providerHints: list.providerHints ? aiModelHintsWire(list.providerHints) : null,
+  };
+}
+
+/**
+ * The options every capability server is built with: it receives messages up
+ * to `PLUGIN_MAX_MESSAGE_BYTES` (64 MiB), where grpc-js's default is 4 MiB.
+ * An `AiComplete` request to a model whose hints say `acceptsImages` carries up
+ * to 20 MiB of pictures.
+ */
+function capabilityServerOptions(): grpc.ServerOptions {
+  return { "grpc.max_receive_message_length": PLUGIN_MAX_MESSAGE_BYTES };
 }
 
 /**
@@ -176,6 +215,11 @@ function aiRequestFromWire(request: any): AiCompleteRequest {
       content: m.content ?? "",
       toolCallId: m.toolCallId ?? "",
       toolCalls: m.toolCalls ?? [],
+      images: (m.images ?? []).map((i: any) => ({
+        mimeType: i.mimeType ?? "",
+        data: Buffer.isBuffer(i.data) ? i.data : Buffer.from(i.data ?? []),
+        filename: i.filename ?? "",
+      })),
     })),
     tools: request.tools ?? [],
     systemPrompt: request.systemPrompt ?? "",
@@ -336,7 +380,12 @@ export abstract class Plugin {
     // field is the same class of drift arriving from the other direction.
     assertNoReservedNames();
 
-    const server = new grpc.Server();
+    // Receives up to PLUGIN_MAX_MESSAGE_BYTES (64 MiB), not grpc-js's 4 MiB
+    // default: an `AiComplete` request to a model whose hints say
+    // `acceptsImages` carries up to 20 MiB of pictures, and the default would
+    // refuse the very request the hint asked for, RESOURCE_EXHAUSTED, before
+    // any hook ran.
+    const server = new grpc.Server(capabilityServerOptions());
     this.server = server;
 
     // SECURITY: the capability server is the daemon's way into this plugin's
@@ -725,11 +774,32 @@ export abstract class Plugin {
   }
 
   /**
-   * @deprecated The daemon has no call site — `all_ai_providers` builds every
-   * plugin provider with `supports_model_discovery: false`, so the model picker
-   * never asks. Kept so an existing plugin keeps compiling.
+   * The models this provider can run — what Astra's model picker offers.
+   *
+   * Astra asks when the plugin starts, with its other definitions, and again
+   * whenever the AI page refreshes its lists. The model the person picks
+   * arrives on `AiCompleteRequest.model`, and an empty `model` there means
+   * `defaultModel` (absent = the first in `models`). An empty list is "no
+   * list": the picker then takes a typed model id.
+   *
+   * A model can say how it wants to be driven (`hints`); one without takes
+   * `providerHints`. Hints change only Astra's turns on that model, and only in
+   * a daemon built with `plugin-provider-slots`.
+   *
+   * ```typescript
+   * async aiGetModels() {
+   *   return {
+   *     models: [
+   *       { id: "vision-1", name: "Vision 1", hints: { acceptsImages: true, contextWindow: 128000 } },
+   *       { id: "fast-1", name: "Fast 1" },
+   *     ],
+   *     defaultModel: "fast-1",
+   *     providerHints: { toolLoading: "all" as const },
+   *   };
+   * }
+   * ```
    */
-  async aiGetModels(): Promise<{ models: AiModelInfo[]; defaultModel: string }> {
+  async aiGetModels(): Promise<AiModelList> {
     return { models: [], defaultModel: "" };
   }
   async getActionTypes(): Promise<ActionTypeDef[]> {
@@ -843,16 +913,29 @@ export abstract class Plugin {
     return (this as any)[name] !== (Plugin.prototype as any)[name];
   }
 
+  /** Whether `aiGetModels` names a model now — `false` when it fails. */
+  private async listsModels(): Promise<boolean> {
+    try {
+      const { models } = await this.aiGetModels();
+      return (models ?? []).length > 0;
+    } catch (e) {
+      console.warn(`aiGetModels failed while the plugin was starting; no model list: ${e}`);
+      return false;
+    }
+  }
+
   private async discoverCapabilities(): Promise<string[]> {
     const caps: string[] = [];
     if ((await this.listTools()).length > 0) caps.push("tools");
     if ((await this.ttsListVoices()).length > 0) caps.push("tts");
     if ((await this.sttGetLanguages()).length > 0) caps.push("stt");
-    const { models } = await this.aiGetModels();
-    // `aiComplete` decides this, not `aiGetModels`: `AiGetModels` is deprecated
+    // `aiComplete` decides this, not `aiGetModels` alone: the list is optional
     // and defaults to empty, so a provider that implemented the hook that
-    // matters used to register without the capability that names it.
-    if (models.length > 0 || this.overrides("aiComplete")) caps.push("ai_provider");
+    // matters used to register without the capability that names it. The list
+    // is asked for only when `aiComplete` did not decide — it may be fetched
+    // from somewhere (`models: async (ctx) => …`) with a config that has not
+    // arrived yet, and a list that fails must never stop the plugin starting.
+    if (this.overrides("aiComplete") || (await this.listsModels())) caps.push("ai_provider");
     if (this.overrides("webSearch")) caps.push("web_search");
     if (this.overrides("musicControl")) caps.push("music_provider");
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
@@ -1335,11 +1418,7 @@ export abstract class Plugin {
   }
 
   private async handleAiGetModels(_call: any) {
-    const { models, defaultModel } = await this.aiGetModels();
-    return {
-      models: models.map((m) => ({ id: m.id, name: m.name })),
-      defaultModel,
-    };
+    return aiModelListWire(await this.aiGetModels());
   }
 
   private async handleExecuteAction(call: any) {

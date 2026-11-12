@@ -659,7 +659,7 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
         );
     }
     let server = Server::builder()
-        .add_service(PluginCapabilityServiceServer::with_interceptor(svc, guard))
+        .add_service(capability_server(svc, guard))
         .serve_with_incoming_shutdown(
             tokio_stream::wrappers::TcpListenerStream::new(listener),
             async move {
@@ -788,6 +788,28 @@ struct CapabilityServiceImpl<P: PluginCapability> {
     plugin: Arc<P>,
     ctx: PluginContext,
     shutdown: ShutdownTrigger,
+}
+
+/// The capability server as it is served: behind the auth guard, and receiving
+/// messages up to [`PLUGIN_MAX_MESSAGE_BYTES`](crate::limits::PLUGIN_MAX_MESSAGE_BYTES).
+///
+/// tonic's default receive limit is 4 MiB, and an `AiComplete` request to a
+/// model whose hints say `accepts_images` carries up to 20 MiB of pictures —
+/// with the default, the plugin would refuse the very request its own hint
+/// asked for, as `RESOURCE_EXHAUSTED`, before any hook ran. One function, so
+/// the tests serve exactly what `run` serves.
+fn capability_server<P: PluginCapability>(
+    svc: CapabilityServiceImpl<P>,
+    guard: CapabilityInterceptor,
+) -> tonic::service::interceptor::InterceptedService<
+    PluginCapabilityServiceServer<CapabilityServiceImpl<P>>,
+    CapabilityInterceptor,
+> {
+    tonic::service::interceptor::InterceptedService::new(
+        PluginCapabilityServiceServer::new(svc)
+            .max_decoding_message_size(crate::limits::PLUGIN_MAX_MESSAGE_BYTES as usize),
+        guard,
+    )
 }
 
 impl<P: PluginCapability> CapabilityServiceImpl<P> {
@@ -1275,9 +1297,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginAiModelsResponse>, tonic::Status> {
         let (models, default) = catch("ai_models", self.plugin.ai_models()).await?;
+        let provider_hints =
+            catch("ai_provider_hints", self.plugin.ai_provider_hints()).await?;
         Ok(tonic::Response::new(proto::PluginAiModelsResponse {
             models: models.into_iter().map(Into::into).collect(),
             default_model: default,
+            provider_hints: provider_hints.map(Into::into),
         }))
     }
 
@@ -1952,7 +1977,7 @@ mod tests {
         let guard = CapabilityInterceptor::new(token, mode);
         tokio::spawn(
             Server::builder()
-                .add_service(PluginCapabilityServiceServer::with_interceptor(svc, guard))
+                .add_service(capability_server(svc, guard))
                 .serve_with_incoming_shutdown(
                     tokio_stream::wrappers::TcpListenerStream::new(listener),
                     async move {
@@ -2274,6 +2299,128 @@ mod tests {
         }
         assert_eq!(chunks.len(), 4);
         assert!(chunks.last().unwrap().is_last);
+    }
+
+    /// `AiGetModels` over a socket: a model's own hints, the provider's hints
+    /// for every model without them — and then a completion request carrying
+    /// more pictures than tonic's 4 MiB default, which is what a model whose
+    /// hints say `accepts_images` is sent.
+    #[tokio::test]
+    async fn a_provider_lists_its_models_with_hints_and_receives_large_pictures() {
+        use crate::capability::{AiModelHints, AiModelInfo, AiToolLoading};
+
+        struct Provider;
+        #[async_trait::async_trait]
+        impl PluginCapability for Provider {
+            type Config = NoConfig;
+
+            async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
+                (
+                    vec![
+                        AiModelInfo::new("vision", "Vision").with_hints(
+                            AiModelHints::new()
+                                .accepts_images()
+                                .with_context_window(128_000),
+                        ),
+                        AiModelInfo::new("text", "Text"),
+                    ],
+                    "text".into(),
+                )
+            }
+
+            async fn ai_provider_hints(&self) -> Option<AiModelHints> {
+                Some(AiModelHints::new().with_tool_loading(AiToolLoading::All))
+            }
+
+            async fn ai_complete(
+                &self,
+                _ctx: &PluginContext,
+                req: AiRequest,
+                chunks: tokio::sync::mpsc::Sender<AiChunk>,
+            ) -> Result<()> {
+                let pictures: usize = req
+                    .messages
+                    .iter()
+                    .flat_map(|m| &m.images)
+                    .map(|image| image.data.len())
+                    .sum();
+                chunks.send(AiChunk::text(format!("{} {pictures}", req.model))).await?;
+                Ok(())
+            }
+        }
+
+        use tokio_stream::StreamExt;
+        let addr = serve_plugin(Provider, "", CapabilityAuth::Off).await;
+        let mut c = connect(&addr).await;
+
+        let list = c.ai_get_models(proto::Empty {}).await.unwrap().into_inner();
+        assert_eq!(list.default_model, "text");
+        let ids: Vec<_> = list.models.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, ["vision", "text"]);
+        let vision = list.models[0].hints.clone().expect("the model's own hints");
+        assert!(vision.accepts_images);
+        assert_eq!(vision.context_window, 128_000);
+        assert_eq!(vision.tool_loading, "", "Auto is the empty string on the wire");
+        assert!(list.models[1].hints.is_none(), "absent = the provider's hints");
+        let provider = list.provider_hints.expect("the provider's hints");
+        assert_eq!(provider.tool_loading, "all");
+        assert!(!provider.accepts_images);
+
+        // 20 MiB of pictures — the daemon's per-request budget — is five times
+        // tonic's default receive limit, and must still reach the hook.
+        let size = crate::limits::PLUGIN_IMAGE_REQUEST_MAX_BYTES as usize;
+        let mut stream = c
+            .ai_complete(proto::PluginAiCompleteRequest {
+                model: "vision".into(),
+                messages: vec![proto::PluginAiMessage {
+                    role: "user".into(),
+                    content: "what is this?".into(),
+                    images: vec![proto::PluginImage {
+                        mime_type: "image/png".into(),
+                        data: vec![0u8; size],
+                        filename: "big.png".into(),
+                    }],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })
+            .await
+            .expect("a 20 MiB request is inside the capability server's limit")
+            .into_inner();
+        use proto::plugin_ai_stream_chunk::Content;
+        let first = stream.next().await.unwrap().unwrap().content.unwrap();
+        assert!(
+            matches!(&first, Content::TextDelta(t) if *t == format!("vision {size}")),
+            "{first:?}"
+        );
+    }
+
+    /// A provider that states no hints sends none: `provider_hints` absent,
+    /// every model's `hints` absent — the daemon then drives it like any model.
+    #[tokio::test]
+    async fn a_provider_without_hints_sends_none() {
+        use crate::capability::AiModelInfo;
+
+        struct Plain;
+        #[async_trait::async_trait]
+        impl PluginCapability for Plain {
+            type Config = NoConfig;
+
+            async fn ai_models(&self) -> (Vec<AiModelInfo>, String) {
+                (vec![AiModelInfo::new("m", "M")], String::new())
+            }
+        }
+
+        let addr = serve_plugin(Plain, "", CapabilityAuth::Off).await;
+        let list = connect(&addr)
+            .await
+            .ai_get_models(proto::Empty {})
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(list.provider_hints.is_none());
+        assert!(list.models[0].hints.is_none());
+        assert_eq!(list.default_model, "");
     }
 
     /// `web_search` over a socket: the request reaches the hook typed, the

@@ -130,7 +130,8 @@ siguen la regla 3.
 | Rust: alias `compat::HostClient` / `DaemonClient` | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: un `dict` donde se espera una dataclass de capability | 0.5.0 | 0.7.0 | La dataclass — `VoiceInfo`, `ToolDef`, … — o su `to_proto()` |
 | TypeScript: el alias de tipo `UiPanel` | 0.5.0 | 0.7.0 | `UiContribution` |
-| Hook: `AiGetModels` | 0.6.0 | 0.8.0 | Sin reemplazo — nada en el daemon le pregunta a un plugin qué modelos tiene |
+
+Una obsolescencia se retiró en lugar de completarse: el hook `AiGetModels`, marcado obsoleto en 0.6.0 porque ningún daemon lo pedía, vuelve a estar vivo desde que Astra pregunta a cada proveedor de IA por su lista de modelos (SDK de Rust 0.7.5, Python 0.6.5, TypeScript 0.7.4). No se eliminó nada, y un plugin que conservó su enlace funciona como antes.
 
 Dos notas al pie, porque ambas son precisamente el tipo de cosa que
 esta política existe para prevenir:
@@ -150,7 +151,7 @@ momento en que importan: el release en que alguien borra la cosa. Así
 que la mitad de la política por hook es una columna en
 [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

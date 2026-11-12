@@ -85,6 +85,23 @@ derives the declared capability set from them — so a plugin cannot claim a
 capability its code does not serve. `astra-plugin check` compares that against
 `plugin.toml`.
 
+**An AI provider** (`ai_provider`) serves `ai_complete`, and lists its models
+with `ai_models`: Astra asks when the plugin starts and whenever the AI page
+refreshes, and offers the list in its model picker. The model the person picks
+arrives on `AiRequest::model`, and an empty one means your default. A model says
+how it wants to be driven with `AiModelInfo::with_hints(AiModelHints::new()…)`:
+`.accepts_images()` (the conversation's pictures then reach it, on
+`AiMessage::images` as `AiImage`s), `.all_tools()` (every tool in the request
+instead of Tool Search, while they fit a quarter of the window and 32k tokens)
+and `.with_context_window(n)`; `ai_provider_hints` covers every model without
+hints of its own. **Hints change only Astra's turns on that model, and only in a
+daemon built with the `plugin-provider-slots` feature** — anywhere else the
+model is driven like any other. A request to a model that reads pictures carries
+up to `limits::PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of them, so a plugin that
+states `accepts_images` must accept messages that large: the SDK's capability
+server receives up to `limits::PLUGIN_MAX_MESSAGE_BYTES` (64 MiB) since 0.7.5,
+where gRPC's default is 4 MiB.
+
 ## The macro layer
 
 | | What it is for |
@@ -314,9 +331,6 @@ care what language wrote the plugin.
 - **`TtsSynthesizeStream` is bound and unrouted.** The SDK serves it; no daemon
   call site exists. Implement it if you like — nothing will call it until
   [the parity table](../reference/parity.md) says `live`.
-- **`AiGetModels` is deprecated** (0.6, removed in 0.8) and called by nobody:
-  the model picker hardcodes `supports_model_discovery = false`. There is no
-  replacement; `AiComplete` carries the chosen model on the request.
 - **The 0.5 trait surface lives on as `astra_plugin_sdk::compat`**, deprecated
   in 0.6 and removed in 0.8. See [migrating to 0.6](../migration-0.6.md).
 - **`PluginCapability::source_id()`** is deprecated: pass the id to

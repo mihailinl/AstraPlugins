@@ -95,6 +95,13 @@
       "phase": "probe"
     },
     {
+      "rpc": "AiGetModels",
+      "capability": "ai_provider",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
       "rpc": "WebSearch",
       "capability": "web_search",
       "requirement": "required",

@@ -1519,6 +1519,13 @@ async fn probe_one(
         "SttGetLoadState" => probe_call!(client, rpc, stt_get_load_state(proto::Empty {}))
             .map(|r| format!("state = {}", r.state)),
         "AiComplete" => return ai_complete(client).await,
+        "AiGetModels" => match probe_call!(client, rpc, ai_get_models(proto::Empty {})) {
+            Ok(list) => match ai_model_list_verdict(&list) {
+                Ok(summary) => Ok(summary),
+                Err(problem) => return (Status::Error, problem),
+            },
+            Err(status) => Err(status),
+        },
         "WebSearch" => return web_search(client).await,
         "MusicSubscribe" => return music_subscribe(client).await,
         "MusicControl" => {
@@ -1782,6 +1789,85 @@ async fn stt_process(
         Status::Ok,
         format!("{total} chunk(s) in, {events} event(s) out"),
     )
+}
+
+/// The longest model id Astra keeps (`admit_model_list` in the daemon).
+const MAX_MODEL_ID_CHARS: usize = 200;
+
+/// `AiGetModels`' answer, read the way Astra admits it.
+///
+/// The daemon DROPS a model whose id is empty, longer than
+/// [`MAX_MODEL_ID_CHARS`] or carries a control character, and ignores a
+/// `default_model` that is not in the list — silently, as far as the person is
+/// concerned: the model is simply not in the picker. Here, where the author can
+/// see it, each of those is an error. A `tool_loading` other than `""` / `"all"`
+/// reads as `""` there, so it is one too. An empty list is fine: it means "no
+/// list", and the picker takes a typed model id.
+fn ai_model_list_verdict(list: &proto::PluginAiModelsResponse) -> Result<String, String> {
+    let check_hints = |owner: &str, hints: &proto::PluginAiModelHints| -> Result<(), String> {
+        // Trimmed, as the daemon reads it (`ToolLoading::from_wire`): `" all"` IS `all` there.
+        if !matches!(hints.tool_loading.trim(), "" | "all") {
+            return Err(format!(
+                "{owner}: tool_loading `{}` is not one Astra knows, so it reads as \"\" \
+                 (Astra decides). Use \"\" or \"all\".",
+                brief(&hints.tool_loading)
+            ));
+        }
+        Ok(())
+    };
+    for model in &list.models {
+        let id = &model.id;
+        if id.trim().is_empty() {
+            return Err("a model has an empty id; Astra drops it from the picker".into());
+        }
+        if id.chars().count() > MAX_MODEL_ID_CHARS {
+            return Err(format!(
+                "model id `{}` is longer than {MAX_MODEL_ID_CHARS} characters; Astra drops it",
+                brief(id)
+            ));
+        }
+        if id.chars().any(char::is_control) {
+            return Err(format!(
+                "model id {id:?} carries a control character; Astra drops it"
+            ));
+        }
+        if let Some(hints) = &model.hints {
+            check_hints(&format!("model `{id}`"), hints)?;
+        }
+    }
+    if let Some(hints) = &list.provider_hints {
+        check_hints("provider_hints", hints)?;
+    }
+    if !list.default_model.is_empty() && !list.models.iter().any(|m| m.id == list.default_model) {
+        return Err(format!(
+            "default_model `{}` is not in the list; Astra ignores it and uses the first model",
+            brief(&list.default_model)
+        ));
+    }
+    if list.models.is_empty() {
+        return Ok("no model list (the picker takes a typed model id)".into());
+    }
+    let hinted = list.models.iter().filter(|m| m.hints.is_some()).count();
+    let images = list
+        .models
+        .iter()
+        .filter(|m| {
+            m.hints
+                .as_ref()
+                .or(list.provider_hints.as_ref())
+                .is_some_and(|h| h.accepts_images)
+        })
+        .count();
+    let default = if list.default_model.is_empty() {
+        list.models[0].id.as_str()
+    } else {
+        list.default_model.as_str()
+    };
+    Ok(format!(
+        "{} model(s), default `{default}`; {hinted} with hints of their own{}; {images} read pictures",
+        list.models.len(),
+        if list.provider_hints.is_some() { ", provider hints set" } else { "" },
+    ))
 }
 
 async fn ai_complete(
@@ -2749,6 +2835,59 @@ mod tests {
     }
 
     #[test]
+    fn a_model_list_is_judged_the_way_astra_admits_it() {
+        let model = |id: &str| proto::PluginAiModelInfo {
+            id: id.into(),
+            name: id.into(),
+            hints: None,
+        };
+        let list = |models: Vec<proto::PluginAiModelInfo>, default: &str| {
+            proto::PluginAiModelsResponse {
+                models,
+                default_model: default.into(),
+                provider_hints: None,
+            }
+        };
+
+        // No list is an answer, not a failure.
+        assert!(ai_model_list_verdict(&list(vec![], "")).is_ok());
+
+        let mut vision = model("vision");
+        vision.hints = Some(proto::PluginAiModelHints {
+            tool_loading: String::new(),
+            accepts_images: true,
+            context_window: 128_000,
+        });
+        let mut good = list(vec![model("text"), vision], "text");
+        good.provider_hints = Some(proto::PluginAiModelHints {
+            tool_loading: "all".into(),
+            ..Default::default()
+        });
+        let summary = ai_model_list_verdict(&good).unwrap();
+        assert!(summary.contains("2 model(s), default `text`"), "{summary}");
+        assert!(summary.contains("1 read pictures"), "{summary}");
+
+        // What the daemon would drop or ignore in silence is an error here.
+        assert!(ai_model_list_verdict(&list(vec![model(" ")], "")).is_err());
+        assert!(ai_model_list_verdict(&list(vec![model(&"x".repeat(201))], "")).is_err());
+        assert!(ai_model_list_verdict(&list(vec![model("a\u{7}b")], "")).is_err());
+        assert!(ai_model_list_verdict(&list(vec![model("a")], "b")).is_err());
+        let mut unknown = list(vec![model("a")], "");
+        unknown.provider_hints = Some(proto::PluginAiModelHints {
+            tool_loading: "everything".into(),
+            ..Default::default()
+        });
+        assert!(ai_model_list_verdict(&unknown).is_err());
+        // …but `" all"` is `all` to the daemon, which trims (`ToolLoading::from_wire`).
+        let mut padded = list(vec![model("a")], "");
+        padded.provider_hints = Some(proto::PluginAiModelHints {
+            tool_loading: " all ".into(),
+            ..Default::default()
+        });
+        assert!(ai_model_list_verdict(&padded).is_ok());
+    }
+
+    #[test]
     fn every_live_hook_has_a_probe() {
         // The engine's coverage, asserted rather than assumed: a hook added to
         // the spec with no arm in `probe_one` must fail here, not on an
@@ -2767,6 +2906,7 @@ mod tests {
             "SttUnload",
             "SttGetLoadState",
             "AiComplete",
+            "AiGetModels",
             "WebSearch",
             "MusicSubscribe",
             "MusicControl",

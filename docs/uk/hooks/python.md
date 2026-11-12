@@ -26,7 +26,7 @@
 | `SttUnload` | `stt` | опціональний | unary | stable | Вивантажити модель розпізнавача, щоб idle-unload реально звільняв VRAM. |
 | `SttGetLoadState` | `stt` | опціональний | unary | stable | Повідомити Loaded / NotLoaded / NotNeeded, щоб демон міг керувати idle-unload. |
 | `AiComplete` | `ai_provider` | обов'язковий | server | stable | Стрімити завершення моделі; єдиний спосіб для плагіна бути провайдером ШІ. |
-| `AiGetModels` | `ai_provider` | опціональний | unary | stable | Перелічити моделі, які може запускати цей провайдер. |
+| `AiGetModels` | `ai_provider` | опціональний | unary | stable | Перелічує моделі, які може запускати цей провайдер, і як кожну з них слід вести (її підказки), для вибору моделі в Astra. |
 | `WebSearch` | `web_search` | обов'язковий | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |

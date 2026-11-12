@@ -267,7 +267,6 @@ real sobre gRPC.
   lado del daemon no está construida, no está rota.
 - **`UiPanel` es un alias obsoleto** de `UiContribution` — obsoleto desde
   0.5.0, eliminable a partir de 0.7.0.
-- **`aiGetModels` está obsoleto** y nadie lo llama; no hay reemplazo.
 - **`ttsSynthesizeStream` está vinculado pero no enrutado** — no existe
   punto de llamada en el daemon.
 - **El proto no se mantiene aquí a mano.** Dos strings de proto vivían en

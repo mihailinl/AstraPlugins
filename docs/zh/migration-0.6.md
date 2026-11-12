@@ -432,7 +432,6 @@ async fn on_start(&self, ctx: &PluginContext) -> anyhow::Result<()> {
 | `use of deprecated type alias compat::HostClient` / `DaemonClient` | 0.8 | `ctx.host()` / `ctx.daemon()` —— 见 §2.3 |
 | `use of deprecated method source_id` | 0.8 | 删掉这个重写 |
 | Python `DeprecationWarning: … returned a dict` | 0.7 | 返回对应的数据类 |
-| `AiGetModels` / `ai_models()` | 0.8 | 什么都不用做 —— 守护进程从来不会问 |
 
 这张表里的内容目前都还不是错误，也都不会在一个 minor 版本之内就变成
 错误：具体的保证内容以及它是如何被强制执行的，见

@@ -132,7 +132,8 @@ und Entfernungen folgen Regel 3.
 | Rust: `compat::HostClient` / `DaemonClient`-Aliase | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: ein `dict`, wo eine Capability-Dataclass erwartet wird | 0.5.0 | 0.7.0 | Die Dataclass — `VoiceInfo`, `ToolDef`, … — oder ihr `to_proto()` |
 | TypeScript: der `UiPanel`-Typalias | 0.5.0 | 0.7.0 | `UiContribution` |
-| Hook: `AiGetModels` | 0.6.0 | 0.8.0 | Kein Ersatz — nichts im Daemon fragt ein Plugin, welche Modelle es hat |
+
+Eine Ausmusterung wurde zurückgenommen statt vollzogen: der Hook `AiGetModels`, in 0.6.0 als veraltet markiert, weil kein Daemon danach fragte, ist wieder live, seit Astra jeden AI-Provider nach seiner Modellliste fragt (Rust-SDK 0.7.5, Python 0.6.5, TypeScript 0.7.4). Entfernt wurde nichts, und ein Plugin, das seine Bindung behalten hat, funktioniert wie zuvor.
 
 Zwei Fußnoten, weil beides genau die Art von Sache ist, die diese
 Richtlinie verhindern soll:
@@ -152,7 +153,7 @@ Vergessenheit, in dem es wichtig ist: dem Release, in dem jemand das
 Ding löscht. Die Pro-Hook-Hälfte der Richtlinie ist also eine Spalte in
 [`spec/hooks.yaml`](../../spec/hooks.yaml):
 
-<!-- doctest: illustrative reason="one row of spec/hooks.yaml, quoted; the file it belongs to is the source of truth and is checked by tools/parity/check.py" -->
+<!-- doctest: illustrative reason="the row spec/hooks.yaml carried for AiGetModels while it was deprecated (SDK 0.6 until the daemon started asking for models), quoted; the file is the source of truth and is checked by tools/parity/check.py" -->
 ```yaml
   - rpc: AiGetModels
     ...

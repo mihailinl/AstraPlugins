@@ -28,8 +28,10 @@
  *   astra-plugin-sdk-ts/src/generated/wire.ts
  *   <astra>/astra-daemon/src/plugins/voice_capability.rs   (marked block only)
  *
- * The Astra checkout is found via `$ASTRA_RS_DIR`, else `../Astra/astra-rs`
- * next to this repo. When it is absent the daemon block is skipped with a
+ * The Astra checkout is found via `$ASTRA_RS_DIR`, else `../Astra` next to
+ * this repo — its top since Astra's 2026-10-23 flatten (c703cabb6), its
+ * `astra-rs/` on a checkout at v0.2.7 or earlier, whichever carries
+ * `astra-daemon/`. When it is absent the daemon block is skipped with a
  * notice — AstraPlugins CI has no Astra checkout, and must still be able to
  * regenerate and verify its own six files.
  *
@@ -60,6 +62,7 @@ const REQUIRED_LIMITS = [
   "lease_ttl_secs",
   "lease_fire_grace_secs",
   "lease_max_fires",
+  "plugin_max_message_bytes",
 ];
 
 /** Metadata keys with the same guarantee. `x_astra_cause` is load-bearing for
@@ -398,9 +401,20 @@ const outputs = [
 
 // The daemon half. Optional by location, mandatory by content: if the file is
 // there, its marked block must end up byte-identical to `daemonBlock()`.
+//
+// Without `$ASTRA_RS_DIR`, a sibling `../Astra` is looked at in both shapes it
+// has had: the daemon's tree at its top (flat, since c703cabb6) or under its
+// `astra-rs/` (v0.2.7 and earlier). Until this read both, the default named
+// only the nested shape, so on every flat checkout the documented
+// `node tools/gen-limits.mjs --check` compared nothing on the daemon's side —
+// the half this generator exists for — and said so only in its last line.
+function defaultAstraRoot() {
+  const top = resolve(REPO_ROOT, "..", "Astra");
+  return existsSync(join(top, "astra-daemon")) ? top : join(top, "astra-rs");
+}
 const ASTRA_RS = process.env.ASTRA_RS_DIR
   ? resolve(process.env.ASTRA_RS_DIR)
-  : resolve(REPO_ROOT, "..", "Astra", "astra-rs");
+  : defaultAstraRoot();
 const DAEMON_FILE = join(ASTRA_RS, "astra-daemon", "src", "plugins", "voice_capability.rs");
 
 let daemonNote = `No Astra checkout at ${DAEMON_FILE}; set $ASTRA_RS_DIR.`;

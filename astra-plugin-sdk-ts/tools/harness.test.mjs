@@ -248,6 +248,72 @@ test("AiComplete terminates the stream even when the author forgot to", async ()
   assert.deepEqual(chunks, [{ textDelta: "one" }, { textDelta: "two" }, { done: true }]);
 });
 
+test("AiGetModels carries each model's hints, the provider's hints, and absence as absence", async () => {
+  let asked = 0;
+  const app = plugin({
+    ai: {
+      async *complete() {},
+      // A function of the context, as a provider that fetches its list would write it.
+      models: async () => {
+        asked += 1;
+        return {
+          models: [
+            { id: "vision", name: "Vision", hints: { acceptsImages: true, contextWindow: 128000 } },
+            { id: "text", name: "Text" },
+          ],
+          defaultModel: "text",
+          providerHints: { toolLoading: "all" },
+        };
+      },
+    },
+  });
+  const h = await Harness.create(app).start();
+  const list = await h.aiGetModels();
+  assert.equal(asked, 1);
+  assert.equal(list.defaultModel, "text");
+  assert.deepEqual(list.models[0], {
+    id: "vision",
+    name: "Vision",
+    hints: { toolLoading: "", acceptsImages: true, contextWindow: 128000 },
+  });
+  assert.equal(list.models[1].hints, null, "absent = the provider's hints, never an empty message");
+  assert.deepEqual(list.providerHints, { toolLoading: "all", acceptsImages: false, contextWindow: 0 });
+
+  // A plain list works too, and a provider that states no hints sends none.
+  const plain = plugin({
+    ai: { async *complete() {}, models: { models: [{ id: "m", name: "M" }] } },
+  });
+  const p = await Harness.create(plain).start().then((x) => x.aiGetModels());
+  assert.deepEqual(p, { models: [{ id: "m", name: "M", hints: null }], defaultModel: "", providerHints: null });
+});
+
+test("AiComplete hands the pictures on a message to the provider", async () => {
+  let seen;
+  const app = plugin({
+    ai: {
+      async *complete(req) {
+        seen = req.messages[0].images;
+        yield "ok";
+      },
+    },
+  });
+  const h = await Harness.create(app).start();
+  await h.aiComplete({
+    messages: [
+      {
+        role: "user",
+        content: "what is this?",
+        images: [{ mimeType: "image/png", data: Buffer.from([1, 2, 3]), filename: "a.png" }],
+      },
+    ],
+  });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].mimeType, "image/png");
+  assert.equal(seen[0].filename, "a.png");
+  assert.ok(Buffer.isBuffer(seen[0].data));
+  assert.deepEqual([...seen[0].data], [1, 2, 3]);
+});
+
 test("an AiComplete failure travels in-band, with the structured detail", async () => {
   const app = plugin({
     ai: {
@@ -293,6 +359,19 @@ test("the object form claims only the hooks the definition supplies", async () =
   const caps = await rich.discoverCapabilities();
   assert.deepEqual([...caps].sort(), ["ai_provider", "stt"]);
   assert.deepEqual(await bare.discoverCapabilities(), []);
+});
+
+test("a model list that fails cannot stop the plugin starting", async () => {
+  // `models: async (ctx) => fetch(...)` runs before registration, with no config:
+  // a throw there used to be an unhandled rejection, and the process exited.
+  const failing = async () => {
+    throw new Error("401 before the key arrived");
+  };
+  const provider = plugin({ ai: { models: failing, async *complete() {} } }).instance;
+  assert.deepEqual(await provider.discoverCapabilities(), ["ai_provider"]);
+  // Without `complete`, a failing list is simply no list — and no capability.
+  const listOnly = plugin({ ai: { models: failing } }).instance;
+  assert.deepEqual(await listOnly.discoverCapabilities(), []);
 });
 
 test("the firehose fixture reaches onConversationEvent", async () => {

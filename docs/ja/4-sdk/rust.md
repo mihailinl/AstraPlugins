@@ -334,10 +334,6 @@ astra::main!(Watcher::default());
   SDK はこれを提供しますが、デーモン側の呼び出し箇所は存在しません。
   好きなら実装してもかまいません — [パリティ表](../reference/parity.md)
   が `live` と言うまで、誰もそれを呼び出しません。
-- **`AiGetModels` は非推奨で**(0.6、0.8 で削除)、誰も呼び出していません:
-  モデルピッカーは `supports_model_discovery = false` をハードコード
-  しています。代替はありません; `AiComplete` はリクエストに選択済みの
-  モデルを載せます。
 - **0.5 のトレイト表面は `astra_plugin_sdk::compat` として存続して
   います**。0.6 で非推奨、0.8 で削除です。
   [0.6 への移行](../migration-0.6.md) を参照してください。

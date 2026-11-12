@@ -50,7 +50,7 @@ import type {
   ActionTypeDef,
   AiChunk,
   AiCompleteRequest,
-  AiModelInfo,
+  AiModelList,
   AudioChunk,
   AudioData,
   FieldDef,
@@ -197,8 +197,13 @@ export interface MusicDefinition {
 
 export interface AiDefinition {
   complete(req: AiCompleteRequest, ctx: PluginContext): AsyncIterable<AiChunk | string>;
-  /** @deprecated The daemon never asks; see `Plugin.aiGetModels`. */
-  models?: { models: AiModelInfo[]; defaultModel: string };
+  /**
+   * The models Astra's model picker offers, and how each wants to be driven
+   * (`hints`, else `providerHints`) — a list, or a function of the context that
+   * builds one (fetching it from your service, say). Astra asks when the plugin
+   * starts and whenever the AI page refreshes; see `Plugin.aiGetModels`.
+   */
+  models?: AiModelList | ((ctx: PluginContext) => AiModelList | Promise<AiModelList>);
 }
 
 export interface UiDefinition {
@@ -462,8 +467,8 @@ class DefinedPlugin extends Plugin {
     return await resolve(this.def.stt?.configFields, this.ctx(), []);
   }
 
-  override async aiGetModels(): Promise<{ models: AiModelInfo[]; defaultModel: string }> {
-    return this.def.ai?.models ?? { models: [], defaultModel: "" };
+  override async aiGetModels(): Promise<AiModelList> {
+    return await resolve(this.def.ai?.models, this.ctx(), { models: [], defaultModel: "" });
   }
 
   // ── ui ──

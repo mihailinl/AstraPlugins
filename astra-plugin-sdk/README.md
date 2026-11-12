@@ -202,10 +202,15 @@ The block above is the generated scaffold's own test, verbatim, and it passes.
   privileges. Permissions constrain what the *daemon* will do for you; nothing
   constrains what your process does to the machine.
 - `TtsSynthesizeStream` is bound here and **no daemon call site exists** — it is
-  a hook the daemon does not yet call. `AiGetModels` is deprecated and still
-  bound so old plugins get `UNIMPLEMENTED` rather than a transport error. Both
-  are listed under "Findings" in the generated hook-parity page, which
-  `tools/parity` renders from [`spec/hooks.yaml`](../spec/hooks.yaml).
+  a hook the daemon does not yet call. It is listed under "Findings" in the
+  generated hook-parity page, which `tools/parity` renders from
+  [`spec/hooks.yaml`](../spec/hooks.yaml).
+- An AI provider's model list (`ai_models`, with `AiModelInfo::with_hints` and
+  `ai_provider_hints`) is what Astra's model picker offers. Hints change only
+  Astra's turns on that model, and only in a daemon built with
+  `plugin-provider-slots`; a model that says `accepts_images` is sent up to
+  20 MiB of pictures, which this SDK's capability server accepts (it receives
+  up to 64 MiB).
 
 ## Upgrading from 0.5
 

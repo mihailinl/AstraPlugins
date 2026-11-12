@@ -248,9 +248,6 @@ dem der Daemon handelt.
   Ausgabezeile, was großzügig ist, aber ein Plugin, das im Modulbereich
   einen großen ML-Stack importiert, kann es verpassen. Importiere träge
   (lazy), im jeweils benötigten Hook.
-- **`ai_get_models` ist veraltet** (0.5.0, entfernbar ab 0.7.0 für die
-  dict-Form; der Hook selbst wird in 0.8 ausgemustert) und niemand ruft ihn
-  auf.
 - **`tts_synthesize_stream` ist gebunden und ungeroutet** — keine
   Aufrufstelle im Daemon.
 - **Das Python-SDK ist auf PyPI**, und das Pinning des Scaffolds oben auf

@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: ce1f8d511c1f11b8d39467657ac09c683f9538b0a13ce5d0c0474dcb7ccff689
+// surface-sha256: 9db774712359b4ab0bd928634d041c589fcc21b7bccf806695ec7eb7b7675fe9
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4877,17 +4877,14 @@ service PluginCapabilityService {
     // ── AI Provider ──
     rpc AiComplete(PluginAiCompleteRequest) returns (stream PluginAiStreamChunk);
 
-    // DEPRECATED — the daemon has no call site and no way to surface the answer.
-    // `all_ai_providers` builds every plugin `AiProviderInfo` with
-    // `supports_model_discovery: false` and an empty `default_model`, so the model
-    // picker never asks a plugin what it can run; a plugin that implements this
-    // does work nothing reads. Kept declared (dropping it would break the two
-    // sidecars' generated trait impls, and an SDK that dials it should keep
-    // getting UNIMPLEMENTED rather than a transport error), but no SDK should grow
-    // a hook for it. Remove once model discovery is either wired or abandoned.
-    rpc AiGetModels(Empty) returns (PluginAiModelsResponse) {
-        option deprecated = true;
-    }
+    // The models this AI provider can run, for Astra's own model picker. The
+    // daemon asks when the plugin starts, with its other definitions (an
+    // UNIMPLEMENTED answer, or an error, is "no list", and the picker then takes
+    // a typed model id as before), and again whenever the AI page asks for a
+    // fresh list.
+    // The model the person picks arrives on `PluginAiCompleteRequest.model`; ""
+    // there means "the plugin's own default" (`default_model`).
+    rpc AiGetModels(Empty) returns (PluginAiModelsResponse);
 
     // ── Web search ──
     // A plugin that declares `capabilities.web_search` is a search provider the
@@ -6711,6 +6708,20 @@ message PluginAiMessage {
     string content = 2;
     string tool_call_id = 3;
     repeated PluginAiToolCall tool_calls = 4;
+
+    // The pictures on this message: what the person attached, or what a tool showed
+    // the model (a `read_image`, a screenshot). Sent ONLY to a model whose hints say
+    // `accepts_images` (a daemon built with `plugin-provider-slots`); to any other
+    // model the pictures never leave Astra. The newest pictures of the conversation
+    // are kept, within a byte budget; the text notes one that was left out.
+    repeated PluginImage images = 5;
+}
+
+// One picture handed to a plugin: its bytes as they are, never re-encoded.
+message PluginImage {
+    string mime_type = 1;  // "image/png", "image/jpeg", "image/webp", "image/gif"
+    bytes data = 2;
+    string filename = 3;  // the name it was attached under, or ""
 }
 
 message PluginAiToolCall {
@@ -6737,12 +6748,47 @@ message PluginAiStreamChunk {
 
 message PluginAiModelsResponse {
     repeated PluginAiModelInfo models = 1;
+
+    // The model used when the person picked none. "" = the first in `models`.
     string default_model = 2;
+
+    // How every model of this provider wants to be driven, for a model that
+    // carries no `hints` of its own.
+    PluginAiModelHints provider_hints = 3;
 }
 
 message PluginAiModelInfo {
     string id = 1;
     string name = 2;
+
+    // How this model wants to be driven. Absent = the provider's hints.
+    PluginAiModelHints hints = 3;
+}
+
+// What an AI-provider plugin says about driving one of its models. Applied by the
+// daemon only for a turn that runs on this model, and never written into the
+// person's settings: switching to another provider leaves nothing behind.
+message PluginAiModelHints {
+    // How the turn's tools reach this model. "" = Astra decides, as for any
+    // model (Tool Search as the person configured it). "all" = this model does
+    // better with every tool in the request than with discovering them through
+    // Tool Search: Astra then sends EVERY tool directly whenever they fit a larger
+    // budget (a quarter of the window, at most 32k tokens), and past it Tool
+    // Search works as for any model. Never in the Max mode, and never by changing
+    // the person's settings. A string, not an enum, for `reasoning_effort`'s
+    // reason: an unknown value reads as "".
+    string tool_loading = 1;
+
+    // This model reads images. Only then do the pictures in the conversation reach
+    // it (`PluginAiMessage.images`); for a model without it they never leave Astra.
+    // A request then carries up to 20 MiB of pictures, so a plugin that says this
+    // must accept gRPC messages that large (every SDK that can state hints does:
+    // its capability server receives up to 64 MiB).
+    bool accepts_images = 2;
+
+    // The model's context window in tokens; 0 = unknown. Sizes how much history
+    // Astra sends.
+    uint32 context_window = 3;
 }
 
 // ── Actions ──

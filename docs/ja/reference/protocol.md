@@ -4,10 +4,10 @@
 
 プロトコル世代 **1**。10 個のサービス、192 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: ce1f8d511c1f11b8…`
+`astra.proto` から生成された一部(`surface-sha256: 9db774712359b4ab…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:74047cd55194722b…` に固定されています。3 つの SDK
+によって `sha256:5beecd4b94806b5b…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -49,7 +49,7 @@
 | `SttUnload` | `stt` | `Empty` | `Empty` | unary | live | 認識器モデルを解放し、アイドル時アンロードが実際に VRAM を解放するようにします。 |
 | `SttGetLoadState` | `stt` | `Empty` | `SttLoadStateResponse` | unary | live | デーモンがアイドル時アンロードを駆動できるよう、Loaded / NotLoaded / NotNeeded を報告します。 |
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
-| `AiGetModels` *(非推奨)* | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | deprecated | このプロバイダが動かせるモデルを一覧します。 |
+| `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | このプロバイダが動かせるモデルと、それぞれをどう動かしてほしいか(ヒント)を、Astra のモデル選択のために一覧します。 |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
@@ -166,9 +166,7 @@ UI に提供します: インストール、インポート、アンインスト
 
 ## 非推奨
 
-| RPC | 理由 |
-|---|---|
-| `PluginCapabilityService.AiGetModels` | 非推奨 — デーモンには呼び出し箇所がなく、答えを表面化する手段もありません。 |
+なし: この部分のどの RPC も `option deprecated = true` を持っていません。
 
 非推奨の RPC も宣言されたままです。これを削除すると、各 SDK が発行
 する生成済みトレイト実装が壊れてしまい、それをダイヤルするプラグイン

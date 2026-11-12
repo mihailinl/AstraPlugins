@@ -57,10 +57,59 @@ export interface SttEvent {
   language?: string;
 }
 
-/** An AI model info. */
+/**
+ * What an AI-provider plugin says about driving one of its models
+ * (`PluginAiModelHints`), on one model (`AiModelInfo.hints`) or for the whole
+ * provider (`AiModelList.providerHints`).
+ *
+ * A hint changes only a turn Astra runs on that model, never the person's
+ * settings, and only in a daemon built with the `plugin-provider-slots`
+ * feature; any other daemon drives the model like every other one.
+ */
+export interface AiModelHints {
+  /**
+   * How the turn's tools reach this model. `""` (or absent) = Astra decides, as
+   * for any model. `"all"` = this model does better with every tool in the
+   * request than with discovering them through Tool Search: Astra then sends
+   * every tool directly whenever they fit a larger budget (a quarter of the
+   * window, at most 32k tokens). Never in the Max mode.
+   */
+  toolLoading?: "" | "all";
+  /**
+   * This model reads images: only then do the conversation's pictures reach it,
+   * on `AiMessage.images`. A request can then carry up to 20 MiB of pictures;
+   * this SDK's capability server receives messages up to
+   * `limits.PLUGIN_MAX_MESSAGE_BYTES` (64 MiB).
+   */
+  acceptsImages?: boolean;
+  /** The model's context window in tokens; 0 or absent = unknown. */
+  contextWindow?: number;
+}
+
+/** One model an AI-provider plugin offers in Astra's model picker. */
 export interface AiModelInfo {
   id: string;
   name: string;
+  /** How this model wants to be driven. Absent = the provider's (`providerHints`). */
+  hints?: AiModelHints;
+}
+
+/**
+ * What `aiGetModels` answers: the models Astra's picker offers. The model the
+ * person picks arrives on `AiCompleteRequest.model`; an empty `model` there
+ * means `defaultModel`.
+ */
+export interface AiModelList {
+  models: AiModelInfo[];
+  /** The model used when the person picked none. `""` or absent = the first in `models`. */
+  defaultModel?: string;
+  /**
+   * How every model wants to be driven, for a model that carries no `hints` of
+   * its own — whole: a model's own `hints` replace these, nothing is merged.
+   * `toolLoading` and `acceptsImages` also apply to a model id the person typed;
+   * `contextWindow` does not.
+   */
+  providerHints?: AiModelHints;
 }
 
 /** Result of executing an action. */
@@ -231,12 +280,27 @@ export interface AiToolCall {
   argumentsJson: string;
 }
 
+/** One picture on an `AiMessage`: its bytes as they are, never re-encoded. */
+export interface AiImage {
+  /** `"image/png"`, `"image/jpeg"`, `"image/webp"` or `"image/gif"`. */
+  mimeType: string;
+  data: Buffer;
+  /** The name it was attached under, or `""`. */
+  filename: string;
+}
+
 /** One conversation turn handed to a provider. */
 export interface AiMessage {
   role: string; // "user" | "assistant" | "system" | "tool"
   content: string;
   toolCallId?: string;
   toolCalls?: AiToolCall[];
+  /**
+   * The pictures on this message — what the person attached, or what a tool
+   * showed the model. Sent only to a model whose hints say `acceptsImages`
+   * (by a daemon built with `plugin-provider-slots`); empty for any other.
+   */
+  images?: AiImage[];
 }
 
 /** Everything the daemon knows about one completion. */
@@ -246,6 +310,7 @@ export interface AiCompleteRequest {
   systemPrompt: string;
   temperature: number;
   maxTokens: number;
+  /** The model the person picked from `aiGetModels`' list (or typed); `""` = your `defaultModel`. */
   model: string;
   /**
    * `"" | "auto" | "off" | "low" | "medium" | "high" | "max"`.

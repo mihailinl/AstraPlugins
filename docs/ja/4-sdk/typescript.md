@@ -269,8 +269,6 @@ test("no config the daemon can deliver crashes this plugin", async () => {
   ありません。
 - **`UiPanel` は非推奨のエイリアスです**。`UiContribution` に対する
   もので、0.5.0 で非推奨、0.7.0 から削除可能です。
-- **`aiGetModels` は非推奨であり**、誰にも呼ばれていません; 代替は
-  ありません。
 - **`ttsSynthesizeStream` は結びつけられていますが unrouted です**
   — デーモン側の呼び出し箇所は存在しません。
 - **ここでは proto は手動で管理されていません。** かつてこの SDK には

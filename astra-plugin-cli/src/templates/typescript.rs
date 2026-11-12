@@ -168,9 +168,22 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     // The whole of the `ai_provider` capability. An async generator: yield text
     // deltas as the model produces them; the SDK appends the terminating `done`
     // chunk when you return, so the last thing you yield can be content.
-    // TODO: stream from your model instead.
+    // TODO: stream from your model instead. The model the person picked is
+    // `req.model` ("" = `defaultModel` below).
     async *complete(req) {
       yield `You said: ${req.messages.at(-1)?.content ?? ""}`;
+    },
+    // The models Astra's model picker offers — a list, or `(ctx) => list` to
+    // fetch it. A model's hints say how it wants to be driven: `demo-vision`
+    // reads pictures, so Astra sends the conversation's images to it on
+    // `message.images` (only a daemon built with `plugin-provider-slots` reads
+    // hints).
+    models: {
+      models: [
+        { id: "demo-1", name: "Demo Model" },
+        { id: "demo-vision", name: "Demo Vision", hints: { acceptsImages: true, contextWindow: 128000 } },
+      ],
+      defaultModel: "demo-1",
     },
   },
 "#,

@@ -19,6 +19,7 @@ const require = createRequire(import.meta.url);
 const { plugin, tool, s } = require("../dist/index.js");
 const { MockDaemon, utteranceChunks, totalBytes } = require("../dist/testing/index.js");
 const { PROTOCOL_VERSION, SDK_NAME, SDK_VERSION } = require("../dist/protocol.js");
+const { PLUGIN_IMAGE_REQUEST_MAX_BYTES, PLUGIN_MAX_MESSAGE_BYTES } = require("../dist/generated/limits.js");
 
 /** Every daemon started here, torn down at the end even if a test threw. */
 const started = [];
@@ -205,4 +206,54 @@ test("an unknown argv flag does not kill the plugin", async () => {
   const d = await daemon();
   const wire = await d.launch(demo(), { extraArgs: ["--something-new=1", "--flag"] });
   assert.equal((await wire.healthCheck()).healthy, true);
+});
+
+test("AiGetModels hints survive real protobuf, and a 20 MiB picture request reaches the hook", async () => {
+  // grpc-js receives 4 MiB by default. An `AiComplete` to a model whose hints
+  // say `acceptsImages` carries up to 20 MiB of pictures, so a capability
+  // server left at the default refuses the request its own hint asked for —
+  // RESOURCE_EXHAUSTED, before any hook runs. Measured red with the option
+  // removed from `run()`.
+  let pictureBytes = -1;
+  const provider = plugin({
+    ai: {
+      models: {
+        models: [
+          { id: "vision", name: "Vision", hints: { acceptsImages: true, contextWindow: 128000 } },
+          { id: "text", name: "Text" },
+        ],
+        defaultModel: "text",
+        providerHints: { toolLoading: "all" },
+      },
+      async *complete(req) {
+        pictureBytes = req.messages.flatMap((m) => m.images ?? []).reduce((n, i) => n + i.data.length, 0);
+        yield `${req.model} ${pictureBytes}`;
+      },
+    },
+  });
+  const d = await daemon();
+  const wire = await d.launch(provider);
+
+  const list = await wire.unary("AiGetModels");
+  assert.equal(list.defaultModel, "text");
+  assert.equal(list.models[0].hints.acceptsImages, true);
+  assert.equal(list.models[0].hints.contextWindow, 128000);
+  assert.equal(list.models[0].hints.toolLoading, "");
+  assert.equal(list.models[1].hints, null, "absent on the wire = the provider's hints");
+  assert.equal(list.providerHints.toolLoading, "all");
+
+  const size = PLUGIN_IMAGE_REQUEST_MAX_BYTES;
+  assert.ok(PLUGIN_MAX_MESSAGE_BYTES > size + 1024 * 1024, "the limit leaves room for the rest of the request");
+  const chunks = await wire.serverStream("AiComplete", {
+    model: "vision",
+    messages: [
+      {
+        role: "user",
+        content: "what is this?",
+        images: [{ mimeType: "image/png", data: Buffer.alloc(size), filename: "big.png" }],
+      },
+    ],
+  });
+  assert.equal(pictureBytes, size);
+  assert.equal(chunks[0].textDelta, `vision ${size}`);
 });

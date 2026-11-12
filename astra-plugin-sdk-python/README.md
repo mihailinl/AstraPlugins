@@ -191,9 +191,14 @@ usable with no `conftest.py` at all.
   privileges. Permissions constrain what the *daemon* will do for you; nothing
   constrains what your process does to the machine.
 - `tts_synthesize_stream` is implemented here and **the daemon has no call site
-  for `TtsSynthesizeStream`**. `ai_get_models` is deprecated. Both are listed
-  under "Findings" in the generated hook-parity page, which `tools/parity`
-  renders from [`spec/hooks.yaml`](../spec/hooks.yaml).
+  for `TtsSynthesizeStream`**. It is listed under "Findings" in the generated
+  hook-parity page, which `tools/parity` renders from
+  [`spec/hooks.yaml`](../spec/hooks.yaml).
+- An AI provider's model list (`ai_get_models`, answering an `AiModelList` with
+  `AiModelHints`) is what Astra's model picker offers. Hints change only Astra's
+  turns on that model, and only in a daemon built with `plugin-provider-slots`;
+  a model that says `accepts_images` is sent up to 20 MiB of pictures, which
+  this SDK's capability server accepts (it receives up to 64 MiB).
 - There is no `chat_message_sync` / `on_chat_sync` hook. That event was retired;
   a client plugin uses `is_client()` plus `on_conversation_event`.
 

@@ -25,7 +25,7 @@ You implement these; the daemon calls them.
 | `SttUnload` | `stt` | optional | unary | stable | Drop the recognizer model so idle-unload actually frees VRAM. |
 | `SttGetLoadState` | `stt` | optional | unary | stable | Report Loaded / NotLoaded / NotNeeded so the daemon can drive idle-unload. |
 | `AiComplete` | `ai_provider` | required | server | stable | Stream a model completion; the only way a plugin can be an AI provider. |
-| `AiGetModels` | `ai_provider` | optional | unary | stable | List the models this provider can run. |
+| `AiGetModels` | `ai_provider` | optional | unary | stable | List the models this provider can run, and how each wants to be driven (its hints), for Astra's model picker. |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
